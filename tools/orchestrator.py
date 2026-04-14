@@ -1,5 +1,5 @@
 """
-工具编排器 - Phase 4
+工具编排器
 支持工具链串联、并行执行、条件路由
 """
 import asyncio
@@ -7,6 +7,8 @@ import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Union
+
+__all__ = ["ToolChainOrchestrator", "ToolResult", "ChainStep", "ExecutionMode", "Pipeline"]
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +48,9 @@ class ToolChainOrchestrator:
     - 条件路由（conditional）：根据上一步结果决定下一步
     """
     
-    def __init__(self, tool_registry=None):
+    def __init__(self, tool_registry=None, max_concurrency: int = 5):
         self.tool_registry = tool_registry
+        self.max_concurrency = max_concurrency
         self._chains: Dict[str, List[ChainStep]] = {}
     
     def register_chain(self, name: str, steps: List[ChainStep]) -> None:
@@ -71,11 +74,14 @@ class ToolChainOrchestrator:
         current_input = initial_input
         
         for i, step in enumerate(steps):
-            # 条件检查
+            # 条件检查（首个步骤无条件执行）
             if step.condition and results:
-                if not step.condition(results[-1]):
-                    logger.info(f"Step {i} skipped due to condition")
-                    continue
+                try:
+                    if not step.condition(results[-1]):
+                        logger.info(f"Step {i} skipped due to condition")
+                        continue
+                except Exception as e:
+                    logger.warning(f"Step {i} condition evaluation failed: {e}, executing anyway")
             
             # 执行工具
             result = await self._execute_tool(
@@ -99,13 +105,14 @@ class ToolChainOrchestrator:
     async def execute_parallel(
         self,
         tool_calls: List[Dict[str, Any]],
-        context: Optional[Dict[str, Any]] = None
+        context: Optional[Dict[str, Any]] = None,
+        max_concurrency: Optional[int] = None
     ) -> List[ToolResult]:
         """并行执行多个工具"""
         context = context or {}
         
         # 限制并发数
-        semaphore = asyncio.Semaphore(5)
+        semaphore = asyncio.Semaphore(max_concurrency or self.max_concurrency)
         
         async def bounded_execute(call):
             async with semaphore:
@@ -138,14 +145,23 @@ class ToolChainOrchestrator:
         condition_fn: Callable[[Any], str],  # 返回下一个工具名
         tools: Dict[str, Dict[str, Any]],
         initial_input: Any = None,
-        context: Optional[Dict[str, Any]] = None
+        context: Optional[Dict[str, Any]] = None,
+        max_iterations: int = 20
     ) -> ToolResult:
         """条件路由执行"""
         context = context or {}
         current_input = initial_input
+        iterations = 0
         tool_name = condition_fn(current_input)
         
         while tool_name and tool_name in tools:
+            iterations += 1
+            if iterations > max_iterations:
+                return ToolResult(
+                    tool_name=tool_name,
+                    success=False,
+                    error=f"Max iterations ({max_iterations}) exceeded in conditional execution"
+                )
             call = tools[tool_name]
             result = await self._execute_tool(
                 call["tool_name"],
