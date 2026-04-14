@@ -306,8 +306,13 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                     ))
                 
                 # 检查是否有工具调用
+                if response.get("tool_calls") and response_content:
+                    # 同时有文本和工具调用：先返回文本响应
+                    # 工具结果在下一轮对话中作为上下文提供
+                    return response_content
+                
                 if response.get("tool_calls"):
-                    # 执行工具
+                    # 只有工具调用，没有文本：执行工具
                     tool_results = await self._execute_tools(response["tool_calls"])
                     
                     # 添加工具结果到历史
@@ -325,7 +330,7 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                     continue
                 
                 # 文本响应，结束
-                return response.get("content") or ""
+                return response_content
         finally:
             # 保存轨迹
             if self.save_trajectories:

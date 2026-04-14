@@ -96,10 +96,11 @@ class TurnManager:
         Returns:
             助手响应文本
         """
-        # 检查预算
+        # 先检查预算，再创建turn
         if hasattr(self.agent, 'budget'):
             remaining = self.agent.budget.remaining
             if remaining <= 0:
+                # 创建turn记录，但标记为max_iterations
                 turn = self.create_turn(user_message)
                 turn.status = TurnStatus.MAX_ITERATIONS
                 turn.error = "迭代次数已达上限"
