@@ -320,8 +320,21 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                 
                 # 检查是否有工具调用
                 if response.get("tool_calls") and response_content:
-                    # 同时有文本和工具调用：先返回文本响应
-                    # 工具结果在下一轮对话中作为上下文提供
+                    # 同时有文本和工具调用：先执行工具，再返回文本
+                    tool_results = await self._execute_tools(response["tool_calls"])
+                    
+                    # 添加工具结果到历史
+                    for result in tool_results:
+                        self.conversation_history.append(Message(
+                            role=MessageRole.TOOL,
+                            content=result.content,
+                            tool_call_id=result.tool_call_id
+                        ))
+                    
+                    # 工具调用后 refund（只refund一次，无论多少工具）
+                    await self.budget.refund()
+                    
+                    # 返回文本响应
                     return response_content
                 
                 if response.get("tool_calls"):
