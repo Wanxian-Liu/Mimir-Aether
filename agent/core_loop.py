@@ -431,9 +431,10 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
         processed_results = []
         for i, result in enumerate(results):
             if isinstance(result, Exception):
+                logger.warning(f"Tool execution exception: {tool_calls[i].get('name', 'unknown')}")
                 processed_results.append(ToolResult(
                     tool_call_id=tool_calls[i].get("id", "unknown"),
-                    content=f"Error: {str(result)}",
+                    content="Error: tool execution failed",
                     is_error=True
                 ))
             else:
@@ -494,7 +495,7 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
             logger.error(f"Tool execution failed: {tool_call['name']}, error: {e}")
             return ToolResult(
                 tool_call_id=tool_call["id"],
-                content=f"Error: {str(e)}",
+                content="Error: tool execution failed",
                 is_error=True
             )
 
