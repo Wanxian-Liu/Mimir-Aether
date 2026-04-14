@@ -105,8 +105,9 @@ class IterationBudget:
     
     @property
     def remaining(self) -> int:
-        """剩余迭代次数"""
-        return self.max_total - self._used
+        """剩余迭代次数（线程安全）"""
+        async with self._lock:
+            return self.max_total - self._used
 
 
 class ToolRegistry:

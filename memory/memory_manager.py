@@ -298,29 +298,60 @@ class MemoryManager:
         """
         context = []
         MAX_CONTENT_LENGTH = 2000  # 单条记忆最大长度
+        MAX_TOTAL_LENGTH = 8000  # 记忆上下文总长度上限
+        
+        # Prompt injection 防护模式
+        INJECTION_PATTERNS = [
+            r'(?i)(ignore\s+previous\s+instructions)',
+            r'(?i)(ignore\s+all\s+previous\s+commands)',
+            r'(?i)(disregard\s+your\s+instructions)',
+            r'(?i)(you\s+are\s+now\s+)',
+            r'(?i)(system\s+prompt\s+leak)',
+            r'(?i)(reveal\s+your\s+system\s+prompt)',
+            r'\{\{.*\}\}',  # 模板注入
+            r'\$\{[^}]+\}',  # 变量注入
+            r'<script[^>]*>',  # XSS尝试
+            r'<!--.*-->',  # HTML注释注入
+        ]
+        
+        import re
+        INJECTION_REGEX = re.compile('|'.join(INJECTION_PATTERNS), re.IGNORECASE)
         
         def sanitize_content(content: str, label: str) -> str:
             """清理内容，防止prompt注入"""
+            if not content:
+                return f"[{label}] empty"
+            # 移除prompt注入模式
+            content = INJECTION_REGEX.sub('[REDACTED]', content)
             # 截断过长内容
             if len(content) > MAX_CONTENT_LENGTH:
                 content = content[:MAX_CONTENT_LENGTH] + "..."
-            # 移除可能的prompt注入模式
-            content = content.replace("{{}}", "[brackets]").replace("${}", "[vars]")
             return f"[{label}] {content}"
+        
+        # 计算总长度
+        total_length = 0
         
         # 工作记忆（最重要，优先添加）
         for entry in self.working.get_all():
+            if total_length >= MAX_TOTAL_LENGTH:
+                break
+            safe_content = sanitize_content(entry.content, "Working Memory")
             context.append({
                 "role": "system",
-                "content": sanitize_content(entry.content, "Working Memory")
+                "content": safe_content
             })
+            total_length += len(safe_content)
         
         # 持久记忆（近期）
         for entry in self.persistent.get_recent(5):
+            if total_length >= MAX_TOTAL_LENGTH:
+                break
+            safe_content = sanitize_content(entry.content, "Persistent Memory")
             context.append({
                 "role": "system",
-                "content": sanitize_content(entry.content, "Persistent Memory")
+                "content": safe_content
             })
+            total_length += len(safe_content)
         
         return context
     
