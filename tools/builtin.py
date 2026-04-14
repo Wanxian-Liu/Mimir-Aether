@@ -49,9 +49,10 @@ def write_file(path: str, content: str) -> str:
 
 def execute_code(code: str, language: str = "python") -> str:
     """
-    执行代码（模拟）
+    执行代码
     
-    注意：实际执行需要沙盒环境
+    注意：此为占位实现，实际执行需要沙盒环境。
+    直接执行用户代码可能导致安全问题。
     
     Args:
         code: 要执行的代码
@@ -60,21 +61,29 @@ def execute_code(code: str, language: str = "python") -> str:
     Returns:
         执行结果或错误信息
     """
-    return f"[Simulated] Would execute {language} code: {len(code)} characters"
+    return "Error: execute_code is not yet implemented. Code execution requires a sandbox environment."
 
+
+# 允许访问的环境变量白名单
+_ALLOWED_ENV_VARS = {
+    "PATH", "HOME", "USER", "SHELL", "PWD",
+    "LANG", "LC_ALL", "TERM", "TERM_PROGRAM",
+}
 
 def get_env(key: str, default: str = "") -> str:
     """
-    获取环境变量
+    获取环境变量（白名单限制）
     
     Args:
         key: 环境变量名
         default: 默认值
         
     Returns:
-        环境变量值或默认值
+        环境变量值或默认值（仅限白名单内的变量）
     """
-    return os.environ.get(key, default)
+    if key in _ALLOWED_ENV_VARS:
+        return os.environ.get(key, default)
+    return default
 
 
 def search_web(query: str) -> str:

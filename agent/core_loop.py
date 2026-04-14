@@ -201,6 +201,9 @@ class MimirAetherAgent:
         # 轨迹记录
         self._trajectory: List[Dict] = []
         
+        # 工具调用并发限制（最多同时执行5个工具）
+        self._tool_semaphore = asyncio.Semaphore(5)
+        
         # 注册内置工具
         self._register_builtin_tools()
         
@@ -412,60 +415,80 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
             raise RuntimeError(f"Network error during model call: {e}")
     
     async def _execute_tools(self, tool_calls: List[Dict]) -> List[ToolResult]:
-        """执行工具调用"""
+        """执行工具调用（带并发限制）"""
         results = []
         
-        for tool_call in tool_calls:
-            # 校验tool_call必需字段
-            if "id" not in tool_call:
-                logger.warning(f"SKIP tool_call: missing 'id' field: {tool_call}")
-                results.append(ToolResult(
-                    tool_call_id="unknown",
-                    content="Error: tool_call missing 'id' field",
-                    is_error=True
-                ))
-                continue
-            if "name" not in tool_call:
-                logger.warning(f"SKIP tool_call: missing 'name' field: {tool_call}")
-                results.append(ToolResult(
-                    tool_call_id=tool_call.get("id", "unknown"),
-                    content="Error: tool_call missing 'name' field",
-                    is_error=True
-                ))
-                continue
-            
-            try:
-                # 防御性处理 arguments 类型
-                arguments = tool_call.get("arguments", {})
-                if isinstance(arguments, str):
-                    # 如果是字符串，尝试解析为 dict
-                    try:
-                        arguments = json.loads(arguments)
-                    except json.JSONDecodeError:
-                        logger.warning(f"Failed to parse arguments as JSON for tool {tool_call.get('name', 'unknown')}: {arguments}")
-                        arguments = {}
-                if not isinstance(arguments, dict):
-                    logger.warning(f"Arguments is not a dict for tool {tool_call.get('name', 'unknown')}: {type(arguments)}")
-                    arguments = {}
-                
-                result = await self.tool_registry.execute(
-                    name=tool_call["name"],
-                    arguments=arguments
-                )
-                results.append(ToolResult(
-                    tool_call_id=tool_call["id"],
-                    content=str(result),
-                    is_error=False
-                ))
-            except Exception as e:
-                logger.error(f"Tool execution failed: {tool_call['name']}, error: {e}")
-                results.append(ToolResult(
-                    tool_call_id=tool_call["id"],
-                    content=f"Error: {str(e)}",
-                    is_error=True
-                ))
+        async def execute_with_semaphore(tool_call: Dict) -> ToolResult:
+            async with self._tool_semaphore:
+                return await self._execute_single_tool(tool_call)
         
-        return results
+        # 并发执行所有工具（受 semaphore 限制）
+        tasks = [execute_with_semaphore(tc) for tc in tool_calls]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # 处理结果
+        processed_results = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                processed_results.append(ToolResult(
+                    tool_call_id=tool_calls[i].get("id", "unknown"),
+                    content=f"Error: {str(result)}",
+                    is_error=True
+                ))
+            else:
+                processed_results.append(result)
+        
+        return processed_results
+    
+    async def _execute_single_tool(self, tool_call: Dict) -> ToolResult:
+        """执行单个工具调用"""
+        # 校验tool_call必需字段
+        if "id" not in tool_call:
+            logger.warning(f"SKIP tool_call: missing 'id' field: {tool_call}")
+            return ToolResult(
+                tool_call_id="unknown",
+                content="Error: tool_call missing 'id' field",
+                is_error=True
+            )
+        if "name" not in tool_call:
+            logger.warning(f"SKIP tool_call: missing 'name' field: {tool_call}")
+            return ToolResult(
+                tool_call_id=tool_call.get("id", "unknown"),
+                content="Error: tool_call missing 'name' field",
+                is_error=True
+            )
+        
+        try:
+            # 防御性处理 arguments 类型
+            arguments = tool_call.get("arguments", {})
+            if isinstance(arguments, str):
+                # 如果是字符串，尝试解析为 dict
+                try:
+                    arguments = json.loads(arguments)
+                except json.JSONDecodeError:
+                    logger.warning(f"Failed to parse arguments as JSON for tool {tool_call.get('name', 'unknown')}: {arguments}")
+                    arguments = {}
+            if not isinstance(arguments, dict):
+                logger.warning(f"Arguments is not a dict for tool {tool_call.get('name', 'unknown')}: {type(arguments)}")
+                arguments = {}
+            
+            result = await self.tool_registry.execute(
+                name=tool_call["name"],
+                arguments=arguments
+            )
+            return ToolResult(
+                tool_call_id=tool_call["id"],
+                content=str(result),
+                is_error=False
+            )
+        except Exception as e:
+            logger.error(f"Tool execution failed: {tool_call['name']}, error: {e}")
+            return ToolResult(
+                tool_call_id=tool_call["id"],
+                content=f"Error: {str(e)}",
+                is_error=True
+            )
+
     
     def build_system_prompt(self) -> str:
         """构建系统提示"""
