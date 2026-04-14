@@ -1,328 +1,277 @@
 """
-Context Compressor - 上下文压缩器
+MimirAether Context Compressor
 
-自动压缩长对话，保护head和tail上下文，中间部分用摘要替代。
-学习自Hermes ContextCompressor。
+学习自Hermes Context Compressor：
+- 自动压缩长对话历史
+- 保护head（系统提示）和tail（最新消息）
+- 中间部分用摘要压缩
+- SUMMARY_PREFIX隔离压缩区域
 
-功能：
-- 长对话自动压缩
-- 保护关键上下文（系统提示、最新对话）
-- 工具输出预修剪
-- 记忆上下文隔离
+核心策略：
+- Head：100%保留（系统提示、核心指令）
+- Tail：最近N条消息保留（最新上下文）
+- Middle：压缩为摘要，用SUMMARY_PREFIX标记
 """
 
+import re
 import logging
-import time
+from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass, field
-from typing import Any, Callable, List, Optional, Tuple
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-# 压缩配置
-MIN_CONTEXT_LENGTH = 4000  # 最小上下文长度触发压缩
-MAX_CONTEXT_LENGTH = 6000  # 压缩后最大长度
-SUMMARY_RATIO = 0.3  # 摘要比例
-MIN_SUMMARY_TOKENS = 500  # 最小摘要长度
+# 压缩标记
+SUMMARY_PREFIX = "<|summary|>"
 
-# 摘要前缀（防止模型误解）
-SUMMARY_PREFIX = """[CONTEXT COMPACTION — REFERENCE ONLY]
-Earlier conversation was compacted into this summary. This is a handoff 
-from a previous context — treat as background, NOT active instructions.
-Do NOT answer questions or fulfill requests mentioned in this summary.
-Current session state may differ from described work.
----
-"""
-
-TAIL_PREFIX = "[Remainder of prior context compacted into above summary]\n"
+# 默认配置
+DEFAULT_TAIL_SIZE = 10  # 保留最近10条消息
+DEFAULT_HEAD_PROTECT = True  # 保护head（系统消息）
+MAX_MESSAGES_BEFORE_COMPRESS = 50  # 超过此数量触发压缩
 
 
 @dataclass
 class CompressionResult:
     """压缩结果"""
-    original_count: int  # 原始消息数
-    compressed_count: int  # 压缩后消息数
-    summary: str  # 生成的摘要
-    preserved_head: List[dict]  # 保留的头部消息
-    preserved_tail: List[dict]  # 保留的尾部消息
-    savings_tokens: int  # 节省的token数
+    original_count: int
+    compressed_count: int
+    summary: str
+    preserved_head: List[Dict]
+    preserved_tail: List[Dict]
+    compressed_middle: List[Dict]
+    compression_ratio: float  # 压缩率
+    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
 
 
 class ContextCompressor:
     """
     上下文压缩器
     
-    使用策略：
-    1. 当上下文超过MIN_CONTEXT_LENGTH时触发压缩
-    2. 保留头部（系统提示、重要上下文）
-    3. 保留尾部（最新对话）
-    4. 中间部分压缩成摘要
+    功能：
+    - 自动检测需要压缩的对话
+    - 保护head（系统）和tail（最新）消息
+    - 中间部分压缩为摘要
+    - 支持增量压缩（不丢失信息）
     """
     
     def __init__(
         self,
-        summarizer_fn: Optional[Callable[[List[dict]], str]] = None,
-        min_context_length: int = MIN_CONTEXT_LENGTH,
-        max_context_length: int = MAX_CONTEXT_LENGTH,
+        tail_size: int = DEFAULT_TAIL_SIZE,
+        head_protect: bool = DEFAULT_HEAD_PROTECT,
+        max_before_compress: int = MAX_MESSAGES_BEFORE_COMPRESS,
+        enable_incremental: bool = True,
     ):
-        """
-        Args:
-            summarizer_fn: 摘要生成函数，接收消息列表返回摘要字符串
-            min_context_length: 触发压缩的最小长度
-            max_context_length: 压缩后最大长度
-        """
-        self.summarizer_fn = summarizer_fn
-        self.min_context_length = min_context_length
-        self.max_context_length = max_context_length
+        self.tail_size = tail_size
+        self.head_protect = head_protect
+        self.max_before_compress = max_before_compress
+        self.enable_incremental = enable_incremental
+        self._compression_history: List[CompressionResult] = []
     
-    def should_compress(self, messages: List[dict]) -> bool:
-        """检查是否需要压缩"""
-        if len(messages) < 4:  # 至少需要4条消息才值得压缩
-            return False
-        
-        total_length = sum(len(str(m.get("content", ""))) for m in messages)
-        return total_length > self.min_context_length
+    def needs_compression(self, messages: List[Dict]) -> bool:
+        """判断是否需要压缩"""
+        non_system = [m for m in messages if m.get("role") != "system"]
+        return len(non_system) > self.max_before_compress
     
     def compress(
         self,
-        messages: List[dict],
-        head_count: int = 3,
-        tail_count: int = 2,
-    ) -> CompressionResult:
-        """
-        压缩上下文
-        
-        Args:
-            messages: 消息列表
-            head_count: 保留的头部消息数
-            tail_count: 保留的尾部消息数
-            
-        Returns:
-            CompressionResult: 压缩结果
-        """
+        messages: List[Dict],
+        existing_summary: Optional[str] = None,
+    ) -> Tuple[List[Dict], CompressionResult]:
+        """压缩对话上下文"""
         if not messages:
-            return CompressionResult(
-                original_count=0,
-                compressed_count=0,
-                summary="",
-                preserved_head=[],
-                preserved_tail=[],
-                savings_tokens=0,
+            return [], CompressionResult(
+                original_count=0, compressed_count=0, summary="",
+                preserved_head=[], preserved_tail=[], compressed_middle=[], compression_ratio=1.0,
             )
         
         original_count = len(messages)
-        
-        # 保留头部和尾部
-        preserved_head = messages[:head_count] if head_count > 0 else []
-        preserved_tail = messages[-tail_count:] if tail_count > 0 else []
-        
-        # 中间部分需要压缩
-        middle = messages[head_count:-tail_count] if tail_count > 0 else messages[head_count:]
-        
-        # 生成摘要
-        if middle and self.summarizer_fn:
-            summary = self.summarizer_fn(middle)
-        elif middle:
-            summary = self._default_summarize(middle)
-        else:
-            summary = ""
-        
-        # 构建压缩后的消息
+        head, middle, tail = self._split_messages(messages)
         compressed = []
-        compressed.extend(preserved_head)
         
-        if summary:
+        if self.head_protect:
+            compressed.extend(head)
+        
+        if middle:
+            summary_text = self._generate_incremental_summary(middle, existing_summary) if (self.enable_incremental and existing_summary) else self._generate_summary(middle)
             compressed.append({
                 "role": "system",
-                "content": SUMMARY_PREFIX + summary
+                "content": f"{SUMMARY_PREFIX}\n{summary_text}\n{SUMMARY_PREFIX}",
+                "_is_compressed": True,
             })
         
-        compressed.extend(preserved_tail)
+        compressed.extend(tail)
+        compressed_count = len(compressed)
+        compression_ratio = compressed_count / original_count if original_count > 0 else 1.0
         
-        # 计算节省
-        original_length = sum(len(str(m.get("content", ""))) for m in messages)
-        compressed_length = sum(len(str(m.get("content", ""))) for m in compressed)
-        savings = original_length - compressed_length
-        
-        return CompressionResult(
-            original_count=original_count,
-            compressed_count=len(compressed),
-            summary=summary,
-            preserved_head=preserved_head,
-            preserved_tail=preserved_tail,
-            savings_tokens=savings,
+        result = CompressionResult(
+            original_count=original_count, compressed_count=compressed_count,
+            summary=summary_text if middle else "",
+            preserved_head=head, preserved_tail=tail, compressed_middle=middle,
+            compression_ratio=compression_ratio,
         )
+        self._compression_history.append(result)
+        return compressed, result
     
-    def _default_summarize(self, messages: List[dict]) -> str:
-        """默认摘要方法（简单实现）"""
+    def _split_messages(self, messages: List[Dict]) -> Tuple[List[Dict], List[Dict], List[Dict]]:
+        """分割消息为head、middle、tail"""
+        head = []
+        non_system = []
+        
+        for msg in messages:
+            if msg.get("role") == "system":
+                content = msg.get("content", "")
+                if SUMMARY_PREFIX in content:
+                    continue
+                head.append(msg)
+            else:
+                non_system.append(msg)
+        
+        tail = non_system[-self.tail_size:] if len(non_system) > self.tail_size else non_system
+        middle = non_system[:-self.tail_size] if len(non_system) > self.tail_size else []
+        
+        return head, middle, tail
+    
+    def _generate_summary(self, messages: List[Dict]) -> str:
+        """生成压缩摘要"""
         if not messages:
             return ""
         
-        # 提取关键信息
-        total_content = "\n".join(
-            f"[{m.get('role', 'unknown')}]: {str(m.get('content', ''))[:200]}"
-            for m in messages
-            if m.get("content")
-        )
+        user_count = sum(1 for m in messages if m.get("role") == "user")
+        assistant_count = sum(1 for m in messages if m.get("role") == "assistant")
+        tool_count = sum(1 for m in messages if m.get("role") == "tool")
         
-        # 简单截断作为摘要（实际应该调用LLM）
-        if len(total_content) > 500:
-            return total_content[:500] + "..."
-        return total_content
+        topics = self._extract_topics(messages)
+        tool_usage = self._extract_tool_usage(messages)
+        
+        summary_parts = []
+        summary_parts.append(f"[对话摘要] 共{len(messages)}条消息（用户:{user_count} 助手:{assistant_count} 工具:{tool_count}）")
+        
+        if topics:
+            summary_parts.append(f"涉及主题: {', '.join(topics[:5])}")
+        
+        if tool_usage:
+            summary_parts.append(f"使用工具: {', '.join(tool_usage)}")
+        
+        if messages:
+            first_user = next((m.get("content", "")[:100] for m in messages if m.get("role") == "user"), "")
+            last_user = next((m.get("content", "")[:100] for m in reversed(messages) if m.get("role") == "user"), "")
+            if first_user:
+                summary_parts.append(f"开始: {first_user}...")
+            if last_user and last_user != first_user:
+                summary_parts.append(f"最近: {last_user}...")
+        
+        return "\n".join(summary_parts)
     
-    def prune_tool_outputs(self, messages: List[dict], max_length: int = 300) -> List[dict]:
-        """
-        修剪工具输出，减少token消耗
+    def _generate_incremental_summary(self, new_messages: List[Dict], existing_summary: str) -> str:
+        """增量摘要"""
+        if not new_messages:
+            return existing_summary
         
-        Args:
-            messages: 消息列表
-            max_length: 单个工具输出最大长度
-        """
-        pruned = []
+        user_count = sum(1 for m in new_messages if m.get("role") == "user")
+        tool_usage = self._extract_tool_usage(new_messages)
+        topics = self._extract_topics(new_messages)
+        
+        incremental = []
+        incremental.append(f"[增量] 新增{len(new_messages)}条消息（用户:{user_count}）")
+        
+        if topics:
+            incremental.append(f"新主题: {', '.join(topics[:3])}")
+        if tool_usage:
+            incremental.append(f"新增工具: {', '.join(tool_usage)}")
+        
+        return existing_summary + "\n\n" + "\n".join(incremental)
+    
+    def _extract_topics(self, messages: List[Dict], max_topics: int = 5) -> List[str]:
+        """提取对话主题"""
+        STOP_WORDS = {
+            "的", "了", "是", "在", "我", "有", "和", "就", "不", "人", "都", "一", "一个",
+            "上", "也", "很", "到", "说", "要", "去", "你", "会", "着", "没有", "看", "好",
+            "自己", "这", "那", "这个", "什么", "怎么", "如何", "为什么", "could", "would",
+            "should", "can", "will", "the", "a", "an", "is", "are", "was", "were", "be",
+            "been", "being", "have", "has", "had", "do", "does", "did", "of", "to", "in",
+            "for", "on", "with", "at", "by", "from", "as", "or", "and", "but", "if",
+            "please", "thanks", "thank", "you", "i", "me", "my", "we", "our", "it", "its",
+        }
+        
+        topics = []
+        seen = set()
         
         for msg in messages:
-            if msg.get("role") == "tool":
-                content = str(msg.get("content", ""))
-                # 保留工具调用的基本信息，修剪长输出
-                if len(content) > max_length:
-                    # 保留前100和后100
-                    truncated = content[:100] + f"\n... [truncated, {len(content)-200} chars hidden] ...\n" + content[-100:]
-                    pruned.append({**msg, "content": truncated})
-                else:
-                    pruned.append(msg)
-            else:
-                pruned.append(msg)
+            if msg.get("role") == "user":
+                content = msg.get("content", "")
+                words = re.findall(r'[\u4e00-\u9fff]+|[a-zA-Z]{3,}', content)
+                
+                for word in words:
+                    word_lower = word.lower()
+                    if word_lower not in STOP_WORDS and word_lower not in seen:
+                        topics.append(word)
+                        seen.add(word_lower)
+                        if len(topics) >= max_topics:
+                            return topics
         
-        return pruned
-
-
-class StreamingContextManager:
-    """
-    流式上下文管理器
+        return topics
     
-    支持增量压缩和动态上下文调整。
-    """
-    
-    def __init__(self, compressor: ContextCompressor):
-        self.compressor = compressor
-        self.messages: List[dict] = []
-        self.is_compressed = False
-        self.last_compression: Optional[CompressionResult] = None
-    
-    def add_message(self, message: dict) -> None:
-        """添加消息"""
-        self.messages.append(message)
+    def _extract_tool_usage(self, messages: List[Dict]) -> List[str]:
+        """提取工具使用记录"""
+        tools = []
+        seen = set()
         
-        # 检查是否需要压缩
-        if not self.is_compressed and self.compressor.should_compress(self.messages):
-            self._compress()
-    
-    def _compress(self) -> None:
-        """执行压缩"""
-        result = self.compressor.compress(self.messages)
-        self.last_compression = result
+        for msg in messages:
+            if "tool_calls" in msg:
+                for tc in msg["tool_calls"]:
+                    name = tc.get("name") or tc.get("function", {}).get("name", "")
+                    if name and name not in seen:
+                        tools.append(name)
+                        seen.add(name)
         
-        # 重建消息列表
-        self.messages = []
-        self.messages.extend(result.preserved_head)
-        if result.summary:
-            self.messages.append({
-                "role": "system",
-                "content": SUMMARY_PREFIX + result.summary
-            })
-        self.messages.extend(result.preserved_tail)
+        return tools
+    
+    def get_compression_stats(self) -> Dict[str, Any]:
+        """获取压缩统计"""
+        if not self._compression_history:
+            return {"total_compressions": 0, "avg_ratio": 0.0, "total_saved": 0}
         
-        self.is_compressed = True
-        logger.info(f"Context compressed: {result.original_count} -> {result.compressed_count} messages")
-    
-    def get_messages(self) -> List[dict]:
-        """获取当前消息列表"""
-        return self.messages
-    
-    def get_stats(self) -> dict:
-        """获取统计信息"""
+        total = len(self._compression_history)
+        avg_ratio = sum(r.compression_ratio for r in self._compression_history) / total
+        total_saved = sum(r.original_count - r.compressed_count for r in self._compression_history)
+        
         return {
-            "total_messages": len(self.messages),
-            "is_compressed": self.is_compressed,
-            "last_compression": {
-                "original_count": self.last_compression.original_count if self.last_compression else 0,
-                "compressed_count": self.last_compression.compressed_count if self.last_compression else 0,
-                "savings_tokens": self.last_compression.savings_tokens if self.last_compression else 0,
-            } if self.last_compression else None
+            "total_compressions": total,
+            "avg_ratio": avg_ratio,
+            "total_saved": total_saved,
+            "latest": self._compression_history[-1].__dict__ if self._compression_history else None,
         }
-
-
-def create_compressor(
-    model_client: Optional[Any] = None,
-    model_name: str = "claude-3-5-sonnet-20241022",
-) -> ContextCompressor:
-    """
-    创建上下文压缩器
     
-    Args:
-        model_client: LLM客户端（用于生成摘要）
-        model_name: 模型名称
-    """
-    def summarizer(messages: List[dict]) -> str:
-        """默认摘要生成器"""
-        if not model_client:
-            return _simple_summarize(messages)
-        
-        # 构建摘要提示
-        summary_prompt = f"""请简要总结以下对话的要点，保留关键信息和决定：
+    def reset_history(self):
+        """重置压缩历史"""
+        self._compression_history = []
 
-{"="*50}
-{chr(10).join(f"[{m.get('role', 'unknown')}]: {m.get('content', '')}" for m in messages[:20])}
-{"="*50}
 
-摘要要求：
-1. 不超过200字
-2. 保留关键信息、决定、行动项
-3. 不要包含具体的技术细节
-4. 用于后续上下文恢复，不是直接回答
-
-摘要："""
-        
-        try:
-            response = model_client.messages.create(
-                model=model_name,
-                max_tokens=300,
-                messages=[{"role": "user", "content": summary_prompt}]
-            )
-            return response.content[0].text if response.content else ""
-        except Exception as e:
-            logger.warning(f"Summarization failed: {e}")
-            return _simple_summarize(messages)
+def compress_conversation(
+    messages: List[Dict],
+    tail_size: int = DEFAULT_TAIL_SIZE,
+    max_before_compress: int = MAX_MESSAGES_BEFORE_COMPRESS,
+) -> Tuple[List[Dict], Dict]:
+    """便捷函数：一行压缩对话"""
+    compressor = ContextCompressor(tail_size=tail_size, max_before_compress=max_before_compress)
     
-    return ContextCompressor(summarizer_fn=summarizer)
-
-
-def _simple_summarize(messages: List[dict]) -> str:
-    """简单的默认摘要方法"""
-    if not messages:
-        return ""
+    if not compressor.needs_compression(messages):
+        return messages, {"skipped": True}
     
-    # 提取关键信息
-    key_points = []
-    for msg in messages:
-        role = msg.get("role", "unknown")
-        content = str(msg.get("content", ""))[:100]
-        
-        if role == "user":
-            key_points.append(f"用户: {content}")
-        elif role == "assistant" and msg.get("tool_calls"):
-            tools = [tc.get("name", "unknown") for tc in msg.get("tool_calls", [])]
-            key_points.append(f"助手调用工具: {', '.join(tools)}")
-        elif role == "tool":
-            key_points.append(f"工具结果: {content[:50]}...")
+    compressed, result = compressor.compress(messages)
     
-    return "\n".join(key_points[:10])
+    return compressed, {
+        "original_count": result.original_count,
+        "compressed_count": result.compressed_count,
+        "compression_ratio": result.compression_ratio,
+    }
 
 
-# 导出
 __all__ = [
     "ContextCompressor",
-    "CompressionResult", 
-    "StreamingContextManager",
-    "create_compressor",
+    "CompressionResult",
+    "compress_conversation",
     "SUMMARY_PREFIX",
+    "DEFAULT_TAIL_SIZE",
+    "MAX_MESSAGES_BEFORE_COMPRESS",
 ]

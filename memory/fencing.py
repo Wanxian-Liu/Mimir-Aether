@@ -52,9 +52,8 @@ INJECTION_PATTERNS = [
     r"('|(\\'))|(\"|(\\\"))|(;)|(\|)|(&&)",
     # Shell注入
     r"[;&|`$]",
-    # Base64/编码注入
-    r"base64\s*[(:]",
-    r"[A-Za-z0-9+/]{50,}={0,2}",  # 可能的base64 payload
+    # Base64/编码注入（提高阈值避免误判）
+    r"(?:[A-Za-z0-9+/]{4}){20,}",  # 至少80字符的Base64字符串
 ]
 
 
@@ -163,15 +162,11 @@ class MemoryFencer:
         
         was_modified = content != original_content
         
-        # 严格模式：拒绝包含注入的内容
+        # 严格模式：警告但保留内容（不静默丢失数据）
         if self.strict_mode and removed_patterns:
             self._stats["rejected"] += 1
-            return FenceResult(
-                content="",
-                was_modified=True,
-                removed_patterns=removed_patterns,
-                warnings=["Content rejected in strict mode due to injection patterns"],
-            )
+            warnings.append(f"Strict mode: {len(removed_patterns)} injection pattern(s) detected and sanitized")
+            # 返回清理后的内容，不返回空字符串
         
         return FenceResult(
             content=content,

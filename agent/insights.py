@@ -150,12 +150,22 @@ class InsightsEngine:
         self,
         session_id: str,
         role: str,
+        token_count: int = 0,
         platform: str = "unknown"
     ) -> None:
-        """记录消息"""
+        """记录消息
+        
+        Args:
+            session_id: 会话ID
+            role: 角色(user/assistant)
+            token_count: token数量（必须传入实际值）
+            platform: 平台
+        """
+        if token_count <= 0:
+            logger.warning(f"record_message called with token_count={token_count}, session={session_id}")
         self.record(
             MetricType.TOKEN_INPUT if role == "user" else MetricType.TOKEN_OUTPUT,
-            0,  # 实际长度由调用方计算
+            float(token_count),
             metadata={"session_id": session_id, "platform": platform}
         )
     
