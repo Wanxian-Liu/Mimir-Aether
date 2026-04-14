@@ -98,7 +98,7 @@ class TurnManager:
         """
         # 先检查预算，再创建turn
         if hasattr(self.agent, 'budget'):
-            remaining = self.agent.budget.remaining
+            remaining = await self.agent.budget.get_remaining()
             if remaining <= 0:
                 # 创建turn记录，但标记为max_iterations
                 turn = self.create_turn(user_message)

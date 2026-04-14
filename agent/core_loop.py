@@ -103,9 +103,8 @@ class IterationBudget:
             if self._used > 0:
                 self._used -= 1
     
-    @property
-    def remaining(self) -> int:
-        """剩余迭代次数（线程安全）"""
+    async def get_remaining(self) -> int:
+        """获取剩余迭代次数（异步安全）"""
         async with self._lock:
             return self.max_total - self._used
 
