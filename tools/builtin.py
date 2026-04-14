@@ -11,6 +11,9 @@ from typing import Any, Dict
 # 允许的文件操作基础目录（可配置）
 _ALLOWED_BASE_DIR = os.environ.get("MIMIR_BASE_DIR", os.path.expanduser("~"))
 
+# 文件大小限制（1MB）
+MAX_FILE_SIZE = 1024 * 1024
+
 
 def _safe_path(path: str) -> str:
     """
@@ -75,6 +78,10 @@ def read_file(path: str) -> str:
     """
     try:
         safe_path = _safe_path(path)
+        # 检查文件大小
+        file_size = os.path.getsize(safe_path)
+        if file_size > MAX_FILE_SIZE:
+            return "Error: File too large"
         with open(safe_path, "r", encoding="utf-8") as f:
             return f.read()
     except ValueError:
@@ -101,6 +108,9 @@ def write_file(path: str, content: str) -> str:
         成功消息或错误信息
     """
     try:
+        # 检查内容大小
+        if len(content.encode('utf-8')) > MAX_FILE_SIZE:
+            return "Error: Content too large"
         safe_path = _safe_path(path)
         with open(safe_path, "w", encoding="utf-8") as f:
             f.write(content)
