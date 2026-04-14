@@ -6,6 +6,7 @@ MimirAether 内置工具
 
 import os
 import json
+import stat
 from typing import Any, Dict
 
 # 允许的文件操作基础目录（可配置）
@@ -86,8 +87,14 @@ def read_file(path: str) -> str:
         file_size = os.path.getsize(safe_path)
         if file_size > MAX_FILE_SIZE:
             return "Error: File too large"
-        with open(safe_path, "r", encoding="utf-8") as f:
-            return f.read()
+        # 使用O_NOFOLLOW防止TOCTOU攻击
+        fd = os.open(safe_path, os.O_RDONLY | os.O_NOFOLLOW)
+        try:
+            with os.fdopen(fd, "r", encoding="utf-8") as f:
+                return f.read()
+        except:
+            os.close(fd)
+            raise
     except ValueError:
         return "Error: Invalid path"
     except FileNotFoundError:
@@ -96,6 +103,8 @@ def read_file(path: str) -> str:
         return "Error: Path is a directory, not a file"
     except PermissionError:
         return "Error: Permission denied"
+    except OSError:
+        return "Error: Invalid file"
     except Exception:
         return "Error reading file"
 
@@ -116,7 +125,14 @@ def write_file(path: str, content: str) -> str:
         if len(content.encode('utf-8')) > MAX_FILE_SIZE:
             return "Error: Content too large"
         safe_path = _safe_path(path)
-        with open(safe_path, "w", encoding="utf-8") as f:
+        # 使用O_NOFOLLOW防止TOCTOU攻击
+        fd = os.open(safe_path, os.O_WRONLY | os.O_NOFOLLOW | os.O_CREAT | os.O_TRUNC, 0o600)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(content)
+        except:
+            os.close(fd)
+            raise
             f.write(content)
         return "Successfully wrote file"
     except ValueError:
