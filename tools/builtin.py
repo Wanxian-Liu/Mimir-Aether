@@ -71,13 +71,15 @@ def read_file(path: str) -> str:
         safe_path = _safe_path(path)
         with open(safe_path, "r", encoding="utf-8") as f:
             return f.read()
-    except ValueError as e:
-        return f"Error: {e}"
+    except ValueError:
+        return "Error: Invalid path"
     except FileNotFoundError:
         return "Error: File not found"
     except IsADirectoryError:
         return "Error: Path is a directory, not a file"
-    except Exception as e:
+    except PermissionError:
+        return "Error: Permission denied"
+    except Exception:
         return "Error reading file"
 
 
@@ -97,9 +99,11 @@ def write_file(path: str, content: str) -> str:
         with open(safe_path, "w", encoding="utf-8") as f:
             f.write(content)
         return "Successfully wrote file"
-    except ValueError as e:
-        return f"Error: {e}"
-    except Exception as e:
+    except ValueError:
+        return "Error: Invalid path"
+    except PermissionError:
+        return "Error: Permission denied"
+    except Exception:
         return "Error writing file"
 
 

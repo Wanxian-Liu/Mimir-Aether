@@ -427,12 +427,23 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
             raise RuntimeError(f"Network error during model call: {e}")
     
     async def _execute_tools(self, tool_calls: List[Dict]) -> List[ToolResult]:
-        """执行工具调用（带并发限制）"""
+        """执行工具调用（带并发限制和单工具超时）"""
         results = []
         
         async def execute_with_semaphore(tool_call: Dict) -> ToolResult:
             async with self._tool_semaphore:
-                return await self._execute_single_tool(tool_call)
+                try:
+                    return await asyncio.wait_for(
+                        self._execute_single_tool(tool_call),
+                        timeout=30.0  # 单工具30秒超时
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning(f"Tool execution timed out: {tool_call.get('name', 'unknown')}")
+                    return ToolResult(
+                        tool_call_id=tool_call.get("id", "unknown"),
+                        content="Error: tool execution timed out",
+                        is_error=True
+                    )
         
         # 并发执行所有工具（受 semaphore 限制）
         tasks = [execute_with_semaphore(tc) for tc in tool_calls]
@@ -554,6 +565,8 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
         try:
             with open(trajectory_file, "a", encoding="utf-8") as f:
                 f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+            # 设置文件权限为600（仅所有者读写）
+            os.chmod(trajectory_file, 0o600)
             logger.info(f"Trajectory saved to {trajectory_file}")
         except Exception as e:
             logger.error(f"Failed to save trajectory: {e}")
