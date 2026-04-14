@@ -399,8 +399,9 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                     timeout=aiohttp.ClientTimeout(total=120)
                 ) as response:
                     if response.status != 200:
-                        error_text = await response.text()
-                        raise RuntimeError(f"API call failed with status {response.status}: {error_text}")
+                        # 不泄露原始响应内容，只记录状态码
+                        logger.warning(f"API call failed with status {response.status}")
+                        raise RuntimeError(f"Model API request failed with status {response.status}")
                     
                     result = await response.json()
                     
@@ -466,11 +467,19 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                 try:
                     arguments = json.loads(arguments)
                 except json.JSONDecodeError:
-                    logger.warning(f"Failed to parse arguments as JSON for tool {tool_call.get('name', 'unknown')}: {arguments}")
-                    arguments = {}
+                    logger.warning(f"Failed to parse arguments as JSON for tool {tool_call.get('name', 'unknown')}")
+                    return ToolResult(
+                        tool_call_id=tool_call["id"],
+                        content="Error: invalid JSON in tool arguments",
+                        is_error=True
+                    )
             if not isinstance(arguments, dict):
                 logger.warning(f"Arguments is not a dict for tool {tool_call.get('name', 'unknown')}: {type(arguments)}")
-                arguments = {}
+                return ToolResult(
+                    tool_call_id=tool_call["id"],
+                    content="Error: arguments must be a dict",
+                    is_error=True
+                )
             
             result = await self.tool_registry.execute(
                 name=tool_call["name"],

@@ -8,10 +8,37 @@ import os
 import json
 from typing import Any, Dict
 
+# 允许的文件操作基础目录（可配置）
+_ALLOWED_BASE_DIR = os.environ.get("MIMIR_BASE_DIR", os.path.expanduser("~"))
+
+
+def _safe_path(path: str) -> str:
+    """
+    验证路径安全，防止路径遍历攻击
+    
+    Args:
+        path: 用户提供的路径
+        
+    Returns:
+        安全验证后的绝对路径
+        
+    Raises:
+        ValueError: 路径超出允许范围
+    """
+    # 获取真实绝对路径
+    real_path = os.path.realpath(os.path.abspath(path))
+    allowed_real = os.path.realpath(os.path.abspath(_ALLOWED_BASE_DIR))
+    
+    # 检查是否在允许目录内
+    if not real_path.startswith(allowed_real + os.sep):
+        raise ValueError(f"Path traversal attempt detected: {path}")
+    
+    return real_path
+
 
 def read_file(path: str) -> str:
     """
-    读取文件内容
+    读取文件内容（安全版本）
     
     Args:
         path: 文件路径
@@ -20,8 +47,11 @@ def read_file(path: str) -> str:
         文件内容字符串
     """
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        safe_path = _safe_path(path)
+        with open(safe_path, "r", encoding="utf-8") as f:
             return f.read()
+    except ValueError as e:
+        return f"Error: {e}"
     except FileNotFoundError:
         return f"Error: File not found: {path}"
     except Exception as e:
@@ -30,7 +60,7 @@ def read_file(path: str) -> str:
 
 def write_file(path: str, content: str) -> str:
     """
-    写入文件内容
+    写入文件内容（安全版本）
     
     Args:
         path: 文件路径
@@ -40,9 +70,12 @@ def write_file(path: str, content: str) -> str:
         成功消息或错误信息
     """
     try:
-        with open(path, "w", encoding="utf-8") as f:
+        safe_path = _safe_path(path)
+        with open(safe_path, "w", encoding="utf-8") as f:
             f.write(content)
-        return f"Successfully wrote to {path}"
+        return f"Successfully wrote to {safe_path}"
+    except ValueError as e:
+        return f"Error: {e}"
     except Exception as e:
         return f"Error writing file: {e}"
 
