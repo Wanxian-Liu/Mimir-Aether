@@ -96,6 +96,15 @@ class TurnManager:
         Returns:
             助手响应文本
         """
+        # 检查预算
+        if hasattr(self.agent, 'budget'):
+            remaining = self.agent.budget.remaining
+            if remaining <= 0:
+                turn = self.create_turn(user_message)
+                turn.status = TurnStatus.MAX_ITERATIONS
+                turn.error = "迭代次数已达上限"
+                return "抱歉，任务迭代次数已达上限，请重试。"
+        
         turn = self.create_turn(user_message)
         turn.status = TurnStatus.RUNNING
         
@@ -106,7 +115,11 @@ class TurnManager:
             turn.assistant_message = response
             turn.status = TurnStatus.COMPLETED
             
-            logger.info(f"Turn {turn.id} completed: {len(response)} chars")
+            # 记录迭代次数
+            if hasattr(self.agent, 'budget'):
+                turn.iterations = self.agent.budget._used
+            
+            logger.info(f"Turn {turn.id} completed: {len(response)} chars, iterations: {turn.iterations}")
             return response
             
         except Exception as e:
@@ -130,13 +143,17 @@ class TurnManager:
         total = len(self.turns)
         completed = sum(1 for t in self.turns if t.status == TurnStatus.COMPLETED)
         failed = sum(1 for t in self.turns if t.status == TurnStatus.FAILED)
+        max_iterations = sum(1 for t in self.turns if t.status == TurnStatus.MAX_ITERATIONS)
+        running = sum(1 for t in self.turns if t.status == TurnStatus.RUNNING)
         
         return {
             "total_turns": total,
             "completed": completed,
             "failed": failed,
+            "max_iterations": max_iterations,
+            "running": running,
             "success_rate": completed / total if total > 0 else 0,
-            "total_iterations": sum(t.iterations for t in self.turns)
+            "total_iterations": sum(t.iterations for t in self.turns if t.iterations > 0)
         }
     
     async def reset(self):
