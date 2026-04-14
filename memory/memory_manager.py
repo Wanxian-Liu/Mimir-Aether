@@ -143,6 +143,8 @@ class PersistentMemory:
                     "counter": self._counter,
                     "entries": [e.to_dict() for e in self.entries]
                 }, f, ensure_ascii=False, indent=2)
+            # 设置文件权限为600（仅所有者读写）
+            os.chmod(self.storage_path, 0o600)
         except Exception as e:
             logger.error(f"Failed to save persistent memory: {e}")
     
@@ -208,6 +210,8 @@ class SkillMemory:
         try:
             with open(self.storage_path, "w", encoding="utf-8") as f:
                 json.dump(self.skills, f, ensure_ascii=False, indent=2)
+            # 设置文件权限为600（仅所有者读写）
+            os.chmod(self.storage_path, 0o600)
         except Exception as e:
             logger.error(f"Failed to save skills: {e}")
     
