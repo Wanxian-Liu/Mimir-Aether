@@ -537,16 +537,37 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
         
         # 实现轨迹保存到JSONL
         from datetime import datetime
+        import re
+        
+        # 敏感信息过滤正则
+        SENSITIVE_PATTERNS = re.compile(
+            r'(api_key|apiKey|api-key|token|auth|bearer|password|passwd|secret|credential|private_key|privatekey|ssh-rsa|-----BEGIN)',
+            re.IGNORECASE
+        )
+        
+        def mask_sensitive(text: str) -> str:
+            """过滤敏感信息"""
+            if not text:
+                return text
+            # 将敏感词替换为[REDACTED]
+            return SENSITIVE_PATTERNS.sub(r'[REDACTED]', text)
         
         # 将Message对象转换为dict以支持JSON序列化
         def msg_to_dict(msg: Message) -> dict:
-            result = {"role": msg.role.value, "content": msg.content}
+            result = {"role": msg.role.value, "content": mask_sensitive(msg.content)}
             if msg.name:
                 result["name"] = msg.name
             if msg.tool_call_id:
                 result["tool_call_id"] = msg.tool_call_id
             if msg.tool_calls:
-                result["tool_calls"] = msg.tool_calls
+                # 过滤tool_calls中的敏感信息
+                masked_tool_calls = []
+                for tc in msg.tool_calls:
+                    masked_tc = dict(tc)
+                    if 'function' in masked_tc and 'arguments' in masked_tc['function']:
+                        masked_tc['function']['arguments'] = mask_sensitive(str(masked_tc['function']['arguments']))
+                    masked_tool_calls.append(masked_tc)
+                result["tool_calls"] = masked_tool_calls
             return result
         
         entry = {
