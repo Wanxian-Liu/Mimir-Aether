@@ -479,6 +479,20 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                         content="Error: tool execution timed out",
                         is_error=True
                     )
+                except (ValueError, TypeError, KeyError) as e:
+                    logger.warning(f"Tool execution parameter error: {tool_call.get('name', 'unknown')}: {e}")
+                    return ToolResult(
+                        tool_call_id=tool_call.get("id", "unknown"),
+                        content=f"Error: {type(e).__name__} - {e}",
+                        is_error=True
+                    )
+                except Exception as e:
+                    logger.error(f"Tool execution error: {tool_call.get('name', 'unknown')}: {e}")
+                    return ToolResult(
+                        tool_call_id=tool_call.get("id", "unknown"),
+                        content=f"Error: {type(e).__name__} - {e}",
+                        is_error=True
+                    )
         
         # 并发执行所有工具（受 semaphore 限制）
         tasks = [execute_with_semaphore(tc) for tc in tool_calls]
@@ -488,10 +502,17 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
         processed_results = []
         for i, result in enumerate(results):
             if isinstance(result, Exception):
-                logger.warning(f"Tool execution exception: {tool_calls[i].get('name', 'unknown')}")
+                err_name = type(result).__name__
+                err_msg = str(result)
+                if isinstance(result, asyncio.TimeoutError):
+                    logger.warning(f"Tool execution timed out: {tool_calls[i].get('name', 'unknown')}")
+                    content = "Error: tool execution timed out"
+                else:
+                    logger.warning(f"Tool execution exception ({err_name}): {tool_calls[i].get('name', 'unknown')} - {err_msg}")
+                    content = f"Error: {err_name} - {err_msg}"
                 processed_results.append(ToolResult(
                     tool_call_id=tool_calls[i].get("id", "unknown"),
-                    content="Error: tool execution failed",
+                    content=content,
                     is_error=True
                 ))
             else:

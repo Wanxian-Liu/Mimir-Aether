@@ -61,6 +61,7 @@ class SubAgentPool:
         self.max_concurrent = max_concurrent
         self._tasks: Dict[str, SubAgentTask] = {}
         self._semaphore = asyncio.Semaphore(max_concurrent)
+        self._task_lock = asyncio.Lock()
         self._running_tasks: List[asyncio.Task] = []
         
         logger.info(f"SubAgentPool initialized with max_concurrent={max_concurrent}")
@@ -206,12 +207,13 @@ class SubAgentPool:
         """获取所有任务"""
         return list(self._tasks.values())
     
-    def cancel_task(self, task_id: str) -> bool:
+    async def cancel_task(self, task_id: str) -> bool:
         """取消任务"""
-        if task_id in self._tasks:
-            self._tasks[task_id].status = SubAgentStatus.CANCELLED
-            return True
-        return False
+        async with self._task_lock:
+            if task_id in self._tasks:
+                self._tasks[task_id].status = SubAgentStatus.CANCELLED
+                return True
+            return False
     
     def get_statistics(self) -> Dict[str, Any]:
         """获取统计信息"""
