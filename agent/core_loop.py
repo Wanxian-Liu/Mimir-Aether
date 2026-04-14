@@ -503,12 +503,13 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
             if isinstance(result, Exception):
                 err_name = type(result).__name__
                 err_msg = str(result)
+                # 记录详细日志但不暴露给LLM
                 if isinstance(result, asyncio.TimeoutError):
                     logger.warning(f"Tool execution timed out: {tool_calls[i].get('name', 'unknown')}")
                     content = "Error: tool execution timed out"
                 else:
-                    logger.warning(f"Tool execution exception ({err_name}): {tool_calls[i].get('name', 'unknown')} - {err_msg}")
-                    content = f"Error: {err_name} - {err_msg}"
+                    logger.warning(f"Tool execution exception ({err_name}): {tool_calls[i].get('name', 'unknown')}")
+                    content = "Error: tool execution failed"
                 processed_results.append(ToolResult(
                     tool_call_id=tool_calls[i].get("id", "unknown"),
                     content=content,

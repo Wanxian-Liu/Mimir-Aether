@@ -83,7 +83,7 @@ def read_file(path: str) -> str:
     """
     try:
         safe_path = _safe_path(path)
-        # 检查文件大小
+        # 先检查文件大小（避免打开过大的文件）
         file_size = os.path.getsize(safe_path)
         if file_size > MAX_FILE_SIZE:
             return "Error: File too large"
