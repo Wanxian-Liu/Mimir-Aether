@@ -23,15 +23,23 @@ def _safe_path(path: str) -> str:
         安全验证后的绝对路径
         
     Raises:
-        ValueError: 路径超出允许范围
+        ValueError: 路径超出允许范围或无效
     """
+    # 空路径检查
+    if not path or not path.strip():
+        raise ValueError("Invalid empty path")
+    
     # 获取真实绝对路径
-    real_path = os.path.realpath(os.path.abspath(path))
+    try:
+        real_path = os.path.realpath(os.path.abspath(path))
+    except (ValueError, TypeError):
+        raise ValueError("Invalid path")
+    
     allowed_real = os.path.realpath(os.path.abspath(_ALLOWED_BASE_DIR))
     
     # 检查是否在允许目录内
     if not real_path.startswith(allowed_real + os.sep):
-        raise ValueError(f"Path traversal attempt detected: {path}")
+        raise ValueError("Path traversal attempt detected")
     
     return real_path
 
@@ -53,9 +61,11 @@ def read_file(path: str) -> str:
     except ValueError as e:
         return f"Error: {e}"
     except FileNotFoundError:
-        return f"Error: File not found: {path}"
+        return "Error: File not found"
+    except IsADirectoryError:
+        return "Error: Path is a directory, not a file"
     except Exception as e:
-        return f"Error reading file: {e}"
+        return "Error reading file"
 
 
 def write_file(path: str, content: str) -> str:
@@ -73,11 +83,11 @@ def write_file(path: str, content: str) -> str:
         safe_path = _safe_path(path)
         with open(safe_path, "w", encoding="utf-8") as f:
             f.write(content)
-        return f"Successfully wrote to {safe_path}"
+        return "Successfully wrote file"
     except ValueError as e:
         return f"Error: {e}"
     except Exception as e:
-        return f"Error writing file: {e}"
+        return "Error writing file"
 
 
 def execute_code(code: str, language: str = "python") -> str:
