@@ -35,9 +35,15 @@ def _safe_path(path: str) -> str:
     except (ValueError, TypeError):
         raise ValueError("Invalid path")
     
-    # 检查路径本身是否为符号链接（直接攻击）
-    if os.path.islink(abs_path):
-        raise ValueError("Symbolic links are not allowed")
+    # 检查路径的每个组件是否为符号链接（防止中间目录是symlink）
+    parts = abs_path.split(os.sep)
+    for i in range(len(parts)):
+        # 构建到当前组件的路径
+        partial_path = os.sep.join(parts[:i+1]) if i > 0 else parts[0]
+        if not partial_path:
+            continue
+        if os.path.islink(partial_path):
+            raise ValueError("Symbolic links are not allowed")
     
     # 获取真实绝对路径（解析符号链接）
     try:

@@ -294,21 +294,32 @@ class MemoryManager:
         获取所有层级的上下文记忆
         
         用于在调用模型时提供背景信息。
+        安全措施：限制长度，防止prompt注入。
         """
         context = []
+        MAX_CONTENT_LENGTH = 2000  # 单条记忆最大长度
+        
+        def sanitize_content(content: str, label: str) -> str:
+            """清理内容，防止prompt注入"""
+            # 截断过长内容
+            if len(content) > MAX_CONTENT_LENGTH:
+                content = content[:MAX_CONTENT_LENGTH] + "..."
+            # 移除可能的prompt注入模式
+            content = content.replace("{{}}", "[brackets]").replace("${}", "[vars]")
+            return f"[{label}] {content}"
         
         # 工作记忆（最重要，优先添加）
         for entry in self.working.get_all():
             context.append({
                 "role": "system",
-                "content": f"[Working Memory] {entry.content}"
+                "content": sanitize_content(entry.content, "Working Memory")
             })
         
         # 持久记忆（近期）
         for entry in self.persistent.get_recent(5):
             context.append({
-                "role": "system", 
-                "content": f"[Persistent Memory] {entry.content}"
+                "role": "system",
+                "content": sanitize_content(entry.content, "Persistent Memory")
             })
         
         return context
