@@ -90,11 +90,9 @@ def read_file(path: str) -> str:
         # 使用O_NOFOLLOW防止TOCTOU攻击
         fd = os.open(safe_path, os.O_RDONLY | os.O_NOFOLLOW)
         try:
-            with os.fdopen(fd, "r", encoding="utf-8") as f:
-                return f.read()
-        except:
+            return os.read(fd, MAX_FILE_SIZE).decode("utf-8")
+        finally:
             os.close(fd)
-            raise
     except ValueError:
         return "Error: Invalid path"
     except FileNotFoundError:
@@ -128,11 +126,9 @@ def write_file(path: str, content: str) -> str:
         # 使用O_NOFOLLOW防止TOCTOU攻击
         fd = os.open(safe_path, os.O_WRONLY | os.O_NOFOLLOW | os.O_CREAT | os.O_TRUNC, 0o600)
         try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                f.write(content)
-        except:
+            os.write(fd, content.encode("utf-8"))
+        finally:
             os.close(fd)
-            raise
         return "Successfully wrote file"
     except ValueError:
         return "Error: Invalid path"
