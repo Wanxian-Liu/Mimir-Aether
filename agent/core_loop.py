@@ -1,0 +1,454 @@
+"""
+MimirAether Agent Core Loop
+
+学习自Hermes AIAgent架构，重新实现的核心Agent类。
+
+核心功能：
+- 主对话循环
+- 工具调用处理
+- 上下文管理
+- 迭代预算控制
+"""
+
+import asyncio
+import json
+import logging
+import uuid
+from dataclasses import dataclass, field
+from typing import List, Dict, Any, Optional, Callable, Union
+from enum import Enum
+
+logger = logging.getLogger(__name__)
+
+
+class MessageRole(Enum):
+    """消息角色"""
+    SYSTEM = "system"
+    USER = "user"
+    ASSISTANT = "assistant"
+    TOOL = "tool"
+
+
+@dataclass
+class Message:
+    """对话消息"""
+    role: MessageRole
+    content: str
+    name: Optional[str] = None
+    tool_calls: Optional[List[Dict]] = None
+    tool_call_id: Optional[str] = None
+
+
+@dataclass
+class ToolCall:
+    """工具调用"""
+    id: str
+    name: str
+    arguments: Union[str, Dict[str, Any]]
+
+
+@dataclass
+class ToolResult:
+    """工具执行结果"""
+    tool_call_id: str
+    content: str
+    is_error: bool = False
+
+
+@dataclass
+class Plan:
+    """任务分解计划"""
+    task: str
+    subtasks: List[Dict[str, Any]] = field(default_factory=list)
+    complexity: int = 0
+    estimated_time: int = 0
+
+
+@dataclass
+class ExecutionResult:
+    """执行结果"""
+    success: bool
+    output: Any
+    error: Optional[str] = None
+    tool_calls_made: int = 0
+    duration: float = 0.0
+
+
+class IterationBudget:
+    """
+    迭代预算控制器
+    
+    学习自Hermes IterationBudget：
+    - 父Agent默认90次迭代
+    - 子Agent默认50次迭代
+    - execute_code等工具调用不消耗预算
+    """
+    
+    def __init__(self, max_total: int = 90):
+        self.max_total = max_total
+        self._used = 0
+        self._lock = asyncio.Lock()
+    
+    async def consume(self) -> bool:
+        """尝试消耗一次迭代"""
+        async with self._lock:
+            if self._used >= self.max_total:
+                return False
+            self._used += 1
+            return True
+    
+    async def refund(self) -> None:
+        """退还一次迭代（如execute_code）"""
+        async with self._lock:
+            if self._used > 0:
+                self._used -= 1
+    
+    @property
+    def remaining(self) -> int:
+        """剩余迭代次数"""
+        return self.max_total - self._used
+
+
+class ToolRegistry:
+    """
+    工具注册表
+    
+    提供工具注册和调用功能
+    """
+    
+    def __init__(self):
+        self._tools: Dict[str, Callable] = {}
+        self._schemas: Dict[str, Dict] = {}
+    
+    def register(self, name: str, func: Callable, schema: Dict):
+        """注册工具"""
+        # 基础schema校验
+        if not isinstance(schema, dict):
+            raise ValueError(f"Invalid schema type for tool {name}: expected dict")
+        if "parameters" not in schema:
+            raise ValueError(f"Invalid schema for tool {name}: missing 'parameters' field")
+        
+        self._tools[name] = func
+        self._schemas[name] = schema
+        logger.info(f"Registered tool: {name}")
+    
+    async def execute(self, name: str, arguments: Dict) -> Any:
+        """执行工具"""
+        if name not in self._tools:
+            raise ValueError(f"Tool not found: {name}")
+        
+        func = self._tools[name]
+        try:
+            if asyncio.iscoroutinefunction(func):
+                result = await func(**arguments)
+            else:
+                result = func(**arguments)
+            return result
+        except Exception as e:
+            logger.error(f"Tool execution failed: {name}, error: {e}")
+            raise
+    
+    def list_tools(self) -> List[str]:
+        """列出所有工具"""
+        return list(self._tools.keys())
+    
+    def get_schema(self, name: str) -> Optional[Dict]:
+        """获取工具schema"""
+        return self._schemas.get(name)
+
+
+class MimirAetherAgent:
+    """
+    MimirAether核心Agent类
+    
+    学习自Hermes AIAgent，重新实现的Agent主循环。
+    
+    核心接口：
+    - chat(): 主聊天接口
+    - run_conversation(): 完整对话流程
+    - build_system_prompt(): 构建系统提示
+    """
+    
+    def __init__(
+        self,
+        model: str = "deepseek/deepseek-chat",
+        max_iterations: int = 90,
+        platform: str = "cli",
+        system_prompt: str = None,
+        save_trajectories: bool = False,
+    ):
+        """
+        初始化MimirAether Agent
+        
+        Args:
+            model: 使用的模型
+            max_iterations: 最大迭代次数
+            platform: 运行平台
+            system_prompt: 系统提示
+            save_trajectories: 是否保存轨迹
+        """
+        self.model = model
+        self.max_iterations = max_iterations
+        self.platform = platform
+        self.system_prompt = system_prompt or self._default_system_prompt()
+        self.save_trajectories = save_trajectories
+        
+        # 初始化组件
+        self.budget = IterationBudget(max_iterations)
+        self.tool_registry = ToolRegistry()
+        self.conversation_history: List[Message] = []
+        
+        # 轨迹记录
+        self._trajectory: List[Dict] = []
+        
+        logger.info(f"MimirAether initialized with model: {model}")
+    
+    def _default_system_prompt(self) -> str:
+        """默认系统提示"""
+        return """You are MimirAether, an AI assistant powered by advanced reasoning and tool execution capabilities.
+
+Core capabilities:
+- Natural language understanding and generation
+- Tool execution for various tasks
+- Code writing, debugging, and execution
+- File operations and system tasks
+- Web search and information retrieval
+- Memory management across sessions
+
+You can call tools to accomplish tasks. Always provide clear, accurate responses."""
+    
+    async def chat(self, message: str) -> str:
+        """
+        主聊天接口
+        
+        处理单条用户消息，返回助手响应
+        """
+        # 运行对话（消息添加由run_conversation统一管理）
+        response = await self.run_conversation(message)
+        
+        return response
+    
+    async def run_conversation(self, user_message: str) -> str:
+        """
+        完整对话运行
+        
+        学习自Hermes run_conversation：
+        - 构建消息列表（每次迭代重建）
+        - 调用模型API（带超时控制）
+        - 处理工具调用
+        - 管理迭代预算
+        """
+        # 开始轨迹记录
+        if self.save_trajectories:
+            self._start_trajectory()
+        
+        # 添加用户消息到历史
+        self.conversation_history.append(Message(
+            role=MessageRole.USER,
+            content=user_message
+        ))
+        
+        # 当前用户消息在history中的索引
+        user_msg_index = len(self.conversation_history) - 1
+        
+        try:
+            # 主循环
+            while True:
+                # 检查预算
+                if not await self.budget.consume():
+                    logger.warning("Iteration budget exhausted")
+                    return "抱歉，任务迭代次数已达上限。"
+                
+                # 每次迭代都重建消息列表（确保context正确）
+                messages = self._build_full_messages(user_msg_index)
+                
+                # 调用模型（带超时控制）
+                try:
+                    response = await asyncio.wait_for(
+                        self._call_model(messages),
+                        timeout=120.0  # 120秒超时
+                    )
+                except asyncio.TimeoutError:
+                    logger.error("Model call timed out")
+                    return "抱歉，模型响应超时，请重试。"
+                except Exception as e:
+                    logger.error(f"Model call failed: {e}")
+                    # 通用错误，不泄露内部细节
+                    return "抱歉，模型调用失败，请稍后重试。"
+                
+                # 添加助手响应到历史
+                self.conversation_history.append(Message(
+                    role=MessageRole.ASSISTANT,
+                    content=response.get("content", ""),
+                    tool_calls=response.get("tool_calls")
+                ))
+                
+                # 检查是否有工具调用
+                if response.get("tool_calls"):
+                    # 执行工具
+                    tool_results = await self._execute_tools(response["tool_calls"])
+                    
+                    # 添加工具结果到历史
+                    for result in tool_results:
+                        self.conversation_history.append(Message(
+                            role=MessageRole.TOOL,
+                            content=result.content,
+                            tool_call_id=result.tool_call_id
+                        ))
+                        
+                        # 工具调用后 refund
+                        await self.budget.refund()
+                    
+                    # 继续循环（下次迭代会重建messages）
+                    continue
+                
+                # 文本响应，结束
+                return response.get("content", "")
+        finally:
+            # 保存轨迹
+            if self.save_trajectories:
+                self._save_trajectory(completed=True)
+    
+    def _build_full_messages(self, user_msg_index: int) -> List[Dict]:
+        """构建完整消息列表（用于API调用）"""
+        messages = []
+        
+        # 系统提示
+        messages.append({
+            "role": "system",
+            "content": self.system_prompt
+        })
+        
+        # 对话历史（从开始到最新，不包括正在处理的用户消息）
+        for i, msg in enumerate(self.conversation_history):
+            if i == user_msg_index:
+                # 当前用户消息作为最后一条
+                continue
+            msg_dict = {
+                "role": msg.role.value,
+                "content": msg.content,
+            }
+            if msg.name:
+                msg_dict["name"] = msg.name
+            if msg.tool_call_id:
+                msg_dict["tool_call_id"] = msg.tool_call_id
+            if msg.tool_calls:
+                msg_dict["tool_calls"] = msg.tool_calls
+            messages.append(msg_dict)
+        
+        # 添加当前用户消息
+        user_msg = self.conversation_history[user_msg_index]
+        messages.append({
+            "role": "user",
+            "content": user_msg.content
+        })
+        
+        return messages
+    
+    async def _call_model(self, messages: List[Dict]) -> Dict:
+        """
+        调用模型API
+        
+        这是一个抽象方法，需要根据实际模型实现
+        """
+        # TODO: 实现实际的模型调用
+        # 目前返回模拟响应
+        raise NotImplementedError("Model calling not implemented")
+    
+    async def _execute_tools(self, tool_calls: List[Dict]) -> List[ToolResult]:
+        """执行工具调用"""
+        results = []
+        
+        for tool_call in tool_calls:
+            # 校验tool_call必需字段
+            if "id" not in tool_call:
+                logger.warning(f"Tool call missing 'id' field: {tool_call}")
+                continue
+            if "name" not in tool_call:
+                logger.warning(f"Tool call missing 'name' field: {tool_call}")
+                continue
+            
+            try:
+                # 防御性处理 arguments 类型
+                arguments = tool_call.get("arguments", {})
+                if isinstance(arguments, str):
+                    # 如果是字符串，尝试解析为 dict
+                    try:
+                        arguments = json.loads(arguments)
+                    except json.JSONDecodeError:
+                        arguments = {}
+                if not isinstance(arguments, dict):
+                    arguments = {}
+                
+                result = await self.tool_registry.execute(
+                    name=tool_call["name"],
+                    arguments=arguments
+                )
+                results.append(ToolResult(
+                    tool_call_id=tool_call["id"],
+                    content=str(result),
+                    is_error=False
+                ))
+            except Exception as e:
+                logger.error(f"Tool execution failed: {tool_call['name']}, error: {e}")
+                results.append(ToolResult(
+                    tool_call_id=tool_call["id"],
+                    content=f"Error: {str(e)}",
+                    is_error=True
+                ))
+        
+        return results
+    
+    def build_system_prompt(self) -> str:
+        """构建系统提示"""
+        return self.system_prompt
+    
+    def _start_trajectory(self):
+        """开始轨迹记录"""
+        self._trajectory = []
+    
+    def _save_trajectory(self, completed: bool):
+        """保存轨迹"""
+        if not self.save_trajectories:
+            return
+        
+        # 实现轨迹保存到JSONL
+        from datetime import datetime
+        
+        entry = {
+            "id": str(uuid.uuid4()),
+            "model": self.model,
+            "timestamp": datetime.now().isoformat(),
+            "completed": completed,
+            "conversations": self.conversation_history.copy(),
+        }
+        
+        # 保存到文件
+        trajectory_file = f"trajectory_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jsonl"
+        try:
+            with open(trajectory_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+            logger.info(f"Trajectory saved to {trajectory_file}")
+        except Exception as e:
+            logger.error(f"Failed to save trajectory: {e}")
+    
+    async def reset(self):
+        """重置Agent状态"""
+        self.conversation_history = []
+        self.budget = IterationBudget(self.max_iterations)
+        self._trajectory = []
+        logger.info("Agent reset")
+
+
+# 导出的类和函数
+__all__ = [
+    "MimirAetherAgent",
+    "Message",
+    "MessageRole",
+    "ToolCall",
+    "ToolResult",
+    "Plan",
+    "ExecutionResult",
+    "IterationBudget",
+    "ToolRegistry",
+]
