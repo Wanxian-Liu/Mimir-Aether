@@ -133,7 +133,6 @@ def write_file(path: str, content: str) -> str:
         except:
             os.close(fd)
             raise
-            f.write(content)
         return "Successfully wrote file"
     except ValueError:
         return "Error: Invalid path"
