@@ -539,9 +539,15 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
         from datetime import datetime
         import re
         
-        # 敏感信息过滤正则
+        # 敏感信息过滤正则（覆盖多种凭证格式）
         SENSITIVE_PATTERNS = re.compile(
-            r'(api_key|apiKey|api-key|token|auth|bearer|password|passwd|secret|credential|private_key|privatekey|ssh-rsa|-----BEGIN)',
+            r'(api_key|apiKey|api-key|token|auth|bearer|password|passwd|secret|credential|private_key|privatekey|ssh-rsa'
+            r'|-----BEGIN [A-Z0-9 ]+-----[\s\S]+?-----END [A-Z0-9 ]+-----|'
+            r'eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|'
+            r'AKIA[0-9A-Z]{16}|'
+            r'ghp_[a-zA-Z0-9]{36}|'
+            r'sk-[a-zA-Z0-9]{48}|'
+            r'#[a-f0-9]{32})',  # Generic 32-char hex (common secret format)
             re.IGNORECASE
         )
         
