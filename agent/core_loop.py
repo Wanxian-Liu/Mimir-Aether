@@ -339,11 +339,58 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
         """
         调用模型API
         
-        这是一个抽象方法，需要根据实际模型实现
+        支持 MiniMax API，需设置环境变量 MINIMAX_API_KEY
+        或在初始化时传入 model_provider_config
         """
-        # TODO: 实现实际的模型调用
-        # 目前返回模拟响应
-        raise NotImplementedError("Model calling not implemented")
+        import os
+        import aiohttp
+        
+        # 获取API配置
+        api_key = os.environ.get("MINIMAX_API_KEY", "")
+        base_url = os.environ.get("MINIMAX_BASE_URL", "https://api.minimax.chat")
+        model_name = os.environ.get("MINIMAX_MODEL", "MiniMax-M2")
+        
+        if not api_key:
+            raise ValueError("MINIMAX_API_KEY environment variable not set")
+        
+        # 构建请求头
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        # 构建请求体（OpenAI兼容格式）
+        payload = {
+            "model": model_name,
+            "messages": messages,
+            "temperature": 0.7,
+            "max_tokens": 4096
+        }
+        
+        # 发送请求
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{base_url}/v1/chat/completions",
+                    headers=headers,
+                    json=payload,
+                    timeout=aiohttp.ClientTimeout(total=120)
+                ) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        raise RuntimeError(f"API call failed with status {response.status}: {error_text}")
+                    
+                    result = await response.json()
+                    
+                    # 提取助手响应
+                    assistant_message = result["choices"][0]["message"]
+                    
+                    return {
+                        "content": assistant_message.get("content", ""),
+                        "tool_calls": assistant_message.get("tool_calls")
+                    }
+        except aiohttp.ClientError as e:
+            raise RuntimeError(f"Network error during model call: {e}")
     
     async def _execute_tools(self, tool_calls: List[Dict]) -> List[ToolResult]:
         """执行工具调用"""
