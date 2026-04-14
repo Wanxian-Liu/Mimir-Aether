@@ -2,6 +2,7 @@
 
 from .core_loop import MimirAetherAgent, Message, MessageRole, ToolResult, ToolRegistry, IterationBudget
 from .turn_loop import TurnManager, Turn, TurnStatus
+from .subagent import SubAgentPool, SubAgentTask, SubAgentStatus, TaskDecomposer, TaskDecomposition
 
 __all__ = [
     # Core
@@ -15,4 +16,10 @@ __all__ = [
     "TurnManager",
     "Turn",
     "TurnStatus",
+    # SubAgent
+    "SubAgentPool",
+    "SubAgentTask",
+    "SubAgentStatus",
+    "TaskDecomposer",
+    "TaskDecomposition",
 ]
