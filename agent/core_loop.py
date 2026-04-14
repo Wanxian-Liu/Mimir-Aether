@@ -248,9 +248,6 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
             content=user_message
         ))
         
-        # 当前用户消息在history中的索引
-        user_msg_index = len(self.conversation_history) - 1
-        
         try:
             # 主循环
             while True:
@@ -259,8 +256,8 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                     logger.warning("Iteration budget exhausted")
                     return "抱歉，任务迭代次数已达上限。"
                 
-                # 每次迭代都重建消息列表（确保context正确）
-                messages = self._build_full_messages(user_msg_index)
+                # 每次迭代都重建消息列表（使用当前全部历史）
+                messages = self._build_full_messages()
                 
                 # 调用模型（带超时控制）
                 try:
@@ -276,12 +273,15 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                     # 通用错误，不泄露内部细节
                     return "抱歉，模型调用失败，请稍后重试。"
                 
-                # 添加助手响应到历史
-                self.conversation_history.append(Message(
-                    role=MessageRole.ASSISTANT,
-                    content=response.get("content", ""),
-                    tool_calls=response.get("tool_calls")
-                ))
+                # 添加助手响应到历史（仅当有内容或tool_calls时）
+                response_content = response.get("content") or ""
+                response_tool_calls = response.get("tool_calls")
+                if response_content or response_tool_calls:
+                    self.conversation_history.append(Message(
+                        role=MessageRole.ASSISTANT,
+                        content=response_content,
+                        tool_calls=response_tool_calls
+                    ))
                 
                 # 检查是否有工具调用
                 if response.get("tool_calls"):
@@ -295,21 +295,21 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                             content=result.content,
                             tool_call_id=result.tool_call_id
                         ))
-                        
-                        # 工具调用后 refund
-                        await self.budget.refund()
+                    
+                    # 工具调用后 refund（只refund一次，无论多少工具）
+                    await self.budget.refund()
                     
                     # 继续循环（下次迭代会重建messages）
                     continue
                 
                 # 文本响应，结束
-                return response.get("content", "")
+                return response.get("content") or ""
         finally:
             # 保存轨迹
             if self.save_trajectories:
                 self._save_trajectory(completed=True)
     
-    def _build_full_messages(self, user_msg_index: int) -> List[Dict]:
+    def _build_full_messages(self) -> List[Dict]:
         """构建完整消息列表（用于API调用）"""
         messages = []
         
@@ -319,11 +319,8 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
             "content": self.system_prompt
         })
         
-        # 对话历史（从开始到最新，不包括正在处理的用户消息）
-        for i, msg in enumerate(self.conversation_history):
-            if i == user_msg_index:
-                # 当前用户消息作为最后一条
-                continue
+        # 对话历史（从开始到最新，全部包含）
+        for msg in self.conversation_history:
             msg_dict = {
                 "role": msg.role.value,
                 "content": msg.content,
@@ -335,13 +332,6 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
             if msg.tool_calls:
                 msg_dict["tool_calls"] = msg.tool_calls
             messages.append(msg_dict)
-        
-        # 添加当前用户消息
-        user_msg = self.conversation_history[user_msg_index]
-        messages.append({
-            "role": "user",
-            "content": user_msg.content
-        })
         
         return messages
     
@@ -362,10 +352,10 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
         for tool_call in tool_calls:
             # 校验tool_call必需字段
             if "id" not in tool_call:
-                logger.warning(f"Tool call missing 'id' field: {tool_call}")
+                logger.warning(f"SKIP tool_call: missing 'id' field: {tool_call}")
                 continue
             if "name" not in tool_call:
-                logger.warning(f"Tool call missing 'name' field: {tool_call}")
+                logger.warning(f"SKIP tool_call: missing 'name' field: {tool_call}")
                 continue
             
             try:
@@ -376,8 +366,10 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                     try:
                         arguments = json.loads(arguments)
                     except json.JSONDecodeError:
+                        logger.warning(f"Failed to parse arguments as JSON for tool {tool_call.get('name', 'unknown')}: {arguments}")
                         arguments = {}
                 if not isinstance(arguments, dict):
+                    logger.warning(f"Arguments is not a dict for tool {tool_call.get('name', 'unknown')}: {type(arguments)}")
                     arguments = {}
                 
                 result = await self.tool_registry.execute(
@@ -415,16 +407,30 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
         # 实现轨迹保存到JSONL
         from datetime import datetime
         
+        # 将Message对象转换为dict以支持JSON序列化
+        def msg_to_dict(msg: Message) -> dict:
+            result = {"role": msg.role.value, "content": msg.content}
+            if msg.name:
+                result["name"] = msg.name
+            if msg.tool_call_id:
+                result["tool_call_id"] = msg.tool_call_id
+            if msg.tool_calls:
+                result["tool_calls"] = msg.tool_calls
+            return result
+        
         entry = {
             "id": str(uuid.uuid4()),
             "model": self.model,
             "timestamp": datetime.now().isoformat(),
             "completed": completed,
-            "conversations": self.conversation_history.copy(),
+            "conversations": [msg_to_dict(m) for m in self.conversation_history],
         }
         
-        # 保存到文件
-        trajectory_file = f"trajectory_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jsonl"
+        # 保存到文件（使用绝对路径）
+        import os
+        trajectory_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "trajectories")
+        os.makedirs(trajectory_dir, exist_ok=True)
+        trajectory_file = os.path.join(trajectory_dir, f"trajectory_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jsonl")
         try:
             with open(trajectory_file, "a", encoding="utf-8") as f:
                 f.write(json.dumps(entry, ensure_ascii=False) + "\n")
