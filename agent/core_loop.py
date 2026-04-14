@@ -410,11 +410,17 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                     
                     result = await response.json()
                     
-                    # 提取助手响应
-                    assistant_message = result["choices"][0]["message"]
+                    # 安全提取助手响应（边界检查）
+                    choices = result.get("choices")
+                    if not choices or len(choices) == 0:
+                        raise RuntimeError("Invalid API response: no choices")
+                    
+                    assistant_message = choices[0].get("message")
+                    if not assistant_message:
+                        raise RuntimeError("Invalid API response: no message in choice")
                     
                     return {
-                        "content": assistant_message.get("content", ""),
+                        "content": assistant_message.get("content") or "",
                         "tool_calls": assistant_message.get("tool_calls")
                     }
         except aiohttp.ClientError as e:

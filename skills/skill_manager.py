@@ -74,6 +74,7 @@ class Skill:
     handler: Callable
     schema: Dict[str, Any]
     enabled: bool = True
+    status: SkillStatus = SkillStatus.INACTIVE
     
     def to_dict(self) -> Dict[str, Any]:
         return {

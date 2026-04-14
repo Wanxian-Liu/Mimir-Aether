@@ -45,23 +45,14 @@ def _safe_path(path: str) -> str:
     except (ValueError, TypeError):
         raise ValueError("Invalid path")
     
-    # 如果解析后的路径与原绝对路径不同，说明经过了符号链接解析
-    if real_path != abs_path:
-        # 检查解析后的路径本身是否为符号链接
-        if os.path.islink(real_path):
-            raise ValueError("Symbolic links are not allowed")
-        # 检查解析后的路径是否在允许目录内（防止中间目录是符号链接绕过）
-        allowed_real = os.path.realpath(os.path.abspath(_ALLOWED_BASE_DIR))
-        if not real_path.startswith(allowed_real + os.sep):
-            raise ValueError("Path traversal attempt detected")
-        # 解析后的路径需要再次检查是否为符号链接
-        if os.path.islink(real_path):
-            raise ValueError("Symbolic links are not allowed")
-    else:
-        # 路径没有经过符号链接解析，直接检查是否在允许目录内
-        allowed_real = os.path.realpath(os.path.abspath(_ALLOWED_BASE_DIR))
-        if not real_path.startswith(allowed_real + os.sep):
-            raise ValueError("Path traversal attempt detected")
+    # 解析后的路径不能是符号链接（防止链接指向目录外）
+    if os.path.islink(real_path):
+        raise ValueError("Symbolic links are not allowed")
+    
+    # 检查解析后的路径是否在允许目录内
+    allowed_real = os.path.realpath(os.path.abspath(_ALLOWED_BASE_DIR))
+    if not real_path.startswith(allowed_real + os.sep):
+        raise ValueError("Path traversal attempt detected")
     
     return real_path
 
