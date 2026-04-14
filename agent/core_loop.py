@@ -438,9 +438,9 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                     timeout=aiohttp.ClientTimeout(total=120)
                 ) as response:
                     if response.status != 200:
-                        # 不泄露原始响应内容，只记录状态码
-                        logger.warning(f"API call failed with status {response.status}")
-                        raise RuntimeError(f"Model API request failed with status {response.status}")
+                        # 不泄露原始响应内容
+                        logger.warning("API call failed")
+                        raise RuntimeError("Model API request failed")
                     
                     result = await response.json()
                     
