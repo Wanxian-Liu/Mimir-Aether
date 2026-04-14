@@ -201,7 +201,26 @@ class MimirAetherAgent:
         # 轨迹记录
         self._trajectory: List[Dict] = []
         
+        # 注册内置工具
+        self._register_builtin_tools()
+        
         logger.info(f"MimirAether initialized with model: {model}")
+    
+    def _register_builtin_tools(self):
+        """注册内置工具"""
+        try:
+            from ..tools.builtin import get_tool_functions, get_all_tools
+            
+            functions = get_tool_functions()
+            schemas = get_all_tools()
+            
+            for name, func in functions.items():
+                schema = schemas.get(name, {})
+                self.tool_registry.register(name, func, schema)
+            
+            logger.info(f"Registered {len(functions)} builtin tools")
+        except ImportError as e:
+            logger.warning(f"Failed to import builtin tools: {e}")
     
     def _default_system_prompt(self) -> str:
         """默认系统提示"""
@@ -485,7 +504,7 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
         
         # 保存到文件（使用绝对路径）
         import os
-        trajectory_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "trajectories")
+        trajectory_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "trajectory")
         os.makedirs(trajectory_dir, exist_ok=True)
         trajectory_file = os.path.join(trajectory_dir, f"trajectory_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jsonl")
         try:
