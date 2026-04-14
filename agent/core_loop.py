@@ -400,9 +400,19 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
             # 校验tool_call必需字段
             if "id" not in tool_call:
                 logger.warning(f"SKIP tool_call: missing 'id' field: {tool_call}")
+                results.append(ToolResult(
+                    tool_call_id="unknown",
+                    content="Error: tool_call missing 'id' field",
+                    is_error=True
+                ))
                 continue
             if "name" not in tool_call:
                 logger.warning(f"SKIP tool_call: missing 'name' field: {tool_call}")
+                results.append(ToolResult(
+                    tool_call_id=tool_call.get("id", "unknown"),
+                    content="Error: tool_call missing 'name' field",
+                    is_error=True
+                ))
                 continue
             
             try:
