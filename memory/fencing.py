@@ -32,14 +32,14 @@ MEMORY_BLOCK_CLOSE = "</memory-block>"
 # 注入防护模式
 INJECTION_PATTERNS = [
     # 指令注入
-    r"(?i)(ignore\s+previous\s+instructions?)",
-    r"(?i)(ignore\s+all\s+previous\s+commands?)",
-    r"(?i)(disregard\s+your\s+instructions?)",
-    r"(?i)(you\s+are\s+now\s+)",
-    r"(?i)(system\s+prompt\s+leak)",
-    r"(?i)(reveal\s+your\s+system\s+prompt)",
-    r"(?i)(forget\s+everything)",
-    r"(?i)(new\s+system\s+prompt)",
+    r"(ignore\s+previous\s+instructions?)",
+    r"(ignore\s+all\s+previous\s+commands?)",
+    r"(disregard\s+your\s+instructions?)",
+    r"(you\s+are\s+now\s+)",
+    r"(system\s+prompt\s+leak)",
+    r"(reveal\s+your\s+system\s+prompt)",
+    r"(forget\s+everything)",
+    r"(new\s+system\s+prompt)",
     # 模板注入
     r"\{\{.*?\}\}",
     r"\$\{[^}]+\}",

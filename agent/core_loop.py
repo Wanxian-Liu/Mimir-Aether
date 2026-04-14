@@ -18,6 +18,11 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Callable, Union
 from enum import Enum
 
+# 新模块导入
+from .context_compressor import ContextCompressor, CompressionResult
+from .insights import InsightsEngine, MetricType
+from memory.fencing import MemoryFencer
+
 logger = logging.getLogger(__name__)
 
 
@@ -198,7 +203,12 @@ class MimirAetherAgent:
         self.tool_registry = ToolRegistry()
         self.conversation_history: List[Message] = []
         self.max_history_length = 100  # 对话历史最大长度，防止内存耗尽
-        
+
+        # 新模块初始化
+        self.compressor = ContextCompressor()
+        self.insights = InsightsEngine()
+        self.fencer = MemoryFencer()
+
         # 轨迹记录
         self._trajectory: List[Dict] = []
         
@@ -274,14 +284,22 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
         - 处理工具调用
         - 管理迭代预算
         """
+        # 生成会话ID（用于Insights追踪）
+        session_id = str(uuid.uuid4())
+
         # 开始轨迹记录
         if self.save_trajectories:
             self._start_trajectory()
-        
-        # 添加用户消息到历史
+
+        # 用MemoryFencer隔离用户消息（防止注入）
+        fenced_msg = self.fencer.fence(user_message)
+        if fenced_msg.was_modified:
+            logger.warning(f"User message modified by fencer: {fenced_msg.warnings}")
+
+        # 添加用户消息到历史（使用隔离后的内容）
         self.conversation_history.append(Message(
             role=MessageRole.USER,
-            content=user_message
+            content=fenced_msg.content
         ))
         
         # 限制历史长度，防止内存耗尽
@@ -301,11 +319,21 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                 
                 # 每次迭代都重建消息列表（使用当前全部历史）
                 messages = self._build_full_messages()
-                
+
+                # 用ContextCompressor压缩长对话
+                if self.compressor.needs_compression(messages):
+                    compressed_messages, comp_result = self.compressor.compress(messages)
+                    logger.info(
+                        f"Compressed {comp_result.original_count} -> "
+                        f"{comp_result.compressed_count} messages "
+                        f"(ratio: {comp_result.compression_ratio:.2f})"
+                    )
+                    messages = compressed_messages
+
                 # 调用模型（带超时控制）
                 try:
-                    response = await asyncio.wait_for(
-                        self._call_model(messages),
+                    response, latency_ms = await asyncio.wait_for(
+                        self._call_model_with_tokens(messages, session_id),
                         timeout=120.0  # 120秒超时
                     )
                 except asyncio.TimeoutError:
@@ -396,30 +424,35 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
         
         return messages
     
-    async def _call_model(self, messages: List[Dict]) -> Dict:
+    async def _call_model_with_tokens(
+        self, messages: List[Dict], session_id: str
+    ) -> tuple[Dict, float]:
         """
-        调用模型API
-        
-        支持 MiniMax API，需设置环境变量 MINIMAX_API_KEY
-        或在初始化时传入 model_provider_config
+        调用模型API并记录token使用
+
+        Returns:
+            (response_dict, latency_ms)
         """
+        import time
+        start = time.monotonic()
+
         import os
         import aiohttp
-        
+
         # 获取API配置
         api_key = os.environ.get("MINIMAX_API_KEY", "")
         base_url = os.environ.get("MINIMAX_BASE_URL", "https://api.minimax.chat")
         model_name = os.environ.get("MINIMAX_MODEL", "MiniMax-M2")
-        
+
         if not api_key:
             raise ValueError("MINIMAX_API_KEY environment variable not set")
-        
+
         # 构建请求头
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
-        
+
         # 构建请求体（OpenAI兼容格式）
         payload = {
             "model": model_name,
@@ -427,7 +460,7 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
             "temperature": 0.7,
             "max_tokens": 4096
         }
-        
+
         # 发送请求
         try:
             async with aiohttp.ClientSession() as session:
@@ -437,26 +470,68 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                     json=payload,
                     timeout=aiohttp.ClientTimeout(total=120)
                 ) as response:
+                    latency_ms = (time.monotonic() - start) * 1000
+
                     if response.status != 200:
                         # 不泄露原始响应内容
                         logger.warning("API call failed")
                         raise RuntimeError("Model API request failed")
-                    
+
                     result = await response.json()
-                    
+
                     # 安全提取助手响应（边界检查）
                     choices = result.get("choices")
                     if not choices or len(choices) == 0:
                         raise RuntimeError("Invalid API response: no choices")
-                    
+
                     assistant_message = choices[0].get("message")
                     if not assistant_message:
                         raise RuntimeError("Invalid API response: no message in choice")
-                    
+
+                    content = assistant_message.get("content") or ""
+                    tool_calls = assistant_message.get("tool_calls")
+
+                    # 提取usage信息（记录token）
+                    usage = result.get("usage", {})
+                    prompt_tokens = usage.get("prompt_tokens", 0)
+                    completion_tokens = usage.get("completion_tokens", 0)
+
+                    # 用InsightsEngine记录token使用
+                    if prompt_tokens > 0:
+                        self.insights.record(
+                            MetricType.TOKEN_INPUT,
+                            float(prompt_tokens),
+                            metadata={
+                                "session_id": session_id,
+                                "platform": self.platform,
+                                "model": self.model,
+                            }
+                        )
+                    if completion_tokens > 0:
+                        self.insights.record(
+                            MetricType.TOKEN_OUTPUT,
+                            float(completion_tokens),
+                            metadata={
+                                "session_id": session_id,
+                                "platform": self.platform,
+                                "model": self.model,
+                            }
+                        )
+
+                    # 记录延迟
+                    self.insights.record(
+                        MetricType.LATENCY,
+                        latency_ms,
+                        metadata={
+                            "session_id": session_id,
+                            "platform": self.platform,
+                        }
+                    )
+
                     return {
-                        "content": assistant_message.get("content") or "",
-                        "tool_calls": assistant_message.get("tool_calls")
-                    }
+                        "content": content,
+                        "tool_calls": tool_calls
+                    }, latency_ms
         except aiohttp.ClientError:
             raise RuntimeError("Network error during model call")
     
@@ -659,6 +734,7 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
         self.conversation_history = []
         self.budget = IterationBudget(self.max_iterations)
         self._trajectory = []
+        self.compressor.reset_history()
         logger.info("Agent reset")
 
 
