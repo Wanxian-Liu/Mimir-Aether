@@ -212,7 +212,20 @@ class MimirAetherAgent:
     def _register_builtin_tools(self):
         """注册内置工具"""
         try:
-            from ..tools.builtin import get_tool_functions, get_all_tools
+            # 使用try/except处理相对导入和绝对导入两种情况
+            try:
+                from ..tools.builtin import get_tool_functions, get_all_tools
+            except ImportError:
+                # 当作为顶层包导入时，使用绝对导入
+                import sys
+                from pathlib import Path
+                
+                # 将MimirAether根目录添加到path
+                mimir_root = Path(__file__).parent.parent
+                if str(mimir_root) not in sys.path:
+                    sys.path.insert(0, str(mimir_root))
+                
+                from tools.builtin import get_tool_functions, get_all_tools
             
             functions = get_tool_functions()
             schemas = get_all_tools()

@@ -32,6 +32,10 @@ def _safe_path(path: str) -> str:
     if not path or not path.strip():
         raise ValueError("Invalid empty path")
     
+    # 扩展 ~ 为真实家目录（必须在abspath之前）
+    if path.startswith("~"):
+        path = os.path.expanduser(path)
+    
     # 获取绝对路径
     try:
         abs_path = os.path.abspath(path)
