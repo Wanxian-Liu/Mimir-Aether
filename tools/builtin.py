@@ -87,8 +87,12 @@ def read_file(path: str) -> str:
         file_size = os.path.getsize(safe_path)
         if file_size > MAX_FILE_SIZE:
             return "Error: File too large"
-        # 使用O_NOFOLLOW防止TOCTOU攻击
-        fd = os.open(safe_path, os.O_RDONLY | os.O_NOFOLLOW)
+        # 使用O_NOFOLLOW防止TOCTOU攻击（最佳实践：检查平台支持）
+        flags = os.O_RDONLY
+        o_nofollow = getattr(os, "O_NOFOLLOW", None)
+        if o_nofollow is not None:
+            flags |= o_nofollow
+        fd = os.open(safe_path, flags)
         try:
             return os.read(fd, MAX_FILE_SIZE).decode("utf-8")
         finally:
@@ -123,8 +127,12 @@ def write_file(path: str, content: str) -> str:
         if len(content.encode('utf-8')) > MAX_FILE_SIZE:
             return "Error: Content too large"
         safe_path = _safe_path(path)
-        # 使用O_NOFOLLOW防止TOCTOU攻击
-        fd = os.open(safe_path, os.O_WRONLY | os.O_NOFOLLOW | os.O_CREAT | os.O_TRUNC, 0o600)
+        # 使用O_NOFOLLOW防止TOCTOU攻击（最佳实践：检查平台支持）
+        flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+        o_nofollow = getattr(os, "O_NOFOLLOW", None)
+        if o_nofollow is not None:
+            flags |= o_nofollow
+        fd = os.open(safe_path, flags, 0o600)
         try:
             os.write(fd, content.encode("utf-8"))
         finally:
