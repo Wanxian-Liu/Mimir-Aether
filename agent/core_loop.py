@@ -197,6 +197,7 @@ class MimirAetherAgent:
         self.budget = IterationBudget(max_iterations)
         self.tool_registry = ToolRegistry()
         self.conversation_history: List[Message] = []
+        self.max_history_length = 100  # 对话历史最大长度，防止内存耗尽
         
         # 轨迹记录
         self._trajectory: List[Dict] = []
@@ -282,6 +283,13 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
             role=MessageRole.USER,
             content=user_message
         ))
+        
+        # 限制历史长度，防止内存耗尽
+        if len(self.conversation_history) > self.max_history_length:
+            # 保留系统消息和最新的对话
+            system_msgs = [m for m in self.conversation_history if m.role == MessageRole.SYSTEM]
+            other_msgs = [m for m in self.conversation_history if m.role != MessageRole.SYSTEM]
+            self.conversation_history = system_msgs + other_msgs[-self.max_history_length:]
         
         try:
             # 主循环
