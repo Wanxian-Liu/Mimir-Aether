@@ -439,13 +439,27 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
         import os
         import aiohttp
 
-        # 获取API配置
-        api_key = os.environ.get("MINIMAX_API_KEY", "")
-        base_url = os.environ.get("MINIMAX_BASE_URL", "https://api.minimax.chat")
-        model_name = os.environ.get("MINIMAX_MODEL", "MiniMax-M2")
-
+        # 获取API配置（支持多平台）
+        # 优先级：1. 显式传入 2. 环境变量 3. 默认DeepSeek
+        if hasattr(self, 'model') and self.model:
+            model_name = self.model
+        else:
+            model_name = os.environ.get("LLM_MODEL", "deepseek-chat")
+        
+        # 检测使用哪个API
+        if "deepseek" in model_name.lower():
+            api_key = os.environ.get("DEEPSEEK_API_KEY", "")
+            base_url = "https://api.deepseek.com"
+        elif "minimax" in model_name.lower() or os.environ.get("MINIMAX_API_KEY"):
+            api_key = os.environ.get("MINIMAX_API_KEY", "")
+            base_url = os.environ.get("MINIMAX_BASE_URL", "https://api.minimax.chat")
+        else:
+            # 默认DeepSeek
+            api_key = os.environ.get("DEEPSEEK_API_KEY", os.environ.get("OPENAI_API_KEY", ""))
+            base_url = "https://api.deepseek.com"
+        
         if not api_key:
-            raise ValueError("MINIMAX_API_KEY environment variable not set")
+            raise ValueError(f"API key not set for model {model_name}")
 
         # 构建请求头
         headers = {
