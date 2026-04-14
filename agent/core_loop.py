@@ -423,8 +423,8 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                         "content": assistant_message.get("content") or "",
                         "tool_calls": assistant_message.get("tool_calls")
                     }
-        except aiohttp.ClientError as e:
-            raise RuntimeError(f"Network error during model call: {e}")
+        except aiohttp.ClientError:
+            raise RuntimeError("Network error during model call")
     
     async def _execute_tools(self, tool_calls: List[Dict]) -> List[ToolResult]:
         """执行工具调用（带并发限制和单工具超时）"""
