@@ -14,7 +14,7 @@ _ALLOWED_BASE_DIR = os.environ.get("MIMIR_BASE_DIR", os.path.expanduser("~"))
 
 def _safe_path(path: str) -> str:
     """
-    验证路径安全，防止路径遍历攻击
+    验证路径安全，防止路径遍历攻击和符号链接绕过
     
     Args:
         path: 用户提供的路径
@@ -29,11 +29,27 @@ def _safe_path(path: str) -> str:
     if not path or not path.strip():
         raise ValueError("Invalid empty path")
     
-    # 获取真实绝对路径
+    # 获取绝对路径
     try:
-        real_path = os.path.realpath(os.path.abspath(path))
+        abs_path = os.path.abspath(path)
     except (ValueError, TypeError):
         raise ValueError("Invalid path")
+    
+    # 检查路径本身是否为符号链接（直接攻击）
+    if os.path.islink(abs_path):
+        raise ValueError("Symbolic links are not allowed")
+    
+    # 获取真实绝对路径（解析符号链接）
+    try:
+        real_path = os.path.realpath(abs_path)
+    except (ValueError, TypeError):
+        raise ValueError("Invalid path")
+    
+    # 如果解析后的路径与原绝对路径不同，说明经过了符号链接
+    if real_path != abs_path:
+        # 这是符号链接被解析后的情况，需要检查最终目标
+        if os.path.islink(real_path):
+            raise ValueError("Symbolic links are not allowed")
     
     allowed_real = os.path.realpath(os.path.abspath(_ALLOWED_BASE_DIR))
     
