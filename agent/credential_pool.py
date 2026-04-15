@@ -260,7 +260,10 @@ class CredentialPool:
         """持久化到磁盘"""
         try:
             DEFAULT_CREDENTIALS_DIR.mkdir(parents=True, exist_ok=True)
-            filepath = DEFAULT_CREDENTIALS_DIR / f"{self.provider}_{CREDENTIAL_POOL_FILE}"
+            # 每个provider一个子目录
+            provider_dir = DEFAULT_CREDENTIALS_DIR / self.provider
+            provider_dir.mkdir(parents=True, exist_ok=True)
+            filepath = provider_dir / CREDENTIAL_POOL_FILE
             data = [entry.to_dict() for entry in self._entries]
             filepath.write_text(json.dumps(data, indent=2, ensure_ascii=False))
             logger.debug(f"Credential pool persisted: {self.provider}")
