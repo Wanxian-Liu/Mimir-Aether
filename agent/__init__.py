@@ -12,6 +12,7 @@ from . import model_metadata
 from . import anthropic_adapter
 from . import credential_pool
 from . import smart_model_routing
+from . import error_classifier
 from .smart_model_routing import (
     choose_cheap_model_route,
     resolve_turn_route,
@@ -23,6 +24,11 @@ from .credential_pool import (
     CredentialPoolRegistry,
     get_default_registry,
     create_credential,
+)
+from .error_classifier import (
+    FailoverReason,
+    ClassifiedError,
+    classify_api_error,
 )
 
 __all__ = [
@@ -65,10 +71,15 @@ __all__ = [
     "choose_cheap_model_route",
     "resolve_turn_route",
     "DEFAULT_ROUTING_CONFIG",
+    # Error Classifier
+    "FailoverReason",
+    "ClassifiedError",
+    "classify_api_error",
     # Integrated Modules
     "prompt_builder",
     "model_metadata",
     "anthropic_adapter",
     "credential_pool",
     "smart_model_routing",
+    "error_classifier",
 ]
