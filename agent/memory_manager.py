@@ -17,9 +17,154 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
+# ============================================================================
+# MemoryProvider 抽象基类
+# ============================================================================
 
-# 从memory_provider导入MemoryProvider基类
-from .memory_provider import MemoryProvider
+class MemoryProvider(ABC):
+    """
+    记忆提供者抽象基类
+
+    生命周期：
+    1. initialize() - 会话初始化
+    2. system_prompt_block() - 系统提示词
+    3. prefetch() - 预取相关记忆
+    4. sync_turn() - 同步一轮对话
+    5. on_session_end() - 会话结束
+    6. shutdown() - 关闭
+    """
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """短标识符，如 'builtin', 'user'"""
+
+    @abstractmethod
+    def is_available(self) -> bool:
+        """返回True表示provider已配置好、可用"""
+
+    @abstractmethod
+    def initialize(self, session_id: str, **kwargs) -> None:
+        """
+        初始化会话
+
+        session_id: 会话ID
+        kwargs可能包含: hermes_home, platform, model等
+        """
+
+    def system_prompt_block(self) -> str:
+        """
+        返回要包含在系统提示词中的文本
+
+        返回空字符串表示不贡献任何内容
+        """
+        return ""
+
+    def prefetch(self, query: str, *, session_id: str = "") -> str:
+        """
+        预取相关上下文
+
+        在每次API调用前调用。返回要注入的格式化文本。
+        """
+        return ""
+
+    def queue_prefetch(self, query: str, *, session_id: str = "") -> None:
+        """
+        队列后台预取（下次turn）
+
+        在每轮结束后调用。结果将在下一轮的prefetch()中消费。
+        """
+        pass
+
+    @abstractmethod
+    def sync_turn(self, user_content: str, assistant_content: str, *, session_id: str = "") -> None:
+        """
+        将一轮对话同步到后端
+
+        在每轮对话后调用
+        """
+
+    @abstractmethod
+    def get_tool_schemas(self) -> List[Dict[str, Any]]:
+        """
+        返回此provider暴露的工具schema列表
+
+        每个schema遵循OpenAI函数调用格式：
+        {"name": "...", "description": "...", "parameters": {...}}
+
+        如果没有工具返回空列表
+        """
+
+    def handle_tool_call(self, tool_name: str, args: Dict[str, Any], **kwargs) -> str:
+        """处理工具调用"""
+        return '{"error": "Not implemented"}'
+
+    def shutdown(self) -> None:
+        """清理关闭"""
+        pass
+
+    # -- 可选钩子 ----------------------------------------------------
+
+    def on_turn_start(self, turn_number: int, message: str, **kwargs) -> None:
+        """每轮开始时调用"""
+        pass
+
+    def on_session_end(self, messages: List[Dict[str, Any]]) -> None:
+        """会话结束时调用"""
+        pass
+
+    def on_pre_compress(self, messages: List[Dict[str, Any]]) -> str:
+        """
+        在上下文压缩前调用
+
+        返回要包含在压缩摘要提示中的文本
+        """
+        return ""
+
+    def on_delegation(self, task: str, result: str, *,
+                      child_session_id: str = "", **kwargs) -> None:
+        """
+        当子代理完成时在父代理上调用
+
+        task: 委托任务描述
+        result: 子代理的最终响应
+        child_session_id: 子代理的会话ID
+        """
+        pass
+
+    def get_config_schema(self) -> List[Dict[str, Any]]:
+        """
+        返回此provider需要的配置字段
+
+        每个字段格式：
+        - key: 配置键名
+        - description: 人类可读的描述
+        - secret: 是否是密钥（默认False）
+        - required: 是否必需（默认False）
+        - default: 默认值（可选）
+        - choices: 有效值列表（可选）
+        - url: 凭证获取URL（可选）
+        """
+        return []
+
+    def save_config(self, values: Dict[str, Any], hermes_home: str) -> None:
+        """
+        将非密钥配置写入provider的原生位置
+
+        使用env vars的provider可以保持默认（no-op）
+        """
+        pass
+
+    def on_memory_write(self, action: str, target: str, content: str) -> None:
+        """
+        当内置记忆工具写入条目时调用
+
+        action: 'add', 'replace', 或 'remove'
+        target: 'memory' 或 'user'
+        content: 条目内容
+        """
+        pass
+
 
 # ============================================================================
 # MemoryManager
