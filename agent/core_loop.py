@@ -8,11 +8,17 @@ MimirAether Agent Core Loop
 - 工具调用处理
 - 上下文管理
 - 迭代预算控制
+
+集成模块：
+- prompt_builder: System Prompt构建
+- model_metadata: 模型元数据管理
+- anthropic_adapter: Anthropic API适配
 """
 
 import asyncio
 import json
 import logging
+import os
 import uuid
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Callable, Union
@@ -22,6 +28,11 @@ from enum import Enum
 from .context_compressor import ContextCompressor, CompressionResult
 from .insights import InsightsEngine, MetricType
 from memory.fencing import MemoryFencer
+
+# 集成新模块
+from . import prompt_builder
+from . import model_metadata
+from . import anthropic_adapter
 
 logger = logging.getLogger(__name__)
 
@@ -209,6 +220,19 @@ class MimirAetherAgent:
         self.insights = InsightsEngine()
         self.fencer = MemoryFencer()
 
+        # 初始化model_metadata获取context_length
+        self._context_length = model_metadata.get_model_context_length(
+            model=model,
+            base_url=self._get_model_base_url(),
+            api_key=self._get_api_key(),
+        )
+
+        # 初始化prompt_builder构建系统提示
+        if system_prompt:
+            self.system_prompt = system_prompt
+        else:
+            self.system_prompt = self._build_system_prompt()
+
         # 轨迹记录
         self._trajectory: List[Dict] = []
         
@@ -218,7 +242,56 @@ class MimirAetherAgent:
         # 注册内置工具
         self._register_builtin_tools()
         
-        logger.info(f"MimirAether initialized with model: {model}")
+        logger.info(f"MimirAether initialized with model: {model}, context_length: {self._context_length}")
+    
+    def _get_api_key(self) -> str:
+        """获取当前模型的API key"""
+        model_lower = self.model.lower()
+        if "deepseek" in model_lower:
+            return os.environ.get("DEEPSEEK_API_KEY", "")
+        elif "minimax" in model_lower:
+            return os.environ.get("MINIMAX_API_KEY", "")
+        elif "anthropic" in model_lower or "claude" in model_lower:
+            return os.environ.get("ANTHROPIC_API_KEY", os.environ.get("DEEPSEEK_API_KEY", ""))
+        elif "openai" in model_lower or "gpt" in model_lower:
+            return os.environ.get("OPENAI_API_KEY", os.environ.get("DEEPSEEK_API_KEY", ""))
+        else:
+            return os.environ.get("DEEPSEEK_API_KEY", "")
+    
+    def _get_model_base_url(self) -> str:
+        """获取当前模型的API base URL"""
+        model_lower = self.model.lower()
+        if "deepseek" in model_lower:
+            return "https://api.deepseek.com"
+        elif "minimax" in model_lower:
+            return os.environ.get("MINIMAX_BASE_URL", "https://api.minimax.chat")
+        elif "anthropic" in model_lower or "claude" in model_lower:
+            return os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
+        elif "openai" in model_lower or "gpt" in model_lower:
+            return os.environ.get("OPENAI_BASE_URL", "https://api.openai.com")
+        else:
+            return "https://api.deepseek.com"
+    
+    def _build_system_prompt(self) -> str:
+        """使用prompt_builder构建完整的系统提示"""
+        try:
+            # 获取可用工具列表
+            available_tools = set(self.tool_registry.list_tools())
+            
+            # 使用prompt_builder构建系统提示
+            system_prompt = prompt_builder.build_system_prompt(
+                model=self.model,
+                cwd=os.getcwd(),
+                available_tools=available_tools,
+                platform=self.platform,
+                include_skills=True,
+                include_context=True,
+            )
+            
+            return system_prompt if system_prompt else self._default_system_prompt()
+        except Exception as e:
+            logger.warning(f"Failed to build system prompt with prompt_builder: {e}")
+            return self._default_system_prompt()
     
     def _register_builtin_tools(self):
         """注册内置工具"""
@@ -461,17 +534,43 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
         if "deepseek" in model_name.lower():
             api_key = os.environ.get("DEEPSEEK_API_KEY", "")
             base_url = "https://api.deepseek.com"
+            is_anthropic = False
         elif "minimax" in model_name.lower() or os.environ.get("MINIMAX_API_KEY"):
             api_key = os.environ.get("MINIMAX_API_KEY", "")
             base_url = os.environ.get("MINIMAX_BASE_URL", "https://api.minimax.chat")
+            is_anthropic = False
+        elif "anthropic" in model_name.lower() or "claude" in model_name.lower():
+            api_key = os.environ.get("ANTHROPIC_API_KEY", os.environ.get("DEEPSEEK_API_KEY", ""))
+            base_url = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
+            is_anthropic = True
         else:
             # 默认DeepSeek
             api_key = os.environ.get("DEEPSEEK_API_KEY", os.environ.get("OPENAI_API_KEY", ""))
             base_url = "https://api.deepseek.com"
+            is_anthropic = False
         
         if not api_key:
             raise ValueError(f"API key not set for model {model_name}")
 
+        # 使用model_metadata获取context_length，智能设置max_tokens
+        context_length = model_metadata.get_model_context_length(
+            model=model_name,
+            base_url=base_url,
+            api_key=api_key,
+        )
+        
+        # Anthropic API使用不同的端点和格式
+        if is_anthropic:
+            return await self._call_anthropic_api(
+                model_name=model_name,
+                messages=messages,
+                api_key=api_key,
+                base_url=base_url,
+                context_length=context_length,
+                session_id=session_id,
+                start=start,
+            )
+        
         # 构建请求头
         headers = {
             "Authorization": f"Bearer {api_key}",
@@ -479,11 +578,15 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
         }
 
         # 构建请求体（OpenAI兼容格式）
+        # 使用model_metadata获取合适的max_tokens
+        max_output_tokens = model_metadata.get_anthropic_max_output(model_name) if "claude" in model_name.lower() else 4096
+        max_tokens = min(max_output_tokens, context_length // 4) if context_length else 4096
+        
         payload = {
             "model": model_name,
             "messages": messages,
             "temperature": 0.7,
-            "max_tokens": 4096
+            "max_tokens": max_tokens
         }
 
         # 发送请求
@@ -559,6 +662,128 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                     }, latency_ms
         except aiohttp.ClientError:
             raise RuntimeError("Network error during model call")
+    
+    async def _call_anthropic_api(
+        self,
+        model_name: str,
+        messages: List[Dict],
+        api_key: str,
+        base_url: str,
+        context_length: int,
+        session_id: str,
+        start: float,
+    ) -> tuple[Dict, float]:
+        """使用Anthropic API调用模型"""
+        import aiohttp
+        
+        # 使用anthropic_adapter转换消息格式
+        system, anthropic_messages = anthropic_adapter.convert_messages_to_anthropic(
+            messages, 
+            base_url=base_url
+        )
+        
+        # 构建Anthropic请求参数
+        max_output = anthropic_adapter.get_anthropic_max_output(model_name)
+        max_tokens = min(max_output, context_length // 4) if context_length else max_output
+        
+        kwargs = anthropic_adapter.build_anthropic_kwargs(
+            model=model_name,
+            messages=messages,  # 传入原始消息，adapter会转换
+            tools=None,  # 暂时不传tools
+            max_tokens=max_tokens,
+            context_length=context_length,
+            base_url=base_url,
+        )
+        
+        # 构建请求头
+        headers = {
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json"
+        }
+        
+        # 发送请求
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{base_url}/v1/messages",
+                    headers=headers,
+                    json=kwargs,
+                    timeout=aiohttp.ClientTimeout(total=120)
+                ) as response:
+                    latency_ms = (time.monotonic() - start) * 1000
+                    
+                    if response.status != 200:
+                        error_text = await response.text()
+                        logger.warning(f"Anthropic API call failed: {response.status}")
+                        raise RuntimeError(f"Anthropic API request failed: {response.status}")
+                    
+                    result = await response.json()
+                    
+                    # 使用anthropic_adapter标准化响应
+                    normalized_response, finish_reason = anthropic_adapter.normalize_anthropic_response(
+                        result,
+                        strip_tool_prefix=True,
+                    )
+                    
+                    content = normalized_response.content or ""
+                    tool_calls = None
+                    if normalized_response.tool_calls:
+                        tool_calls = []
+                        for tc in normalized_response.tool_calls:
+                            tool_calls.append({
+                                "id": tc.id,
+                                "type": tc.type,
+                                "function": {
+                                    "name": tc.function.name,
+                                    "arguments": tc.function.arguments,
+                                }
+                            })
+                    
+                    # 提取usage信息
+                    usage = result.get("usage", {})
+                    input_tokens = usage.get("input_tokens", 0)
+                    output_tokens = usage.get("output_tokens", 0)
+                    
+                    if input_tokens > 0:
+                        self.insights.record(
+                            MetricType.TOKEN_INPUT,
+                            float(input_tokens),
+                            metadata={
+                                "session_id": session_id,
+                                "platform": self.platform,
+                                "model": self.model,
+                            }
+                        )
+                    if output_tokens > 0:
+                        self.insights.record(
+                            MetricType.TOKEN_OUTPUT,
+                            float(output_tokens),
+                            metadata={
+                                "session_id": session_id,
+                                "platform": self.platform,
+                                "model": self.model,
+                            }
+                        )
+                    
+                    # 记录延迟
+                    self.insights.record(
+                        MetricType.LATENCY,
+                        latency_ms,
+                        metadata={
+                            "session_id": session_id,
+                            "platform": self.platform,
+                        }
+                    )
+                    
+                    return {
+                        "content": content,
+                        "tool_calls": tool_calls
+                    }, latency_ms
+                    
+        except aiohttp.ClientError as e:
+            logger.error(f"Anthropic API network error: {e}")
+            raise RuntimeError(f"Network error during Anthropic API call: {e}")
     
     async def _execute_tools(self, tool_calls: List[Dict]) -> List[ToolResult]:
         """执行工具调用（带并发限制和单工具超时）"""
