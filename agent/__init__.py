@@ -22,6 +22,7 @@ from . import memory_manager
 from . import context_references
 from . import skill_utils
 from . import trajectory
+from . import title_generator
 from .smart_model_routing import (
     choose_cheap_model_route,
     resolve_turn_route,
@@ -107,6 +108,12 @@ from .trajectory import (
     load_trajectories,
     count_trajectories,
     get_trajectory_dir,
+)
+from .title_generator import (
+    generate_title,
+    generate_simple_title,
+    maybe_auto_title,
+    auto_title_session,
 )
 
 __all__ = [
@@ -212,6 +219,11 @@ __all__ = [
     "load_trajectories",
     "count_trajectories",
     "get_trajectory_dir",
+    # Title Generator
+    "generate_title",
+    "generate_simple_title",
+    "maybe_auto_title",
+    "auto_title_session",
     # Integrated Modules
     "prompt_builder",
     "model_metadata",
@@ -228,4 +240,5 @@ __all__ = [
     "context_references",
     "skill_utils",
     "trajectory",
+    "title_generator",
 ]
