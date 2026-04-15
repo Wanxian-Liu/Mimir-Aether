@@ -487,7 +487,7 @@ TURNS TO SUMMARIZE:
         
         for i in range(compress_start):
             msg = messages[i].copy()
-            if i == 0 and msg.get("role") == "system" and self._compression_count == 0:
+            if i == 0 and msg.get("role") == "system" and self.compression_count == 0:
                 note = "\n\n[Note: Some earlier turns have been compacted.]"
                 msg["content"] = (msg.get("content") or "") + note
             compressed.append(msg)
@@ -514,7 +514,7 @@ TURNS TO SUMMARIZE:
         for i in range(compress_end, n_messages):
             compressed.append(messages[i].copy())
         
-        self._compression_count += 1
+        self.compression_count += 1
         compressed = self._sanitize_tool_pairs(compressed)
         
         compressed_tokens = self._estimate_tokens(compressed)
@@ -526,13 +526,13 @@ TURNS TO SUMMARIZE:
             compressed_tokens=compressed_tokens,
             summary=summary or "",
             pruned_tool_count=pruned_count,
-            compression_count=self._compression_count,
+            compression_count=self.compression_count,
             summary_mode=summary_mode
         )
         
         if not self.quiet_mode:
             logger.info(
-                f"Compression #{self._compression_count}: "
+                f"Compression #{self.compression_count}: "
                 f"{n_messages}->{len(compressed)}, "
                 f"{display_tokens}->{compressed_tokens} tokens, "
                 f"mode={summary_mode}"
@@ -542,7 +542,7 @@ TURNS TO SUMMARIZE:
     
     def reset(self):
         self._previous_summary = None
-        self._compression_count = 0
+        self.compression_count = 0
         self._summary_failure_cooldown_until = 0.0
 
 
