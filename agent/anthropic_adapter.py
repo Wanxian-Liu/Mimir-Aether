@@ -1,5 +1,5 @@
 """
-MimarAether Anthropic Adapter
+MimirAether Anthropic Adapter
 
 学习自Hermes anthropic_adapter设计思路：
 - Anthropic Messages API适配
@@ -10,7 +10,7 @@ MimarAether Anthropic Adapter
 核心原则：
 - 不复制代码，独立实现
 - 保持API兼容
-- 适配MimarAether框架
+- 适配MimirAether框架
 """
 
 import copy
@@ -751,7 +751,7 @@ def build_anthropic_kwargs(
             if isinstance(block, dict) and block.get("type") == "text":
                 text = block.get("text", "")
                 text = text.replace("Hermes Agent", "Claude Code")
-                text = text.replace("MimarAether", "Claude Code")
+                text = text.replace("MimirAether", "Claude Code")
                 text = text.replace("Nous Research", "Anthropic")
                 block["text"] = text
         
@@ -890,7 +890,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     
     print("=" * 60)
-    print("MimarAether Anthropic Adapter 测试")
+    print("MimirAether Anthropic Adapter 测试")
     print("=" * 60)
     
     # 测试1: Token类型检测

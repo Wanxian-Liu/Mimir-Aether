@@ -1,5 +1,5 @@
 """
-MimarAether Prompt Builder
+MimirAether Prompt Builder
 
 学习自Hermes prompt_builder设计思路：
 - System Prompt构建
@@ -10,7 +10,7 @@ MimarAether Prompt Builder
 
 核心原则：
 - 不复制代码，独立实现
-- 适配MimarAether框架
+- 适配MimirAether框架
 - 简化复杂度
 """
 
@@ -78,7 +78,7 @@ def scan_context_content(content: str, filename: str) -> str:
 # ============================================================================
 
 DEFAULT_AGENT_IDENTITY = (
-    "You are MimarAether, an intelligent AI assistant created to help users "
+    "You are MimirAether, an intelligent AI assistant created to help users "
     "with a wide range of tasks including answering questions, writing and "
     "editing code, analyzing information, creative work, and executing "
     "actions via your tools. You communicate clearly, admit uncertainty "
@@ -660,7 +660,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     
     print("=" * 60)
-    print("MimarAether Prompt Builder 测试")
+    print("MimirAether Prompt Builder 测试")
     print("=" * 60)
     
     # 测试1: 威胁检测

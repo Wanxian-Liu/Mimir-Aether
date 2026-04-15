@@ -1,5 +1,5 @@
 """
-MimarAether Model Metadata
+MimirAether Model Metadata
 
 学习自Hermes model_metadata设计思路：
 - 模型上下文长度查询
@@ -10,7 +10,7 @@ MimarAether Model Metadata
 核心原则：
 - 不复制代码，独立实现
 - 保持API兼容
-- 适配MimarAether框架
+- 适配MimirAether框架
 """
 
 import logging
@@ -632,7 +632,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     
     print("=" * 60)
-    print("MimarAether Model Metadata 测试")
+    print("MimirAether Model Metadata 测试")
     print("=" * 60)
     
     # 测试1: Provider前缀分离
