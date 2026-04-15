@@ -13,6 +13,7 @@ from . import anthropic_adapter
 from . import credential_pool
 from . import smart_model_routing
 from . import error_classifier
+from . import rate_limit_tracker
 from .smart_model_routing import (
     choose_cheap_model_route,
     resolve_turn_route,
@@ -29,6 +30,13 @@ from .error_classifier import (
     FailoverReason,
     ClassifiedError,
     classify_api_error,
+)
+from .rate_limit_tracker import (
+    RateLimitTracker,
+    RateLimitState,
+    RateLimitBucket,
+    parse_rate_limit_headers,
+    format_rate_limit_display,
 )
 
 __all__ = [
@@ -75,6 +83,12 @@ __all__ = [
     "FailoverReason",
     "ClassifiedError",
     "classify_api_error",
+    # Rate Limit Tracker
+    "RateLimitTracker",
+    "RateLimitState",
+    "RateLimitBucket",
+    "parse_rate_limit_headers",
+    "format_rate_limit_display",
     # Integrated Modules
     "prompt_builder",
     "model_metadata",
@@ -82,4 +96,5 @@ __all__ = [
     "credential_pool",
     "smart_model_routing",
     "error_classifier",
+    "rate_limit_tracker",
 ]
