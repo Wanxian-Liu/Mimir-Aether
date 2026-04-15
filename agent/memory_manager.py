@@ -121,6 +121,50 @@ class MemoryProvider(ABC):
         """
         return ""
 
+    def on_delegation(self, task: str, result: str, *,
+                      child_session_id: str = "", **kwargs) -> None:
+        """
+        当子代理完成时在父代理上调用
+
+        task: 委托任务描述
+        result: 子代理的最终响应
+        child_session_id: 子代理的会话ID
+        """
+        pass
+
+    def get_config_schema(self) -> List[Dict[str, Any]]:
+        """
+        返回此provider需要的配置字段
+
+        每个字段格式：
+        - key: 配置键名
+        - description: 人类可读的描述
+        - secret: 是否是密钥（默认False）
+        - required: 是否必需（默认False）
+        - default: 默认值（可选）
+        - choices: 有效值列表（可选）
+        - url: 凭证获取URL（可选）
+        """
+        return []
+
+    def save_config(self, values: Dict[str, Any], hermes_home: str) -> None:
+        """
+        将非密钥配置写入provider的原生位置
+
+        使用env vars的provider可以保持默认（no-op）
+        """
+        pass
+
+    def on_memory_write(self, action: str, target: str, content: str) -> None:
+        """
+        当内置记忆工具写入条目时调用
+
+        action: 'add', 'replace', 或 'remove'
+        target: 'memory' 或 'user'
+        content: 条目内容
+        """
+        pass
+
 
 # ============================================================================
 # MemoryManager
