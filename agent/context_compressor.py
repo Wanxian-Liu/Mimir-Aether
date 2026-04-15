@@ -516,6 +516,10 @@ TURNS TO SUMMARIZE:
         self._summary_failure_cooldown_until = 0.0
 
 
+# 向后兼容导出（core_loop.py使用ContextCompressor）
+ContextCompressor = ContextCompressorV2
+
+
 def compress_conversation(messages: List[Dict], **kwargs) -> Tuple[List[Dict], CompressionResult]:
     compressor = ContextCompressorV2(**kwargs)
     tokens = compressor._estimate_tokens(messages)
