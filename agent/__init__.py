@@ -19,6 +19,7 @@ from . import retry_utils
 from . import context_engine
 from . import context_compressor
 from . import memory_manager
+from . import context_references
 from .smart_model_routing import (
     choose_cheap_model_route,
     resolve_turn_route,
@@ -77,6 +78,13 @@ from .memory_manager import (
     MemoryProvider,
     MemoryManager,
     BuiltinMemoryProvider,
+)
+from .context_references import (
+    ContextReference,
+    ContextReferenceResult,
+    parse_context_references,
+    preprocess_context_references,
+    REFERENCE_PATTERN,
 )
 
 __all__ = [
@@ -159,6 +167,12 @@ __all__ = [
     "MemoryProvider",
     "MemoryManager",
     "BuiltinMemoryProvider",
+    # Context References
+    "ContextReference",
+    "ContextReferenceResult",
+    "parse_context_references",
+    "preprocess_context_references",
+    "REFERENCE_PATTERN",
     # Integrated Modules
     "prompt_builder",
     "model_metadata",
@@ -172,4 +186,5 @@ __all__ = [
     "context_engine",
     "context_compressor",
     "memory_manager",
+    "context_references",
 ]
