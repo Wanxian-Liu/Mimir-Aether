@@ -11,6 +11,12 @@ from . import prompt_builder
 from . import model_metadata
 from . import anthropic_adapter
 from . import credential_pool
+from . import smart_model_routing
+from .smart_model_routing import (
+    choose_cheap_model_route,
+    resolve_turn_route,
+    DEFAULT_ROUTING_CONFIG,
+)
 from .credential_pool import (
     CredentialPool,
     PooledCredential,
@@ -55,9 +61,14 @@ __all__ = [
     "CredentialPoolRegistry",
     "get_default_registry",
     "create_credential",
+    # Smart Model Routing
+    "choose_cheap_model_route",
+    "resolve_turn_route",
+    "DEFAULT_ROUTING_CONFIG",
     # Integrated Modules
     "prompt_builder",
     "model_metadata",
     "anthropic_adapter",
     "credential_pool",
+    "smart_model_routing",
 ]
