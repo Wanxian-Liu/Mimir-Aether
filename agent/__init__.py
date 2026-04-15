@@ -23,6 +23,7 @@ from . import context_references
 from . import skill_utils
 from . import trajectory
 from . import title_generator
+from . import usage_pricing
 from .smart_model_routing import (
     choose_cheap_model_route,
     resolve_turn_route,
@@ -114,6 +115,19 @@ from .title_generator import (
     generate_simple_title,
     maybe_auto_title,
     auto_title_session,
+)
+from .usage_pricing import (
+    CanonicalUsage,
+    BillingRoute,
+    PricingEntry,
+    CostResult,
+    resolve_billing_route,
+    get_pricing_entry,
+    normalize_usage,
+    estimate_usage_cost,
+    has_known_pricing,
+    format_duration_compact,
+    format_token_count_compact,
 )
 
 __all__ = [
@@ -224,6 +238,18 @@ __all__ = [
     "generate_simple_title",
     "maybe_auto_title",
     "auto_title_session",
+    # Usage Pricing
+    "CanonicalUsage",
+    "BillingRoute",
+    "PricingEntry",
+    "CostResult",
+    "resolve_billing_route",
+    "get_pricing_entry",
+    "normalize_usage",
+    "estimate_usage_cost",
+    "has_known_pricing",
+    "format_duration_compact",
+    "format_token_count_compact",
     # Integrated Modules
     "prompt_builder",
     "model_metadata",
@@ -241,4 +267,5 @@ __all__ = [
     "skill_utils",
     "trajectory",
     "title_generator",
+    "usage_pricing",
 ]
