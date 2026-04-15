@@ -95,6 +95,10 @@ class ContextCompressorV2:
         tokens = prompt_tokens or self._estimate_tokens(messages)
         return tokens >= self.threshold_tokens
     
+    def needs_compression(self, messages: List[Dict]) -> bool:
+        """needs_compression的别名，保持与core_loop兼容"""
+        return self.should_compress(messages)
+    
     def _estimate_tokens(self, messages: List[Dict]) -> int:
         total = 0
         for msg in messages:

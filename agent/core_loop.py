@@ -223,29 +223,40 @@ class MimirAetherAgent:
     def _register_builtin_tools(self):
         """注册内置工具"""
         try:
-            # 使用try/except处理相对导入和绝对导入两种情况
-            try:
-                from ..tools.builtin import get_tool_functions, get_all_tools
-            except ImportError:
-                # 当作为顶层包导入时，使用绝对导入
-                import sys
-                from pathlib import Path
-                
-                # 将MimirAether根目录添加到path
-                mimir_root = Path(__file__).parent.parent
-                if str(mimir_root) not in sys.path:
-                    sys.path.insert(0, str(mimir_root))
-                
-                from tools.builtin import get_tool_functions, get_all_tools
+            import sys
+            from pathlib import Path
             
-            functions = get_tool_functions()
-            schemas = get_all_tools()
+            # 将MimirAether根目录添加到path
+            mimir_root = Path(__file__).parent.parent
+            if str(mimir_root) not in sys.path:
+                sys.path.insert(0, str(mimir_root))
             
-            for name, func in functions.items():
-                schema = schemas.get(name, {})
+            # 注册builtin工具
+            from tools.builtin import get_tool_functions as get_builtin_functions
+            from tools.builtin import get_all_tools as get_builtin_schemas
+            
+            builtin_functions = get_builtin_functions()
+            builtin_schemas = get_builtin_schemas()
+            
+            for name, func in builtin_functions.items():
+                schema = builtin_schemas.get(name, {})
                 self.tool_registry.register(name, func, schema)
             
-            logger.info(f"Registered {len(functions)} builtin tools")
+            # 注册MimirCore工具
+            try:
+                from tools.mimircore_tool import get_tool_functions as get_mimircore_functions
+                from tools.mimircore_tool import TOOL_SCHEMAS as mimircore_schemas
+                
+                mimircore_functions = get_mimircore_functions()
+                for name, func in mimircore_functions.items():
+                    schema = mimircore_schemas.get(name, {})
+                    self.tool_registry.register(name, func, schema)
+                
+                logger.info(f"Registered {len(builtin_functions)} builtin + {len(mimircore_functions)} mimircore tools")
+            except ImportError as e:
+                logger.warning(f"Failed to import mimircore tools: {e}")
+                logger.info(f"Registered {len(builtin_functions)} builtin tools")
+                
         except ImportError as e:
             logger.warning(f"Failed to import builtin tools: {e}")
     
