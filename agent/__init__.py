@@ -10,6 +10,14 @@ from .insights import InsightsEngine, InsightsReport, SessionInsights, MetricTyp
 from . import prompt_builder
 from . import model_metadata
 from . import anthropic_adapter
+from . import credential_pool
+from .credential_pool import (
+    CredentialPool,
+    PooledCredential,
+    CredentialPoolRegistry,
+    get_default_registry,
+    create_credential,
+)
 
 __all__ = [
     # Core
@@ -41,8 +49,15 @@ __all__ = [
     "MetricType",
     "UsageRecord",
     "get_insights",
+    # Credential Pool
+    "CredentialPool",
+    "PooledCredential",
+    "CredentialPoolRegistry",
+    "get_default_registry",
+    "create_credential",
     # Integrated Modules
     "prompt_builder",
     "model_metadata",
     "anthropic_adapter",
+    "credential_pool",
 ]
