@@ -456,7 +456,7 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                     logger.info(
                         f"Compressed {comp_result.original_count} -> "
                         f"{comp_result.compressed_count} messages "
-                        f"(ratio: {comp_result.compression_ratio:.2f})"
+                        f"(ratio: {comp_result.compressed_tokens/comp_result.original_tokens:.2f})" if comp_result.original_tokens > 0 else "(no ratio)"
                     )
                     messages = compressed_messages
 
@@ -486,7 +486,7 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                 
                 # 检查是否有工具调用
                 if response.get("tool_calls") and response_content:
-                    # 同时有文本和工具调用：先执行工具，再返回文本
+                    # 同时有文本和工具调用：先执行工具，再继续生成响应
                     tool_results = await self._execute_tools(response["tool_calls"])
                     
                     # 添加工具结果到历史
@@ -500,8 +500,8 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                     # 工具调用后 refund（只refund一次，无论多少工具）
                     await self.budget.refund()
                     
-                    # 返回文本响应
-                    return response_content
+                    # 继续循环，让模型基于工具结果生成最终响应
+                    continue
                 
                 if response.get("tool_calls"):
                     # 只有工具调用，没有文本：执行工具
@@ -628,11 +628,44 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
         max_output_tokens = model_metadata.get_anthropic_max_output(model_name) if "claude" in model_name.lower() else 4096
         max_tokens = min(max_output_tokens, context_length // 4) if context_length else 4096
         
+        # 获取工具schemas并转换为OpenAI格式
+        from tools.builtin import get_all_tools as get_builtin_schemas
+        raw_schemas = get_builtin_schemas()
+        
+        # 转换为OpenAI tool格式
+        tool_schemas = []
+        for name, schema in raw_schemas.items():
+            tool_schemas.append({
+                "type": "function",
+                "function": {
+                    "name": name,
+                    "description": schema.get("description", f"Tool: {name}"),
+                    "parameters": schema.get("parameters", {})
+                }
+            })
+        
+        # 添加mimircore工具schemas
+        try:
+            from tools.mimircore_tool import TOOL_SCHEMAS as mimircore_schemas
+            for name, schema in mimircore_schemas.items():
+                tool_schemas.append({
+                    "type": "function",
+                    "function": {
+                        "name": name,
+                        "description": schema.get("description", f"Tool: {name}"),
+                        "parameters": schema.get("parameters", {})
+                    }
+                })
+        except ImportError:
+            pass
+        
         payload = {
             "model": model_name,
             "messages": messages,
             "temperature": 0.7,
-            "max_tokens": max_tokens
+            "max_tokens": max_tokens,
+            "tools": tool_schemas,
+            "tool_choice": "auto"
         }
 
         # 发送请求
@@ -909,50 +942,62 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
     
     async def _execute_single_tool(self, tool_call: Dict) -> ToolResult:
         """执行单个工具调用"""
-        # 校验tool_call必需字段
-        if "id" not in tool_call:
+        # 获取tool_call的id
+        tool_call_id = tool_call.get("id", "unknown")
+        
+        # 处理OpenAI格式：{type: 'function', function: {name, arguments}}
+        if tool_call.get("type") == "function" and "function" in tool_call:
+            func_name = tool_call["function"].get("name", "")
+            raw_args = tool_call["function"].get("arguments", {})
+        else:
+            # 兼容旧格式
+            func_name = tool_call.get("name", "")
+            raw_args = tool_call.get("arguments", {})
+        
+        # 校验必需字段
+        if not tool_call_id or tool_call_id == "unknown":
             logger.warning(f"SKIP tool_call: missing 'id' field: {tool_call}")
             return ToolResult(
                 tool_call_id="unknown",
                 content="Error: tool_call missing 'id' field",
                 is_error=True
             )
-        if "name" not in tool_call:
+        if not func_name:
             logger.warning(f"SKIP tool_call: missing 'name' field: {tool_call}")
             return ToolResult(
-                tool_call_id=tool_call.get("id", "unknown"),
+                tool_call_id=tool_call_id,
                 content="Error: tool_call missing 'name' field",
                 is_error=True
             )
         
         try:
             # 防御性处理 arguments 类型
-            arguments = tool_call.get("arguments", {})
-            if isinstance(arguments, str):
+            arguments = raw_args if isinstance(raw_args, dict) else {}
+            if isinstance(raw_args, str):
                 # 如果是字符串，尝试解析为 dict
                 try:
-                    arguments = json.loads(arguments)
+                    arguments = json.loads(raw_args)
                 except json.JSONDecodeError:
-                    logger.warning(f"Failed to parse arguments as JSON for tool {tool_call.get('name', 'unknown')}")
+                    logger.warning(f"Failed to parse arguments as JSON for tool {func_name}")
                     return ToolResult(
-                        tool_call_id=tool_call["id"],
+                        tool_call_id=tool_call_id,
                         content="Error: invalid JSON in tool arguments",
                         is_error=True
                     )
             if not isinstance(arguments, dict):
-                logger.warning(f"Arguments is not a dict for tool {tool_call.get('name', 'unknown')}: {type(arguments)}")
+                logger.warning(f"Arguments is not a dict for tool {func_name}: {type(arguments)}")
                 return ToolResult(
-                    tool_call_id=tool_call["id"],
+                    tool_call_id=tool_call_id,
                     content="Error: arguments must be a dict",
                     is_error=True
                 )
             
             result = await self.tool_registry.execute(
-                name=tool_call["name"],
+                name=func_name,
                 arguments=arguments
             )
             return ToolResult(
-                tool_call_id=tool_call["id"],
+                tool_call_id=tool_call_id,
                 content=str(result),
                 is_error=False
             )
