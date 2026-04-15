@@ -15,6 +15,7 @@ from . import smart_model_routing
 from . import error_classifier
 from . import rate_limit_tracker
 from . import prompt_caching
+from . import retry_utils
 from .smart_model_routing import (
     choose_cheap_model_route,
     resolve_turn_route,
@@ -45,6 +46,15 @@ from .prompt_caching import (
     estimate_caching_savings,
     calculate_caching_benefit,
     CacheBudgetManager,
+)
+from .retry_utils import (
+    jittered_backoff,
+    decorrelated_jittered_backoff,
+    RetryManager,
+    RetryContext,
+    is_retryable_error,
+    get_retry_delay,
+    with_retry,
 )
 
 __all__ = [
@@ -103,6 +113,14 @@ __all__ = [
     "estimate_caching_savings",
     "calculate_caching_benefit",
     "CacheBudgetManager",
+    # Retry Utils
+    "jittered_backoff",
+    "decorrelated_jittered_backoff",
+    "RetryManager",
+    "RetryContext",
+    "is_retryable_error",
+    "get_retry_delay",
+    "with_retry",
     # Integrated Modules
     "prompt_builder",
     "model_metadata",
@@ -112,4 +130,5 @@ __all__ = [
     "error_classifier",
     "rate_limit_tracker",
     "prompt_caching",
+    "retry_utils",
 ]
