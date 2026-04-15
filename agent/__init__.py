@@ -20,6 +20,7 @@ from . import context_engine
 from . import context_compressor
 from . import memory_manager
 from . import context_references
+from . import skill_utils
 from .smart_model_routing import (
     choose_cheap_model_route,
     resolve_turn_route,
@@ -85,6 +86,17 @@ from .context_references import (
     parse_context_references,
     preprocess_context_references,
     REFERENCE_PATTERN,
+)
+from .skill_utils import (
+    parse_frontmatter,
+    skill_matches_platform,
+    get_skills_dir,
+    get_all_skills_dirs,
+    get_disabled_skill_names,
+    discover_skills,
+    extract_skill_conditions,
+    extract_skill_config_vars,
+    PLATFORM_MAP,
 )
 
 __all__ = [
@@ -173,6 +185,15 @@ __all__ = [
     "parse_context_references",
     "preprocess_context_references",
     "REFERENCE_PATTERN",
+    # Skill Utils
+    "parse_frontmatter",
+    "skill_matches_platform",
+    "get_skills_dir",
+    "get_all_skills_dirs",
+    "get_disabled_skill_names",
+    "discover_skills",
+    "extract_skill_conditions",
+    "extract_skill_config_vars",
     # Integrated Modules
     "prompt_builder",
     "model_metadata",
@@ -187,4 +208,5 @@ __all__ = [
     "context_compressor",
     "memory_manager",
     "context_references",
+    "skill_utils",
 ]
