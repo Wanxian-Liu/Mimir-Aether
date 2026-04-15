@@ -18,6 +18,7 @@ from . import prompt_caching
 from . import retry_utils
 from . import context_engine
 from . import context_compressor
+from . import memory_manager
 from .smart_model_routing import (
     choose_cheap_model_route,
     resolve_turn_route,
@@ -71,6 +72,11 @@ from .context_compressor import (
     CompressionResult,
     compress_conversation,
     SUMMARY_PREFIX,
+)
+from .memory_manager import (
+    MemoryProvider,
+    MemoryManager,
+    BuiltinMemoryProvider,
 )
 
 __all__ = [
@@ -149,6 +155,10 @@ __all__ = [
     "CompressionResult",
     "compress_conversation",
     "SUMMARY_PREFIX",
+    # Memory Manager
+    "MemoryProvider",
+    "MemoryManager",
+    "BuiltinMemoryProvider",
     # Integrated Modules
     "prompt_builder",
     "model_metadata",
@@ -161,4 +171,5 @@ __all__ = [
     "retry_utils",
     "context_engine",
     "context_compressor",
+    "memory_manager",
 ]
