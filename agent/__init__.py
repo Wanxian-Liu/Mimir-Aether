@@ -21,6 +21,7 @@ from . import context_compressor
 from . import memory_manager
 from . import context_references
 from . import skill_utils
+from . import trajectory
 from .smart_model_routing import (
     choose_cheap_model_route,
     resolve_turn_route,
@@ -97,6 +98,15 @@ from .skill_utils import (
     extract_skill_conditions,
     extract_skill_config_vars,
     PLATFORM_MAP,
+)
+from .trajectory import (
+    normalize_scratchpad_tags,
+    has_incomplete_scratchpad,
+    validate_trajectory,
+    save_trajectory,
+    load_trajectories,
+    count_trajectories,
+    get_trajectory_dir,
 )
 
 __all__ = [
@@ -194,6 +204,14 @@ __all__ = [
     "discover_skills",
     "extract_skill_conditions",
     "extract_skill_config_vars",
+    # Trajectory
+    "normalize_scratchpad_tags",
+    "has_incomplete_scratchpad",
+    "validate_trajectory",
+    "save_trajectory",
+    "load_trajectories",
+    "count_trajectories",
+    "get_trajectory_dir",
     # Integrated Modules
     "prompt_builder",
     "model_metadata",
@@ -209,4 +227,5 @@ __all__ = [
     "memory_manager",
     "context_references",
     "skill_utils",
+    "trajectory",
 ]
