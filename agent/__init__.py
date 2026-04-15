@@ -16,6 +16,8 @@ from . import error_classifier
 from . import rate_limit_tracker
 from . import prompt_caching
 from . import retry_utils
+from . import context_engine
+from . import context_compressor
 from .smart_model_routing import (
     choose_cheap_model_route,
     resolve_turn_route,
@@ -55,6 +57,20 @@ from .retry_utils import (
     is_retryable_error,
     get_retry_delay,
     with_retry,
+)
+from .context_engine import (
+    ContextEngine,
+    ContextEngineRegistry,
+    get_engine_registry,
+    register_engine,
+    create_context_engine,
+)
+from .context_compressor import (
+    ContextCompressorV2,
+    ContextCompressor,
+    CompressionResult,
+    compress_conversation,
+    SUMMARY_PREFIX,
 )
 
 __all__ = [
@@ -121,6 +137,18 @@ __all__ = [
     "is_retryable_error",
     "get_retry_delay",
     "with_retry",
+    # Context Engine
+    "ContextEngine",
+    "ContextEngineRegistry",
+    "get_engine_registry",
+    "register_engine",
+    "create_context_engine",
+    # Context Compressor
+    "ContextCompressorV2",
+    "ContextCompressor",
+    "CompressionResult",
+    "compress_conversation",
+    "SUMMARY_PREFIX",
     # Integrated Modules
     "prompt_builder",
     "model_metadata",
@@ -131,4 +159,6 @@ __all__ = [
     "rate_limit_tracker",
     "prompt_caching",
     "retry_utils",
+    "context_engine",
+    "context_compressor",
 ]

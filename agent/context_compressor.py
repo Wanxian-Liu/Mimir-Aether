@@ -1,8 +1,9 @@
 """
-MimirAether Context Compressor V2.2
+MimirAether Context Compressor V2.3
 
-修复Round 2问题：
-- 统一压缩判断逻辑（token阈值 + 消息数下限）
+重构为继承ContextEngine抽象基类：
+- V2.2: 初始实现
+- V2.3: 继承ContextEngine，支持插件化架构
 """
 
 import re
@@ -12,6 +13,9 @@ import os
 from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
+
+# 导入ContextEngine基类
+from .context_engine import ContextEngine
 
 logger = logging.getLogger(__name__)
 
@@ -44,18 +48,23 @@ class CompressionResult:
     summary_mode: str = "none"
 
 
-class ContextCompressorV2:
+class ContextCompressorV2(ContextEngine):
     """
-    上下文压缩器 V2.2
+    上下文压缩器 V2.3
     
-    修复：统一压缩判断逻辑
+    继承自ContextEngine，支持插件化架构
     """
+    
+    @property
+    def name(self) -> str:
+        return "compressor"
     
     def __init__(
         self,
         model: str = "deepseek-chat",
         threshold_percent: float = 0.50,
         protect_first_n: int = 3,
+        protect_last_n: int = 6,
         tail_token_budget: int = 4000,
         summary_target_ratio: float = 0.20,
         summary_model: str = None,
@@ -63,41 +72,54 @@ class ContextCompressorV2:
         api_key: str = "",
         quiet_mode: bool = False,
     ):
+        # 调用父类初始化
+        super().__init__()
+        
         self.model = model
         self.base_url = base_url
         self.api_key = api_key
         self.threshold_percent = threshold_percent
         self.protect_first_n = protect_first_n
+        self.protect_last_n = protect_last_n
         self.tail_token_budget = tail_token_budget
         self.summary_target_ratio = summary_target_ratio
         self.summary_model = summary_model or model
         self.quiet_mode = quiet_mode
         
         self.context_length = 8000
+        self.threshold_percent = threshold_percent
         self.threshold_tokens = int(self.context_length * threshold_percent)
         self.max_summary_tokens = min(
             int(self.context_length * 0.05), 
             _SUMMARY_TOKENS_CEILING
         )
         
+        # 内部状态
         self._previous_summary: Optional[str] = None
-        self._compression_count = 0
         self._summary_failure_cooldown_until: float = 0.0
+        # compression_count继承自ContextEngine
         
         if not quiet_mode:
             logger.info(
-                f"V2.2 initialized: threshold={self.threshold_tokens}, "
+                f"V2.3 initialized: threshold={self.threshold_tokens}, "
                 f"tail={self.tail_token_budget}"
             )
     
-    def should_compress(self, messages: List[Dict], prompt_tokens: int = None) -> bool:
-        """检查是否需要压缩（基于token）"""
-        tokens = prompt_tokens or self._estimate_tokens(messages)
+    def update_from_response(self, usage: Dict[str, Any]) -> None:
+        """从API响应更新token使用情况（ContextEngine接口）"""
+        self.last_prompt_tokens = usage.get("prompt_tokens", 0)
+        self.last_completion_tokens = usage.get("completion_tokens", 0)
+        self.last_total_tokens = usage.get("total_tokens", 0)
+    
+    def should_compress(self, prompt_tokens: int = None) -> bool:
+        """检查是否需要压缩（基于token）（ContextEngine接口）"""
+        tokens = prompt_tokens if prompt_tokens is not None else 0
         return tokens >= self.threshold_tokens
     
     def needs_compression(self, messages: List[Dict]) -> bool:
         """needs_compression的别名，保持与core_loop兼容"""
-        return self.should_compress(messages)
+        tokens = self._estimate_tokens(messages)
+        return tokens >= self.threshold_tokens
     
     def _estimate_tokens(self, messages: List[Dict]) -> int:
         total = 0
@@ -418,6 +440,10 @@ TURNS TO SUMMARIZE:
         current_tokens: int = None,
         focus_topic: str = None
     ) -> Tuple[List[Dict], CompressionResult]:
+        n_messages = len(messages)
+        _min_for_compress = self.protect_first_n + 3 + 1
+        
+        display_tokens = current_tokens or self._estimate_tokens(messages)
         n_messages = len(messages)
         _min_for_compress = self.protect_first_n + 3 + 1
         
