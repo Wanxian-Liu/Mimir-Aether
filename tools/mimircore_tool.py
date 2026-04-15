@@ -13,6 +13,8 @@ Mimir-Core路径：
 
 import sys
 import os
+import re
+import time
 from pathlib import Path
 from typing import Dict, Any, Optional
 
@@ -77,7 +79,45 @@ def produce_capsule(input_text: str, capsule_type: str = "auto", auto_publish: b
         output.append(f"GDI评分: {gdi_value}")
         output.append(f"建议: {reason}")
         
-        if should_publish and auto_publish:
+        # 保存到public/目录
+        if should_publish and auto_publish and capsule:
+            try:
+                public_dir = Path(MIMIR_CORE_PATH) / "public"
+                public_dir.mkdir(exist_ok=True)
+                
+                # 提取标题作为文件名
+                title = input_text.strip().split('\n')[0].strip()
+                if title.startswith('#'):
+                    title = title.lstrip('#').strip()
+                # 清理标题（只保留字母、数字、中文、短横线）
+                title_clean = re.sub(r'[^\w\u4e00-\u9fff\-]', '_', title)[:30]
+                
+                # 生成文件名
+                filename = f"{capsule_id[:12]}_{title_clean[:20]}.md"
+                filepath = public_dir / filename
+                
+                # 构建frontmatter格式的胶囊内容
+                metadata = {
+                    "title": title_clean,
+                    "source": "MimirAether",
+                    "gdi": round(gdi_value, 2),
+                    "imported_at": time.strftime("%Y-%m-%dT%H:%M:%S+08:00"),
+                    "capsule_id": capsule_id,
+                    "capsule_type": capsule.capsule_type if hasattr(capsule, 'capsule_type') else capsule_type,
+                }
+                
+                # 写入文件
+                with open(filepath, 'w', encoding='utf-8') as f:
+                    f.write('---\n')
+                    for k, v in metadata.items():
+                        f.write(f"{k}: {v}\n")
+                    f.write('---\n\n')
+                    f.write(capsule.content)
+                
+                output.append(f"状态: ✅ 已发布到public/{filename}")
+            except Exception as save_err:
+                output.append(f"状态: ⚠️ 已生成但保存失败: {save_err}")
+        elif should_publish and auto_publish:
             output.append("状态: ✅ 已发布到public/")
         elif should_publish:
             output.append("状态: 待发布（GDI≥70，可调用publish_capsule发布）")

@@ -34,6 +34,10 @@ from . import prompt_builder
 from . import model_metadata
 from . import anthropic_adapter
 
+# 集成凭证池模块
+from . import credential_pool
+from .credential_pool import CredentialPool, PooledCredential, create_credential
+
 logger = logging.getLogger(__name__)
 
 
@@ -220,6 +224,10 @@ class MimirAetherAgent:
         self.insights = InsightsEngine()
         self.fencer = MemoryFencer()
 
+        # 初始化凭证池（在使用_get_api_key之前）
+        self._credential_pool: Optional[CredentialPool] = None
+        self._init_credential_pool()
+
         # 初始化model_metadata获取context_length
         self._context_length = model_metadata.get_model_context_length(
             model=model,
@@ -244,8 +252,46 @@ class MimirAetherAgent:
         
         logger.info(f"MimirAether initialized with model: {model}, context_length: {self._context_length}")
     
+    def _init_credential_pool(self) -> None:
+        """初始化凭证池"""
+        # 收集可用凭证
+        entries = []
+        
+        # 从环境变量加载 DeepSeek
+        deepseek_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
+        if deepseek_key:
+            entries.append(create_credential("deepseek", deepseek_key, "DeepSeek Primary"))
+        
+        # 从环境变量加载 MiniMax
+        minimax_key = os.environ.get("MINIMAX_API_KEY", "").strip()
+        if minimax_key:
+            entries.append(create_credential("minimax", minimax_key, "MiniMax Primary"))
+        
+        # 从环境变量加载 OpenAI
+        openai_key = os.environ.get("OPENAI_API_KEY", "").strip()
+        if openai_key:
+            entries.append(create_credential("openai", openai_key, "OpenAI Primary"))
+        
+        # 从环境变量加载 Anthropic
+        anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+        if anthropic_key:
+            entries.append(create_credential("anthropic", anthropic_key, "Anthropic Primary"))
+        
+        if entries:
+            self._credential_pool = CredentialPool(self.model, entries, strategy="round_robin")
+            logger.info(f"Credential pool initialized with {len(entries)} entries")
+        else:
+            logger.debug("No credentials found for pool, using environment variables directly")
+    
     def _get_api_key(self) -> str:
         """获取当前模型的API key"""
+        # 优先从凭证池获取
+        if self._credential_pool:
+            selected = self._credential_pool.current()
+            if selected:
+                return selected.runtime_api_key
+        
+        # fallback到环境变量
         model_lower = self.model.lower()
         if "deepseek" in model_lower:
             return os.environ.get("DEEPSEEK_API_KEY", "")
@@ -660,6 +706,22 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                         "content": content,
                         "tool_calls": tool_calls
                     }, latency_ms
+        except aiohttp.ClientResponseError as e:
+            if e.status == 429:
+                # 标记当前凭证耗尽，轮换到下一个
+                if self._credential_pool:
+                    current = self._credential_pool.current()
+                    if current:
+                        self._credential_pool.mark_exhausted(
+                            current,
+                            status_code=429,
+                            error_message=str(e)
+                        )
+                    next_cred = self._credential_pool.select()
+                    if next_cred:
+                        logger.info(f"Credential exhausted, rotated to: {next_cred.label}")
+                raise RuntimeError(f"Rate limited (429): {e}")
+            raise RuntimeError(f"API error ({e.status}): {e}")
         except aiohttp.ClientError:
             raise RuntimeError("Network error during model call")
     
