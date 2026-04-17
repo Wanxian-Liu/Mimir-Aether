@@ -1,0 +1,9 @@
+{
+  "job_id": "test_echo",
+  "timestamp": "20260417_123329",
+  "result": {
+    "returncode": 0,
+    "stdout": "Hello from scheduler!\n",
+    "stderr": ""
+  }
+}

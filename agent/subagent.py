@@ -6,12 +6,16 @@ MimirAether 子Agent系统
 
 import asyncio
 import logging
+import threading
 from typing import Dict, List, Any, Optional, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 
 logger = logging.getLogger(__name__)
+
+# 心跳间隔（秒）—— 与Hermes保持一致
+_SUBAGENT_HEARTBEAT_INTERVAL = 30
 
 
 class SubAgentStatus(Enum):
@@ -71,22 +75,49 @@ class SubAgentPool:
         task_id: str,
         handler: Callable,
         args: tuple = (),
-        kwargs: Dict = None
+        kwargs: Dict = None,
+        parent_agent: Any = None,
     ) -> Any:
         """
-        执行子任务
+        【缺陷3修复】执行子任务（带心跳保活）
         
         Args:
             task_id: 任务ID
             handler: 处理函数
             args: 位置参数
             kwargs: 关键字参数
+            parent_agent: 父Agent实例（用于心跳保活，防止gateway超时）
             
         Returns:
             任务结果
         """
         if kwargs is None:
             kwargs = {}
+        
+        # 【缺陷3修复】心跳机制：防止父Agent因长时间无活动被gateway杀死
+        _heartbeat_stop = threading.Event()
+        _heartbeat_thread = None
+        
+        if parent_agent is not None:
+            def _heartbeat_loop():
+                """心跳循环：每30秒通知父Agent仍处于活动状态"""
+                while not _heartbeat_stop.wait(_SUBAGENT_HEARTBEAT_INTERVAL):
+                    touch = getattr(parent_agent, '_touch_activity', None)
+                    if not touch:
+                        continue
+                    task_name = ""
+                    if task_id in self._tasks:
+                        task_name = self._tasks[task_id].name
+                    desc = f"subagent:{task_id} running"
+                    if task_name:
+                        desc = f"subagent:{task_name}({task_id}) working"
+                    try:
+                        touch(desc)
+                    except Exception:
+                        pass
+            
+            _heartbeat_thread = threading.Thread(target=_heartbeat_loop, daemon=True)
+            _heartbeat_thread.start()
         
         async with self._semaphore:
             if task_id in self._tasks:
@@ -112,6 +143,11 @@ class SubAgentPool:
                     self._tasks[task_id].status = SubAgentStatus.FAILED
                     self._tasks[task_id].error = str(e)
                 raise
+            finally:
+                # 停止心跳线程
+                _heartbeat_stop.set()
+                if _heartbeat_thread is not None:
+                    _heartbeat_thread.join(timeout=2)
     
     def create_task(
         self,
@@ -148,10 +184,11 @@ class SubAgentPool:
     
     async def execute_parallel(
         self,
-        tasks: List[Dict[str, Any]]
+        tasks: List[Dict[str, Any]],
+        parent_agent: Any = None,
     ) -> List[Any]:
         """
-        并行执行多个任务
+        【缺陷3修复】并行执行多个任务（带心跳保活）
         
         Args:
             tasks: 任务列表，每个任务包含:
@@ -159,6 +196,7 @@ class SubAgentPool:
                 - handler: 处理函数
                 - args: 位置参数
                 - kwargs: 关键字参数
+            parent_agent: 父Agent实例（用于心跳保活）
                 
         Returns:
             结果列表
@@ -181,7 +219,8 @@ class SubAgentPool:
                     task_id=task_id,
                     handler=task.get("handler"),
                     args=task.get("args", ()),
-                    kwargs=task.get("kwargs", {})
+                    kwargs=task.get("kwargs", {}),
+                    parent_agent=parent_agent,
                 )
             )
         

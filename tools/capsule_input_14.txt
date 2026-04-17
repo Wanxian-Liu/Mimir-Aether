@@ -1,0 +1,39 @@
+web_fetch失败模式与解决方案：
+
+1. 常见错误类型
+
+   错误1: Blocked: resolves to private/internal/special-use IP address
+   频率: 4次
+   原因: 尝试访问私有IP或特殊用途IP段
+   解决: 使用web_search替代，或检查URL是否正确
+
+   错误2: fetch failed
+   频率: 58次
+   原因: 网络连接失败、超时、DNS解析失败等
+   解决: 
+   - 添加User-Agent header
+   - 使用更稳定的HTTP客户端
+   - 检查网络连接
+   - 尝试使用web_search替代
+
+2. 解决方案汇总
+
+   方案1: 使用web_search替代web_fetch
+   - web_search不需要直接访问URL
+   - 通过搜索引擎获取结果
+   - 避免了私有IP被阻止的问题
+
+   方案2: 添加User-Agent
+   web_fetch工具可能需要模拟浏览器
+   某些网站会阻止非浏览器请求
+
+   方案3: 检查URL格式
+   - 确保URL以http://或https://开头
+   - 检查是否有特殊字符需要编码
+   - 确认域名是否可访问
+
+3. 最佳实践
+   - 优先使用web_search获取公开信息
+   - 仅在需要获取特定页面内容时使用web_fetch
+   - 添加错误处理和重试机制
+   - 检查URL有效性后再请求

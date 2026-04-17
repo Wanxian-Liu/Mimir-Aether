@@ -1,0 +1,40 @@
+AgentSession管理核心经验：
+
+1. sessions_list
+   列出可见session，可按kind、recent、messageLimit过滤。
+   返回：session列表含key、kind、channel、updatedAt、totalTokens等
+
+2. sessions_send
+   向另一个session发送消息并等待回复。
+   问题：20% fitness，成功率低
+   解决：增加timeoutSeconds，或使用sessions_spawn替代
+
+3. sessions_spawn
+   启动隔离的子agent session。
+   参数：
+   - task: 任务描述
+   - runtime: subagent或acp
+   - agentId: 子代理类型
+   - timeoutSeconds: 超时设置
+   - mode: run（一次性）或session（持久）
+   - lightContext: 是否轻量级上下文
+
+4. subagents管理
+   - subagents list: 查看活跃子代理
+   - subagents kill: 终止子代理
+   - subagents steer: 引导子代理
+
+5. sessions_yield
+   结束当前轮次，让出控制权等待子代理结果。
+   用于：spawn子代理后让出，等待结果返回
+
+6. session状态监控
+   - session_status: 查看当前或指定session状态
+   - 模型、token使用、缓存命中率
+   - 上下文使用情况
+
+7. 最佳实践
+   - 长时间任务用sessions_spawn而非sessions_send
+   - 子代理超时设置要充足
+   - 定期检查subagents list清理僵尸代理
+   - 使用lightContext减少token消耗

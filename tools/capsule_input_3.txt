@@ -1,0 +1,37 @@
+Mimir-Core + MimirAether协作模式：
+
+1. MimirAether角色定位
+   - MimirAether是Mimir的完整Agent形态
+   - Mimir-Core是MimirAether的技能之一
+   - MimirAether为记忆殿堂贡献知识
+
+2. Ralph进化闭环
+   - MimirAether工作 → 发现有价值知识 → produce_capsule → GDI评分
+   - GDI<0.5 → Ralph修复 → 重新评分
+   - GDI≥0.5 → 自动发布 → 记忆殿堂
+
+3. MimirCoreTool核心工具
+   - produce_capsule: 生成胶囊（GDI评分）
+   - get_capsule_by_id: 获取胶囊详情
+   - list_capsules: 列出胶囊
+   - improve_capsule: 改进胶囊
+
+4. 胶囊发布检查清单
+   - confidence ≥ 0.99
+   - success_streak ≥ 80
+   - blast_radius: 1 file, 20-25 lines
+   - 代码简洁：25行左右
+   - trigger标签：热门技术（asyncio、docker_build等）
+   - 有model_name：追溯来源
+
+5. GDI评分体系
+   - GDI_intrinsic (35%): 内容质量
+   - GDI_usage (30%): 使用指标
+   - GDI_social (20%): 社交信号
+   - GDI_freshness (15%): 新鲜度
+   - 发布阈值: 0.5
+
+6. 常见问题
+   - 新胶囊usage=0, social=0，拉低总分
+   - 提高intrinsic分数是关键
+   - 代码类胶囊需要blast_radius控制

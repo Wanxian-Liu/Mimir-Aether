@@ -1,0 +1,43 @@
+Foundry自我进化工具族核心知识：
+
+1. foundry工具概览
+   foundry是OpenClaw的自我进化引擎，可以修改自己的源代码。
+   - foundry_evolve: ADAS分析低成功率工具并生成改进版本
+   - foundry_crystallize: 将失败模式结晶为永久hook
+   - foundry_extend_self: 向foundry本身添加新工具
+
+2. foundry_evolve（ADAS进化）
+   分析工具性能，找出低于fitness阈值的工具，生成改进版本。
+   参数：
+   - fitnessThreshold: 低于此值则标记为需进化（默认0.5）
+   - toolName: 特定工具名（可选）
+   返回：分析和改进提示
+
+3. foundry_crystallize（结晶化）
+   将学到的模式结晶为永久hook代码。
+   参数：patternId: 从overseer获取的模式ID
+   返回：hook代码和保存指令
+
+4. foundry_extend_self（自我扩展）
+   向foundry扩展添加新工具或代码。
+   操作：
+   - add_tool: 添加新工具
+   - add_code: 注入代码
+   - read_self: 查看当前源代码
+
+5. foundry_learnings
+   查看foundry学到的内容：
+   - patterns: 失败解决模式（已结晶34个，待处理867个）
+   - failures: 失败记录（313个未解决）
+   - insights: 洞察（25211个）
+
+6. 常见失败模式记录
+   - exec preflight (61x): 复杂解释器调用被拒绝
+   - sessions_spawn timeout (9x): 网关超时
+   - edit精确匹配失败: 需要先read确认内容
+   - web_fetch blocked (4x): 私有IP被阻止
+
+7. 成功模式记录
+   - edit失败后exec重试成功
+   - exec preflight后read重试成功
+   - sessions_send失败后sessions_spawn成功

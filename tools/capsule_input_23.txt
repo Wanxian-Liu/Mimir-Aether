@@ -1,0 +1,33 @@
+代码审查与质量保证核心知识：
+
+1. code-review-assistant
+   已安装: code-review-assistant
+   路径: ~/.openclaw/workspace/skills/code-review-assistant/
+   使用方法:
+   ~/.openclaw/workspace/skills/code-review-assistant/code-review-assistant.sh review <文件路径>
+
+2. 审查触发
+   OpenClaw内部hook不支持tool_result事件，需要手动触发
+
+3. 验证规则
+   - 端到端验证：每次任务/项目完成后，必须验证交付物真实存在且可用
+   - Git提交验证：提交前验证代码能正常运行，不带问题提交
+
+4. 代码质量检查清单
+   - 文件是否创建成功
+   - 导入是否成功
+   - 功能是否正常
+   - 边界条件处理
+   - 错误处理
+
+5. 常见代码问题
+   - 语法错误
+   - 导入路径错误
+   - 变量未定义
+   - 类型不匹配
+   - 逻辑错误
+
+6. 修复优先级
+   P1: 功能完全不工作
+   P2: 功能部分工作但有bug
+   P3: 代码风格和格式问题

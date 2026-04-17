@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 def get_mimiraether_home() -> Path:
-    """Return the MimirAether home directory."""
+    """Return the MimirAether独立home目录."""
     return Path(os.getenv("MIMIRAETHER_HOME", Path.home() / ".openclaw/mimir-aether"))
 
 # Hermes兼容别名

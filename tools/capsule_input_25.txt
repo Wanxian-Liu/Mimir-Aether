@@ -1,0 +1,32 @@
+OpenClaw文档与资源核心知识：
+
+1. 官方文档
+   - 本地: /home/rayliu/openclaw/docs
+   - 镜像: https://docs.openclaw.ai
+   - 源码: https://github.com/openclaw/openclaw
+   - 社区: https://discord.com/invite/clawd
+
+2. 查找新技能
+   - ClawHub: https://clawhub.ai
+
+3. OpenClaw管理命令
+   - openclaw gateway status: 查看网关状态
+   - openclaw gateway start: 启动网关
+   - openclaw gateway stop: 停止网关
+   - openclaw gateway restart: 重启网关
+   - openclaw help: 帮助信息
+
+4. 配置文件
+   - config.yaml: 主配置
+   - ~/.openclaw/config.yaml
+
+5. 日志位置
+   - ~/.openclaw/logs/
+   - evolver.log: 进化日志
+   - evomap-heartbeat.log: 心跳日志
+   - health-check.log: 健康检查日志
+
+6. 文档使用建议
+   - 诊断问题时先运行openclaw status
+   - 查阅本地docs优先于网络搜索
+   - 社区Discord可以获取帮助

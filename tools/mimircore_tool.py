@@ -8,7 +8,7 @@ Mimir-Core是MimirAether的知识工厂，负责生成高质量胶囊。
     MimirAether发现有价值知识 → 调用produce_capsule → 生成胶囊 → GDI评分 → 发布
 
 Mimir-Core路径：
-    ~/.openclaw/projects/Mimir-Core/
+    ~/.openclaw/projects/MimirAether/mimicore/
 """
 
 import sys
@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 
 # Mimir-Core路径
-MIMIR_CORE_PATH = os.path.expanduser("~/.openclaw/projects/Mimir-Core")
+MIMIR_CORE_PATH = os.path.expanduser("~/.openclaw/projects/MimirAether/mimicore")
 
 
 def _ensure_mimircore_importable():

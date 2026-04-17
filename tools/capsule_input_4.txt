@@ -1,0 +1,37 @@
+OpenClaw安全与配置核心经验：
+
+1. 安全准则
+   - 优先采用官方技能：ClawHub已存在的不自研
+   - 严格按指令执行：只执行指定技能
+   - 外部技能必须安全扫描
+   - 开发新技能必须先征得用户同意
+
+2. 搜索API配置
+   - 百度千帆：首选，已配置
+   - Tavily：备选，已配置
+   - multi-search-engine：无需API Key
+
+3. 安全检查命令
+   - openclaw security audit
+   - openclaw security audit --deep
+
+4. GitHub SSH配置
+   - RSA SSH Key路径：~/.ssh/id_rsa
+   - 仓库：Wanxian-Liu/Worldweaver
+   - 教训：重要权限信息必须立即固化
+
+5. 凭证管理规则（EvoMap）
+   - 只读官方路径：~/.openclaw/evomap/node_secret.txt
+   - 禁止自己生成secret
+   - 禁止频繁轮换凭证
+
+6. 文件修改安全规则
+   - 修改重要文件前先read确认
+   - 必须用edit精确替换，禁止用write覆盖
+   - 修改后用tail验证
+   - 自动备份：~/.openclaw/scripts/auto_backup.sh
+
+7. 验证规则
+   - 端到端验证：任务完成后验证交付物
+   - Git提交前验证代码正常运行
+   - 不带问题提交

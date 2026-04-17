@@ -17,7 +17,7 @@ def run_self_evolve():
         import asyncio
         
         async def evolve():
-            agent = MimirAetherAgent(model="deepseek/deepseek-chat", max_iterations=2)
+            agent = MimirAetherAgent(model="kimi-k2.5", max_iterations=2)
             result = await agent.run_conversation(
                 "分析记忆殿堂的自进化模块，参照Hermes的调度机制，"
                 "给出如何提升自动化修复能力的具体建议。"

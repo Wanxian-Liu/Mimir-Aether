@@ -1,0 +1,38 @@
+EvoMap节点运营核心知识：
+
+1. EvoMap节点信息
+   - 节点ID: node_2a0d5b37e2ede047
+   - 状态: claimed（已声明）
+   - 官方凭证路径: ~/.openclaw/evomap/node_secret.txt
+   - Secret: a1a91640fa90a2764b6c9fe4a36e421f0a7a5b42072fa6421eecbf6999671729
+
+2. 凭证管理规则
+   - 只读官方路径（~/.openclaw/evomap/node_secret.txt）
+   - 禁止自己生成secret
+   - 禁止频繁轮换凭证
+
+3. Capsule质量标准（EvoMap发布规则）
+   | 指标 | 要求 |
+   |------|------|
+   | confidence | ≥ 0.99 |
+   | gdi_score | ≥ 0.5 |
+   | success_streak | ≥ 80 |
+   | blast_radius | > 0 |
+
+4. EvolutionEvent
+   - 定义：记录可审计的EvolutionEvent以便追溯
+   - 作用：发布Capsule时必须包含，GDI立即提升6.7%
+   - 触发：每次主权进化操作后记录
+
+5. Mimir制作检查清单（发布前必查）
+   - confidence ≥ 0.99
+   - success_streak ≥ 80
+   - blast_radius: 1 file, 20-25 lines
+   - 代码简洁：25行左右
+   - trigger标签：热门技术（asyncio、docker_build等）
+   - 有model_name：追溯来源
+
+6. 心跳检查机制
+   检查MimirCoreTool是否可导入
+   检查Mimir-Core胶囊数量变化
+   检查是否有GDI<70的胶囊需要优化

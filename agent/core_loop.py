@@ -464,7 +464,7 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                 try:
                     response, latency_ms = await asyncio.wait_for(
                         self._call_model_with_tokens(messages, session_id),
-                        timeout=120.0  # 120秒超时
+                        timeout=3600.0  # 1小时超时
                     )
                 except asyncio.TimeoutError:
                     logger.error("Model call timed out")
@@ -659,8 +659,18 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
         except ImportError:
             pass
         
+        # 转换model名为API接受的格式
+        api_model_name = model_name
+        if "deepseek" in model_name.lower():
+            # DeepSeek API只接受 "deepseek-chat" 或 "deepseek-coder" 格式
+            if "/" in model_name:
+                api_model_name = model_name.split("/")[-1]
+        elif "minimax" in model_name.lower():
+            if "/" in model_name:
+                api_model_name = model_name.split("/")[-1]
+        
         payload = {
-            "model": model_name,
+            "model": api_model_name,
             "messages": messages,
             "temperature": 0.7,
             "max_tokens": max_tokens,
@@ -675,14 +685,15 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                     f"{base_url}/v1/chat/completions",
                     headers=headers,
                     json=payload,
-                    timeout=aiohttp.ClientTimeout(total=120)
+                    timeout=aiohttp.ClientTimeout(total=3600)
                 ) as response:
                     latency_ms = (time.monotonic() - start) * 1000
 
                     if response.status != 200:
-                        # 不泄露原始响应内容
-                        logger.warning("API call failed")
-                        raise RuntimeError("Model API request failed")
+                        # 记录错误详情用于调试
+                        error_text = await response.text()
+                        logger.warning(f"API call failed: {response.status}, response: {error_text[:500]}")
+                        raise RuntimeError(f"Model API request failed: {response.status}")
 
                     result = await response.json()
 
@@ -804,7 +815,7 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                     f"{base_url}/v1/messages",
                     headers=headers,
                     json=kwargs,
-                    timeout=aiohttp.ClientTimeout(total=120)
+                    timeout=aiohttp.ClientTimeout(total=3600)
                 ) as response:
                     latency_ms = (time.monotonic() - start) * 1000
                     

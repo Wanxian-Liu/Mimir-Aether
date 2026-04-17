@@ -169,7 +169,7 @@ def resolve_turn_route(
     """
     # 默认主模型配置
     default_primary = {
-        "model": os.environ.get("LLM_MODEL", "deepseek/deepseek-chat"),
+        "model": os.environ.get("LLM_MODEL", "kimi-k2.5"),
         "provider": "deepseek",
         "api_key": os.environ.get("DEEPSEEK_API_KEY", ""),
         "base_url": "https://api.deepseek.com",
@@ -259,7 +259,7 @@ if __name__ == "__main__":
     }
     
     primary = {
-        "model": "deepseek/deepseek-chat",
+        "model": "kimi-k2.5",
         "provider": "deepseek",
         "api_key": "test-key",
         "base_url": "https://api.deepseek.com",

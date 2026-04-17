@@ -23,6 +23,9 @@ from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
+# Allowed ports for outbound requests (HTTP/HTTPS only)
+ALLOWED_PORTS = frozenset({80, 443})
+
 # Hostnames that should always be blocked regardless of IP resolution
 _BLOCKED_HOSTNAMES = frozenset({
     "metadata.google.internal",
@@ -38,6 +41,7 @@ _CGNAT_NETWORK = ipaddress.ip_network("100.64.0.0/10")
 
 def _is_blocked_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     """Return True if the IP should be blocked for SSRF protection."""
+    # IPv4 and IPv6 share these checks
     if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
         return True
     if ip.is_multicast or ip.is_unspecified:
@@ -45,6 +49,11 @@ def _is_blocked_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     # CGNAT range not covered by is_private
     if ip in _CGNAT_NETWORK:
         return True
+    # IPv4-mapped IPv6 addresses (::ffff:0.0.0.0/96) — extract mapped IPv4
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
+        mapped_ipv4 = ip.ipv4_mapped
+        if mapped_ipv4.is_private or mapped_ipv4.is_loopback or mapped_ipv4.is_link_local:
+            return True
     return False
 
 
@@ -63,6 +72,14 @@ def is_safe_url(url: str) -> bool:
         # Block known internal hostnames
         if hostname in _BLOCKED_HOSTNAMES:
             logger.warning("Blocked request to internal hostname: %s", hostname)
+            return False
+
+        # Block non-standard ports to prevent metadata endpoint access
+        port = parsed.port
+        if port is not None and port not in ALLOWED_PORTS:
+            logger.warning(
+                "Blocked request to non-standard port: %s:%d", hostname, port,
+            )
             return False
 
         # Try to resolve and check IP

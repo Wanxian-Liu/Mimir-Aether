@@ -150,17 +150,56 @@ def execute_code(code: str, language: str = "python") -> str:
     """
     执行代码
     
-    注意：此为占位实现，实际执行需要沙盒环境。
-    直接执行用户代码可能导致安全问题。
+    安全执行Python代码，使用subprocess + 超时保护。
     
     Args:
         code: 要执行的代码
-        language: 编程语言
+        language: 编程语言 (仅支持 python)
         
     Returns:
         执行结果或错误信息
     """
-    return "Error: execute_code is not yet implemented. Code execution requires a sandbox environment."
+    import subprocess
+    import tempfile
+    import os
+    
+    if language != "python":
+        return f"Error: Only Python is supported, got: {language}"
+    
+    # 限制代码大小（防止内存耗尽）
+    if len(code.encode('utf-8')) > 100 * 1024:
+        return "Error: Code too large (max 100KB)"
+    
+    # 创建临时文件执行
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding='utf-8') as f:
+            f.write(code)
+            temp_path = f.name
+        
+        try:
+            # 执行代码，60秒超时
+            result = subprocess.run(
+                ['python3', temp_path],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                cwd=os.path.dirname(temp_path) or '.'
+            )
+            
+            if result.returncode == 0:
+                return result.stdout if result.stdout else "Code executed successfully (no output)"
+            else:
+                return f"Error:\n{result.stderr}" if result.stderr else f"Error: exit code {result.returncode}"
+        finally:
+            # 清理临时文件
+            try:
+                os.unlink(temp_path)
+            except:
+                pass
+    except subprocess.TimeoutExpired:
+        return "Error: Execution timed out (60s limit)"
+    except Exception as e:
+        return f"Error: {type(e).__name__}: {str(e)}"
 
 
 # 允许访问的环境变量白名单
