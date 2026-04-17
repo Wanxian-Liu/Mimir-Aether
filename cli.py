@@ -22,6 +22,7 @@ from pathlib import Path
 # 添加项目路径
 MIMIR_AETHER_PATH = Path('/home/rayliu/.openclaw/projects/MimirAether')
 sys.path.insert(0, str(MIMIR_AETHER_PATH))
+sys.path.insert(0, str(MIMIR_AETHER_PATH / 'tools'))
 
 
 def main():

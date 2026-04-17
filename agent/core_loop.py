@@ -34,7 +34,18 @@ from skills.skill_manager import SkillManager, SkillStatus
 # 导入Hermes SessionDB用于数据持久化
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path.home() / ".openclaw" / "projects" / "hermes-agent"))
+
+# 添加MimirAether路径（优先）
+mimir_root = Path.home() / ".openclaw" / "projects" / "MimirAether"
+mimir_path = str(mimir_root)
+if mimir_path not in sys.path:
+    sys.path.insert(0, mimir_path)
+
+# 添加Hermes路径（用于SessionDB，放在MimirAether之后）
+hermes_path = str(Path.home() / ".openclaw" / "projects" / "hermes-agent")
+if hermes_path not in sys.path:
+    sys.path.append(hermes_path)
+
 try:
     from hermes_state import SessionDB
 except ImportError:
@@ -286,6 +297,9 @@ class MimirAetherAgent:
         self._register_builtin_tools()
         
         logger.info(f"MimirAether initialized with model: {model}, context_length: {self._context_length}")
+        
+        # 尝试从SessionDB恢复最近的session
+        self._restore_session()
     
     def _init_credential_pool(self) -> None:
         """初始化凭证池"""
@@ -1665,6 +1679,84 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
         self._trajectory = []
         self.compressor.reset_history()
         logger.info("Agent reset")
+    
+    def _restore_session(self, session_id: str = None) -> bool:
+        """
+        从SessionDB恢复会话
+        
+        学习自Hermes会话持久化：
+        - 从Hermes SessionDB恢复消息历史
+        - 恢复conversation_history
+        
+        Args:
+            session_id: 要恢复的session ID（可选）
+            
+        Returns:
+            是否成功恢复
+        """
+        if SessionDB is None:
+            return False
+        
+        try:
+            db = SessionDB()
+            
+            # 如果没有指定session_id，尝试获取最近的
+            if not session_id:
+                # 获取最近一次session
+                sessions = db.export_all()
+                if not sessions:
+                    logger.debug("No sessions found in SessionDB")
+                    return False
+                # 取最新的session
+                latest = sessions[-1] if sessions else None
+                if latest:
+                    session_id = latest.get('session_id')
+                    
+            if not session_id:
+                return False
+            
+            # 获取session消息
+            messages = db.get_messages(session_id)
+            if not messages:
+                logger.debug(f"No messages found for session {session_id}")
+                return False
+            
+            # 转换为conversation_history
+            restored_count = 0
+            for msg in messages:
+                role = msg.get('role')
+                content = msg.get('content', '')
+                
+                if role == 'user':
+                    self.conversation_history.append(Message(
+                        role=MessageRole.USER,
+                        content=content
+                    ))
+                    restored_count += 1
+                elif role == 'assistant':
+                    tool_calls = msg.get('tool_calls')
+                    self.conversation_history.append(Message(
+                        role=MessageRole.ASSISTANT,
+                        content=content,
+                        tool_calls=tool_calls
+                    ))
+                    restored_count += 1
+                elif role == 'tool':
+                    self.conversation_history.append(Message(
+                        role=MessageRole.TOOL,
+                        content=content,
+                        tool_call_id=msg.get('tool_call_id')
+                    ))
+                    restored_count += 1
+            
+            if restored_count > 0:
+                logger.info(f"Restored {restored_count} messages from session {session_id}")
+                return True
+                
+        except Exception as e:
+            logger.warning(f"Failed to restore session: {e}")
+        
+        return False
 
 
 # 导出的类和函数
