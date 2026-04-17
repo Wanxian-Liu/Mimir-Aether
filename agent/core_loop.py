@@ -206,6 +206,7 @@ class MimirAetherAgent:
         platform: str = "cli",
         system_prompt: str = None,
         save_trajectories: bool = False,
+        stream_callback: callable = None,
     ):
         """
         初始化MimirAether Agent
@@ -216,12 +217,18 @@ class MimirAetherAgent:
             platform: 运行平台
             system_prompt: 系统提示
             save_trajectories: 是否保存轨迹
+            stream_callback: 流式输出回调函数，每个token到达时调用
         """
         self.model = model
         self.max_iterations = max_iterations
         self.platform = platform
         self.system_prompt = system_prompt or self._default_system_prompt()
         self.save_trajectories = save_trajectories
+        
+        # 流式输出回调
+        self.stream_callback = stream_callback
+        self._stream_needs_break = False  # 流式输出段落分隔标志
+        self._current_streamed_text = ""  # 当前流式输出的累积文本
         
         # 初始化组件
         self.budget = IterationBudget(max_iterations)
@@ -430,6 +437,34 @@ class MimirAetherAgent:
             logger.info("Registered skill tools: skill_view, skills_list, skill_manage")
         except ImportError as e:
             logger.warning(f"Failed to import skill tools: {e}")
+    
+    def _fire_stream_delta(self, text: str) -> None:
+        """
+        触发流式输出回调
+        
+        学习自Hermes _fire_stream_delta：
+        - 处理段落分隔
+        - 调用所有注册的流式回调
+        - 记录流式输出的累积文本
+        """
+        # 如果需要段落分隔，在文本前添加
+        if self._stream_needs_break and text and text.strip():
+            self._stream_needs_break = False
+            text = "\n\n" + text
+        
+        # 调用流式回调
+        if self.stream_callback:
+            try:
+                self.stream_callback(text)
+            except Exception as e:
+                logger.debug(f"Stream callback error: {e}")
+        
+        # 累积文本
+        self._current_streamed_text += text
+    
+    def _has_stream_consumers(self) -> bool:
+        """检查是否有流式输出的消费者"""
+        return self.stream_callback is not None
     
     def _default_system_prompt(self) -> str:
         """默认系统提示"""
