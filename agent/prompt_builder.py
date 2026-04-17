@@ -572,6 +572,61 @@ def build_skills_system_prompt(
 
 
 # ============================================================================
+# Skill快照机制（Hermes 1:1学习）
+# ============================================================================
+
+_SKILLS_SNAPSHOT_VERSION = 1
+_SKILLS_SNAPSHOT_CACHE_PATH = Path.home() / ".openclaw" / ".skills_snapshot_cache"
+
+def _get_skills_snapshot_path() -> Path:
+    """获取快照文件路径"""
+    return _SKILLS_SNAPSHOT_CACHE_PATH
+
+def _build_skills_manifest(skills_dir: Path) -> dict:
+    """构建skills目录清单（用于快照校验）"""
+    manifest = {}
+    for skill_file in skills_dir.rglob("SKILL.md"):
+        stat = skill_file.stat()
+        rel = skill_file.relative_to(skills_dir)
+        manifest[str(rel)] = int(stat.st_mtime)
+    return manifest
+
+def _load_skills_snapshot(skills_dir: Path) -> Optional[dict]:
+    """加载skill快照（如果存在且有效）"""
+    snapshot_path = _get_skills_snapshot_path()
+    if not snapshot_path.exists():
+        return None
+    try:
+        import json
+        snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    if not isinstance(snapshot, dict):
+        return None
+    if snapshot.get("version") != _SKILLS_SNAPSHOT_VERSION:
+        return None
+    if snapshot.get("manifest") != _build_skills_manifest(skills_dir):
+        return None
+    return snapshot
+
+def _write_skills_snapshot(skills_dir: Path, skill_entries: list, category_descriptions: dict) -> None:
+    """持久化skill快照用于快速冷启动"""
+    try:
+        import json
+        manifest = _build_skills_manifest(skills_dir)
+        payload = {
+            "version": _SKILLS_SNAPSHOT_VERSION,
+            "manifest": manifest,
+            "skills": skill_entries,
+            "category_descriptions": category_descriptions,
+        }
+        _get_skills_snapshot_path().parent.mkdir(parents=True, exist_ok=True)
+        _get_skills_snapshot_path().write_text(json.dumps(payload), encoding="utf-8")
+    except Exception as e:
+        logger.warning(f"Failed to write skills snapshot: {e}")
+
+
+# ============================================================================
 # 主Prompt构建
 # ============================================================================
 
