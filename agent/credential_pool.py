@@ -383,6 +383,49 @@ class CredentialPool:
             
             logger.info(f"Credential [{target.label}] marked exhausted: {error_message}")
     
+    def try_refresh_current(self) -> Optional[PooledCredential]:
+        """"尝试刷新当前凭证（Hermes 1:1学习）"""
+        with self._lock:
+            return self._try_refresh_current_unlocked()
+    
+    def _try_refresh_current_unlocked(self) -> Optional[PooledCredential]:
+        """刷新当前凭证（内部版本，需要调用者持有锁）"""
+        entry = self.current()
+        if entry is None:
+            return None
+        refreshed = self._refresh_entry(entry, force=True)
+        if refreshed is not None:
+            self._current_id = refreshed.id
+        return refreshed
+    
+    def _refresh_entry(self, entry: PooledCredential, force: bool = False) -> Optional[PooledCredential]:
+        """刷新单个凭证（Hermes 1:1学习）"""
+        # 如果凭证支持refresh_token，尝试刷新
+        if entry.refresh_token and (force or self._entry_needs_refresh(entry)):
+            try:
+                # 这里是简化的刷新逻辑，实际应该调用OAuth刷新API
+                logger.info(f"Refreshing credential {entry.id}")
+                # TODO: 实现实际的token刷新逻辑
+                return None  # 暂时返回None表示刷新未实现
+            except Exception as e:
+                logger.warning(f"Failed to refresh credential {entry.id}: {e}")
+                return None
+        return None
+    
+    def _entry_needs_refresh(self, entry: PooledCredential) -> bool:
+        """检查凭证是否需要刷新（Hermes 1:1学习）"""
+        if not entry.refresh_token:
+            return False
+        # 检查是否过期（基于expires_at或last_refresh）
+        if entry.expires_at:
+            try:
+                from datetime import datetime
+                expires = datetime.fromisoformat(entry.expires_at.replace('Z', '+00:00'))
+                return datetime.now() >= expires
+            except:
+                pass
+        return False
+    
     def mark_ok(self, entry: Optional[PooledCredential] = None) -> None:
         """标记凭证为正常状态"""
         with self._lock:
