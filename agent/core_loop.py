@@ -219,6 +219,19 @@ class MimirAetherAgent:
         system_prompt: str = None,
         save_trajectories: bool = False,
         stream_callback: callable = None,
+        # Callback系统（学习自Hermes）
+        step_callback: callable = None,
+        status_callback: callable = None,
+        tool_start_callback: callable = None,
+        tool_complete_callback: callable = None,
+        tool_progress_callback: callable = None,
+        thinking_callback: callable = None,
+        reasoning_callback: callable = None,
+        clarify_callback: callable = None,
+        interim_assistant_callback: callable = None,
+        tool_gen_callback: callable = None,
+        # Fallback机制
+        fallback_model: dict = None,
     ):
         """
         初始化MimirAether Agent
@@ -229,7 +242,18 @@ class MimirAetherAgent:
             platform: 运行平台
             system_prompt: 系统提示
             save_trajectories: 是否保存轨迹
-            stream_callback: 流式输出回调函数，每个token到达时调用
+            stream_callback: 流式输出回调函数
+            step_callback: 每步执行后的回调
+            status_callback: 状态变化的回调
+            tool_start_callback: 工具开始执行的回调
+            tool_complete_callback: 工具完成执行的回调
+            tool_progress_callback: 工具执行进度的回调
+            thinking_callback: Thinking内容回调
+            reasoning_callback: Reasoning内容回调
+            clarify_callback: 用户交互回调
+            interim_assistant_callback: 临时助手响应回调
+            tool_gen_callback: 工具生成回调
+            fallback_model: Fallback模型配置
         """
         self.model = model
         self.max_iterations = max_iterations
@@ -241,6 +265,58 @@ class MimirAetherAgent:
         self.stream_callback = stream_callback
         self._stream_needs_break = False  # 流式输出段落分隔标志
         self._current_streamed_text = ""  # 当前流式输出的累积文本
+        
+        # Callback系统（学习自Hermes）
+        self.step_callback = step_callback
+        self.status_callback = status_callback
+        self.tool_start_callback = tool_start_callback
+        self.tool_complete_callback = tool_complete_callback
+        self.tool_progress_callback = tool_progress_callback
+        self.thinking_callback = thinking_callback
+        self.reasoning_callback = reasoning_callback
+        self.clarify_callback = clarify_callback
+        self.interim_assistant_callback = interim_assistant_callback
+        self.tool_gen_callback = tool_gen_callback
+        
+        # Fallback机制
+        self.fallback_model = fallback_model
+        self._fallback_activated = False
+        self._primary_model = model  # 保存主模型配置
+        
+        # Status callback（学习自Hermes _emit_status）
+        self._status_message = ""  # 当前状态消息
+    
+    def _emit_status(self, message: str) -> None:
+        """
+        发送状态消息到status_callback
+        
+        学习自Hermes _emit_status：
+        - 通过status_callback发送状态更新
+        - 用于CLI/Gateway显示状态变化
+        """
+        self._status_message = message
+        if self.status_callback:
+            try:
+                self.status_callback(message)
+            except Exception as e:
+                logger.warning(f"status_callback error: {e}")
+        elif not self.quiet_mode:
+            # 如果没有callback但不是quiet模式，打印状态
+            print(f"\n📍 {message}")
+    
+    def _emit_interim_assistant(self, content: str) -> None:
+        """
+        发送临时助手响应（流式输出时的中间响应）
+        
+        学习自Hermes：
+        - interim_assistant_callback用于流式输出中间内容
+        - 允许在完整响应前显示部分内容
+        """
+        if self.interim_assistant_callback:
+            try:
+                self.interim_assistant_callback(content)
+            except Exception as e:
+                logger.warning(f"interim_assistant_callback error: {e}")
         
         # 初始化组件
         self.budget = IterationBudget(max_iterations)
@@ -811,6 +887,9 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
             self.conversation_history = system_msgs + other_msgs[-self.max_history_length:]
         
         try:
+            # 恢复主运行时（Fallback后）
+            self._restore_primary_runtime()
+            
             # 主循环
             while True:
                 # 检查是否被中断
@@ -822,6 +901,13 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                 if not await self.budget.consume():
                     logger.warning("Iteration budget exhausted")
                     return "抱歉，任务迭代次数已达上限。"
+                
+                # 触发step_callback（每步执行后）
+                if self.step_callback:
+                    try:
+                        self.step_callback()
+                    except Exception as e:
+                        logger.warning(f"step_callback error: {e}")
                 
                 # 每次迭代都重建消息列表（使用当前全部历史）
                 messages = self._build_full_messages()
@@ -1438,6 +1524,14 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
             func_name = tool_call.get("name", "")
             raw_args = tool_call.get("arguments", {})
         
+        # 触发tool_start_callback
+        if self.tool_start_callback:
+            try:
+                args_preview = json.dumps(raw_args)[:200] if raw_args else "{}"
+                self.tool_start_callback(func_name, args_preview)
+            except Exception as e:
+                logger.warning(f"tool_start_callback error: {e}")
+        
         # 校验必需字段
         if not tool_call_id or tool_call_id == "unknown":
             logger.warning(f"SKIP tool_call: missing 'id' field: {tool_call}")
@@ -1480,6 +1574,14 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                 name=func_name,
                 arguments=arguments
             )
+            
+            # 触发tool_complete_callback
+            if self.tool_complete_callback:
+                try:
+                    self.tool_complete_callback(func_name, str(result))
+                except Exception as e:
+                    logger.warning(f"tool_complete_callback error: {e}")
+            
             return ToolResult(
                 tool_call_id=tool_call_id,
                 content=str(result),
@@ -1487,6 +1589,14 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
             )
         except Exception as e:
             logger.error(f"Tool execution failed: {tool_call['name']}, error: {e}")
+            
+            # 触发tool_complete_callback（错误情况）
+            if self.tool_complete_callback:
+                try:
+                    self.tool_complete_callback(func_name, f"Error: {e}")
+                except Exception:
+                    pass
+            
             return ToolResult(
                 tool_call_id=tool_call["id"],
                 content="Error: tool execution failed",
@@ -1757,6 +1867,49 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
             logger.warning(f"Failed to restore session: {e}")
         
         return False
+    
+    def _try_activate_fallback(self) -> bool:
+        """
+        尝试激活Fallback模型
+        
+        学习自Hermes fallback机制：
+        - 当主模型API失败时，尝试使用fallback模型
+        - 需要配置fallback_model
+        """
+        if not self.fallback_model:
+            return False
+        
+        if self._fallback_activated:
+            logger.debug("Fallback already activated, not trying again")
+            return False
+        
+        try:
+            fallback = self.fallback_model
+            self.model = fallback.get("model", self.model)
+            self._fallback_activated = True
+            self._emit_status(f"🔄 Activating fallback model: {self.model}")
+            logger.info(f"Fallback activated: {self.model}")
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to activate fallback: {e}")
+            return False
+    
+    def _restore_primary_runtime(self) -> None:
+        """
+        恢复主运行时（Fallback后）
+        
+        学习自Hermes：
+        - 在新的对话轮次开始时，如果上次使用了fallback，尝试恢复主模型
+        - 只有当_fallback_activated为True时才恢复
+        """
+        if not self._fallback_activated:
+            return
+        
+        if self._primary_model and self.model != self._primary_model:
+            self.model = self._primary_model
+            self._fallback_activated = False
+            self._emit_status(f"✅ Restored primary model: {self.model}")
+            logger.info(f"Primary runtime restored: {self.model}")
 
 
 # 导出的类和函数
