@@ -287,40 +287,9 @@ class MimirAetherAgent:
         self._status_message = ""  # 当前状态消息
         
         # Plugin hooks（学习自Hermes）
+                # Plugin hooks（学习自Hermes）
         for hook_name in self.VALID_HOOKS:
             setattr(self, f"_{hook_name}_hooks", [])
-    
-    def _emit_status(self, message: str) -> None:
-        """
-        发送状态消息到status_callback
-        
-        学习自Hermes _emit_status：
-        - 通过status_callback发送状态更新
-        - 用于CLI/Gateway显示状态变化
-        """
-        self._status_message = message
-        if self.status_callback:
-            try:
-                self.status_callback(message)
-            except Exception as e:
-                logger.warning(f"status_callback error: {e}")
-        elif not self.quiet_mode:
-            # 如果没有callback但不是quiet模式，打印状态
-            print(f"\n📍 {message}")
-    
-    def _emit_interim_assistant(self, content: str) -> None:
-        """
-        发送临时助手响应（流式输出时的中间响应）
-        
-        学习自Hermes：
-        - interim_assistant_callback用于流式输出中间内容
-        - 允许在完整响应前显示部分内容
-        """
-        if self.interim_assistant_callback:
-            try:
-                self.interim_assistant_callback(content)
-            except Exception as e:
-                logger.warning(f"interim_assistant_callback error: {e}")
         
         # 初始化组件
         self.budget = IterationBudget(max_iterations)
@@ -381,6 +350,39 @@ class MimirAetherAgent:
         # 尝试从SessionDB恢复最近的session
         self._restore_session()
     
+    def _emit_status(self, message: str) -> None:
+        """
+        发送状态消息到status_callback
+        
+        学习自Hermes _emit_status：
+        - 通过status_callback发送状态更新
+        - 用于CLI/Gateway显示状态变化
+        """
+        self._status_message = message
+        if self.status_callback:
+            try:
+                self.status_callback(message)
+            except Exception as e:
+                logger.warning(f"status_callback error: {e}")
+        elif not self.quiet_mode:
+            # 如果没有callback但不是quiet模式，打印状态
+            print(f"\n📍 {message}")
+    
+    def _emit_interim_assistant(self, content: str) -> None:
+        """
+        发送临时助手响应（流式输出时的中间响应）
+        
+        学习自Hermes：
+        - interim_assistant_callback用于流式输出中间内容
+        - 允许在完整响应前显示部分内容
+        """
+        if self.interim_assistant_callback:
+            try:
+                self.interim_assistant_callback(content)
+            except Exception as e:
+                logger.warning(f"interim_assistant_callback error: {e}")
+
+
     def _init_credential_pool(self) -> None:
         """初始化凭证池"""
         # 收集可用凭证
