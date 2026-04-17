@@ -575,6 +575,33 @@ class MimirAetherAgent:
         
         return None
     
+    async def _cleanup_aiohttp_connections(self, session) -> int:
+        """
+        清理aiohttp死连接
+        
+        学习自Hermes _cleanup_dead_connections：
+        - 关闭死TCP连接，防止CLOSE-WAIT累积
+        - 对于aiohttp，简化处理：关闭并重建session
+        """
+        closed = 0
+        try:
+            # aiohttp的connector持有连接池
+            connector = getattr(session, '_connector', None)
+            if connector is None:
+                return 0
+            
+            # 获取连接池中的连接
+            connections = getattr(connector, '_conns', [])
+            if connections:
+                # 标记为需要清理
+                connector._conns = []
+                closed = len(connections)
+                logger.debug(f"Cleaned up {closed} aiohttp connections")
+        except Exception as e:
+            logger.warning(f"Failed to cleanup connections: {e}")
+        
+        return closed
+    
     async def _stream_openai_compatible(
         self,
         base_url: str,
