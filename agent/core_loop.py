@@ -466,6 +466,135 @@ class MimirAetherAgent:
         """检查是否有流式输出的消费者"""
         return self.stream_callback is not None
     
+    async def _stream_openai_compatible(
+        self,
+        base_url: str,
+        api_key: str,
+        model: str,
+        messages: List[Dict],
+        tool_schemas: List[Dict],
+        max_tokens: int,
+        temperature: float,
+    ) -> tuple[Dict, float]:
+        """
+        流式调用OpenAI兼容API
+        
+        学习自Hermes _interruptible_streaming_api_call：
+        - 使用stream=True参数
+        - 迭代chunk并调用_fire_stream_delta
+        - 返回累积的完整响应
+        
+        Returns:
+            (response_dict, latency_ms)
+        """
+        import aiohttp
+        import time
+        
+        start = time.monotonic()
+        
+        payload = {
+            "model": model,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "stream": True,  # 启用流式
+        }
+        
+        if tool_schemas:
+            payload["tools"] = tool_schemas
+            payload["tool_choice"] = "auto"
+        
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        content_parts = []
+        tool_calls_acc = {}
+        finish_reason = None
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{base_url}/v1/chat/completions",
+                    headers=headers,
+                    json=payload,
+                    timeout=aiohttp.ClientTimeout(total=3600)
+                ) as response:
+                    latency_ms = (time.monotonic() - start) * 1000
+                    
+                    if response.status != 200:
+                        error_text = await response.text()
+                        raise RuntimeError(f"Stream API error {response.status}: {error_text[:200]}")
+                    
+                    # 迭代流式响应
+                    async for line in response.content:
+                        line = line.decode('utf-8').strip()
+                        
+                        if not line or not line.startswith('data: '):
+                            continue
+                        
+                        data = line[6:]  # 去掉 'data: '
+                        
+                        if data == '[DONE]':
+                            break
+                        
+                        try:
+                            import json
+                            chunk = json.loads(data)
+                        except json.JSONDecodeError:
+                            continue
+                        
+                        # 解析delta
+                        choices = chunk.get('choices', [])
+                        if not choices:
+                            continue
+                        
+                        delta = choices[0].get('delta', {})
+                        
+                        # 处理内容
+                        if delta.get('content'):
+                            text = delta['content']
+                            content_parts.append(text)
+                            # 如果没有累积的工具调用，流式输出
+                            if not tool_calls_acc:
+                                self._fire_stream_delta(text)
+                        
+                        # 处理工具调用
+                        if 'tool_calls' in delta:
+                            for tc in delta['tool_calls']:
+                                index = tc.get('index', 0)
+                                if index not in tool_calls_acc:
+                                    tool_calls_acc[index] = {
+                                        'id': '',
+                                        'type': 'function',
+                                        'function': {'name': '', 'arguments': ''}
+                                    }
+                                if tc.get('id'):
+                                    tool_calls_acc[index]['id'] = tc['id']
+                                if tc.get('function', {}).get('name'):
+                                    tool_calls_acc[index]['function']['name'] = tc['function']['name']
+                                if tc.get('function', {}).get('arguments'):
+                                    tool_calls_acc[index]['function']['arguments'] += tc['function']['arguments']
+                        
+                        # 处理finish_reason
+                        if choices[0].get('finish_reason'):
+                            finish_reason = choices[0]['finish_reason']
+                    
+                    # 构建响应
+                    content = ''.join(content_parts)
+                    tool_calls = list(tool_calls_acc.values()) if tool_calls_acc else None
+                    
+                    return {
+                        'content': content,
+                        'tool_calls': tool_calls,
+                        'finish_reason': finish_reason
+                    }, latency_ms
+                    
+        except Exception as e:
+            logger.error(f"Stream API call failed: {e}")
+            raise
+    
     def _default_system_prompt(self) -> str:
         """默认系统提示"""
         return """You are MimirAether, an AI assistant powered by advanced reasoning and tool execution capabilities.
