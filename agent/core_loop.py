@@ -665,6 +665,11 @@ class MimirAetherAgent:
                     
                     # 迭代流式响应
                     async for line in response.content:
+                        # 检查是否被中断
+                        if self._interrupt_requested:
+                            logger.info("Stream interrupted by user")
+                            break
+                        
                         line = line.decode('utf-8').strip()
                         
                         if not line or not line.startswith('data: '):
