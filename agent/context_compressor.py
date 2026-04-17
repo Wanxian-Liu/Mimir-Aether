@@ -599,9 +599,15 @@ ContextCompressor = ContextCompressorV2
 
 
 def compress_conversation(messages: List[Dict], **kwargs) -> Tuple[List[Dict], CompressionResult]:
-    compressor = ContextCompressorV2(**kwargs)
+    # 分离ContextCompressorV2的__init__参数和其他参数
+    init_keys = {'model', 'threshold_percent', 'protect_first_n', 'protect_last_n', 
+                 'tail_token_budget', 'summary_target_ratio', 'summary_model', 
+                 'base_url', 'api_key', 'credential_pool', 'model_context_length'}
+    init_kwargs = {k: v for k, v in kwargs.items() if k in init_keys}
+    
+    compressor = ContextCompressorV2(**init_kwargs)
     tokens = compressor._estimate_tokens(messages)
-    if not compressor.should_compress(messages, tokens):
+    if not compressor.should_compress(prompt_tokens=tokens):
         return messages, CompressionResult(
             original_count=len(messages),
             compressed_count=len(messages),
