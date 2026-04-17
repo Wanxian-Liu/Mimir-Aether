@@ -582,12 +582,19 @@ def build_system_prompt(
     platform: Optional[str] = None,
     include_skills: bool = True,
     include_context: bool = True,
+    skills_dir: Optional[str] = None,
 ) -> str:
     """
     构建完整的system prompt
     
     Args:
         model: 模型名称
+        cwd: 工作目录
+        available_tools: 可用工具集合
+        platform: 平台类型
+        include_skills: 是否包含技能索引
+        include_context: 是否包含上下文文件
+        skills_dir: 技能目录路径（默认从环境变量或 ~/.openclaw/skills）
         cwd: 工作目录
         available_tools: 可用工具集合
         platform: 平台类型
@@ -634,7 +641,7 @@ def build_system_prompt(
     
     # 9. 技能索引
     if include_skills:
-        skills_prompt = build_skills_system_prompt(available_tools)
+        skills_prompt = build_skills_system_prompt(available_tools, skills_dir=skills_dir)
         if skills_prompt:
             sections.append(skills_prompt)
     

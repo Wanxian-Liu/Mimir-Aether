@@ -358,6 +358,10 @@ class MimirAetherAgent:
             # 获取可用工具列表
             available_tools = set(self.tool_registry.list_tools())
             
+            # MimirAether的skills目录
+            mimir_root = Path(__file__).parent.parent
+            skills_dir = str(mimir_root / "skills")
+            
             # 使用prompt_builder构建系统提示
             system_prompt = prompt_builder.build_system_prompt(
                 model=self.model,
@@ -366,6 +370,7 @@ class MimirAetherAgent:
                 platform=self.platform,
                 include_skills=True,
                 include_context=True,
+                skills_dir=skills_dir,
             )
             
             return system_prompt if system_prompt else self._default_system_prompt()
@@ -412,6 +417,17 @@ class MimirAetherAgent:
                 
         except ImportError as e:
             logger.warning(f"Failed to import builtin tools: {e}")
+        
+        # 注册Skill工具（skill_view, skills_list）
+        try:
+            from skills.skills_loader import skill_view as _skill_view_func, skills_list as _skills_list_func
+            
+            self.tool_registry.register("skill_view", _skill_view_func, SKILL_TOOL_SCHEMAS.get("skill_view", {}))
+            self.tool_registry.register("skills_list", _skills_list_func, SKILL_TOOL_SCHEMAS.get("skills_list", {}))
+            
+            logger.info("Registered skill tools: skill_view, skills_list")
+        except ImportError as e:
+            logger.warning(f"Failed to import skill tools: {e}")
     
     def _default_system_prompt(self) -> str:
         """默认系统提示"""
@@ -1259,3 +1275,85 @@ __all__ = [
     "IterationBudget",
     "ToolRegistry",
 ]
+
+
+# ========================================================================
+# Skill工具函数（供Agent调用）
+# ========================================================================
+
+def skill_view_func(name: str, file_path: str = None) -> str:
+    """
+    加载skill完整内容
+    
+    Args:
+        name: skill名称
+        file_path: 可选，加载skill下的具体文件
+        
+    Returns:
+        skill内容
+    """
+    from skills.skills_loader import skill_view as _skill_view, SkillLoadError
+    try:
+        result = _skill_view(name, file_path)
+        if file_path:
+            return f"文件: {file_path}\n\n{result['content']}"
+        return result['content']
+    except SkillLoadError as e:
+        return f"Error: {e}"
+
+
+def skills_list_func(category: str = None) -> str:
+    """
+    列出所有可用的skill
+    
+    Args:
+        category: 可选，按分类过滤
+        
+    Returns:
+        skill列表
+    """
+    from skills.skills_loader import skills_list as _skills_list
+    skills = _skills_list(category)
+    if not skills:
+        return "No skills found."
+    
+    lines = [f"Found {len(skills)} skills:\n"]
+    for s in skills:
+        lines.append(f"- {s['name']}: {s.get('description', 'No description')[:60]}")
+    return "\n".join(lines)
+
+
+# Skill工具schema
+SKILL_TOOL_SCHEMAS = {
+    "skill_view": {
+        "name": "skill_view",
+        "description": "Load the full content of a skill by name. Use this to get the complete instructions for a skill.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "The name of the skill to view"
+                },
+                "file_path": {
+                    "type": "string",
+                    "description": "Optional: Load a specific file within the skill (e.g., 'references/api.md')"
+                }
+            },
+            "required": ["name"]
+        }
+    },
+    "skills_list": {
+        "name": "skills_list",
+        "description": "List all available skills. Returns skill names and descriptions.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string",
+                    "description": "Optional: Filter by category (e.g., 'github', 'data-science')"
+                }
+            }
+        }
+    }
+}
