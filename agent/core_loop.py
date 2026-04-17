@@ -933,6 +933,10 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                     return "抱歉，模型响应超时，请重试。"
                 except Exception as e:
                     logger.error(f"Model call failed: {e}")
+                    # 尝试激活Fallback模型
+                    if self._try_activate_fallback():
+                        # Fallback激活成功，重试当前迭代
+                        continue
                     # 通用错误，不泄露内部细节
                     return "抱歉，模型调用失败，请稍后重试。"
                 
