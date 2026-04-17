@@ -878,8 +878,26 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
         fenced_msg = self.fencer.fence(user_message)
         if fenced_msg.was_modified:
             logger.warning(f"User message modified by fencer: {fenced_msg.warnings}")
-
-        # 添加用户消息到历史（使用隔离后的内容）
+        
+        # 学习自Hermes: @引用展开
+        # 展开 @file:xxx, @folder:xxx 等引用
+        message_text = fenced_msg.content
+        if "@" in message_text:
+            try:
+                from .context_references import preprocess_context_references
+                ref_result = preprocess_context_references(
+                    message_text,
+                    cwd=os.getcwd(),
+                    context_length=self._context_length or 128000
+                )
+                if ref_result.references:
+                    logger.info(f"@引用展开: {len(ref_result.references)}个引用, {ref_result.injected_tokens} tokens")
+                    if ref_result.expanded:
+                        message_text = ref_result.message
+            except Exception as e:
+                logger.debug(f"@引用展开失败: {e}")
+        
+        # 添加用户消息到历史（使用处理后的内容）
         self.conversation_history.append(Message(
             role=MessageRole.USER,
             content=fenced_msg.content
