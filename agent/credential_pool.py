@@ -464,6 +464,55 @@ class CredentialPool:
                 self._entries.append(entry)
                 logger.info(f"Loaded {provider} credential from environment")
     
+    def mark_exhausted_and_rotate(self, status_code: int = None, error_context: dict = None) -> Optional[PooledCredential]:
+        """标记当前凭证耗尽并轮换到下一个（Hermes 1:1学习）"""
+        with self._lock:
+            entry = self.current()
+            if entry:
+                self._mark_exhausted(entry, status_code, error_context)
+            # 选择下一个可用凭证
+            return self._select_unlocked()
+    
+    def _mark_exhausted(self, entry: PooledCredential, status_code: int = None, error_context: dict = None) -> None:
+        """内部方法：标记凭证为耗尽（Hermes 1:1学习）"""
+        from dataclasses import replace
+        updated = replace(
+            entry,
+            last_status=STATUS_EXHAUSTED,
+            last_status_at=time.time(),
+            last_error_code=status_code,
+            last_error_message=error_context.get("message") if error_context else None,
+        )
+        # 替换entries中的凭证
+        for i, e in enumerate(self._entries):
+            if e.id == entry.id:
+                self._entries[i] = updated
+                break
+        if self._current_id == entry.id:
+            self._current_id = None
+    
+    def _upsert_entry(self, source: str, payload: dict) -> bool:
+        """插入或更新凭证（Hermes 1:1学习）"""
+        # 查找是否存在
+        for i, entry in enumerate(self._entries):
+            if entry.source == source:
+                # 更新
+                from dataclasses import replace
+                self._entries[i] = replace(self._entries[i], **payload)
+                return True
+        # 插入新凭证
+        entry = PooledCredential(
+            provider=self.provider,
+            id=payload.get("id", uuid.uuid4().hex[:6]),
+            label=payload.get("label", source),
+            auth_type=payload.get("auth_type", "api_key"),
+            priority=payload.get("priority", 50),
+            source=source,
+            access_token=payload.get("access_token", ""),
+        )
+        self._entries.append(entry)
+        return True
+    
     def mark_ok(self, entry: Optional[PooledCredential] = None) -> None:
         """标记凭证为正常状态"""
         with self._lock:
