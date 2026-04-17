@@ -21,7 +21,7 @@ class DeliveryResult:
         }
 
 def deliver_local(job_result):
-    """保存任务结果到本地默认目录"""
+    """保存作业结果到本地默认目录"""
     DELIVERY_DIR.mkdir(parents=True, exist_ok=True)
     filename = DELIVERY_DIR / f"{job_result['job_id']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     with open(filename, "w") as f:
@@ -29,13 +29,13 @@ def deliver_local(job_result):
     return str(filename)
 
 def deliver_file(job_result, filepath):
-    """保存任务结果到指定文件"""
+    """保存作业结果到指定文件"""
     with open(filepath, "w") as f:
         json.dump(job_result, f, indent=2)
     return filepath
 
 def deliver_hook(job_result, webhook_url):
-    """通过HTTP POST发送任务结果到webhook"""
+    """发送作业结果到webhook"""
     import urllib.request
     import urllib.error
     
@@ -48,11 +48,10 @@ def deliver_hook(job_result, webhook_url):
     
     try:
         with urllib.request.urlopen(req) as resp:
-            response_data = resp.read().decode("utf-8")
             return {
                 "status": "success",
                 "status_code": resp.status,
-                "response": response_data
+                "response": resp.read().decode("utf-8")
             }
     except urllib.error.HTTPError as e:
         return {
