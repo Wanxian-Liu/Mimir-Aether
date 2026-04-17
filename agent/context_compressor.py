@@ -14,8 +14,11 @@ from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
 
-# 导入ContextEngine基类
-from .context_engine import ContextEngine
+# 导入ContextEngine基类（支持包导入和直接运行）
+try:
+    from .context_engine import ContextEngine
+except ImportError:
+    from context_engine import ContextEngine
 
 logger = logging.getLogger(__name__)
 

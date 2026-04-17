@@ -212,6 +212,53 @@ async def async_call_llm(
         )
 
 
+async def async_call_with_failover(
+    prompt: str,
+    model: str = "deepseek-chat",
+    system_prompt: Optional[str] = None,
+    max_tokens: int = 4096,
+    temperature: float = 0.7,
+    providers: Optional[list] = None,
+    **kwargs
+) -> str:
+    """
+    带failover的LLM调用
+    
+    如果主Provider失败，自动尝试备选Provider。
+    
+    Args:
+        providers: Provider列表，按优先级排序。默认为["deepseek", "anthropic", "openai"]
+    """
+    if providers is None:
+        providers = ["deepseek", "anthropic", "openai"]
+    
+    # 如果指定了model，根据model推断provider
+    if model:
+        detected = _detect_provider(model)
+        if detected not in providers:
+            providers = [detected] + [p for p in providers if p != detected]
+    
+    errors = []
+    for provider in providers:
+        try:
+            return await async_call_llm(
+                prompt=prompt,
+                model=model,
+                system_prompt=system_prompt,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                provider=provider,
+                **kwargs
+            )
+        except Exception as e:
+            errors.append(f"{provider}: {str(e)[:50]}")
+            logger.debug(f"Provider {provider} failed: {e}")
+            continue
+    
+    # 所有Provider都失败
+    raise RuntimeError(f"All providers failed: {'; '.join(errors)}")
+
+
 def _detect_provider(model: str) -> str:
     """根据模型名检测Provider"""
     model_lower = model.lower()

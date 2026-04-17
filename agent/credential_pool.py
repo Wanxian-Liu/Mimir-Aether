@@ -403,10 +403,30 @@ class CredentialPool:
         # 如果凭证支持refresh_token，尝试刷新
         if entry.refresh_token and (force or self._entry_needs_refresh(entry)):
             try:
-                # 这里是简化的刷新逻辑，实际应该调用OAuth刷新API
                 logger.info(f"Refreshing credential {entry.id}")
-                # TODO: 实现实际的token刷新逻辑
-                return None  # 暂时返回None表示刷新未实现
+                
+                # 根据provider类型调用不同的刷新逻辑
+                if entry.provider == "anthropic":
+                    # 使用anthropic_adapter的OAuth刷新
+                    from anthropic_adapter import refresh_anthropic_oauth
+                    result = refresh_anthropic_oauth(entry.refresh_token)
+                    if result and "access_token" in result:
+                        # 创建新的PooledCredential
+                        refreshed = PooledCredential(
+                            provider=entry.provider,
+                            id=entry.id,
+                            label=entry.label,
+                            auth_type=entry.auth_type,
+                            access_token=result["access_token"],
+                            refresh_token=result.get("refresh_token", entry.refresh_token),
+                            expires_at=result.get("expires_at"),
+                        )
+                        return refreshed
+                else:
+                    # 其他Provider暂不支持刷新
+                    logger.debug(f"Refresh not implemented for provider: {entry.provider}")
+                
+                return None
             except Exception as e:
                 logger.warning(f"Failed to refresh credential {entry.id}: {e}")
                 return None
