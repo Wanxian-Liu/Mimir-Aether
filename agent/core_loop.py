@@ -826,6 +826,87 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
             api_key=api_key,
         )
         
+        # 获取工具schemas
+        from tools.builtin import get_all_tools as get_builtin_schemas
+        raw_schemas = get_builtin_schemas()
+        tool_schemas = []
+        for name, schema in raw_schemas.items():
+            tool_schemas.append({
+                "type": "function",
+                "function": {
+                    "name": name,
+                    "description": schema.get("description", f"Tool: {name}"),
+                    "parameters": schema.get("parameters", {})
+                }
+            })
+        
+        # 添加mimircore工具schemas
+        try:
+            from tools.mimircore_tool import TOOL_SCHEMAS as mimircore_schemas
+            for name, schema in mimircore_schemas.items():
+                tool_schemas.append({
+                    "type": "function",
+                    "function": {
+                        "name": name,
+                        "description": schema.get("description", f"Tool: {name}"),
+                        "parameters": schema.get("parameters", {})
+                    }
+                })
+        except ImportError:
+            pass
+        
+        # 获取max_tokens
+        max_output_tokens = model_metadata.get_anthropic_max_output(model_name) if "claude" in model_name.lower() else 4096
+        max_tokens = min(max_output_tokens, context_length // 4) if context_length else 4096
+        
+        # 如果有流式消费者且非Anthropic API，使用流式调用
+        if self._has_stream_consumers() and not is_anthropic:
+            return await self._stream_openai_compatible(
+                base_url=base_url,
+                api_key=api_key,
+                model=model_name,
+                messages=messages,
+                tool_schemas=tool_schemas,
+                max_tokens=max_tokens,
+                temperature=0.7,
+            )
+        
+        # 否则使用标准非流式调用（原有逻辑）
+        
+        # 检测使用哪个API
+        # Moonshot/Kimi系列 使用MOONSHOT_API_KEY环境变量
+        if "kimi-k2" in model_name or model_name.startswith("moonshot"):
+            api_key = os.environ.get("MOONSHOT_API_KEY", os.environ.get("DEEPSEEK_API_KEY", ""))
+            base_url = "https://api.moonshot.cn"  # 注意：不要加/v1，会在下面拼接
+            is_anthropic = False
+        elif "deepseek" in model_name.lower():
+            api_key = os.environ.get("DEEPSEEK_API_KEY", "")
+            base_url = "https://api.deepseek.com"
+            is_anthropic = False
+        elif "minimax" in model_name.lower() or os.environ.get("MINIMAX_API_KEY"):
+            api_key = os.environ.get("MINIMAX_API_KEY", "")
+            base_url = os.environ.get("MINIMAX_BASE_URL", "https://api.minimax.chat")
+            is_anthropic = False
+        elif "anthropic" in model_name.lower() or "claude" in model_name.lower():
+            api_key = os.environ.get("ANTHROPIC_API_KEY", os.environ.get("DEEPSEEK_API_KEY", ""))
+            base_url = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
+            is_anthropic = True
+        else:
+            # 默认DeepSeek
+            api_key = os.environ.get("DEEPSEEK_API_KEY", os.environ.get("OPENAI_API_KEY", ""))
+            base_url = "https://api.deepseek.com"
+            is_anthropic = False
+        
+        if not api_key:
+            raise ValueError(f"API key not set for model {model_name}")
+
+        # 使用model_metadata获取context_length，智能设置max_tokens
+        context_length = model_metadata.get_model_context_length(
+            model=model_name,
+            base_url=base_url,
+            api_key=api_key,
+        )
+        
         # Anthropic API使用不同的端点和格式
         if is_anthropic:
             return await self._call_anthropic_api(
