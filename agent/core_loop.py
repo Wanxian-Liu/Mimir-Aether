@@ -29,6 +29,15 @@ from .context_compressor import ContextCompressor, CompressionResult
 from .insights import InsightsEngine, MetricType
 from memory.fencing import MemoryFencer
 
+# 导入Hermes SessionDB用于数据持久化
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path.home() / ".openclaw" / "projects" / "hermes-agent"))
+try:
+    from hermes_state import SessionDB
+except ImportError:
+    SessionDB = None
+
 # 集成新模块
 from . import prompt_builder
 from . import model_metadata
@@ -221,7 +230,16 @@ class MimirAetherAgent:
 
         # 新模块初始化
         self.compressor = ContextCompressor()
-        self.insights = InsightsEngine()
+        
+        # 初始化SessionDB并传入InsightsEngine（SQL模式）
+        _db = None
+        if SessionDB is not None:
+            try:
+                _db = SessionDB()
+            except Exception:
+                pass
+        self.insights = InsightsEngine(_db) if _db else InsightsEngine()
+        
         self.fencer = MemoryFencer()
 
         # 初始化凭证池（在使用_get_api_key之前）

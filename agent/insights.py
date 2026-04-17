@@ -229,7 +229,9 @@ class InsightsEngine:
             db: SessionDB实例或sqlite3连接（SQL模式），或None（内存模式）
         """
         self.db = db
-        self._conn = getattr(db, "_conn", db) if db else None
+        # 使用SessionDB的_conn来执行查询
+        self._conn = db._conn if db else None
+        self._db = db  # 保留SessionDB引用用于写入
         self._is_sql_mode = self._conn is not None
 
         # 内存模式兼容
@@ -262,14 +264,19 @@ class InsightsEngine:
         value: float,
         metadata: Optional[Dict[str, Any]] = None
     ) -> None:
-        """记录指标（内存模式）"""
-        if not self._is_sql_mode:
-            record = UsageRecord(
-                timestamp=datetime.now().isoformat(),
-                metric=metric.value,
-                value=value,
-                metadata=metadata or {},
-            )
+        """记录指标（支持内存模式和SQL模式）"""
+        record = UsageRecord(
+            timestamp=datetime.now().isoformat(),
+            metric=metric.value,
+            value=value,
+            metadata=metadata or {},
+        )
+        
+        if self._is_sql_mode:
+            # SQL模式：写入数据库
+            self._write_to_db(record)
+        else:
+            # 内存模式
             self.records.append(record)
             if metadata.get("session_id"):
                 self._update_session_insights(record)
@@ -972,6 +979,34 @@ class InsightsEngine:
             platforms=platforms,
             activity={"error_rate": error_rate},
         )
+
+    def _write_to_db(self, record: UsageRecord) -> None:
+        """写入数据库（SQL模式）"""
+        if not self._db or not record.metadata.get("session_id"):
+            return
+        
+        session_id = record.metadata.get("session_id")
+        model = record.metadata.get("model")
+        platform = record.metadata.get("platform", "unknown")
+        
+        # 根据metric类型更新对应的token计数
+        if record.metric == MetricType.TOKEN_INPUT.value:
+            self._db.update_token_counts(
+                session_id,
+                input_tokens=int(record.value),
+                model=model,
+                billing_provider=platform,
+            )
+        elif record.metric == MetricType.TOKEN_OUTPUT.value:
+            self._db.update_token_counts(
+                session_id,
+                output_tokens=int(record.value),
+                model=model,
+                billing_provider=platform,
+            )
+        elif record.metric == MetricType.TOOL_CALL.value:
+            # tool_call_count增加1
+            pass  # SessionDB可能不支持直接更新tool_call_count
 
     def _update_session_insights(self, record: UsageRecord) -> None:
         """更新会话洞察（内存模式）"""
