@@ -224,6 +224,7 @@ class CredentialPool:
         provider: str,
         entries: Optional[List[PooledCredential]] = None,
         strategy: str = STRATEGY_FILL_FIRST,
+        auto_seed_env: bool = True,
     ):
         self.provider = provider
         self._entries = sorted(entries or [], key=lambda e: e.priority)
@@ -233,6 +234,10 @@ class CredentialPool:
         self._active_leases: Dict[str, int] = {}
         self._max_concurrent = 1  # 默认每个凭证同时只能有一个租约
         self._round_robin_index = 0
+        
+        # 自动从环境变量加载凭证
+        if auto_seed_env:
+            self._seed_from_env()
     
     @property
     def strategy(self) -> str:
