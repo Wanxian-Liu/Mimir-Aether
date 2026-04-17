@@ -518,6 +518,63 @@ class MimirAetherAgent:
         content = re.sub(r'</?(?:think|thinking|reasoning|thought|REASONING_SCRATCHPAD)>', '', content, flags=re.IGNORECASE)
         return content
     
+    def _deduplicate_tool_calls(self, tool_calls: list) -> list:
+        """
+        去除重复的工具调用
+        
+        学习自Hermes _deduplicate_tool_calls：
+        - 基于(tool_name, arguments)唯一性去重
+        - 只保留第一个出现的重复调用
+        """
+        seen = set()
+        unique = []
+        for tc in tool_calls:
+            # 获取工具名称和参数
+            func = tc.get('function', {})
+            name = func.get('name', '')
+            arguments = func.get('arguments', '')
+            key = (name, arguments if isinstance(arguments, str) else json.dumps(arguments, sort_keys=True))
+            if key not in seen:
+                seen.add(key)
+                unique.append(tc)
+            else:
+                logger.warning(f"Removed duplicate tool call: {name}")
+        return unique if len(unique) < len(tool_calls) else tool_calls
+    
+    def _repair_tool_call(self, tool_name: str) -> str | None:
+        """
+        修复错误的工具名称
+        
+        学习自Hermes _repair_tool_call：
+        1. 尝试小写
+        2. 尝试标准化（下划线替代连字符/空格）
+        3. 尝试模糊匹配
+        """
+        if not hasattr(self, 'tool_registry'):
+            return None
+        
+        valid_names = set(self.tool_registry.list_tools())
+        if not valid_names:
+            return None
+        
+        # 1. 小写匹配
+        lowered = tool_name.lower()
+        if lowered in valid_names:
+            return lowered
+        
+        # 2. 标准化匹配
+        normalized = lowered.replace('-', '_').replace(' ', '_')
+        if normalized in valid_names:
+            return normalized
+        
+        # 3. 模糊匹配
+        import difflib
+        matches = difflib.get_close_matches(lowered, valid_names, n=1, cutoff=0.7)
+        if matches:
+            return matches[0]
+        
+        return None
+    
     async def _stream_openai_compatible(
         self,
         base_url: str,
@@ -760,7 +817,9 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                 # 检查是否有工具调用
                 if response.get("tool_calls") and response_content:
                     # 同时有文本和工具调用：先执行工具，再继续生成响应
-                    tool_results = await self._execute_tools(response["tool_calls"])
+                    # 去重工具调用
+                    unique_tool_calls = self._deduplicate_tool_calls(response["tool_calls"])
+                    tool_results = await self._execute_tools(unique_tool_calls)
                     
                     # 添加工具结果到历史
                     for result in tool_results:
@@ -778,7 +837,9 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                 
                 if response.get("tool_calls"):
                     # 只有工具调用，没有文本：执行工具
-                    tool_results = await self._execute_tools(response["tool_calls"])
+                    # 去重工具调用
+                    unique_tool_calls = self._deduplicate_tool_calls(response["tool_calls"])
+                    tool_results = await self._execute_tools(unique_tool_calls)
                     
                     # 添加工具结果到历史
                     for result in tool_results:
