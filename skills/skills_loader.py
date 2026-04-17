@@ -337,3 +337,218 @@ __all__ = [
     "build_skills_prompt",
     "SkillLoadError",
 ]
+
+
+# ========================================================================
+# Skill管理函数（Hermes 1:1）
+# ========================================================================
+
+import shutil
+
+
+def _ensure_skill_dir(name: str, category: str = None) -> Path:
+    """
+    确保skill目录存在
+    
+    Args:
+        name: skill名称
+        category: 可选，分类目录
+        
+    Returns:
+        skill目录Path
+    """
+    if category:
+        skill_dir = SKILLS_DIR / category / name
+    else:
+        # 自动推断分类
+        skill_dir = SKILLS_DIR / name
+        if not skill_dir.exists():
+            skill_dir = SKILLS_DIR / "general" / name
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    return skill_dir
+
+
+def _create_skill(name: str, content: str, category: str = None) -> Dict[str, Any]:
+    """创建新skill"""
+    try:
+        skill_dir = _ensure_skill_dir(name, category)
+        skill_file = skill_dir / SKILL_FILENAME
+        
+        if skill_file.exists():
+            return {"success": False, "error": f"Skill already exists: {name}"}
+        
+        skill_file.write_text(content, encoding="utf-8")
+        return {"success": True, "skill": name, "path": str(skill_dir)}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def _edit_skill(name: str, content: str) -> Dict[str, Any]:
+    """编辑skill（完整重写）"""
+    try:
+        skill_dir = _get_skill_dir(name)
+        if not skill_dir:
+            return {"success": False, "error": f"Skill not found: {name}"}
+        
+        skill_file = skill_dir / SKILL_FILENAME
+        skill_file.write_text(content, encoding="utf-8")
+        return {"success": True, "skill": name}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def _patch_skill(
+    name: str,
+    old_string: str,
+    new_string: str,
+    file_path: str = None,
+    replace_all: bool = False
+) -> Dict[str, Any]:
+    """打补丁skill（局部修改）"""
+    try:
+        skill_dir = _get_skill_dir(name)
+        if not skill_dir:
+            return {"success": False, "error": f"Skill not found: {name}"}
+        
+        if file_path:
+            skill_file = skill_dir / file_path
+        else:
+            skill_file = skill_dir / SKILL_FILENAME
+        
+        if not skill_file.exists():
+            return {"success": False, "error": f"File not found: {file_path}"}
+        
+        content = skill_file.read_text(encoding="utf-8")
+        
+        if old_string not in content:
+            return {"success": False, "error": f"old_string not found in skill"}
+        
+        if replace_all:
+            new_content = content.replace(old_string, new_string)
+        else:
+            new_content = content.replace(old_string, new_string, 1)
+        
+        skill_file.write_text(new_content, encoding="utf-8")
+        return {"success": True, "skill": name, "patched": old_string[:50]}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def _delete_skill(name: str) -> Dict[str, Any]:
+    """删除skill"""
+    try:
+        skill_dir = _get_skill_dir(name)
+        if not skill_dir:
+            return {"success": False, "error": f"Skill not found: {name}"}
+        
+        shutil.rmtree(skill_dir)
+        return {"success": True, "skill": name}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def _write_file(name: str, file_path: str, file_content: str) -> Dict[str, Any]:
+    """写入skill下的文件"""
+    try:
+        skill_dir = _get_skill_dir(name)
+        if not skill_dir:
+            return {"success": False, "error": f"Skill not found: {name}"}
+        
+        target_file = skill_dir / file_path
+        target_file.parent.mkdir(parents=True, exist_ok=True)
+        target_file.write_text(file_content, encoding="utf-8")
+        return {"success": True, "skill": name, "file": file_path}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def _remove_file(name: str, file_path: str) -> Dict[str, Any]:
+    """删除skill下的文件"""
+    try:
+        skill_dir = _get_skill_dir(name)
+        if not skill_dir:
+            return {"success": False, "error": f"Skill not found: {name}"}
+        
+        target_file = skill_dir / file_path
+        if not target_file.exists():
+            return {"success": False, "error": f"File not found: {file_path}"}
+        
+        target_file.unlink()
+        return {"success": True, "skill": name, "file": file_path}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def skill_manage(
+    action: str,
+    name: str,
+    content: str = None,
+    category: str = None,
+    file_path: str = None,
+    file_content: str = None,
+    old_string: str = None,
+    new_string: str = None,
+    replace_all: bool = False,
+) -> str:
+    """
+    管理skill（创建、编辑、删除）
+    
+    Actions:
+    - create: 创建新skill（需要content完整内容）
+    - edit: 编辑skill（完整重写）
+    - patch: 打补丁（局部修改）
+    - delete: 删除skill
+    - write_file: 写入skill下的文件
+    - remove_file: 删除skill下的文件
+    
+    Returns:
+        JSON字符串
+    """
+    import json
+    
+    if action == "create":
+        if not content:
+            return json.dumps({"success": False, "error": "content required for create"})
+        result = _create_skill(name, content, category)
+    
+    elif action == "edit":
+        if not content:
+            return json.dumps({"success": False, "error": "content required for edit"})
+        result = _edit_skill(name, content)
+    
+    elif action == "patch":
+        if not old_string:
+            return json.dumps({"success": False, "error": "old_string required for patch"})
+        if new_string is None:
+            return json.dumps({"success": False, "error": "new_string required for patch"})
+        result = _patch_skill(name, old_string, new_string, file_path, replace_all)
+    
+    elif action == "delete":
+        result = _delete_skill(name)
+    
+    elif action == "write_file":
+        if not file_path:
+            return json.dumps({"success": False, "error": "file_path required for write_file"})
+        if file_content is None:
+            return json.dumps({"success": False, "error": "file_content required for write_file"})
+        result = _write_file(name, file_path, file_content)
+    
+    elif action == "remove_file":
+        if not file_path:
+            return json.dumps({"success": False, "error": "file_path required for remove_file"})
+        result = _remove_file(name, file_path)
+    
+    else:
+        result = {"success": False, "error": f"Unknown action: {action}"}
+    
+    return json.dumps(result, ensure_ascii=False)
+
+
+# 导出
+__all__ = [
+    "skills_list",
+    "skill_view",
+    "skill_manage",
+    "build_skills_prompt",
+    "SkillLoadError",
+]

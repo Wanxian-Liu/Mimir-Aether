@@ -418,14 +418,16 @@ class MimirAetherAgent:
         except ImportError as e:
             logger.warning(f"Failed to import builtin tools: {e}")
         
-        # 注册Skill工具（skill_view, skills_list）
+        # 注册Skill工具（skill_view, skills_list, skill_manage）
         try:
             from skills.skills_loader import skill_view as _skill_view_func, skills_list as _skills_list_func
+            from skills.skills_loader import skill_manage as _skill_manage_func
             
             self.tool_registry.register("skill_view", _skill_view_func, SKILL_TOOL_SCHEMAS.get("skill_view", {}))
             self.tool_registry.register("skills_list", _skills_list_func, SKILL_TOOL_SCHEMAS.get("skills_list", {}))
+            self.tool_registry.register("skill_manage", skill_manage_func, SKILL_MANAGE_SCHEMA)
             
-            logger.info("Registered skill tools: skill_view, skills_list")
+            logger.info("Registered skill tools: skill_view, skills_list, skill_manage")
         except ImportError as e:
             logger.warning(f"Failed to import skill tools: {e}")
     
@@ -1355,5 +1357,82 @@ SKILL_TOOL_SCHEMAS = {
                 }
             }
         }
+    }
+}
+
+
+# ========================================================================
+# Skill管理工具函数（Hermes 1:1）
+# ========================================================================
+
+def skill_manage_func(
+    action: str,
+    name: str,
+    content: str = None,
+    category: str = None,
+    file_path: str = None,
+    file_content: str = None,
+    old_string: str = None,
+    new_string: str = None,
+    replace_all: bool = False,
+) -> str:
+    """
+    管理skill（创建、编辑、删除）
+    
+    Actions:
+    - create: 创建新skill
+    - edit: 编辑skill（完整重写）
+    - patch: 打补丁（局部修改）
+    - delete: 删除skill
+    - write_file: 写入skill下的文件
+    - remove_file: 删除skill下的文件
+    """
+    from skills.skills_loader import skill_manage as _skill_manage
+    return _skill_manage(
+        action=action,
+        name=name,
+        content=content,
+        category=category,
+        file_path=file_path,
+        file_content=file_content,
+        old_string=old_string,
+        new_string=new_string,
+        replace_all=replace_all,
+    )
+
+
+# Skill管理工具schema
+SKILL_MANAGE_SCHEMA = {
+    "name": "skill_manage",
+    "description": (
+        "Manage skills (create, update, delete). Skills are your procedural memory — "
+        "reusable approaches for recurring task types.\n\n"
+        "Actions: create (full SKILL.md + optional category), "
+        "patch (old_string/new_string — preferred for fixes), "
+        "edit (full SKILL.md rewrite), "
+        "delete, write_file, remove_file.\n\n"
+        "Create when: complex task succeeded (5+ calls), errors overcome, "
+        "user-corrected approach worked, non-trivial workflow discovered.\n"
+        "Update when: instructions stale/wrong, missing steps or pitfalls found.\n"
+        "After difficult tasks, offer to save as a skill."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": ["create", "patch", "edit", "delete", "write_file", "remove_file"],
+                "description": "The action to perform"
+            },
+            "name": {"type": "string", "description": "Skill name"},
+            "content": {"type": "string", "description": "Full SKILL.md content for create/edit"},
+            "category": {"type": "string", "description": "Category for new skill"},
+            "file_path": {"type": "string", "description": "File path within skill"},
+            "file_content": {"type": "string", "description": "File content for write_file"},
+            "old_string": {"type": "string", "description": "Text to find for patch"},
+            "new_string": {"type": "string", "description": "Replacement text for patch"},
+            "replace_all": {"type": "boolean", "description": "Replace all occurrences"},
+        },
+        "required": ["action", "name"]
     }
 }
