@@ -493,6 +493,31 @@ class MimirAetherAgent:
         """检查是否有流式输出的消费者"""
         return self.stream_callback is not None
     
+    def _strip_think_blocks(self, content: str) -> str:
+        """
+        去除Think/Reasoning Block
+        
+        学习自Hermes _strip_think_blocks：
+        - 去除<think>...</think>格式
+        - 去除<thinking>...</thinking>格式
+        - 去除<reasoning>...</reasoning>格式
+        - 去除其他变体
+        """
+        import re
+        # 去除<think>...</think>格式
+        content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
+        # 去除<thinking>...</thinking>格式
+        content = re.sub(r'<thinking>.*?</thinking>', '', content, flags=re.DOTALL | re.IGNORECASE)
+        # 去除<reasoning>...</reasoning>格式
+        content = re.sub(r'<reasoning>.*?</reasoning>', '', content, flags=re.DOTALL)
+        # 去除<REASONING_SCRATCHPAD>...</REASONING_SCRATCHPAD>格式
+        content = re.sub(r'<REASONING_SCRATCHPAD>.*?</REASONING_SCRATCHPAD>', '', content, flags=re.DOTALL)
+        # 去除<thought>...</thought>格式
+        content = re.sub(r'<thought>.*?</thought>', '', content, flags=re.DOTALL | re.IGNORECASE)
+        # 去除所有Think/Reasoning标签
+        content = re.sub(r'</?(?:think|thinking|reasoning|thought|REASONING_SCRATCHPAD)>', '', content, flags=re.IGNORECASE)
+        return content
+    
     async def _stream_openai_compatible(
         self,
         base_url: str,
@@ -770,6 +795,8 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                     continue
                 
                 # 文本响应，结束
+                # 去除Think Block
+                response_content = self._strip_think_blocks(response_content)
                 return response_content
         finally:
             # 保存轨迹
