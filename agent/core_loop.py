@@ -285,6 +285,10 @@ class MimirAetherAgent:
         
         # Status callback（学习自Hermes _emit_status）
         self._status_message = ""  # 当前状态消息
+        
+        # Plugin hooks（学习自Hermes）
+        for hook_name in self.VALID_HOOKS:
+            setattr(self, f"_{hook_name}_hooks", [])
     
     def _emit_status(self, message: str) -> None:
         """
@@ -879,6 +883,18 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
             content=fenced_msg.content
         ))
         
+        # Plugin hook: on_session_start
+        # 会话开始时执行
+        try:
+            self._invoke_hook(
+                "on_session_start",
+                session_id=session_id,
+                model=self.model,
+                platform=self.platform,
+            )
+        except Exception as e:
+            logger.warning(f"on_session_start hook failed: {e}")
+        
         # 限制历史长度，防止内存耗尽
         if len(self.conversation_history) > self.max_history_length:
             # 保留系统消息和最新的对话
@@ -922,6 +938,24 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                     )
                     messages = compressed_messages
 
+                # Plugin hook: pre_llm_call
+                # 在LLM调用前执行，允许插件注入上下文
+                try:
+                    pre_results = self._invoke_hook(
+                        "pre_llm_call",
+                        user_message=user_message,
+                        conversation_history=list(messages),
+                        model=self.model,
+                    )
+                    # 如果有hook返回结果，注入到用户消息
+                    for result in pre_results:
+                        if isinstance(result, dict) and result.get("context"):
+                            context_text = str(result["context"])
+                            if messages and messages[0].get("role") == "system":
+                                messages[0] = {"role": "system", "content": messages[0].get("content", "") + "\n\n" + context_text}
+                except Exception as e:
+                    logger.warning(f"pre_llm_call hook failed: {e}")
+
                 # 调用模型（带超时控制）
                 try:
                     response, latency_ms = await asyncio.wait_for(
@@ -949,6 +983,17 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                         content=response_content,
                         tool_calls=response_tool_calls
                     ))
+                
+                # Plugin hook: post_llm_call
+                # 在LLM调用后执行，允许插件处理响应
+                try:
+                    self._invoke_hook(
+                        "post_llm_call",
+                        response=response,
+                        latency_ms=latency_ms,
+                    )
+                except Exception as e:
+                    logger.warning(f"post_llm_call hook failed: {e}")
                 
                 # 检查是否有工具调用
                 if response.get("tool_calls") and response_content:
@@ -994,6 +1039,18 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                 # 文本响应，结束
                 # 去除Think Block
                 response_content = self._strip_think_blocks(response_content)
+                
+                # Plugin hook: on_session_end
+                # 会话结束时执行
+                try:
+                    self._invoke_hook(
+                        "on_session_end",
+                        session_id=session_id,
+                        response=response_content,
+                    )
+                except Exception as e:
+                    logger.warning(f"on_session_end hook failed: {e}")
+                
                 return response_content
         finally:
             # 保存轨迹
@@ -1528,6 +1585,26 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
             func_name = tool_call.get("name", "")
             raw_args = tool_call.get("arguments", {})
         
+        # Plugin hook: pre_tool_call
+        # 在工具调用前执行，允许插件修改或阻止
+        try:
+            pre_results = self._invoke_hook(
+                "pre_tool_call",
+                tool_name=func_name,
+                arguments=arguments,
+            )
+            # 如果有hook返回block指令，跳过工具执行
+            for result in pre_results:
+                if isinstance(result, dict) and result.get("block"):
+                    logger.info(f"Tool {func_name} blocked by hook")
+                    return ToolResult(
+                        tool_call_id=tool_call_id,
+                        content=f"Tool execution blocked by plugin hook",
+                        is_error=False
+                    )
+        except Exception as e:
+            logger.warning(f"pre_tool_call hook failed: {e}")
+        
         # 触发tool_start_callback
         if self.tool_start_callback:
             try:
@@ -1579,6 +1656,17 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                 arguments=arguments
             )
             
+            # Plugin hook: post_tool_call
+            # 在工具调用后执行
+            try:
+                self._invoke_hook(
+                    "post_tool_call",
+                    tool_name=func_name,
+                    result=str(result),
+                )
+            except Exception as e:
+                logger.warning(f"post_tool_call hook failed: {e}")
+        
             # 触发tool_complete_callback
             if self.tool_complete_callback:
                 try:
@@ -1871,6 +1959,60 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
             logger.warning(f"Failed to restore session: {e}")
         
         return False
+    
+    # ========================================================================
+    # Plugin Hook系统（学习自Hermes）
+    # ========================================================================
+    
+    # 支持的Hook类型
+    VALID_HOOKS = {
+        "pre_llm_call",      # LLM调用前
+        "post_llm_call",     # LLM调用后
+        "pre_tool_call",      # 工具调用前
+        "post_tool_call",     # 工具调用后
+        "on_session_start",    # 会话开始
+        "on_session_end",     # 会话结束
+    }
+    
+    def _invoke_hook(self, hook_name: str, **kwargs) -> List[Any]:
+        """
+        调用指定名称的所有Hook
+        
+        学习自Hermes invoke_hook：
+        - 查找所有注册的hook函数
+        - 按顺序执行
+        - 返回所有hook的返回结果
+        """
+        if hook_name not in self.VALID_HOOKS:
+            logger.warning(f"Unknown hook: {hook_name}")
+            return []
+        
+        hooks = getattr(self, f"_{hook_name}_hooks", [])
+        results = []
+        for hook_func in hooks:
+            try:
+                result = hook_func(**kwargs)
+                results.append(result)
+            except Exception as e:
+                logger.warning(f"Hook {hook_name} failed: {e}")
+        return results
+    
+    def register_hook(self, hook_name: str, hook_func: callable) -> None:
+        """
+        注册一个Hook函数
+        
+        Args:
+            hook_name: Hook名称（如"pre_llm_call"）
+            hook_func: Hook函数
+        """
+        if hook_name not in self.VALID_HOOKS:
+            raise ValueError(f"Unknown hook: {hook_name}")
+        
+        attr_name = f"_{hook_name}_hooks"
+        if not hasattr(self, attr_name):
+            setattr(self, attr_name, [])
+        getattr(self, attr_name).append(hook_func)
+        logger.debug(f"Registered hook: {hook_name}")
     
     def _try_activate_fallback(self) -> bool:
         """
