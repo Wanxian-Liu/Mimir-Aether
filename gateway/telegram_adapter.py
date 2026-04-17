@@ -12,6 +12,7 @@ import hashlib
 import hmac
 import json
 import logging
+from dataclasses import dataclass, field
 from typing import Any, Callable, Coroutine, Optional
 
 import aiohttp
