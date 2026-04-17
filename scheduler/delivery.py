@@ -1,0 +1,72 @@
+import json
+import os
+from pathlib import Path
+from datetime import datetime
+
+DELIVERY_DIR = Path.home() / ".mimiraether" / "cron" / "delivery"
+
+class DeliveryResult:
+    def __init__(self, job_id, status, message):
+        self.job_id = job_id
+        self.status = status
+        self.message = message
+        self.timestamp = datetime.now().isoformat()
+    
+    def to_dict(self):
+        return {
+            "job_id": self.job_id,
+            "status": self.status,
+            "message": self.message,
+            "timestamp": self.timestamp
+        }
+
+def deliver_local(job_result):
+    """保存任务结果到本地默认目录"""
+    DELIVERY_DIR.mkdir(parents=True, exist_ok=True)
+    filename = DELIVERY_DIR / f"{job_result['job_id']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    with open(filename, "w") as f:
+        json.dump(job_result, f, indent=2)
+    return str(filename)
+
+def deliver_file(job_result, filepath):
+    """保存任务结果到指定文件"""
+    with open(filepath, "w") as f:
+        json.dump(job_result, f, indent=2)
+    return filepath
+
+def deliver_hook(job_result, webhook_url):
+    """通过HTTP POST发送任务结果到webhook"""
+    import urllib.request
+    import urllib.error
+    
+    data = json.dumps(job_result).encode("utf-8")
+    req = urllib.request.Request(
+        webhook_url, 
+        data=data, 
+        headers={"Content-Type": "application/json"}
+    )
+    
+    try:
+        with urllib.request.urlopen(req) as resp:
+            response_data = resp.read().decode("utf-8")
+            return {
+                "status": "success",
+                "status_code": resp.status,
+                "response": response_data
+            }
+    except urllib.error.HTTPError as e:
+        return {
+            "status": "error",
+            "status_code": e.code,
+            "error": str(e)
+        }
+    except urllib.error.URLError as e:
+        return {
+            "status": "error",
+            "error": str(e)
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e)
+        }
