@@ -19,6 +19,7 @@ import asyncio
 import json
 import logging
 import os
+import threading
 import uuid
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Callable, Union
@@ -276,6 +277,11 @@ class MimirAetherAgent:
         # 工具调用并发限制（最多同时执行5个工具）
         self._tool_semaphore = asyncio.Semaphore(5)
         
+        # 中断机制（学习自Hermes）
+        self._interrupt_requested = False
+        self._interrupt_message = None
+        self._execution_thread_id = threading.get_ident()
+        
         # 注册内置工具
         self._register_builtin_tools()
         
@@ -461,6 +467,27 @@ class MimirAetherAgent:
         
         # 累积文本
         self._current_streamed_text += text
+    
+    def interrupt(self, message: str = None) -> None:
+        """
+        请求中断当前工具调用循环
+        
+        学习自Hermes interrupt方法：
+        - 设置中断标志
+        - 信号所有工具中止操作
+        """
+        self._interrupt_requested = True
+        self._interrupt_message = message
+        print(f"\n⚡ Interrupt requested: '{message[:40]}...'" if message and len(message) > 40 else f"\n⚡ Interrupt requested: '{message}'" if message else "\n⚡ Interrupt requested")
+    
+    def clear_interrupt(self) -> None:
+        """清除中断请求"""
+        self._interrupt_requested = False
+        self._interrupt_message = None
+    
+    def is_interrupted(self) -> bool:
+        """检查是否被中断"""
+        return self._interrupt_requested
     
     def _has_stream_consumers(self) -> bool:
         """检查是否有流式输出的消费者"""
@@ -658,6 +685,11 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
         try:
             # 主循环
             while True:
+                # 检查是否被中断
+                if self._interrupt_requested:
+                    logger.info("Conversation interrupted by user")
+                    return f"对话已被中断。" + (f" 您的输入: {self._interrupt_message}" if self._interrupt_message else "")
+                
                 # 检查预算
                 if not await self.budget.consume():
                     logger.warning("Iteration budget exhausted")
@@ -1195,6 +1227,11 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
     
     async def _execute_tools(self, tool_calls: List[Dict]) -> List[ToolResult]:
         """执行工具调用（带并发限制和单工具超时）"""
+        # 检查是否被中断
+        if self._interrupt_requested:
+            logger.info("Tool execution skipped: interrupt requested")
+            return []
+        
         results = []
         
         async def execute_with_semaphore(tool_call: Dict) -> ToolResult:
