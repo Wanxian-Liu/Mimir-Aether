@@ -285,6 +285,14 @@ class MimirAetherAgent:
     
     def _get_api_key(self) -> str:
         """获取当前模型的API key"""
+        # Moonshot/Kimi系列 使用MOONSHOT_API_KEY环境变量
+        if self.model.startswith("kimi-k2") or self.model.startswith("moonshot"):
+            return os.environ.get("MOONSHOT_API_KEY", "")
+        
+        # DeepSeek优先使用DEEPSEEK_API_KEY
+        if "deepseek" in self.model.lower():
+            return os.environ.get("DEEPSEEK_API_KEY", "")
+        
         # 优先从凭证池获取
         if self._credential_pool:
             selected = self._credential_pool.current()
@@ -306,6 +314,10 @@ class MimirAetherAgent:
     
     def _get_model_base_url(self) -> str:
         """获取当前模型的API base URL"""
+        # Moonshot/Kimi系列 使用Moonshot API
+        if self.model.startswith("kimi-k2") or self.model.startswith("moonshot"):
+            return "https://api.moonshot.cn"  # 不要加/v1，会在API调用时拼接
+        
         model_lower = self.model.lower()
         if "deepseek" in model_lower:
             return "https://api.deepseek.com"
@@ -577,7 +589,12 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
             model_name = os.environ.get("LLM_MODEL", "deepseek-chat")
         
         # 检测使用哪个API
-        if "deepseek" in model_name.lower():
+        # Moonshot/Kimi系列 使用MOONSHOT_API_KEY环境变量
+        if "kimi-k2" in model_name or model_name.startswith("moonshot"):
+            api_key = os.environ.get("MOONSHOT_API_KEY", os.environ.get("DEEPSEEK_API_KEY", ""))
+            base_url = "https://api.moonshot.cn"  # 注意：不要加/v1，会在下面拼接
+            is_anthropic = False
+        elif "deepseek" in model_name.lower():
             api_key = os.environ.get("DEEPSEEK_API_KEY", "")
             base_url = "https://api.deepseek.com"
             is_anthropic = False
@@ -672,7 +689,7 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
         payload = {
             "model": api_model_name,
             "messages": messages,
-            "temperature": 0.7,
+            "temperature": 1.0 if "kimi-k2" in model_name else 0.7,
             "max_tokens": max_tokens,
             "tools": tool_schemas,
             "tool_choice": "auto"
