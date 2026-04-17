@@ -28,6 +28,7 @@ from enum import Enum
 from .context_compressor import ContextCompressor, CompressionResult
 from .insights import InsightsEngine, MetricType
 from memory.fencing import MemoryFencer
+from skills.skill_manager import SkillManager, SkillStatus
 
 # 导入Hermes SessionDB用于数据持久化
 import sys
@@ -239,6 +240,9 @@ class MimirAetherAgent:
             except Exception:
                 pass
         self.insights = InsightsEngine(_db) if _db else InsightsEngine()
+        
+        # 初始化SkillManager（自进化核心）
+        self.skill_manager = SkillManager()
         
         self.fencer = MemoryFencer()
 
@@ -1059,6 +1063,108 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
     def build_system_prompt(self) -> str:
         """构建系统提示"""
         return self.system_prompt
+    
+    # ========================================================================
+    # Skill自进化机制
+    # ========================================================================
+    
+    async def execute_skill(self, skill_name: str, **kwargs) -> Any:
+        """
+        执行Skill（自进化核心）
+        
+        Args:
+            skill_name: Skill名称
+            **kwargs: Skill参数
+            
+        Returns:
+            Skill执行结果
+        """
+        try:
+            result = await self.skill_manager.execute_skill(skill_name, **kwargs)
+            logger.info(f"Skill执行成功: {skill_name}")
+            return result
+        except Exception as e:
+            logger.error(f"Skill执行失败: {skill_name}, error: {e}")
+            raise
+    
+    async def evolve_skill(self, skill_name: str, new_handler: Callable) -> bool:
+        """
+        进化Skill（基于执行结果学习）
+        
+        Args:
+            skill_name: Skill名称
+            new_handler: 新的处理函数
+            
+        Returns:
+            是否进化成功
+        """
+        result = await self.skill_manager.evolve_skill(skill_name, new_handler)
+        if result:
+            logger.info(f"Skill进化成功: {skill_name}")
+        return result
+    
+    def register_skill(
+        self,
+        name: str,
+        description: str,
+        handler: Callable,
+        schema: Dict[str, Any],
+        category: str = "general",
+        tags: List[str] = None,
+        version: str = "1.0.0",
+        author: str = "MimirAether"
+    ) -> bool:
+        """
+        注册新Skill
+        
+        Args:
+            name: Skill名称
+            description: Skill描述
+            handler: Skill处理函数
+            schema: Skill参数schema
+            category: Skill分类
+            tags: 标签列表
+            version: 版本号
+            author: 作者
+            
+        Returns:
+            是否注册成功
+        """
+        return self.skill_manager.register_skill(
+            name=name,
+            description=description,
+            handler=handler,
+            schema=schema,
+            category=category,
+            tags=tags,
+            version=version,
+            author=author
+        )
+    
+    def get_skill_stats(self) -> Dict[str, Any]:
+        """
+        获取Skill统计信息
+        
+        Returns:
+            统计信息字典
+        """
+        return self.skill_manager.get_statistics()
+    
+    def list_skills(self, category: str = None) -> List:
+        """
+        列出Skills
+        
+        Args:
+            category: 按分类过滤
+            
+        Returns:
+            Skill列表
+        """
+        return self.skill_manager.list_skills(category=category)
+    
+    # ========================================================================
+    # 轨迹记录
+    # ========================================================================
     
     def _start_trajectory(self):
         """开始轨迹记录"""
