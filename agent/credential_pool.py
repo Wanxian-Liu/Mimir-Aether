@@ -426,6 +426,44 @@ class CredentialPool:
                 pass
         return False
     
+    def _load_config_safe(self) -> Optional[dict]:
+        """安全加载配置文件（Hermes 1:1学习）"""
+        try:
+            # 尝试加载MimirAether配置
+            config_path = Path.home() / ".openclaw" / "config.json"
+            if config_path.exists():
+                import json
+                with open(config_path) as f:
+                    return json.load(f)
+        except Exception:
+            pass
+        return None
+    
+    def _seed_from_env(self) -> None:
+        """从环境变量加载凭证（Hermes 1:1学习）"""
+        # 支持的环境变量
+        env_keys = [
+            "DEEPSEEK_API_KEY",
+            "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "MOONSHOT_API_KEY",
+        ]
+        for key in env_keys:
+            value = os.environ.get(key)
+            if value:
+                provider = key.replace("_API_KEY", "").lower()
+                entry = PooledCredential(
+                    provider=provider,
+                    id=f"env_{key.lower()}",
+                    label=f"{provider} from env",
+                    auth_type="api_key",
+                    priority=50,
+                    source="env",
+                    access_token=value,
+                )
+                self._entries.append(entry)
+                logger.info(f"Loaded {provider} credential from environment")
+    
     def mark_ok(self, entry: Optional[PooledCredential] = None) -> None:
         """标记凭证为正常状态"""
         with self._lock:
