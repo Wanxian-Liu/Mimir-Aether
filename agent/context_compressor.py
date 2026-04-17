@@ -28,6 +28,8 @@ LEGACY_PREFIX = "[CONTEXT SUMMARY]:"
 
 _MIN_SUMMARY_TOKENS = 500
 _SUMMARY_RATIO = 0.20
+# Hermes 1:1学习：最小上下文长度限制
+_MINIMUM_CONTEXT_LENGTH = 2000
 _SUMMARY_TOKENS_CEILING = 8000
 _CHARS_PER_TOKEN = 4
 _SUMMARY_FAILURE_COOLDOWN = 600
@@ -110,6 +112,31 @@ class ContextCompressorV2(ContextEngine):
         self.last_prompt_tokens = usage.get("prompt_tokens", 0)
         self.last_completion_tokens = usage.get("completion_tokens", 0)
         self.last_total_tokens = usage.get("total_tokens", 0)
+    
+    def update_model(
+        self,
+        model: str,
+        context_length: int,
+        base_url: str = "",
+        api_key: str = "",
+        provider: str = "",
+        api_mode: str = "",
+    ) -> None:
+        """更新模型信息（Hermes 1:1学习）"""
+        self.model = model
+        self.base_url = base_url or self.base_url
+        self.api_key = api_key or self.api_key
+        self.provider = provider
+        self.api_mode = api_mode
+        self.context_length = context_length
+        self.threshold_tokens = max(
+            int(context_length * self.threshold_percent),
+            _MINIMUM_CONTEXT_LENGTH,
+        )
+        self.max_summary_tokens = min(
+            int(context_length * 0.05),
+            _SUMMARY_TOKENS_CEILING,
+        )
     
     def should_compress(self, prompt_tokens: int = None) -> bool:
         """检查是否需要压缩（基于token）（ContextEngine接口）"""
@@ -433,6 +460,27 @@ TURNS TO SUMMARIZE:
         while idx < len(messages) and messages[idx].get("role") == "tool":
             idx += 1
         return idx
+    
+    def _align_boundary_backward(self, messages: List[Dict], idx: int) -> int:
+        """向后对齐到非tool消息（Hermes 1:1学习）"""
+        while idx > 0 and messages[idx - 1].get("role") == "tool":
+            idx -= 1
+        return max(idx, 0)
+    
+    @staticmethod
+    def _get_tool_call_id(msg: Dict) -> Optional[str]:
+        """获取tool call ID（Hermes 1:1学习）"""
+        if msg.get("role") != "tool":
+            return None
+        # 优先从tool_call_id获取
+        tc_id = msg.get("tool_call_id")
+        if tc_id:
+            return tc_id
+        # 兼容其他格式
+        tool_calls = msg.get("tool_calls", [])
+        if tool_calls and isinstance(tool_calls[0], dict):
+            return tool_calls[0].get("id")
+        return None
     
     def compress(
         self, 
