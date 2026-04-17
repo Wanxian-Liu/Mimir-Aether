@@ -255,6 +255,51 @@ def resolve_anthropic_token() -> Optional[str]:
     return None
 
 
+def refresh_anthropic_oauth(refresh_token: str) -> Optional[Dict[str, Any]]:
+    """
+    刷新Anthropic OAuth token
+    
+    学习自Hermes: refresh_anthropic_oauth_pure
+    
+    Args:
+        refresh_token: OAuth refresh token
+    
+    Returns:
+        新token信息的字典，或None
+    """
+    try:
+        import aiohttp
+        
+        async def _do_refresh():
+            async with aiohttp.ClientSession() as session:
+                payload = {
+                    "grant_type": "refresh_token",
+                    "refresh_token": refresh_token,
+                    "client_id": "anthropic-cli",
+                }
+                async with session.post(
+                    _OAUTH_TOKEN_URL,
+                    json=payload,
+                    headers={"Content-Type": "application/json"},
+                ) as resp:
+                    if resp.status == 200:
+                        return await resp.json()
+                    return None
+        
+        # 在同步上下文中运行
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        return loop.run_until_complete(_do_refresh())
+        
+    except Exception as e:
+        logger.debug(f"refresh_anthropic_oauth failed: {e}")
+        return None
+
+
 # ============================================================================
 # 客户端构建
 # ============================================================================
