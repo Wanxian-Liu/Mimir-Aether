@@ -423,6 +423,18 @@ def clear_skills_prompt_cache() -> None:
         _SKILLS_PROMPT_CACHE.clear()
 
 
+def clear_skills_system_prompt_cache(clear_snapshot: bool = False) -> None:
+    """
+    Alias for clear_skills_prompt_cache for Hermes compatibility.
+
+    The clear_snapshot parameter is ignored (MimirAether uses a different
+    snapshot mechanism).
+
+    Ported from: hermes-agent/agent/prompt_builder.clear_skills_system_prompt_cache()
+    """
+    clear_skills_prompt_cache()
+
+
 def _get_skill_description(skill_file: Path) -> tuple[bool, str]:
     """
     读取SKILL.md文件，返回(是否兼容, 描述)

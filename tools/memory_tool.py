@@ -28,11 +28,44 @@ import json
 import logging
 import os
 import re
+import sys
 import tempfile
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from mimiraether_constants import get_mimiraether_home
 from typing import Dict, Any, List, Optional
+
+# ---- Knowledge Discovery Components ----
+# Add knowledge殿堂 to path for imports
+_KNOWLEDGE_DIR = Path.home() / "memory" / "记忆殿堂"
+if _KNOWLEDGE_DIR.exists() and str(_KNOWLEDGE_DIR) not in sys.path:
+    sys.path.insert(0, str(_KNOWLEDGE_DIR))
+
+try:
+    from knowledge_extractor import KnowledgeExtractor, ExtractedKnowledge
+except ImportError:
+    KnowledgeExtractor = None
+    ExtractedKnowledge = None
+
+try:
+    from knowledge_deduplicator import (
+        KnowledgeDeduplicator, KnowledgeItem, DedupConfig, DedupResult
+    )
+except ImportError:
+    KnowledgeDeduplicator = None
+    KnowledgeItem = None
+    DedupConfig = None
+    DedupResult = None
+
+try:
+    from importance_scorer import (
+        ImportanceScorer, ImportanceResult, Decision
+    )
+except ImportError:
+    ImportanceScorer = None
+    ImportanceResult = None
+    Decision = None
 
 logger = logging.getLogger(__name__)
 
@@ -431,12 +464,170 @@ class MemoryStore:
             raise RuntimeError(f"Failed to write memory file {path}: {e}")
 
 
+# =============================================================================
+# Knowledge Discovery - Pipeline: Extract → Deduplicate → Score
+# =============================================================================
+
+def discover_knowledge(
+    texts: List[str],
+    store: Optional["MemoryStore"],
+    memory_md_goals: Optional[List[str]] = None,
+    current_task: str = "",
+) -> Dict[str, Any]:
+    """
+    Knowledge Discovery Pipeline: Extract → Deduplicate → Score
+
+    Takes a list of conversation texts and returns scored knowledge entries
+    that pass the importance threshold, ready for memory storage.
+
+    Pipeline:
+      1. KnowledgeExtractor: extract entities, decisions, facts, skills
+      2. KnowledgeDeduplicator: remove near-duplicate entries
+      3. ImportanceScorer: score and filter by threshold
+
+    Returns dict with:
+      - candidates: list of scored knowledge entries ready for add_memory
+      - stats: pipeline statistics
+      - skipped: list of entries that didn't pass the threshold
+    """
+    if not KnowledgeExtractor or not KnowledgeDeduplicator or not ImportanceScorer:
+        return {
+            "success": False,
+            "error": "Knowledge discovery components not available.",
+            "candidates": [],
+            "skipped": [],
+            "stats": {},
+        }
+
+    # --- Get existing memories for novelty/relevance scoring ---
+    existing_memories = []
+    if store:
+        existing_memories = [
+            e for entries in [store.memory_entries, store.user_entries]
+            for e in entries
+        ]
+
+    # --- Step 1: Extract ---
+    extractor = KnowledgeExtractor()
+    all_extracted: List[Dict] = []
+
+    for idx, text in enumerate(texts):
+        extracted = extractor.extract(text)
+        for e in extracted:
+            if e.confidence < 0.6:
+                continue  # skip low-confidence
+            all_extracted.append({
+                "id": f"k_{idx}_{len(all_extracted)}",
+                "content": e.content,
+                "source_text": e.source_text,
+                "type": e.type,
+                "subtype": e.subtype,
+                "confidence": e.confidence,
+                "metadata": {
+                    **e.metadata,
+                    "is_decision": e.type == "decision",
+                    "has_code": e.type == "skill" and bool(e.metadata.get("has_code")),
+                },
+            })
+
+    if not all_extracted:
+        return {
+            "success": True,
+            "candidates": [],
+            "skipped": [],
+            "stats": {"extracted": 0, "deduplicated": 0, "scored": 0, "candidates": 0},
+        }
+
+    # --- Step 2: Deduplicate ---
+    config = DedupConfig(tfidf_threshold=0.75, strategy="merge")
+    dedup = KnowledgeDeduplicator(config)
+
+    items = [
+        KnowledgeItem(
+            id=e["id"],
+            content=e["content"],
+            source=e["source_text"],
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            metadata=e["metadata"],
+        )
+        for e in all_extracted
+    ]
+
+    dedup_result = dedup.deduplicate(items)
+
+    # Map back to dicts
+    deduped_map = {item.id: item for item in dedup_result.deduplicated}
+    deduped_dicts = [
+        next(
+            (e for e in all_extracted if e["id"] == item.id),
+            {"id": item.id, "content": item.content, "type": "", "subtype": "", "confidence": 0.5, "metadata": item.metadata},
+        )
+        for item in dedup_result.deduplicated
+    ]
+
+    # --- Step 3: Score ---
+    scorer = ImportanceScorer()
+    candidates: List[Dict] = []
+    skipped: List[Dict] = []
+
+    context = {
+        "existing_memories": existing_memories,
+        "memory_md_goals": memory_md_goals or [],
+        "current_task": current_task,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+    for entry in deduped_dicts:
+        result = scorer.score(entry["content"], context)
+
+        scored_entry = {
+            **entry,
+            "score": result.score,
+            "decision": result.decision.value,
+            "breakdown": {
+                "novelty": round(result.breakdown.novelty, 3),
+                "utility": round(result.breakdown.utility, 3),
+                "relevance": round(result.breakdown.relevance, 3),
+                "persistence": round(result.breakdown.persistence, 3),
+            },
+            "category": result.features.category,
+            "keywords": result.features.keywords,
+        }
+
+        if result.decision.value == "STORE":
+            candidates.append(scored_entry)
+        else:
+            skipped.append(scored_entry)
+
+    # Sort candidates by score descending
+    candidates.sort(key=lambda x: x["score"], reverse=True)
+
+    stats = {
+        "extracted": len(all_extracted),
+        "deduplicated": len(deduped_dicts),
+        "removed_by_dedup": dedup_result.stats.get("removed", 0),
+        "scored": len(deduped_dicts),
+        "candidates": len(candidates),
+        "skipped": len(skipped),
+    }
+
+    return {
+        "success": True,
+        "candidates": candidates,
+        "skipped": skipped,
+        "stats": stats,
+    }
+
+
 def memory_tool(
     action: str,
     target: str = "memory",
     content: str = None,
     old_text: str = None,
     store: Optional[MemoryStore] = None,
+    texts: List[str] = None,
+    memory_md_goals: List[str] = None,
+    current_task: str = "",
 ) -> str:
     """
     Single entry point for the memory tool. Dispatches to MemoryStore methods.
@@ -466,8 +657,13 @@ def memory_tool(
             return tool_error("old_text is required for 'remove' action.", success=False)
         result = store.remove(target, old_text)
 
+    elif action == "discover":
+        if not texts:
+            return tool_error("texts (list of conversation texts) is required for 'discover' action.", success=False)
+        result = discover_knowledge(texts, store, memory_md_goals, current_task)
+
     else:
-        return tool_error(f"Unknown action '{action}'. Use: add, replace, remove", success=False)
+        return tool_error(f"Unknown action '{action}'. Use: add, replace, remove, discover", success=False)
 
     return json.dumps(result, ensure_ascii=False)
 
@@ -511,7 +707,7 @@ MEMORY_SCHEMA = {
         "properties": {
             "action": {
                 "type": "string",
-                "enum": ["add", "replace", "remove"],
+                "enum": ["add", "replace", "remove", "discover"],
                 "description": "The action to perform."
             },
             "target": {
@@ -526,6 +722,20 @@ MEMORY_SCHEMA = {
             "old_text": {
                 "type": "string",
                 "description": "Short unique substring identifying the entry to replace or remove.",
+            },
+            "texts": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "List of conversation texts for knowledge discovery (used with action=discover).",
+            },
+            "memory_md_goals": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Goals extracted from MEMORY.md (used with action=discover for relevance scoring).",
+            },
+            "current_task": {
+                "type": "string",
+                "description": "Current task description (used with action=discover for relevance scoring).",
             },
         },
         "required": ["action", "target"],
@@ -545,7 +755,10 @@ registry.register(
         target=args.get("target", "memory"),
         content=args.get("content"),
         old_text=args.get("old_text"),
-        store=kw.get("store")),
+        store=kw.get("store"),
+        texts=args.get("texts"),
+        memory_md_goals=args.get("memory_md_goals"),
+        current_task=args.get("current_task", "")),
     check_fn=check_memory_requirements,
     emoji="🧠",
 )

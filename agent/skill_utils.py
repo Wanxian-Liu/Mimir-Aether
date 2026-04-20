@@ -345,6 +345,27 @@ def discover_skills(skills_dir: Path) -> List[Dict[str, Any]]:
     return skills
 
 
+def find_skill_by_name(name: str) -> Path | None:
+    """
+    Find a skill directory by name across all skills dirs.
+
+    Ported from: hermes-agent/agent/skill_utils.find_skill_by_name()
+
+    Args:
+        name: Skill directory name (not full path)
+
+    Returns:
+        Path to skill directory if found, None otherwise
+    """
+    for skills_dir in get_all_skills_dirs():
+        if not skills_dir.exists():
+            continue
+        for skill_md in skills_dir.rglob("SKILL.md"):
+            if skill_md.parent.name == name:
+                return skill_md.parent
+    return None
+
+
 # ============================================================================
 # 测试
 # ============================================================================
