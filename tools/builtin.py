@@ -15,6 +15,24 @@ _ALLOWED_BASE_DIR = os.environ.get("MIMIR_BASE_DIR", os.path.expanduser("~"))
 # 文件大小限制（1MB）
 MAX_FILE_SIZE = 1024 * 1024
 
+# 设备文件黑名单 — 读取这些文件会阻塞或产生无限输出
+_BLOCKED_DEVICE_PATHS = frozenset({
+    "/dev/zero", "/dev/random", "/dev/urandom", "/dev/full",
+    "/dev/stdin", "/dev/tty", "/dev/console",
+    "/dev/stdout", "/dev/stderr",
+    "/dev/fd/0", "/dev/fd/1", "/dev/fd/2",
+})
+
+
+def _is_blocked_device(filepath: str) -> bool:
+    """检查路径是否为会阻塞或产生无限输出的设备文件。"""
+    normalized = os.path.expanduser(filepath)
+    if normalized in _BLOCKED_DEVICE_PATHS:
+        return True
+    if normalized.startswith("/proc/") and normalized.endswith(("/fd/0", "/fd/1", "/fd/2")):
+        return True
+    return False
+
 
 def _safe_path(path: str) -> str:
     """
@@ -71,17 +89,23 @@ def _safe_path(path: str) -> str:
     return real_path
 
 
-def read_file(path: str) -> str:
+def read_file(path: str, offset: int = 1, limit: int = 500) -> str:
     """
-    读取文件内容（安全版本）
+    读取文件内容（安全版本，支持分页）
     
     Args:
         path: 文件路径
+        offset: 起始行号（1-based）
+        limit: 最大读取行数
         
     Returns:
         文件内容字符串
     """
     try:
+        # 设备文件保护 — 阻止读取会阻塞或产生无限输出的设备文件
+        if _is_blocked_device(path):
+            return "Error: Cannot read device file (would block or produce infinite output)"
+        
         safe_path = _safe_path(path)
         # 先检查文件大小（避免打开过大的文件）
         file_size = os.path.getsize(safe_path)
@@ -94,7 +118,14 @@ def read_file(path: str) -> str:
             flags |= o_nofollow
         fd = os.open(safe_path, flags)
         try:
-            return os.read(fd, MAX_FILE_SIZE).decode("utf-8")
+            content = os.read(fd, MAX_FILE_SIZE).decode("utf-8")
+            # 实现分页
+            lines = content.split('\n')
+            if offset > 1:
+                lines = lines[offset - 1:]
+            if limit < len(lines):
+                lines = lines[:limit]
+            return '\n'.join(lines)
         finally:
             os.close(fd)
     except ValueError:
@@ -248,6 +279,16 @@ TOOL_SCHEMAS = {
                 "path": {
                     "type": "string",
                     "description": "要读取的文件路径"
+                },
+                "offset": {
+                    "type": "integer",
+                    "description": "起始行号（1-based）",
+                    "default": 1
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "最大读取行数",
+                    "default": 500
                 }
             },
             "required": ["path"]

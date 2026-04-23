@@ -53,6 +53,13 @@ def has_incomplete_scratchpad(content: str) -> bool:
     return "<REASONING_SCRATCHPAD>" in content and "</REASONING_SCRATCHPAD>" not in content
 
 
+def convert_scratchpad_to_think(content: str) -> str:
+    """将<REASONING_SCRATCHPAD>标签转换为标准<think>标签（Hermès兼容）"""
+    if not content or "<REASONING_SCRATCHPAD>" not in content:
+        return content
+    return content.replace("<REASONING_SCRATCHPAD>", "<think>").replace("</REASONING_SCRATCHPAD>", "</think>")
+
+
 def normalize_message_content(message: Dict[str, Any]) -> Dict[str, Any]:
     """
     规范化单条消息的内容

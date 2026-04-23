@@ -210,6 +210,29 @@ def format_rate_limit_display(state: RateLimitState) -> str:
     return "\n".join(lines)
 
 
+def format_rate_limit_compact(state: RateLimitState) -> str:
+    """单行紧凑摘要，用于状态栏/网关消息（Hermès兼容）"""
+    if not state.has_data:
+        return "No rate limit data."
+
+    rm = state.requests_min
+    tm = state.tokens_min
+    rh = state.requests_hour
+    th = state.tokens_hour
+
+    parts = []
+    if rm.limit > 0:
+        parts.append(f"RPM: {rm.remaining}/{rm.limit}")
+    if rh.limit > 0:
+        parts.append(f"RPH: {_fmt_count(rh.remaining)}/{_fmt_count(rh.limit)} (resets {_fmt_seconds(rh.remaining_seconds_now)})")
+    if tm.limit > 0:
+        parts.append(f"TPM: {_fmt_count(tm.remaining)}/{_fmt_count(tm.limit)}")
+    if th.limit > 0:
+        parts.append(f"TPH: {_fmt_count(th.remaining)}/{_fmt_count(th.limit)} (resets {_fmt_seconds(th.remaining_seconds_now)})")
+
+    return "; ".join(parts) if parts else "No rate limit data."
+
+
 # ============================================================================
 # 速率限制追踪器
 # ============================================================================

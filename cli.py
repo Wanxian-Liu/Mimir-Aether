@@ -16,6 +16,7 @@ MimirAether CLI - 命令行入口
 
 import argparse
 import asyncio
+import importlib
 import os
 import sys
 import json
@@ -210,7 +211,7 @@ def cmd_doctor(args):
     print("\n【5. 核心模块】")
     for module in ["agent.core_loop", "gateway.router", "skills.skill_manager"]:
         try:
-            __import__(module)
+            importlib.import_module(module)
             print(f"  ✅ {module}")
         except Exception as e:
             issues.append(f"模块导入失败 {module}")

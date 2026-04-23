@@ -287,6 +287,31 @@ def get_pricing_entry(
     return _lookup_official_docs_pricing(route)
 
 
+# Hermès兼容函数（OpenRouter API定价，需要model_metadata支持）
+def _per_token_to_per_million(value: Any) -> Any:
+    """将per-token价格转换为per-million（Hermès兼容）"""
+    # MimirAether暂不支持OpenRouter API定价
+    return value
+
+
+def _pricing_entry_from_metadata(
+    metadata: Dict[str, Dict[str, Any]],
+    model_id: str,
+    *,
+    source_url: str,
+    pricing_version: str,
+) -> Optional[PricingEntry]:
+    """从模型元数据构建定价条目（Hermès兼容，桩实现）"""
+    # MimirAether暂不支持OpenRouter API定价
+    return None
+
+
+def _openrouter_pricing_entry(route: Any) -> Optional[PricingEntry]:
+    """获取OpenRouter路由的定价条目（Hermès兼容，桩实现）"""
+    # MimirAether暂不支持OpenRouter API定价
+    return None
+
+
 # ============================================================================
 # 用量规范化
 # ============================================================================

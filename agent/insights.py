@@ -1288,6 +1288,73 @@ class InsightsEngine:
 # ============================================================================
 # 便捷函数（向后兼容）
 # ============================================================================
+# Hermès兼容函数（补充）
+# ============================================================================
+
+def _estimate_cost(
+    session_or_model: Dict[str, Any] | str,
+    input_tokens: int = 0,
+    output_tokens: int = 0,
+    *,
+    cache_read_tokens: int = 0,
+    cache_write_tokens: int = 0,
+    provider: str = None,
+    base_url: str = None,
+) -> tuple[float, str]:
+    """
+    估算会话或模型的USD成本（Hermès兼容签名）
+
+    支持两种调用方式：
+    1. _estimate_cost(session_dict) - 从会话字典估算
+    2. _estimate_cost(model_name, input_tokens, output_tokens, ...) - 直接估算
+
+    Args:
+        session_or_model: 会话字典或模型名字符串
+        input_tokens: 输入token数（model参数时使用）
+        output_tokens: 输出token数（model参数时使用）
+        cache_read_tokens: 缓存读取token数
+        cache_write_tokens: 缓存写入token数
+        provider: 提供商名称
+        base_url: API基础URL
+
+    Returns:
+        (成本USD, 状态字符串)
+    """
+    if isinstance(session_or_model, dict):
+        session = session_or_model
+        model = session.get("model") or ""
+        usage = CanonicalUsage(
+            input_tokens=session.get("input_tokens") or 0,
+            output_tokens=session.get("output_tokens") or 0,
+            cache_read_tokens=session.get("cache_read_tokens") or 0,
+            cache_write_tokens=session.get("cache_write_tokens") or 0,
+        )
+        provider = session.get("billing_provider") or provider
+        base_url = session.get("billing_base_url") or base_url
+    else:
+        model = session_or_model or ""
+        usage = CanonicalUsage(
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cache_read_tokens=cache_read_tokens,
+            cache_write_tokens=cache_write_tokens,
+        )
+
+    result = estimate_usage_cost(
+        model,
+        usage,
+        provider=provider,
+        base_url=base_url,
+    )
+    return float(result.amount_usd or 0.0), result.status
+
+
+def _format_duration(seconds: float) -> str:
+    """格式化秒数为可读时长字符串（Hermès兼容）"""
+    return format_duration_compact(seconds)
+
+
+# ============================================================================
 
 _default_engine: Optional[InsightsEngine] = None
 
@@ -1311,4 +1378,6 @@ __all__ = [
     "MetricType",
     "UsageRecord",
     "get_insights",
+    "_estimate_cost",
+    "_format_duration",
 ]

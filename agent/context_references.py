@@ -432,6 +432,239 @@ def _expand_reference(
 
 
 # ============================================================================
+# Hermès兼容辅助函数
+# ============================================================================
+
+
+def _parse_file_reference_value(value: str) -> tuple[str, int | None, int | None]:
+    """解析文件引用值，支持带行号范围的格式（Hermès兼容）"""
+    import re
+    quoted_match = re.match(
+        r'^(?P<quote>`|"|\')(?P<path>.+?)(?P=quote)(?::(?P<start>\d+)(?:-(?P<end>\d+))?)?$',
+        value,
+    )
+    if quoted_match:
+        line_start = quoted_match.group("start")
+        line_end = quoted_match.group("end")
+        return (
+            quoted_match.group("path"),
+            int(line_start) if line_start is not None else None,
+            int(line_end or line_start) if line_start is not None else None,
+        )
+    range_match = re.match(r"^(?P<path>.+?):(?P<start>\d+)(?:-(?P<end>\d+))?$", value)
+    if range_match:
+        line_start = int(range_match.group("start"))
+        return (
+            range_match.group("path"),
+            line_start,
+            int(range_match.group("end") or range_match.group("start")),
+        )
+    return _strip_reference_wrappers(value), None, None
+
+
+def _resolve_path(cwd: Path, target: str, *, allowed_root: Path | None = None) -> Path:
+    """解析引用路径，支持allowed_root限制（Hermès兼容）"""
+    path = Path(os.path.expanduser(target))
+    if not path.is_absolute():
+        path = cwd / path
+    resolved = path.resolve()
+    if allowed_root is not None:
+        try:
+            resolved.relative_to(allowed_root)
+        except ValueError as exc:
+            raise ValueError("path is outside the allowed workspace") from exc
+    return resolved
+
+
+def _ensure_reference_path_allowed(path: Path) -> None:
+    """确保引用路径不在敏感区域内（Hermès兼容）"""
+    from hermes_constants import get_hermes_home
+    home = Path(os.path.expanduser("~")).resolve()
+    hermes_home = get_hermes_home().resolve()
+
+    blocked_exact = {home / rel for rel in _SENSITIVE_HOME_FILES}
+    blocked_exact.add(hermes_home / ".env")
+    blocked_dirs = [home / rel for rel in _SENSITIVE_HOME_DIRS]
+    blocked_dirs.extend(hermes_home / rel for rel in _SENSITIVE_HERMES_DIRS)
+
+    if path in blocked_exact:
+        raise ValueError("path is a sensitive credential file and cannot be attached")
+
+    for blocked_dir in blocked_dirs:
+        try:
+            path.relative_to(blocked_dir)
+            raise ValueError(f"path is inside a protected directory and cannot be attached: {blocked_dir}")
+        except ValueError:
+            pass
+
+
+def _expand_file_reference(
+    ref: ContextReference,
+    cwd: Path,
+    *,
+    allowed_root: Path | None = None,
+) -> tuple[str | None, str | None]:
+    """展开文件引用为代码块（Hermès兼容）"""
+    path = _resolve_path(cwd, ref.target, allowed_root=allowed_root)
+    _ensure_reference_path_allowed(path)
+    if not path.exists():
+        return f"{ref.raw}: file not found", None
+    if not path.is_file():
+        return f"{ref.raw}: path is not a file", None
+    if _is_binary_file(path):
+        return f"{ref.raw}: binary files are not supported", None
+
+    text = path.read_text(encoding="utf-8")
+    if ref.line_start is not None:
+        lines = text.splitlines()
+        start_idx = max(ref.line_start - 1, 0)
+        end_idx = min(ref.line_end or ref.line_start, len(lines))
+        text = "\n".join(lines[start_idx:end_idx])
+
+    lang = _code_fence_language(path)
+    label = ref.raw
+    return None, f"📄 {label} ({_estimate_tokens(text)} tokens)\n```{lang}\n{text}\n```"
+
+
+def _expand_folder_reference(
+    ref: ContextReference,
+    cwd: Path,
+    *,
+    allowed_root: Path | None = None,
+) -> tuple[str | None, str | None]:
+    """展开文件夹引用为列表（Hermès兼容）"""
+    path = _resolve_path(cwd, ref.target, allowed_root=allowed_root)
+    _ensure_reference_path_allowed(path)
+    if not path.exists():
+        return f"{ref.raw}: folder not found", None
+    if not path.is_dir():
+        return f"{ref.raw}: path is not a folder", None
+
+    listing = _build_folder_listing(path, cwd)
+    return None, f"📁 {ref.raw} ({_estimate_tokens(listing)} tokens)\n{listing}"
+
+
+def _expand_git_reference(
+    ref: ContextReference,
+    cwd: Path,
+    args: list[str],
+    label: str,
+) -> tuple[str | None, str | None]:
+    """展开git引用为diff/log内容（Hermès兼容）"""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        return f"{ref.raw}: git command timed out (30s)", None
+    if result.returncode != 0:
+        stderr = (result.stderr or "").strip() or "git command failed"
+        return f"{ref.raw}: {stderr}", None
+    content = result.stdout.strip()
+    if not content:
+        content = "(no output)"
+    return None, f"🧾 {label} ({_estimate_tokens(content)} tokens)\n```diff\n{content}\n```"
+
+
+async def _fetch_url_content(
+    url: str,
+    *,
+    url_fetcher: Callable | None = None,
+) -> str:
+    """异步获取URL内容（Hermès兼容）"""
+    import inspect
+    if url_fetcher is None:
+        url_fetcher = _default_url_fetcher
+    content = url_fetcher(url)
+    if inspect.isawaitable(content):
+        content = await content
+    return str(content or "").strip()
+
+
+async def _default_url_fetcher(url: str) -> str:
+    """默认URL fetcher（Hermès兼容，桩实现）"""
+    # MimirAether简化实现：暂不支持默认URL抓取
+    return ""
+
+
+async def preprocess_context_references_async(
+    message: str,
+    *,
+    cwd: str | Path,
+    context_length: int,
+    url_fetcher: Callable | None = None,
+    allowed_root: str | Path | None = None,
+) -> ContextReferenceResult:
+    """异步预处理上下文引用（Hermès兼容）"""
+    refs = parse_context_references(message)
+    if not refs:
+        return ContextReferenceResult(message=message, original_message=message)
+
+    cwd_path = Path(cwd).expanduser().resolve()
+    allowed_root_path = (
+        Path(allowed_root).expanduser().resolve() if allowed_root is not None else cwd_path
+    )
+    warnings: list[str] = []
+    blocks: list[str] = []
+    injected_tokens = 0
+
+    for ref in refs:
+        warning, block = await _expand_reference_async(
+            ref,
+            cwd_path,
+            url_fetcher=url_fetcher,
+        )
+        if warning:
+            warnings.append(warning)
+        if block:
+            blocks.append(block)
+            injected_tokens += _estimate_tokens(block)
+
+    hard_limit = max(1, int(context_length * 0.50))
+    soft_limit = max(1, int(context_length * 0.25))
+    if injected_tokens > hard_limit:
+        warnings.append(
+            f"@ context injection refused: {injected_tokens} tokens exceeds the 50% hard limit ({hard_limit})."
+        )
+        return ContextReferenceResult(
+            message=message,
+            original_message=message,
+            references=refs,
+            warnings=warnings,
+            injected_tokens=injected_tokens,
+            expanded=False,
+            blocked=True,
+        )
+
+    if injected_tokens > soft_limit:
+        warnings.append(
+            f"@ context injection warning: {injected_tokens} tokens exceeds the 25% soft limit ({soft_limit})."
+        )
+
+    stripped = _remove_reference_tokens(message, refs)
+    final = stripped
+    if warnings:
+        final = f"{final}\n\n--- Context Warnings ---\n" + "\n".join(f"- {w}" for w in warnings)
+    if blocks:
+        final = f"{final}\n\n--- Attached Context ---\n\n" + "\n\n".join(blocks)
+
+    return ContextReferenceResult(
+        message=final.strip(),
+        original_message=message,
+        references=refs,
+        warnings=warnings,
+        injected_tokens=injected_tokens,
+        expanded=bool(blocks or warnings),
+        blocked=False,
+    )
+
+
+# ============================================================================
 # 主处理函数
 # ============================================================================
 
@@ -532,6 +765,157 @@ def preprocess_context_references(
         expanded=True,
         blocked=False,
     )
+
+
+# ============================================================================
+# Hermès兼容工具函数
+# ============================================================================
+
+# Trailing punctuation to strip from reference values
+TRAILING_PUNCTUATION = ",.;!?"
+
+
+def _strip_trailing_punctuation(value: str) -> str:
+    """去除引用值末尾的标点符号（Hermès兼容）"""
+    stripped = value.rstrip(TRAILING_PUNCTUATION)
+    while stripped.endswith((")", "]", "}")):
+        closer = stripped[-1]
+        opener = {")": "(", "]": "[", "}": "{"}[closer]
+        if stripped.count(closer) > stripped.count(opener):
+            stripped = stripped[:-1]
+            continue
+        break
+    return stripped
+
+
+def _strip_reference_wrappers(value: str) -> str:
+    """去除引用值的反引号包裹（Hermès兼容）"""
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "`\"'":
+        return value[1:-1]
+    return value
+
+
+def _is_binary_file(path: Path) -> bool:
+    """检查文件是否为二进制（Hermès兼容）"""
+    import mimetypes
+    mime, _ = mimetypes.guess_type(path.name)
+    if mime and not mime.startswith("text/") and not any(
+        path.name.endswith(ext) for ext in (".py", ".md", ".txt", ".json", ".yaml", ".yml", ".toml", ".js", ".ts")
+    ):
+        return True
+    chunk = path.read_bytes()[:4096]
+    return b"\x00" in chunk
+
+
+def _rg_files(path: Path, cwd: Path, limit: int) -> list | None:
+    """使用ripgrep列出path中的文件（Hermès兼容）"""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["rg", "--files", ".", "--color", "never", "-0", "-m", str(limit), "--", "."],
+            cwd=path,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            files = [Path(p) for p in result.stdout.strip("\0").split("\0") if p]
+            return [f for f in files if f.is_file()]
+    except Exception:
+        pass
+    return None
+
+
+def _iter_visible_entries(path: Path, cwd: Path, limit: int) -> list:
+    """遍历可见的目录条目（Hermès兼容）"""
+    rg_entries = _rg_files(path, cwd, limit=limit)
+    if rg_entries is not None:
+        output = []
+        seen_dirs = set()
+        for rel in rg_entries:
+            full = cwd / rel
+            for parent in full.parents:
+                if parent == cwd or parent in seen_dirs or path not in {parent, *parent.parents}:
+                    continue
+                seen_dirs.add(parent)
+                output.append(parent)
+            output.append(full)
+        return sorted({p for p in output if p.exists()}, key=lambda p: (not p.is_dir(), str(p)))
+
+    output = []
+    for root, dirs, files in os.walk(path):
+        dirs[:] = sorted(d for d in dirs if not d.startswith(".") and d != "__pycache__")
+        files = sorted(f for f in files if not f.startswith("."))
+        root_path = Path(root)
+        for d in dirs:
+            output.append(root_path / d)
+            if len(output) >= limit:
+                return output
+        for f in files:
+            output.append(root_path / f)
+            if len(output) >= limit:
+                return output
+    return output
+
+
+def _file_metadata(path: Path) -> str:
+    """获取文件的元数据字符串（大小）（Hermès兼容）"""
+    try:
+        size = path.stat().st_size
+        if size < 1024:
+            return f"{size}B"
+        elif size < 1024 * 1024:
+            return f"{size / 1024:.1f}KB"
+        else:
+            return f"{size / (1024 * 1024):.1f}MB"
+    except Exception:
+        return "?"
+
+
+def _code_fence_language(path: Path) -> str:
+    """根据文件扩展名返回code fence语言标识符（Hermès兼容）"""
+    ext_map = {
+        ".py": "python",
+        ".js": "javascript",
+        ".ts": "typescript",
+        ".jsx": "jsx",
+        ".tsx": "tsx",
+        ".md": "markdown",
+        ".json": "json",
+        ".yaml": "yaml",
+        ".yml": "yaml",
+        ".sh": "bash",
+        ".bash": "bash",
+        ".zsh": "bash",
+        ".sql": "sql",
+        ".html": "html",
+        ".css": "css",
+        ".go": "go",
+        ".rs": "rust",
+        ".java": "java",
+        ".c": "c",
+        ".cpp": "cpp",
+        ".h": "c",
+        ".hpp": "cpp",
+    }
+    return ext_map.get(path.suffix.lower(), "")
+
+
+def _build_folder_listing(path: Path, cwd: Path, limit: int = 200) -> str:
+    """构建文件夹列表字符串（Hermès兼容）"""
+    lines = [f"{path.relative_to(cwd)}/"]
+    entries = _iter_visible_entries(path, cwd, limit=limit)
+    for entry in entries:
+        rel = entry.relative_to(cwd)
+        indent = "  " * max(len(rel.parts) - len(path.relative_to(cwd).parts) - 1, 0)
+        if entry.is_dir():
+            lines.append(f"{indent}- {entry.name}/")
+        else:
+            meta = _file_metadata(entry)
+            lines.append(f"{indent}- {entry.name} ({meta})")
+    if len(entries) >= limit:
+        lines.append("- ...")
+    return "\n".join(lines)
 
 
 # ============================================================================

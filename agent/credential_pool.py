@@ -25,7 +25,7 @@ import uuid
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -201,6 +201,368 @@ def _exhausted_until(entry: PooledCredential) -> Optional[float]:
 def _next_priority(entries: List[PooledCredential]) -> int:
     """生成下一个优先级"""
     return max((entry.priority for entry in entries), default=-1) + 1
+
+
+# ============================================================================
+# Hermès兼容常量
+# ============================================================================
+
+CUSTOM_POOL_PREFIX = "custom:"
+EXHAUSTED_TTL_429_SECONDS = 3600  # 1小时
+EXHAUSTED_TTL_DEFAULT_SECONDS = 3600  # 1小时
+
+
+# ============================================================================
+# Hermès兼容凭证工具函数
+# ============================================================================
+
+def _is_manual_source(source: str) -> bool:
+    """检查source是否为manual来源（Hermès兼容）"""
+    normalized = (source or "").strip().lower()
+    return normalized == SOURCE_MANUAL or normalized.startswith(f"{SOURCE_MANUAL}:")
+
+
+def _parse_absolute_timestamp(value: Any) -> Optional[float]:
+    """解析时间戳，支持秒、毫秒、ISO-8601（Hermès兼容签名）"""
+    return _parse_timestamp(value)  # 复用现有的_parse_timestamp
+
+
+def _extract_retry_delay_seconds(message: str) -> Optional[float]:
+    """从错误消息中提取重试延迟（Hermès兼容）"""
+    if not message:
+        return None
+    # 尝试 quotaResetDelay:XXXms/s 格式
+    import re
+    delay_match = re.search(r"quotaResetDelay[:\s\"]+(\d+(?:\.\d+)?)(ms|s)", message, re.IGNORECASE)
+    if delay_match:
+        value = float(delay_match.group(1))
+        return value / 1000.0 if delay_match.group(2).lower() == "ms" else value
+    # 尝试 retry after X seconds 格式
+    sec_match = re.search(r"retry\s+(?:after\s+)?(\d+(?:\.\d+)?)\s*(?:sec|secs|seconds|s\b)", message, re.IGNORECASE)
+    if sec_match:
+        return float(sec_match.group(1))
+    return None
+
+
+def _normalize_error_context(error_context: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """标准化错误上下文（Hermès兼容）"""
+    if not isinstance(error_context, dict):
+        return {}
+    normalized: Dict[str, Any] = {}
+    reason = error_context.get("reason")
+    if isinstance(reason, str) and reason.strip():
+        normalized["reason"] = reason.strip()
+    message = error_context.get("message")
+    if isinstance(message, str) and message.strip():
+        normalized["message"] = message.strip()
+    reset_at = (
+        error_context.get("reset_at")
+        or error_context.get("resets_at")
+        or error_context.get("retry_until")
+    )
+    parsed_reset_at = _parse_absolute_timestamp(reset_at)
+    if parsed_reset_at is None and isinstance(message, str):
+        retry_delay_seconds = _extract_retry_delay_seconds(message)
+        if retry_delay_seconds is not None:
+            parsed_reset_at = time.time() + retry_delay_seconds
+    if parsed_reset_at is not None:
+        normalized["reset_at"] = parsed_reset_at
+    return normalized
+
+
+def _normalize_custom_pool_name(name: str) -> str:
+    """标准化自定义provider名称作为pool key后缀（Hermès兼容）"""
+    return name.strip().lower().replace(" ", "-")
+
+
+def _iter_custom_providers(config: Optional[dict] = None) -> Any:
+    """遍历custom_providers配置（Hermès兼容）"""
+    # MimirAether版本：简化实现
+    if config is None:
+        config = {}
+    custom_providers = config.get("custom_providers", [])
+    if not isinstance(custom_providers, list):
+        return
+    for entry in custom_providers:
+        if not isinstance(entry, dict):
+            continue
+        name = entry.get("name")
+        if not isinstance(name, str):
+            continue
+        yield _normalize_custom_pool_name(name), entry
+
+
+def get_custom_provider_pool_key(base_url: str) -> Optional[str]:
+    """根据base_url查找对应的custom:* pool key（Hermès兼容）"""
+    if not base_url:
+        return None
+    normalized_url = base_url.strip().rstrip("/")
+    # 简化实现：遍历配置
+    try:
+        config = _load_config_safe() or {}
+        for norm_name, entry in _iter_custom_providers(config):
+            entry_url = str(entry.get("base_url") or "").strip().rstrip("/")
+            if entry_url and entry_url == normalized_url:
+                return f"{CUSTOM_POOL_PREFIX}{norm_name}"
+    except Exception:
+        pass
+    return None
+
+
+def list_custom_pool_providers() -> List[str]:
+    """返回所有有条目的custom:* pool keys（Hermès兼容）"""
+    result = []
+    try:
+        cred_dir = DEFAULT_CREDENTIALS_DIR
+        if cred_dir.exists():
+            for provider_dir in cred_dir.iterdir():
+                if provider_dir.is_dir() and provider_dir.name.startswith("custom:"):
+                    pool_file = provider_dir / CREDENTIAL_POOL_FILE
+                    if pool_file.exists():
+                        try:
+                            data = json.loads(pool_file.read_text())
+                            if data:
+                                result.append(provider_dir.name)
+                        except Exception:
+                            pass
+    except Exception:
+        pass
+    return sorted(result)
+
+
+def _get_custom_provider_config(pool_key: str) -> Optional[Dict[str, Any]]:
+    """返回匹配pool key的custom_providers配置条目（Hermès兼容）"""
+    if not pool_key.startswith(CUSTOM_POOL_PREFIX):
+        return None
+    suffix = pool_key[len(CUSTOM_POOL_PREFIX):]
+    try:
+        config = _load_config_safe() or {}
+        for norm_name, entry in _iter_custom_providers(config):
+            if norm_name == suffix:
+                return entry
+    except Exception:
+        pass
+    return None
+
+
+def get_pool_strategy(provider: str) -> str:
+    """返回provider配置的选择策略（Hermès兼容）"""
+    # MimirAether简化版本：只支持fill_first
+    return STRATEGY_FILL_FIRST
+
+
+def label_from_token(token: str, fallback: str) -> str:
+    """从JWT token中提取label（email/username）（Hermès兼容）"""
+    try:
+        import base64, json
+        parts = token.split(".")
+        if len(parts) >= 2:
+            payload = parts[1]
+            # URL-safe base64
+            payload = payload.replace("-", "+").replace("_", "/")
+            # 填充
+            padding = 4 - len(payload) % 4
+            if padding != 4:
+                payload += "=" * padding
+            decoded = base64.b64decode(payload)
+            claims = json.loads(decoded)
+            for key in ("email", "preferred_username", "upn"):
+                value = claims.get(key)
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+    except Exception:
+        pass
+    return fallback
+
+
+def _normalize_pool_priorities(provider: str, entries: List[PooledCredential]) -> bool:
+    """规范化Anthropic provider的凭证优先级（Hermès兼容）"""
+    if provider != "anthropic":
+        return False
+
+    source_rank = {
+        "env:ANTHROPIC_TOKEN": 0,
+        "env:CLAUDE_CODE_OAUTH_TOKEN": 1,
+        "hermes_pkce": 2,
+        "claude_code": 3,
+        "env:ANTHROPIC_API_KEY": 4,
+    }
+    manual_entries = sorted(
+        (entry for entry in entries if _is_manual_source(entry.source)),
+        key=lambda entry: entry.priority,
+    )
+    seeded_entries = sorted(
+        (entry for entry in entries if not _is_manual_source(entry.source)),
+        key=lambda entry: (
+            source_rank.get(entry.source, len(source_rank)),
+            entry.priority,
+            entry.label,
+        ),
+    )
+
+    ordered = [*manual_entries, *seeded_entries]
+    id_to_idx = {entry.id: idx for idx, entry in enumerate(entries)}
+    changed = False
+    for new_priority, entry in enumerate(ordered):
+        if entry.priority != new_priority:
+            entries[id_to_idx[entry.id]] = replace(entry, priority=new_priority)
+            changed = True
+    return changed
+
+
+def _prune_stale_seeded_entries(entries: List[PooledCredential], active_sources: Set[str]) -> bool:
+    """删除不再活跃的seeded条目（Hermès兼容）"""
+    retained = [
+        entry
+        for entry in entries
+        if _is_manual_source(entry.source)
+        or entry.source in active_sources
+        or not (
+            entry.source.startswith("env:")
+            or entry.source in {"claude_code", "hermes_pkce"}
+        )
+    ]
+    if len(retained) == len(entries):
+        return False
+    entries[:] = retained
+    return True
+
+
+def _seed_from_singletons(provider: str, entries: List[PooledCredential]) -> Tuple[bool, Set[str]]:
+    """从单例凭证（如环境变量）seed池（Hermès兼容，简化版）"""
+    changed = False
+    active_sources: Set[str] = set()
+
+    # 简化实现：只处理环境变量
+    env_mappings = {
+        "openai": ("OPENAI_API_KEY", None),
+        "anthropic": ("ANTHROPIC_API_KEY", None),
+    }
+
+    if provider in env_mappings:
+        env_var, base_url = env_mappings[provider]
+        token = os.getenv(env_var, "").strip()
+        if token:
+            source = f"env:{env_var}"
+            active_sources.add(source)
+            changed |= _upsert_entry_standalone(entries, provider, source, {
+                "source": source,
+                "auth_type": AUTH_TYPE_API_KEY,
+                "access_token": token,
+                "base_url": base_url or "",
+                "label": env_var,
+            })
+
+    return changed, active_sources
+
+
+def _seed_custom_pool(pool_key: str, entries: List[PooledCredential]) -> Tuple[bool, Set[str]]:
+    """从custom_providers配置seed自定义endpoint池（Hermès兼容）"""
+    changed = False
+    active_sources: Set[str] = set()
+
+    cp_config = _get_custom_provider_config(pool_key)
+    if cp_config:
+        api_key = str(cp_config.get("api_key") or "").strip()
+        base_url = str(cp_config.get("base_url") or "").strip().rstrip("/")
+        name = str(cp_config.get("name") or "").strip()
+        if api_key:
+            source = f"config:{name}"
+            active_sources.add(source)
+            changed |= _upsert_entry_standalone(entries, pool_key, source, {
+                "source": source,
+                "auth_type": AUTH_TYPE_API_KEY,
+                "access_token": api_key,
+                "base_url": base_url,
+                "label": name or source,
+            })
+
+    return changed, active_sources
+
+
+def _upsert_entry_standalone(
+    entries: List[PooledCredential],
+    provider: str,
+    source: str,
+    payload: Dict[str, Any],
+) -> bool:
+    """在entries列表中upsert条目（standalone版本）"""
+    existing_idx = None
+    for idx, entry in enumerate(entries):
+        if entry.source == source:
+            existing_idx = idx
+            break
+
+    if existing_idx is None:
+        payload.setdefault("id", uuid.uuid4().hex[:6])
+        payload.setdefault("priority", _next_priority(entries))
+        payload.setdefault("label", payload.get("label") or source)
+        entries.append(PooledCredential.from_dict(provider, payload))
+        return True
+
+    existing = entries[existing_idx]
+    field_updates = {}
+    extra_updates = {}
+    field_names = {f.name for f in fields(existing) if f.name != "provider"}
+    for key, value in payload.items():
+        if key in {"id", "priority"} or value is None:
+            continue
+        if key == "label" and existing.label:
+            continue
+        if key in field_names:
+            if getattr(existing, key) != value:
+                field_updates[key] = value
+        else:
+            if existing.extra.get(key) != value:
+                extra_updates[key] = value
+    if field_updates or extra_updates:
+        if extra_updates:
+            field_updates["extra"] = {**existing.extra, **extra_updates}
+        entries[existing_idx] = replace(existing, **field_updates)
+        return True
+    return False
+
+
+# ============================================================================
+# PooledCredential Hermès兼容方法
+# ============================================================================
+
+def _pooled_credential_post_init(self) -> None:
+    """PooledCredential __post_init__（Hermès兼容）"""
+    if self.extra is None:
+        self.extra = {}
+
+
+def _pooled_credential_getattr(self, name: str) -> Any:
+    """PooledCredential __getattr__（Hermès兼容）"""
+    if name == "extra":
+        return getattr(self, "extra", {})
+    # 检查extra字段
+    try:
+        extra = object.__getattribute__(self, "extra")
+        if name in extra:
+            return extra[name]
+    except AttributeError:
+        pass
+    raise AttributeError(f"'{type(self).__name__}' object has no attribute {name!r}")
+
+
+# 为PooledCredential添加 Hermès兼容方法
+
+
+def _pooled_credential_runtime_base_url(self) -> Optional[str]:
+    """PooledCredential.runtime_base_url（Hermès兼容）"""
+    return getattr(self, "base_url", None)
+
+
+# 添加runtime_base_url属性到PooledCredential
+PooledCredential.runtime_base_url = property(_pooled_credential_runtime_base_url)
+
+# 添加__getattr__到PooledCredential
+PooledCredential.__getattr__ = _pooled_credential_getattr
+
+# 添加__post_init__到PooledCredential（dataclass方法覆盖）
+PooledCredential.__post_init__ = _pooled_credential_post_init
 
 
 # ============================================================================
@@ -668,6 +1030,115 @@ class CredentialPool:
         with self._lock:
             self._strategy = strategy
         return True
+
+
+# ============================================================================
+# CredentialPool Hermès卓容方法（在类定义之后）
+# ============================================================================
+
+def _credential_pool_reset_statuses(self) -> int:
+    """重置所有凭证状态为ok（Hermès卓容签名）
+    """
+    with self._lock:
+        count = 0
+        new_entries = []
+        for entry in self._entries:
+            if entry.last_status or entry.last_status_at or entry.last_error_code:
+                new_entries.append(replace(
+                    entry,
+                    last_status=None,
+                    last_status_at=None,
+                    last_error_code=None,
+                    last_error_reason=None,
+                    last_error_message=None,
+                    last_error_reset_at=None,
+                ))
+                count += 1
+            else:
+                new_entries.append(entry)
+        if count:
+            self._entries = new_entries
+            self._persist()
+        return count
+
+
+def _credential_pool_remove_index(self, index: int) -> Optional[PooledCredential]:
+    """按索引移除凭证（Hermès卓容签名，1-based索引）
+    """
+    with self._lock:
+        if index < 1 or index > len(self._entries):
+            return None
+        removed = self._entries.pop(index - 1)
+        self._entries = [
+            replace(entry, priority=new_priority)
+            for new_priority, entry in enumerate(self._entries)
+        ]
+        self._persist()
+        if self._current_id == removed.id:
+            self._current_id = None
+        return removed
+
+
+def _credential_pool_resolve_target(self, target: Any) -> Tuple[Optional[int], Optional[PooledCredential], Optional[str]]:
+    """解析凭证目标（Hermès卓容签名）
+    """
+    raw = str(target or "").strip()
+    if not raw:
+        return None, None, "No credential target provided."
+
+    with self._lock:
+        # 按ID匹配
+        for idx, entry in enumerate(self._entries, start=1):
+            if entry.id == raw:
+                return idx, entry, None
+
+        # 按label匹配
+        label_matches = [
+            (idx, entry)
+            for idx, entry in enumerate(self._entries, start=1)
+            if entry.label.strip().lower() == raw.lower()
+        ]
+        if len(label_matches) == 1:
+            return label_matches[0][0], label_matches[0][1], None
+        if len(label_matches) > 1:
+            return None, None, f'Ambiguous credential label "{raw}". Use the numeric index or entry id instead.'
+
+        # 按数字索引匹配
+        if raw.isdigit():
+            index = int(raw)
+            if 1 <= index <= len(self._entries):
+                return index, self._entries[index - 1], None
+            return None, None, f"No credential #{index}."
+
+        return None, None, f'No credential matching "{raw}".'
+
+
+# 注入Hermès卓容方法到CredentialPool
+CredentialPool.reset_statuses = _credential_pool_reset_statuses
+CredentialPool.remove_index = _credential_pool_remove_index
+CredentialPool.resolve_target = _credential_pool_resolve_target
+
+
+# ============================================================================
+# Hermès兼容同步方法（OAuth token同步）
+# ============================================================================
+
+def _sync_anthropic_entry_from_credentials_file(entry: PooledCredential) -> PooledCredential:
+    """从~/.claude/.credentials.json同步claude_code池条目（Hermès兼容）"""
+    # MimirAether简化实现：暂不支持OAuth token同步
+    return entry
+
+
+def _sync_codex_entry_from_cli(entry: PooledCredential) -> PooledCredential:
+    """从~/.codex/auth.json同步openai-codex池条目（Hermès兼容）"""
+    # MimirAether简化实现：暂不支持Codex CLI token同步
+    return entry
+
+
+def _sync_device_code_entry_to_auth_store(entry: PooledCredential) -> None:
+    """将device_code条目同步到auth store（Hermès兼容）"""
+    # MimirAether简化实现：暂不支持device code auth store同步
+    pass
 
 
 # ============================================================================

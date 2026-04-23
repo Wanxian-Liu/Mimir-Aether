@@ -16,7 +16,8 @@ MimirAether Model Metadata
 import logging
 import re
 import time
-from typing import Any, Dict, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
@@ -622,6 +623,219 @@ def get_next_probe_tier(current_length: int) -> Optional[int]:
         if tier < current_length:
             return tier
     return None
+
+
+# ============================================================================
+# Hermès兼容函数
+# ============================================================================
+
+
+def _strip_provider_prefix(model_id: str) -> str:
+    """去除模型ID的provider前缀（Hermès兼容）"""
+    return strip_provider_prefix(model_id)
+
+
+def _normalize_base_url(url: str) -> str:
+    """标准化base URL（Hermès兼容）"""
+    if not url:
+        return ""
+    return url.rstrip("/")
+
+
+def _is_openrouter_base_url(base_url: str) -> bool:
+    """检查是否为OpenRouter端点（Hermès兼容）"""
+    normalized = _normalize_base_url(base_url)
+    return "openrouter" in normalized.lower()
+
+
+def _is_known_provider_base_url(base_url: str) -> bool:
+    """检查是否为已知provider的base URL（Hermès兼容）"""
+    normalized = _normalize_base_url(base_url)
+    if not normalized:
+        return False
+    known = {
+        "api.anthropic.com",
+        "api.deepseek.com",
+        "api.moonshot.ai",
+        "api.cohere.com",
+        "api.groq.com",
+        "api.together.ai",
+        "openrouter.ai",
+    }
+    return any(k in normalized for k in known)
+
+
+def _is_custom_endpoint(base_url: str) -> bool:
+    """检查是否为自定义endpoint（Hermès兼容）"""
+    return not _is_known_provider_base_url(base_url) and bool(base_url)
+
+
+def _infer_provider_from_url(base_url: str) -> Optional[str]:
+    """从URL推断provider（Hermès兼容）"""
+    return infer_provider_from_url(base_url)
+
+
+def _normalize_model_version(model_id: str) -> str:
+    """标准化模型版本标识符（Hermès兼容）"""
+    return model_id.strip()
+
+
+def _model_id_matches(candidate_id: str, lookup_model: str) -> bool:
+    """检查模型ID是否匹配（Hermès兼容）"""
+    return _model_matches(candidate_id, lookup_model)
+
+
+def _coerce_reasonable_int(value: Any, minimum: int = 1024, maximum: int = 10_000_000) -> Optional[int]:
+    """将值强制转换为合理范围内的大整数（Hermès兼容）"""
+    if value is None:
+        return None
+    try:
+        int_val = int(value)
+        if minimum <= int_val <= maximum:
+            return int_val
+        if int_val < minimum:
+            return minimum
+        return maximum
+    except (ValueError, TypeError):
+        return None
+
+
+def _extract_first_int(text: str) -> Optional[int]:
+    """从文本中提取第一个整数（Hermès兼容）"""
+    import re
+    if not text:
+        return None
+    match = re.search(r'\d+', text)
+    if match:
+        try:
+            return int(match.group())
+        except ValueError:
+            return None
+    return None
+
+
+def _extract_max_completion_tokens(payload: Dict[str, Any]) -> Optional[int]:
+    """从响应payload中提取max completion tokens（Hermès兼容）"""
+    # MimirAether简化实现
+    return None
+
+
+def _extract_pricing(payload: Dict[str, Any]) -> Dict[str, float]:
+    """从模型数据中提取定价信息（Hermès兼容）"""
+    return payload.get("pricing", {})
+
+
+def _iter_nested_dicts(data: Dict[str, Any]) -> list:
+    """遍历嵌套字典（Hermès兼容）"""
+    items = []
+    for key, value in data.items():
+        items.append((key, value))
+        if isinstance(value, dict):
+            items.extend(_iter_nested_dicts(value))
+    return items
+
+
+def estimate_tokens_rough(text: str) -> int:
+    """粗糙的token估算（~4字符/token）（Hermès兼容）"""
+    if not text:
+        return 0
+    return (len(text) + 3) // 4
+
+
+def estimate_messages_tokens_rough(messages: List[Dict[str, Any]]) -> int:
+    """对消息列表进行粗糙token估算（Hermès兼容）"""
+    total_chars = sum(len(str(msg)) for msg in messages)
+    return (total_chars + 3) // 4
+
+
+def estimate_request_tokens_rough(
+    messages: List[Dict[str, Any]],
+    *,
+    system_prompt: str = "",
+    tools: Optional[List[Dict[str, Any]]] = None,
+) -> int:
+    """对完整请求进行粗糙token估算（Hermès兼容）"""
+    total = estimate_messages_tokens_rough(messages)
+    if system_prompt:
+        total += estimate_tokens_rough(system_prompt)
+    if tools:
+        tools_text = str(tools)
+        total += estimate_tokens_rough(tools_text)
+    return total
+
+
+def _get_context_cache_path() -> Path:
+    """获取上下文缓存文件路径（Hermès兼容）"""
+    from hermes_constants import get_hermes_home
+    cache_dir = get_hermes_home() / "cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    return cache_dir / "context_lengths.json"
+
+
+def _load_context_cache() -> Dict[str, int]:
+    """加载上下文长度缓存（Hermès兼容）"""
+    cache_path = _get_context_cache_path()
+    if cache_path.exists():
+        try:
+            import json
+            with open(cache_path) as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+
+def _add_model_aliases(cache: Dict[str, Dict[str, Any]], model_id: str, entry: Dict[str, Any]) -> None:
+    """向缓存添加模型别名（Hermès兼容）"""
+    if model_id not in cache:
+        cache[model_id] = entry
+
+
+def _extract_context_length(payload: Dict[str, Any]) -> Optional[int]:
+    """从payload中提取context_length（Hermès兼容）"""
+    return payload.get("context_length")
+
+
+def _resolve_nous_context_length(model: str) -> Optional[int]:
+    """解析Nous模型的context length（Hermès兼容，桩实现）"""
+    # MimirAether暂不支持Nous特定逻辑
+    return None
+
+
+def query_ollama_num_ctx(model: str, base_url: str) -> Optional[int]:
+    """查询Ollama模型的num_ctx（Hermès兼容）"""
+    import requests
+    try:
+        response = requests.get(f"{base_url.rstrip('/')}/api/tags", timeout=5)
+        if response.status_code == 200:
+            for m in response.json().get("models", []):
+                if m.get("name") == model:
+                    return m.get("num_ctx")
+    except Exception:
+        pass
+    return None
+
+
+def fetch_model_metadata(force_refresh: bool = False) -> Dict[str, Dict[str, Any]]:
+    """从OpenRouter获取模型元数据（Hermès兼容，桩实现）"""
+    # MimirAether使用本地模型元数据，暂不支持OpenRouter API
+    return {}
+
+
+def fetch_endpoint_model_metadata(
+    base_url: str,
+    api_key: str = "",
+    force_refresh: bool = False,
+) -> Dict[str, Dict[str, Any]]:
+    """从OpenAI兼容端点获取模型元数据（Hermès兼容，桩实现）"""
+    # MimirAether暂不支持此功能
+    return {}
+
+
+def _query_local_context_length(model: str, base_url: str) -> Optional[int]:
+    """查询本地服务器的模型context length（Hermès兼容）"""
+    # MimirAether使用query_local_context_length函数
+    return query_local_context_length(model, base_url)
 
 
 # ============================================================================

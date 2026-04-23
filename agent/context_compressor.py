@@ -67,7 +67,7 @@ class ContextCompressorV2(ContextEngine):
     def __init__(
         self,
         model: str = "deepseek-chat",
-        threshold_percent: float = 0.50,
+        threshold_percent: float = 0.85,
         protect_first_n: int = 3,
         protect_last_n: int = 6,
         tail_token_budget: int = 4000,
@@ -146,9 +146,9 @@ class ContextCompressorV2(ContextEngine):
         tokens = prompt_tokens if prompt_tokens is not None else 0
         return tokens >= self.threshold_tokens
     
-    def needs_compression(self, messages: List[Dict]) -> bool:
-        """needs_compression的别名，保持与core_loop兼容"""
-        tokens = self._estimate_tokens(messages)
+    def needs_compression(self, messages: List[Dict] = None) -> bool:
+        """检查是否需要压缩（使用last_prompt_tokens，与Hermes一致）"""
+        tokens = getattr(self, 'last_prompt_tokens', 0) or 0
         return tokens >= self.threshold_tokens
     
     def _estimate_tokens(self, messages: List[Dict]) -> int:
@@ -595,6 +595,29 @@ TURNS TO SUMMARIZE:
         self._previous_summary = None
         self.compression_count = 0
         self._summary_failure_cooldown_until = 0.0
+
+    def on_session_reset(self) -> None:
+        """重置所有per-session状态（与Hermès ContextCompressor API兼容）"""
+        self.reset()
+
+
+# ============================================================================
+# Hermès兼容standalone函数
+# ============================================================================
+
+def _with_summary_prefix(summary: str) -> str:
+    """
+    将摘要文本标准化为当前compaction handoff格式（Hermès兼容）
+
+    移除旧前缀（LEGACY_PREFIX或SUMMARY_PREFIX），
+    然后添加当前SUMMARY_PREFIX。
+    """
+    text = (summary or "").strip()
+    for prefix in (LEGACY_PREFIX, SUMMARY_PREFIX):
+        if text.startswith(prefix):
+            text = text[len(prefix):].lstrip()
+            break
+    return f"{SUMMARY_PREFIX}\n{text}" if text else SUMMARY_PREFIX
 
 
 # 向后兼容导出（core_loop.py使用ContextCompressor）

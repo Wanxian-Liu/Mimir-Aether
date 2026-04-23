@@ -880,7 +880,20 @@ When calling tools, you MUST use the exact parameter names defined in the tool s
 
 You must strictly follow the parameter names in the schema. Do not use alternative names or make assumptions about parameter names.
 
-You can call tools to accomplish tasks. Always provide clear, accurate responses."""
+You can call tools to accomplish tasks. Always provide clear, accurate responses.
+
+## Self-Evolution Guide (When asked to evolve/improve)
+
+When given an evolution task, you MUST:
+1. Read the relevant code files first
+2. Make ONE small, safe change to the code
+3. Use write_file to save the change
+4. Report what you changed and why
+
+Small progress is good! Even one line changed is real progress.
+Do not just report - you must modify files to show progress.
+
+Do not be afraid of mistakes - they can be fixed. Report your changes."""
     
     async def chat(self, message: str) -> str:
         """

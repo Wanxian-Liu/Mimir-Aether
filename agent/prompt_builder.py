@@ -727,6 +727,289 @@ def is_developer_role_model(model: str) -> bool:
 
 
 # ============================================================================
+# Hermès兼容函数（补充缺失功能）
+# ============================================================================
+
+_HERMES_MD_NAMES = (".hermes.md", "HERMES.md")
+
+
+def _scan_context_content(content: str, filename: str) -> str:
+    """扫描上下文文件内容，检测prompt injection攻击（Hermès兼容签名）"""
+    findings = []
+
+    # Check invisible unicode
+    for char in _CONTEXT_INVISIBLE_CHARS:
+        if char in content:
+            findings.append(f"invisible unicode U+{ord(char):04X}")
+
+    # Check threat patterns
+    for pattern, pid in _CONTEXT_THREAT_PATTERNS:
+        if re.search(pattern, content, re.IGNORECASE):
+            findings.append(pid)
+
+    if findings:
+        logger.warning("Context file %s blocked: %s", filename, ", ".join(findings))
+        return f"[BLOCKED: {filename} contained potential prompt injection ({', '.join(findings)}). Content not loaded.]"
+
+    return content
+
+
+def _find_hermes_md(cwd: Path) -> Optional[Path]:
+    """查找最近的.hermes.md或HERMES.md文件（Hermès兼容）"""
+    stop_at = _find_git_root(cwd)
+    current = cwd.resolve()
+
+    for directory in [current, *current.parents]:
+        for name in _HERMES_MD_NAMES:
+            candidate = directory / name
+            if candidate.is_file():
+                return candidate
+        if stop_at and directory == stop_at:
+            break
+    return None
+
+
+def _strip_yaml_frontmatter(content: str) -> str:
+    """从内容中移除YAML frontmatter（--- delimited）（Hermès兼容签名）"""
+    if content.startswith("---"):
+        end = content.find("\n---", 3)
+        if end != -1:
+            body = content[end + 4:].lstrip("\n")
+            return body if body else content
+    return content
+
+
+def _truncate_content(content: str, filename: str, max_chars: int = CONTEXT_FILE_MAX_CHARS) -> str:
+    """Head/tail截断，中间插入标记（Hermès兼容签名）"""
+    if len(content) <= max_chars:
+        return content
+    head_chars = int(max_chars * CONTEXT_TRUNCATE_HEAD_RATIO)
+    tail_chars = int(max_chars * CONTEXT_TRUNCATE_TAIL_RATIO)
+    head = content[:head_chars]
+    tail = content[-tail_chars:]
+    marker = f"\n\n[...truncated {filename}: kept {head_chars}+{tail_chars} of {len(content)} chars. Use file tools to read the full file.]\n\n"
+    return head + marker + tail
+
+
+def load_soul_md() -> Optional[str]:
+    """从MIMIRAETHER_HOME加载SOUL.md内容（Hermès兼容）"""
+    try:
+        from mimiraether_constants import get_mimiraether_home
+        soul_path = get_mimiraether_home() / "SOUL.md"
+    except Exception as e:
+        logger.debug("Could not get MimirAether home for SOUL.md: %s", e)
+        return None
+
+    if not soul_path.exists():
+        return None
+    try:
+        content = soul_path.read_text(encoding="utf-8").strip()
+        if not content:
+            return None
+        content = _scan_context_content(content, "SOUL.md")
+        content = _truncate_content(content, "SOUL.md")
+        return content
+    except Exception as e:
+        logger.debug("Could not read SOUL.md from %s: %s", soul_path, e)
+        return None
+
+
+def _load_hermes_md(cwd_path: Path) -> str:
+    """.hermes.md / HERMES.md — walk to git root（Hermès兼容）"""
+    hermes_md_path = _find_hermes_md(cwd_path)
+    if not hermes_md_path:
+        return ""
+    try:
+        content = hermes_md_path.read_text(encoding="utf-8").strip()
+        if not content:
+            return ""
+        content = _strip_yaml_frontmatter(content)
+        rel = hermes_md_path.name
+        try:
+            rel = str(hermes_md_path.relative_to(cwd_path))
+        except ValueError:
+            pass
+        content = _scan_context_content(content, rel)
+        result = f"## {rel}\n\n{content}"
+        return _truncate_content(result, ".hermes.md")
+    except Exception as e:
+        logger.debug("Could not read %s: %s", hermes_md_path, e)
+        return ""
+
+
+def _load_agents_md(cwd_path: Path) -> str:
+    """AGENTS.md — top-level only（Hermès兼容）"""
+    for name in ["AGENTS.md", "agents.md"]:
+        candidate = cwd_path / name
+        if candidate.exists():
+            try:
+                content = candidate.read_text(encoding="utf-8").strip()
+                if content:
+                    content = _scan_context_content(content, name)
+                    result = f"## {name}\n\n{content}"
+                    return _truncate_content(result, "AGENTS.md")
+            except Exception as e:
+                logger.debug("Could not read %s: %s", candidate, e)
+    return ""
+
+
+def _load_claude_md(cwd_path: Path) -> str:
+    """CLAUDE.md / claude.md — cwd only（Hermès兼容）"""
+    for name in ["CLAUDE.md", "claude.md"]:
+        candidate = cwd_path / name
+        if candidate.exists():
+            try:
+                content = candidate.read_text(encoding="utf-8").strip()
+                if content:
+                    content = _scan_context_content(content, name)
+                    result = f"## {name}\n\n{content}"
+                    return _truncate_content(result, "CLAUDE.md")
+            except Exception as e:
+                logger.debug("Could not read %s: %s", candidate, e)
+    return ""
+
+
+def _load_cursorrules(cwd_path: Path) -> str:
+    """.cursorrules + .cursor/rules/*.mdc — cwd only（Hermès兼容）"""
+    cursorrules_content = ""
+    cursorrules_file = cwd_path / ".cursorrules"
+    if cursorrules_file.exists():
+        try:
+            content = cursorrules_file.read_text(encoding="utf-8").strip()
+            if content:
+                content = _scan_context_content(content, ".cursorrules")
+                cursorrules_content += f"## .cursorrules\n\n{content}\n\n"
+        except Exception as e:
+            logger.debug("Could not read .cursorrules: %s", e)
+
+    cursor_rules_dir = cwd_path / ".cursor" / "rules"
+    if cursor_rules_dir.exists() and cursor_rules_dir.is_dir():
+        mdc_files = sorted(cursor_rules_dir.glob("*.mdc"))
+        for mdc_file in mdc_files:
+            try:
+                content = mdc_file.read_text(encoding="utf-8").strip()
+                if content:
+                    content = _scan_context_content(content, mdc_file.name)
+                    cursorrules_content += f"## {mdc_file.name}\n\n{content}\n\n"
+            except Exception as e:
+                logger.debug("Could not read %s: %s", mdc_file, e)
+
+    if cursorrules_content:
+        return _truncate_content(cursorrules_content, ".cursorrules")
+    return ""
+
+
+def _skills_prompt_snapshot_path() -> Path:
+    """返回技能prompt快照文件路径（Hermès兼容）"""
+    try:
+        from mimiraether_constants import get_mimiraether_home
+        return get_mimiraether_home() / ".skills_prompt_snapshot.json"
+    except Exception:
+        return Path.home() / ".openclaw" / "mimir-aether" / ".skills_prompt_snapshot.json"
+
+
+def _build_snapshot_entry(
+    skill_file: Path,
+    skills_dir: Path,
+    frontmatter: dict,
+    description: str,
+) -> dict:
+    """为一个skill构建可序列化的元数据dict（Hermès兼容）"""
+    rel_path = skill_file.relative_to(skills_dir)
+    parts = rel_path.parts
+    if len(parts) >= 2:
+        skill_name = parts[-2]
+        category = "/".join(parts[:-2]) if len(parts) > 2 else parts[0]
+    else:
+        category = "general"
+        skill_name = skill_file.parent.name
+
+    platforms = frontmatter.get("platforms") or []
+    if isinstance(platforms, str):
+        platforms = [platforms]
+
+    return {
+        "skill_name": skill_name,
+        "category": category,
+        "frontmatter_name": str(frontmatter.get("name", skill_name)),
+        "description": description,
+        "platforms": [str(p).strip() for p in platforms if str(p).strip()],
+        "conditions": {},  # MimirAether暂时不实现条件系统
+    }
+
+
+def _parse_skill_file(skill_file: Path) -> tuple[bool, dict, str]:
+    """读取SKILL.md一次，返回平台兼容性、frontmatter和描述（Hermès兼容）"""
+    try:
+        raw = skill_file.read_text(encoding="utf-8")
+        # 简单frontmatter解析
+        frontmatter = {}
+        description = ""
+        if raw.startswith("---"):
+            end = raw.find("\n---", 3)
+            if end != -1:
+                fm_text = raw[3:end].strip()
+                description = raw[end + 4:].strip()
+                for line in fm_text.splitlines():
+                    if ":" in line:
+                        key, val = line.split(":", 1)
+                        frontmatter[key.strip()] = val.strip()
+
+        # 平台兼容性检查
+        platforms = frontmatter.get("platforms", "")
+        if platforms:
+            platform_str = str(platforms).lower()
+            # MimirAether支持所有平台
+            pass
+
+        return True, frontmatter, description
+    except Exception as e:
+        logger.warning("Failed to parse skill file %s: %s", skill_file, e)
+        return True, {}, ""
+
+
+def _skill_should_show(
+    conditions: dict,
+    available_tools: "Optional[set[str]]" = None,
+    available_toolsets: "Optional[set[str]]" = None,
+) -> bool:
+    """如果skill的条件激活规则排除了它，返回False（Hermès兼容）"""
+    if available_tools is None and available_toolsets is None:
+        return True
+
+    at = available_tools or set()
+    ats = available_toolsets or set()
+
+    for ts in conditions.get("fallback_for_toolsets", []):
+        if ts in ats:
+            return False
+    for t in conditions.get("fallback_for_tools", []):
+        if t in at:
+            return False
+
+    for ts in conditions.get("requires_toolsets", []):
+        if ts not in ats:
+            return False
+    for t in conditions.get("requires_tools", []):
+        if t not in at:
+            return False
+
+    return True
+
+
+def build_nous_subscription_prompt(valid_tool_names: "Optional[set[str]]" = None) -> str:
+    """为system prompt构建紧凑的Nous订阅能力块（Hermès兼容）"""
+    # MimirAether暂时不支持Nous订阅，保留接口但返回空
+    return ""
+
+
+def _status_line(feature) -> str:
+    """生成能力状态行（Hermès兼容，嵌套函数提升为standalone）"""
+    # MimirAether不支持Nous subscription，因此始终返回空
+    return ""
+
+
+# ============================================================================
 # 测试
 # ============================================================================
 

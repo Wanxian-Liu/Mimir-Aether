@@ -928,6 +928,181 @@ def normalize_anthropic_response(
 
 
 # ============================================================================
+# Hermès兼容OAuth/Token函数（桩实现）
+# ============================================================================
+
+
+def _is_oauth_token(key: str) -> bool:
+    """检查key是否为Anthropic OAuth/setup token（Hermès兼容）"""
+    if not key:
+        return False
+    if key.startswith("sk-ant-api"):
+        return False
+    if key.startswith("sk-ant-"):
+        return True
+    if key.startswith("eyJ"):
+        return True
+    return False
+
+
+def _normalize_base_url_text(base_url) -> str:
+    """标准化base URL为字符串（Hermès兼容）"""
+    if base_url is None:
+        return ""
+    if hasattr(base_url, "rstrip"):
+        return str(base_url).rstrip("/")
+    return str(base_url).rstrip("/")
+
+
+def _common_betas_for_base_url(base_url) -> List[str]:
+    """返回给定base URL的通用betas列表（Hermès兼容）"""
+    url = _normalize_base_url_text(base_url)
+    if not url:
+        return []
+    if "anthropic" in url:
+        return get_common_betas(url)
+    return []
+
+
+def _convert_content_part_to_anthropic(part: Any) -> Optional[Dict[str, Any]]:
+    """转换content part为Anthropic格式（Hermès兼容）"""
+    return _convert_content_part(part)
+
+
+def _convert_content_to_anthropic(content: Any) -> List[Dict[str, Any]]:
+    """转换content为Anthropic格式列表（Hermès兼容）"""
+    if isinstance(content, list):
+        result = []
+        for part in content:
+            converted = _convert_content_part(part)
+            if converted:
+                result.append(converted)
+        return result
+    elif isinstance(content, str):
+        return [{"type": "text", "text": content}]
+    return []
+
+
+def _extract_preserved_thinking_blocks(message: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """从消息中提取保留的thinking blocks（Hermès兼容）"""
+    return _extract_thinking_blocks(message)
+
+
+def _generate_pkce() -> tuple:
+    """生成PKCE代码挑战和验证器（Hermès兼容）"""
+    import base64, os, hashlib
+    code_verifier = base64.urlsafe_b64encode(os.urandom(64)).decode().rstrip("=")
+    code_challenge = base64.urlsafe_b64encode(
+        hashlib.sha256(code_verifier.encode()).digest()
+    ).decode().rstrip("=")
+    return code_challenge, code_verifier
+
+
+def _get_anthropic_max_output(model: str) -> int:
+    """获取Anthropic模型的最大输出token数（Hermès兼容）"""
+    return get_anthropic_max_output(model)
+
+
+def _image_source_from_openai_url(url: str) -> Dict[str, str]:
+    """从OpenAI URL提取图片源数据（Hermès兼容）"""
+    return _image_source_from_url(url)
+
+
+def _is_third_party_anthropic_endpoint(base_url) -> bool:
+    """检查是否为第三方Anthropic端点（Hermès兼容）"""
+    return is_third_party_endpoint(base_url)
+
+
+def _prefer_refreshable_claude_code_token(
+    token: Optional[str], creds: Optional[Dict[str, Any]] = None
+) -> Optional[str]:
+    """优先使用可刷新的Claude Code token（Hermès兼容）"""
+    if token:
+        return token
+    if creds:
+        return _resolve_claude_code_token_from_credentials(creds)
+    return None
+
+
+def _refresh_oauth_token(creds: Dict[str, Any]) -> Optional[str]:
+    """刷新OAuth token（Hermès兼容）"""
+    refresh_token = creds.get("refreshToken") or creds.get("refresh_token")
+    if refresh_token:
+        result = refresh_anthropic_oauth(refresh_token)
+        if result:
+            return result.get("accessToken") or result.get("access_token")
+    return None
+
+
+def _requires_bearer_auth(base_url) -> bool:
+    """检查是否需要Bearer认证（Hermès兼容）"""
+    return requires_bearer_auth(base_url)
+
+
+def _resolve_claude_code_token_from_credentials(
+    creds: Optional[Dict[str, Any]] = None,
+) -> Optional[str]:
+    """从credentials解析Claude Code token（Hermès兼容）"""
+    if creds is None:
+        creds = read_claude_code_credentials()
+    if creds:
+        token = creds.get("accessToken") or creds.get("access_token")
+        if token:
+            return token
+    return None
+
+
+def _sanitize_tool_id(tool_id: str) -> str:
+    """清理tool ID（Hermès兼容）"""
+    return sanitize_tool_id(tool_id)
+
+
+def _supports_adaptive_thinking(model: str) -> bool:
+    """检查模型是否支持自适应思考（Hermès兼容）"""
+    return supports_adaptive_thinking(model)
+
+
+def _write_claude_code_credentials(creds: Dict[str, Any]) -> None:
+    """写入Claude Code credentials到文件（Hermès兼容桩）"""
+    # MimirAether简化实现：暂不支持Claude Code credentials持久化
+    pass
+
+
+def is_claude_code_token_valid(creds: Dict[str, Any]) -> bool:
+    """检查Claude Code token是否有效（Hermès兼容）"""
+    return is_token_valid(creds)
+
+
+def read_claude_managed_key() -> Optional[str]:
+    """读取Claude管理的key（Hermès兼容桩）"""
+    # MimirAether简化实现
+    return None
+
+
+def read_hermes_oauth_credentials() -> Optional[Dict[str, Any]]:
+    """读取Hermes OAuth credentials（Hermès兼容桩）"""
+    # MimirAether简化实现
+    return None
+
+
+def refresh_anthropic_oauth_pure(refresh_token: str) -> Optional[Dict[str, Any]]:
+    """纯函数版本的Anthropic OAuth刷新（Hermès兼容）"""
+    return refresh_anthropic_oauth(refresh_token)
+
+
+def run_hermes_oauth_login_pure() -> Optional[Dict[str, Any]]:
+    """纯函数版本的Hermes OAuth登录（Hermès兼容桩）"""
+    # MimirAether简化实现
+    return None
+
+
+def run_oauth_setup_token(token: str) -> Optional[Dict[str, Any]]:
+    """使用setup token运行OAuth流程（Hermès兼容桩）"""
+    # MimirAether简化实现
+    return None
+
+
+# ============================================================================
 # 测试
 # ============================================================================
 

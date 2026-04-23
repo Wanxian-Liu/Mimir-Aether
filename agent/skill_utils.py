@@ -367,6 +367,124 @@ def find_skill_by_name(name: str) -> Path | None:
 
 
 # ============================================================================
+# Hermès兼容函数
+# ============================================================================
+
+# Storage prefix for skill config vars in config.yaml
+SKILL_CONFIG_PREFIX = "skills.config"
+
+
+def iter_skill_index_files(skills_dir: Path, filename: str):
+    """遍历skills_dir，返回匹配*filename的排序路径（Hermès兼容）
+
+    排除``.git``, ``.github``, ``.hub``目录。
+    """
+    matches = []
+    for root, dirs, files in os.walk(skills_dir):
+        dirs[:] = [d for d in dirs if d not in EXCLUDED_SKILL_DIRS]
+        for f in files:
+            if f == filename:
+                matches.append(Path(root) / f)
+    return sorted(matches)
+
+
+def extract_skill_description(frontmatter: Dict[str, Any]) -> str:
+    """从解析的frontmatter中提取截断的描述（Hermès兼容）"""
+    raw_desc = frontmatter.get("description", "")
+    if not raw_desc:
+        return ""
+    desc = str(raw_desc).strip().strip("'\"")
+    if len(desc) > 60:
+        return desc[:57] + "..."
+    return desc
+
+
+def _resolve_dotpath(config: Dict[str, Any], dotted_key: str) -> Any:
+    """遍历嵌套dict，按照点分key路径查找（Hermès兼容）"""
+    parts = dotted_key.split(".")
+    current = config
+    for part in parts:
+        if isinstance(current, dict) and part in current:
+            current = current[part]
+        else:
+            return None
+    return current
+
+
+def resolve_skill_config_values(
+    config_vars: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """从config.yaml解析skill config vars的当前值（Hermès兼容）
+
+    Skill config存储在config.yaml的``skills.config.<key>``下。
+    返回映射到逻辑key（skill声明的）及其当前值的dict。
+    """
+    config_path = get_config_path()
+    config: Dict[str, Any] = {}
+    if config_path.exists():
+        try:
+            parsed = yaml_load(config_path.read_text(encoding="utf-8"))
+            if isinstance(parsed, dict):
+                config = parsed
+        except Exception:
+            pass
+
+    resolved: Dict[str, Any] = {}
+    for var in config_vars:
+        logical_key = var["key"]
+        storage_key = f"{SKILL_CONFIG_PREFIX}.{logical_key}"
+        value = _resolve_dotpath(config, storage_key)
+
+        if value is None or (isinstance(value, str) and not value.strip()):
+            value = var.get("default", "")
+
+        # 展开path值中的~
+        if isinstance(value, str) and ("~" in value or "${" in value):
+            value = os.path.expanduser(os.path.expandvars(value))
+
+        resolved[logical_key] = value
+
+    return resolved
+
+
+def discover_all_skill_config_vars() -> List[Dict[str, Any]]:
+    """扫描所有启用的skills并收集它们的config变量声明（Hermès兼容）
+
+    遍历每个skills目录，解析每个SKILL.md frontmatter，
+    返回去重的config var dict列表。
+    每个dict还包含一个``skill`` key用于归属。
+    """
+    all_vars: List[Dict[str, Any]] = []
+    seen_keys: set = set()
+
+    disabled = get_disabled_skill_names()
+    for skills_dir in get_all_skills_dirs():
+        if not skills_dir.is_dir():
+            continue
+        for skill_file in iter_skill_index_files(skills_dir, "SKILL.md"):
+            try:
+                raw = skill_file.read_text(encoding="utf-8")
+                frontmatter, _ = parse_frontmatter(raw)
+            except Exception:
+                continue
+
+            skill_name = frontmatter.get("name") or skill_file.parent.name
+            if str(skill_name) in disabled:
+                continue
+            if not skill_matches_platform(frontmatter):
+                continue
+
+            config_vars = extract_skill_config_vars(frontmatter)
+            for var in config_vars:
+                if var["key"] not in seen_keys:
+                    var["skill"] = str(skill_name)
+                    all_vars.append(var)
+                    seen_keys.add(var["key"])
+
+    return all_vars
+
+
+# ============================================================================
 # 测试
 # ============================================================================
 
