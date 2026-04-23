@@ -285,6 +285,7 @@ class MimirAetherAgent:
         
         # Status callback（学习自Hermes _emit_status）
         self._status_message = ""  # 当前状态消息
+        self.quiet_mode = False  # 安静模式标志
         
         # Plugin hooks（学习自Hermes）
                 # Plugin hooks（学习自Hermes）
@@ -461,6 +462,29 @@ class MimirAetherAgent:
         else:
             return "https://api.deepseek.com"
     
+    def _resolve_api_config(self, model_name: str = None) -> Dict[str, Any]:
+        """
+        解析API配置（统一方法）
+        
+        Returns:
+            dict with keys: api_key, base_url, is_anthropic, model_name
+        """
+        if model_name is None:
+            model_name = self.model
+        
+        api_key = self._get_api_key()
+        base_url = self._get_model_base_url()
+        
+        # 检测是否为Anthropic模型
+        is_anthropic = any(x in model_name.lower() for x in ["anthropic", "claude"])
+        
+        return {
+            "api_key": api_key,
+            "base_url": base_url,
+            "is_anthropic": is_anthropic,
+            "model_name": model_name
+        }
+
     def _build_system_prompt(self) -> str:
         """使用prompt_builder构建完整的系统提示"""
         try:
@@ -844,6 +868,18 @@ Core capabilities:
 - Web search and information retrieval
 - Memory management across sessions
 
+## Tool Calling Rules (CRITICAL)
+
+When calling tools, you MUST use the exact parameter names defined in the tool schema:
+
+- execute_code: parameter is `code` NOT `command`
+- write_file: parameters are `path` and `content`
+- read_file: parameter is `path`
+- get_env: parameter is `name`
+- search_web: parameter is `query`
+
+You must strictly follow the parameter names in the schema. Do not use alternative names or make assumptions about parameter names.
+
 You can call tools to accomplish tasks. Always provide clear, accurate responses."""
     
     async def chat(self, message: str) -> str:
@@ -1102,12 +1138,14 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
             messages.append(msg_dict)
         
         return messages
-    
     async def _call_model_with_tokens(
         self, messages: List[Dict], session_id: str
     ) -> tuple[Dict, float]:
         """
         调用模型API并记录token使用
+
+        统一入口：先解析API配置和工具schemas（只做一次），
+        然后根据模型类型和流式需求分发到不同路径。
 
         Returns:
             (response_dict, latency_ms)
@@ -1118,48 +1156,27 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
         import os
         import aiohttp
 
-        # 获取API配置（支持多平台）
-        # 优先级：1. 显式传入 2. 环境变量 3. 默认DeepSeek
-        if hasattr(self, 'model') and self.model:
-            model_name = self.model
-        else:
-            model_name = os.environ.get("LLM_MODEL", "deepseek-chat")
-        
-        # 检测使用哪个API
-        # Moonshot/Kimi系列 使用MOONSHOT_API_KEY环境变量
-        if "kimi-k2" in model_name or model_name.startswith("moonshot"):
-            api_key = os.environ.get("MOONSHOT_API_KEY", os.environ.get("DEEPSEEK_API_KEY", ""))
-            base_url = "https://api.moonshot.cn"  # 注意：不要加/v1，会在下面拼接
-            is_anthropic = False
-        elif "deepseek" in model_name.lower():
-            api_key = os.environ.get("DEEPSEEK_API_KEY", "")
-            base_url = "https://api.deepseek.com"
-            is_anthropic = False
-        elif "minimax" in model_name.lower() or os.environ.get("MINIMAX_API_KEY"):
-            api_key = os.environ.get("MINIMAX_API_KEY", "")
-            base_url = os.environ.get("MINIMAX_BASE_URL", "https://api.minimax.chat")
-            is_anthropic = False
-        elif "anthropic" in model_name.lower() or "claude" in model_name.lower():
-            api_key = os.environ.get("ANTHROPIC_API_KEY", os.environ.get("DEEPSEEK_API_KEY", ""))
-            base_url = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
-            is_anthropic = True
-        else:
-            # 默认DeepSeek
-            api_key = os.environ.get("DEEPSEEK_API_KEY", os.environ.get("OPENAI_API_KEY", ""))
-            base_url = "https://api.deepseek.com"
-            is_anthropic = False
-        
+        # 1. 解析API配置（只做一次）
+        model_name = self.model if hasattr(self, 'model') and self.model else os.environ.get("LLM_MODEL", "deepseek-chat")
+        api_config = self._resolve_api_config(model_name)
+        api_key = api_config["api_key"]
+        base_url = api_config["base_url"]
+        is_anthropic = api_config["is_anthropic"]
+        model_name = api_config["model_name"]
+
         if not api_key:
             raise ValueError(f"API key not set for model {model_name}")
 
-        # 使用model_metadata获取context_length，智能设置max_tokens
+        # 2. 获取context_length和max_tokens（只做一次）
         context_length = model_metadata.get_model_context_length(
             model=model_name,
             base_url=base_url,
             api_key=api_key,
         )
-        
-        # 获取工具schemas
+        max_output_tokens = model_metadata.get_anthropic_max_output(model_name) if "claude" in model_name.lower() else 4096
+        max_tokens = min(max_output_tokens, context_length // 4) if context_length else 4096
+
+        # 3. 构建工具schemas（只做一次）
         from tools.builtin import get_all_tools as get_builtin_schemas
         raw_schemas = get_builtin_schemas()
         tool_schemas = []
@@ -1172,7 +1189,7 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                     "parameters": schema.get("parameters", {})
                 }
             })
-        
+
         # 添加mimircore工具schemas
         try:
             from tools.mimircore_tool import TOOL_SCHEMAS as mimircore_schemas
@@ -1187,60 +1204,9 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                 })
         except ImportError:
             pass
-        
-        # 获取max_tokens
-        max_output_tokens = model_metadata.get_anthropic_max_output(model_name) if "claude" in model_name.lower() else 4096
-        max_tokens = min(max_output_tokens, context_length // 4) if context_length else 4096
-        
-        # 如果有流式消费者且非Anthropic API，使用流式调用
-        if self._has_stream_consumers() and not is_anthropic:
-            return await self._stream_openai_compatible(
-                base_url=base_url,
-                api_key=api_key,
-                model=model_name,
-                messages=messages,
-                tool_schemas=tool_schemas,
-                max_tokens=max_tokens,
-                temperature=0.7,
-            )
-        
-        # 否则使用标准非流式调用（原有逻辑）
-        
-        # 检测使用哪个API
-        # Moonshot/Kimi系列 使用MOONSHOT_API_KEY环境变量
-        if "kimi-k2" in model_name or model_name.startswith("moonshot"):
-            api_key = os.environ.get("MOONSHOT_API_KEY", os.environ.get("DEEPSEEK_API_KEY", ""))
-            base_url = "https://api.moonshot.cn"  # 注意：不要加/v1，会在下面拼接
-            is_anthropic = False
-        elif "deepseek" in model_name.lower():
-            api_key = os.environ.get("DEEPSEEK_API_KEY", "")
-            base_url = "https://api.deepseek.com"
-            is_anthropic = False
-        elif "minimax" in model_name.lower() or os.environ.get("MINIMAX_API_KEY"):
-            api_key = os.environ.get("MINIMAX_API_KEY", "")
-            base_url = os.environ.get("MINIMAX_BASE_URL", "https://api.minimax.chat")
-            is_anthropic = False
-        elif "anthropic" in model_name.lower() or "claude" in model_name.lower():
-            api_key = os.environ.get("ANTHROPIC_API_KEY", os.environ.get("DEEPSEEK_API_KEY", ""))
-            base_url = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
-            is_anthropic = True
-        else:
-            # 默认DeepSeek
-            api_key = os.environ.get("DEEPSEEK_API_KEY", os.environ.get("OPENAI_API_KEY", ""))
-            base_url = "https://api.deepseek.com"
-            is_anthropic = False
-        
-        if not api_key:
-            raise ValueError(f"API key not set for model {model_name}")
 
-        # 使用model_metadata获取context_length，智能设置max_tokens
-        context_length = model_metadata.get_model_context_length(
-            model=model_name,
-            base_url=base_url,
-            api_key=api_key,
-        )
-        
-        # Anthropic API使用不同的端点和格式
+        # 4. 分发到具体调用路径
+        # 路径A: Anthropic API
         if is_anthropic:
             return await self._call_anthropic_api(
                 model_name=model_name,
@@ -1251,59 +1217,26 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                 session_id=session_id,
                 start=start,
             )
-        
-        # 构建请求头
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        }
 
-        # 构建请求体（OpenAI兼容格式）
-        # 使用model_metadata获取合适的max_tokens
-        max_output_tokens = model_metadata.get_anthropic_max_output(model_name) if "claude" in model_name.lower() else 4096
-        max_tokens = min(max_output_tokens, context_length // 4) if context_length else 4096
-        
-        # 获取工具schemas并转换为OpenAI格式
-        from tools.builtin import get_all_tools as get_builtin_schemas
-        raw_schemas = get_builtin_schemas()
-        
-        # 转换为OpenAI tool格式
-        tool_schemas = []
-        for name, schema in raw_schemas.items():
-            tool_schemas.append({
-                "type": "function",
-                "function": {
-                    "name": name,
-                    "description": schema.get("description", f"Tool: {name}"),
-                    "parameters": schema.get("parameters", {})
-                }
-            })
-        
-        # 添加mimircore工具schemas
-        try:
-            from tools.mimircore_tool import TOOL_SCHEMAS as mimircore_schemas
-            for name, schema in mimircore_schemas.items():
-                tool_schemas.append({
-                    "type": "function",
-                    "function": {
-                        "name": name,
-                        "description": schema.get("description", f"Tool: {name}"),
-                        "parameters": schema.get("parameters", {})
-                    }
-                })
-        except ImportError:
-            pass
-        
+        # 路径B: 流式调用（OpenAI兼容）
+        if self._has_stream_consumers():
+            return await self._stream_openai_compatible(
+                base_url=base_url,
+                api_key=api_key,
+                model=model_name,
+                messages=messages,
+                tool_schemas=tool_schemas,
+                max_tokens=max_tokens,
+                temperature=0.7,
+            )
+
+        # 路径C: 标准非流式调用（OpenAI兼容）
         # 转换model名为API接受的格式
         api_model_name = model_name
-        if "deepseek" in model_name.lower():
-            # DeepSeek API只接受 "deepseek-chat" 或 "deepseek-coder" 格式
+        if "deepseek" in model_name.lower() or "minimax" in model_name.lower():
             if "/" in model_name:
                 api_model_name = model_name.split("/")[-1]
-        elif "minimax" in model_name.lower():
-            if "/" in model_name:
-                api_model_name = model_name.split("/")[-1]
-        
+
         payload = {
             "model": api_model_name,
             "messages": messages,
@@ -1313,7 +1246,11 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
             "tool_choice": "auto"
         }
 
-        # 发送请求
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
@@ -1325,7 +1262,6 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                     latency_ms = (time.monotonic() - start) * 1000
 
                     if response.status != 200:
-                        # 记录错误详情用于调试
                         error_text = await response.text()
                         logger.warning(f"API call failed: {response.status}, response: {error_text[:500]}")
                         raise RuntimeError(f"Model API request failed: {response.status}")
@@ -1344,58 +1280,38 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
                     content = assistant_message.get("content") or ""
                     tool_calls = assistant_message.get("tool_calls")
 
-                    # 提取usage信息（记录token）
+                    # 记录token使用
                     usage = result.get("usage", {})
                     prompt_tokens = usage.get("prompt_tokens", 0)
                     completion_tokens = usage.get("completion_tokens", 0)
 
-                    # 用InsightsEngine记录token使用
                     if prompt_tokens > 0:
                         self.insights.record(
                             MetricType.TOKEN_INPUT,
                             float(prompt_tokens),
-                            metadata={
-                                "session_id": session_id,
-                                "platform": self.platform,
-                                "model": self.model,
-                            }
+                            metadata={"session_id": session_id, "platform": self.platform, "model": self.model}
                         )
                     if completion_tokens > 0:
                         self.insights.record(
                             MetricType.TOKEN_OUTPUT,
                             float(completion_tokens),
-                            metadata={
-                                "session_id": session_id,
-                                "platform": self.platform,
-                                "model": self.model,
-                            }
+                            metadata={"session_id": session_id, "platform": self.platform, "model": self.model}
                         )
 
-                    # 记录延迟
                     self.insights.record(
                         MetricType.LATENCY,
                         latency_ms,
-                        metadata={
-                            "session_id": session_id,
-                            "platform": self.platform,
-                        }
+                        metadata={"session_id": session_id, "platform": self.platform}
                     )
 
-                    return {
-                        "content": content,
-                        "tool_calls": tool_calls
-                    }, latency_ms
+                    return {"content": content, "tool_calls": tool_calls}, latency_ms
+
         except aiohttp.ClientResponseError as e:
             if e.status == 429:
-                # 标记当前凭证耗尽，轮换到下一个
                 if self._credential_pool:
                     current = self._credential_pool.current()
                     if current:
-                        self._credential_pool.mark_exhausted(
-                            current,
-                            status_code=429,
-                            error_message=str(e)
-                        )
+                        self._credential_pool.mark_exhausted(current, status_code=429, error_message=str(e))
                     next_cred = self._credential_pool.select()
                     if next_cred:
                         logger.info(f"Credential exhausted, rotated to: {next_cred.label}")
@@ -1403,7 +1319,6 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
             raise RuntimeError(f"API error ({e.status}): {e}")
         except aiohttp.ClientError:
             raise RuntimeError("Network error during model call")
-    
     async def _call_anthropic_api(
         self,
         model_name: str,
@@ -1605,25 +1520,7 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
             func_name = tool_call.get("name", "")
             raw_args = tool_call.get("arguments", {})
         
-        # Plugin hook: pre_tool_call
-        # 在工具调用前执行，允许插件修改或阻止
-        try:
-            pre_results = self._invoke_hook(
-                "pre_tool_call",
-                tool_name=func_name,
-                arguments=arguments,
-            )
-            # 如果有hook返回block指令，跳过工具执行
-            for result in pre_results:
-                if isinstance(result, dict) and result.get("block"):
-                    logger.info(f"Tool {func_name} blocked by hook")
-                    return ToolResult(
-                        tool_call_id=tool_call_id,
-                        content=f"Tool execution blocked by plugin hook",
-                        is_error=False
-                    )
-        except Exception as e:
-            logger.warning(f"pre_tool_call hook failed: {e}")
+        # pre_tool_call hook 已移除（从VALID_HOOKS中删除）- 曾导致无限循环bug
         
         # 触发tool_start_callback
         if self.tool_start_callback:
@@ -1988,7 +1885,7 @@ You can call tools to accomplish tasks. Always provide clear, accurate responses
     VALID_HOOKS = {
         "pre_llm_call",      # LLM调用前
         "post_llm_call",     # LLM调用后
-        "pre_tool_call",      # 工具调用前
+        # "pre_tool_call" 已移除 — 曾导致无限循环bug
         "post_tool_call",     # 工具调用后
         "on_session_start",    # 会话开始
         "on_session_end",     # 会话结束
