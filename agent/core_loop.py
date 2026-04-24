@@ -461,9 +461,9 @@ class MimirAetherAgent:
         if self.model.startswith("kimi-k2") or self.model.startswith("moonshot"):
             return os.environ.get("MOONSHOT_API_KEY", "")
 
-        # DeepSeek优先使用DEEPSEEK_API_KEY
+        # DeepSeek优先使用DEEPSEEK_API_KEY，fallback到OPENROUTER_API_KEY（用于OpenRouter上的DeepSeek模型）
         if "deepseek" in self.model.lower():
-            return os.environ.get("DEEPSEEK_API_KEY", "")
+            return os.environ.get("DEEPSEEK_API_KEY") or os.environ.get("OPENROUTER_API_KEY", "")
 
         # 优先从凭证池获取
         if self._credential_pool:
@@ -492,7 +492,7 @@ class MimirAetherAgent:
 
         model_lower = self.model.lower()
         if "deepseek" in model_lower:
-            return "https://api.deepseek.com"
+            return os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
         elif "minimax" in model_lower:
             return os.environ.get("MINIMAX_BASE_URL", "https://api.minimax.chat")
         elif "anthropic" in model_lower or "claude" in model_lower:
@@ -1415,8 +1415,14 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
 
         # 路径C: 标准非流式调用(OpenAI兼容)
         # 转换model名为API接受的格式
+        # 注意: OpenRouter的model格式是"provider/model-name"，而官方API通常只需要"model-name"
+        # 根据base_url判断: openrouter保持原名，官方API需要转换
         api_model_name = model_name
-        if "deepseek" in model_name.lower() or "minimax" in model_name.lower():
+        base_url_lower = base_url.lower()
+        is_openrouter = "openrouter" in base_url_lower
+        
+        # 只有在官方API(非openrouter)且model包含/时才转换
+        if ("deepseek" in model_name.lower() or "minimax" in model_name.lower()) and not is_openrouter:
             if "/" in model_name:
                 api_model_name = model_name.split("/")[-1]
 
