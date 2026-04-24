@@ -60,6 +60,7 @@ def produce_capsule(input_text: str, capsule_type: str = "auto", auto_publish: b
         generator = CapsuleGenerator()
         result = generator.generate_and_evaluate(
             input_text=input_text,
+            capsule_type=cap_type,
             auto_publish=auto_publish,
             metadata={"source": "MimirAether", "capsule_type": capsule_type}
         )
