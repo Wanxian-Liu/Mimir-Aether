@@ -45,7 +45,7 @@ def produce_capsule(input_text: str, capsule_type: str = "auto", auto_publish: b
     _ensure_mimircore_importable()
     
     try:
-        from capsule_generator import CapsuleGenerator, CapsuleType
+        from mimicore.capsule_generator import CapsuleGenerator, CapsuleType
         
         # 类型映射
         type_map = {
