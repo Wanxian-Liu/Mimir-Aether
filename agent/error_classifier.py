@@ -125,9 +125,11 @@ _RATE_LIMIT_PATTERNS = [
     "throttled",
     "requests per minute",
     "tokens per minute",
+    "requests per day",
     "try again in",
     "please retry after",
     "resource_exhausted",
+    "rate increased too quickly",  # Alibaba/DashScope throttling (from Hermes)
     # 中文
     "请求过于频繁",
     "限流",
@@ -149,7 +151,9 @@ _USAGE_LIMIT_TRANSIENT_SIGNALS = [
     "resets at",
     "reset in",
     "wait",
+    "requests remaining",  # from Hermes
     "periodic",
+    "window",  # from Hermes
 ]
 
 # 载荷过大模式
@@ -247,6 +251,7 @@ _SERVER_DISCONNECT_PATTERNS = [
     "connection was closed",
     "network connection lost",
     "unexpected eof",
+    "incomplete chunked read",  # from Hermes
 ]
 
 
@@ -290,9 +295,37 @@ def classify_api_error(
     body = _extract_error_body(error)
     error_code = _extract_error_code(body)
     
-    # 构建综合错误消息字符串
-    error_msg = _build_error_message(error, body)
+    # 构建综合错误消息字符串（from Hermes: 支持metadata.raw解析）
+    _raw_msg = str(error).lower()
+    _body_msg = ""
+    _metadata_msg = ""
+    if isinstance(body, dict):
+        _err_obj = body.get("error", {})
+        if isinstance(_err_obj, dict):
+            _body_msg = (_err_obj.get("message") or "").lower()
+            _metadata = _err_obj.get("metadata", {})
+            if isinstance(_metadata, dict):
+                _raw_json = _metadata.get("raw") or ""
+                if isinstance(_raw_json, str) and _raw_json.strip():
+                    try:
+                        import json
+                        _inner = json.loads(_raw_json)
+                        if isinstance(_inner, dict):
+                            _inner_err = _inner.get("error", {})
+                            if isinstance(_inner_err, dict):
+                                _metadata_msg = (_inner_err.get("message") or "").lower()
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+        if not _body_msg:
+            _body_msg = (body.get("message") or "").lower()
+    parts = [_raw_msg]
+    if _body_msg and _body_msg not in _raw_msg:
+        parts.append(_body_msg)
+    if _metadata_msg and _metadata_msg not in _raw_msg and _metadata_msg not in _body_msg:
+        parts.append(_metadata_msg)
+    error_msg = " ".join(parts)
     provider_lower = (provider or "").strip().lower()
+    model_lower = (model or "").strip().lower()
     
     def _result(reason: FailoverReason, **overrides) -> ClassifiedError:
         defaults = {
@@ -335,9 +368,8 @@ def classify_api_error(
     if status_code is not None:
         classified = _classify_by_status(
             status_code, error_msg, error_code, body,
-            provider=provider_lower,
-            approx_tokens=approx_tokens,
-            context_length=context_length,
+            provider=provider_lower, model=model_lower,
+            approx_tokens=approx_tokens, context_length=context_length,
             num_messages=num_messages,
             result_fn=_result,
         )
