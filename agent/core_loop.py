@@ -1,4 +1,5 @@
 """
+# 进化进度：正在学习Hermes架构
 MimirAether Agent Core Loop
 
 学习自Hermes AIAgent架构，重新实现的核心Agent类。
@@ -2159,3 +2160,4 @@ SKILL_MANAGE_SCHEMA = {
         "required": ["action", "name"]
     }
 }
+# 当前状态：健康成长中
