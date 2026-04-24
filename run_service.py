@@ -6,7 +6,15 @@ MimirAether独立服务
 import sys
 import os
 sys.path.insert(0, '.')
-os.environ['DEEPSEEK_API_KEY'] = 'sk-c3df000c2ffe43f0a6202a0b4d715345'
+# P0-3: 从环境变量读取API Key，不允许硬编码
+api_key = os.environ.get('DEEPSEEK_API_KEY')
+if not api_key:
+    raise ValueError(
+        "DEEPSEEK_API_KEY environment variable is not set. "
+        "Please set it before running the service: "
+        "export DEEPSEEK_API_KEY=your_key_here"
+    )
+os.environ['DEEPSEEK_API_KEY'] = api_key
 
 import asyncio
 import json
