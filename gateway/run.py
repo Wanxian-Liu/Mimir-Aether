@@ -25,10 +25,10 @@ from typing import Dict, Optional
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# Use centralized logging with session context support
+from mimiraether_logging import setup_logging
+setup_logging(mode="gateway")
+
 logger = logging.getLogger(__name__)
 
 # =============================================================================

@@ -15,3 +15,7 @@ def get_hermes_home() -> Path:
 
 HERMES_HOME = get_mimiraether_home()
 SKILLS_DIR = HERMES_HOME / "skills"
+
+def get_config_path() -> Path:
+    """Return the path to ``config.yaml`` under MIMIRAETHER_HOME."""
+    return get_mimiraether_home() / "config.yaml"
