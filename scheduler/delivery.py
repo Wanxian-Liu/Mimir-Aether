@@ -34,8 +34,8 @@ def deliver_file(job_result, filepath):
         json.dump(job_result, f, indent=2)
     return filepath
 
-def deliver_hook(job_result, webhook_url):
-    """发送作业结果到webhook"""
+def deliver_hook(job_result, webhook_url, timeout=10):
+    """发送作业结果到webhook（默认10秒超时，避免无限等待）"""
     import urllib.request
     import urllib.error
     
@@ -47,12 +47,17 @@ def deliver_hook(job_result, webhook_url):
     )
     
     try:
-        with urllib.request.urlopen(req) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             return {
                 "status": "success",
                 "status_code": resp.status,
                 "response": resp.read().decode("utf-8")
             }
+    except TimeoutError:
+        return {
+            "status": "error",
+            "error": f"请求超时（{timeout}秒）"
+        }
     except urllib.error.HTTPError as e:
         return {
             "status": "error",
