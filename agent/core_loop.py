@@ -1,16 +1,16 @@
 """
-# 进化进度：正在学习Hermes架构
+# 进化进度:正在学习Hermes架构
 MimirAether Agent Core Loop
 
-学习自Hermes AIAgent架构，重新实现的核心Agent类。
+学习自Hermes AIAgent架构,重新实现的核心Agent类。
 
-核心功能：
+核心功能:
 - 主对话循环
 - 工具调用处理
 - 上下文管理
 - 迭代预算控制
 
-集成模块：
+集成模块:
 - prompt_builder: System Prompt构建
 - model_metadata: 模型元数据管理
 - anthropic_adapter: Anthropic API适配
@@ -37,13 +37,13 @@ from skills.skill_manager import SkillManager, SkillStatus
 import sys
 from pathlib import Path
 
-# 添加MimirAether路径（优先）
+# 添加MimirAether路径(优先)
 mimir_root = Path.home() / ".openclaw" / "projects" / "MimirAether"
 mimir_path = str(mimir_root)
 if mimir_path not in sys.path:
     sys.path.insert(0, mimir_path)
 
-# 添加Hermes路径（用于SessionDB，放在MimirAether之后）
+# 添加Hermes路径(用于SessionDB,放在MimirAether之后)
 hermes_path = str(Path.home() / ".openclaw" / "projects" / "hermes-agent")
 if hermes_path not in sys.path:
     sys.path.append(hermes_path)
@@ -100,6 +100,37 @@ class ToolResult:
 
 
 @dataclass
+class ToolError:
+    """
+    工具执行错误记录
+
+    学习自Hermes ToolError:收集工具执行错误,不中断流程,
+    但记录完整上下文用于调试和分析。
+    """
+    turn: int                    # 哪个轮次出错
+    tool_name: str               # 工具名
+    arguments: str               # 参数(截断到200字符)
+    error: str                   # 错误类型和消息
+    tool_result: str             # 返回给模型的原始结果(截断)
+
+
+@dataclass
+class ExecutionMetadata:
+    """
+    执行元数据
+
+    学习自Hermes AgentResult:返回完整执行元数据,
+    便于分析、调试和续传。
+    """
+    turns_used: int = 0                    # LLM调用次数
+    finished_naturally: bool = False       # 是否自然结束(非max_turns)
+    reasoning_per_turn: List[str] = field(default_factory=list)  # 每轮推理内容
+    tool_errors: List[ToolError] = field(default_factory=list)  # 工具错误列表
+    total_api_time_ms: float = 0.0        # 总API调用时间
+    total_tool_time_ms: float = 0.0       # 总工具执行时间
+
+
+@dataclass
 class Plan:
     """任务分解计划"""
     task: str
@@ -121,18 +152,18 @@ class ExecutionResult:
 class IterationBudget:
     """
     迭代预算控制器
-    
-    学习自Hermes IterationBudget：
+
+    学习自Hermes IterationBudget:
     - 父Agent默认90次迭代
     - 子Agent默认50次迭代
     - execute_code等工具调用不消耗预算
     """
-    
+
     def __init__(self, max_total: int = 90):
         self.max_total = max_total
         self._used = 0
         self._lock = asyncio.Lock()
-    
+
     async def consume(self) -> bool:
         """尝试消耗一次迭代"""
         async with self._lock:
@@ -140,15 +171,15 @@ class IterationBudget:
                 return False
             self._used += 1
             return True
-    
+
     async def refund(self) -> None:
-        """退还一次迭代（如execute_code）"""
+        """退还一次迭代(如execute_code)"""
         async with self._lock:
             if self._used > 0:
                 self._used -= 1
-    
+
     async def get_remaining(self) -> int:
-        """获取剩余迭代次数（异步安全）"""
+        """获取剩余迭代次数(异步安全)"""
         async with self._lock:
             return self.max_total - self._used
 
@@ -156,14 +187,14 @@ class IterationBudget:
 class ToolRegistry:
     """
     工具注册表
-    
+
     提供工具注册和调用功能
     """
-    
+
     def __init__(self):
         self._tools: Dict[str, Callable] = {}
         self._schemas: Dict[str, Dict] = {}
-    
+
     def register(self, name: str, func: Callable, schema: Dict):
         """注册工具"""
         # 基础schema校验
@@ -171,16 +202,16 @@ class ToolRegistry:
             raise ValueError(f"Invalid schema type for tool {name}: expected dict")
         if "parameters" not in schema:
             raise ValueError(f"Invalid schema for tool {name}: missing 'parameters' field")
-        
+
         self._tools[name] = func
         self._schemas[name] = schema
         logger.info(f"Registered tool: {name}")
-    
+
     async def execute(self, name: str, arguments: Dict) -> Any:
         """执行工具"""
         if name not in self._tools:
             raise ValueError(f"Tool not found: {name}")
-        
+
         func = self._tools[name]
         try:
             if asyncio.iscoroutinefunction(func):
@@ -191,11 +222,11 @@ class ToolRegistry:
         except Exception as e:
             logger.error(f"Tool execution failed: {name}, error: {e}")
             raise
-    
+
     def list_tools(self) -> List[str]:
         """列出所有工具"""
         return list(self._tools.keys())
-    
+
     def get_schema(self, name: str) -> Optional[Dict]:
         """获取工具schema"""
         return self._schemas.get(name)
@@ -204,15 +235,15 @@ class ToolRegistry:
 class MimirAetherAgent:
     """
     MimirAether核心Agent类
-    
-    学习自Hermes AIAgent，重新实现的Agent主循环。
-    
-    核心接口：
+
+    学习自Hermes AIAgent,重新实现的Agent主循环。
+
+    核心接口:
     - chat(): 主聊天接口
     - run_conversation(): 完整对话流程
     - build_system_prompt(): 构建系统提示
     """
-    
+
     def __init__(
         self,
         model: str = "deepseek/deepseek-chat",
@@ -221,7 +252,7 @@ class MimirAetherAgent:
         system_prompt: str = None,
         save_trajectories: bool = False,
         stream_callback: callable = None,
-        # Callback系统（学习自Hermes）
+        # Callback系统(学习自Hermes)
         step_callback: callable = None,
         status_callback: callable = None,
         tool_start_callback: callable = None,
@@ -237,7 +268,7 @@ class MimirAetherAgent:
     ):
         """
         初始化MimirAether Agent
-        
+
         Args:
             model: 使用的模型
             max_iterations: 最大迭代次数
@@ -262,13 +293,13 @@ class MimirAetherAgent:
         self.platform = platform
         self.system_prompt = system_prompt or self._default_system_prompt()
         self.save_trajectories = save_trajectories
-        
+
         # 流式输出回调
         self.stream_callback = stream_callback
         self._stream_needs_break = False  # 流式输出段落分隔标志
         self._current_streamed_text = ""  # 当前流式输出的累积文本
-        
-        # Callback系统（学习自Hermes）
+
+        # Callback系统(学习自Hermes)
         self.step_callback = step_callback
         self.status_callback = status_callback
         self.tool_start_callback = tool_start_callback
@@ -279,31 +310,31 @@ class MimirAetherAgent:
         self.clarify_callback = clarify_callback
         self.interim_assistant_callback = interim_assistant_callback
         self.tool_gen_callback = tool_gen_callback
-        
+
         # Fallback机制
         self.fallback_model = fallback_model
         self._fallback_activated = False
         self._primary_model = model  # 保存主模型配置
-        
-        # Status callback（学习自Hermes _emit_status）
+
+        # Status callback(学习自Hermes _emit_status)
         self._status_message = ""  # 当前状态消息
         self.quiet_mode = False  # 安静模式标志
-        
-        # Plugin hooks（学习自Hermes）
-                # Plugin hooks（学习自Hermes）
+
+        # Plugin hooks(学习自Hermes)
+                # Plugin hooks(学习自Hermes)
         for hook_name in self.VALID_HOOKS:
             setattr(self, f"_{hook_name}_hooks", [])
-        
+
         # 初始化组件
         self.budget = IterationBudget(max_iterations)
         self.tool_registry = ToolRegistry()
         self.conversation_history: List[Message] = []
-        self.max_history_length = 100  # 对话历史最大长度，防止内存耗尽
+        self.max_history_length = 100  # 对话历史最大长度,防止内存耗尽
 
         # 新模块初始化
         self.compressor = ContextCompressor()
-        
-        # 初始化SessionDB并传入InsightsEngine（SQL模式）
+
+        # 初始化SessionDB并传入InsightsEngine(SQL模式)
         _db = None
         if SessionDB is not None:
             try:
@@ -311,13 +342,13 @@ class MimirAetherAgent:
             except Exception:
                 pass
         self.insights = InsightsEngine(_db) if _db else InsightsEngine()
-        
-        # 初始化SkillManager（自进化核心）
+
+        # 初始化SkillManager(自进化核心)
         self.skill_manager = SkillManager()
-        
+
         self.fencer = MemoryFencer()
 
-        # 初始化凭证池（在使用_get_api_key之前）
+        # 初始化凭证池(在使用_get_api_key之前)
         self._credential_pool: Optional[CredentialPool] = None
         self._init_credential_pool()
 
@@ -336,28 +367,35 @@ class MimirAetherAgent:
 
         # 轨迹记录
         self._trajectory: List[Dict] = []
-        
-        # 工具调用并发限制（最多同时执行5个工具）
+
+        # 工具调用并发限制(最多同时执行5个工具)
         self._tool_semaphore = asyncio.Semaphore(5)
-        
-        # 中断机制（学习自Hermes）
+
+        # Hermes风格执行元数据(学习自Hermes)
+        # 在run_conversation开始时初始化
+        self._tool_errors: List[ToolError] = []
+        self._reasoning_per_turn: List[Optional[str]] = []
+        self._execution_metadata: Optional[ExecutionMetadata] = None
+        self._current_turn: int = 0  # 当前轮次，用于ToolError记录
+
+        # 中断机制(学习自Hermes)
         self._interrupt_requested = False
         self._interrupt_message = None
         self._execution_thread_id = threading.get_ident()
-        
+
         # 注册内置工具
         self._register_builtin_tools()
-        
+
         logger.info(f"MimirAether initialized with model: {model}, context_length: {self._context_length}")
-        
+
         # 尝试从SessionDB恢复最近的session
         self._restore_session()
-    
+
     def _emit_status(self, message: str) -> None:
         """
         发送状态消息到status_callback
-        
-        学习自Hermes _emit_status：
+
+        学习自Hermes _emit_status:
         - 通过status_callback发送状态更新
         - 用于CLI/Gateway显示状态变化
         """
@@ -368,14 +406,14 @@ class MimirAetherAgent:
             except Exception as e:
                 logger.warning(f"status_callback error: {e}")
         elif not self.quiet_mode:
-            # 如果没有callback但不是quiet模式，打印状态
+            # 如果没有callback但不是quiet模式,打印状态
             print(f"\n📍 {message}")
-    
+
     def _emit_interim_assistant(self, content: str) -> None:
         """
-        发送临时助手响应（流式输出时的中间响应）
-        
-        学习自Hermes：
+        发送临时助手响应(流式输出时的中间响应)
+
+        学习自Hermes:
         - interim_assistant_callback用于流式输出中间内容
         - 允许在完整响应前显示部分内容
         """
@@ -390,49 +428,49 @@ class MimirAetherAgent:
         """初始化凭证池"""
         # 收集可用凭证
         entries = []
-        
+
         # 从环境变量加载 DeepSeek
         deepseek_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
         if deepseek_key:
             entries.append(create_credential("deepseek", deepseek_key, "DeepSeek Primary"))
-        
+
         # 从环境变量加载 MiniMax
         minimax_key = os.environ.get("MINIMAX_API_KEY", "").strip()
         if minimax_key:
             entries.append(create_credential("minimax", minimax_key, "MiniMax Primary"))
-        
+
         # 从环境变量加载 OpenAI
         openai_key = os.environ.get("OPENAI_API_KEY", "").strip()
         if openai_key:
             entries.append(create_credential("openai", openai_key, "OpenAI Primary"))
-        
+
         # 从环境变量加载 Anthropic
         anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
         if anthropic_key:
             entries.append(create_credential("anthropic", anthropic_key, "Anthropic Primary"))
-        
+
         if entries:
             self._credential_pool = CredentialPool(self.model, entries, strategy="round_robin")
             logger.info(f"Credential pool initialized with {len(entries)} entries")
         else:
             logger.debug("No credentials found for pool, using environment variables directly")
-    
+
     def _get_api_key(self) -> str:
         """获取当前模型的API key"""
         # Moonshot/Kimi系列 使用MOONSHOT_API_KEY环境变量
         if self.model.startswith("kimi-k2") or self.model.startswith("moonshot"):
             return os.environ.get("MOONSHOT_API_KEY", "")
-        
+
         # DeepSeek优先使用DEEPSEEK_API_KEY
         if "deepseek" in self.model.lower():
             return os.environ.get("DEEPSEEK_API_KEY", "")
-        
+
         # 优先从凭证池获取
         if self._credential_pool:
             selected = self._credential_pool.current()
             if selected:
                 return selected.runtime_api_key
-        
+
         # fallback到环境变量
         model_lower = self.model.lower()
         if "deepseek" in model_lower:
@@ -445,13 +483,13 @@ class MimirAetherAgent:
             return os.environ.get("OPENAI_API_KEY", os.environ.get("DEEPSEEK_API_KEY", ""))
         else:
             return os.environ.get("DEEPSEEK_API_KEY", "")
-    
+
     def _get_model_base_url(self) -> str:
         """获取当前模型的API base URL"""
         # Moonshot/Kimi系列 使用Moonshot API
         if self.model.startswith("kimi-k2") or self.model.startswith("moonshot"):
-            return "https://api.moonshot.cn"  # 不要加/v1，会在API调用时拼接
-        
+            return "https://api.moonshot.cn"  # 不要加/v1,会在API调用时拼接
+
         model_lower = self.model.lower()
         if "deepseek" in model_lower:
             return "https://api.deepseek.com"
@@ -463,23 +501,23 @@ class MimirAetherAgent:
             return os.environ.get("OPENAI_BASE_URL", "https://api.openai.com")
         else:
             return "https://api.deepseek.com"
-    
+
     def _resolve_api_config(self, model_name: str = None) -> Dict[str, Any]:
         """
-        解析API配置（统一方法）
-        
+        解析API配置(统一方法)
+
         Returns:
             dict with keys: api_key, base_url, is_anthropic, model_name
         """
         if model_name is None:
             model_name = self.model
-        
+
         api_key = self._get_api_key()
         base_url = self._get_model_base_url()
-        
+
         # 检测是否为Anthropic模型
         is_anthropic = any(x in model_name.lower() for x in ["anthropic", "claude"])
-        
+
         return {
             "api_key": api_key,
             "base_url": base_url,
@@ -492,11 +530,11 @@ class MimirAetherAgent:
         try:
             # 获取可用工具列表
             available_tools = set(self.tool_registry.list_tools())
-            
+
             # MimirAether的skills目录
             mimir_root = Path(__file__).parent.parent
             skills_dir = str(mimir_root / "skills")
-            
+
             # 使用prompt_builder构建系统提示
             system_prompt = prompt_builder.build_system_prompt(
                 model=self.model,
@@ -507,119 +545,119 @@ class MimirAetherAgent:
                 include_context=True,
                 skills_dir=skills_dir,
             )
-            
+
             return system_prompt if system_prompt else self._default_system_prompt()
         except Exception as e:
             logger.warning(f"Failed to build system prompt with prompt_builder: {e}")
             return self._default_system_prompt()
-    
+
     def _register_builtin_tools(self):
         """注册内置工具"""
         try:
             import sys
             from pathlib import Path
-            
+
             # 将MimirAether根目录添加到path
             mimir_root = Path(__file__).parent.parent
             if str(mimir_root) not in sys.path:
                 sys.path.insert(0, str(mimir_root))
-            
+
             # 注册builtin工具
             from tools.builtin import get_tool_functions as get_builtin_functions
             from tools.builtin import get_all_tools as get_builtin_schemas
-            
+
             builtin_functions = get_builtin_functions()
             builtin_schemas = get_builtin_schemas()
-            
+
             for name, func in builtin_functions.items():
                 schema = builtin_schemas.get(name, {})
                 self.tool_registry.register(name, func, schema)
-            
+
             # 注册MimirCore工具
             try:
                 from tools.mimircore_tool import get_tool_functions as get_mimircore_functions
                 from tools.mimircore_tool import TOOL_SCHEMAS as mimircore_schemas
-                
+
                 mimircore_functions = get_mimircore_functions()
                 for name, func in mimircore_functions.items():
                     schema = mimircore_schemas.get(name, {})
                     self.tool_registry.register(name, func, schema)
-                
+
                 logger.info(f"Registered {len(builtin_functions)} builtin + {len(mimircore_functions)} mimircore tools")
             except ImportError as e:
                 logger.warning(f"Failed to import mimircore tools: {e}")
                 logger.info(f"Registered {len(builtin_functions)} builtin tools")
-                
+
         except ImportError as e:
             logger.warning(f"Failed to import builtin tools: {e}")
-        
-        # 注册Skill工具（skill_view, skills_list, skill_manage）
+
+        # 注册Skill工具(skill_view, skills_list, skill_manage)
         try:
             from skills.skills_loader import skill_view as _skill_view_func, skills_list as _skills_list_func
             from skills.skills_loader import skill_manage as _skill_manage_func
-            
+
             self.tool_registry.register("skill_view", _skill_view_func, SKILL_TOOL_SCHEMAS.get("skill_view", {}))
             self.tool_registry.register("skills_list", _skills_list_func, SKILL_TOOL_SCHEMAS.get("skills_list", {}))
             self.tool_registry.register("skill_manage", skill_manage_func, SKILL_MANAGE_SCHEMA)
-            
+
             logger.info("Registered skill tools: skill_view, skills_list, skill_manage")
         except ImportError as e:
             logger.warning(f"Failed to import skill tools: {e}")
-    
+
     def _fire_stream_delta(self, text: str) -> None:
         """
         触发流式输出回调
-        
-        学习自Hermes _fire_stream_delta：
+
+        学习自Hermes _fire_stream_delta:
         - 处理段落分隔
         - 调用所有注册的流式回调
         - 记录流式输出的累积文本
         """
-        # 如果需要段落分隔，在文本前添加
+        # 如果需要段落分隔,在文本前添加
         if self._stream_needs_break and text and text.strip():
             self._stream_needs_break = False
             text = "\n\n" + text
-        
+
         # 调用流式回调
         if self.stream_callback:
             try:
                 self.stream_callback(text)
             except Exception as e:
                 logger.debug(f"Stream callback error: {e}")
-        
+
         # 累积文本
         self._current_streamed_text += text
-    
+
     def interrupt(self, message: str = None) -> None:
         """
         请求中断当前工具调用循环
-        
-        学习自Hermes interrupt方法：
+
+        学习自Hermes interrupt方法:
         - 设置中断标志
         - 信号所有工具中止操作
         """
         self._interrupt_requested = True
         self._interrupt_message = message
         print(f"\n⚡ Interrupt requested: '{message[:40]}...'" if message and len(message) > 40 else f"\n⚡ Interrupt requested: '{message}'" if message else "\n⚡ Interrupt requested")
-    
+
     def clear_interrupt(self) -> None:
         """清除中断请求"""
         self._interrupt_requested = False
         self._interrupt_message = None
-    
+
     def is_interrupted(self) -> bool:
         """检查是否被中断"""
         return self._interrupt_requested
-    
+
     def _has_stream_consumers(self) -> bool:
         """检查是否有流式输出的消费者"""
         return self.stream_callback is not None
-    
+
     def _strip_think_blocks(self, content: str) -> str:
         """
         去除Think/Reasoning Block
-        
-        学习自Hermes _strip_think_blocks：
+
+        学习自Hermes _strip_think_blocks:
         - 去除<think>...</think>格式
         - 去除<thinking>...</thinking>格式
         - 去除<reasoning>...</reasoning>格式
@@ -639,12 +677,52 @@ class MimirAetherAgent:
         # 去除所有Think/Reasoning标签
         content = re.sub(r'</?(?:think|thinking|reasoning|thought|REASONING_SCRATCHPAD)>', '', content, flags=re.IGNORECASE)
         return content
-    
+
+    def _extract_reasoning_from_response(self, response: Dict) -> Optional[str]:
+        """
+        从模型响应中提取reasoning内容
+        
+        学习自Hermes _extract_reasoning_from_message：
+        支持多种provider格式，统一提取reasoning字段。
+        
+        Args:
+            response: 模型响应字典，包含content和可选的reasoning字段
+            
+        Returns:
+            提取的reasoning文本，或None
+        """
+        # 优先从response的顶层字段提取（部分provider直接返回）
+        if response.get('reasoning'):
+            return response['reasoning']
+        
+        # 有些provider返回reasoning_content
+        if response.get('reasoning_content'):
+            return response['reasoning_content']
+        
+        # 从content中提取<reasoning>...</reasoning>块
+        content = response.get('content', '')
+        if content:
+            import re
+            # 提取<think>...</think>格式
+            match = re.search(r'<think>(.*?)</think>', content, re.DOTALL)
+            if match:
+                return match.group(1).strip()
+            # 提取<reasoning>...</reasoning>格式
+            match = re.search(r'<reasoning>(.*?)</reasoning>', content, re.DOTALL)
+            if match:
+                return match.group(1).strip()
+            # 提取<thinking>...</thinking>格式
+            match = re.search(r'<thinking>(.*?)</thinking>', content, re.DOTALL | re.IGNORECASE)
+            if match:
+                return match.group(1).strip()
+        
+        return None
+
     def _deduplicate_tool_calls(self, tool_calls: list) -> list:
         """
         去除重复的工具调用
-        
-        学习自Hermes _deduplicate_tool_calls：
+
+        学习自Hermes _deduplicate_tool_calls:
         - 基于(tool_name, arguments)唯一性去重
         - 只保留第一个出现的重复调用
         """
@@ -662,48 +740,48 @@ class MimirAetherAgent:
             else:
                 logger.warning(f"Removed duplicate tool call: {name}")
         return unique if len(unique) < len(tool_calls) else tool_calls
-    
+
     def _repair_tool_call(self, tool_name: str) -> str | None:
         """
         修复错误的工具名称
-        
-        学习自Hermes _repair_tool_call：
+
+        学习自Hermes _repair_tool_call:
         1. 尝试小写
-        2. 尝试标准化（下划线替代连字符/空格）
+        2. 尝试标准化(下划线替代连字符/空格)
         3. 尝试模糊匹配
         """
         if not hasattr(self, 'tool_registry'):
             return None
-        
+
         valid_names = set(self.tool_registry.list_tools())
         if not valid_names:
             return None
-        
+
         # 1. 小写匹配
         lowered = tool_name.lower()
         if lowered in valid_names:
             return lowered
-        
+
         # 2. 标准化匹配
         normalized = lowered.replace('-', '_').replace(' ', '_')
         if normalized in valid_names:
             return normalized
-        
+
         # 3. 模糊匹配
         import difflib
         matches = difflib.get_close_matches(lowered, valid_names, n=1, cutoff=0.7)
         if matches:
             return matches[0]
-        
+
         return None
-    
+
     async def _cleanup_aiohttp_connections(self, session) -> int:
         """
         清理aiohttp死连接
-        
-        学习自Hermes _cleanup_dead_connections：
-        - 关闭死TCP连接，防止CLOSE-WAIT累积
-        - 对于aiohttp，简化处理：关闭并重建session
+
+        学习自Hermes _cleanup_dead_connections:
+        - 关闭死TCP连接,防止CLOSE-WAIT累积
+        - 对于aiohttp,简化处理:关闭并重建session
         """
         closed = 0
         try:
@@ -711,7 +789,7 @@ class MimirAetherAgent:
             connector = getattr(session, '_connector', None)
             if connector is None:
                 return 0
-            
+
             # 获取连接池中的连接
             connections = getattr(connector, '_conns', [])
             if connections:
@@ -721,9 +799,9 @@ class MimirAetherAgent:
                 logger.debug(f"Cleaned up {closed} aiohttp connections")
         except Exception as e:
             logger.warning(f"Failed to cleanup connections: {e}")
-        
+
         return closed
-    
+
     async def _stream_openai_compatible(
         self,
         base_url: str,
@@ -736,20 +814,20 @@ class MimirAetherAgent:
     ) -> tuple[Dict, float]:
         """
         流式调用OpenAI兼容API
-        
-        学习自Hermes _interruptible_streaming_api_call：
+
+        学习自Hermes _interruptible_streaming_api_call:
         - 使用stream=True参数
         - 迭代chunk并调用_fire_stream_delta
         - 返回累积的完整响应
-        
+
         Returns:
             (response_dict, latency_ms)
         """
         import aiohttp
         import time
-        
+
         start = time.monotonic()
-        
+
         payload = {
             "model": model,
             "messages": messages,
@@ -757,20 +835,20 @@ class MimirAetherAgent:
             "temperature": temperature,
             "stream": True,  # 启用流式
         }
-        
+
         if tool_schemas:
             payload["tools"] = tool_schemas
             payload["tool_choice"] = "auto"
-        
+
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
-        
+
         content_parts = []
         tool_calls_acc = {}
         finish_reason = None
-        
+
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
@@ -780,49 +858,49 @@ class MimirAetherAgent:
                     timeout=aiohttp.ClientTimeout(total=3600)
                 ) as response:
                     latency_ms = (time.monotonic() - start) * 1000
-                    
+
                     if response.status != 200:
                         error_text = await response.text()
                         raise RuntimeError(f"Stream API error {response.status}: {error_text[:200]}")
-                    
+
                     # 迭代流式响应
                     async for line in response.content:
                         # 检查是否被中断
                         if self._interrupt_requested:
                             logger.info("Stream interrupted by user")
                             break
-                        
+
                         line = line.decode('utf-8').strip()
-                        
+
                         if not line or not line.startswith('data: '):
                             continue
-                        
+
                         data = line[6:]  # 去掉 'data: '
-                        
+
                         if data == '[DONE]':
                             break
-                        
+
                         try:
                             import json
                             chunk = json.loads(data)
                         except json.JSONDecodeError:
                             continue
-                        
+
                         # 解析delta
                         choices = chunk.get('choices', [])
                         if not choices:
                             continue
-                        
+
                         delta = choices[0].get('delta', {})
-                        
+
                         # 处理内容
                         if delta.get('content'):
                             text = delta['content']
                             content_parts.append(text)
-                            # 如果没有累积的工具调用，流式输出
+                            # 如果没有累积的工具调用,流式输出
                             if not tool_calls_acc:
                                 self._fire_stream_delta(text)
-                        
+
                         # 处理工具调用
                         if 'tool_calls' in delta:
                             for tc in delta['tool_calls']:
@@ -839,25 +917,25 @@ class MimirAetherAgent:
                                     tool_calls_acc[index]['function']['name'] = tc['function']['name']
                                 if tc.get('function', {}).get('arguments'):
                                     tool_calls_acc[index]['function']['arguments'] += tc['function']['arguments']
-                        
+
                         # 处理finish_reason
                         if choices[0].get('finish_reason'):
                             finish_reason = choices[0]['finish_reason']
-                    
+
                     # 构建响应
                     content = ''.join(content_parts)
                     tool_calls = list(tool_calls_acc.values()) if tool_calls_acc else None
-                    
+
                     return {
                         'content': content,
                         'tool_calls': tool_calls,
                         'finish_reason': finish_reason
                     }, latency_ms
-                    
+
         except Exception as e:
             logger.error(f"Stream API call failed: {e}")
             raise
-    
+
     def _default_system_prompt(self) -> str:
         """默认系统提示"""
         return """You are MimirAether, an AI assistant powered by advanced reasoning and tool execution capabilities.
@@ -896,40 +974,40 @@ Small progress is good! Even one line changed is real progress.
 Do not just report - you must modify files to show progress.
 
 Do not be afraid of mistakes - they can be fixed. Report your changes."""
-    
+
     async def chat(self, message: str) -> str:
         """
         主聊天接口
-        
-        处理单条用户消息，返回助手响应
+
+        处理单条用户消息,返回助手响应
         """
-        # 运行对话（消息添加由run_conversation统一管理）
+        # 运行对话(消息添加由run_conversation统一管理)
         response = await self.run_conversation(message)
-        
+
         return response
-    
+
     async def run_conversation(self, user_message: str) -> str:
         """
         完整对话运行
-        
-        学习自Hermes run_conversation：
-        - 构建消息列表（每次迭代重建）
-        - 调用模型API（带超时控制）
+
+        学习自Hermes run_conversation:
+        - 构建消息列表(每次迭代重建)
+        - 调用模型API(带超时控制)
         - 处理工具调用
         - 管理迭代预算
         """
-        # 生成会话ID（用于Insights追踪）
+        # 生成会话ID(用于Insights追踪)
         session_id = str(uuid.uuid4())
 
         # 开始轨迹记录
         if self.save_trajectories:
             self._start_trajectory()
 
-        # 用MemoryFencer隔离用户消息（防止注入）
+        # 用MemoryFencer隔离用户消息(防止注入)
         fenced_msg = self.fencer.fence(user_message)
         if fenced_msg.was_modified:
             logger.warning(f"User message modified by fencer: {fenced_msg.warnings}")
-        
+
         # 学习自Hermes: @引用展开
         # 展开 @file:xxx, @folder:xxx 等引用
         message_text = fenced_msg.content
@@ -947,21 +1025,28 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                         message_text = ref_result.message
             except Exception as e:
                 logger.debug(f"@引用展开失败: {e}")
-        
-        # 添加用户消息到历史（使用处理后的内容）
+
+        # 添加用户消息到历史(使用处理后的内容)
         self.conversation_history.append(Message(
             role=MessageRole.USER,
             content=fenced_msg.content
         ))
-        
+
         # ============================================================
-        # 断点续传：检查是否存在未完成的检查点
+        # ============================================================
+        # Hermes风格执行元数据初始化(学习自Hermes)
+        # ============================================================
+        self._tool_errors = []
+        self._reasoning_per_turn = []
+        self._current_turn = 0
+        
+        # 断点续传:检查是否存在未完成的检查点
         # ============================================================
         task_id = hashlib.sha256(fenced_msg.content.encode('utf-8')).hexdigest()[:16]
         from checkpoint_manager import get_checkpoint_manager, CheckpointState
         checkpoint_mgr = get_checkpoint_manager()
         recovered_from_checkpoint = False
-        
+
         checkpoint = checkpoint_mgr.load_checkpoint(task_id)
         if checkpoint:
             logger.info(f"[Checkpoint] Found checkpoint for task {task_id}, recovering from step {checkpoint.current_step}")
@@ -977,7 +1062,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                         tool_calls=msg_data.get('tool_calls'),
                         tool_call_id=msg_data.get('tool_call_id'),
                     ))
-                # 恢复对话历史（保留用户消息，加上恢复的历史）
+                # 恢复对话历史(保留用户消息,加上恢复的历史)
                 self.conversation_history = [self.conversation_history[0]] + recovered_messages
                 # 恢复budget已使用次数
                 for _ in range(checkpoint.iteration_used):
@@ -986,7 +1071,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 logger.info(f"[Checkpoint] Recovered {len(recovered_messages)} messages, {checkpoint.iteration_used} iterations")
             except Exception as e:
                 logger.warning(f"[Checkpoint] Recovery failed: {e}, starting fresh")
-        
+
         # Plugin hook: on_session_start
         # 会话开始时执行
         try:
@@ -998,27 +1083,27 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
             )
         except Exception as e:
             logger.warning(f"on_session_start hook failed: {e}")
-        
-        # 限制历史长度，防止内存耗尽
+
+        # 限制历史长度,防止内存耗尽
         if len(self.conversation_history) > self.max_history_length:
             # 保留系统消息和最新的对话
             system_msgs = [m for m in self.conversation_history if m.role == MessageRole.SYSTEM]
             other_msgs = [m for m in self.conversation_history if m.role != MessageRole.SYSTEM]
             self.conversation_history = system_msgs + other_msgs[-self.max_history_length:]
-        
-        # 断点续传：用于跟踪当前步骤
+
+        # 断点续传:用于跟踪当前步骤
         _current_step = checkpoint.current_step if checkpoint else 0
-        
+
         try:
-            # 恢复主运行时（Fallback后）
+            # 恢复主运行时(Fallback后)
             self._restore_primary_runtime()
-            
+
             # 主循环
             while True:
                 # 检查是否被中断
                 if self._interrupt_requested:
                     logger.info("Conversation interrupted by user")
-                    # 保存断点（中断时保留进度）
+                    # 保存断点(中断时保留进度)
                     checkpoint_mgr.save_checkpoint(
                         task_id=task_id,
                         state={
@@ -1031,21 +1116,24 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                         next_action="等待用户继续或重新开始",
                     )
                     return f"对话已被中断。" + (f" 您的输入: {self._interrupt_message}" if self._interrupt_message else "")
-                
+
                 # 检查预算
                 if not await self.budget.consume():
                     logger.warning("Iteration budget exhausted")
-                    return "抱歉，任务迭代次数已达上限。"
+                    return "抱歉,任务迭代次数已达上限。"
                 
-                # 触发step_callback（每步执行后）
+                # Hermes风格:每轮递增(学习自Hermes)
+                self._current_turn += 1
+
+                # 触发step_callback(每步执行后)
                 if self.step_callback:
                     try:
                         self.step_callback()
                     except Exception as e:
                         logger.warning(f"step_callback error: {e}")
-                
+
                 # ============================================================
-                # 断点续传：每个迭代开始时保存检查点
+                # 断点续传:每个迭代开始时保存检查点
                 # ============================================================
                 _current_step += 1
                 checkpoint_mgr.save_checkpoint(
@@ -1059,8 +1147,8 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                     current_step=_current_step,
                     next_action="执行下一步迭代",
                 )
-                
-                # 每次迭代都重建消息列表（使用当前全部历史）
+
+                # 每次迭代都重建消息列表(使用当前全部历史)
                 messages = self._build_full_messages()
 
                 # 用ContextCompressor压缩长对话
@@ -1074,7 +1162,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                     messages = compressed_messages
 
                 # Plugin hook: pre_llm_call
-                # 在LLM调用前执行，允许插件注入上下文
+                # 在LLM调用前执行,允许插件注入上下文
                 try:
                     pre_results = self._invoke_hook(
                         "pre_llm_call",
@@ -1082,7 +1170,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                         conversation_history=list(messages),
                         model=self.model,
                     )
-                    # 如果有hook返回结果，注入到用户消息
+                    # 如果有hook返回结果,注入到用户消息
                     for result in pre_results:
                         if isinstance(result, dict) and result.get("context"):
                             context_text = str(result["context"])
@@ -1091,7 +1179,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 except Exception as e:
                     logger.warning(f"pre_llm_call hook failed: {e}")
 
-                # 调用模型（带超时控制）
+                # 调用模型(带超时控制)
                 try:
                     response, latency_ms = await asyncio.wait_for(
                         self._call_model_with_tokens(messages, session_id),
@@ -1099,17 +1187,17 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                     )
                 except asyncio.TimeoutError:
                     logger.error("Model call timed out")
-                    return "抱歉，模型响应超时，请重试。"
+                    return "抱歉,模型响应超时,请重试。"
                 except Exception as e:
                     logger.error(f"Model call failed: {e}")
                     # 尝试激活Fallback模型
                     if self._try_activate_fallback():
-                        # Fallback激活成功，重试当前迭代
+                        # Fallback激活成功,重试当前迭代
                         continue
-                    # 通用错误，不泄露内部细节
-                    return "抱歉，模型调用失败，请稍后重试。"
-                
-                # 添加助手响应到历史（仅当有内容或tool_calls时）
+                    # 通用错误,不泄露内部细节
+                    return "抱歉,模型调用失败,请稍后重试。"
+
+                # 添加助手响应到历史(仅当有内容或tool_calls时)
                 response_content = response.get("content") or ""
                 response_tool_calls = response.get("tool_calls")
                 if response_content or response_tool_calls:
@@ -1119,8 +1207,14 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                         tool_calls=response_tool_calls
                     ))
                 
+                # Hermes风格:提取reasoning内容(学习自Hermes)
+                reasoning = self._extract_reasoning_from_response(response)
+                self._reasoning_per_turn.append(reasoning)
+                if reasoning:
+                    logger.debug(f"Turn {self._current_turn}: extracted reasoning ({len(reasoning)} chars)")
+
                 # Plugin hook: post_llm_call
-                # 在LLM调用后执行，允许插件处理响应
+                # 在LLM调用后执行,允许插件处理响应
                 try:
                     self._invoke_hook(
                         "post_llm_call",
@@ -1129,14 +1223,14 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                     )
                 except Exception as e:
                     logger.warning(f"post_llm_call hook failed: {e}")
-                
+
                 # 检查是否有工具调用
                 if response.get("tool_calls") and response_content:
-                    # 同时有文本和工具调用：先执行工具，再继续生成响应
+                    # 同时有文本和工具调用:先执行工具,再继续生成响应
                     # 去重工具调用
                     unique_tool_calls = self._deduplicate_tool_calls(response["tool_calls"])
-                    tool_results = await self._execute_tools(unique_tool_calls)
-                    
+                    tool_results = await self._execute_tools(unique_tool_calls, turn=self._current_turn)
+
                     # 添加工具结果到历史
                     for result in tool_results:
                         self.conversation_history.append(Message(
@@ -1144,19 +1238,19 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                             content=result.content,
                             tool_call_id=result.tool_call_id
                         ))
-                    
-                    # 工具调用后 refund（只refund一次，无论多少工具）
+
+                    # 工具调用后 refund(只refund一次,无论多少工具)
                     await self.budget.refund()
-                    
-                    # 继续循环，让模型基于工具结果生成最终响应
+
+                    # 继续循环,让模型基于工具结果生成最终响应
                     continue
-                
+
                 if response.get("tool_calls"):
-                    # 只有工具调用，没有文本：执行工具
+                    # 只有工具调用,没有文本:执行工具
                     # 去重工具调用
                     unique_tool_calls = self._deduplicate_tool_calls(response["tool_calls"])
-                    tool_results = await self._execute_tools(unique_tool_calls)
-                    
+                    tool_results = await self._execute_tools(unique_tool_calls, turn=self._current_turn)
+
                     # 添加工具结果到历史
                     for result in tool_results:
                         self.conversation_history.append(Message(
@@ -1164,22 +1258,22 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                             content=result.content,
                             tool_call_id=result.tool_call_id
                         ))
-                    
-                    # 工具调用后 refund（只refund一次，无论多少工具）
+
+                    # 工具调用后 refund(只refund一次,无论多少工具)
                     await self.budget.refund()
-                    
-                    # 继续循环（下次迭代会重建messages）
+
+                    # 继续循环(下次迭代会重建messages)
                     continue
-                
-                # 文本响应，结束
+
+                # 文本响应,结束
                 # 去除Think Block
                 response_content = self._strip_think_blocks(response_content)
-                
+
                 # ============================================================
-                # 断点续传：任务成功完成，清除检查点
+                # 断点续传:任务成功完成,清除检查点
                 # ============================================================
                 checkpoint_mgr.clear_checkpoint(task_id)
-                
+
                 # Plugin hook: on_session_end
                 # 会话结束时执行
                 try:
@@ -1190,29 +1284,29 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                     )
                 except Exception as e:
                     logger.warning(f"on_session_end hook failed: {e}")
-                
+
                 return response_content
         finally:
             # ============================================================
-            # 断点续传：finally中确保检查点被清除
+            # 断点续传:finally中确保检查点被清除
             # ============================================================
             checkpoint_mgr.clear_checkpoint(task_id)
-            
+
             # 保存轨迹
             if self.save_trajectories:
                 self._save_trajectory(completed=True)
-    
+
     def _build_full_messages(self) -> List[Dict]:
-        """构建完整消息列表（用于API调用）"""
+        """构建完整消息列表(用于API调用)"""
         messages = []
-        
+
         # 系统提示
         messages.append({
             "role": "system",
             "content": self.system_prompt
         })
-        
-        # 对话历史（从开始到最新，全部包含）
+
+        # 对话历史(从开始到最新,全部包含)
         for msg in self.conversation_history:
             msg_dict = {
                 "role": msg.role.value,
@@ -1225,7 +1319,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
             if msg.tool_calls:
                 msg_dict["tool_calls"] = msg.tool_calls
             messages.append(msg_dict)
-        
+
         return messages
     async def _call_model_with_tokens(
         self, messages: List[Dict], session_id: str
@@ -1233,7 +1327,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
         """
         调用模型API并记录token使用
 
-        统一入口：先解析API配置和工具schemas（只做一次），
+        统一入口:先解析API配置和工具schemas(只做一次),
         然后根据模型类型和流式需求分发到不同路径。
 
         Returns:
@@ -1245,7 +1339,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
         import os
         import aiohttp
 
-        # 1. 解析API配置（只做一次）
+        # 1. 解析API配置(只做一次)
         model_name = self.model if hasattr(self, 'model') and self.model else os.environ.get("LLM_MODEL", "deepseek-chat")
         api_config = self._resolve_api_config(model_name)
         api_key = api_config["api_key"]
@@ -1256,7 +1350,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
         if not api_key:
             raise ValueError(f"API key not set for model {model_name}")
 
-        # 2. 获取context_length和max_tokens（只做一次）
+        # 2. 获取context_length和max_tokens(只做一次)
         context_length = model_metadata.get_model_context_length(
             model=model_name,
             base_url=base_url,
@@ -1265,7 +1359,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
         max_output_tokens = model_metadata.get_anthropic_max_output(model_name) if "claude" in model_name.lower() else 4096
         max_tokens = min(max_output_tokens, context_length // 4) if context_length else 4096
 
-        # 3. 构建工具schemas（只做一次）
+        # 3. 构建工具schemas(只做一次)
         from tools.builtin import get_all_tools as get_builtin_schemas
         raw_schemas = get_builtin_schemas()
         tool_schemas = []
@@ -1307,7 +1401,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 start=start,
             )
 
-        # 路径B: 流式调用（OpenAI兼容）
+        # 路径B: 流式调用(OpenAI兼容)
         if self._has_stream_consumers():
             return await self._stream_openai_compatible(
                 base_url=base_url,
@@ -1319,7 +1413,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 temperature=0.7,
             )
 
-        # 路径C: 标准非流式调用（OpenAI兼容）
+        # 路径C: 标准非流式调用(OpenAI兼容)
         # 转换model名为API接受的格式
         api_model_name = model_name
         if "deepseek" in model_name.lower() or "minimax" in model_name.lower():
@@ -1357,7 +1451,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
 
                     result = await response.json()
 
-                    # 安全提取助手响应（边界检查）
+                    # 安全提取助手响应(边界检查)
                     choices = result.get("choices")
                     if not choices or len(choices) == 0:
                         raise RuntimeError("Invalid API response: no choices")
@@ -1420,33 +1514,33 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
     ) -> tuple[Dict, float]:
         """使用Anthropic API调用模型"""
         import aiohttp
-        
+
         # 使用anthropic_adapter转换消息格式
         system, anthropic_messages = anthropic_adapter.convert_messages_to_anthropic(
-            messages, 
+            messages,
             base_url=base_url
         )
-        
+
         # 构建Anthropic请求参数
         max_output = anthropic_adapter.get_anthropic_max_output(model_name)
         max_tokens = min(max_output, context_length // 4) if context_length else max_output
-        
+
         kwargs = anthropic_adapter.build_anthropic_kwargs(
             model=model_name,
-            messages=messages,  # 传入原始消息，adapter会转换
+            messages=messages,  # 传入原始消息,adapter会转换
             tools=None,  # 暂时不传tools
             max_tokens=max_tokens,
             context_length=context_length,
             base_url=base_url,
         )
-        
+
         # 构建请求头
         headers = {
             "x-api-key": api_key,
             "anthropic-version": "2023-06-01",
             "Content-Type": "application/json"
         }
-        
+
         # 发送请求
         try:
             async with aiohttp.ClientSession() as session:
@@ -1457,20 +1551,20 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                     timeout=aiohttp.ClientTimeout(total=3600)
                 ) as response:
                     latency_ms = (time.monotonic() - start) * 1000
-                    
+
                     if response.status != 200:
                         error_text = await response.text()
                         logger.warning(f"Anthropic API call failed: {response.status}")
                         raise RuntimeError(f"Anthropic API request failed: {response.status}")
-                    
+
                     result = await response.json()
-                    
+
                     # 使用anthropic_adapter标准化响应
                     normalized_response, finish_reason = anthropic_adapter.normalize_anthropic_response(
                         result,
                         strip_tool_prefix=True,
                     )
-                    
+
                     content = normalized_response.content or ""
                     tool_calls = None
                     if normalized_response.tool_calls:
@@ -1484,12 +1578,12 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                                     "arguments": tc.function.arguments,
                                 }
                             })
-                    
+
                     # 提取usage信息
                     usage = result.get("usage", {})
                     input_tokens = usage.get("input_tokens", 0)
                     output_tokens = usage.get("output_tokens", 0)
-                    
+
                     if input_tokens > 0:
                         self.insights.record(
                             MetricType.TOKEN_INPUT,
@@ -1510,7 +1604,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                                 "model": self.model,
                             }
                         )
-                    
+
                     # 记录延迟
                     self.insights.record(
                         MetricType.LATENCY,
@@ -1520,87 +1614,147 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                             "platform": self.platform,
                         }
                     )
-                    
+
                     return {
                         "content": content,
                         "tool_calls": tool_calls
                     }, latency_ms
-                    
+
         except aiohttp.ClientError as e:
             logger.error(f"Anthropic API network error: {e}")
             raise RuntimeError(f"Network error during Anthropic API call: {e}")
-    
-    async def _execute_tools(self, tool_calls: List[Dict]) -> List[ToolResult]:
-        """执行工具调用（带并发限制和单工具超时）"""
+
+    async def _execute_tools(self, tool_calls: List[Dict], turn: int = 0) -> List[ToolResult]:
+        """
+        执行工具调用(带并发限制和单工具超时)
+        
+        学习自Hermes _execute_tools：
+        - 收集ToolError实例用于元数据
+        - 支持turn参数用于错误追踪
+        
+        Args:
+            tool_calls: 工具调用列表
+            turn: 当前轮次(用于错误记录)
+        """
         # 检查是否被中断
         if self._interrupt_requested:
             logger.info("Tool execution skipped: interrupt requested")
             return []
-        
+
         results = []
-        
+
         async def execute_with_semaphore(tool_call: Dict) -> ToolResult:
             async with self._tool_semaphore:
                 try:
                     return await asyncio.wait_for(
-                        self._execute_single_tool(tool_call),
+                        self._execute_single_tool(tool_call, turn),
                         timeout=30.0  # 单工具30秒超时
                     )
                 except asyncio.TimeoutError:
-                    logger.warning(f"Tool execution timed out: {tool_call.get('name', 'unknown')}")
+                    tool_name = tool_call.get('name', 'unknown')
+                    logger.warning(f"Tool execution timed out: {tool_name}")
+                    # Hermes风格:收集ToolError
+                    self._tool_errors.append(ToolError(
+                        turn=turn,
+                        tool_name=tool_name,
+                        arguments=str(tool_call.get('arguments', ''))[:200],
+                        error="TimeoutError",
+                        tool_result="Error: tool execution timed out",
+                    ))
                     return ToolResult(
                         tool_call_id=tool_call.get("id", "unknown"),
                         content="Error: tool execution timed out",
                         is_error=True
                     )
                 except (ValueError, TypeError, KeyError) as e:
-                    logger.warning(f"Tool execution parameter error: {tool_call.get('name', 'unknown')}: {e}")
+                    tool_name = tool_call.get('name', 'unknown')
+                    logger.warning(f"Tool execution parameter error: {tool_name}: {e}")
+                    # Hermes风格:收集ToolError
+                    self._tool_errors.append(ToolError(
+                        turn=turn,
+                        tool_name=tool_name,
+                        arguments=str(tool_call.get('arguments', ''))[:200],
+                        error=f"{type(e).__name__}: {e}",
+                        tool_result=f"Error: {type(e).__name__} - {e}",
+                    ))
                     return ToolResult(
                         tool_call_id=tool_call.get("id", "unknown"),
                         content=f"Error: {type(e).__name__} - {e}",
                         is_error=True
                     )
                 except Exception as e:
-                    logger.error(f"Tool execution error: {tool_call.get('name', 'unknown')}: {e}")
+                    tool_name = tool_call.get('name', 'unknown')
+                    logger.error(f"Tool execution error: {tool_name}: {e}")
+                    # Hermes风格:收集ToolError
+                    self._tool_errors.append(ToolError(
+                        turn=turn,
+                        tool_name=tool_name,
+                        arguments=str(tool_call.get('arguments', ''))[:200],
+                        error=f"{type(e).__name__}: {e}",
+                        tool_result=f"Error: {type(e).__name__} - {e}",
+                    ))
                     return ToolResult(
                         tool_call_id=tool_call.get("id", "unknown"),
                         content=f"Error: {type(e).__name__} - {e}",
                         is_error=True
                     )
-        
-        # 并发执行所有工具（受 semaphore 限制）
+
+        # 并发执行所有工具(受 semaphore 限制)
         tasks = [execute_with_semaphore(tc) for tc in tool_calls]
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        
+
         # 处理结果
         processed_results = []
         for i, result in enumerate(results):
             if isinstance(result, Exception):
                 err_name = type(result).__name__
                 err_msg = str(result)
+                tool_call = tool_calls[i]
+                tool_name = tool_call.get('name', 'unknown')
+                
                 # 记录详细日志但不暴露给LLM
                 if isinstance(result, asyncio.TimeoutError):
-                    logger.warning(f"Tool execution timed out: {tool_calls[i].get('name', 'unknown')}")
+                    logger.warning(f"Tool execution timed out: {tool_name}")
                     content = "Error: tool execution timed out"
                 else:
-                    logger.warning(f"Tool execution exception ({err_name}): {tool_calls[i].get('name', 'unknown')}")
+                    logger.warning(f"Tool execution exception ({err_name}): {tool_name}")
                     content = "Error: tool execution failed"
+                
+                # Hermes风格:收集ToolError
+                self._tool_errors.append(ToolError(
+                    turn=turn,
+                    tool_name=tool_name,
+                    arguments=str(tool_call.get('arguments', ''))[:200],
+                    error=f"{err_name}: {err_msg}",
+                    tool_result=content,
+                ))
+                
                 processed_results.append(ToolResult(
-                    tool_call_id=tool_calls[i].get("id", "unknown"),
+                    tool_call_id=tool_call.get("id", "unknown"),
                     content=content,
                     is_error=True
                 ))
             else:
                 processed_results.append(result)
-        
+
         return processed_results
-    
-    async def _execute_single_tool(self, tool_call: Dict) -> ToolResult:
-        """执行单个工具调用"""
+
+    async def _execute_single_tool(self, tool_call: Dict, turn: int = 0) -> ToolResult:
+        """
+        执行单个工具调用
+        
+        学习自Hermes _execute_single_tool：
+        - 收集ToolError实例用于元数据
+        - 支持turn参数用于错误追踪
+        
+        Args:
+            tool_call: 工具调用
+            turn: 当前轮次(用于错误记录)
+        """
         # 获取tool_call的id
         tool_call_id = tool_call.get("id", "unknown")
-        
-        # 处理OpenAI格式：{type: 'function', function: {name, arguments}}
+
+        # 处理OpenAI格式:{type: 'function', function: {name, arguments}}
         if tool_call.get("type") == "function" and "function" in tool_call:
             func_name = tool_call["function"].get("name", "")
             raw_args = tool_call["function"].get("arguments", {})
@@ -1608,9 +1762,9 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
             # 兼容旧格式
             func_name = tool_call.get("name", "")
             raw_args = tool_call.get("arguments", {})
-        
-        # pre_tool_call hook 已移除（从VALID_HOOKS中删除）- 曾导致无限循环bug
-        
+
+        # pre_tool_call hook 已移除(从VALID_HOOKS中删除)- 曾导致无限循环bug
+
         # 触发tool_start_callback
         if self.tool_start_callback:
             try:
@@ -1618,10 +1772,18 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 self.tool_start_callback(func_name, args_preview)
             except Exception as e:
                 logger.warning(f"tool_start_callback error: {e}")
-        
+
         # 校验必需字段
         if not tool_call_id or tool_call_id == "unknown":
             logger.warning(f"SKIP tool_call: missing 'id' field: {tool_call}")
+            # Hermes风格:收集ToolError
+            self._tool_errors.append(ToolError(
+                turn=turn,
+                tool_name=func_name or "unknown",
+                arguments=str(raw_args)[:200],
+                error="Missing tool_call id field",
+                tool_result="Error: tool_call missing 'id' field",
+            ))
             return ToolResult(
                 tool_call_id="unknown",
                 content="Error: tool_call missing 'id' field",
@@ -1629,21 +1791,37 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
             )
         if not func_name:
             logger.warning(f"SKIP tool_call: missing 'name' field: {tool_call}")
+            # Hermes风格:收集ToolError
+            self._tool_errors.append(ToolError(
+                turn=turn,
+                tool_name="unknown",
+                arguments=str(raw_args)[:200],
+                error="Missing tool_call name field",
+                tool_result="Error: tool_call missing 'name' field",
+            ))
             return ToolResult(
                 tool_call_id=tool_call_id,
                 content="Error: tool_call missing 'name' field",
                 is_error=True
             )
-        
+
         try:
             # 防御性处理 arguments 类型
             arguments = raw_args if isinstance(raw_args, dict) else {}
             if isinstance(raw_args, str):
-                # 如果是字符串，尝试解析为 dict
+                # 如果是字符串,尝试解析为 dict
                 try:
                     arguments = json.loads(raw_args)
-                except json.JSONDecodeError:
+                except json.JSONDecodeError as e:
                     logger.warning(f"Failed to parse arguments as JSON for tool {func_name}")
+                    # Hermes风格:收集ToolError
+                    self._tool_errors.append(ToolError(
+                        turn=turn,
+                        tool_name=func_name,
+                        arguments=str(raw_args)[:200],
+                        error=f"JSONDecodeError: {e}",
+                        tool_result="Error: invalid JSON in tool arguments",
+                    ))
                     return ToolResult(
                         tool_call_id=tool_call_id,
                         content="Error: invalid JSON in tool arguments",
@@ -1651,17 +1829,25 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                     )
             if not isinstance(arguments, dict):
                 logger.warning(f"Arguments is not a dict for tool {func_name}: {type(arguments)}")
+                # Hermes风格:收集ToolError
+                self._tool_errors.append(ToolError(
+                    turn=turn,
+                    tool_name=func_name,
+                    arguments=str(raw_args)[:200],
+                    error=f"TypeError: arguments must be dict, got {type(arguments).__name__}",
+                    tool_result="Error: arguments must be a dict",
+                ))
                 return ToolResult(
                     tool_call_id=tool_call_id,
                     content="Error: arguments must be a dict",
                     is_error=True
                 )
-            
+
             result = await self.tool_registry.execute(
                 name=func_name,
                 arguments=arguments
             )
-            
+
             # Plugin hook: post_tool_call
             # 在工具调用后执行
             try:
@@ -1672,14 +1858,14 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 )
             except Exception as e:
                 logger.warning(f"post_tool_call hook failed: {e}")
-        
+
             # 触发tool_complete_callback
             if self.tool_complete_callback:
                 try:
                     self.tool_complete_callback(func_name, str(result))
                 except Exception as e:
                     logger.warning(f"tool_complete_callback error: {e}")
-            
+
             return ToolResult(
                 tool_call_id=tool_call_id,
                 content=str(result),
@@ -1687,37 +1873,45 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
             )
         except Exception as e:
             logger.error(f"Tool execution failed: {tool_call['name']}, error: {e}")
-            
-            # 触发tool_complete_callback（错误情况）
+            # Hermes风格:收集ToolError
+            self._tool_errors.append(ToolError(
+                turn=turn,
+                tool_name=func_name,
+                arguments=str(raw_args)[:200],
+                error=f"{type(e).__name__}: {e}",
+                tool_result="Error: tool execution failed",
+            ))
+
+            # 触发tool_complete_callback(错误情况)
             if self.tool_complete_callback:
                 try:
                     self.tool_complete_callback(func_name, f"Error: {e}")
                 except Exception:
                     pass
-            
+
             return ToolResult(
                 tool_call_id=tool_call["id"],
                 content="Error: tool execution failed",
                 is_error=True
             )
 
-    
+
     def build_system_prompt(self) -> str:
         """构建系统提示"""
         return self.system_prompt
-    
+
     # ========================================================================
     # Skill自进化机制
     # ========================================================================
-    
+
     async def execute_skill(self, skill_name: str, **kwargs) -> Any:
         """
-        执行Skill（自进化核心）
-        
+        执行Skill(自进化核心)
+
         Args:
             skill_name: Skill名称
             **kwargs: Skill参数
-            
+
         Returns:
             Skill执行结果
         """
@@ -1728,15 +1922,15 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
         except Exception as e:
             logger.error(f"Skill执行失败: {skill_name}, error: {e}")
             raise
-    
+
     async def evolve_skill(self, skill_name: str, new_handler: Callable) -> bool:
         """
-        进化Skill（基于执行结果学习）
-        
+        进化Skill(基于执行结果学习)
+
         Args:
             skill_name: Skill名称
             new_handler: 新的处理函数
-            
+
         Returns:
             是否进化成功
         """
@@ -1744,7 +1938,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
         if result:
             logger.info(f"Skill进化成功: {skill_name}")
         return result
-    
+
     def register_skill(
         self,
         name: str,
@@ -1758,7 +1952,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
     ) -> bool:
         """
         注册新Skill
-        
+
         Args:
             name: Skill名称
             description: Skill描述
@@ -1768,7 +1962,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
             tags: 标签列表
             version: 版本号
             author: 作者
-            
+
         Returns:
             是否注册成功
         """
@@ -1782,46 +1976,46 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
             version=version,
             author=author
         )
-    
+
     def get_skill_stats(self) -> Dict[str, Any]:
         """
         获取Skill统计信息
-        
+
         Returns:
             统计信息字典
         """
         return self.skill_manager.get_statistics()
-    
+
     def list_skills(self, category: str = None) -> List:
         """
         列出Skills
-        
+
         Args:
             category: 按分类过滤
-            
+
         Returns:
             Skill列表
         """
         return self.skill_manager.list_skills(category=category)
-    
+
     # ========================================================================
     # 轨迹记录
     # ========================================================================
-    
+
     def _start_trajectory(self):
         """开始轨迹记录"""
         self._trajectory = []
-    
+
     def _save_trajectory(self, completed: bool):
         """保存轨迹"""
         if not self.save_trajectories:
             return
-        
+
         # 实现轨迹保存到JSONL
         from datetime import datetime
         import re
-        
-        # 敏感信息过滤正则（覆盖多种凭证格式）
+
+        # 敏感信息过滤正则(覆盖多种凭证格式)
         SENSITIVE_PATTERNS = re.compile(
             r'(api_key|apiKey|api-key|token|auth|bearer|password|passwd|secret|credential|private_key|privatekey|ssh-rsa'
             r'|-----BEGIN [A-Z0-9 ]+-----[\s\S]+?-----END [A-Z0-9 ]+-----|'
@@ -1832,14 +2026,14 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
             r'#[a-f0-9]{32})',  # Generic 32-char hex (common secret format)
             re.IGNORECASE
         )
-        
+
         def mask_sensitive(text: str) -> str:
             """过滤敏感信息"""
             if not text:
                 return text
             # 将敏感词替换为[REDACTED]
             return SENSITIVE_PATTERNS.sub(r'[REDACTED]', text)
-        
+
         # 将Message对象转换为dict以支持JSON序列化
         def msg_to_dict(msg: Message) -> dict:
             result = {"role": msg.role.value, "content": mask_sensitive(msg.content)}
@@ -1857,7 +2051,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                     masked_tool_calls.append(masked_tc)
                 result["tool_calls"] = masked_tool_calls
             return result
-        
+
         entry = {
             "id": str(uuid.uuid4()),
             "model": self.model,
@@ -1865,8 +2059,8 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
             "completed": completed,
             "conversations": [msg_to_dict(m) for m in self.conversation_history],
         }
-        
-        # 保存到文件（使用绝对路径）
+
+        # 保存到文件(使用绝对路径)
         import os
         trajectory_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "trajectory")
         os.makedirs(trajectory_dir, exist_ok=True)
@@ -1874,12 +2068,12 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
         try:
             with open(trajectory_file, "a", encoding="utf-8") as f:
                 f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-            # 设置文件权限为600（仅所有者读写）
+            # 设置文件权限为600(仅所有者读写)
             os.chmod(trajectory_file, 0o600)
             logger.info(f"Trajectory saved to {trajectory_file}")
         except Exception as e:
             logger.error(f"Failed to save trajectory: {e}")
-    
+
     async def reset(self):
         """重置Agent状态"""
         self.conversation_history = []
@@ -1887,28 +2081,28 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
         self._trajectory = []
         self.compressor.reset_history()
         logger.info("Agent reset")
-    
+
     def _restore_session(self, session_id: str = None) -> bool:
         """
         从SessionDB恢复会话
-        
-        学习自Hermes会话持久化：
+
+        学习自Hermes会话持久化:
         - 从Hermes SessionDB恢复消息历史
         - 恢复conversation_history
-        
+
         Args:
-            session_id: 要恢复的session ID（可选）
-            
+            session_id: 要恢复的session ID(可选)
+
         Returns:
             是否成功恢复
         """
         if SessionDB is None:
             return False
-        
+
         try:
             db = SessionDB()
-            
-            # 如果没有指定session_id，尝试获取最近的
+
+            # 如果没有指定session_id,尝试获取最近的
             if not session_id:
                 # 获取最近一次session
                 sessions = db.export_all()
@@ -1919,22 +2113,22 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 latest = sessions[-1] if sessions else None
                 if latest:
                     session_id = latest.get('session_id')
-                    
+
             if not session_id:
                 return False
-            
+
             # 获取session消息
             messages = db.get_messages(session_id)
             if not messages:
                 logger.debug(f"No messages found for session {session_id}")
                 return False
-            
+
             # 转换为conversation_history
             restored_count = 0
             for msg in messages:
                 role = msg.get('role')
                 content = msg.get('content', '')
-                
+
                 if role == 'user':
                     self.conversation_history.append(Message(
                         role=MessageRole.USER,
@@ -1956,35 +2150,35 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                         tool_call_id=msg.get('tool_call_id')
                     ))
                     restored_count += 1
-            
+
             if restored_count > 0:
                 logger.info(f"Restored {restored_count} messages from session {session_id}")
                 return True
-                
+
         except Exception as e:
             logger.warning(f"Failed to restore session: {e}")
-        
+
         return False
-    
+
     # ========================================================================
-    # Plugin Hook系统（学习自Hermes）
+    # Plugin Hook系统(学习自Hermes)
     # ========================================================================
-    
+
     # 支持的Hook类型
     VALID_HOOKS = {
         "pre_llm_call",      # LLM调用前
         "post_llm_call",     # LLM调用后
-        # "pre_tool_call" 已移除 — 曾导致无限循环bug
+        # "pre_tool_call" 已移除 - 曾导致无限循环bug
         "post_tool_call",     # 工具调用后
         "on_session_start",    # 会话开始
         "on_session_end",     # 会话结束
     }
-    
+
     def _invoke_hook(self, hook_name: str, **kwargs) -> List[Any]:
         """
         调用指定名称的所有Hook
-        
-        学习自Hermes invoke_hook：
+
+        学习自Hermes invoke_hook:
         - 查找所有注册的hook函数
         - 按顺序执行
         - 返回所有hook的返回结果
@@ -1992,7 +2186,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
         if hook_name not in self.VALID_HOOKS:
             logger.warning(f"Unknown hook: {hook_name}")
             return []
-        
+
         hooks = getattr(self, f"_{hook_name}_hooks", [])
         results = []
         for hook_func in hooks:
@@ -2002,39 +2196,39 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
             except Exception as e:
                 logger.warning(f"Hook {hook_name} failed: {e}")
         return results
-    
+
     def register_hook(self, hook_name: str, hook_func: callable) -> None:
         """
         注册一个Hook函数
-        
+
         Args:
-            hook_name: Hook名称（如"pre_llm_call"）
+            hook_name: Hook名称(如"pre_llm_call")
             hook_func: Hook函数
         """
         if hook_name not in self.VALID_HOOKS:
             raise ValueError(f"Unknown hook: {hook_name}")
-        
+
         attr_name = f"_{hook_name}_hooks"
         if not hasattr(self, attr_name):
             setattr(self, attr_name, [])
         getattr(self, attr_name).append(hook_func)
         logger.debug(f"Registered hook: {hook_name}")
-    
+
     def _try_activate_fallback(self) -> bool:
         """
         尝试激活Fallback模型
-        
-        学习自Hermes fallback机制：
-        - 当主模型API失败时，尝试使用fallback模型
+
+        学习自Hermes fallback机制:
+        - 当主模型API失败时,尝试使用fallback模型
         - 需要配置fallback_model
         """
         if not self.fallback_model:
             return False
-        
+
         if self._fallback_activated:
             logger.debug("Fallback already activated, not trying again")
             return False
-        
+
         try:
             fallback = self.fallback_model
             self.model = fallback.get("model", self.model)
@@ -2045,18 +2239,18 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
         except Exception as e:
             logger.warning(f"Failed to activate fallback: {e}")
             return False
-    
+
     def _restore_primary_runtime(self) -> None:
         """
-        恢复主运行时（Fallback后）
-        
-        学习自Hermes：
-        - 在新的对话轮次开始时，如果上次使用了fallback，尝试恢复主模型
+        恢复主运行时(Fallback后)
+
+        学习自Hermes:
+        - 在新的对话轮次开始时,如果上次使用了fallback,尝试恢复主模型
         - 只有当_fallback_activated为True时才恢复
         """
         if not self._fallback_activated:
             return
-        
+
         if self._primary_model and self.model != self._primary_model:
             self.model = self._primary_model
             self._fallback_activated = False
@@ -2079,17 +2273,17 @@ __all__ = [
 
 
 # ========================================================================
-# Skill工具函数（供Agent调用）
+# Skill工具函数(供Agent调用)
 # ========================================================================
 
 def skill_view_func(name: str, file_path: str = None) -> str:
     """
     加载skill完整内容
-    
+
     Args:
         name: skill名称
-        file_path: 可选，加载skill下的具体文件
-        
+        file_path: 可选,加载skill下的具体文件
+
     Returns:
         skill内容
     """
@@ -2106,10 +2300,10 @@ def skill_view_func(name: str, file_path: str = None) -> str:
 def skills_list_func(category: str = None) -> str:
     """
     列出所有可用的skill
-    
+
     Args:
-        category: 可选，按分类过滤
-        
+        category: 可选,按分类过滤
+
     Returns:
         skill列表
     """
@@ -2117,7 +2311,7 @@ def skills_list_func(category: str = None) -> str:
     skills = _skills_list(category)
     if not skills:
         return "No skills found."
-    
+
     lines = [f"Found {len(skills)} skills:\n"]
     for s in skills:
         lines.append(f"- {s['name']}: {s.get('description', 'No description')[:60]}")
@@ -2161,7 +2355,7 @@ SKILL_TOOL_SCHEMAS = {
 
 
 # ========================================================================
-# Skill管理工具函数（Hermes 1:1）
+# Skill管理工具函数(Hermes 1:1)
 # ========================================================================
 
 def skill_manage_func(
@@ -2176,12 +2370,12 @@ def skill_manage_func(
     replace_all: bool = False,
 ) -> str:
     """
-    管理skill（创建、编辑、删除）
-    
+    管理skill(创建、编辑、删除)
+
     Actions:
     - create: 创建新skill
-    - edit: 编辑skill（完整重写）
-    - patch: 打补丁（局部修改）
+    - edit: 编辑skill(完整重写)
+    - patch: 打补丁(局部修改)
     - delete: 删除skill
     - write_file: 写入skill下的文件
     - remove_file: 删除skill下的文件
@@ -2204,10 +2398,10 @@ def skill_manage_func(
 SKILL_MANAGE_SCHEMA = {
     "name": "skill_manage",
     "description": (
-        "Manage skills (create, update, delete). Skills are your procedural memory — "
+        "Manage skills (create, update, delete). Skills are your procedural memory - "
         "reusable approaches for recurring task types.\n\n"
         "Actions: create (full SKILL.md + optional category), "
-        "patch (old_string/new_string — preferred for fixes), "
+        "patch (old_string/new_string - preferred for fixes), "
         "edit (full SKILL.md rewrite), "
         "delete, write_file, remove_file.\n\n"
         "Create when: complex task succeeded (5+ calls), errors overcome, "
@@ -2235,4 +2429,4 @@ SKILL_MANAGE_SCHEMA = {
         "required": ["action", "name"]
     }
 }
-# 当前状态：健康成长中
+# 当前状态:健康成长中
