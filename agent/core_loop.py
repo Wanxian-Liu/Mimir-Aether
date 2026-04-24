@@ -22,6 +22,7 @@ import logging
 import os
 import threading
 import uuid
+import hashlib
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Callable, Union
 from enum import Enum
@@ -953,6 +954,39 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
             content=fenced_msg.content
         ))
         
+        # ============================================================
+        # 断点续传：检查是否存在未完成的检查点
+        # ============================================================
+        task_id = hashlib.sha256(fenced_msg.content.encode('utf-8')).hexdigest()[:16]
+        from checkpoint_manager import get_checkpoint_manager, CheckpointState
+        checkpoint_mgr = get_checkpoint_manager()
+        recovered_from_checkpoint = False
+        
+        checkpoint = checkpoint_mgr.load_checkpoint(task_id)
+        if checkpoint:
+            logger.info(f"[Checkpoint] Found checkpoint for task {task_id}, recovering from step {checkpoint.current_step}")
+            # 从检查点恢复对话历史
+            try:
+                recovered_messages = []
+                for msg_data in checkpoint.conversation_history:
+                    role = MessageRole(msg_data.get('role', 'user'))
+                    recovered_messages.append(Message(
+                        role=role,
+                        content=msg_data.get('content', ''),
+                        name=msg_data.get('name'),
+                        tool_calls=msg_data.get('tool_calls'),
+                        tool_call_id=msg_data.get('tool_call_id'),
+                    ))
+                # 恢复对话历史（保留用户消息，加上恢复的历史）
+                self.conversation_history = [self.conversation_history[0]] + recovered_messages
+                # 恢复budget已使用次数
+                for _ in range(checkpoint.iteration_used):
+                    await self.budget.consume()
+                recovered_from_checkpoint = True
+                logger.info(f"[Checkpoint] Recovered {len(recovered_messages)} messages, {checkpoint.iteration_used} iterations")
+            except Exception as e:
+                logger.warning(f"[Checkpoint] Recovery failed: {e}, starting fresh")
+        
         # Plugin hook: on_session_start
         # 会话开始时执行
         try:
@@ -972,6 +1006,9 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
             other_msgs = [m for m in self.conversation_history if m.role != MessageRole.SYSTEM]
             self.conversation_history = system_msgs + other_msgs[-self.max_history_length:]
         
+        # 断点续传：用于跟踪当前步骤
+        _current_step = checkpoint.current_step if checkpoint else 0
+        
         try:
             # 恢复主运行时（Fallback后）
             self._restore_primary_runtime()
@@ -981,6 +1018,18 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 # 检查是否被中断
                 if self._interrupt_requested:
                     logger.info("Conversation interrupted by user")
+                    # 保存断点（中断时保留进度）
+                    checkpoint_mgr.save_checkpoint(
+                        task_id=task_id,
+                        state={
+                            "conversation_history": [{"role": m.role.value, "content": m.content, "name": m.name, "tool_calls": m.tool_calls, "tool_call_id": m.tool_call_id} for m in self.conversation_history[1:]],
+                            "iteration_used": self.budget._used,
+                            "session_id": session_id,
+                            "user_message": fenced_msg.content,
+                        },
+                        current_step=_current_step,
+                        next_action="等待用户继续或重新开始",
+                    )
                     return f"对话已被中断。" + (f" 您的输入: {self._interrupt_message}" if self._interrupt_message else "")
                 
                 # 检查预算
@@ -994,6 +1043,22 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                         self.step_callback()
                     except Exception as e:
                         logger.warning(f"step_callback error: {e}")
+                
+                # ============================================================
+                # 断点续传：每个迭代开始时保存检查点
+                # ============================================================
+                _current_step += 1
+                checkpoint_mgr.save_checkpoint(
+                    task_id=task_id,
+                    state={
+                        "conversation_history": [{"role": m.role.value, "content": m.content, "name": m.name, "tool_calls": m.tool_calls, "tool_call_id": m.tool_call_id} for m in self.conversation_history[1:]],
+                        "iteration_used": self.budget._used,
+                        "session_id": session_id,
+                        "user_message": fenced_msg.content,
+                    },
+                    current_step=_current_step,
+                    next_action="执行下一步迭代",
+                )
                 
                 # 每次迭代都重建消息列表（使用当前全部历史）
                 messages = self._build_full_messages()
@@ -1110,6 +1175,11 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 # 去除Think Block
                 response_content = self._strip_think_blocks(response_content)
                 
+                # ============================================================
+                # 断点续传：任务成功完成，清除检查点
+                # ============================================================
+                checkpoint_mgr.clear_checkpoint(task_id)
+                
                 # Plugin hook: on_session_end
                 # 会话结束时执行
                 try:
@@ -1123,6 +1193,11 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 
                 return response_content
         finally:
+            # ============================================================
+            # 断点续传：finally中确保检查点被清除
+            # ============================================================
+            checkpoint_mgr.clear_checkpoint(task_id)
+            
             # 保存轨迹
             if self.save_trajectories:
                 self._save_trajectory(completed=True)
