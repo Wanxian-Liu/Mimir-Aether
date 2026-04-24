@@ -107,6 +107,15 @@ def produce_capsule(input_text: str, capsule_type: str = "auto", auto_publish: b
                     "capsule_type": capsule.capsule_type if hasattr(capsule, 'capsule_type') else capsule_type,
                 }
                 
+                # 添加taxonomy_tags和knowledge_type（如果存在）
+                if hasattr(capsule, 'taxonomy_tags') and capsule.taxonomy_tags:
+                    metadata["tags"] = capsule.taxonomy_tags
+                if hasattr(capsule, 'knowledge_type') and capsule.knowledge_type:
+                    kt = capsule.knowledge_type
+                    if isinstance(kt, dict):
+                        metadata["knowledge_type"] = kt.get('primary_type', 'unknown')
+                        metadata["confidence"] = kt.get('confidence', 0.5)
+                
                 # 写入文件
                 with open(filepath, 'w', encoding='utf-8') as f:
                     f.write('---\n')
