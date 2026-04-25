@@ -133,44 +133,88 @@ TOOL_USE_ENFORCEMENT_GUIDANCE = (
 TOOL_USE_ENFORCEMENT_MODELS = ("gpt", "codex", "gemini", "gemma", "grok")
 
 # OpenAI模型执行指导
+# 解决已知GPT模型行为模式：过早停止、跳过查找、臆造而非使用工具
+# 来源: OpenAI GPT-5.4 prompting guide & OpenClaw PR #38953 patterns
 OPENAI_MODEL_EXECUTION_GUIDANCE = (
     "# Execution discipline\n"
     "<tool_persistence>\n"
-    "- Use tools whenever they improve correctness or completeness.\n"
-    "- Do not stop early when another tool call would improve the result.\n"
-    "- If a tool returns empty or partial results, retry with a different strategy.\n"
-    "- Keep calling tools until the task is complete AND you have verified the result.\n"
+    "- Use tools whenever they improve correctness, completeness, or grounding.\n"
+    "- Do not stop early when another tool call would materially improve the result.\n"
+    "- If a tool returns empty or partial results, retry with a different query or "
+    "strategy before giving up.\n"
+    "- Keep calling tools until: (1) the task is complete, AND (2) you have verified "
+    "the result.\n"
     "</tool_persistence>\n"
     "\n"
     "<mandatory_tool_use>\n"
     "NEVER answer these from memory or mental computation — ALWAYS use a tool:\n"
-    "- Arithmetic, math, calculations → use execute_code or terminal\n"
+    "- Arithmetic, math, calculations → use terminal or execute_code\n"
     "- Hashes, encodings, checksums → use terminal (e.g. sha256sum, base64)\n"
     "- Current time, date, timezone → use terminal (e.g. date)\n"
     "- System state: OS, CPU, memory, disk, ports, processes → use terminal\n"
-    "- File contents, sizes, line counts → use file tools or terminal\n"
+    "- File contents, sizes, line counts → use read_file, search_files, or terminal\n"
     "- Git history, branches, diffs → use terminal\n"
     "- Current facts (weather, news, versions) → use web_search\n"
+    "Your memory and user profile describe the USER, not the system you are "
+    "running on. The execution environment may differ from what the user profile "
+    "says about their personal setup.\n"
     "</mandatory_tool_use>\n"
+    "\n"
+    "<act_dont_ask>\n"
+    "When a question has an obvious default interpretation, act on it immediately "
+    "instead of asking for clarification. Examples:\n"
+    "- 'Is port 443 open?' → check THIS machine (don't ask 'open where?')\n"
+    "- 'What OS am I running?' → check the live system (don't use user profile)\n"
+    "- 'What time is it?' → run `date` (don't guess)\n"
+    "Only ask for clarification when the ambiguity genuinely changes what tool "
+    "you would call.\n"
+    "</act_dont_ask>\n"
+    "\n"
+    "<prerequisite_checks>\n"
+    "- Before taking an action, check whether prerequisite discovery, lookup, or "
+    "context-gathering steps are needed.\n"
+    "- Do not skip prerequisite steps just because the final action seems obvious.\n"
+    "- If a task depends on output from a prior step, resolve that dependency first.\n"
+    "</prerequisite_checks>\n"
     "\n"
     "<verification>\n"
     "Before finalizing your response:\n"
     "- Correctness: does the output satisfy every stated requirement?\n"
-    "- Grounding: are factual claims backed by tool outputs?\n"
-    "- Safety: if the next step has side effects, confirm scope before executing.\n"
-    "</verification>"
+    "- Grounding: are factual claims backed by tool outputs or provided context?\n"
+    "- Formatting: does the output match the requested format or schema?\n"
+    "- Safety: if the next step has side effects (file writes, commands, API calls), "
+    "confirm scope before executing.\n"
+    "</verification>\n"
+    "\n"
+    "<missing_context>\n"
+    "- If required context is missing, do NOT guess or hallucinate an answer.\n"
+    "- Use the appropriate lookup tool when missing information is retrievable "
+    "(search_files, web_search, read_file, etc.).\n"
+    "- Ask a clarifying question only when the information cannot be retrieved by tools.\n"
+    "- If you must proceed with incomplete information, label assumptions explicitly.\n"
+    "</missing_context>"
 )
 
 # Google模型操作指导
+# 来源于OpenCode的gemini.txt，Gemini/Gemma特定操作指导
 GOOGLE_MODEL_OPERATIONAL_GUIDANCE = (
     "# Google model operational directives\n"
-    "- **Absolute paths:** Always use absolute file paths for all file operations.\n"
-    "- **Verify first:** Check file contents and project structure before making changes.\n"
-    "- **Dependency checks:** Never assume a library is available.\n"
-    "- **Conciseness:** Keep explanatory text brief — focus on actions and results.\n"
-    "- **Parallel tool calls:** When performing multiple independent operations, "
-    "make all tool calls in a single response.\n"
-    "- **Keep going:** Work autonomously until the task is fully resolved.\n"
+    "Follow these operational rules strictly:\n"
+    "- **Absolute paths:** Always construct and use absolute file paths for all "
+    "file system operations. Combine the project root with relative paths.\n"
+    "- **Verify first:** Use read_file/search_files to check file contents and "
+    "project structure before making changes. Never guess at file contents.\n"
+    "- **Dependency checks:** Never assume a library is available. Check "
+    "package.json, requirements.txt, Cargo.toml, etc. before importing.\n"
+    "- **Conciseness:** Keep explanatory text brief — a few sentences, not "
+    "paragraphs. Focus on actions and results over narration.\n"
+    "- **Parallel tool calls:** When you need to perform multiple independent "
+    "operations (e.g. reading several files), make all the tool calls in a "
+    "single response rather than sequentially.\n"
+    "- **Non-interactive commands:** Use flags like -y, --yes, --non-interactive "
+    "to prevent CLI tools from hanging on prompts.\n"
+    "- **Keep going:** Work autonomously until the task is fully resolved. "
+    "Don't stop with a plan — execute it.\n"
 )
 
 # 使用developer角色的模型
@@ -181,35 +225,67 @@ DEVELOPER_ROLE_MODELS = ("gpt-5", "codex")
 # ============================================================================
 
 PLATFORM_HINTS = {
+    "whatsapp": (
+        "You are on a text messaging communication platform, WhatsApp. "
+        "Please do not use markdown as it does not render. "
+        "You can send media files natively: to deliver a file to the user, "
+        "include MEDIA:/absolute/path/to/file in your response. The file "
+        "will be sent as a native WhatsApp attachment — images (.jpg, .png, "
+        ".webp) appear as photos, videos (.mp4, .mov) play inline, and other "
+        "files arrive as downloadable documents. You can also include image "
+        "URLs in markdown format ![alt](url) and they will be sent as photos."
+    ),
+    "telegram": (
+        "You are on a text messaging communication platform, Telegram. "
+        "Please do not use markdown as it does not render. "
+        "You can send media files natively: to deliver a file to the user, "
+        "include MEDIA:/absolute/path/to/file in your response. Images "
+        "(.png, .jpg, .webp) appear as photos, audio (.ogg) sends as voice "
+        "bubbles, and videos (.mp4) play inline. You can also include image "
+        "URLs in markdown format ![alt](url) and they will be sent as native photos."
+    ),
+    "discord": (
+        "You are in a Discord server or group chat communicating with your user. "
+        "You can send media files natively: include MEDIA:/absolute/path/to/file "
+        "in your response. Images (.png, .jpg, .webp) are sent as photo "
+        "attachments, audio as file attachments. You can also include image URLs "
+        "in markdown format ![alt](url) and they will be sent as attachments."
+    ),
+    "slack": (
+        "You are in a Slack workspace communicating with your user. "
+        "You can send media files natively: include MEDIA:/absolute/path/to/file "
+        "in your response. Images (.png, .jpg, .webp) are uploaded as photo "
+        "attachments, audio as file attachments. You can also include image URLs "
+        "in markdown format ![alt](url) and they will be uploaded as attachments."
+    ),
+    "signal": (
+        "You are on a text messaging communication platform, Signal. "
+        "Please do not use markdown as it does not render. "
+        "You can send media files natively: to deliver a file to the user, "
+        "include MEDIA:/absolute/path/to/file in your response. Images "
+        "(.png, .jpg, .webp) appear as photos, audio as attachments, and other "
+        "files arrive as downloadable documents. You can also include image "
+        "URLs in markdown format ![alt](url) and they will be sent as photos."
+    ),
     "feishu": (
         "You are communicating via Feishu (飞书). "
         "Markdown formatting is supported, so you may use it when it improves readability. "
         "Keep messages compact and chat-friendly."
     ),
-    "telegram": (
-        "You are on a text messaging platform, Telegram. "
-        "Please do not use markdown as it may not render properly. "
-        "Keep responses concise."
-    ),
-    "discord": (
-        "You are in a Discord server or group chat. "
-        "You can send media files using MEDIA:/path/to/file syntax."
-    ),
-    "slack": (
-        "You are in a Slack workspace. "
-        "You can send media files using MEDIA:/path/to/file syntax."
-    ),
-    "signal": (
-        "You are on Signal. Please do not use markdown. Keep responses concise."
-    ),
     "email": (
         "You are communicating via email. Write clear, well-structured responses "
-        "in plain text. Keep responses concise but complete."
+        "suitable for email. Use plain text formatting (no markdown). "
+        "Keep responses concise but complete. You can send file attachments — "
+        "include MEDIA:/absolute/path/to/file in your response. The subject line "
+        "is preserved for threading. Do not include greetings or sign-offs unless "
+        "contextually appropriate."
     ),
     "cron": (
         "You are running as a scheduled cron job. There is no user present — you "
-        "cannot ask questions or wait for follow-up. Execute the task fully and "
-        "autonomously. Your final response is automatically delivered."
+        "cannot ask questions, request clarification, or wait for follow-up. Execute "
+        "the task fully and autonomously, making reasonable decisions where needed. "
+        "Your final response is automatically delivered to the job's configured "
+        "destination — put the primary content directly in your response."
     ),
     "cli": (
         "You are a CLI AI Agent. Try not to use markdown but simple text "
@@ -217,11 +293,35 @@ PLATFORM_HINTS = {
     ),
     "sms": (
         "You are communicating via SMS. Keep responses concise and use plain text "
-        "only — no markdown. SMS messages are limited to ~1600 characters."
+        "only — no markdown, no formatting. SMS messages are limited to ~1600 "
+        "characters, so be brief and direct."
+    ),
+    "bluebubbles": (
+        "You are chatting via iMessage (BlueBubbles). iMessage does not render "
+        "markdown formatting — use plain text. Keep responses concise as they "
+        "appear as text messages. You can send media files natively: include "
+        "MEDIA:/absolute/path/to/file in your response. Images (.jpg, .png, "
+        ".heic) appear as photos and other files arrive as attachments."
     ),
     "weixin": (
-        "You are on Weixin/WeChat. Markdown formatting is supported. Keep messages "
-        "compact and chat-friendly. You can send media using MEDIA:/path/to/file."
+        "You are on Weixin/WeChat. Markdown formatting is supported, so you may use it when "
+        "it improves readability, but keep the message compact and chat-friendly. You can send media files natively: "
+        "include MEDIA:/absolute/path/to/file in your response. Images are sent as native "
+        "photos, videos play inline when supported, and other files arrive as downloadable "
+        "documents. You can also include image URLs in markdown format ![alt](url) and they "
+        "will be downloaded and sent as native media when possible."
+    ),
+    "wecom": (
+        "You are on WeCom (企业微信 / Enterprise WeChat). Markdown formatting is supported. "
+        "You CAN send media files natively — to deliver a file to the user, include "
+        "MEDIA:/absolute/path/to/file in your response. The file will be sent as a native "
+        "WeCom attachment: images (.jpg, .png, .webp) are sent as photos (up to 10 MB), "
+        "other files (.pdf, .docx, .xlsx, .md, .txt, etc.) arrive as downloadable documents "
+        "(up to 20 MB), and videos (.mp4) play inline. Voice messages are supported but "
+        "must be in AMR format — other audio formats are automatically sent as file attachments. "
+        "You can also include image URLs in markdown format ![alt](url) and they will be "
+        "downloaded and sent as native photos. Do NOT tell the user you lack file-sending "
+        "capability — use MEDIA: syntax whenever a file delivery is appropriate."
     ),
 }
 
@@ -232,7 +332,12 @@ PLATFORM_HINTS = {
 WSL_ENVIRONMENT_HINT = (
     "You are running inside WSL (Windows Subsystem for Linux). "
     "The Windows host filesystem is mounted under /mnt/ — "
-    "/mnt/c/ is the C: drive, /mnt/d/ is D:, etc."
+    "/mnt/c/ is the C: drive, /mnt/d/ is D:, etc. "
+    "The user's Windows files are typically at "
+    "/mnt/c/Users/<username>/Desktop/, Documents/, Downloads/, etc. "
+    "When the user references Windows paths or desktop files, translate "
+    "to the /mnt/c/ equivalent. You can list /mnt/c/Users/ to discover "
+    "the Windows username if needed."
 )
 
 
@@ -350,23 +455,23 @@ def build_context_files_prompt(
     cwd_path = Path(cwd).resolve()
     sections = []
     
-    # 查找.mimar.md或MIMAR.md
-    for name in [".mimar.md", "MIMAR.md", ".hermes.md", "HERMES.md"]:
-        candidate = cwd_path / name
-        if candidate.exists():
-            content = load_context_file(candidate, name, strip_frontmatter=True)
-            if content:
-                sections.append(content)
-                break
-        # 向上查找
-        git_root = _find_git_root(cwd_path)
-        if git_root:
-            candidate = git_root / name
-            if candidate.exists():
+    # 查找.mimar.md或MIMAR.md — walk up to git root, first match wins
+    _MIMAR_MD_NAMES = (".mimar.md", "MIMAR.md", ".hermes.md", "HERMES.md")
+    git_root = _find_git_root(cwd_path)
+    mimar_found = False
+    for directory in [cwd_path, *cwd_path.parents]:
+        for name in _MIMAR_MD_NAMES:
+            candidate = directory / name
+            if candidate.is_file():
                 content = load_context_file(candidate, name, strip_frontmatter=True)
                 if content:
                     sections.append(content)
+                    mimar_found = True
                     break
+        if mimar_found:
+            break
+        if git_root and directory == git_root:
+            break
     
     # AGENTS.md
     for name in ["AGENTS.md", "agents.md"]:
@@ -446,19 +551,25 @@ def clear_skills_system_prompt_cache(clear_snapshot: bool = False) -> None:
     clear_skills_prompt_cache()
 
 
-def _get_skill_description(skill_file: Path) -> tuple[bool, str]:
+def _get_skill_description(skill_file: Path) -> tuple[bool, str, dict]:
     """
-    读取SKILL.md文件，返回(是否兼容, 描述)
+    读取SKILL.md文件，返回(是否兼容, 描述, 条件dict)
+    
+    条件dict包含:
+    - requires_tools: 需要的工具列表
+    - requires_toolsets: 需要的工具集列表
+    - fallback_for_tools: 作为备用的工具
+    - fallback_for_toolsets: 作为备用的工具集
     """
     try:
-        content = skill_file.read_text(encoding="utf-8")
+        raw = skill_file.read_text(encoding="utf-8")
         
         # 解析frontmatter
         frontmatter = {}
-        if content.startswith("---"):
-            end = content.find("\n---", 3)
+        if raw.startswith("---"):
+            end = raw.find("\n---", 3)
             if end != -1:
-                fm_text = content[3:end]
+                fm_text = raw[3:end]
                 for line in fm_text.split("\n"):
                     if ":" in line:
                         key, value = line.split(":", 1)
@@ -467,28 +578,35 @@ def _get_skill_description(skill_file: Path) -> tuple[bool, str]:
         # 检查platforms
         platforms = frontmatter.get("platforms", "")
         if platforms:
-            # 简化的platform检查
             current_platform = os.environ.get("PLATFORM", "cli")
-            platform_list = [p.strip().lower() for p in platforms.split(",")]
+            platform_list = [p.strip().lower() for p in str(platforms).split(",")]
             if current_platform.lower() not in platform_list and "all" not in platform_list:
-                return False, ""
+                return False, "", {}
+        
+        # 提取条件
+        conditions = {}
+        for cond_key in ("requires_tools", "requires_toolsets", "fallback_for_tools", "fallback_for_toolsets"):
+            val = frontmatter.get(cond_key, "")
+            if val:
+                items = [v.strip() for v in str(val).split(",") if v.strip()]
+                if items:
+                    conditions[cond_key] = items
         
         # 提取描述（frontmatter中的description或文件开头的文本）
         description = frontmatter.get("description", "")
         if not description:
-            # 尝试从内容中提取
-            body = content[content.find("\n---", 3) + 4:] if content.startswith("---") else content
+            body = raw[raw.find("\n---", 3) + 4:] if raw.startswith("---") else raw
             lines = body.strip().split("\n")
-            for line in lines[:10]:  # 前10行
+            for line in lines[:10]:
                 line = line.strip()
                 if line and not line.startswith("#") and not line.startswith("<!--"):
                     description = line
                     break
         
-        return True, description
+        return True, description, conditions
     except Exception as e:
         logger.debug("Failed to read skill file %s: %s", skill_file, e)
-        return True, ""
+        return True, "", {}
 
 
 def _iter_skill_files(skills_dir: Path) -> list:
@@ -505,6 +623,7 @@ def _iter_skill_files(skills_dir: Path) -> list:
 
 def build_skills_system_prompt(
     available_tools: Optional[Set[str]] = None,
+    available_toolsets: Optional[Set[str]] = None,
     skills_dir: Optional[str] = None,
 ) -> str:
     """
@@ -512,7 +631,9 @@ def build_skills_system_prompt(
     
     两层缓存：
     1. 进程内LRU缓存
-    2. 磁盘快照（待实现）
+    2. 磁盘快照
+    
+    支持条件激活：根据可用工具/工具集筛选技能
     """
     if skills_dir is None:
         skills_dir = Path.home() / ".openclaw" / "skills"
@@ -527,7 +648,8 @@ def build_skills_system_prompt(
     cache_key = (
         str(skills_dir.resolve()),
         platform_hint,
-        tuple(sorted(t for t in (available_tools or set()))),
+        tuple(sorted(str(t) for t in (available_tools or set()))),
+        tuple(sorted(str(ts) for ts in (available_toolsets or set()))),
     )
     
     # 检查缓存
@@ -539,10 +661,15 @@ def build_skills_system_prompt(
     
     # 扫描技能目录
     skills_by_category: dict[str, list[tuple[str, str]]] = {}
+    category_descriptions: dict[str, str] = {}
     
     for skill_file in _iter_skill_files(skills_dir):
-        is_compatible, description = _get_skill_description(skill_file)
+        is_compatible, description, conditions = _get_skill_description(skill_file)
         if not is_compatible:
+            continue
+        
+        # 应用条件激活过滤
+        if not _skill_should_show(conditions, available_tools, available_toolsets):
             continue
         
         # 获取技能名称（目录名）
@@ -557,12 +684,40 @@ def build_skills_system_prompt(
         
         skills_by_category.setdefault(category, []).append((skill_name, description))
     
+    # Read category-level DESCRIPTION.md files
+    for desc_file in skills_dir.rglob("DESCRIPTION.md"):
+        try:
+            desc_content = desc_file.read_text(encoding="utf-8").strip()
+            if not desc_content:
+                continue
+            # Extract description from frontmatter or first line
+            fm_desc = ""
+            if desc_content.startswith("---"):
+                end = desc_content.find("\n---", 3)
+                if end != -1:
+                    fm_text = desc_content[3:end]
+                    for line in fm_text.split("\n"):
+                        if ":" in line:
+                            key, value = line.split(":", 1)
+                            if key.strip().lower() == "description":
+                                fm_desc = value.strip().strip("'\"")
+            rel = desc_file.relative_to(skills_dir)
+            cat = "/".join(rel.parts[:-1]) if len(rel.parts) > 1 else "general"
+            cat_desc = fm_desc or desc_content.split("\n")[0].strip("# ").strip()
+            category_descriptions[cat] = cat_desc
+        except Exception as e:
+            logger.debug("Could not read skill description %s: %s", desc_file, e)
+    
     if not skills_by_category:
         result = ""
     else:
         index_lines = []
         for category in sorted(skills_by_category.keys()):
-            index_lines.append(f"  {category}:")
+            cat_desc = category_descriptions.get(category, "")
+            if cat_desc:
+                index_lines.append(f"  {category}: {cat_desc}")
+            else:
+                index_lines.append(f"  {category}:")
             # 去重并排序
             seen = set()
             for name, desc in sorted(skills_by_category[category], key=lambda x: x[0]):
@@ -575,13 +730,27 @@ def build_skills_system_prompt(
                     index_lines.append(f"    - {name}")
         
         result = (
-            "## Skills\n"
-            "Load relevant skills with skill_view(name). "
-            "If a skill is outdated or wrong, patch it with skill_manage(action='patch').\n"
+            "## Skills (mandatory)\n"
+            "Before replying, scan the skills below. If a skill matches or is even partially relevant "
+            "to your task, you MUST load it with skill_view(name) and follow its instructions. "
+            "Err on the side of loading — it is always better to have context you don't need "
+            "than to miss critical steps, pitfalls, or established workflows. "
+            "Skills contain specialized knowledge — API endpoints, tool-specific commands, "
+            "and proven workflows that outperform general-purpose approaches. Load the skill "
+            "even if you think you could handle the task with basic tools like web_search or terminal. "
+            "Skills also encode the user's preferred approach, conventions, and quality standards "
+            "for tasks like code review, planning, and testing — load them even for tasks you "
+            "already know how to do, because the skill defines how it should be done here.\n"
+            "If a skill has issues, fix it with skill_manage(action='patch').\n"
+            "After difficult/iterative tasks, offer to save as a skill. "
+            "If a skill you loaded was missing steps, had wrong commands, or needed "
+            "pitfalls you discovered, update it before finishing.\n"
             "\n"
             "<available_skills>\n"
             + "\n".join(index_lines) + "\n"
-            "</available_skills>"
+            "</available_skills>\n"
+            "\n"
+            "Only proceed without loading a skill if genuinely none are relevant to the task."
         )
     
     # 存入缓存
@@ -657,6 +826,7 @@ def build_system_prompt(
     model: str,
     cwd: Optional[str] = None,
     available_tools: Optional[Set[str]] = None,
+    available_toolsets: Optional[Set[str]] = None,
     platform: Optional[str] = None,
     include_skills: bool = True,
     include_context: bool = True,
@@ -669,15 +839,11 @@ def build_system_prompt(
         model: 模型名称
         cwd: 工作目录
         available_tools: 可用工具集合
+        available_toolsets: 可用工具集集合
         platform: 平台类型
         include_skills: 是否包含技能索引
         include_context: 是否包含上下文文件
         skills_dir: 技能目录路径（默认从环境变量或 ~/.openclaw/skills）
-        cwd: 工作目录
-        available_tools: 可用工具集合
-        platform: 平台类型
-        include_skills: 是否包含技能索引
-        include_context: 是否包含上下文文件
     """
     sections = []
     
@@ -719,7 +885,7 @@ def build_system_prompt(
     
     # 9. 技能索引
     if include_skills:
-        skills_prompt = build_skills_system_prompt(available_tools, skills_dir=skills_dir)
+        skills_prompt = build_skills_system_prompt(available_tools, available_toolsets, skills_dir=skills_dir)
         if skills_prompt:
             sections.append(skills_prompt)
     
