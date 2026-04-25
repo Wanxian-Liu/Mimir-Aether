@@ -47,7 +47,6 @@ import re
 import asyncio
 from typing import List, Dict, Any, Optional
 import httpx
-from firecrawl import Firecrawl
 from agent.auxiliary_client import (
     async_call_llm,
     extract_content_or_reasoning,
@@ -234,6 +233,15 @@ def _get_firecrawl_client():
 
     if _firecrawl_client is not None and _firecrawl_client_config == client_config:
         return _firecrawl_client
+
+    try:
+        from firecrawl import Firecrawl
+    except ImportError:
+        logger.error(
+            "Firecrawl package not installed. "
+            "Install with: pip install firecrawl"
+        )
+        _raise_web_backend_configuration_error()
 
     _firecrawl_client = Firecrawl(**kwargs)
     _firecrawl_client_config = client_config
