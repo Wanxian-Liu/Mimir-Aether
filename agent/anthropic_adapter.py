@@ -1169,12 +1169,6 @@ def read_hermes_oauth_credentials() -> Optional[Dict[str, Any]]:
     # MimirAether简化实现
     return None
 
-
-def refresh_anthropic_oauth_pure(refresh_token: str) -> Optional[Dict[str, Any]]:
-    """纯函数版本的Anthropic OAuth刷新（Hermès兼容）"""
-    return refresh_anthropic_oauth(refresh_token)
-
-
 def run_hermes_oauth_login_pure() -> Optional[Dict[str, Any]]:
     """纯函数版本的Hermes OAuth登录（Hermès兼容桩）"""
     # MimirAether简化实现

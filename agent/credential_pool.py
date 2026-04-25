@@ -15,15 +15,19 @@ MimirAether Credential Pool
 - 支持多provider
 """
 
+import base64
 import json
 import logging
 import os
 import random
+import re
 import threading
 import time
+import urllib.parse
+import urllib.request
 import uuid
-from dataclasses import dataclass, field, replace
-from datetime import datetime
+from dataclasses import dataclass, field, fields, replace
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -61,6 +65,198 @@ EXHAUSTED_TTL_DEFAULT = 3600  # 1小时
 # 凭证文件路径
 DEFAULT_CREDENTIALS_DIR = Path.home() / ".openclaw" / "credentials"
 CREDENTIAL_POOL_FILE = "credential_pool.json"
+
+# ============================================================================
+# JWT 工具函数
+# ============================================================================
+
+def _decode_jwt_claims(token: Any) -> Dict[str, Any]:
+    """解码JWT Token的claims payload
+
+    学习自Hermes auth._decode_jwt_claims:
+    纯函数，返回claims字典或空字典。
+    """
+    if not isinstance(token, str) or token.count(".") != 2:
+        return {}
+    payload = token.split(".")[1]
+    payload += "=" * ((4 - len(payload) % 4) % 4)
+    try:
+        raw = base64.urlsafe_b64decode(payload.encode("utf-8"))
+        claims = json.loads(raw.decode("utf-8"))
+    except Exception:
+        return {}
+    return claims if isinstance(claims, dict) else {}
+
+
+def _codex_access_token_is_expiring(access_token: str, skew_seconds: int = 120) -> bool:
+    """检查Codex JWT access token是否即将过期
+
+    学习自Hermes auth._codex_access_token_is_expiring:
+    解码JWT的exp字段，在过期前skew_seconds秒视为即将过期。
+    """
+    claims = _decode_jwt_claims(access_token)
+    exp = claims.get("exp")
+    if not isinstance(exp, (int, float)):
+        return False
+    return float(exp) <= (time.time() + max(0, int(skew_seconds)))
+
+
+# Codex OAuth 配置常量
+CODEX_OAUTH_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"
+CODEX_OAUTH_TOKEN_URL = "https://auth.openai.com/oauth/token"
+CODEX_ACCESS_TOKEN_REFRESH_SKEW_SECONDS = 120
+
+
+# ============================================================================
+# Codex CLI Token I/O
+# ============================================================================
+
+def _import_codex_cli_tokens() -> Optional[Dict[str, str]]:
+    """从 ~/.codex/auth.json 读取Codex CLI tokens
+
+    学习自Hermes auth._import_codex_cli_tokens:
+    - 读取Codex CLI共享的auth.json
+    - 仅返回有效且未过期的tokens
+    - 过期的token会被拒绝导入
+    """
+    codex_home = os.getenv("CODEX_HOME", "").strip()
+    if not codex_home:
+        codex_home = str(Path.home() / ".codex")
+    auth_path = Path(codex_home).expanduser() / "auth.json"
+    if not auth_path.is_file():
+        return None
+    try:
+        payload = json.loads(auth_path.read_text())
+        tokens = payload.get("tokens")
+        if not isinstance(tokens, dict):
+            return None
+        access_token = tokens.get("access_token")
+        refresh_token = tokens.get("refresh_token")
+        if not access_token or not refresh_token:
+            return None
+        if _codex_access_token_is_expiring(access_token, 0):
+            logger.debug("Codex CLI tokens at %s are expired — skipping import.", auth_path)
+            return None
+        return dict(tokens)
+    except Exception:
+        return None
+
+
+def _write_codex_cli_tokens(
+    access_token: str,
+    refresh_token: str,
+    *,
+    last_refresh: Optional[str] = None,
+) -> None:
+    """将刷新后的tokens写回 ~/.codex/auth.json
+
+    学习自Hermes auth._write_codex_cli_tokens:
+    OpenAI OAuth refresh tokens是单次使用的，每次刷新后都会轮换。
+    如果不写回，Codex CLI下次刷新时会遇到refresh_token_reused错误。
+    """
+    codex_home = os.getenv("CODEX_HOME", "").strip()
+    if not codex_home:
+        codex_home = str(Path.home() / ".codex")
+    auth_path = Path(codex_home).expanduser() / "auth.json"
+    try:
+        existing: Dict[str, Any] = {}
+        if auth_path.is_file():
+            existing = json.loads(auth_path.read_text(encoding="utf-8"))
+        if not isinstance(existing, dict):
+            existing = {}
+
+        tokens_dict = existing.get("tokens")
+        if not isinstance(tokens_dict, dict):
+            tokens_dict = {}
+        tokens_dict["access_token"] = access_token
+        tokens_dict["refresh_token"] = refresh_token
+        existing["tokens"] = tokens_dict
+        if last_refresh is not None:
+            existing["last_refresh"] = last_refresh
+
+        auth_path.parent.mkdir(parents=True, exist_ok=True)
+        auth_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+        auth_path.chmod(0o600)
+    except (OSError, IOError) as exc:
+        logger.debug("Failed to write refreshed tokens to %s: %s", auth_path, exc)
+
+
+# ============================================================================
+# Codex OAuth 刷新 (Pure Function)
+# ============================================================================
+
+def refresh_codex_oauth_pure(
+    access_token: str,
+    refresh_token: str,
+    *,
+    timeout_seconds: float = 20.0,
+) -> Dict[str, Any]:
+    """刷新Codex OAuth Token（纯函数，不修改任何本地状态）
+
+    学习自Hermes auth.refresh_codex_oauth_pure:
+    - 向OpenAI OAuth token endpoint发起refresh_token grant
+    - 使用urllib同步HTTP
+    - 返回新token对，不写任何本地文件
+
+    Args:
+        access_token: 当前access token（仅用于调用方判断是否需刷新）
+        refresh_token: OAuth refresh token
+        timeout_seconds: HTTP超时
+
+    Returns:
+        Dict with access_token, refresh_token, last_refresh
+
+    Raises:
+        RuntimeError: 刷新失败
+    """
+    if not isinstance(refresh_token, str) or not refresh_token.strip():
+        raise RuntimeError("Codex auth is missing refresh_token. Run `codex` to re-authenticate.")
+
+    data = urllib.parse.urlencode({
+        "grant_type": "refresh_token",
+        "refresh_token": refresh_token,
+        "client_id": CODEX_OAUTH_CLIENT_ID,
+    }).encode()
+
+    req = urllib.request.Request(
+        CODEX_OAUTH_TOKEN_URL,
+        data=data,
+        headers={
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Accept": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=timeout_seconds) as resp:
+            response_payload = json.loads(resp.read().decode())
+    except urllib.error.HTTPError as exc:
+        try:
+            err = json.loads(exc.read().decode())
+        except Exception:
+            err = {}
+        if isinstance(err, dict):
+            err_desc = err.get("error_description") or err.get("message") or ""
+            if err_desc:
+                raise RuntimeError(f"Codex token refresh failed: {err_desc}")
+        raise RuntimeError(f"Codex token refresh failed with status {exc.code}.")
+    except Exception as exc:
+        raise RuntimeError(f"Codex token refresh request failed: {exc}")
+
+    refreshed_access = response_payload.get("access_token")
+    if not isinstance(refreshed_access, str) or not refreshed_access.strip():
+        raise RuntimeError("Codex token refresh response was missing access_token.")
+
+    updated = {
+        "access_token": refreshed_access.strip(),
+        "refresh_token": refresh_token.strip(),
+        "last_refresh": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+    }
+    next_refresh = response_payload.get("refresh_token")
+    if isinstance(next_refresh, str) and next_refresh.strip():
+        updated["refresh_token"] = next_refresh.strip()
+    return updated
 
 # ============================================================================
 # 数据类
@@ -765,54 +961,288 @@ class CredentialPool:
             self._current_id = refreshed.id
         return refreshed
     
-    def _refresh_entry(self, entry: PooledCredential, force: bool = False) -> Optional[PooledCredential]:
-        """刷新单个凭证（Hermes 1:1学习）"""
-        # 如果凭证支持refresh_token，尝试刷新
-        if entry.refresh_token and (force or self._entry_needs_refresh(entry)):
-            try:
-                logger.info(f"Refreshing credential {entry.id}")
-                
-                # 根据provider类型调用不同的刷新逻辑
-                if entry.provider == "anthropic":
-                    # 使用anthropic_adapter的OAuth刷新
-                    from anthropic_adapter import refresh_anthropic_oauth
-                    result = refresh_anthropic_oauth(entry.refresh_token)
-                    if result and "access_token" in result:
-                        # 创建新的PooledCredential
-                        refreshed = PooledCredential(
-                            provider=entry.provider,
-                            id=entry.id,
-                            label=entry.label,
-                            auth_type=entry.auth_type,
-                            access_token=result["access_token"],
-                            refresh_token=result.get("refresh_token", entry.refresh_token),
-                            expires_at=result.get("expires_at"),
+    def _refresh_entry(self, entry: PooledCredential, *, force: bool) -> Optional[PooledCredential]:
+        """刷新单个凭证
+
+        学习自Hermes credential_pool._refresh_entry设计模式:
+        - 三路径：anthropic / openai-codex / nous
+        - 失败重试：同步外部文件后重试一次
+        - 写回外部文件：保持CLI工具同步
+        - Pure function委托：刷新逻辑委托给pure function，不在此处写HTTP逻辑
+        """
+        if entry.auth_type != AUTH_TYPE_OAUTH or not entry.refresh_token:
+            if force:
+                self._mark_exhausted(entry, None)
+            return None
+
+        try:
+            if self.provider == "anthropic":
+                from agent.anthropic_adapter import refresh_anthropic_oauth_pure
+
+                refreshed = refresh_anthropic_oauth_pure(
+                    entry.refresh_token,
+                    use_json=entry.source.endswith("hermes_pkce"),
+                )
+                updated = replace(
+                    entry,
+                    access_token=refreshed["access_token"],
+                    refresh_token=refreshed["refresh_token"],
+                    expires_at_ms=refreshed["expires_at_ms"],
+                )
+                # 写回 ~/.claude/.credentials.json 保持Claude Code CLI同步
+                if entry.source == "claude_code":
+                    try:
+                        from agent.anthropic_adapter import _write_claude_code_credentials
+                        _write_claude_code_credentials(
+                            refreshed["access_token"],
+                            refreshed["refresh_token"],
+                            refreshed["expires_at_ms"],
                         )
-                        return refreshed
-                else:
-                    # 其他Provider暂不支持刷新
-                    logger.debug(f"Refresh not implemented for provider: {entry.provider}")
-                
+                    except Exception as wexc:
+                        logger.debug("Failed to write refreshed token to credentials file: %s", wexc)
+
+            elif self.provider == "openai-codex":
+                # 先主动同步来自 ~/.codex/auth.json 的tokens
+                # Codex CLI（或其他MimirAether profile）可能已消费掉我们的refresh_token
+                synced = self._sync_codex_entry_from_cli(entry)
+                if synced is not entry:
+                    entry = synced
+                refreshed = refresh_codex_oauth_pure(
+                    entry.access_token,
+                    entry.refresh_token,
+                )
+                updated = replace(
+                    entry,
+                    access_token=refreshed["access_token"],
+                    refresh_token=refreshed["refresh_token"],
+                    last_refresh=refreshed.get("last_refresh"),
+                )
+
+            elif self.provider == "nous":
+                # Nous device_code刷新 — 简化实现
+                # Hermes使用 auth_mod.refresh_nous_oauth_from_state() 完成刷新+key minting
+                # MimirAether简化版：标记为不支持
+                logger.debug("Nous token refresh not yet implemented in MimirAether")
+                if force:
+                    self._mark_exhausted(entry, None)
                 return None
-            except Exception as e:
-                logger.warning(f"Failed to refresh credential {entry.id}: {e}")
-                return None
-        return None
-    
-    def _entry_needs_refresh(self, entry: PooledCredential) -> bool:
-        """检查凭证是否需要刷新（Hermes 1:1学习）"""
-        if not entry.refresh_token:
-            return False
-        # 检查是否过期（基于expires_at或last_refresh）
-        if entry.expires_at:
+
+            else:
+                logger.debug("Refresh not implemented for provider: %s", self.provider)
+                return entry
+
+        except Exception as exc:
+            logger.debug("Credential refresh failed for %s/%s: %s", self.provider, entry.id, exc)
+
+            # --- 失败重试逻辑：从外部文件同步后再试一次 ---
+
+            # anthropic claude_code: 检查 ~/.claude/.credentials.json 是否有更新的token
+            if self.provider == "anthropic" and entry.source == "claude_code":
+                synced = self._sync_anthropic_entry_from_credentials_file(entry)
+                if synced.refresh_token != entry.refresh_token:
+                    logger.debug("Retrying refresh with synced token from credentials file")
+                    try:
+                        from agent.anthropic_adapter import refresh_anthropic_oauth_pure
+                        refreshed = refresh_anthropic_oauth_pure(
+                            synced.refresh_token,
+                            use_json=synced.source.endswith("hermes_pkce"),
+                        )
+                        updated = replace(
+                            synced,
+                            access_token=refreshed["access_token"],
+                            refresh_token=refreshed["refresh_token"],
+                            expires_at_ms=refreshed["expires_at_ms"],
+                            last_status=STATUS_OK,
+                            last_status_at=None,
+                            last_error_code=None,
+                        )
+                        self._replace_entry(synced, updated)
+                        self._persist()
+                        try:
+                            from agent.anthropic_adapter import _write_claude_code_credentials
+                            _write_claude_code_credentials(
+                                refreshed["access_token"],
+                                refreshed["refresh_token"],
+                                refreshed["expires_at_ms"],
+                            )
+                        except Exception as wexc:
+                            logger.debug("Failed to write refreshed token to credentials file (retry): %s", wexc)
+                        return updated
+                    except Exception as retry_exc:
+                        logger.debug("Retry refresh also failed: %s", retry_exc)
+                elif not self._entry_needs_refresh(synced):
+                    # 凭证文件中已有有效token，直接使用
+                    logger.debug("Credentials file has valid token, using without refresh")
+                    return synced
+
+            # openai-codex: 在主动同步和刷新之间Codex CLI可能已消费refresh_token
+            if self.provider == "openai-codex":
+                synced = self._sync_codex_entry_from_cli(entry)
+                if synced.refresh_token != entry.refresh_token:
+                    logger.debug("Retrying Codex refresh with synced token from ~/.codex/auth.json")
+                    try:
+                        refreshed = refresh_codex_oauth_pure(
+                            synced.access_token,
+                            synced.refresh_token,
+                        )
+                        updated = replace(
+                            synced,
+                            access_token=refreshed["access_token"],
+                            refresh_token=refreshed["refresh_token"],
+                            last_refresh=refreshed.get("last_refresh"),
+                            last_status=STATUS_OK,
+                            last_status_at=None,
+                            last_error_code=None,
+                        )
+                        self._replace_entry(synced, updated)
+                        self._persist()
+                        try:
+                            _write_codex_cli_tokens(
+                                updated.access_token,
+                                updated.refresh_token,
+                                last_refresh=updated.last_refresh,
+                            )
+                        except Exception as wexc:
+                            logger.debug("Failed to write refreshed Codex tokens to CLI file (retry): %s", wexc)
+                        return updated
+                    except Exception as retry_exc:
+                        logger.debug("Codex retry refresh also failed: %s", retry_exc)
+                elif not self._entry_needs_refresh(synced):
+                    logger.debug("Codex CLI has valid token, using without refresh")
+                    return synced
+
+            # 重试都失败了，标记耗尽
+            self._mark_exhausted(entry, None)
+            return None
+
+        # 刷新成功 — 清除错误状态，持久化
+        updated = replace(
+            updated,
+            last_status=STATUS_OK,
+            last_status_at=None,
+            last_error_code=None,
+            last_error_reason=None,
+            last_error_message=None,
+            last_error_reset_at=None,
+        )
+        self._replace_entry(entry, updated)
+        self._persist()
+
+        # 写回 auth store 防止 _seed_from_singletons 覆盖刷新后的token
+        self._sync_device_code_entry_to_auth_store(updated)
+
+        # 写回 ~/.codex/auth.json 保持Codex CLI/VS Code同步
+        if self.provider == "openai-codex":
             try:
-                from datetime import datetime
-                expires = datetime.fromisoformat(entry.expires_at.replace('Z', '+00:00'))
-                return datetime.now() >= expires
-            except:
-                pass
+                _write_codex_cli_tokens(
+                    updated.access_token,
+                    updated.refresh_token,
+                    last_refresh=updated.last_refresh,
+                )
+            except Exception as wexc:
+                logger.debug("Failed to write refreshed Codex tokens to CLI file: %s", wexc)
+
+        return updated
+
+    def _entry_needs_refresh(self, entry: PooledCredential) -> bool:
+        """检查凭证是否需要刷新
+
+        学习自Hermes credential_pool._entry_needs_refresh:
+        - anthropic: 基于expires_at_ms + 2分钟提前量
+        - openai-codex: 基于JWT exp字段 + 2分钟提前量
+        - nous: 刷新/铸造需要网络访问，在此不做预判
+        """
+        if entry.auth_type != AUTH_TYPE_OAUTH:
+            return False
+
+        if self.provider == "anthropic":
+            if entry.expires_at_ms is None:
+                return False
+            return int(entry.expires_at_ms) <= int(time.time() * 1000) + 120_000
+
+        if self.provider == "openai-codex":
+            return _codex_access_token_is_expiring(
+                entry.access_token,
+                CODEX_ACCESS_TOKEN_REFRESH_SKEW_SECONDS,
+            )
+
+        if self.provider == "nous":
+            # Nous刷新/铸造需要网络访问，不在池枚举时触发
+            return False
+
         return False
-    
+
+    def _sync_anthropic_entry_from_credentials_file(self, entry: PooledCredential) -> PooledCredential:
+        """从 ~/.claude/.credentials.json 同步 claude_code 池条目
+
+        学习自Hermes credential_pool._sync_anthropic_entry_from_credentials_file:
+        OAuth refresh token是单次使用的。当Claude Code CLI（或其他profile的池）
+        刷新了token后，会将新对写入 ~/.claude/.credentials.json。池中的refresh_token
+        变成过期状态。此方法检测差异并同步。
+
+        仅在 provider=anthropic 且 source=claude_code 时生效。
+        """
+        if self.provider != "anthropic" or entry.source != "claude_code":
+            return entry
+        try:
+            from agent.anthropic_adapter import read_claude_code_credentials
+            creds = read_claude_code_credentials()
+            if not creds:
+                return entry
+            file_refresh = creds.get("refreshToken", "")
+            file_access = creds.get("accessToken", "")
+            file_expires = creds.get("expiresAt", 0)
+            if file_refresh and file_refresh != entry.refresh_token:
+                logger.debug("Pool entry %s: syncing tokens from credentials file (refresh token changed)", entry.id)
+                updated = replace(
+                    entry,
+                    access_token=file_access,
+                    refresh_token=file_refresh,
+                    expires_at_ms=file_expires,
+                    last_status=None,
+                    last_status_at=None,
+                    last_error_code=None,
+                )
+                self._replace_entry(entry, updated)
+                self._persist()
+                return updated
+        except Exception as exc:
+            logger.debug("Failed to sync from credentials file: %s", exc)
+        return entry
+
+    def _sync_codex_entry_from_cli(self, entry: PooledCredential) -> PooledCredential:
+        """从 ~/.codex/auth.json 同步 openai-codex 池条目
+
+        学习自Hermes credential_pool._sync_codex_entry_from_cli:
+        OpenAI OAuth refresh token是单次使用且每次刷新都会轮换。
+        当Codex CLI（或其他profile）刷新token后，池中的refresh_token变成过期状态。
+        此方法通过比对 ~/.codex/auth.json 检测并同步新token对。
+        """
+        if self.provider != "openai-codex":
+            return entry
+        try:
+            cli_tokens = _import_codex_cli_tokens()
+            if not cli_tokens:
+                return entry
+            cli_refresh = cli_tokens.get("refresh_token", "")
+            cli_access = cli_tokens.get("access_token", "")
+            if cli_refresh and cli_refresh != entry.refresh_token:
+                logger.debug("Pool entry %s: syncing tokens from ~/.codex/auth.json (refresh token changed)", entry.id)
+                updated = replace(
+                    entry,
+                    access_token=cli_access,
+                    refresh_token=cli_refresh,
+                    last_status=None,
+                    last_status_at=None,
+                    last_error_code=None,
+                )
+                self._replace_entry(entry, updated)
+                self._persist()
+                return updated
+        except Exception as exc:
+            logger.debug("Failed to sync from ~/.codex/auth.json: %s", exc)
+        return entry
+
     def _load_config_safe(self) -> Optional[dict]:
         """安全加载配置文件（Hermes 1:1学习）"""
         try:
@@ -825,7 +1255,7 @@ class CredentialPool:
         except Exception:
             pass
         return None
-    
+
     def _seed_from_env(self) -> None:
         """从环境变量加载凭证（Hermes 1:1学习）"""
         # 支持的环境变量
@@ -1120,28 +1550,457 @@ CredentialPool.resolve_target = _credential_pool_resolve_target
 
 
 # ============================================================================
-# Hermès兼容同步方法（OAuth token同步）
+
+
+
+# ============================================================================
+# Auth Store 基础设施 (Hermes 1:1)
 # ============================================================================
 
-def _sync_anthropic_entry_from_credentials_file(entry: PooledCredential) -> PooledCredential:
-    """从~/.claude/.credentials.json同步claude_code池条目（Hermès兼容）"""
-    # MimirAether简化实现：暂不支持OAuth token同步
-    return entry
+import fcntl
+import stat as _stat_mod
+
+_MIMIR_AUTH_DIR = Path.home() / ".openclaw"
+_MIMIR_AUTH_FILE = _MIMIR_AUTH_DIR / "auth.json"
+_AUTH_LOCK_TIMEOUT = 10.0
+
+_auth_lock_holder = threading.local()
 
 
-def _sync_codex_entry_from_cli(entry: PooledCredential) -> PooledCredential:
-    """从~/.codex/auth.json同步openai-codex池条目（Hermès兼容）"""
-    # MimirAether简化实现：暂不支持Codex CLI token同步
-    return entry
+class _AuthStoreLock:
+    """跨进程文件锁，保护auth.json的读写
+    Hermes design pattern: reentrant file lock with timeout.
+    """
+    def __init__(self, timeout_seconds: float = _AUTH_LOCK_TIMEOUT):
+        self._timeout = timeout_seconds
+        self._lock_path = _MIMIR_AUTH_FILE.with_suffix(".lock")
+
+    def __enter__(self):
+        if getattr(_auth_lock_holder, "depth", 0) > 0:
+            _auth_lock_holder.depth += 1
+            return self
+        self._lock_path.parent.mkdir(parents=True, exist_ok=True)
+        self._file = self._lock_path.open("a+")
+        deadline = time.time() + max(1.0, self._timeout)
+        while True:
+            try:
+                fcntl.flock(self._file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except (BlockingIOError, OSError, PermissionError):
+                if time.time() >= deadline:
+                    raise TimeoutError("Timed out waiting for auth store lock")
+                time.sleep(0.05)
+        _auth_lock_holder.depth = 1
+        return self
+
+    def __exit__(self, *args):
+        _auth_lock_holder.depth = 0
+        fcntl.flock(self._file.fileno(), fcntl.LOCK_UN)
+        self._file.close()
+
+
+def _mimir_auth_store_lock():
+    return _AuthStoreLock()
+
+
+def _mimir_load_auth_store() -> Dict[str, Any]:
+    if not _MIMIR_AUTH_FILE.exists():
+        return {"version": 1, "providers": {}}
+    try:
+        data = json.loads(_MIMIR_AUTH_FILE.read_text())
+        if isinstance(data, dict):
+            data.setdefault("providers", {})
+            return data
+    except Exception:
+        pass
+    return {"version": 1, "providers": {}}
+
+
+def _mimir_save_auth_store(auth_store: Dict[str, Any]) -> None:
+    auth_store["version"] = 1
+    auth_store["updated_at"] = datetime.now().isoformat()
+    payload = json.dumps(auth_store, indent=2) + "\n"
+    _MIMIR_AUTH_DIR.mkdir(parents=True, exist_ok=True)
+    tmp_path = _MIMIR_AUTH_FILE.with_name(f"auth.json.tmp.{uuid.uuid4().hex}")
+    try:
+        tmp_path.write_text(payload, encoding="utf-8")
+        os.replace(str(tmp_path), str(_MIMIR_AUTH_FILE))
+    finally:
+        if tmp_path.exists():
+            tmp_path.unlink()
+    try:
+        _MIMIR_AUTH_FILE.chmod(_stat_mod.S_IRUSR | _stat_mod.S_IWUSR)
+    except OSError:
+        pass
+
+
+def _mimir_load_provider_state(provider_id: str) -> Optional[Dict[str, Any]]:
+    auth_store = _mimir_load_auth_store()
+    providers = auth_store.get("providers")
+    if not isinstance(providers, dict):
+        return None
+    state = providers.get(provider_id)
+    return dict(state) if isinstance(state, dict) else None
+
+
+def _mimir_save_provider_state(provider_id: str, state: Dict[str, Any]) -> None:
+    with _mimir_auth_store_lock():
+        auth_store = _mimir_load_auth_store()
+        providers = auth_store.setdefault("providers", {})
+        providers[provider_id] = state
+        auth_store["active_provider"] = provider_id
+        _mimir_save_auth_store(auth_store)
+
+
+# ============================================================================
+# Codex OAuth 工具函数 (Hermes 1:1)
+# ============================================================================
+
+CODEX_OAUTH_CLIENT_ID = "openai-codex-cli"
+CODEX_OAUTH_TOKEN_URL = "https://auth.openai.com/oauth/token"
+CODEX_ACCESS_TOKEN_REFRESH_SKEW_SECONDS = 120
+
+
+def _import_codex_cli_tokens() -> Optional[Dict[str, str]]:
+    codex_home = os.getenv("CODEX_HOME", "").strip()
+    if not codex_home:
+        codex_home = str(Path.home() / ".codex")
+    auth_path = Path(codex_home).expanduser() / "auth.json"
+    if not auth_path.is_file():
+        return None
+    try:
+        payload = json.loads(auth_path.read_text())
+        tokens = payload.get("tokens")
+        if not isinstance(tokens, dict):
+            return None
+        access_token = tokens.get("access_token")
+        refresh_token = tokens.get("refresh_token")
+        if not access_token or not refresh_token:
+            return None
+        if _codex_access_token_is_expiring(access_token, skew_ms=0):
+            return None
+        return dict(tokens)
+    except Exception:
+        return None
+
+
+def _codex_access_token_is_expiring(access_token: str, skew_ms: int = 0) -> bool:
+    try:
+        parts = access_token.split(".")
+        if len(parts) < 2:
+            return False
+        payload = parts[1]
+        payload = payload.replace("-", "+").replace("_", "/")
+        padding = 4 - len(payload) % 4
+        if padding != 4:
+            payload += "=" * padding
+        import base64
+        claims = json.loads(base64.b64decode(payload))
+        exp = claims.get("exp")
+        if isinstance(exp, (int, float)):
+            now_ms = int(time.time() * 1000)
+            return now_ms >= (int(exp) * 1000 - skew_ms)
+    except Exception:
+        pass
+    return False
+
+
+def _decode_jwt_claims(token: str) -> Dict[str, Any]:
+    import base64
+    if not token:
+        return {}
+    parts = token.split(".")
+    if len(parts) < 2:
+        return {}
+    try:
+        payload = parts[1]
+        payload = payload.replace("-", "+").replace("_", "/")
+        padding = 4 - len(payload) % 4
+        if padding != 4:
+            payload += "=" * padding
+        return json.loads(base64.b64decode(payload))
+    except Exception:
+        return {}
+
+
+def _write_codex_cli_tokens(
+    access_token: str,
+    refresh_token: str,
+    *,
+    last_refresh: Optional[str] = None,
+) -> None:
+    codex_home = os.getenv("CODEX_HOME", "").strip()
+    if not codex_home:
+        codex_home = str(Path.home() / ".codex")
+    auth_path = Path(codex_home).expanduser() / "auth.json"
+    try:
+        existing: Dict[str, Any] = {}
+        if auth_path.is_file():
+            existing = json.loads(auth_path.read_text(encoding="utf-8"))
+        if not isinstance(existing, dict):
+            existing = {}
+        tokens_dict = existing.get("tokens")
+        if not isinstance(tokens_dict, dict):
+            tokens_dict = {}
+        tokens_dict["access_token"] = access_token
+        tokens_dict["refresh_token"] = refresh_token
+        existing["tokens"] = tokens_dict
+        if last_refresh is not None:
+            existing["last_refresh"] = last_refresh
+        auth_path.parent.mkdir(parents=True, exist_ok=True)
+        auth_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+        auth_path.chmod(0o600)
+    except (OSError, IOError) as exc:
+        logger.debug("Failed to write Codex tokens to %s: %s", auth_path, exc)
+
+
+def refresh_codex_oauth_pure(
+    access_token: str,
+    refresh_token: str,
+    *,
+    timeout_seconds: float = 20.0,
+) -> Dict[str, Any]:
+    if not isinstance(refresh_token, str) or not refresh_token.strip():
+        raise ValueError("Codex refresh_token is required")
+    try:
+        import httpx
+    except ImportError:
+        raise ImportError("httpx required for Codex OAuth: pip install httpx")
+
+    timeout = httpx.Timeout(max(5.0, float(timeout_seconds)))
+    with httpx.Client(timeout=timeout, headers={"Accept": "application/json"}) as client:
+        response = client.post(
+            CODEX_OAUTH_TOKEN_URL,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data={
+                "grant_type": "refresh_token",
+                "refresh_token": refresh_token,
+                "client_id": CODEX_OAUTH_CLIENT_ID,
+            },
+        )
+
+    if response.status_code != 200:
+        code = "codex_refresh_failed"
+        message = f"Codex token refresh failed with status {response.status_code}."
+        try:
+            err = response.json()
+            if isinstance(err, dict):
+                err_code = err.get("error", "")
+                if err_code:
+                    code = err_code
+                err_desc = err.get("error_description") or err.get("message", "")
+                if err_desc:
+                    message = f"Codex token refresh failed: {err_desc}"
+        except Exception:
+            pass
+        raise RuntimeError(f"[{code}] {message}")
+
+    try:
+        refresh_payload = response.json()
+    except Exception as exc:
+        raise RuntimeError("Codex token refresh returned invalid JSON.") from exc
+
+    refreshed_access = refresh_payload.get("access_token")
+    if not isinstance(refreshed_access, str) or not refreshed_access.strip():
+        raise RuntimeError("Codex token refresh response missing access_token.")
+
+    updated = {
+        "access_token": refreshed_access.strip(),
+        "refresh_token": refresh_token.strip(),
+        "last_refresh": datetime.now().isoformat().replace("+00:00", "Z"),
+    }
+    next_refresh = refresh_payload.get("refresh_token")
+    if isinstance(next_refresh, str) and next_refresh.strip():
+        updated["refresh_token"] = next_refresh.strip()
+    return updated
+
+
+
+# ============================================================================
+# OAuth Token 同步方法 (Hermes 1:1)
+# ============================================================================
 
 
 def _sync_device_code_entry_to_auth_store(entry: PooledCredential) -> None:
-    """将device_code条目同步到auth store（Hermès兼容）"""
-    # MimirAether简化实现：暂不支持device code auth store同步
-    pass
+    """Write refreshed pool entry tokens back to auth.json providers.
+
+    After a pool-level refresh, auth.json's providers.<id> still holds
+    pre-refresh state. On the next load_pool(), _seed_from_singletons()
+    reads that stale state and can overwrite fresh pool entries -
+    potentially re-seeding consumed single-use refresh tokens.
+    """
+    if entry.source != "device_code":
+        return
+    try:
+        with _mimir_auth_store_lock():
+            auth_store = _mimir_load_auth_store()
+
+            if entry.provider == "nous":
+                state = _mimir_load_provider_state("nous")
+                if state is None:
+                    return
+                state["access_token"] = entry.access_token
+                if entry.refresh_token:
+                    state["refresh_token"] = entry.refresh_token
+                if entry.expires_at:
+                    state["expires_at"] = entry.expires_at
+                agent_key = getattr(entry, "agent_key", None)
+                if agent_key:
+                    state["agent_key"] = agent_key
+                agent_key_expires_at = getattr(entry, "agent_key_expires_at", None)
+                if agent_key_expires_at:
+                    state["agent_key_expires_at"] = agent_key_expires_at
+                for extra_key in ("obtained_at", "expires_in", "agent_key_id",
+                                  "agent_key_expires_in", "agent_key_reused",
+                                  "agent_key_obtained_at"):
+                    val = entry.extra.get(extra_key)
+                    if val is not None:
+                        state[extra_key] = val
+                inf_url = getattr(entry, "inference_base_url", None)
+                if inf_url:
+                    state["inference_base_url"] = inf_url
+                _mimir_save_provider_state("nous", state)
+
+            elif entry.provider == "openai-codex":
+                state = _mimir_load_provider_state("openai-codex")
+                if not isinstance(state, dict):
+                    return
+                tokens = state.get("tokens")
+                if not isinstance(tokens, dict):
+                    return
+                tokens["access_token"] = entry.access_token
+                if entry.refresh_token:
+                    tokens["refresh_token"] = entry.refresh_token
+                if hasattr(entry, "last_refresh") and entry.last_refresh:
+                    state["last_refresh"] = entry.last_refresh
+                _mimir_save_provider_state("openai-codex", state)
+            else:
+                return
+
+            _mimir_save_auth_store(auth_store)
+    except Exception as exc:
+        logger.debug("Failed to sync %s pool entry to auth store: %s", entry.provider, exc)
 
 
 # ============================================================================
+# Nous OAuth 刷新 (Hermes 1:1)
+# ============================================================================
+
+DEFAULT_NOUS_PORTAL_URL = "https://portal.nousresearch.com"
+DEFAULT_NOUS_INFERENCE_URL = "https://api.nousresearch.com/v1"
+DEFAULT_NOUS_SCOPE = "openid profile inference"
+
+
+def refresh_nous_oauth_from_state(
+    state: Dict[str, Any],
+    *,
+    force_refresh: bool = False,
+) -> Dict[str, Any]:
+    """Refresh Nous OAuth from state dict - simplified MimirAether version.
+
+    Design pattern learned from Hermes:
+    1. Use refresh_token to get new access_token
+    2. If agent_key is missing/expired, mint a new one
+    3. Return updated state dict with all fields
+
+    Returns:
+        Dict with refreshed fields (access_token, refresh_token, agent_key, etc.)
+    """
+    try:
+        import httpx
+    except ImportError:
+        raise ImportError("httpx required for Nous OAuth: pip install httpx")
+
+    portal_base_url = str(state.get("portal_base_url") or DEFAULT_NOUS_PORTAL_URL).rstrip("/")
+    client_id = str(state.get("client_id") or "mimir-aether")
+    access_token = state.get("access_token", "")
+    refresh_token = state.get("refresh_token", "")
+
+    if not access_token or not refresh_token:
+        raise ValueError("Nous OAuth state missing access_token or refresh_token")
+
+    timeout = httpx.Timeout(15.0)
+
+    with httpx.Client(timeout=timeout, headers={"Accept": "application/json"}) as client:
+        # Step 1: refresh access token
+        now = datetime.now()
+        response = client.post(
+            f"{portal_base_url}/api/auth/token",
+            json={
+                "client_id": client_id,
+                "grant_type": "refresh_token",
+                "refresh_token": refresh_token,
+            },
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Nous token refresh failed ({response.status_code}): "
+                f"{response.text[:200]}"
+            )
+
+        payload = response.json()
+        state["access_token"] = payload["access_token"]
+        if "refresh_token" in payload:
+            state["refresh_token"] = payload["refresh_token"]
+        state["token_type"] = payload.get("token_type", state.get("token_type", "Bearer"))
+        state["scope"] = payload.get("scope", state.get("scope"))
+        access_ttl = int(payload.get("expires_in", 3600))
+        state["expires_in"] = access_ttl
+        state["expires_at"] = (now.replace(tzinfo=None).timestamp() + access_ttl)
+        state["expires_at_iso"] = datetime.fromtimestamp(
+            now.timestamp() + access_ttl
+        ).isoformat()
+        state["obtained_at"] = now.isoformat()
+
+        # Step 2: mint agent key if needed
+        agent_key = state.get("agent_key")
+        agent_key_expires_at = state.get("agent_key_expires_at")
+
+        needs_mint = force_refresh
+        if agent_key and agent_key_expires_at:
+            try:
+                if isinstance(agent_key_expires_at, str):
+                    exp_dt = datetime.fromisoformat(
+                        agent_key_expires_at.replace("Z", "+00:00")
+                    )
+                    if datetime.now() >= exp_dt:
+                        needs_mint = True
+                elif isinstance(agent_key_expires_at, (int, float)):
+                    if time.time() >= float(agent_key_expires_at) - 60:
+                        needs_mint = True
+            except Exception:
+                needs_mint = True
+        else:
+            needs_mint = True
+
+        if needs_mint:
+            mint_resp = client.post(
+                f"{portal_base_url}/api/auth/key",
+                headers={"Authorization": f"Bearer {state['access_token']}"},
+                json={"ttl": 300},
+            )
+            if mint_resp.status_code == 200:
+                mint_payload = mint_resp.json()
+                now_ts = now.timestamp()
+                state["agent_key"] = mint_payload["key"]
+                state["agent_key_expires_at"] = (
+                    now_ts + int(mint_payload.get("expires_in", 300))
+                )
+                state["agent_key_id"] = mint_payload.get("key_id", "")
+                state["agent_key_expires_in"] = mint_payload.get("expires_in")
+                state["agent_key_obtained_at"] = now.isoformat()
+                minted_url = mint_payload.get("inference_base_url", "").rstrip("/")
+                if minted_url:
+                    state["inference_base_url"] = minted_url
+            else:
+                logger.debug(
+                    "Nous agent key mint failed (%s), reusing cached key",
+                    mint_resp.status_code,
+                )
+
+    return state
+
+
 # 池注册表
 # ============================================================================
 
