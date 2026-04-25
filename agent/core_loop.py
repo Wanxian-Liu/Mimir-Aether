@@ -149,6 +149,44 @@ class ExecutionResult:
     duration: float = 0.0
 
 
+# ──────────────────────────────────────────────
+# 工具调用格式工具函数
+# 兼容OpenAI格式: {"type": "function", "function": {"name": "xxx", "arguments": "..."}}
+# 和旧格式: {"name": "xxx", "arguments": {...}}
+# ──────────────────────────────────────────────
+
+def _get_tool_name(tc: dict) -> str:
+    """从工具调用dict中提取工具名称，兼容OpenAI嵌套格式和旧格式。"""
+    if not isinstance(tc, dict):
+        return ""
+    func = tc.get("function")
+    if isinstance(func, dict):
+        name = func.get("name")
+        if name:
+            return name
+    return tc.get("name", "")
+
+
+def _get_tool_arguments(tc: dict) -> str:
+    """从工具调用dict中提取arguments，兼容OpenAI嵌套格式和旧格式。"""
+    if not isinstance(tc, dict):
+        return ""
+    func = tc.get("function")
+    if isinstance(func, dict):
+        if "arguments" in func:
+            return func["arguments"]
+    if "arguments" in tc:
+        return tc["arguments"]
+    return ""
+
+
+def _get_tool_id(tc: dict) -> str:
+    """从工具调用dict中提取id。"""
+    if isinstance(tc, dict):
+        return tc.get("id", "")
+    return ""
+
+
 class IterationBudget:
     """
     迭代预算控制器
@@ -729,10 +767,9 @@ class MimirAetherAgent:
         seen = set()
         unique = []
         for tc in tool_calls:
-            # 获取工具名称和参数
-            func = tc.get('function', {})
-            name = func.get('name', '')
-            arguments = func.get('arguments', '')
+            # 使用统一工具函数提取名称和参数，兼容OpenAI嵌套格式和旧格式
+            name = _get_tool_name(tc)
+            arguments = _get_tool_arguments(tc)
             key = (name, arguments if isinstance(arguments, str) else json.dumps(arguments, sort_keys=True))
             if key not in seen:
                 seen.add(key)
@@ -1657,50 +1694,50 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                         timeout=30.0  # 单工具30秒超时
                     )
                 except asyncio.TimeoutError:
-                    tool_name = tool_call.get('name', 'unknown')
+                    tool_name = _get_tool_name(tool_call) or 'unknown'
                     logger.warning(f"Tool execution timed out: {tool_name}")
                     # Hermes风格:收集ToolError
                     self._tool_errors.append(ToolError(
                         turn=turn,
                         tool_name=tool_name,
-                        arguments=str(tool_call.get('arguments', ''))[:200],
+                        arguments=str(_get_tool_arguments(tool_call))[:200],
                         error="TimeoutError",
                         tool_result="Error: tool execution timed out",
                     ))
                     return ToolResult(
-                        tool_call_id=tool_call.get("id", "unknown"),
+                        tool_call_id=_get_tool_id(tool_call) or "unknown",
                         content="Error: tool execution timed out",
                         is_error=True
                     )
                 except (ValueError, TypeError, KeyError) as e:
-                    tool_name = tool_call.get('name', 'unknown')
+                    tool_name = _get_tool_name(tool_call) or 'unknown'
                     logger.warning(f"Tool execution parameter error: {tool_name}: {e}")
                     # Hermes风格:收集ToolError
                     self._tool_errors.append(ToolError(
                         turn=turn,
                         tool_name=tool_name,
-                        arguments=str(tool_call.get('arguments', ''))[:200],
+                        arguments=str(_get_tool_arguments(tool_call))[:200],
                         error=f"{type(e).__name__}: {e}",
                         tool_result=f"Error: {type(e).__name__} - {e}",
                     ))
                     return ToolResult(
-                        tool_call_id=tool_call.get("id", "unknown"),
+                        tool_call_id=_get_tool_id(tool_call) or "unknown",
                         content=f"Error: {type(e).__name__} - {e}",
                         is_error=True
                     )
                 except Exception as e:
-                    tool_name = tool_call.get('name', 'unknown')
+                    tool_name = _get_tool_name(tool_call) or 'unknown'
                     logger.error(f"Tool execution error: {tool_name}: {e}")
                     # Hermes风格:收集ToolError
                     self._tool_errors.append(ToolError(
                         turn=turn,
                         tool_name=tool_name,
-                        arguments=str(tool_call.get('arguments', ''))[:200],
+                        arguments=str(_get_tool_arguments(tool_call))[:200],
                         error=f"{type(e).__name__}: {e}",
                         tool_result=f"Error: {type(e).__name__} - {e}",
                     ))
                     return ToolResult(
-                        tool_call_id=tool_call.get("id", "unknown"),
+                        tool_call_id=_get_tool_id(tool_call) or "unknown",
                         content=f"Error: {type(e).__name__} - {e}",
                         is_error=True
                     )
@@ -1716,7 +1753,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 err_name = type(result).__name__
                 err_msg = str(result)
                 tool_call = tool_calls[i]
-                tool_name = tool_call.get('name', 'unknown')
+                tool_name = _get_tool_name(tool_call) or 'unknown'
                 
                 # 记录详细日志但不暴露给LLM
                 if isinstance(result, asyncio.TimeoutError):
@@ -1730,13 +1767,13 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 self._tool_errors.append(ToolError(
                     turn=turn,
                     tool_name=tool_name,
-                    arguments=str(tool_call.get('arguments', ''))[:200],
+                    arguments=str(_get_tool_arguments(tool_call))[:200],
                     error=f"{err_name}: {err_msg}",
                     tool_result=content,
                 ))
                 
                 processed_results.append(ToolResult(
-                    tool_call_id=tool_call.get("id", "unknown"),
+                    tool_call_id=_get_tool_id(tool_call) or "unknown",
                     content=content,
                     is_error=True
                 ))
@@ -1758,7 +1795,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
             turn: 当前轮次(用于错误记录)
         """
         # 获取tool_call的id
-        tool_call_id = tool_call.get("id", "unknown")
+        tool_call_id = _get_tool_id(tool_call) or "unknown"
 
         # 处理OpenAI格式:{type: 'function', function: {name, arguments}}
         if tool_call.get("type") == "function" and "function" in tool_call:
