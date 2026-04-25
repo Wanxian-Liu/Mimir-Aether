@@ -1,438 +1,646 @@
 """
-MimirAether Auxiliary Client
+MimirAether Auxiliary Client — 中央路由客户端
 
-向Hermes对齐的多Provider路由客户端。
+设计模式学习自 Hermes auxiliary_client，适配 MimirAether 环境。
 
-支持Provider（按优先级）：
-1. DeepSeek（已有）
-2. Anthropic（新增）
-3. MiniMax（新增）
-4. OpenAI兼容（新增）
+核心架构：
+  1. Provider 解析链 — _get_provider_chain() 返回 (label, try_fn) 可组合元组
+  2. 适配器模式 — Anthropic/Codex 适配器统一 client.chat.completions.create() 接口
+  3. 客户端缓存 — (provider, async_mode, base_url, api_key, loop_id) 缓存
+  4. 任务路由 — 显式参数 > config.yaml > auto 检测
+  5. 付款/连接回退 — _is_payment_error/_is_connection_error + _try_payment_fallback
+  6. 图像格式转换 — _convert_openai_images_to_anthropic 处理 Anthropic 兼容端点
 
-核心功能：
-- async_call_llm: 异步LLM调用
-- resolve_provider_client: Provider路由解析
-- extract_content_or_reasoning: 响应提取
+Provider 解析优先级 (auto 模式)：
+  1. 非聚合器主 Provider（DeepSeek, Anthropic, MiniMax 等）
+  2. OpenRouter (OPENROUTER_API_KEY)
+  3. Nous Portal (~/.hermes/auth.json)
+  4. 自定义端点 (config.yaml + OPENAI_API_KEY)
+  5. Anthropic 原生
+  6. API-key providers（遍历 credential_pool）
+  7. None
 """
 
-import os
 import json
 import logging
-import asyncio
-from typing import Optional, Dict, Any, Tuple
+import os
+import threading
+import time
+from types import SimpleNamespace
+from typing import Any, Dict, List, Optional, Tuple
+
+from openai import OpenAI
+
+from agent.credential_pool import load_pool
+from hermes_constants import get_hermes_home, OPENROUTER_BASE_URL
 
 logger = logging.getLogger(__name__)
 
-# ============================================================================
-# 凭证池集成（学习自Hermes）
-# ============================================================================
+# ═══════════════════════════════════════════════════════════════════════════════
+# 模块级状态
+# ═══════════════════════════════════════════════════════════════════════════════
 
-def _load_credential_pool(provider: str):
-    """加载指定Provider的凭证池"""
-    try:
-        from agent.credential_pool import load_pool, STATUS_OK
-        pool = load_pool(provider)
-        if pool and pool.has_credentials():
-            entry = pool.select()
-            if entry:
-                return entry
-    except Exception as e:
-        logger.debug(f"Could not load credential pool for {provider}: {e}")
-    return None
+_stale_base_url_warned = False
+auxiliary_is_nous = False
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Provider 别名表
+# ═══════════════════════════════════════════════════════════════════════════════
 
-def _get_credential_api_key(provider: str) -> Optional[str]:
-    """从凭证池获取API Key"""
-    entry = _load_credential_pool(provider)
-    if entry:
-        # PooledCredential.runtime_api_key 或 access_token
-        return getattr(entry, 'runtime_api_key', None) or getattr(entry, 'access_token', None)
-    return None
-
-
-# ============================================================================
-# Provider配置
-# ============================================================================
-
-PROVIDER_BASE_URLS = {
-    "deepseek": "https://api.deepseek.com",
-    "anthropic": "https://api.anthropic.com",
-    "minimax": "https://api.minimax.chat",
-    "openai": "https://api.openai.com",
-    "moonshot": "https://api.moonshot.cn",
-    "openrouter": "https://openrouter.ai/api/v1",
+_PROVIDER_ALIASES: Dict[str, str] = {
+    "google": "gemini",
+    "google-gemini": "gemini",
+    "google-ai-studio": "gemini",
+    "glm": "zai",
+    "z-ai": "zai",
+    "z.ai": "zai",
+    "zhipu": "zai",
+    "kimi": "kimi-coding",
+    "moonshot": "kimi-coding",
+    "kimi-cn": "kimi-coding-cn",
+    "moonshot-cn": "kimi-coding-cn",
+    "minimax-china": "minimax-cn",
+    "minimax_cn": "minimax-cn",
+    "claude": "anthropic",
+    "claude-code": "anthropic",
 }
 
-PROVIDER_MODELS = {
+
+def _normalize_aux_provider(provider: Optional[str]) -> str:
+    """规范化 Provider 名称，通过别名表映射。"""
+    normalized = (provider or "auto").strip().lower()
+    if normalized.startswith("custom:"):
+        suffix = normalized.split(":", 1)[1].strip()
+        if not suffix:
+            return "custom"
+        normalized = suffix
+    if normalized == "codex":
+        return "openai-codex"
+    if normalized == "main":
+        main_prov = _read_main_provider()
+        if main_prov and main_prov not in ("auto", "main", ""):
+            return main_prov
+        return "custom"
+    return _PROVIDER_ALIASES.get(normalized, normalized)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 默认辅助模型
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_OPENROUTER_MODEL = "google/gemini-3-flash-preview"
+_NOUS_MODEL = "google/gemini-3-flash-preview"
+_NOUS_FREE_TIER_AUX_MODEL = "xiaomi/mimo-v2-pro"
+_NOUS_FREE_TIER_VISION_MODEL = "xiaomi/mimo-v2-omni"
+_NOUS_DEFAULT_BASE_URL = "https://inference-api.nousresearch.com/v1"
+_ANTHROPIC_DEFAULT_BASE_URL = "https://api.anthropic.com"
+_CODEX_AUX_MODEL = "gpt-5.2-codex"
+_CODEX_AUX_BASE_URL = "https://chatgpt.com/backend-api/codex"
+_AUTH_JSON_PATH = get_hermes_home() / "auth.json"
+
+# 聚合器 Provider（不会直接用作辅助 Provider）
+_AGGREGATOR_PROVIDERS = frozenset({"openrouter", "nous"})
+
+# Anthropic 兼容端点（图像块需转换为 Anthropic 格式）
+_ANTHROPIC_COMPAT_PROVIDERS = frozenset({"minimax", "minimax-cn"})
+
+# 每个 Provider 的默认辅助模型
+_API_KEY_PROVIDER_AUX_MODELS: Dict[str, str] = {
     "deepseek": "deepseek-chat",
-    "anthropic": "claude-3-5-haiku-20241022",
+    "gemini": "gemini-3-flash-preview",
+    "zai": "glm-4.5-flash",
+    "kimi-coding": "kimi-k2-turbo-preview",
+    "kimi-coding-cn": "kimi-k2-turbo-preview",
     "minimax": "MiniMax-M2.7",
-    "openai": "gpt-4o-mini",
-    "moonshot": "moonshot-v1-8k",
+    "minimax-cn": "MiniMax-M2.7",
+    "anthropic": "claude-haiku-4-5-20251001",
+    "ai-gateway": "google/gemini-3-flash",
+    "opencode-zen": "gemini-3-flash",
+    "opencode-go": "glm-5",
+    "kilocode": "google/gemini-3-flash-preview",
 }
 
-# ============================================================================
-# HTTP客户端管理
-# ============================================================================
+# Vision 专用模型映射
+_PROVIDER_VISION_MODELS: Dict[str, str] = {
+    "xiaomi": "mimo-v2-omni",
+}
 
-_http_client: Optional[Any] = None
+# OpenRouter 归属头
+_OR_HEADERS = {
+    "HTTP-Referer": "https://mimir-aether.nousresearch.com",
+    "X-OpenRouter-Title": "MimirAether",
+}
 
+# Nous Portal extra_body 标签
+NOUS_EXTRA_BODY = {"tags": ["product=mimir-aether"]}
 
-async def get_http_client():
-    """获取或创建全局HTTP客户端"""
-    global _http_client
-    if _http_client is None:
-        import aiohttp
-        _http_client = aiohttp.ClientSession()
-    return _http_client
+# ═══════════════════════════════════════════════════════════════════════════════
+# 凭证池集成
+# ═══════════════════════════════════════════════════════════════════════════════
 
-
-async def close_client():
-    """关闭HTTP客户端"""
-    global _http_client
-    if _http_client:
-        await _http_client.close()
-        _http_client = None
-
-
-# ============================================================================
-# Provider路由（学习自Hermes）
-# ============================================================================
-
-def _normalize_provider(provider: str) -> str:
-    """规范化Provider名称"""
-    aliases = {
-        "google": "openai",  # Gemini通过OpenAI兼容API
-        "gemini": "openai",
-        "claude": "anthropic",
-        "kimi": "moonshot",
-        "moonshot": "moonshot",
-    }
-    return aliases.get(provider.lower(), provider.lower())
-
-
-def _resolve_provider_config(provider: str) -> Tuple[str, str, str]:
-    """
-    解析Provider配置（优先从凭证池获取）
+def _select_pool_entry(provider: str) -> Tuple[bool, Optional[Any]]:
+    """从凭证池选择 entry。
     
     Returns:
-        (base_url, api_key, model)
+        (pool_exists, selected_entry) — pool_exists 表示该 provider 在池中有配置。
     """
-    provider = _normalize_provider(provider)
-    
-    # 优先从凭证池获取
-    api_key = _get_credential_api_key(provider)
-    
-    # 如果凭证池没有，从环境变量获取
-    if not api_key:
-        api_key_map = {
-            "deepseek": "DEEPSEEK_API_KEY",
-            "anthropic": "ANTHROPIC_API_KEY",
-            "minimax": "MINIMAX_API_KEY",
-            "openai": "OPENAI_API_KEY",
-            "moonshot": "MOONSHOT_API_KEY",
-        }
-        env_var = api_key_map.get(provider, "DEEPSEEK_API_KEY")
-        api_key = os.environ.get(env_var, "").strip()
-    
-    # 如果没找到，尝试DeepSeek作为fallback
-    if not api_key:
-        api_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
-        provider = "deepseek"
-    
-    base_url = PROVIDER_BASE_URLS.get(provider, PROVIDER_BASE_URLS["deepseek"])
-    model = PROVIDER_MODELS.get(provider, PROVIDER_MODELS["deepseek"])
-    
-    return base_url, api_key, model
-
-
-# ============================================================================
-# 核心LLM调用
-# ============================================================================
-
-async def async_call_llm(
-    prompt: str,
-    model: str = "deepseek-chat",
-    system_prompt: Optional[str] = None,
-    max_tokens: int = 4096,
-    temperature: float = 0.7,
-    provider: str = "auto",
-    **kwargs
-) -> str:
-    """
-    异步调用LLM（支持多Provider）
-    
-    Args:
-        prompt: 用户提示
-        model: 模型名称
-        system_prompt: 系统提示（可选）
-        max_tokens: 最大生成token数
-        temperature: 温度参数
-        provider: Provider选择（auto/deepseek/anthropic/minimax/openai/moonshot）
-        **kwargs: 其他参数
-    
-    Returns:
-        模型生成的文本内容
-    """
-    # 自动选择Provider
-    if provider == "auto":
-        provider = _detect_provider(model)
-    
-    base_url, api_key, effective_model = _resolve_provider_config(provider)
-    
-    if not api_key:
-        raise ValueError(f"No API key found for provider: {provider}")
-    
-    # 构建消息
-    messages = []
-    if system_prompt:
-        messages.append({"role": "system", "content": system_prompt})
-    messages.append({"role": "user", "content": prompt})
-    
-    # 根据Provider选择API格式
-    if provider == "anthropic":
-        return await _call_anthropic(
-            base_url=base_url,
-            api_key=api_key,
-            model=effective_model,
-            messages=messages,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            **kwargs
-        )
-    else:
-        return await _call_openai_compatible(
-            base_url=base_url,
-            api_key=api_key,
-            model=effective_model,
-            messages=messages,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            **kwargs
-        )
-
-
-async def async_call_with_failover(
-    prompt: str,
-    model: str = "deepseek-chat",
-    system_prompt: Optional[str] = None,
-    max_tokens: int = 4096,
-    temperature: float = 0.7,
-    providers: Optional[list] = None,
-    **kwargs
-) -> str:
-    """
-    带failover的LLM调用
-    
-    如果主Provider失败，自动尝试备选Provider。
-    
-    Args:
-        providers: Provider列表，按优先级排序。默认为["deepseek", "anthropic", "openai"]
-    """
-    if providers is None:
-        providers = ["deepseek", "anthropic", "openai"]
-    
-    # 如果指定了model，根据model推断provider
-    if model:
-        detected = _detect_provider(model)
-        if detected not in providers:
-            providers = [detected] + [p for p in providers if p != detected]
-    
-    errors = []
-    for provider in providers:
-        try:
-            return await async_call_llm(
-                prompt=prompt,
-                model=model,
-                system_prompt=system_prompt,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                provider=provider,
-                **kwargs
-            )
-        except Exception as e:
-            errors.append(f"{provider}: {str(e)[:50]}")
-            logger.debug(f"Provider {provider} failed: {e}")
-            continue
-    
-    # 所有Provider都失败
-    raise RuntimeError(f"All providers failed: {'; '.join(errors)}")
-
-
-def _detect_provider(model: str) -> str:
-    """根据模型名检测Provider"""
-    model_lower = model.lower()
-    if "claude" in model_lower or "anthropic" in model_lower:
-        return "anthropic"
-    if "deepseek" in model_lower:
-        return "deepseek"
-    if "gpt" in model_lower or "openai" in model_lower:
-        return "openai"
-    if "minimax" in model_lower:
-        return "minimax"
-    if "moonshot" in model_lower or "kimi" in model_lower:
-        return "moonshot"
-    return "deepseek"  # 默认
-
-
-async def _call_openai_compatible(
-    base_url: str,
-    api_key: str,
-    model: str,
-    messages: list,
-    max_tokens: int,
-    temperature: float,
-    **kwargs
-) -> str:
-    """调用OpenAI兼容API"""
-    payload = {
-        "model": model,
-        "messages": messages,
-        "max_tokens": max_tokens,
-        "temperature": temperature,
-        **kwargs
-    }
-    
-    # 移除可能干扰的参数
-    payload = {k: v for k, v in payload.items() 
-                if k not in ("api_key", "provider") and v is not None}
-    
-    client = await get_http_client()
-    
     try:
-        async with client.post(
-            f"{base_url}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json"
-            },
-            json=payload,
-            timeout=aiohttp.ClientTimeout(total=120)
-        ) as resp:
-            if resp.status != 200:
-                error_text = await resp.text()
-                raise Exception(f"API error {resp.status}: {error_text}")
-            
-            result = await resp.json()
-            return extract_content_or_reasoning(result)
-            
-    except Exception as e:
-        logger.error(f"_call_openai_compatible failed: {e}")
-        raise
-
-
-async def _call_anthropic(
-    base_url: str,
-    api_key: str,
-    model: str,
-    messages: list,
-    max_tokens: int,
-    temperature: float,
-    **kwargs
-) -> str:
-    """调用Anthropic API（Messages格式）"""
-    # 转换消息格式
-    system_content = ""
-    anthropic_messages = []
-    
-    for msg in messages:
-        if msg["role"] == "system":
-            system_content = msg["content"]
-        else:
-            anthropic_messages.append({
-                "role": msg["role"],
-                "content": msg["content"]
-            })
-    
-    payload = {
-        "model": model,
-        "max_tokens": max_tokens,
-        "messages": anthropic_messages,
-    }
-    
-    if system_content:
-        payload["system"] = system_content
-    
-    if temperature != 0.7:
-        payload["temperature"] = temperature
-    
-    client = await get_http_client()
-    
+        pool = load_pool(provider)
+    except Exception as exc:
+        logger.debug("Auxiliary: could not load pool for %s: %s", provider, exc)
+        return False, None
+    if not pool or not pool.has_credentials():
+        return False, None
     try:
-        async with client.post(
-            f"{base_url}/v1/messages",
-            headers={
-                "x-api-key": api_key,
-                "Content-Type": "application/json",
-                "anthropic-version": "2023-06-01"
-            },
-            json=payload,
-            timeout=aiohttp.ClientTimeout(total=120)
-        ) as resp:
-            if resp.status != 200:
-                error_text = await resp.text()
-                raise Exception(f"Anthropic API error {resp.status}: {error_text}")
-            
-            result = await resp.json()
-            # Anthropic响应格式
-            content = result.get("content", [])
-            if content and isinstance(content, list):
-                return content[0].get("text", "")
-            return ""
-            
-    except Exception as e:
-        logger.error(f"_call_anthropic failed: {e}")
-        raise
+        return True, pool.select()
+    except Exception as exc:
+        logger.debug("Auxiliary: could not select pool entry for %s: %s", provider, exc)
+        return True, None
 
 
-def extract_content_or_reasoning(response: Dict) -> str:
-    """从API响应中提取内容"""
-    try:
-        # OpenAI兼容格式
-        choices = response.get("choices", [])
-        if choices:
-            choice = choices[0]
-            # reasoning_content优先
-            message = choice.get("message", {})
-            if "reasoning_content" in message:
-                rc = message["reasoning_content"]
-                if rc:
-                    return rc
-            content = message.get("content", "")
-            if content:
-                return content
-        
+def _pool_runtime_api_key(entry: Any) -> str:
+    """从池 entry 提取 API key。"""
+    if entry is None:
         return ""
-        
-    except Exception as e:
-        logger.error(f"extract_content_or_reasoning failed: {e}")
-        return ""
+    key = getattr(entry, "runtime_api_key", None) or getattr(entry, "access_token", "")
+    return str(key or "").strip()
 
 
-# ============================================================================
-# 同步版本（兼容browser_tool）
-# ============================================================================
-
-def call_llm(
-    prompt: str, 
-    model: str = "deepseek-chat", 
-    system_prompt: Optional[str] = None,
-    provider: str = "auto",
-    **kwargs
-) -> str:
-    """同步版本call_llm（兼容browser_tool）"""
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    
-    return loop.run_until_complete(
-        async_call_llm(
-            prompt=prompt, 
-            model=model, 
-            system_prompt=system_prompt,
-            provider=provider,
-            **kwargs
-        )
+def _pool_runtime_base_url(entry: Any, fallback: str = "") -> str:
+    """从池 entry 提取 base URL。"""
+    if entry is None:
+        return str(fallback or "").strip().rstrip("/")
+    url = (
+        getattr(entry, "runtime_base_url", None)
+        or getattr(entry, "inference_base_url", None)
+        or getattr(entry, "base_url", None)
+        or fallback
     )
+    return str(url or "").strip().rstrip("/")
+
+
+def _to_openai_base_url(base_url: str) -> str:
+    """将 Anthropic 风格 URL 转为 OpenAI 兼容格式。
+    
+    MiniMax 等 provider 暴露 /anthropic 和 /v1 两个端点，
+    辅助客户端使用 OpenAI SDK，必须走 /v1 路径。
+    """
+    url = str(base_url or "").strip().rstrip("/")
+    if url.endswith("/anthropic"):
+        rewritten = url[:-len("/anthropic")] + "/v1"
+        logger.debug("Auxiliary: rewrote base URL %s -> %s", url, rewritten)
+        return rewritten
+    return url
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 配置读取
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _read_main_model() -> str:
+    """读取用户配置的主模型。"""
+    try:
+        from hermes_cli.config import load_config
+        cfg = load_config()
+        model_cfg = cfg.get("model", {})
+        if isinstance(model_cfg, str) and model_cfg.strip():
+            return model_cfg.strip()
+        if isinstance(model_cfg, dict):
+            default = model_cfg.get("default", "")
+            if isinstance(default, str) and default.strip():
+                return default.strip()
+    except Exception:
+        pass
+    return ""
+
+
+def _read_main_provider() -> str:
+    """读取用户配置的主 provider。"""
+    try:
+        from hermes_cli.config import load_config
+        cfg = load_config()
+        model_cfg = cfg.get("model", {})
+        if isinstance(model_cfg, dict):
+            provider = model_cfg.get("provider", "")
+            if isinstance(provider, str) and provider.strip():
+                return provider.strip().lower()
+    except Exception:
+        pass
+    return ""
+
+
+def _current_custom_base_url() -> str:
+    """获取当前自定义端点 base URL。"""
+    custom_base, _, _ = _resolve_custom_runtime()
+    return custom_base or ""
+
+
+def _resolve_custom_runtime() -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """解析自定义端点配置。
+    
+    返回 (base_url, api_key, api_mode)。
+    优先从 config.yaml 读取，回退到环境变量。
+    """
+    # 从 config.yaml 读取 custom provider 配置
+    custom_base = None
+    custom_key = None
+    custom_mode = None
+    
+    try:
+        from hermes_cli.config import load_config
+        cfg = load_config()
+        model_cfg = cfg.get("model", {}) if isinstance(cfg, dict) else {}
+        if isinstance(model_cfg, dict):
+            custom_base = model_cfg.get("base_url", "").strip() or None
+            custom_key = model_cfg.get("api_key", "").strip() or None
+            custom_mode = model_cfg.get("api_mode", "").strip() or None
+    except Exception:
+        pass
+    
+    # 回退到环境变量
+    if not custom_base:
+        custom_base = os.getenv("OPENAI_BASE_URL", "").strip().rstrip("/") or None
+    if not custom_key:
+        custom_key = os.getenv("OPENAI_API_KEY", "").strip() or None
+    
+    # 过滤 OpenRouter（custom 回退到 OpenRouter 时不算自定义端点）
+    if custom_base and "openrouter.ai" in custom_base.lower():
+        return None, None, None
+    
+    # 本地服务器不需要认证
+    if custom_base and not custom_key:
+        custom_key = "no-key-required"
+    
+    if not custom_base:
+        return None, None, None
+    
+    return custom_base, custom_key, custom_mode
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Provider 解析辅助函数（_try_* 系列）
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _read_nous_auth() -> Optional[dict]:
+    """读取 Nous Portal 认证状态。"""
+    pool_present, entry = _select_pool_entry("nous")
+    if pool_present:
+        if entry is None:
+            return None
+        return {
+            "source": "pool",
+            "token": _pool_runtime_api_key(entry),
+            "inference_base_url": _pool_runtime_base_url(entry, _NOUS_DEFAULT_BASE_URL),
+        }
+    if not _AUTH_JSON_PATH.exists():
+        return None
+    try:
+        with open(_AUTH_JSON_PATH, "r") as f:
+            auth_data = json.load(f)
+    except Exception:
+        return None
+    if not isinstance(auth_data, dict):
+        return None
+    active = auth_data.get("active_provider", "")
+    provs = auth_data.get("providers", {})
+    if not isinstance(provs, dict):
+        return None
+    state = provs.get(active, {}) if active else {}
+    if not isinstance(state, dict):
+        return None
+    if state.get("provider") != "nous":
+        return None
+    tokens = state.get("tokens", {})
+    if isinstance(tokens, dict) and tokens.get("access_token"):
+        return {"source": "auth_json", "tokens": tokens, "state": state}
+    return None
+
+
+def _nous_api_key(nous: dict) -> str:
+    """从 Nous 认证数据提取 API key。"""
+    if nous.get("source") == "pool":
+        return nous.get("token", "")
+    tokens = nous.get("tokens", {})
+    return tokens.get("access_token", "")
+
+
+def _nous_base_url() -> str:
+    """获取 Nous Portal base URL。"""
+    pool_present, entry = _select_pool_entry("nous")
+    if pool_present and entry is not None:
+        url = _pool_runtime_base_url(entry, _NOUS_DEFAULT_BASE_URL)
+        if url:
+            return url
+    return _NOUS_DEFAULT_BASE_URL
+
+
+def _try_openrouter() -> Tuple[Optional[OpenAI], Optional[str]]:
+    """尝试 OpenRouter provider。"""
+    pool_present, entry = _select_pool_entry("openrouter")
+    if pool_present:
+        or_key = _pool_runtime_api_key(entry)
+        if not or_key:
+            return None, None
+        base_url = _pool_runtime_base_url(entry, OPENROUTER_BASE_URL) or OPENROUTER_BASE_URL
+        logger.debug("Auxiliary: OpenRouter via pool")
+        return OpenAI(api_key=or_key, base_url=base_url,
+                       default_headers=_OR_HEADERS), _OPENROUTER_MODEL
+    
+    or_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+    if not or_key:
+        return None, None
+    logger.debug("Auxiliary: OpenRouter via env")
+    return OpenAI(api_key=or_key, base_url=OPENROUTER_BASE_URL,
+                   default_headers=_OR_HEADERS), _OPENROUTER_MODEL
+
+
+def _try_nous(vision: bool = False) -> Tuple[Optional[OpenAI], Optional[str]]:
+    """尝试 Nous Portal provider。"""
+    nous = _read_nous_auth()
+    if not nous:
+        return None, None
+    global auxiliary_is_nous
+    auxiliary_is_nous = True
+    logger.debug("Auxiliary: Nous Portal")
+    if nous.get("source") == "pool":
+        model = "gemini-3-flash"
+    else:
+        model = _NOUS_MODEL
+    # 免费层模型降级
+    try:
+        from hermes_cli.models import check_nous_free_tier
+        if check_nous_free_tier():
+            model = _NOUS_FREE_TIER_VISION_MODEL if vision else _NOUS_FREE_TIER_AUX_MODEL
+            logger.debug("Free-tier Nous — using %s for auxiliary/%s",
+                         model, "vision" if vision else "text")
+    except ImportError:
+        pass
+    return (
+        OpenAI(
+            api_key=_nous_api_key(nous),
+            base_url=str(nous.get("inference_base_url", 
+                       nous.get("state", {}).get("inference_base_url", _nous_base_url())
+                       if nous.get("source") != "pool" else _nous_base_url())).rstrip("/"),
+        ),
+        model,
+    )
+
+
+def _try_custom_endpoint() -> Tuple[Optional[OpenAI], Optional[str]]:
+    """尝试自定义端点 (OPENAI_BASE_URL + OPENAI_API_KEY)。"""
+    result = _resolve_custom_runtime()
+    if len(result) == 2:
+        custom_base, custom_key = result
+        custom_mode = None
+    else:
+        custom_base, custom_key, custom_mode = result
+    if not custom_base or not custom_key:
+        return None, None
+    
+    main_model = _read_main_model() or "gpt-4o-mini"
+    extra = {}
+    if "api.kimi.com" in custom_base.lower():
+        extra["default_headers"] = {"User-Agent": "KimiCLI/1.30.0"}
+    logger.debug("Auxiliary: custom endpoint %s", custom_base[:60])
+    return OpenAI(api_key=custom_key, base_url=custom_base, **extra), main_model
+
+
+def _try_anthropic() -> Tuple[Optional[Any], Optional[str]]:
+    """尝试 Anthropic 原生 provider。"""
+    from agent.anthropic_adapter import build_anthropic_client
+    
+    try:
+        client = build_anthropic_client()
+        if client is None:
+            return None, None
+    except Exception as exc:
+        logger.debug("Auxiliary: anthropic client build failed: %s", exc)
+        return None, None
+    
+    model = _API_KEY_PROVIDER_AUX_MODELS.get("anthropic", "claude-haiku-4-5-20251001")
+    api_key = getattr(client, "api_key", "")
+    base_url = getattr(client, "base_url", _ANTHROPIC_DEFAULT_BASE_URL)
+    
+    # 包装为 AnthropicAuxiliaryClient（适配器模式）
+    wrapped = AnthropicAuxiliaryClient(client, model, api_key, base_url)
+    return wrapped, model
+
+
+def _resolve_api_key_provider() -> Tuple[Optional[OpenAI], Optional[str]]:
+    """遍历 API-key provider 注册表，返回第一个有凭证的。
+    
+    注：MimirAether 不使用 Hermes 的 PROVIDER_REGISTRY（太大），
+    而是直接遍历 credential_pool 中已配置的 provider。
+    """
+    # 优先尝试 MimirAether 已知的 provider
+    known_providers = ["deepseek", "gemini", "zai", "minimax", "minimax-cn", "kimi-coding", "kimi-coding-cn"]
+    
+    for provider_id in known_providers:
+        if provider_id == "anthropic":
+            continue  # 由 _try_anthropic 单独处理
+        
+        pool_present, entry = _select_pool_entry(provider_id)
+        api_key = ""
+        base_url = ""
+        
+        if pool_present:
+            api_key = _pool_runtime_api_key(entry)
+            base_url = _to_openai_base_url(_pool_runtime_base_url(entry, ""))
+        
+        # 回退到环境变量
+        if not api_key:
+            env_map = {
+                "deepseek": "DEEPSEEK_API_KEY",
+                "gemini": "GEMINI_API_KEY",
+                "minimax": "MINIMAX_API_KEY",
+                "minimax-cn": "MINIMAX_API_KEY",
+                "kimi-coding": "MOONSHOT_API_KEY",
+                "kimi-coding-cn": "MOONSHOT_API_KEY",
+            }
+            env_var = env_map.get(provider_id)
+            if env_var:
+                api_key = os.getenv(env_var, "").strip()
+        
+        if not api_key:
+            continue
+        
+        if not base_url:
+            url_map = {
+                "deepseek": "https://api.deepseek.com",
+                "gemini": "https://generativelanguage.googleapis.com/v1beta/openai",
+                "minimax": "https://api.minimax.chat/v1",
+                "minimax-cn": "https://api.minimax.chat/v1",
+                "kimi-coding": "https://api.moonshot.cn/v1",
+                "kimi-coding-cn": "https://api.moonshot.cn/v1",
+            }
+            base_url = url_map.get(provider_id, "")
+        
+        if not base_url:
+            continue
+        
+        model = _API_KEY_PROVIDER_AUX_MODELS.get(provider_id)
+        if model is None:
+            continue
+        
+        extra = {}
+        if "api.kimi.com" in base_url.lower():
+            extra["default_headers"] = {"User-Agent": "KimiCLI/1.30.0"}
+        
+        logger.debug("Auxiliary: API-key provider %s (%s)", provider_id, model)
+        return OpenAI(api_key=api_key, base_url=base_url, **extra), model
+    
+    return None, None
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Anthropic 适配器 — 将 Anthropic Messages API 包装为 chat.completions 接口
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class _AnthropicCompletionsAdapter:
+    """OpenAI-client-compatible adapter for Anthropic Messages API."""
+
+    def __init__(self, real_client: Any, model: str, is_oauth: bool = False):
+        self._client = real_client
+        self._model = model
+        self._is_oauth = is_oauth
+
+    def create(self, **kwargs) -> Any:
+        from agent.anthropic_adapter import build_anthropic_kwargs, normalize_anthropic_response
+
+        messages = kwargs.get("messages", [])
+        model = kwargs.get("model", self._model)
+        tools = kwargs.get("tools")
+        tool_choice = kwargs.get("tool_choice")
+        max_tokens = kwargs.get("max_tokens") or kwargs.get("max_completion_tokens") or 2000
+        temperature = kwargs.get("temperature")
+
+        normalized_tool_choice = None
+        if isinstance(tool_choice, str):
+            normalized_tool_choice = tool_choice
+        elif isinstance(tool_choice, dict):
+            choice_type = str(tool_choice.get("type", "")).lower()
+            if choice_type == "function":
+                normalized_tool_choice = tool_choice.get("function", {}).get("name")
+            elif choice_type in {"auto", "required", "none"}:
+                normalized_tool_choice = choice_type
+
+        anthropic_kwargs = build_anthropic_kwargs(
+            model=model,
+            messages=messages,
+            tools=tools,
+            max_tokens=max_tokens,
+            reasoning_config=None,
+            tool_choice=normalized_tool_choice,
+            is_oauth=self._is_oauth,
+        )
+        if temperature is not None:
+            anthropic_kwargs["temperature"] = temperature
+
+        response = self._client.messages.create(**anthropic_kwargs)
+        assistant_message, finish_reason = normalize_anthropic_response(response)
+
+        usage = None
+        if hasattr(response, "usage") and response.usage:
+            prompt_tokens = getattr(response.usage, "input_tokens", 0) or 0
+            completion_tokens = getattr(response.usage, "output_tokens", 0) or 0
+            total_tokens = getattr(response.usage, "total_tokens", 0) or (prompt_tokens + completion_tokens)
+            usage = SimpleNamespace(
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
+            )
+
+        choice = SimpleNamespace(
+            index=0,
+            message=assistant_message,
+            finish_reason=finish_reason,
+        )
+        return SimpleNamespace(
+            choices=[choice],
+            model=model,
+            usage=usage,
+        )
+
+
+class _AnthropicChatShim:
+    def __init__(self, adapter: _AnthropicCompletionsAdapter):
+        self.completions = adapter
+
+
+class AnthropicAuxiliaryClient:
+    """OpenAI-client-compatible wrapper over a native Anthropic client."""
+
+    def __init__(self, real_client: Any, model: str, api_key: str, base_url: str, is_oauth: bool = False):
+        self._real_client = real_client
+        adapter = _AnthropicCompletionsAdapter(real_client, model, is_oauth=is_oauth)
+        self.chat = _AnthropicChatShim(adapter)
+        self.api_key = api_key
+        self.base_url = base_url
+
+    def close(self):
+        close_fn = getattr(self._real_client, "close", None)
+        if callable(close_fn):
+            close_fn()
+
+
+class _AsyncAnthropicCompletionsAdapter:
+    def __init__(self, sync_adapter: _AnthropicCompletionsAdapter):
+        self._sync = sync_adapter
+
+    async def create(self, **kwargs) -> Any:
+        import asyncio
+        return await asyncio.to_thread(self._sync.create, **kwargs)
+
+
+class _AsyncAnthropicChatShim:
+    def __init__(self, adapter: _AsyncAnthropicCompletionsAdapter):
+        self.completions = adapter
+
+
+class AsyncAnthropicAuxiliaryClient:
+    def __init__(self, sync_wrapper: "AnthropicAuxiliaryClient"):
+        sync_adapter = sync_wrapper.chat.completions
+        async_adapter = _AsyncAnthropicCompletionsAdapter(sync_adapter)
+        self.chat = _AsyncAnthropicChatShim(async_adapter)
+        self.api_key = sync_wrapper.api_key
+        self.base_url = sync_wrapper.base_url
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 错误分类 — 付款/连接错误检测
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _is_payment_error(exc: Exception) -> bool:
+    """检测付款/信用/额度耗尽错误。
+    
+    HTTP 402 或消息中包含 credit/billing 关键字的错误。
+    """
+    status = getattr(exc, "status_code", None)
+    if status == 402:
+        return True
+    err_lower = str(exc).lower()
+    if status in (402, 429, None):
+        if any(kw in err_lower for kw in ("credits", "insufficient funds",
+                                           "can only afford", "billing",
+                                           "payment required")):
+            return True
+    return False
+
+
+def _is_connection_error(exc: Exception) -> bool:
+    """检测连接/网络错误。
+    
+    DNS 失败、连接拒绝、TLS 错误、超时等。
+    """
+    from openai import APIConnectionError, APITimeoutError
+
+    if isinstance(exc, (APIConnectionError, APITimeoutError)):
+        return True
+    err_type = type(exc).__name__
+    if any(kw in err_type for kw in ("Connection", "Timeout", "DNS", "SSL")):
+        return True
+    err_lower = str(exc).lower()
+    if any(kw in err_lower for kw in (
+        "connection refused", "name or service not known",
+        "no route to host", "network is unreachable",
+        "timed out", "connection reset",
+    )):
+        return True
+    return False

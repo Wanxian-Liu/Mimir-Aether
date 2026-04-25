@@ -74,6 +74,7 @@ class MessageRole(Enum):
 
 
 @dataclass
+@dataclass
 class Message:
     """对话消息"""
     role: MessageRole
@@ -81,6 +82,7 @@ class Message:
     name: Optional[str] = None
     tool_calls: Optional[List[Dict]] = None
     tool_call_id: Optional[str] = None
+    reasoning_content: Optional[str] = None  # DeepSeek V4 Pro reasoning
 
 
 @dataclass
@@ -1237,11 +1239,13 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 # 添加助手响应到历史(仅当有内容或tool_calls时)
                 response_content = response.get("content") or ""
                 response_tool_calls = response.get("tool_calls")
+                response_reasoning = response.get("reasoning_content")  # DeepSeek V4 Pro
                 if response_content or response_tool_calls:
                     self.conversation_history.append(Message(
                         role=MessageRole.ASSISTANT,
                         content=response_content,
-                        tool_calls=response_tool_calls
+                        tool_calls=response_tool_calls,
+                        reasoning_content=response_reasoning
                     ))
                 
                 # Hermes风格:提取reasoning内容(学习自Hermes)
@@ -1343,6 +1347,10 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
             "content": self.system_prompt
         })
 
+        # 检测是否需要reasoning_content传播(DeepSeek V4 Pro等模型需要)
+        needs_propagation = self._needs_reasoning_propagation()
+        has_seen_reasoning = False  # 标记是否已见过带reasoning的assistant消息
+
         # 对话历史(从开始到最新,全部包含)
         for msg in self.conversation_history:
             msg_dict = {
@@ -1355,9 +1363,48 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 msg_dict["tool_call_id"] = msg.tool_call_id
             if msg.tool_calls:
                 msg_dict["tool_calls"] = msg.tool_calls
+
+            # reasoning_content传播: DeepSeek V4 Pro要求所有assistant消息必须包含该字段
+            if msg.role == MessageRole.ASSISTANT:
+                if needs_propagation:
+                    # 如果之前已见过带reasoning的assistant，当前必须也有
+                    if has_seen_reasoning:
+                        msg_dict["reasoning_content"] = msg.reasoning_content or ""
+                    else:
+                        # 第一个assistant消息，有就传，没有就不传
+                        msg_dict["reasoning_content"] = msg.reasoning_content
+                    if msg.reasoning_content:
+                        has_seen_reasoning = True
+                elif msg.reasoning_content:
+                    msg_dict["reasoning_content"] = msg.reasoning_content
+            elif msg.reasoning_content:
+                # tool消息的reasoning_content也传递
+                msg_dict["reasoning_content"] = msg.reasoning_content
+
             messages.append(msg_dict)
 
         return messages
+
+    def _needs_reasoning_propagation(self) -> bool:
+        """检测当前模型是否需要reasoning_content传播。
+
+        DeepSeek V4 Pro等模型在thinking模式下，
+        如果对话历史中有assistant消息携带了reasoning_content，
+        则后续所有assistant消息也必须包含该字段。
+        """
+        model_lower = self.model.lower() if self.model else ""
+
+        # 仅对支持thinking模式的模型进行检查
+        thinking_models = ("deepseek", "kimi", "moonshot")
+        if not any(tm in model_lower for tm in thinking_models):
+            return False
+
+        # 检查对话历史中是否有assistant消息携带了reasoning_content
+        for msg in self.conversation_history:
+            if msg.role == MessageRole.ASSISTANT and msg.reasoning_content:
+                return True
+
+        return False
     async def _call_model_with_tokens(
         self, messages: List[Dict], session_id: str
     ) -> tuple[Dict, float]:
@@ -1530,7 +1577,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                         metadata={"session_id": session_id, "platform": self.platform}
                     )
 
-                    return {"content": content, "tool_calls": tool_calls}, latency_ms
+                    return {"content": content, "tool_calls": tool_calls, "reasoning_content": assistant_message.get("reasoning_content")}, latency_ms
 
         except aiohttp.ClientResponseError as e:
             if e.status == 429:
