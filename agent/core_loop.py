@@ -239,52 +239,48 @@ class IterationBudget:
             return self.max_total - self._used
 
 
+
+# ── 工具注册表已统一到 tools/registry.py（Hermes 模式） ──
+# 本地 ToolRegistry 兼容层：委托到真正的 tools.registry.registry
+# 新代码应直接使用 tools.registry.registry 而非此兼容层。
+import tools.registry as _tool_registry_module
+
+
 class ToolRegistry:
     """
-    工具注册表
+    工具注册表（兼容层）
 
-    提供工具注册和调用功能
+    委托到 tools.registry.registry，提供与旧代码兼容的接口。
+    工具通过 tools/ 目录下的模块自动注册（builtin.py, mimircore_tool.py 等），
+    不再需要在 agent 中手动注册。
     """
 
     def __init__(self):
-        self._tools: Dict[str, Callable] = {}
-        self._schemas: Dict[str, Dict] = {}
+        # 委托到真正的全局 registry（单例）
+        self._real_registry = _tool_registry_module.registry
 
-    def register(self, name: str, func: Callable, schema: Dict):
-        """注册工具"""
-        # 基础schema校验
-        if not isinstance(schema, dict):
-            raise ValueError(f"Invalid schema type for tool {name}: expected dict")
-        if "parameters" not in schema:
-            raise ValueError(f"Invalid schema for tool {name}: missing 'parameters' field")
+    def register(self, name: str, func: callable, schema: dict):
+        """注册工具（委托到真正的 registry）"""
+        self._real_registry.register(
+            name=name,
+            toolset="compat",
+            schema={"name": name, "description": schema.get("description", f"Tool: {name}"),
+                    "parameters": schema.get("parameters", {})},
+            handler=lambda args, **kw: func(**args) if callable(func) else func(args),
+        )
 
-        self._tools[name] = func
-        self._schemas[name] = schema
-        logger.info(f"Registered tool: {name}")
+    async def execute(self, name: str, arguments: dict):
+        """执行工具（委托到真正的 registry.dispatch）"""
+        result_str = self._real_registry.dispatch(name, arguments)
+        return result_str
 
-    async def execute(self, name: str, arguments: Dict) -> Any:
-        """执行工具"""
-        if name not in self._tools:
-            raise ValueError(f"Tool not found: {name}")
-
-        func = self._tools[name]
-        try:
-            if asyncio.iscoroutinefunction(func):
-                result = await func(**arguments)
-            else:
-                result = func(**arguments)
-            return result
-        except Exception as e:
-            logger.error(f"Tool execution failed: {name}, error: {e}")
-            raise
-
-    def list_tools(self) -> List[str]:
+    def list_tools(self):
         """列出所有工具"""
-        return list(self._tools.keys())
+        return self._real_registry.get_all_tool_names()
 
-    def get_schema(self, name: str) -> Optional[Dict]:
-        """获取工具schema"""
-        return self._schemas.get(name)
+    def get_schema(self, name: str):
+        """获取工具 schema"""
+        return self._real_registry.get_schema(name)
 
 
 class MimirAetherAgent:
@@ -607,53 +603,46 @@ class MimirAetherAgent:
             return self._default_system_prompt()
 
     def _register_builtin_tools(self):
-        """注册内置工具"""
+        """注册内置工具（Hermes 模式：工具通过模块导入自注册）
+
+        工具现在通过 tools/ 目录下各模块的 registry.register() 调用自动注册。
+        只需导入模块即可触发注册。Skill 工具仍需手动注册。
+        """
+        import sys
+        from pathlib import Path
+
+        # 将MimirAether根目录添加到path
+        mimir_root = Path(__file__).parent.parent
+        if str(mimir_root) not in sys.path:
+            sys.path.insert(0, str(mimir_root))
+
+        # ── 导入工具模块（自注册到 tools.registry.registry） ──
+        builtin_count = 0
+        mimircore_count = 0
         try:
-            import sys
-            from pathlib import Path
-
-            # 将MimirAether根目录添加到path
-            mimir_root = Path(__file__).parent.parent
-            if str(mimir_root) not in sys.path:
-                sys.path.insert(0, str(mimir_root))
-
-            # 注册builtin工具
-            from tools.builtin import get_tool_functions as get_builtin_functions
-            from tools.builtin import get_all_tools as get_builtin_schemas
-
-            builtin_functions = get_builtin_functions()
-            builtin_schemas = get_builtin_schemas()
-
-            for name, func in builtin_functions.items():
-                schema = builtin_schemas.get(name, {})
-                self.tool_registry.register(name, func, schema)
-
-            # 注册MimirCore工具
-            try:
-                from tools.mimircore_tool import get_tool_functions as get_mimircore_functions
-                from tools.mimircore_tool import TOOL_SCHEMAS as mimircore_schemas
-
-                mimircore_functions = get_mimircore_functions()
-                for name, func in mimircore_functions.items():
-                    schema = mimircore_schemas.get(name, {})
-                    self.tool_registry.register(name, func, schema)
-
-                logger.info(f"Registered {len(builtin_functions)} builtin + {len(mimircore_functions)} mimircore tools")
-            except ImportError as e:
-                logger.warning(f"Failed to import mimircore tools: {e}")
-                logger.info(f"Registered {len(builtin_functions)} builtin tools")
-
+            import tools.builtin  # noqa: F401 - 导入即触发 registry.register()
+            builtin_count = len([e for e in _tool_registry_module.registry._tools.values()
+                                if e.toolset in ("file", "code_execution", "web")])
         except ImportError as e:
             logger.warning(f"Failed to import builtin tools: {e}")
 
-        # 注册Skill工具(skill_view, skills_list, skill_manage)
+        try:
+            import tools.mimircore_tool  # noqa: F401 - 导入即触发 registry.register()
+            mimircore_count = len([e for e in _tool_registry_module.registry._tools.values()
+                                  if e.toolset == "mimircore"])
+        except ImportError as e:
+            logger.warning(f"Failed to import mimircore tools: {e}")
+
+        logger.info(f"Self-registered {builtin_count} builtin + {mimircore_count} mimircore tools")
+
+        # ── 注册Skill工具（skill_view, skills_list, skill_manage） ──
         try:
             from skills.skills_loader import skill_view as _skill_view_func, skills_list as _skills_list_func
             from skills.skills_loader import skill_manage as _skill_manage_func
 
             self.tool_registry.register("skill_view", _skill_view_func, SKILL_TOOL_SCHEMAS.get("skill_view", {}))
             self.tool_registry.register("skills_list", _skills_list_func, SKILL_TOOL_SCHEMAS.get("skills_list", {}))
-            self.tool_registry.register("skill_manage", skill_manage_func, SKILL_MANAGE_SCHEMA)
+            self.tool_registry.register("skill_manage", _skill_manage_func, SKILL_MANAGE_SCHEMA)
 
             logger.info("Registered skill tools: skill_view, skills_list, skill_manage")
         except ImportError as e:
@@ -1562,34 +1551,10 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
         max_output_tokens = model_metadata.get_anthropic_max_output(model_name) if "claude" in model_name.lower() else 4096
         max_tokens = min(max_output_tokens, context_length // 4) if context_length else 4096
 
-        # 3. 构建工具schemas(只做一次)
-        from tools.builtin import get_all_tools as get_builtin_schemas
-        raw_schemas = get_builtin_schemas()
-        tool_schemas = []
-        for name, schema in raw_schemas.items():
-            tool_schemas.append({
-                "type": "function",
-                "function": {
-                    "name": name,
-                    "description": schema.get("description", f"Tool: {name}"),
-                    "parameters": schema.get("parameters", {})
-                }
-            })
-
-        # 添加mimircore工具schemas
-        try:
-            from tools.mimircore_tool import TOOL_SCHEMAS as mimircore_schemas
-            for name, schema in mimircore_schemas.items():
-                tool_schemas.append({
-                    "type": "function",
-                    "function": {
-                        "name": name,
-                        "description": schema.get("description", f"Tool: {name}"),
-                        "parameters": schema.get("parameters", {})
-                    }
-                })
-        except ImportError:
-            pass
+        # 3. 构建工具schemas（使用统一 registry，Hermes 模式）
+        tool_schemas = _tool_registry_module.registry.get_definitions(
+            set(_tool_registry_module.registry.get_all_tool_names())
+        )
 
         # 4. 分发到具体调用路径
         # 路径A: Anthropic API
@@ -2052,22 +2017,20 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                     is_error=True
                 )
 
-            # Run sync tool functions in thread pool to prevent
-            # asyncio deadlocks when tools internally use asyncio.run()
-            # (e.g., Modal/Docker/Daytona terminal backends).
-            # Async tool functions run directly in the event loop.
-            tool_func = self.tool_registry._tools.get(func_name)
-            if tool_func is not None and not asyncio.iscoroutinefunction(tool_func):
+            # ── 统一 dispatch：通过 tools.registry.registry.dispatch() ──
+            # dispatch() 返回 JSON 字符串，统一处理错误格式。
+            # Sync handler 在线程池中运行以避免阻塞 event loop。
+            entry = _tool_registry_module.registry._tools.get(func_name)
+            if entry is not None and not entry.is_async:
                 loop = asyncio.get_event_loop()
                 result = await loop.run_in_executor(
                     _tool_executor,
-                    lambda fn=tool_func, args=arguments: fn(**args)
+                    _tool_registry_module.registry.dispatch,
+                    func_name,
+                    arguments,
                 )
             else:
-                result = await self.tool_registry.execute(
-                    name=func_name,
-                    arguments=arguments
-                )
+                result = _tool_registry_module.registry.dispatch(func_name, arguments)
 
             # Plugin hook: post_tool_call
             # 在工具调用后执行

@@ -201,6 +201,30 @@ TOOLSETS = {
         "includes": []
     },
 
+    "mimircore": {
+        "description": "Mimir-Core knowledge capsule system — generate, list, retrieve, and improve knowledge capsules",
+        "tools": ["produce_capsule", "get_capsule_by_id", "list_capsules", "improve_capsule"],
+        "includes": []
+    },
+
+    # MimirAether builtin toolsets (Hermes-aligned)
+    "mimir_file": {
+        "description": "MimirAether file operations: read, write, and environment variable access",
+        "tools": ["read_file", "write_file", "get_env"],
+        "includes": []
+    },
+
+    "mimir_web": {
+        "description": "MimirAether web search",
+        "tools": ["search_web"],
+        "includes": []
+    },
+
+    "mimir_code": {
+        "description": "MimirAether safe code execution (Python subprocess)",
+        "tools": ["execute_code"],
+        "includes": []
+    },
 
     # Scenario-specific toolsets
     
