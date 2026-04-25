@@ -95,7 +95,9 @@ DEFAULT_CONTEXT_LENGTHS = {
     # GLM
     "glm": 202752,
     # xAI Grok
+    "grok-code-fast": 256000,   # grok-code-fast-1
     "grok-4-1-fast": 2000000,
+    "grok-2-vision": 8192,      # grok-2-vision, -1212, -latest
     "grok-4-fast": 2000000,
     "grok-4.20": 2000000,
     "grok-4": 256000,
@@ -839,9 +841,9 @@ def get_model_context_length(
     2. Active endpoint metadata (for truly custom/unknown endpoints)
     3. Local server query
     4. Anthropic /v1/models API
-    5. OpenRouter live API metadata
-    6. Nous suffix-match via OpenRouter cache
-    7. Hardcoded defaults (fuzzy match)
+    5. Provider-aware via models.dev + nous suffix-match
+    6. OpenRouter live API metadata (provider-unaware fallback)
+    7. Hardcoded defaults (fuzzy match, longest key first)
     8. Local server as last resort
     9. Default fallback (128K)
     """
@@ -904,26 +906,31 @@ def get_model_context_length(
         ctx = _resolve_nous_context_length(model)
         if ctx:
             return ctx
+    if effective_provider:
+        from agent.models_dev import lookup_models_dev_context
+        ctx = lookup_models_dev_context(effective_provider, model)
+        if ctx:
+            return ctx
 
-    # 5. OpenRouter live API metadata
+    # 6. OpenRouter live API metadata (provider-unaware fallback)
     metadata = fetch_model_metadata()
     if model in metadata:
         return metadata[model].get("context_length", 128000)
 
-    # 6. Hardcoded defaults (longest key first for specificity)
+    # 7. Hardcoded defaults (longest key first for specificity)
     model_lower = model.lower()
     for default_model, length in sorted(DEFAULT_CONTEXT_LENGTHS.items(), key=lambda x: len(x[0]), reverse=True):
         if default_model in model_lower:
             return length
 
-    # 7. Local server as last resort
+    # 8. Local server as last resort
     if base_url and is_local_endpoint(base_url):
         local_ctx = _query_local_context_length(model, base_url)
         if local_ctx and local_ctx > 0:
             save_context_length(model, base_url, local_ctx)
             return local_ctx
 
-    # 8. Default fallback — 128K
+    # 9. Default fallback — 128K
     return DEFAULT_FALLBACK_CONTEXT
 
 def lookup_default_context_length(model: str) -> Optional[int]:
