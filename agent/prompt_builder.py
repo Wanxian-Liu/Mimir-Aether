@@ -91,9 +91,12 @@ MEMORY_GUIDANCE = (
     "Memory is injected into every turn, so keep it compact and focused on facts that "
     "will still matter later.\n"
     "Prioritize what reduces future user steering — the most valuable memory is one "
-    "that prevents the user from having to correct or remind you again.\n"
+    "that prevents the user from having to correct or remind you again. "
+    "User preferences and recurring corrections matter more than procedural task details.\n"
     "Do NOT save task progress, session outcomes, completed-work logs, or temporary TODO "
-    "state to memory; use session_search to recall those from past transcripts."
+    "state to memory; use session_search to recall those from past transcripts. "
+    "If you've discovered a new way to do something, solved a problem that could be "
+    "necessary later, save it as a skill with the skill tool."
 )
 
 SESSION_SEARCH_GUIDANCE = (
@@ -104,18 +107,26 @@ SESSION_SEARCH_GUIDANCE = (
 
 SKILLS_GUIDANCE = (
     "After completing a complex task (5+ tool calls), fixing a tricky error, "
-    "or discovering a non-trivial workflow, save the approach as a skill.\n"
+    "or discovering a non-trivial workflow, save the approach as a "
+    "skill with skill_manage so you can reuse it next time.\n"
     "When using a skill and finding it outdated, incomplete, or wrong, "
-    "patch it immediately — don't wait to be asked."
+    "patch it immediately with skill_manage(action='patch') — don't wait to be asked. "
+    "Skills that aren't maintained become liabilities."
 )
 
 TOOL_USE_ENFORCEMENT_GUIDANCE = (
     "# Tool-use enforcement\n"
     "You MUST use your tools to take action — do not describe what you would do "
     "or plan to do without actually doing it. When you say you will perform an "
-    "action, you MUST immediately make the corresponding tool call in the same response.\n"
+    "action (e.g. 'I will run the tests', 'Let me check the file', 'I will create "
+    "the project'), you MUST immediately make the corresponding tool call in the same "
+    "response. Never end your turn with a promise of future action — execute it now.\n"
     "Keep working until the task is actually complete. Do not stop with a summary of "
-    "what you plan to do next time."
+    "what you plan to do next time. If you have tools available that can accomplish "
+    "the task, use them instead of telling the user what you would do.\n"
+    "Every response should either (a) contain tool calls that make progress, or "
+    "(b) deliver a final result to the user. Responses that only describe intentions "
+    "without acting are not acceptable."
 )
 
 # 触发工具使用强制的模型名称
