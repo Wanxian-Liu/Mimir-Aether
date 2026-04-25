@@ -1,13 +1,26 @@
 """
 MimirAether 内置工具
 
-提供基础的系统工具。
+提供基础的系统工具。所有工具通过 tools.registry 统一注册，
+与 Hermes 的工具注册模式对齐。
+
+注册模式（学习自 Hermes）:
+    1. 定义函数
+    2. 定义完整 OpenAI function schema（含 name, description, parameters）
+    3. 调用 registry.register() 注册
+
+兼容性说明：
+    get_all_tools() 和 get_tool_functions() 保留用于向后兼容，
+    新代码应使用 registry.get_definitions() 和 registry.dispatch()。
 """
 
 import os
 import json
 import stat
 from typing import Any, Dict
+
+# ── 导入真正的 ToolRegistry（Hermes 模式） ──
+from tools.registry import registry, tool_error, tool_result
 
 # 允许的文件操作基础目录（可配置）
 _ALLOWED_BASE_DIR = os.environ.get("MIMIR_BASE_DIR", os.path.expanduser("~"))
@@ -89,28 +102,22 @@ def _safe_path(path: str) -> str:
     return real_path
 
 
-def read_file(path: str, offset: int = 1, limit: int = 500) -> str:
-    """
-    读取文件内容（安全版本，支持分页）
-    
-    Args:
-        path: 文件路径
-        offset: 起始行号（1-based）
-        limit: 最大读取行数
-        
-    Returns:
-        文件内容字符串
-    """
+# ─────────────────────────────────────────────────────────────
+# 工具处理函数（每个返回 JSON 字符串，符合 Hermes 模式）
+# ─────────────────────────────────────────────────────────────
+
+def _handle_read_file(path: str, offset: int = 1, limit: int = 500) -> str:
+    """读取文件内容（安全版本，支持分页）"""
     try:
         # 设备文件保护 — 阻止读取会阻塞或产生无限输出的设备文件
         if _is_blocked_device(path):
-            return "Error: Cannot read device file (would block or produce infinite output)"
+            return tool_error("Cannot read device file (would block or produce infinite output)")
         
         safe_path = _safe_path(path)
         # 先检查文件大小（避免打开过大的文件）
         file_size = os.path.getsize(safe_path)
         if file_size > MAX_FILE_SIZE:
-            return "Error: File too large"
+            return tool_error("File too large")
         # 使用O_NOFOLLOW防止TOCTOU攻击（最佳实践：检查平台支持）
         flags = os.O_RDONLY
         o_nofollow = getattr(os, "O_NOFOLLOW", None)
@@ -129,34 +136,25 @@ def read_file(path: str, offset: int = 1, limit: int = 500) -> str:
         finally:
             os.close(fd)
     except ValueError:
-        return "Error: Invalid path"
+        return tool_error("Invalid path")
     except FileNotFoundError:
-        return "Error: File not found"
+        return tool_error("File not found")
     except IsADirectoryError:
-        return "Error: Path is a directory, not a file"
+        return tool_error("Path is a directory, not a file")
     except PermissionError:
-        return "Error: Permission denied"
+        return tool_error("Permission denied")
     except OSError:
-        return "Error: Invalid file"
-    except Exception:
-        return "Error reading file"
+        return tool_error("Invalid file")
+    except Exception as e:
+        return tool_error(f"Error reading file: {e}")
 
 
-def write_file(path: str, content: str) -> str:
-    """
-    写入文件内容（安全版本）
-    
-    Args:
-        path: 文件路径
-        content: 要写入的内容
-        
-    Returns:
-        成功消息或错误信息
-    """
+def _handle_write_file(path: str, content: str) -> str:
+    """写入文件内容（安全版本）"""
     try:
         # 检查内容大小
         if len(content.encode('utf-8')) > MAX_FILE_SIZE:
-            return "Error: Content too large"
+            return tool_error("Content too large")
         safe_path = _safe_path(path)
         # 使用O_NOFOLLOW防止TOCTOU攻击（最佳实践：检查平台支持）
         flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
@@ -168,38 +166,26 @@ def write_file(path: str, content: str) -> str:
             os.write(fd, content.encode("utf-8"))
         finally:
             os.close(fd)
-        return "Successfully wrote file"
+        return tool_result(success=True)
     except ValueError:
-        return "Error: Invalid path"
+        return tool_error("Invalid path")
     except PermissionError:
-        return "Error: Permission denied"
-    except Exception:
-        return "Error writing file"
+        return tool_error("Permission denied")
+    except Exception as e:
+        return tool_error(f"Error writing file: {e}")
 
 
-def execute_code(code: str, language: str = "python") -> str:
-    """
-    执行代码
-    
-    安全执行Python代码，使用subprocess + 超时保护。
-    
-    Args:
-        code: 要执行的代码
-        language: 编程语言 (仅支持 python)
-        
-    Returns:
-        执行结果或错误信息
-    """
+def _handle_execute_code(code: str, language: str = "python") -> str:
+    """安全执行Python代码，使用subprocess + 超时保护。"""
     import subprocess
     import tempfile
-    import os
     
     if language != "python":
-        return f"Error: Only Python is supported, got: {language}"
+        return tool_error(f"Only Python is supported, got: {language}")
     
     # 限制代码大小（防止内存耗尽）
     if len(code.encode('utf-8')) > 100 * 1024:
-        return "Error: Code too large (max 100KB)"
+        return tool_error("Code too large (max 100KB)")
     
     # 创建临时文件执行
     try:
@@ -218,9 +204,11 @@ def execute_code(code: str, language: str = "python") -> str:
             )
             
             if result.returncode == 0:
-                return result.stdout if result.stdout else "Code executed successfully (no output)"
+                output = result.stdout if result.stdout else "Code executed successfully (no output)"
+                return tool_result(output=output)
             else:
-                return f"Error:\n{result.stderr}" if result.stderr else f"Error: exit code {result.returncode}"
+                err = result.stderr if result.stderr else f"exit code {result.returncode}"
+                return tool_error(err)
         finally:
             # 清理临时文件
             try:
@@ -228,51 +216,38 @@ def execute_code(code: str, language: str = "python") -> str:
             except:
                 pass
     except subprocess.TimeoutExpired:
-        return "Error: Execution timed out (60s limit)"
+        return tool_error("Execution timed out (60s limit)")
     except Exception as e:
-        return f"Error: {type(e).__name__}: {str(e)}"
+        return tool_error(f"{type(e).__name__}: {str(e)}")
 
 
-# 允许访问的环境变量白名单
-_ALLOWED_ENV_VARS = {
-    "PATH", "HOME", "USER", "SHELL", "PWD",
-    "LANG", "LC_ALL", "TERM", "TERM_PROGRAM",
-}
-
-def get_env(key: str, default: str = "") -> str:
-    """
-    获取环境变量（白名单限制）
-    
-    Args:
-        key: 环境变量名
-        default: 默认值
-        
-    Returns:
-        环境变量值或默认值（仅限白名单内的变量）
-    """
-    if key in _ALLOWED_ENV_VARS:
-        return os.environ.get(key, default)
-    return default
+def _handle_get_env(key: str, default: str = "") -> str:
+    """获取环境变量（白名单限制）"""
+    # 允许访问的环境变量白名单
+    _ALLOWED_ENV_VARS = {
+        "PATH", "HOME", "USER", "SHELL", "PWD",
+        "LANG", "LC_ALL", "TERM", "TERM_PROGRAM",
+    }
+    value = os.environ.get(key, default) if key in _ALLOWED_ENV_VARS else default
+    return tool_result(value=value)
 
 
-def search_web(query: str) -> str:
-    """
-    搜索网络（模拟）
-    
-    注意：实际搜索需要API
-    
-    Args:
-        query: 搜索查询
-        
-    Returns:
-        搜索结果或错误信息
-    """
-    return f"[Simulated] Would search web for: {query}"
+def _handle_search_web(query: str) -> str:
+    """搜索网络（模拟）"""
+    return tool_result(results=[], query=query, note="Web search requires API integration")
 
 
-# 工具 schema 定义
-TOOL_SCHEMAS = {
-    "read_file": {
+# ─────────────────────────────────────────────────────────────
+# 注册所有内置工具到 registry（Hermes 模式）
+# ─────────────────────────────────────────────────────────────
+
+# read_file
+registry.register(
+    name="read_file",
+    toolset="file",
+    schema={
+        "name": "read_file",
+        "description": "读取文件内容（安全版本，支持分页）。读取指定路径的文件，支持指定起始行和最大行数。",
         "parameters": {
             "type": "object",
             "properties": {
@@ -294,7 +269,22 @@ TOOL_SCHEMAS = {
             "required": ["path"]
         }
     },
-    "write_file": {
+    handler=lambda args, **kw: _handle_read_file(
+        path=args.get("path", ""),
+        offset=args.get("offset", 1),
+        limit=args.get("limit", 500),
+    ),
+    emoji="📖",
+    description="Read file contents with pagination support",
+)
+
+# write_file
+registry.register(
+    name="write_file",
+    toolset="file",
+    schema={
+        "name": "write_file",
+        "description": "写入文件内容（安全版本）。创建或覆盖指定路径的文件。",
         "parameters": {
             "type": "object",
             "properties": {
@@ -310,7 +300,21 @@ TOOL_SCHEMAS = {
             "required": ["path", "content"]
         }
     },
-    "execute_code": {
+    handler=lambda args, **kw: _handle_write_file(
+        path=args.get("path", ""),
+        content=args.get("content", ""),
+    ),
+    emoji="✏️",
+    description="Write content to a file",
+)
+
+# execute_code
+registry.register(
+    name="execute_code",
+    toolset="code_execution",
+    schema={
+        "name": "execute_code",
+        "description": "执行代码。安全执行Python代码，使用subprocess + 超时保护（60秒）。",
         "parameters": {
             "type": "object",
             "properties": {
@@ -327,7 +331,21 @@ TOOL_SCHEMAS = {
             "required": ["code"]
         }
     },
-    "get_env": {
+    handler=lambda args, **kw: _handle_execute_code(
+        code=args.get("code", ""),
+        language=args.get("language", "python"),
+    ),
+    emoji="⚡",
+    description="Execute Python code in a sandboxed subprocess",
+)
+
+# get_env
+registry.register(
+    name="get_env",
+    toolset="file",
+    schema={
+        "name": "get_env",
+        "description": "获取环境变量（白名单限制）。仅可访问白名单内的安全环境变量。",
         "parameters": {
             "type": "object",
             "properties": {
@@ -344,7 +362,21 @@ TOOL_SCHEMAS = {
             "required": ["key"]
         }
     },
-    "search_web": {
+    handler=lambda args, **kw: _handle_get_env(
+        key=args.get("key", ""),
+        default=args.get("default", ""),
+    ),
+    emoji="🔑",
+    description="Get environment variable (whitelist restricted)",
+)
+
+# search_web
+registry.register(
+    name="search_web",
+    toolset="web",
+    schema={
+        "name": "search_web",
+        "description": "搜索网络。执行网页搜索查询。",
         "parameters": {
             "type": "object",
             "properties": {
@@ -355,21 +387,41 @@ TOOL_SCHEMAS = {
             },
             "required": ["query"]
         }
-    }
+    },
+    handler=lambda args, **kw: _handle_search_web(
+        query=args.get("query", ""),
+    ),
+    emoji="🔍",
+    description="Search the web",
+)
+
+
+# ─────────────────────────────────────────────────────────────
+# 向后兼容层（旧代码仍可调用）
+# ─────────────────────────────────────────────────────────────
+
+# 工具函数表 — 直接可调用版本（不返回 JSON，用于内部调用）
+TOOL_FUNCTIONS = {
+    "read_file": _handle_read_file,
+    "write_file": _handle_write_file,
+    "execute_code": _handle_execute_code,
+    "get_env": _handle_get_env,
+    "search_web": _handle_search_web,
+}
+
+# 旧式 schema 字典 — 仅含 parameters 部分
+TOOL_SCHEMAS = {
+    name: entry.schema.get("parameters", {})
+    for name, entry in registry._tools.items()
+    if entry.toolset in ("file", "code_execution", "web")
 }
 
 
 def get_all_tools() -> Dict[str, Dict]:
-    """获取所有工具及其 schema"""
+    """获取所有工具及其 schema（向后兼容）"""
     return TOOL_SCHEMAS
 
 
 def get_tool_functions() -> Dict[str, callable]:
-    """获取所有工具函数"""
-    return {
-        "read_file": read_file,
-        "write_file": write_file,
-        "execute_code": execute_code,
-        "get_env": get_env,
-        "search_web": search_web
-    }
+    """获取所有工具函数（向后兼容）"""
+    return TOOL_FUNCTIONS
