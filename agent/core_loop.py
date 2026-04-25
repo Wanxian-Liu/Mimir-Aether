@@ -61,6 +61,21 @@ from . import anthropic_adapter
 # 集成凭证池模块
 from . import credential_pool
 from .credential_pool import CredentialPool, PooledCredential, create_credential
+# Thread pool for running sync tool calls that internally use asyncio.run()
+# (e.g., the Modal/Docker/Daytona terminal backends). Running them in a
+# separate thread gives them a clean event loop so they don't deadlock.
+import concurrent.futures
+_tool_executor = concurrent.futures.ThreadPoolExecutor(max_workers=128)
+
+
+def resize_tool_pool(max_workers):
+    """Replace the global tool executor with a new one of the given size."""
+    global _tool_executor
+    old = _tool_executor
+    _tool_executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
+    old.shutdown(wait=False)
+    logger.info("Tool thread pool resized to %d workers", max_workers)
+
 
 logger = logging.getLogger(__name__)
 
@@ -1265,12 +1280,87 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 except Exception as e:
                     logger.warning(f"post_llm_call hook failed: {e}")
 
+                # Fallback tool call parser: if the API didn't return
+                # structured tool_calls but content contains <tool_call>
+                # tags, parse them client-side. This handles edge cases
+                # where servers cannot parse tool calls natively.
+                _raw_tool_calls = response.get("tool_calls")
+                if not _raw_tool_calls and response_content and "<tool_call>" in response_content:
+                    import re as _re
+                    import uuid as _uuid
+                    _pattern = _re.compile(
+                        r"<tool_call>\s*(.*?)\s*</tool_call>|<tool_call>\s*(.*)",
+                        _re.DOTALL,
+                    )
+                    _matches = _pattern.findall(response_content)
+                    if _matches:
+                        _parsed_calls = []
+                        for _m in _matches:
+                            _raw = _m[0] or _m[1]
+                            if not _raw.strip():
+                                continue
+                            try:
+                                import json as _json
+                                _data = _json.loads(_raw)
+                                if "name" in _data:
+                                    _parsed_calls.append({
+                                        "id": f"call_{_uuid.uuid4().hex[:8]}",
+                                        "type": "function",
+                                        "function": {
+                                            "name": _data["name"],
+                                            "arguments": _json.dumps(
+                                                _data.get("arguments", {}),
+                                                ensure_ascii=False,
+                                            ),
+                                        },
+                                    })
+                            except Exception:
+                                pass
+                        if _parsed_calls:
+                            _tag_idx = response_content.find("<tool_call>")
+                            _clean_content = response_content[:_tag_idx].strip()
+                            response["tool_calls"] = _parsed_calls
+                            response["content"] = _clean_content or ""
+                            logger.debug(
+                                "Fallback parser extracted %d tool calls from raw content",
+                                len(_parsed_calls),
+                            )
+
                 # 检查是否有工具调用
                 if response.get("tool_calls") and response_content:
                     # 同时有文本和工具调用:先执行工具,再继续生成响应
                     # 去重工具调用
                     unique_tool_calls = self._deduplicate_tool_calls(response["tool_calls"])
                     tool_results = await self._execute_tools(unique_tool_calls, turn=self._current_turn)
+
+                    # Budget control: persist large tool results
+                    # to prevent context window overflow (3-layer defense).
+                    try:
+                        from tools.tool_result_storage import (
+                            maybe_persist_tool_result,
+                            enforce_turn_budget,
+                        )
+                        from tools.budget_config import DEFAULT_BUDGET
+                        from tools.terminal_tool import get_active_env
+
+                        _env = get_active_env(None)
+                        for _tr in tool_results:
+                            _tr.content = maybe_persist_tool_result(
+                                content=_tr.content,
+                                tool_name="unknown",
+                                tool_use_id=_tr.tool_call_id,
+                                env=_env,
+                                config=DEFAULT_BUDGET,
+                            )
+                        _tool_msgs = [
+                            {"role": "tool", "tool_call_id": r.tool_call_id, "content": r.content}
+                            for r in tool_results
+                        ]
+                        enforce_turn_budget(_tool_msgs, env=_env, config=DEFAULT_BUDGET)
+                        for i, r in enumerate(tool_results):
+                            r.content = _tool_msgs[i]["content"]
+                    except Exception as _e:
+                        logger.debug("Budget control skipped: %s", _e)
 
                     # 添加工具结果到历史
                     for result in tool_results:
@@ -1291,6 +1381,35 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                     # 去重工具调用
                     unique_tool_calls = self._deduplicate_tool_calls(response["tool_calls"])
                     tool_results = await self._execute_tools(unique_tool_calls, turn=self._current_turn)
+
+                    # Budget control: persist large tool results
+                    # to prevent context window overflow (3-layer defense).
+                    try:
+                        from tools.tool_result_storage import (
+                            maybe_persist_tool_result,
+                            enforce_turn_budget,
+                        )
+                        from tools.budget_config import DEFAULT_BUDGET
+                        from tools.terminal_tool import get_active_env
+
+                        _env = get_active_env(None)
+                        for _tr in tool_results:
+                            _tr.content = maybe_persist_tool_result(
+                                content=_tr.content,
+                                tool_name="unknown",
+                                tool_use_id=_tr.tool_call_id,
+                                env=_env,
+                                config=DEFAULT_BUDGET,
+                            )
+                        _tool_msgs = [
+                            {"role": "tool", "tool_call_id": r.tool_call_id, "content": r.content}
+                            for r in tool_results
+                        ]
+                        enforce_turn_budget(_tool_msgs, env=_env, config=DEFAULT_BUDGET)
+                        for i, r in enumerate(tool_results):
+                            r.content = _tool_msgs[i]["content"]
+                    except Exception as _e:
+                        logger.debug("Budget control skipped: %s", _e)
 
                     # 添加工具结果到历史
                     for result in tool_results:
@@ -1933,10 +2052,22 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                     is_error=True
                 )
 
-            result = await self.tool_registry.execute(
-                name=func_name,
-                arguments=arguments
-            )
+            # Run sync tool functions in thread pool to prevent
+            # asyncio deadlocks when tools internally use asyncio.run()
+            # (e.g., Modal/Docker/Daytona terminal backends).
+            # Async tool functions run directly in the event loop.
+            tool_func = self.tool_registry._tools.get(func_name)
+            if tool_func is not None and not asyncio.iscoroutinefunction(tool_func):
+                loop = asyncio.get_event_loop()
+                result = await loop.run_in_executor(
+                    _tool_executor,
+                    lambda fn=tool_func, args=arguments: fn(**args)
+                )
+            else:
+                result = await self.tool_registry.execute(
+                    name=func_name,
+                    arguments=arguments
+                )
 
             # Plugin hook: post_tool_call
             # 在工具调用后执行
