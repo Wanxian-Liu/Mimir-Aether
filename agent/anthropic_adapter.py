@@ -21,6 +21,8 @@ import re
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
+import urllib.parse
+import urllib.request
 
 logger = logging.getLogger(__name__)
 
@@ -255,49 +257,132 @@ def resolve_anthropic_token() -> Optional[str]:
     return None
 
 
-def refresh_anthropic_oauth(refresh_token: str) -> Optional[Dict[str, Any]]:
-    """
-    刷新Anthropic OAuth token
-    
-    学习自Hermes: refresh_anthropic_oauth_pure
-    
+def refresh_anthropic_oauth_pure(refresh_token: str, *, use_json: bool = False) -> Dict[str, Any]:
+    """Pure synchronous Anthropic OAuth token refresh.
+
+    学习自Hermes design pattern: pure function that does NOT mutate local credential files.
+    Uses urllib for synchronous HTTP (no aiohttp dependency).
+    Tries multiple token endpoints for resilience.
+
     Args:
         refresh_token: OAuth refresh token
-    
+        use_json: If True, use JSON content type; otherwise form-encoded
+
     Returns:
-        新token信息的字典，或None
+        Dict with access_token, refresh_token, expires_at_ms
+
+    Raises:
+        ValueError: If refresh fails or response is missing access_token
+    """
+    if not refresh_token:
+        raise ValueError("refresh_token is required")
+
+    client_id = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
+    if use_json:
+        data = json.dumps({
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+            "client_id": client_id,
+        }).encode()
+        content_type = "application/json"
+    else:
+        data = urllib.parse.urlencode({
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+            "client_id": client_id,
+        }).encode()
+        content_type = "application/x-www-form-urlencoded"
+
+    token_endpoints = [
+        "https://platform.claude.com/v1/oauth/token",
+        "https://console.anthropic.com/v1/oauth/token",
+    ]
+    last_error = None
+    for endpoint in token_endpoints:
+        req = urllib.request.Request(
+            endpoint,
+            data=data,
+            headers={
+                "Content-Type": content_type,
+                "User-Agent": f"claude-cli/{_get_claude_code_version()} (external, cli)",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                result = json.loads(resp.read().decode())
+        except Exception as exc:
+            last_error = exc
+            logger.debug("Anthropic token refresh failed at %s: %s", endpoint, exc)
+            continue
+
+        access_token = result.get("access_token", "")
+        if not access_token:
+            raise ValueError("Anthropic refresh response was missing access_token")
+        next_refresh = result.get("refresh_token", refresh_token)
+        expires_in = result.get("expires_in", 3600)
+        return {
+            "access_token": access_token,
+            "refresh_token": next_refresh,
+            "expires_at_ms": int(time.time() * 1000) + (expires_in * 1000),
+        }
+
+    if last_error is not None:
+        raise last_error
+    raise ValueError("Anthropic token refresh failed")
+
+
+def refresh_anthropic_oauth(refresh_token: str) -> Optional[Dict[str, Any]]:
+    """
+    刷新Anthropic OAuth token (向后兼容包装)
+    
+    委托给 refresh_anthropic_oauth_pure
     """
     try:
-        import aiohttp
-        
-        async def _do_refresh():
-            async with aiohttp.ClientSession() as session:
-                payload = {
-                    "grant_type": "refresh_token",
-                    "refresh_token": refresh_token,
-                    "client_id": "anthropic-cli",
-                }
-                async with session.post(
-                    _OAUTH_TOKEN_URL,
-                    json=payload,
-                    headers={"Content-Type": "application/json"},
-                ) as resp:
-                    if resp.status == 200:
-                        return await resp.json()
-                    return None
-        
-        # 在同步上下文中运行
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        
-        return loop.run_until_complete(_do_refresh())
-        
+        return refresh_anthropic_oauth_pure(refresh_token, use_json=False)
     except Exception as e:
         logger.debug(f"refresh_anthropic_oauth failed: {e}")
         return None
+
+
+def _write_claude_code_credentials(
+    access_token: str,
+    refresh_token: str,
+    expires_at_ms: int,
+) -> None:
+    """Write refreshed credentials to ~/.claude/.credentials.json.
+
+    Keeps Claude Code CLI in sync with MimirAether OAuth refresh.
+    Preserves existing fields (like scopes) in the credentials file.
+
+    Args:
+        access_token: New OAuth access token
+        refresh_token: New OAuth refresh token
+        expires_at_ms: Expiration timestamp in milliseconds since epoch
+    """
+    cred_path = Path.home() / ".claude" / ".credentials.json"
+    try:
+        existing = {}
+        if cred_path.exists():
+            existing = json.loads(cred_path.read_text(encoding="utf-8"))
+
+        oauth_data = existing.get("claudeAiOauth", {})
+        if not isinstance(oauth_data, dict):
+            oauth_data = {}
+
+        oauth_data["accessToken"] = access_token
+        oauth_data["refreshToken"] = refresh_token
+        oauth_data["expiresAt"] = expires_at_ms
+
+        existing["claudeAiOauth"] = oauth_data
+
+        cred_path.parent.mkdir(parents=True, exist_ok=True)
+        cred_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+        cred_path.chmod(0o600)
+        logger.debug("Wrote refreshed Anthropic tokens to %s", cred_path)
+    except (OSError, IOError) as exc:
+        logger.debug("Failed to write refreshed tokens to %s: %s", cred_path, exc)
+
 
 
 # ============================================================================
