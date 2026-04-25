@@ -427,6 +427,7 @@ def _classify_by_status(
     body: dict,
     *,
     provider: str,
+    model: str,
     approx_tokens: int,
     context_length: int,
     num_messages: int,
@@ -491,6 +492,7 @@ def _classify_by_status(
     if status_code == 400:
         return _classify_400(
             error_msg, error_code, body,
+            provider=provider, model=model,
             approx_tokens=approx_tokens,
             context_length=context_length,
             num_messages=num_messages,
@@ -546,6 +548,8 @@ def _classify_400(
     error_code: str,
     body: dict,
     *,
+    provider: str,
+    model: str,
     approx_tokens: int,
     context_length: int,
     num_messages: int,
@@ -818,22 +822,6 @@ def _get_body_message(body: dict) -> str:
     return msg.strip().lower()
 
 
-def _build_error_message(error: Exception, body: dict) -> str:
-    """构建用于模式匹配的综合错误消息字符串"""
-    parts = [str(error).lower()]
-    
-    if isinstance(body, dict):
-        error_obj = body.get("error", {})
-        if isinstance(error_obj, dict):
-            msg = error_obj.get("message", "")
-            if msg and msg.lower() not in parts[0]:
-                parts.append(msg.lower())
-        elif not error_obj:
-            msg = body.get("message", "")
-            if msg:
-                parts.append(msg.lower())
-    
-    return " ".join(parts)
 
 
 # ============================================================================
