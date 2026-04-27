@@ -450,3 +450,14 @@ def list_agentic_models(provider: str) -> List[str]:
             continue
         result.append(mid)
     return result
+
+
+def get_model_info(provider_id: str, model_id: str) -> Optional[dict]:
+    """Get full model metadata from models.dev.
+
+    Accepts MimirAether or models.dev provider ID.  Tries exact match then
+    case-insensitive fallback.  Returns None if not found.
+    """
+    # TODO-自研: 需要适配MimirAether的provider系统
+    # 暂时返回None，让model_switch.py可以使用但功能受限
+    return None

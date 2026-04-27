@@ -576,3 +576,33 @@ def get_container_exec_info() -> Optional[dict]:
         "exec_user": exec_user,
         "hermes_bin": hermes_bin,
     }
+
+
+def check_config_version() -> tuple:
+    """
+    Check config version.
+    
+    Returns (current_version, latest_version).
+    """
+    config = load_config()
+    current = config.get("_config_version", 0)
+    latest = DEFAULT_CONFIG.get("_config_version", 1)
+    return current, latest
+
+
+def redact_key(key: str) -> str:
+    """Redact an API key for display."""
+    if not key:
+        return "(not set)"
+    if len(key) < 12:
+        return "***"
+    return key[:4] + "..." + key[-4:]
+
+
+def save_env_value_secure(key: str, value: str) -> dict:
+    save_env_value(key, value)
+    return {
+        "success": True,
+        "stored_as": key,
+        "validated": False,
+    }
