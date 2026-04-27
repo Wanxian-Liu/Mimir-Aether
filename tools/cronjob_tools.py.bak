@@ -10,7 +10,6 @@ import logging
 import os
 import re
 import sys
-import yaml
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -130,13 +129,11 @@ def _resolve_model_override(model_obj: Optional[Dict[str, Any]]) -> tuple:
     if model_name and not provider_name:
         # Pin to the current main provider so the job is stable
         try:
-            cfg_path = Path.home() / ".hermes" / "config.yaml"
-            if cfg_path.exists():
-                with open(cfg_path) as f:
-                    cfg = yaml.safe_load(f) or {}
-                model_cfg = cfg.get("model", {})
-                if isinstance(model_cfg, dict):
-                    provider_name = model_cfg.get("provider") or None
+            from hermes_cli.config import load_config
+            cfg = load_config()
+            model_cfg = cfg.get("model", {})
+            if isinstance(model_cfg, dict):
+                provider_name = model_cfg.get("provider") or None
         except Exception:
             pass  # Best-effort; provider stays None
     return (provider_name, model_name)
@@ -163,6 +160,8 @@ def _validate_cron_script_path(script: Optional[str]) -> Optional[str]:
     if not script or not script.strip():
         return None  # empty/None = clearing the field, always OK
 
+    from hermes_constants import get_hermes_home
+
     raw = script.strip()
 
     # Reject absolute paths and ~ expansion at the API boundary.
@@ -177,7 +176,7 @@ def _validate_cron_script_path(script: Optional[str]) -> Optional[str]:
     # Validate containment after resolution
     from tools.path_security import validate_within_dir
 
-    scripts_dir = Path.home() / ".hermes" / "scripts"
+    scripts_dir = get_hermes_home() / "scripts"
     scripts_dir.mkdir(parents=True, exist_ok=True)
     containment_error = validate_within_dir(scripts_dir / raw, scripts_dir)
     if containment_error:
