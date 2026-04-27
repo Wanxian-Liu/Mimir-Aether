@@ -28,30 +28,6 @@ from typing import Any, Dict, List, Optional
 from toolsets import TOOLSETS
 
 
-# ---------------------------------------------------------------------------
-# Inline replacement for hermes_constants.parse_reasoning_effort
-# ----------------------------------------------------------------------------
-VALID_REASONING_EFFORTS = ("minimal", "low", "medium", "high", "xhigh")
-
-
-def _parse_reasoning_effort(effort: str) -> dict | None:
-    """Parse a reasoning effort level into a config dict.
-
-    Valid levels: "none", "minimal", "low", "medium", "high", "xhigh".
-    Returns None when the input is empty or unrecognized (caller uses default).
-    Returns {"enabled": False} for "none".
-    Returns {"enabled": True, "effort": <level>} for valid effort levels.
-    """
-    if not effort or not effort.strip():
-        return None
-    effort = effort.strip().lower()
-    if effort == "none":
-        return {"enabled": False}
-    if effort in VALID_REASONING_EFFORTS:
-        return {"enabled": True, "effort": effort}
-    return None
-
-
 # Tools that children must never have access to
 DELEGATE_BLOCKED_TOOLS = frozenset([
     "delegate_task",   # no recursive delegation
@@ -357,7 +333,8 @@ def _build_child_agent(
         delegation_cfg = _load_config()
         delegation_effort = str(delegation_cfg.get("reasoning_effort") or "").strip()
         if delegation_effort:
-            parsed = _parse_reasoning_effort(delegation_effort)
+            from hermes_constants import parse_reasoning_effort
+            parsed = parse_reasoning_effort(delegation_effort)
             if parsed is not None:
                 child_reasoning = parsed
             else:
@@ -927,35 +904,10 @@ def _resolve_delegation_credentials(cfg: dict, parent_agent) -> dict:
             "api_mode": None,
         }
 
-    # Provider is configured — resolve full credentials via yaml
-    # (skip hermes_cli.runtime_provider.resolve_runtime_provider in self-hosted mode)
+    # Provider is configured — resolve full credentials
     try:
-        import yaml
-        # Try to find config.yaml in known locations
-        for cfg_path in [
-            os.path.join(os.path.dirname(__file__), "..", "config.yaml"),
-            os.path.join(os.path.dirname(__file__), "..", "mimicore", "config", "config.yaml"),
-        ]:
-            if os.path.exists(cfg_path):
-                with open(cfg_path) as f:
-                    full_cfg = yaml.safe_load(f) or {}
-                providers_cfg = full_cfg.get("providers", {})
-                provider_cfg = providers_cfg.get(configured_provider, {})
-                api_key = provider_cfg.get("api_key") or os.getenv(f"{configured_provider.upper()}_API_KEY", "")
-                if api_key:
-                    runtime = {
-                        "provider": configured_provider,
-                        "base_url": provider_cfg.get("base_url"),
-                        "api_key": api_key,
-                        "api_mode": provider_cfg.get("api_mode", "chat_completions"),
-                        "command": provider_cfg.get("command"),
-                        "args": provider_cfg.get("args"),
-                    }
-                    break
-        else:
-            raise ValueError(f"Provider '{configured_provider}' not found in config.yaml providers.")
-    except ValueError:
-        raise
+        from hermes_cli.runtime_provider import resolve_runtime_provider
+        runtime = resolve_runtime_provider(requested=configured_provider)
     except Exception as exc:
         raise ValueError(
             f"Cannot resolve delegation provider '{configured_provider}': {exc}. "
@@ -983,10 +935,12 @@ def _resolve_delegation_credentials(cfg: dict, parent_agent) -> dict:
 
 
 def _load_config() -> dict:
-    """Load delegation config from CLI_CONFIG or yaml config file.
+    """Load delegation config from CLI_CONFIG or persistent config.
 
     Checks the runtime config (cli.py CLI_CONFIG) first, then falls back
-    to yaml config (self-hosted mode, replacing hermes_cli.config.load_config).
+    to the persistent config (hermes_cli/config.py load_config()) so that
+    ``delegation.model`` / ``delegation.provider`` are picked up regardless
+    of the entry point (CLI, gateway, cron).
     """
     try:
         from cli import CLI_CONFIG
@@ -995,21 +949,12 @@ def _load_config() -> dict:
             return cfg
     except Exception:
         pass
-    # Self-hosted: read from yaml config directly
     try:
-        import yaml
-        for cfg_path in [
-            os.path.join(os.path.dirname(__file__), "..", "config.yaml"),
-            os.path.join(os.path.dirname(__file__), "..", "mimicore", "config", "config.yaml"),
-            os.path.join(os.path.dirname(__file__), "..", "mimicore", "gateway", "config.yaml"),
-        ]:
-            if os.path.exists(cfg_path):
-                with open(cfg_path) as f:
-                    full = yaml.safe_load(f) or {}
-                return full.get("delegation", {})
+        from hermes_cli.config import load_config
+        full = load_config()
+        return full.get("delegation", {})
     except Exception:
-        pass
-    return {}
+        return {}
 
 
 # ---------------------------------------------------------------------------
