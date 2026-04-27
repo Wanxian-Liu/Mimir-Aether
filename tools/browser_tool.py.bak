@@ -63,86 +63,10 @@ import tempfile
 import threading
 import time
 import requests
-import yaml
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 from agent.auxiliary_client import call_llm
-
-# ============================================================================
-# MimirAether Constants (replaces hermes_constants)
-# ============================================================================
-
-def _get_mimiraether_home() -> Path:
-    """Return the MimirAether home directory (replaces get_hermes_home)."""
-    return Path(os.environ.get("MIMIRAETHER_HOME", str(Path.home() / ".openclaw/mimir-aether")))
-
-
-def _get_mimir_aether_dir(new_subpath: str, old_name: str) -> Path:
-    """Resolve a MimirAether subdirectory with backward compatibility (replaces get_hermes_dir)."""
-    home = _get_mimiraether_home()
-    old_path = home / old_name
-    if old_path.exists():
-        return old_path
-    return home / new_subpath
-
-
-def _is_termux_environment() -> bool:
-    """Return True when running inside a Termux (Android) environment (replaces is_termux)."""
-    prefix = os.getenv("PREFIX", "")
-    return bool(os.getenv("TERMUX_VERSION") or "com.termux/files/usr" in prefix)
-
-
-# ============================================================================
-# MimirAether Config (replaces hermes_cli.config)
-# ============================================================================
-
-def _get_config_path() -> Path:
-    """Return the path to config.yaml under MIMIRAETHER_HOME."""
-    return _get_mimiraether_home() / "config.yaml"
-
-
-def _read_raw_config() -> Dict[str, Any]:
-    """Read config.yaml as-is, without merging defaults (replaces read_raw_config)."""
-    try:
-        config_path = _get_config_path()
-        if config_path.exists():
-            with open(config_path, encoding="utf-8") as f:
-                return yaml.safe_load(f) or {}
-    except Exception:
-        pass
-    return {}
-
-
-def _load_config() -> Dict[str, Any]:
-    """Load configuration from config.yaml with defaults (replaces load_config)."""
-    import copy
-    
-    # Minimal default config for browser tool
-    DEFAULT_CONFIG = {
-        "browser": {
-            "command_timeout": 30,
-            "allow_private_urls": False,
-            "record_sessions": False,
-            "cloud_provider": None,
-        },
-        "auxiliary": {
-            "vision": {"timeout": 120},
-            "web_extract": {"timeout": 360},
-        },
-    }
-    
-    config = copy.deepcopy(DEFAULT_CONFIG)
-    raw = _read_raw_config()
-    
-    if raw:
-        # Deep merge raw config into defaults
-        for key, value in raw.items():
-            if key in config and isinstance(config[key], dict) and isinstance(value, dict):
-                config[key].update(value)
-            elif key not in config:
-                config[key] = value
-    
-    return config
+from hermes_constants import get_hermes_home
 
 try:
     from tools.website_policy import check_website_access
@@ -233,7 +157,8 @@ def _get_command_timeout() -> int:
     _command_timeout_resolved = True
     result = DEFAULT_COMMAND_TIMEOUT
     try:
-        cfg = _read_raw_config()
+        from hermes_cli.config import read_raw_config
+        cfg = read_raw_config()
         val = cfg.get("browser", {}).get("command_timeout")
         if val is not None:
             result = max(int(val), 5)  # Floor at 5s to avoid instant kills
@@ -344,7 +269,8 @@ def _get_cloud_provider() -> Optional[CloudBrowserProvider]:
 
     _cloud_provider_resolved = True
     try:
-        cfg = _read_raw_config()
+        from hermes_cli.config import read_raw_config
+        cfg = read_raw_config()
         browser_cfg = cfg.get("browser", {})
         provider_key = None
         if isinstance(browser_cfg, dict) and "cloud_provider" in browser_cfg:
@@ -371,6 +297,9 @@ def _get_cloud_provider() -> Optional[CloudBrowserProvider]:
                 _cached_cloud_provider = fallback_provider
 
     return _cached_cloud_provider
+
+
+from hermes_constants import is_termux as _is_termux_environment
 
 
 def _browser_install_hint() -> str:
@@ -423,12 +352,9 @@ def _allow_private_urls() -> bool:
     _allow_private_urls_resolved = True
     _cached_allow_private_urls = False  # safe default
     try:
-        import yaml
-        config_path = Path.home() / ".hermes" / "config.yaml"
-        if config_path.exists():
-            with open(config_path) as f:
-                cfg = yaml.safe_load(f) or {}
-            _cached_allow_private_urls = bool(cfg.get("browser", {}).get("allow_private_urls"))
+        from hermes_cli.config import read_raw_config
+        cfg = read_raw_config()
+        _cached_allow_private_urls = bool(cfg.get("browser", {}).get("allow_private_urls"))
     except Exception as e:
         logger.debug("Could not read allow_private_urls from config: %s", e)
     return _cached_allow_private_urls
@@ -977,7 +903,7 @@ def _find_agent_browser() -> str:
             extra_dirs.append(d)
     extra_dirs.extend(_discover_homebrew_node_dirs())
 
-    hermes_home = _get_mimiraether_home()
+    hermes_home = get_hermes_home()
     hermes_node_bin = str(hermes_home / "node" / "bin")
     if os.path.isdir(hermes_node_bin):
         extra_dirs.append(hermes_node_bin)
@@ -1122,7 +1048,7 @@ def _run_browser_command(
 
         # Ensure PATH includes Hermes-managed Node first, Homebrew versioned
         # node dirs (for macOS ``brew install node@24``), then standard system dirs.
-        hermes_home = _get_mimiraether_home()
+        hermes_home = get_hermes_home()
         hermes_node_bin = str(hermes_home / "node" / "bin")
 
         existing_path = browser_env.get("PATH", "")
@@ -1856,13 +1782,14 @@ def _maybe_start_recording(task_id: str):
         if task_id in _recording_sessions:
             return
     try:
-        hermes_home = _get_mimiraether_home()
-        cfg = _read_raw_config()
+        from hermes_cli.config import read_raw_config
+        hermes_home = get_hermes_home()
+        cfg = read_raw_config()
         record_enabled = cfg.get("browser", {}).get("record_sessions", False)
-
+        
         if not record_enabled:
             return
-
+        
         recordings_dir = hermes_home / "browser_recordings"
         recordings_dir.mkdir(parents=True, exist_ok=True)
         _cleanup_old_recordings(max_age_hours=72)
@@ -1988,7 +1915,8 @@ def browser_vision(question: str, annotate: bool = False, task_id: Optional[str]
     effective_task_id = task_id or "default"
     
     # Save screenshot to persistent location so it can be shared with users
-    screenshots_dir = _get_mimir_aether_dir("cache/screenshots", "browser_screenshots")
+    from hermes_constants import get_hermes_dir
+    screenshots_dir = get_hermes_dir("cache/screenshots", "browser_screenshots")
     screenshot_path = screenshots_dir / f"browser_screenshot_{uuid_mod.uuid4().hex}.png"
     
     try:
@@ -2060,7 +1988,8 @@ def browser_vision(question: str, annotate: bool = False, task_id: Optional[str]
         # screenshot analysis, so the default must be generous.
         vision_timeout = 120.0
         try:
-            _cfg = _load_config()
+            from hermes_cli.config import load_config
+            _cfg = load_config()
             _vt = _cfg.get("auxiliary", {}).get("vision", {}).get("timeout")
             if _vt is not None:
                 vision_timeout = float(_vt)
@@ -2161,7 +2090,7 @@ def _cleanup_old_recordings(max_age_hours=72):
     """Remove browser recordings older than max_age_hours to prevent disk bloat."""
     import time
     try:
-        hermes_home = _get_mimiraether_home()
+        hermes_home = get_hermes_home()
         recordings_dir = hermes_home / "browser_recordings"
         if not recordings_dir.exists():
             return
