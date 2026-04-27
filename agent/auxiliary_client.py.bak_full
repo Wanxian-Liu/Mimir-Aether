@@ -46,22 +46,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from openai import OpenAI
 
 from agent.credential_pool import load_pool
-
-# 自研: 硬编码常量（替代hermes_constants）
-OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-
-def _get_mimiraether_home():
-    """Return MimirAether home directory."""
-    return Path.home() / ".hermes"
-
-def _load_config():
-    """Load config from ~/.hermes/config.yaml."""
-    import yaml
-    config_path = Path.home() / ".hermes" / "config.yaml"
-    if config_path.exists():
-        with open(config_path) as f:
-            return yaml.safe_load(f) or {}
-    return {}
+from hermes_cli.config import get_hermes_home
+from hermes_constants import OPENROUTER_BASE_URL
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +136,7 @@ _NOUS_FREE_TIER_VISION_MODEL = "xiaomi/mimo-v2-omni"
 _NOUS_FREE_TIER_AUX_MODEL = "xiaomi/mimo-v2-pro"
 _NOUS_DEFAULT_BASE_URL = "https://inference-api.nousresearch.com/v1"
 _ANTHROPIC_DEFAULT_BASE_URL = "https://api.anthropic.com"
-_AUTH_JSON_PATH = _get_mimiraether_home() / "auth.json"
+_AUTH_JSON_PATH = get_hermes_home() / "auth.json"
 
 # Codex fallback: uses the Responses API (the only endpoint the Codex
 # OAuth token can access) with a fast model for auxiliary tasks.
@@ -824,8 +810,8 @@ def _read_main_model() -> str:
     model. Environment variables are no longer consulted.
     """
     try:
-        # 自研: 使用_load_config()替代
-        cfg = _load_config()
+        from hermes_cli.config import load_config
+        cfg = load_config()
         model_cfg = cfg.get("model", {})
         if isinstance(model_cfg, str) and model_cfg.strip():
             return model_cfg.strip()
@@ -845,8 +831,8 @@ def _read_main_provider() -> str:
     if not configured.
     """
     try:
-        # 自研: 使用_load_config()替代
-        cfg = _load_config()
+        from hermes_cli.config import load_config
+        cfg = load_config()
         model_cfg = cfg.get("model", {})
         if isinstance(model_cfg, dict):
             provider = model_cfg.get("provider", "")
@@ -974,8 +960,8 @@ def _try_anthropic() -> Tuple[Optional[Any], Optional[str]]:
     # base_url (e.g. Codex endpoint) would leak into Anthropic requests.
     base_url = _pool_runtime_base_url(entry, _ANTHROPIC_DEFAULT_BASE_URL) if pool_present else _ANTHROPIC_DEFAULT_BASE_URL
     try:
-        # 自研: 使用_load_config()替代
-        cfg = _load_config()
+        from hermes_cli.config import load_config
+        cfg = load_config()
         model_cfg = cfg.get("model")
         if isinstance(model_cfg, dict):
             cfg_provider = str(model_cfg.get("provider") or "").strip().lower()
@@ -2069,8 +2055,8 @@ def _resolve_task_provider_model(
 
     if task:
         try:
-            # 自研: 使用_load_config()替代
-            config = _load_config()
+            from hermes_cli.config import load_config
+            config = load_config()
         except ImportError:
             config = {}
 
@@ -2112,8 +2098,8 @@ def _get_task_timeout(task: str, default: float = _DEFAULT_AUX_TIMEOUT) -> float
     if not task:
         return default
     try:
-        # 自研: 使用_load_config()替代
-        config = _load_config()
+        from hermes_cli.config import load_config
+        config = load_config()
     except ImportError:
         return default
     aux = config.get("auxiliary", {}) if isinstance(config, dict) else {}
