@@ -19,7 +19,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from hermes_cli.config import get_hermes_home
+from hermes_constants import get_hermes_home
 from typing import Any, Optional
 
 _GATEWAY_KIND = "hermes-gateway"
