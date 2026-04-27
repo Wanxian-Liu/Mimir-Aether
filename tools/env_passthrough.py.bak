@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import logging
 from contextvars import ContextVar
-from pathlib import Path
 from typing import Iterable
 
 logger = logging.getLogger(__name__)
@@ -57,33 +56,23 @@ def register_env_passthrough(var_names: Iterable[str]) -> None:
             logger.debug("env passthrough: registered %s", name)
 
 
-def _get_config_path() -> Path:
-    """Get the config.yaml path (mirrors hermes_cli.config.get_config_path)."""
-    import os
-    home = Path(os.getenv("MIMIRAETHER_HOME", Path.home() / ".openclaw/mimir-aether"))
-    return home / "config.yaml"
-
-
 def _load_config_passthrough() -> frozenset[str]:
-    """Load ``terminal.env_passthrough`` from config.yaml (cached)."""
+    """Load ``tools.env_passthrough`` from config.yaml (cached)."""
     global _config_passthrough
     if _config_passthrough is not None:
         return _config_passthrough
 
-    import yaml
     result: set[str] = set()
     try:
-        config_path = _get_config_path()
-        if config_path.exists():
-            with open(config_path, encoding="utf-8") as f:
-                cfg = yaml.safe_load(f) or {}
-            passthrough = cfg.get("terminal", {}).get("env_passthrough")
-            if isinstance(passthrough, list):
-                for item in passthrough:
-                    if isinstance(item, str) and item.strip():
-                        result.add(item.strip())
+        from hermes_cli.config import read_raw_config
+        cfg = read_raw_config()
+        passthrough = cfg.get("terminal", {}).get("env_passthrough")
+        if isinstance(passthrough, list):
+            for item in passthrough:
+                if isinstance(item, str) and item.strip():
+                    result.add(item.strip())
     except Exception as e:
-        logger.debug("Could not read terminal.env_passthrough from config: %s", e)
+        logger.debug("Could not read tools.env_passthrough from config: %s", e)
 
     _config_passthrough = frozenset(result)
     return _config_passthrough
