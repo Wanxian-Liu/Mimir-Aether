@@ -20,19 +20,25 @@ def _build_provider_env_blocklist() -> frozenset:
     """Derive the blocklist from provider, tool, and gateway config."""
     blocked: set[str] = set()
 
-    # 自研: 使用硬编码的敏感环境变量列表
-    SENSITIVE_VARS = {
-        "OPENAI_API_KEY", "OPENROUTER_API_KEY", "ANTHROPIC_API_KEY",
-        "TOGETHER_API_KEY", "AI21_API_KEY", "COHERE_API_KEY",
-        "MINIMAX_API_KEY", "ZHIPU_API_KEY", "DEEPSEEK_API_KEY",
-        "TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN",
-        "SENDGRID_API_KEY", "STRIPE_SECRET_KEY",
-        "TOOL_GATEWAY_KEY", "FIREWORKS_API_KEY",
-        "AZURE_OPENAI_API_KEY", "GITHUB_TOKEN",
-    }
-    blocked.update(SENSITIVE_VARS)
+    try:
+        from hermes_cli.auth import PROVIDER_REGISTRY
+        for pconfig in PROVIDER_REGISTRY.values():
+            blocked.update(pconfig.api_key_env_vars)
+            if pconfig.base_url_env_var:
+                blocked.add(pconfig.base_url_env_var)
+    except ImportError:
+        pass
 
-    # 自研: OPTIONAL_ENV_VARS 不再从hermes_cli获取，已在上面SENSITIVE_VARS中覆盖
+    try:
+        from hermes_cli.config import OPTIONAL_ENV_VARS
+        for name, metadata in OPTIONAL_ENV_VARS.items():
+            category = metadata.get("category")
+            if category in {"tool", "messaging"}:
+                blocked.add(name)
+            elif category == "setting" and metadata.get("password"):
+                blocked.add(name)
+    except ImportError:
+        pass
 
     blocked.update({
         "OPENAI_BASE_URL",
@@ -123,7 +129,11 @@ def _sanitize_subprocess_env(base_env: dict | None, extra_env: dict | None = Non
         elif key not in _HERMES_PROVIDER_ENV_BLOCKLIST or _is_passthrough(key):
             sanitized[key] = value
 
-    # 自研: 不做特殊HOME隔离
+    # Per-profile HOME isolation for background processes (same as _make_run_env).
+    from hermes_constants import get_subprocess_home
+    _profile_home = get_subprocess_home()
+    if _profile_home:
+        sanitized["HOME"] = _profile_home
 
     return sanitized
 
@@ -192,7 +202,13 @@ def _make_run_env(env: dict) -> dict:
     if "/usr/bin" not in existing_path.split(":"):
         run_env["PATH"] = f"{existing_path}:{_SANE_PATH}" if existing_path else _SANE_PATH
 
-    # 自研: 不做特殊HOME隔离
+    # Per-profile HOME isolation: redirect system tool configs (git, ssh, gh,
+    # npm …) into {HERMES_HOME}/home/ when that directory exists.  Only the
+    # subprocess sees the override — the Python process keeps the real HOME.
+    from hermes_constants import get_subprocess_home
+    _profile_home = get_subprocess_home()
+    if _profile_home:
+        run_env["HOME"] = _profile_home
 
     return run_env
 

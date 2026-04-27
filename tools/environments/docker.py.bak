@@ -91,20 +91,9 @@ def _normalize_env_dict(env: dict | None) -> dict[str, str]:
 def _load_hermes_env_vars() -> dict[str, str]:
     """Load ~/.hermes/.env values without failing Docker command execution."""
     try:
-        from pathlib import Path
-        env_path = Path.home() / ".hermes" / ".env"
-        if not env_path.exists():
-            return {}
-        result = {}
-        with open(env_path) as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                if "=" in line:
-                    key, val = line.split("=", 1)
-                    result[key.strip()] = val.strip()
-        return result
+        from hermes_cli.config import load_env
+
+        return load_env() or {}
     except Exception:
         return {}
 
