@@ -95,14 +95,10 @@ _local_model_name: Optional[str] = None
 def _load_stt_config() -> dict:
     """Load the ``stt`` section from user config, falling back to defaults."""
     try:
-        import yaml
-        config_path = Path.home() / ".hermes" / "config.yaml"
-        if config_path.exists():
-            with open(config_path) as f:
-                return yaml.safe_load(f) or {}
+        from hermes_cli.config import load_config
+        return load_config().get("stt", {})
     except Exception:
-        pass
-    return {}
+        return {}
 
 
 def is_stt_enabled(stt_config: Optional[dict] = None) -> bool:
