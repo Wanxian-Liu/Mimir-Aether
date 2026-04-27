@@ -7,8 +7,9 @@ Mimir-Core是MimirAether的知识工厂，负责生成高质量胶囊。
 使用方式：
     MimirAether发现有价值知识 → 调用produce_capsule → 生成胶囊 → GDI评分 → 发布
 
-Mimir-Core路径：
+Canonical 代码目录（唯一真身；旧 OpenClaw 的 ~/.openclaw/projects/Mimir-Core 仅为占位说明）：
     ~/.openclaw/projects/MimirAether/mimicore/
+    可通过环境变量 MIMIR_CORE_ROOT 覆盖（展开 user 与变量后应指向上述 mimicore 目录）。
 
 工具注册模式（学习自 Hermes）:
     所有工具通过 tools.registry 统一注册，与 Hermes 的 registry.register() 对齐。
@@ -25,8 +26,10 @@ from typing import Dict, Any, Optional
 # ── 导入真正的 ToolRegistry（Hermes 模式） ──
 from tools.registry import registry, tool_error, tool_result
 
-# Mimir-Core路径
-MIMIR_CORE_PATH = os.path.expanduser("~/.openclaw/projects/MimirAether/mimicore")
+# Mimir-Core / mimicore 包根目录（默认与 MimirAether 内嵌目录一致）
+MIMIR_CORE_PATH = os.path.expandvars(
+    os.path.expanduser(os.environ.get("MIMIR_CORE_ROOT", "~/.openclaw/projects/MimirAether/mimicore"))
+)
 
 
 def _ensure_mimircore_importable():
@@ -54,6 +57,11 @@ def _handle_produce_capsule(input_text: str, capsule_type: str = "auto", auto_pu
     _ensure_mimircore_importable()
     
     try:
+        # 强制重载 MimirCore 模块确保使用最新代码
+        import sys as _sys
+        for _mod_name in list(_sys.modules.keys()):
+            if 'mimicore' in _mod_name or 'capsule_generator' in _mod_name:
+                del _sys.modules[_mod_name]
         from mimicore.capsule_generator import CapsuleGenerator, CapsuleType
         
         # 类型映射
@@ -141,6 +149,28 @@ def _handle_produce_capsule(input_text: str, capsule_type: str = "auto", auto_pu
         return tool_error(f"Cannot import Mimir-Core module: {e}")
     except Exception as e:
         return tool_error(f"{type(e).__name__}: {str(e)}")
+
+def _dynamic_produce_handler(args, **kwargs):
+    """动态加载最新代码并调用 produce_capsule"""
+    import sys as _sys
+    import importlib as _importlib
+    
+    # 清除所有 mimicore 相关模块缓存
+    for _mod_name in list(_sys.modules.keys()):
+        if 'mimicore' in _mod_name or 'capsule_generator' in _mod_name:
+            del _sys.modules[_mod_name]
+    
+    # 重新加载本模块
+    import tools.mimircore_tool as _mt
+    _importlib.reload(_mt)
+    
+    # 调用最新的 _handle_produce_capsule
+    return _mt._handle_produce_capsule(
+        input_text=args.get("input_text", ""),
+        capsule_type=args.get("capsule_type", "auto"),
+        auto_publish=args.get("auto_publish", True),
+    )
+
 
 
 def _handle_get_capsule_by_id(capsule_id: str) -> str:
@@ -236,11 +266,7 @@ registry.register(
             "required": ["input_text"]
         }
     },
-    handler=lambda args, **kw: _handle_produce_capsule(
-        input_text=args.get("input_text", ""),
-        capsule_type=args.get("capsule_type", "auto"),
-        auto_publish=args.get("auto_publish", True),
-    ),
+    handler=_dynamic_produce_handler,
     emoji="💊",
     description="Generate high-quality knowledge capsules via Mimir-Core",
 )
