@@ -100,13 +100,9 @@ def cmd_status(args):
 
 def cmd_config(args):
     """查看/修改配置"""
-    import yaml
-    config_path = Path.home() / ".hermes" / "config.yaml"
-    if config_path.exists():
-        with open(config_path) as f:
-            config = yaml.safe_load(f) or {}
-    else:
-        config = {}
+    from hermes_cli.config import load_config
+    
+    config = load_config()
     
     if args.get:
         keys = args.get.split('.')

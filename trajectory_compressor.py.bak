@@ -48,8 +48,8 @@ import fire
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeElapsedColumn, TimeRemainingColumn
 from rich.console import Console
 
-# 自研: OPENROUTER_BASE_URL 硬编码
-OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+# TODO-自研: OPENROUTER_BASE_URL - MimirAether实际在hermes_constants中定义
+from hermes_constants import OPENROUTER_BASE_URL
 
 # TODO-自研: jittered_backoff - MimirAether的agent/retry_utils已实现
 from agent.retry_utils import jittered_backoff
