@@ -4,6 +4,8 @@
 import os
 from pathlib import Path
 
+from utils import env_var_enabled
+
 def get_mimiraether_home() -> Path:
     """Return the MimirAether独立home目录."""
     return Path(os.getenv("MIMIRAETHER_HOME", Path.home() / ".openclaw/mimir-aether"))
@@ -19,3 +21,8 @@ SKILLS_DIR = HERMES_HOME / "skills"
 def get_config_path() -> Path:
     """Return the path to ``config.yaml`` under MIMIRAETHER_HOME."""
     return get_mimiraether_home() / "config.yaml"
+
+
+def managed_nous_tools_enabled() -> bool:
+    """Return True when the hidden Nous-managed tools feature flag is enabled."""
+    return env_var_enabled("HERMES_ENABLE_NOUS_MANAGED_TOOLS")
