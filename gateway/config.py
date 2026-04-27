@@ -1,6 +1,6 @@
 """
 # TODO-自研: Gateway配置管理模块
-# 来源: hermes-agent/gateway/config.py
+# 来源: mimir-aether/gateway/config.py
 # 改造点:
 #   1. 移除 hermes_cli.config 依赖 → 适配 OpenClaw 配置结构
 #   2. 移除 hermes_constants 依赖 → 使用 OpenClaw 常量

@@ -1,6 +1,6 @@
 """
 # TODO-自研: 事件钩子系统
-# 来源: hermes-agent/gateway/hooks.py
+# 来源: mimir-aether/gateway/hooks.py
 # 改造点:
 #   1. 移除 hermes_cli.config 依赖 → 适配 OpenClaw 配置结构
 #   2. hooks 目录路径改为 ~/.openclaw/hooks
@@ -51,7 +51,7 @@ class HookRegistry:
             # self._handlers.setdefault("gateway:startup", []).append(boot_md_handle)
             # self._loaded_hooks.append({
             #     "name": "boot-md",
-            #     "description": "Run ~/.hermes/BOOT.md on gateway startup",
+            #     "description": "Run ~/.openclaw/BOOT.md on gateway startup",
             #     "events": ["gateway:startup"],
             #     "path": "(builtin)",
             # })
@@ -103,7 +103,7 @@ class HookRegistry:
                     continue
 
                 # Dynamically load the handler module
-                # TODO-自研: 移除 hermes 前缀，使用 openclaw 前缀
+                # TODO-自研: 移除 mimir 前缀，使用 openclaw 前缀
                 spec = importlib.util.spec_from_file_location(
                     f"gateway_hook_{hook_name}", handler_path
                 )
