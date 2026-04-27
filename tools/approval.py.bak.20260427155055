@@ -15,7 +15,6 @@ import re
 import sys
 import threading
 import unicodedata
-from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -51,7 +50,8 @@ def get_current_session_key(default: str = "default") -> str:
     session_key = _approval_session_key.get()
     if session_key:
         return session_key
-    return os.environ.get("HERMES_SESSION_KEY", default)
+    from gateway.session_context import get_session_env
+    return get_session_env("HERMES_SESSION_KEY", default)
 
 # Sensitive write targets that should trigger approval even when referenced
 # via shell expansions like $HOME or $HERMES_HOME.
@@ -357,32 +357,6 @@ def load_permanent(patterns: set):
 # Config persistence for permanent allowlist
 # =========================================================================
 
-def _config_path() -> str:
-    """Return the path to the config yaml file (MimirAether standard location)."""
-    return os.path.join(
-        os.getenv("MIMIRAETHER_HOME", str(Path.home() / ".openclaw/mimir-aether")),
-        "config.yaml"
-    )
-
-
-def _load_yaml_config() -> dict:
-    """Load config from config.yaml directly."""
-    import yaml
-    path = _config_path()
-    if os.path.exists(path):
-        with open(path, "r") as f:
-            return yaml.safe_load(f) or {}
-    return {}
-
-
-def _save_yaml_config(config: dict) -> None:
-    """Save config to config.yaml directly."""
-    import yaml
-    path = _config_path()
-    with open(path, "w") as f:
-        yaml.safe_dump(config, f)
-
-
 def load_permanent_allowlist() -> set:
     """Load permanently allowed command patterns from config.
 
@@ -390,7 +364,8 @@ def load_permanent_allowlist() -> set:
     patterns added via 'always' in a previous session.
     """
     try:
-        config = _load_yaml_config()
+        from hermes_cli.config import load_config
+        config = load_config()
         patterns = set(config.get("command_allowlist", []) or [])
         if patterns:
             load_permanent(patterns)
@@ -403,9 +378,10 @@ def load_permanent_allowlist() -> set:
 def save_permanent_allowlist(patterns: set):
     """Save permanently allowed command patterns to config."""
     try:
-        config = _load_yaml_config()
+        from hermes_cli.config import load_config, save_config
+        config = load_config()
         config["command_allowlist"] = list(patterns)
-        _save_yaml_config(config)
+        save_config(config)
     except Exception as e:
         logger.warning("Could not save allowlist: %s", e)
 
@@ -517,7 +493,8 @@ def _normalize_approval_mode(mode) -> str:
 def _get_approval_config() -> dict:
     """Read the approvals config block. Returns a dict with 'mode', 'timeout', etc."""
     try:
-        config = _load_yaml_config()
+        from hermes_cli.config import load_config
+        config = load_config()
         return config.get("approvals", {}) or {}
     except Exception as e:
         logger.warning("Failed to load approval config: %s", e)
@@ -546,12 +523,48 @@ def _smart_approve(command: str, description: str) -> str:
 
     Inspired by OpenAI Codex's Smart Approvals guardian subagent
     (openai/codex#13860).
-
-    NOTE: Smart approval is skipped in OpenClaw environment (no auxiliary_client).
-    All dangerous commands escalate to manual approval.
     """
-    logger.debug("Smart approvals: skipped (no auxiliary_client in OpenClaw), escalating")
-    return "escalate"
+    try:
+        from agent.auxiliary_client import get_text_auxiliary_client, auxiliary_max_tokens_param
+
+        client, model = get_text_auxiliary_client(task="approval")
+        if not client or not model:
+            logger.debug("Smart approvals: no aux client available, escalating")
+            return "escalate"
+
+        prompt = f"""You are a security reviewer for an AI coding agent. A terminal command was flagged by pattern matching as potentially dangerous.
+
+Command: {command}
+Flagged reason: {description}
+
+Assess the ACTUAL risk of this command. Many flagged commands are false positives — for example, `python -c "print('hello')"` is flagged as "script execution via -c flag" but is completely harmless.
+
+Rules:
+- APPROVE if the command is clearly safe (benign script execution, safe file operations, development tools, package installs, git operations, etc.)
+- DENY if the command could genuinely damage the system (recursive delete of important paths, overwriting system files, fork bombs, wiping disks, dropping databases, etc.)
+- ESCALATE if you're uncertain
+
+Respond with exactly one word: APPROVE, DENY, or ESCALATE"""
+
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            **auxiliary_max_tokens_param(16),
+            temperature=0,
+        )
+
+        answer = (response.choices[0].message.content or "").strip().upper()
+
+        if "APPROVE" in answer:
+            return "approve"
+        elif "DENY" in answer:
+            return "deny"
+        else:
+            return "escalate"
+
+    except Exception as e:
+        logger.debug("Smart approvals: LLM call failed (%s), escalating", e)
+        return "escalate"
 
 
 def check_dangerous_command(command: str, env_type: str,
