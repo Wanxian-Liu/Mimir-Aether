@@ -49,7 +49,7 @@ if hermes_path not in sys.path:
     sys.path.append(hermes_path)
 
 try:
-    from hermes_state import SessionDB
+    from mimcore.gateway.session import SessionDB
 except ImportError:
     SessionDB = None
 

@@ -1,6 +1,6 @@
 """Shared gateway restart constants and parsing helpers."""
 
-from hermes_cli.config import _get_default_config
+from mimcore.config import _get_default_config
 
 # EX_TEMPFAIL from sysexits.h — used to ask the service manager to restart
 # the gateway after a graceful drain/reload path completes.

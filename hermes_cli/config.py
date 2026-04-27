@@ -343,3 +343,52 @@ def get_compatible_custom_providers() -> list[dict[str, Any]]:
 def recommended_update_command() -> str:
     """Return the recommended update command."""
     return "openclaw self-update"
+def get_container_exec_info() -> Optional[dict]:
+    """Read container mode metadata from HERMES_HOME/.container-mode.
+
+    Returns a dict with keys: backend, container_name, exec_user, hermes_bin
+    or None if container mode is not active, we're already inside the
+    container, or HERMES_DEV=1 is set.
+
+    The .container-mode file is written by the NixOS activation script when
+    container.enable = true. It tells the host CLI to exec into the container
+    instead of running locally.
+    """
+    import os
+    from pathlib import Path
+    
+    if os.environ.get("HERMES_DEV") == "1":
+        return None
+
+    from hermes_constants import is_container
+    if is_container():
+        return None
+
+    # TODO-自研: get_hermes_home -> get_mimir_home for MimirAether
+    container_mode_file = get_hermes_home() / ".container-mode"
+
+    try:
+        info = {}
+        with open(container_mode_file, "r") as f:
+            for line in f:
+                line = line.strip()
+                if "=" in line and not line.startswith("#"):
+                    key, _, value = line.partition("=")
+                    info[key.strip()] = value.strip()
+    except FileNotFoundError:
+        return None
+    # All other exceptions (PermissionError, malformed data, etc.) propagate
+
+    backend = info.get("backend", "docker")
+    container_name = info.get("container_name", "hermes-agent")
+    exec_user = info.get("exec_user", "hermes")
+    hermes_bin = info.get("hermes_bin", "/data/current-package/bin/hermes")
+
+    return {
+        "backend": backend,
+        "container_name": container_name,
+        "exec_user": exec_user,
+        "hermes_bin": hermes_bin,
+    }
+
+
