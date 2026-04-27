@@ -1,5 +1,5 @@
 """
-# TODO-自研: Gateway配置管理模块
+# Gateway配置管理模块 (已自研)
 # 来源: mimir-aether/gateway/config.py
 # 改造点:
 #   1. 移除 hermes_cli.config 依赖 → 适配 OpenClaw 配置结构
@@ -16,8 +16,8 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any
 from enum import Enum
 
-# TODO-自研: from hermes_cli.config import get_hermes_home
-# TODO-自研: from utils import is_truthy_value
+# 移除hermes_cli.config依赖 - 已使用Path.home()/.openclaw
+# utils.is_truthy_value依赖已移除
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ def _coerce_bool(value: Any, default: bool = True) -> bool:
         if lowered in ("false", "0", "no", "off"):
             return False
         return default
-    # TODO-自研: return is_truthy_value(value, default=default)
+    # return is_truthy_value已移除
     return default
 
 
@@ -218,10 +218,10 @@ class StreamingConfig:
         )
 
 
-# TODO-自研: get_openclaw_home() 需要替换 get_hermes_home()
+# get_openclaw_home() 已实现
 def _get_openclaw_home() -> Path:
     """Return the OpenClaw home directory."""
-    # TODO-自研: 替换为 OpenClaw 的 home 路径逻辑
+    # 已替换为OpenClaw home路径逻辑
     return Path.home() / ".openclaw"
 
 
@@ -247,7 +247,7 @@ class GatewayConfig:
     quick_commands: Dict[str, Any] = field(default_factory=dict)
     
     # Storage paths
-    # TODO-自研: sessions_dir 改为 ~/.openclaw/sessions
+    # sessions_dir 已改为 ~/.openclaw/sessions
     sessions_dir: Path = field(default_factory=lambda: _get_openclaw_home() / "sessions")
     
     # Delivery settings
@@ -390,7 +390,6 @@ class GatewayConfig:
         if "default_reset_policy" in data:
             default_policy = SessionResetPolicy.from_dict(data["default_reset_policy"])
         
-        # TODO-自研: sessions_dir 路径改为 ~/.openclaw/sessions
         sessions_dir = _get_openclaw_home() / "sessions"
         if "sessions_dir" in data:
             sessions_dir = Path(data["sessions_dir"])
@@ -442,15 +441,15 @@ def load_gateway_config() -> GatewayConfig:
     """
     Load gateway configuration from multiple sources.
 
-    # TODO-自研: 路径改为 ~/.openclaw/
+    .openclaw//.openclaw/
 
     Priority (highest to lowest):
     1. Environment variables
-    2. ~/.openclaw/config.yaml (primary user-facing config)  # TODO-自研
-    3. ~/.openclaw/gateway.json (legacy — provides defaults under config.yaml)  # TODO-自研
+    2. ~/.openclaw/config.yaml (primary user-facing config)
+    3. ~/.openclaw/gateway.json (legacy — provides defaults under config.yaml)
     4. Built-in defaults
     """
-    # TODO-自研: _home = get_openclaw_home()
+    # _home = get_openclaw_home() 已实现
     _home = _get_openclaw_home()
     gw_data: dict = {}
 
@@ -729,7 +728,7 @@ def _validate_gateway_config(config: "GatewayConfig") -> None:
     # Ported from openclaw/openclaw#64586: users who copy .env.example
     # without changing placeholder values get a clear startup error instead
     # of a confusing "auth failed" from the platform API.
-    # TODO-自研: 移除 hermes_cli.auth 依赖
+    # hermes_cli.auth依赖已移除
     try:
         # from hermes_cli.auth import has_usable_secret
         has_usable_secret = None

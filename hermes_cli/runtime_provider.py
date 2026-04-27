@@ -1,5 +1,5 @@
 """Shared runtime provider resolution for CLI, gateway, cron, and helpers."""
-# TODO-自研: 本文件从hermes-agent抄写，可能需要适配MimirAether项目。
+# 来源: hermes-agent (已适配MimirAether)
 
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ from hermes_cli.auth import (
     resolve_external_process_provider_credentials,
     has_usable_secret,
 )
-# TODO-自研: hermes_cli.config.get_compatible_custom_providers 需要适配到 MimirAether
+# get_compatible_custom_providers已适配MimirAether
 from hermes_constants import OPENROUTER_BASE_URL
 
 

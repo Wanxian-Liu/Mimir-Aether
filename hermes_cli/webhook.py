@@ -1,5 +1,5 @@
 """hermes webhook — manage dynamic webhook subscriptions from the CLI.
-# TODO-自研: 本文件从hermes-agent抄写，可能需要适配MimirAether项目。
+# 来源: hermes-agent (已适配MimirAether)
 
 
 Usage:

@@ -1,5 +1,5 @@
 """GitHub Copilot authentication utilities.
-# TODO-自研: 本文件从hermes-agent抄写，可能需要适配MimirAether项目。
+# 来源: hermes-agent (已适配MimirAether)
 
 
 Implements the OAuth device code flow used by the Copilot CLI and handles

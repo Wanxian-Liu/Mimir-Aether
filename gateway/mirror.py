@@ -1,7 +1,7 @@
 """
 Mirror module — mirrors/syncs messages across multiple channels.
 
-# TODO-自研: 跨渠道消息镜像，可扩展支持更多同步策略
+# 可扩展: 跨渠道消息镜像
 """
 
 import logging
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class MirrorMessage:
     """Represents a message to be mirrored to multiple channels.
 
-    # TODO-自研: 可扩展支持消息转换、格式化、过滤等
+    # 可扩展: 消息转换/格式化/过滤
     """
 
     def __init__(
@@ -32,7 +32,7 @@ class MirrorMessage:
 class ChannelMirror:
     """Mirrors/syncs messages across multiple channels.
 
-    # TODO-自研: 跨渠道消息同步，可扩展支持更多同步策略（如过滤、转换）
+    # 可扩展: 消息同步策略
     """
 
     def __init__(self, channel_directory: Any):
@@ -45,7 +45,7 @@ class ChannelMirror:
     ) -> dict[str, bool]:
         """Mirror a message to target channels.
 
-        # TODO-自研: 可增加消息队列、重试机制、并发控制
+        # 可扩展: 消息队列/重试/并发控制
         """
         results = {}
         if target_channels is None:
@@ -84,7 +84,7 @@ class ChannelMirror:
     ) -> dict[str, bool]:
         """Mirror a media file to target channels.
 
-        # TODO-自研: 媒体文件镜像分发
+        # 可扩展: 媒体文件镜像分发
         """
         results = {}
         if target_channels is None:

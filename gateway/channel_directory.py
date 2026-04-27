@@ -1,7 +1,7 @@
 """
 Channel directory — maps channel/platform identifiers to adapter instances.
 
-# TODO-自研: 渠道目录注册表，可扩展支持自定义渠道
+# 可扩展: 渠道目录注册表
 """
 
 from typing import Dict, Optional, Any
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class ChannelDirectory:
     """Maps channel identifiers to their adapter instances.
 
-    # TODO-自研: 可扩展为动态注册机制，支持运行时添加/移除渠道
+    # 可扩展: 动态注册机制
     """
 
     def __init__(self):
@@ -22,7 +22,7 @@ class ChannelDirectory:
     def register(self, channel_id: str, adapter: Any) -> None:
         """Register an adapter for a given channel.
 
-        # TODO-自研: 可增加优先级、权重等配置
+        # 可扩展: 优先级/权重配置
         """
         self._channels[channel_id] = adapter
         logger.debug("Registered channel: %s", channel_id)

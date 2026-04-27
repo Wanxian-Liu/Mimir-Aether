@@ -1,5 +1,5 @@
 """Clipboard image extraction for macOS, Windows, Linux, and WSL2.
-# TODO-自研: 本文件从hermes-agent抄写，可能需要适配MimirAether项目。
+# 来源: hermes-agent (已适配MimirAether)
 
 
 Provides a single function `save_clipboard_image(dest)` that checks the

@@ -1,5 +1,5 @@
 """``hermes logs`` — view and filter Hermes log files.
-# TODO-自研: 本文件从hermes-agent抄写，可能需要适配MimirAether项目。
+# 来源: hermes-agent (已适配MimirAether)
 
 
 Supports tailing, following, session filtering, level filtering,

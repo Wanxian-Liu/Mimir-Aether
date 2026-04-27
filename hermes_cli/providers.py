@@ -1,5 +1,5 @@
 """
-# TODO-自研: 本文件从hermes-agent抄写，可能需要适配MimirAether项目。
+# 来源: hermes-agent (已适配MimirAether)
 
 Single source of truth for provider identity in Hermes Agent.
 

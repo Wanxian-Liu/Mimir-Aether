@@ -1,7 +1,7 @@
 """
 Stream consumer — handles progressive/editable streaming responses.
 
-# TODO-自研: 流式消息消费，可适配更多流式协议与平台特性
+# 可扩展: 流式消息消费
 """
 
 import asyncio
@@ -20,7 +20,7 @@ _NEW_SEGMENT = object()
 _COMMENTARY = object()
 
 
-# TODO-自研: StreamConsumerConfig 可扩展更多流式配置选项
+# 可扩展: StreamConsumerConfig配置
 class StreamConsumerConfig:
     """Configuration for the stream consumer."""
 
@@ -45,7 +45,7 @@ class GatewayStreamConsumer:
     - Flood-control adaptive backoff
     - Fallback final-send when progressive editing breaks
 
-    # TODO-自研: 可适配更多流式协议，增加更多平台特定处理
+    # 可扩展: 流式协议/平台处理
     """
 
     _MAX_FLOOD_STRIKES = 3
@@ -193,7 +193,7 @@ class GatewayStreamConsumer:
             self._accumulated += self._think_buffer
             self._think_buffer = ""
 
-    # TODO-自研: run() 方法为核心流式消费逻辑，可适配更多流式协议
+    # 可扩展: run()流式消费逻辑
     async def run(self) -> None:
         _raw_limit = getattr(self.adapter, "MAX_MESSAGE_LENGTH", 4096)
         _safe_limit = max(500, _raw_limit - len(self.cfg.cursor) - 100)

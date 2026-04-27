@@ -1032,7 +1032,7 @@ def _check_send_message():
     if platform and platform != "local":
         return True
     try:
-        from gateway.hermes_status import is_gateway_running
+        from gateway.status import is_gateway_running
         return is_gateway_running()
     except Exception:
         return False

@@ -95,6 +95,36 @@ def _sanitize_env_lines(lines: list[str]) -> list[str]:
         result.append(line)
     return result
 
+def load_env() -> dict[str, str]:
+    """Load environment variables from .env file as a dict."""
+    env_path = get_env_path()
+    result = {}
+    if env_path.exists():
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" in line:
+                key, val = line.split("=", 1)
+                key = key.strip()
+                val = val.strip().strip('"').strip("'")
+                result[key] = val
+    return result
+
+def ensure_hermes_home() -> Path:
+    """Ensure HERMES_HOME exists and return the path."""
+    home = get_hermes_home()
+    home.mkdir(parents=True, exist_ok=True)
+    return home
+
+def redact_key(value: Optional[str]) -> str:
+    """Redact a sensitive value for display (show first 4 and last 4 chars)."""
+    if not value:
+        return ""
+    if len(value) <= 8:
+        return "****"
+    return value[:4] + "****" + value[-4:]
+
 def get_env_value(key: str) -> Optional[str]:
     """Get an environment variable value, checking .env file."""
     # First check actual env
@@ -192,6 +222,115 @@ def is_managed() -> bool:
 def managed_error(message: str) -> None:
     """Raise an error for managed environment violations."""
     raise RuntimeError(message)
+
+# ─── Optional environment variables (for web UI) ─────────────────────────────
+
+OPTIONAL_ENV_VARS: dict[str, dict[str, Any]] = {
+    "ANTHROPIC_API_KEY": {
+        "description": "Anthropic API key for Claude models",
+        "url": "https://console.anthropic.com/settings/keys",
+        "category": "model",
+        "password": True,
+        "tools": ["anthropic"],
+        "advanced": False,
+    },
+    "OPENAI_API_KEY": {
+        "description": "OpenAI API key for GPT models",
+        "url": "https://platform.openai.com/api-keys",
+        "category": "model",
+        "password": True,
+        "tools": ["openai"],
+        "advanced": False,
+    },
+    "NOUS_API_KEY": {
+        "description": "Nous Research API key",
+        "url": "https://console.nousresearch.com/",
+        "category": "model",
+        "password": True,
+        "tools": ["nous"],
+        "advanced": True,
+    },
+    "DASHSCOPE_API_KEY": {
+        "description": "Alibaba DashScope API key for Qwen models",
+        "url": "https://dashscope.console.aliyun.com/",
+        "category": "model",
+        "password": True,
+        "tools": ["qwen"],
+        "advanced": True,
+    },
+    "GOOGLE_API_KEY": {
+        "description": "Google API key for Gemini models",
+        "url": "https://aistudio.google.com/app/apikey",
+        "category": "model",
+        "password": True,
+        "tools": ["google"],
+        "advanced": True,
+    },
+    "DEEPSEEK_API_KEY": {
+        "description": "DeepSeek API key",
+        "url": "https://platform.deepseek.com/",
+        "category": "model",
+        "password": True,
+        "tools": ["deepseek"],
+        "advanced": True,
+    },
+    "OPENROUTER_API_KEY": {
+        "description": "OpenRouter API key for accessing multiple models",
+        "url": "https://openrouter.ai/keys",
+        "category": "model",
+        "password": True,
+        "tools": ["openrouter"],
+        "advanced": True,
+    },
+    "TOGETHER_API_KEY": {
+        "description": "Together AI API key",
+        "url": "https://api.together.xyz/",
+        "category": "model",
+        "password": True,
+        "tools": ["together"],
+        "advanced": True,
+    },
+    "AZURE_OPENAI_API_KEY": {
+        "description": "Azure OpenAI API key",
+        "url": "https://portal.azure.com/",
+        "category": "model",
+        "password": True,
+        "tools": ["azure"],
+        "advanced": True,
+    },
+    "TELEGRAM_BOT_TOKEN": {
+        "description": "Telegram bot token for messaging",
+        "url": "https://core.telegram.org/bots#creating-a-new-bot",
+        "category": "channel",
+        "password": True,
+        "tools": ["telegram"],
+        "advanced": False,
+    },
+    "DISCORD_BOT_TOKEN": {
+        "description": "Discord bot token for messaging",
+        "url": "https://discord.com/developers/applications",
+        "category": "channel",
+        "password": True,
+        "tools": ["discord"],
+        "advanced": True,
+    },
+    "FEISHU_APP_ID": {
+        "description": "Feishu (Lark) app ID",
+        "url": "https://open.feishu.cn/",
+        "category": "channel",
+        "password": False,
+        "tools": ["feishu"],
+        "advanced": True,
+    },
+    "FEISHU_APP_SECRET": {
+        "description": "Feishu (Lark) app secret",
+        "url": "https://open.feishu.cn/",
+        "category": "channel",
+        "password": True,
+        "tools": ["feishu"],
+        "advanced": True,
+    },
+}
 
 # ─── Custom providers ────────────────────────────────────────────────────────
 

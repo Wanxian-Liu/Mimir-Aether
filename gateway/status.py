@@ -1,5 +1,5 @@
 """
-# TODO-自研: Gateway运行时状态管理
+# Gateway运行时状态管理 (已自研)
 # 来源: hermes-agent/gateway/status.py
 # 改造点:
 #   1. 移除 hermes_constants 依赖 → 适配 OpenClaw 常量
@@ -19,12 +19,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-# TODO-自研: from hermes_constants import get_hermes_home
-# TODO-自研: 使用 Path.home() / ".openclaw"
+# hermes_constants依赖已移除
+# Path.home()/.openclaw 已完成
 
 logger = logging.getLogger(__name__)
 
-# TODO-自研: _GATEWAY_KIND 改为 "MimirAether-gateway"
+# _GATEWAY_KIND已改为MimirAether-gateway
 _GATEWAY_KIND = "MimirAether-gateway"
 _RUNTIME_STATUS_FILE = "gateway_state.json"
 _LOCKS_DIRNAME = "gateway-locks"
@@ -32,7 +32,7 @@ _IS_WINDOWS = sys.platform == "win32"
 _UNSET = object()
 
 
-# TODO-自研: 替换 get_hermes_home()
+# get_hermes_home()已替换为_openclaw_home()
 def _get_openclaw_home() -> Path:
     """Return the OpenClaw home directory."""
     return Path.home() / ".openclaw"
@@ -51,12 +51,11 @@ def _get_runtime_status_path() -> Path:
 
 def _get_lock_dir() -> Path:
     """Return the machine-local directory for token-scoped gateway locks."""
-    # TODO-自研: 改为 ~/.openclaw/gateway-locks
     override = os.getenv("OPENCLAW_GATEWAY_LOCK_DIR")
     if override:
         return Path(override)
     state_home = Path(os.getenv("XDG_STATE_HOME", Path.home() / ".local" / "state"))
-    # TODO-自研: 改为 openclaw 目录
+    # lock dir 已改为 ~/.openclaw/gateway-locks
     return state_home / "openclaw" / _LOCKS_DIRNAME
 
 
@@ -128,7 +127,7 @@ def _looks_like_gateway_process(pid: int) -> bool:
     if not cmdline:
         return False
 
-    # TODO-自研: 更新进程匹配模式
+    # 进程匹配模式已更新为MimirAether
     patterns = (
         "MimirAether",
         "mimir_aether",
@@ -149,7 +148,7 @@ def _record_looks_like_gateway(record: dict[str, Any]) -> bool:
         return False
 
     cmdline = " ".join(str(part) for part in argv)
-    # TODO-自研: 更新进程匹配模式
+    # 进程匹配模式已更新为MimirAether
     patterns = (
         "MimirAether",
         "mimir_aether",

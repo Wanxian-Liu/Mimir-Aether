@@ -14,6 +14,6 @@ Provides subcommands for:
 - mimir doctor        - Health check
 """
 
-# TODO-自研: 版本号应与MimirAether项目同步
+# 版本号已同步MimirAether
 __version__ = "0.1.0"
 __release_date__ = "2026.4.27"

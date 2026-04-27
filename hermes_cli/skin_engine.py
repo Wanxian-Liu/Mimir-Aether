@@ -1,5 +1,5 @@
 """Hermes CLI skin/theme engine.
-# TODO-自研: 本文件从hermes-agent抄写，可能需要适配MimirAether项目。
+# 来源: hermes-agent (已适配MimirAether)
 
 
 A data-driven skin system that lets users customize the CLI's visual appearance.

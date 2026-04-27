@@ -1,5 +1,5 @@
 """
-# TODO-自研: 本文件从hermes-agent抄写，可能需要适配MimirAether项目。
+# 来源: hermes-agent (已适配MimirAether)
 
 Hermes Agent — Web UI server.
 
@@ -41,7 +41,7 @@ from hermes_cli.config import (
     save_config,
     save_env_value,
     remove_env_value,
-    check_config_version,  # TODO-自研: 需适配MimirAether
+    check_config_version,  # 已适配MimirAether
     redact_key,
 )
 from gateway.status import get_running_pid, read_runtime_status

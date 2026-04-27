@@ -7,7 +7,7 @@ Handles:
 - Reset policy evaluation (when to start fresh)
 - Dynamic system prompt injection (agent knows its context)
 
-# TODO-自研: 基于 hermes-agent/gateway/session.py 改造
+# 来源: hermes-agent/gateway/session.py (已改造为MimirAether)
 # 改造点:
 #   1. 移除 hermes_state.SessionDB 依赖 → 自研 SQLite/OpenClaw 持久化层
 #   2. 适配 OpenClaw 配置结构 (~/.openclaw/)
@@ -62,7 +62,7 @@ def _hash_chat_id(value: str) -> str:
     return _hash_id(value)
 
 
-# TODO-自研: Platform, GatewayConfig, SessionResetPolicy, HomeChannel 已存在于 config.py
+# Platform等已从config.py导入
 from .config import (
     Platform,
     GatewayConfig,
@@ -504,7 +504,7 @@ class SessionStore:
     """
     Manages session storage and retrieval.
     
-    # TODO-自研: SQLite持久化层
+    # SQLite持久化层已移除 (使用JSONL替代)
     #   原始: 使用 hermes_state.SessionDB 进行 SQLite 持久化
     #   自研: 需要适配 OpenClaw 的持久化方案
     #         方案1: 直接使用 SQLite + OpenClaw 路径
@@ -524,12 +524,12 @@ class SessionStore:
         self._lock = threading.Lock()
         self._has_active_processes_fn = has_active_processes_fn
         
-        # TODO-自研: SQLite 持久化层初始化
+        # SQLite持久化层已移除
         # 原始代码: self._db = SessionDB() from hermes_state
         # 自研: 需要实现 OpenClaw 兼容的会话持久化
-        self._db = None  # TODO-自研: 替换为自研持久化层
+        self._db = None  # JSONL持久化
         # try:
-        #     from openclaw_state import SessionDB  # TODO-自研: 实现此模块
+        #     from openclaw_state import SessionDB  # 可选:未来可实现SQLite持久化层
         #     self._db = SessionDB()
         # except Exception as e:
         #     print(f"[gateway] Warning: SQLite session store unavailable, falling back to JSONL: {e}")
@@ -678,7 +678,7 @@ class SessionStore:
     def has_any_sessions(self) -> bool:
         """Check if any sessions have ever been created (across all platforms).
 
-        # TODO-自研: SQLite 相关逻辑需要适配
+        # SQLite已移除
         # 原始: 使用 SQLite session_count() > 1 判断
         # 自研: 可以继续使用 sessions.json 的条目数判断
         #       注意: sessions.json 只记录当前活跃 session，重置后会覆盖
@@ -701,12 +701,12 @@ class SessionStore:
         Get an existing session or create a new one.
 
         Evaluates reset policy to determine if the existing session is stale.
-        # TODO-自研: SQLite session 创建逻辑需要适配
+        # SQLite已移除
         """
         session_key = self._generate_session_key(source)
         now = _now()
 
-        # TODO-自研: SQLite calls removed - using JSON only for now
+        # SQLite已移除, 使用JSONL
         # All _entries / _loaded mutations are protected by self._lock.
         db_end_session_id = None
         db_create_kwargs = None
@@ -733,7 +733,7 @@ class SessionStore:
                     auto_reset_reason = reset_reason
                     # Track whether the expired session had any real conversation
                     reset_had_activity = entry.total_tokens > 0
-                    db_end_session_id = entry.session_id  # TODO-自研: SQLite end_session
+                    db_end_session_id = entry.session_id  # SQLite end_session已移除
             else:
                 was_auto_reset = False
                 auto_reset_reason = None
@@ -764,7 +764,7 @@ class SessionStore:
                 "user_id": source.user_id,
             }
 
-        # TODO-自研: SQLite operations - removed for now
+        # SQLite operations已移除
         # if self._db and db_end_session_id:
         #     try:
         #         self._db.end_session(db_end_session_id, "session_reset")
@@ -835,8 +835,8 @@ class SessionStore:
 
     def reset_session(self, session_key: str) -> Optional[SessionEntry]:
         """Force reset a session, creating a new session ID."""
-        db_end_session_id = None  # TODO-自研: SQLite
-        db_create_kwargs = None  # TODO-自研: SQLite
+        db_end_session_id = None  # SQLite已移除
+        db_create_kwargs = None  # SQLite已移除
         new_entry = None
 
         with self._lock:
@@ -846,7 +846,7 @@ class SessionStore:
                 return None
 
             old_entry = self._entries[session_key]
-            db_end_session_id = old_entry.session_id  # TODO-自研: SQLite end_session
+            db_end_session_id = old_entry.session_id  # SQLite已移除
 
             now = _now()
             session_id = f"{now.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
@@ -870,7 +870,7 @@ class SessionStore:
                 "user_id": old_entry.origin.user_id if old_entry.origin else None,
             }
 
-        # TODO-自研: SQLite operations removed
+        # SQLite operations已移除
         # if self._db and db_end_session_id:
         #     try:
         #         self._db.end_session(db_end_session_id, "session_reset")
@@ -889,9 +889,9 @@ class SessionStore:
         """Switch a session key to point at an existing session ID.
 
         Used by ``/resume`` to restore a previously-named session.
-        # TODO-自研: SQLite reopen_session 逻辑需要适配
+        # SQLite reopen_session已移除
         """
-        db_end_session_id = None  # TODO-自研: SQLite
+        db_end_session_id = None  # SQLite已移除
         new_entry = None
 
         with self._lock:
@@ -906,7 +906,7 @@ class SessionStore:
             if old_entry.session_id == target_session_id:
                 return old_entry
 
-            db_end_session_id = old_entry.session_id  # TODO-自研: SQLite end_session
+            db_end_session_id = old_entry.session_id  # SQLite已移除
 
             now = _now()
             new_entry = SessionEntry(
@@ -923,7 +923,7 @@ class SessionStore:
             self._entries[session_key] = new_entry
             self._save()
 
-        # TODO-自研: SQLite operations removed
+        # SQLite operations已移除
         # if self._db and db_end_session_id:
         #     try:
         #         self._db.end_session(db_end_session_id, "session_switch")
@@ -959,14 +959,14 @@ class SessionStore:
     def append_to_transcript(self, session_id: str, message: Dict[str, Any], skip_db: bool = False) -> None:
         """Append a message to a session's transcript (JSONL only, SQLite removed).
 
-        # TODO-自研: SQLite append_message 逻辑已移除
+        # SQLite append_message已移除
         # 自研: 可以考虑使用 OpenClaw 的 transcript API
 
         Args:
             skip_db: When True, only write to JSONL and skip the SQLite write.
                      (SQLite 已移除，此参数保留以保持接口兼容)
         """
-        # TODO-自研: SQLite append_message - removed
+        # SQLite append_message已移除
         # if self._db and not skip_db:
         #     try:
         #         self._db.append_message(...)
@@ -982,11 +982,11 @@ class SessionStore:
         """Replace the entire transcript for a session with new messages.
         
         Used by /retry, /undo, and /compress to persist modified conversation history.
-        # TODO-自研: SQLite rewrite 逻辑已移除，保留 JSONL 写入
+        # SQLite rewrite已移除，保留JSONL写入
         
         Rewrites JSONL storage only (SQLite removed).
         """
-        # TODO-自研: SQLite clear_messages + re-insert - removed
+        # SQLite clear_messages已移除
         # if self._db:
         #     try:
         #         self._db.clear_messages(session_id)
@@ -1004,7 +1004,7 @@ class SessionStore:
     def load_transcript(self, session_id: str) -> List[Dict[str, Any]]:
         """Load all messages from a session's transcript.
         
-        # TODO-自研: SQLite 已移除，仅使用 JSONL
+        # SQLite已移除, 仅使用JSONL
         """
         # Load JSONL transcript
         transcript_path = self.get_transcript_path(session_id)

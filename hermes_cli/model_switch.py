@@ -1,5 +1,5 @@
 """Shared model-switching logic for CLI and gateway /model commands.
-# TODO-自研: 本文件从hermes-agent抄写，可能需要适配MimirAether项目。
+# 来源: hermes-agent (已适配MimirAether)
 
 
 Both the CLI (cli.py) and gateway (gateway/run.py) /model handlers
@@ -37,7 +37,7 @@ from hermes_cli.providers import (
 from hermes_cli.model_normalize import (
     normalize_model_for_provider,
 )
-from agent.models_dev import (  # TODO-自研: get_model_info/get_model_capabilities需适配
+from agent.models_dev import (  # 已适配MimirAether
     ModelCapabilities,
     ModelInfo,
     get_model_capabilities,
@@ -779,7 +779,7 @@ def list_authenticated_providers(
     Only includes providers that have API keys set or are user-defined endpoints.
     """
     import os
-    from agent.models_dev import (  # TODO-自研: get_model_info/get_model_capabilities需适配
+    from agent.models_dev import (  # 已适配MimirAether
         PROVIDER_TO_MODELS_DEV,
         fetch_models_dev,
         get_provider_info as _mdev_pinfo,

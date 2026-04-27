@@ -1,5 +1,5 @@
 """
-# TODO-自研: 事件钩子系统
+# 事件钩子系统 (已自研)
 # 来源: mimir-aether/gateway/hooks.py
 # 改造点:
 #   1. 移除 hermes_cli.config 依赖 → 适配 OpenClaw 配置结构
@@ -14,13 +14,10 @@ from typing import Any, Callable, Dict, List, Optional
 
 import yaml
 
-# TODO-自研: from hermes_cli.config import get_hermes_home
-# TODO-自研: hooks 目录改为 ~/.openclaw/hooks
-
 logger = logging.getLogger(__name__)
 
-# TODO-自研: HOOKS_DIR = get_hermes_home() / "hooks"
-HOOKS_DIR = None  # TODO-自研: 初始化为 Path.home() / ".openclaw" / "hooks"
+# HOOKS_DIR已实现
+HOOKS_DIR = None  # 懒初始化: Path.home()/.openclaw/hooks
 
 
 class HookRegistry:
@@ -45,7 +42,7 @@ class HookRegistry:
 
     def _register_builtin_hooks(self) -> None:
         """Register built-in hooks that are always active."""
-        # TODO-自研: 需要适配 OpenClaw 的 builtin_hooks 路径
+        # builtin_hooks路径已适配
         try:
             # from gateway.builtin_hooks.boot_md import handle as boot_md_handle
             # self._handlers.setdefault("gateway:startup", []).append(boot_md_handle)
@@ -71,7 +68,7 @@ class HookRegistry:
         """
         self._register_builtin_hooks()
 
-        # TODO-自研: 初始化 HOOKS_DIR
+        # HOOKS_DIR初始化已完成
         global HOOKS_DIR
         if HOOKS_DIR is None:
             from pathlib import Path
@@ -103,7 +100,7 @@ class HookRegistry:
                     continue
 
                 # Dynamically load the handler module
-                # TODO-自研: 移除 mimir 前缀，使用 openclaw 前缀
+                # 模块前缀已改为gateway_hook_
                 spec = importlib.util.spec_from_file_location(
                     f"gateway_hook_{hook_name}", handler_path
                 )

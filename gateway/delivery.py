@@ -1,7 +1,7 @@
 """
 Delivery module — handles message/media delivery after agent response.
 
-# TODO-自研: 消息投递与媒体分发，可扩展支持更多投递策略
+# 可扩展: 消息投递与媒体分发
 """
 
 import logging
@@ -22,7 +22,7 @@ class DeliveryResult:
 class MessageDelivery:
     """Handles delivery of final messages and media attachments.
 
-    # TODO-自研: 可扩展为投递队列、重试机制、优先级调度
+    # 可扩展: 投递队列/重试/优先级
     """
 
     def __init__(self, adapter: Any):
@@ -37,7 +37,7 @@ class MessageDelivery:
     ) -> DeliveryResult:
         """Deliver a final text message.
 
-        # TODO-自研: 可增加消息队列、批量投递、延迟投递等功能
+        # 可扩展: 批量投递/延迟投递
         """
         try:
             result = await self.adapter.send(
@@ -64,7 +64,7 @@ class MessageDelivery:
     ) -> List[DeliveryResult]:
         """Deliver media files.
 
-        # TODO-自研: 媒体文件分发，支持多种媒体类型、批量上传
+        # 可扩展: 媒体文件批量上传
         """
         results = []
         for path in media_paths:
