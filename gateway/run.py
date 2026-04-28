@@ -75,14 +75,14 @@ _ensure_ssl_certs()
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Resolve Hermes home directory (respects HERMES_HOME override)
-from hermes_constants import get_hermes_home
+from mimir_constants import get_hermes_home
 from utils import atomic_yaml_write, is_truthy_value
 _hermes_home = get_hermes_home()
 
 # Load environment variables from ~/.hermes/.env first.
 # User-managed env files should override stale shell exports on restart.
 from dotenv import load_dotenv  # backward-compat for tests that monkeypatch this symbol
-from hermes_cli.env_loader import load_hermes_dotenv
+from mimir_cli.env_loader import load_hermes_dotenv
 _env_path = _hermes_home / '.env'
 load_hermes_dotenv(hermes_home=_hermes_home, project_env=Path(__file__).resolve().parents[1] / '.env')
 
@@ -95,7 +95,7 @@ if _config_path.exists():
         with open(_config_path, encoding="utf-8") as _f:
             _cfg = _yaml.safe_load(_f) or {}
         # Expand ${ENV_VAR} references before bridging to env vars.
-        from hermes_cli.config import _expand_env_vars
+        from mimir_cli.config import _expand_env_vars
         _cfg = _expand_env_vars(_cfg)
         # Top-level simple values (fallback only — don't override .env)
         for _key, _val in _cfg.items():
@@ -210,7 +210,7 @@ if _config_path.exists():
 
 # Apply IPv4 preference if configured (before any HTTP clients are created).
 try:
-    from hermes_constants import apply_ipv4_preference
+    from mimir_constants import apply_ipv4_preference
     _network_cfg = (_cfg if '_cfg' in dir() else {}).get("network", {})
     if isinstance(_network_cfg, dict) and _network_cfg.get("force_ipv4"):
         apply_ipv4_preference(force=True)
@@ -219,7 +219,7 @@ except Exception:
 
 # Validate config structure early — log warnings so gateway operators see problems
 try:
-    from hermes_cli.config import print_config_warnings
+    from mimir_cli.config import print_config_warnings
     print_config_warnings()
 except Exception:
     pass
@@ -318,7 +318,7 @@ _AGENT_PENDING_SENTINEL = object()
 
 def _resolve_runtime_agent_kwargs() -> dict:
     """Resolve provider credentials for gateway-created AIAgent instances."""
-    from hermes_cli.runtime_provider import (
+    from mimir_cli.runtime_provider import (
         resolve_runtime_provider,
         format_runtime_provider_error,
     )
@@ -401,7 +401,7 @@ def _check_unavailable_skill(command_name: str) -> str | None:
                     )
 
         # Check optional skills (shipped with repo but not installed)
-        from hermes_constants import get_optional_skills_dir
+        from mimir_constants import get_optional_skills_dir
         repo_root = Path(__file__).resolve().parent.parent
         optional_dir = get_optional_skills_dir(repo_root / "optional-skills")
         if optional_dir.exists():
@@ -460,7 +460,7 @@ def _resolve_hermes_bin() -> Optional[list[str]]:
 
     Tries in order:
     1. ``shutil.which("hermes")`` — standard PATH lookup
-    2. ``sys.executable -m hermes_cli.main`` — fallback when Hermes is running
+    2. ``sys.executable -m mimir_cli.main`` — fallback when Hermes is running
        from a venv/module invocation and the ``hermes`` shim is not on PATH
 
     Returns argv parts ready for quoting/joining, or ``None`` if neither works.
@@ -474,8 +474,8 @@ def _resolve_hermes_bin() -> Optional[list[str]]:
     try:
         import importlib.util
 
-        if importlib.util.find_spec("hermes_cli") is not None:
-            return [sys.executable, "-m", "hermes_cli.main"]
+        if importlib.util.find_spec("mimir_cli") is not None:
+            return [sys.executable, "-m", "mimir_cli.main"]
     except Exception:
         pass
 
@@ -909,7 +909,7 @@ class GatewayRunner:
         # doesn't fail with "model must be a non-empty string".
         if not model and runtime_kwargs.get("provider"):
             try:
-                from hermes_cli.models import get_default_model_for_provider
+                from mimir_cli.models import get_default_model_for_provider
                 model = get_default_model_for_provider(runtime_kwargs["provider"])
                 if model:
                     logger.info(
@@ -923,7 +923,7 @@ class GatewayRunner:
 
     def _resolve_turn_agent_config(self, user_message: str, model: str, runtime_kwargs: dict) -> dict:
         from agent.smart_model_routing import resolve_turn_route
-        from hermes_cli.models import resolve_fast_mode_overrides
+        from mimir_cli.models import resolve_fast_mode_overrides
 
         primary = {
             "model": model,
@@ -1132,7 +1132,7 @@ class GatewayRunner:
         "minimal", "low", "medium", "high", "xhigh". Returns None to use
         default (medium).
         """
-        from hermes_constants import parse_reasoning_effort
+        from mimir_constants import parse_reasoning_effort
         effort = ""
         try:
             import yaml as _y
@@ -1394,7 +1394,7 @@ class GatewayRunner:
     def _finalize_shutdown_agents(self, active_agents: Dict[str, Any]) -> None:
         for agent in active_agents.values():
             try:
-                from hermes_cli.plugins import invoke_hook as _invoke_hook
+                from mimir_cli.plugins import invoke_hook as _invoke_hook
                 _invoke_hook(
                     "on_session_finalize",
                     session_id=getattr(agent, "session_id", None),
@@ -1473,7 +1473,7 @@ class GatewayRunner:
         logger.info("Starting Hermes Gateway...")
         logger.info("Session storage: %s", self.config.sessions_dir)
         try:
-            from hermes_cli.profiles import get_active_profile_name
+            from mimir_cli.profiles import get_active_profile_name
             _profile = get_active_profile_name()
             if _profile and _profile != "default":
                 logger.info("Active profile: %s", _profile)
@@ -2523,7 +2523,7 @@ class GatewayRunner:
                 return await self._handle_status_command(event)
 
             # Resolve the command once for all early-intercept checks below.
-            from hermes_cli.commands import resolve_command as _resolve_cmd_inner
+            from mimir_cli.commands import resolve_command as _resolve_cmd_inner
             _evt_cmd = event.get_command()
             _cmd_def_inner = _resolve_cmd_inner(_evt_cmd) if _evt_cmd else None
 
@@ -2649,8 +2649,8 @@ class GatewayRunner:
         
         # Emit command:* hook for any recognized slash command.
         # GATEWAY_KNOWN_COMMANDS is derived from the central COMMAND_REGISTRY
-        # in hermes_cli/commands.py — no hardcoded set to maintain here.
-        from hermes_cli.commands import GATEWAY_KNOWN_COMMANDS, resolve_command as _resolve_cmd
+        # in mimir_cli/commands.py — no hardcoded set to maintain here.
+        from mimir_cli.commands import GATEWAY_KNOWN_COMMANDS, resolve_command as _resolve_cmd
         if command and command in GATEWAY_KNOWN_COMMANDS:
             await self.hooks.emit(f"command:{command}", {
                 "platform": source.platform.value if source.platform else "",
@@ -2829,10 +2829,10 @@ class GatewayRunner:
         # Plugin-registered slash commands
         if command:
             try:
-                from hermes_cli.plugins import get_plugin_command_handler
+                from mimir_cli.plugins import get_plugin_command_handler
                 # Normalize underscores to hyphens so Telegram's underscored
                 # autocomplete form matches plugin commands registered with
-                # hyphens. See hermes_cli/commands.py:_build_telegram_menu.
+                # hyphens. See mimir_cli/commands.py:_build_telegram_menu.
                 plugin_handler = get_plugin_command_handler(command.replace("_", "-"))
                 if plugin_handler:
                     user_args = event.get_command_args().strip()
@@ -3328,7 +3328,7 @@ class GatewayRunner:
                 if _hyg_config_context_length is None and _hyg_base_url:
                     try:
                         try:
-                            from hermes_cli.config import get_compatible_custom_providers as _gw_gcp
+                            from mimir_cli.config import get_compatible_custom_providers as _gw_gcp
                             _hyg_custom_providers = _gw_gcp(_hyg_data)
                         except Exception:
                             _hyg_custom_providers = _hyg_data.get("custom_providers")
@@ -3988,7 +3988,7 @@ class GatewayRunner:
 
         # Fire plugin on_session_finalize hook (session boundary)
         try:
-            from hermes_cli.plugins import invoke_hook as _invoke_hook
+            from mimir_cli.plugins import invoke_hook as _invoke_hook
             _old_sid = old_entry.session_id if old_entry else None
             _invoke_hook("on_session_finalize", session_id=_old_sid,
                          platform=source.platform.value if source.platform else "")
@@ -4024,7 +4024,7 @@ class GatewayRunner:
 
         # Fire plugin on_session_reset hook (new session guaranteed to exist)
         try:
-            from hermes_cli.plugins import invoke_hook as _invoke_hook
+            from mimir_cli.plugins import invoke_hook as _invoke_hook
             _new_sid = new_entry.session_id if new_entry else None
             _invoke_hook("on_session_reset", session_id=_new_sid,
                          platform=source.platform.value if source.platform else "")
@@ -4033,7 +4033,7 @@ class GatewayRunner:
 
         # Append a random tip to the reset message
         try:
-            from hermes_cli.tips import get_random_tip
+            from mimir_cli.tips import get_random_tip
             _tip_line = f"\n✦ Tip: {get_random_tip()}"
         except Exception:
             _tip_line = ""
@@ -4044,7 +4044,7 @@ class GatewayRunner:
     
     async def _handle_profile_command(self, event: MessageEvent) -> str:
         """Handle /profile — show active profile name and home directory."""
-        from hermes_constants import get_hermes_home, display_hermes_home
+        from mimir_constants import get_hermes_home, display_hermes_home
         from pathlib import Path
 
         home = get_hermes_home()
@@ -4181,7 +4181,7 @@ class GatewayRunner:
 
     async def _handle_help_command(self, event: MessageEvent) -> str:
         """Handle /help command - list available commands."""
-        from hermes_cli.commands import gateway_help_lines
+        from mimir_cli.commands import gateway_help_lines
         lines = [
             "📖 **Hermes Commands**\n",
             *gateway_help_lines(),
@@ -4203,7 +4203,7 @@ class GatewayRunner:
 
     async def _handle_commands_command(self, event: MessageEvent) -> str:
         """Handle /commands [page] - paginated list of all commands and skills."""
-        from hermes_cli.commands import gateway_help_lines
+        from mimir_cli.commands import gateway_help_lines
 
         raw_args = event.get_command_args().strip()
         if raw_args:
@@ -4265,11 +4265,11 @@ class GatewayRunner:
           /model --provider <provider>        — switch to provider, auto-detect model
         """
         import yaml
-        from hermes_cli.model_switch import (
+        from mimir_cli.model_switch import (
             switch_model as _switch_model, parse_model_flags,
             list_authenticated_providers,
         )
-        from hermes_cli.providers import get_label
+        from mimir_cli.providers import get_label
 
         raw_args = event.get_command_args().strip()
 
@@ -4295,7 +4295,7 @@ class GatewayRunner:
                     current_base_url = model_cfg.get("base_url", "")
                 user_provs = cfg.get("providers")
                 try:
-                    from hermes_cli.config import get_compatible_custom_providers
+                    from mimir_cli.config import get_compatible_custom_providers
                     custom_provs = get_compatible_custom_providers(cfg)
                 except Exception:
                     custom_provs = cfg.get("custom_providers")
@@ -4530,7 +4530,7 @@ class GatewayRunner:
                 model_cfg["provider"] = result.target_provider
                 if result.base_url:
                     model_cfg["base_url"] = result.base_url
-                from hermes_cli.config import save_config
+                from mimir_cli.config import save_config
                 save_config(cfg)
             except Exception as e:
                 logger.warning("Failed to persist model switch: %s", e)
@@ -4584,7 +4584,7 @@ class GatewayRunner:
     async def _handle_provider_command(self, event: MessageEvent) -> str:
         """Handle /provider command - show available providers."""
         import yaml
-        from hermes_cli.models import (
+        from mimir_cli.models import (
             list_available_providers,
             normalize_provider,
             _PROVIDER_LABELS,
@@ -4607,7 +4607,7 @@ class GatewayRunner:
         current_provider = normalize_provider(current_provider)
         if current_provider == "auto":
             try:
-                from hermes_cli.auth import resolve_provider as _resolve_provider
+                from mimir_cli.auth import resolve_provider as _resolve_provider
                 current_provider = _resolve_provider(current_provider)
             except Exception:
                 current_provider = "openrouter"
@@ -5339,7 +5339,7 @@ class GatewayRunner:
 
             platform_key = _platform_config_key(source.platform)
 
-            from hermes_cli.tools_config import _get_platform_tools
+            from mimir_cli.tools_config import _get_platform_tools
             enabled_toolsets = sorted(_get_platform_tools(user_config, platform_key))
 
             pr = self._provider_routing
@@ -5701,7 +5701,7 @@ class GatewayRunner:
     async def _handle_fast_command(self, event: MessageEvent) -> str:
         """Handle /fast — mirror the CLI Priority Processing toggle in gateway chats."""
         import yaml
-        from hermes_cli.models import model_supports_fast_mode
+        from mimir_cli.models import model_supports_fast_mode
 
         args = event.get_command_args().strip().lower()
         config_path = _hermes_home / "config.yaml"
@@ -6475,7 +6475,7 @@ class GatewayRunner:
     async def _handle_debug_command(self, event: MessageEvent) -> str:
         """Handle /debug — upload debug report + logs and return paste URLs."""
         import asyncio
-        from hermes_cli.debug import (
+        from mimir_cli.debug import (
             _capture_dump, collect_debug_report, _read_full_log,
             upload_to_pastebin,
         )
@@ -6539,7 +6539,7 @@ class GatewayRunner:
         import shutil
         import subprocess
         from datetime import datetime
-        from hermes_cli.config import is_managed, format_managed_message
+        from mimir_cli.config import is_managed, format_managed_message
 
         # Block non-messaging platforms (API server, webhooks, ACP)
         platform = event.source.platform
@@ -7421,7 +7421,7 @@ class GatewayRunner:
         user_config = _load_gateway_config()
         platform_key = _platform_config_key(source.platform)
 
-        from hermes_cli.tools_config import _get_platform_tools
+        from mimir_cli.tools_config import _get_platform_tools
         enabled_toolsets = sorted(_get_platform_tools(user_config, platform_key))
 
         display_config = user_config.get("display", {})
@@ -8566,7 +8566,7 @@ class GatewayRunner:
                 _pending_cmd_word = _pending_parts[0][1:].lower() if _pending_parts else ""
                 if _pending_cmd_word:
                     try:
-                        from hermes_cli.commands import resolve_command as _rc_pending
+                        from mimir_cli.commands import resolve_command as _rc_pending
                         if _rc_pending(_pending_cmd_word):
                             logger.info(
                                 "Discarding command '/%s' from pending queue — "

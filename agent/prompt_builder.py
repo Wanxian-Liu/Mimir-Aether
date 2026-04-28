@@ -512,7 +512,7 @@ def build_context_files_prompt(
     
     # SOUL.md（从MimirAether自己的目录）
     if not skip_soul:
-        soul_path = Path.home() / ".mimiraether" / "SOUL.md"
+        soul_path = Path.home() / ".openclaw" / "projects" / "MimirAether" / "SOUL.md"
         if soul_path.exists():
             content = load_context_file(soul_path, "SOUL.md")
             if content:
@@ -659,6 +659,15 @@ def build_skills_system_prompt(
             _SKILLS_PROMPT_CACHE.move_to_end(cache_key)
             return cached
     
+    # 检查磁盘快照（Hermes 1:1学习：两层缓存）
+    snapshot = _load_skills_snapshot(skills_dir)
+    if snapshot is not None:
+        result = snapshot.get("skills_prompt", "")
+        if result:
+            with _SKILLS_PROMPT_CACHE_LOCK:
+                _SKILLS_PROMPT_CACHE[cache_key] = result
+            return result
+    
     # 扫描技能目录
     skills_by_category: dict[str, list[tuple[str, str]]] = {}
     category_descriptions: dict[str, str] = {}
@@ -760,6 +769,9 @@ def build_skills_system_prompt(
         while len(_SKILLS_PROMPT_CACHE) > _SKILLS_PROMPT_CACHE_MAX:
             _SKILLS_PROMPT_CACHE.popitem(last=False)
     
+    # 存入磁盘快照（Hermes 1:1学习：两层缓存）
+    _write_skills_snapshot(skills_dir, result, category_descriptions)
+    
     return result
 
 
@@ -801,15 +813,15 @@ def _load_skills_snapshot(skills_dir: Path) -> Optional[dict]:
         return None
     return snapshot
 
-def _write_skills_snapshot(skills_dir: Path, skill_entries: list, category_descriptions: dict) -> None:
-    """持久化skill快照用于快速冷启动"""
+def _write_skills_snapshot(skills_dir: Path, skills_prompt: str, category_descriptions: dict) -> None:
+    """持久化skill快照用于快速冷启动（Hermes 1:1学习）"""
     try:
         import json
         manifest = _build_skills_manifest(skills_dir)
         payload = {
             "version": _SKILLS_SNAPSHOT_VERSION,
             "manifest": manifest,
-            "skills": skill_entries,
+            "skills_prompt": skills_prompt,  # 存储完整的skills prompt字符串
             "category_descriptions": category_descriptions,
         }
         _get_skills_snapshot_path().parent.mkdir(parents=True, exist_ok=True)
@@ -971,8 +983,8 @@ def _truncate_content(content: str, filename: str, max_chars: int = CONTEXT_FILE
 def load_soul_md() -> Optional[str]:
     """从MIMIRAETHER_HOME加载SOUL.md内容（Hermès兼容）"""
     try:
-        from mimiraether_constants import get_mimiraether_home
-        soul_path = get_mimiraether_home() / "SOUL.md"
+        from agent.mimir_constants import get_mimir_home
+        soul_path = get_mimir_home() / "SOUL.md"
     except Exception as e:
         logger.debug("Could not get MimirAether home for SOUL.md: %s", e)
         return None
@@ -1079,8 +1091,8 @@ def _load_cursorrules(cwd_path: Path) -> str:
 def _skills_prompt_snapshot_path() -> Path:
     """返回技能prompt快照文件路径（Hermès兼容）"""
     try:
-        from mimiraether_constants import get_mimiraether_home
-        return get_mimiraether_home() / ".skills_prompt_snapshot.json"
+        from agent.mimir_constants import get_mimir_home
+        return get_mimir_home() / ".skills_prompt_snapshot.json"
     except Exception:
         return Path.home() / ".openclaw" / "mimir-aether" / ".skills_prompt_snapshot.json"
 
@@ -1249,7 +1261,7 @@ This is the body content.
     print("\n[测试6] 主Prompt构建")
     prompt = build_system_prompt(
         model="claude-opus-4-6",
-        cwd="/home/rayliu/.openclaw/workspace",
+        cwd="/home/rayliu/.openclaw/projects/MimirAether",
         available_tools={"terminal", "read_file", "write_file"},
         platform="feishu",
     )

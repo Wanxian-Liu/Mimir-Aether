@@ -7,6 +7,7 @@ Provides:
 * ``_run_async(coro)`` -- Run an async coroutine from a sync handler.
 * ``handle_function_call(name, args, task_id=None)`` -- Dispatch a tool call.
 * ``get_toolset_for_tool(name)`` -- Return the toolset for a given tool.
+* ``_discover_tools()`` -- Import all tool modules to trigger registry.register()
 
 Module-level state:
 * ``_last_resolved_tool_names`` -- Tracks the last set of tool names resolved
@@ -24,10 +25,57 @@ Import chain (circular-import safe):
 """
 
 import asyncio
+import importlib
 import json
 import logging
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Tool Discovery (importing each module triggers its registry.register calls)
+# ---------------------------------------------------------------------------
+
+def _discover_tools():
+    """Import all tool modules to trigger their registry.register() calls.
+    
+    Wrapped in a function so import errors in optional tools (e.g., fal_client
+    not installed) don't prevent the rest from loading.
+    
+    Based on Hermes' _discover_tools() implementation.
+    """
+    _modules = [
+        "tools.builtin",  # Built-in tools (read_file, write_file, execute_code, etc.)
+        "tools.web_tools",
+        "tools.terminal_tool",
+        "tools.file_tools",
+        "tools.vision_tools",
+        "tools.mixture_of_agents_tool",
+        "tools.image_generation_tool",  # fal_client not installed - expected to fail
+        "tools.skill_manager_tool",
+        "tools.browser_tool",
+        "tools.cronjob_tools",
+        "tools.rl_training_tool",
+        "tools.tts_tool",
+        "tools.todo_tool",
+        "tools.memory_tool",
+        "tools.session_search_tool",
+        "tools.clarify_tool",
+        "tools.code_execution_tool",
+        "tools.delegate_tool",
+        "tools.process_registry",
+        "tools.send_message_tool",
+        "tools.homeassistant_tool",
+    ]
+    for mod_name in _modules:
+        try:
+            importlib.import_module(mod_name)
+        except Exception as e:
+            logger.warning("Could not import tool module %s: %s", mod_name, e)
+
+
+# Run tool discovery at module load time
+_discover_tools()
+
 
 # ---------------------------------------------------------------------------
 # Module-level state
@@ -76,6 +124,86 @@ def _run_async(coro):
 # Tool dispatch
 # ---------------------------------------------------------------------------
 
+def coerce_tool_args(tool_name, args):
+    """Coerce tool call arguments to match their JSON Schema types.
+    
+    LLMs frequently return numbers as strings ("42" instead of 42)
+    and booleans as strings ("true" instead of true). This compares
+    each argument value against the tool's registered JSON Schema and
+    attempts safe coercion when the value is a string but the schema
+    expects a different type.
+    
+    Based on Hermes' coerce_tool_args implementation.
+    """
+    if not args or not isinstance(args, dict):
+        return args
+    
+    from tools.registry import registry
+    schema = registry.get_schema(tool_name)
+    if not schema:
+        return args
+    
+    properties = (schema.get("parameters") or {}).get("properties")
+    if not properties:
+        return args
+    
+    for key, value in args.items():
+        if not isinstance(value, str):
+            continue
+        prop_schema = properties.get(key)
+        if not prop_schema:
+            continue
+        expected = prop_schema.get("type")
+        if not expected:
+            continue
+        coerced = _coerce_value(value, expected)
+        if coerced is not value:
+            args[key] = coerced
+    
+    return args
+
+
+def _coerce_value(value, expected_type):
+    """Attempt to coerce a string value to expected type."""
+    if isinstance(expected_type, list):
+        for t in expected_type:
+            result = _coerce_value(value, t)
+            if result is not None:
+                return result
+        return value
+    
+    if expected_type == "integer":
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return value
+    elif expected_type == "number":
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return value
+    elif expected_type == "boolean":
+        if value.lower() in ("true", "1", "yes"):
+            return True
+        elif value.lower() in ("false", "0", "no"):
+            return False
+        return value
+    elif expected_type == "array":
+        try:
+            import json
+            return json.loads(value)
+        except (ValueError, TypeError):
+            return value
+    elif expected_type == "object":
+        try:
+            import json
+            return json.loads(value)
+        except (ValueError, TypeError):
+            return value
+    
+    return value
+
+
 def handle_function_call(name, args, task_id=None):
     """Dispatch a single tool call through the central registry.
 
@@ -90,6 +218,9 @@ def handle_function_call(name, args, task_id=None):
     Returns:
         JSON string with the tool result.
     """
+    # Coerce arguments to match schema types
+    args = coerce_tool_args(name, args)
+    
     from tools.registry import registry
     return registry.dispatch(name, args)
 

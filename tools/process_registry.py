@@ -51,7 +51,7 @@ logger = logging.getLogger(__name__)
 
 
 # Checkpoint file for crash recovery (gateway only)
-CHECKPOINT_PATH = Path.home() / ".mimiraether" / "processes.json"
+CHECKPOINT_PATH = Path.home() / "projects/MimirAether" / "processes.json"
 
 # Limits
 MAX_OUTPUT_CHARS = 200_000      # 200KB rolling output buffer

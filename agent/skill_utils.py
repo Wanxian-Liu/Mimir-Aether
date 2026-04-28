@@ -12,11 +12,21 @@ MimirAether Skill Utils - 技能元数据工具
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import logging
+import threading
 from pathlib import Path
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any, Dict, List, Set, Tuple, Optional
+
+# 使用mimir_constants
+from agent.mimir_constants import (
+    get_mimir_home,
+    get_skills_dir as _get_mimir_skills_dir,
+    get_skills_snapshot_path,
+    ensure_initialized,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -147,15 +157,22 @@ def skill_matches_platform(frontmatter: Dict[str, Any]) -> bool:
 # ============================================================================
 
 def get_skills_dir() -> Path:
-    """获取本地技能目录"""
-    default = Path.home() / ".openclaw" / "skills"
-    return Path(os.environ.get("OPENCLAW_SKILLS_DIR", str(default)))
+    """获取本地技能目录
+    
+    优先使用MIMIR_HOME环境变量，其次使用~/.mimir/skills
+    """
+    ensure_initialized()
+    return _get_mimir_skills_dir()
 
 
 def get_config_path() -> Path:
-    """获取配置文件路径"""
-    default = Path.home() / ".openclaw" / "config.yaml"
-    return Path(os.environ.get("OPENCLAW_CONFIG_PATH", str(default)))
+    """获取配置文件路径
+    
+    使用MIMIR_HOME/config.yaml
+    """
+    ensure_initialized()
+    from agent.mimir_constants import get_config_path as _get_mc_config_path
+    return _get_mc_config_path()
 
 
 def get_external_skills_dirs() -> List[Path]:
@@ -609,3 +626,180 @@ platforms: [linux, darwin]
     print("\n" + "=" * 60)
     print("所有测试通过!")
     print("=" * 60)
+
+# ============================================================================
+# Skills Prompt Snapshot System
+# ============================================================================
+# 学习自Hermes: 磁盘缓存skills prompt以加速冷启动
+
+_SKILLS_PROMPT_SNAPSHOT_VERSION = 1
+_SKILLS_PROMPT_SNAPSHOT_MAX = 8
+_SKILLS_PROMPT_SNAPSHOT: "OrderedDict[tuple, str]" = None  # type: ignore
+_SKILLS_PROMPT_SNAPSHOT_LOCK = threading.Lock()
+
+
+def _get_skills_prompt_snapshot_cache():
+    """获取或创建snapshot缓存"""
+    global _SKILLS_PROMPT_SNAPSHOT
+    if _SKILLS_PROMPT_SNAPSHOT is None:
+        from collections import OrderedDict
+        _SKILLS_PROMPT_SNAPSHOT = OrderedDict()
+    return _SKILLS_PROMPT_SNAPSHOT
+
+
+def _build_skills_manifest(skills_dir: Path) -> Dict[str, List[int]]:
+    """构建所有SKILL.md和DESCRIPTION.md文件的mtime/size manifest"""
+    manifest: Dict[str, List[int]] = {}
+    for filename in ("SKILL.md", "DESCRIPTION.md"):
+        for path in iter_skill_index_files(skills_dir, filename):
+            try:
+                st = path.stat()
+                manifest[str(path.relative_to(skills_dir))] = [st.st_mtime_ns, st.st_size]
+            except OSError:
+                continue
+    return manifest
+
+
+def _load_skills_snapshot(skills_dir: Path) -> Optional[Dict]:
+    """从磁盘加载snapshot，如果manifest匹配则使用"""
+    snapshot_path = get_skills_snapshot_path()
+    if not snapshot_path.exists():
+        return None
+    try:
+        snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    if not isinstance(snapshot, dict):
+        return None
+    if snapshot.get("version") != _SKILLS_PROMPT_SNAPSHOT_VERSION:
+        return None
+    if snapshot.get("manifest") != _build_skills_manifest(skills_dir):
+        return None
+    return snapshot
+
+
+def _write_skills_snapshot(
+    skills_dir: Path,
+    manifest: Dict[str, List[int]],
+    skill_entries: List[Dict],
+    category_descriptions: Dict[str, str],
+) -> None:
+    """将snapshot持久化到磁盘用于快速冷启动"""
+    payload = {
+        "version": _SKILLS_PROMPT_SNAPSHOT_VERSION,
+        "manifest": manifest,
+        "skills": skill_entries,
+        "category_descriptions": category_descriptions,
+    }
+    try:
+        from utils import atomic_json_write
+        atomic_json_write(get_skills_snapshot_path(), payload)
+    except ImportError:
+        # 回退：直接写入
+        snapshot_path = get_skills_snapshot_path()
+        snapshot_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    except Exception as e:
+        logger.debug("Could not write skills prompt snapshot: %s", e)
+
+
+def _build_snapshot_entry(
+    skill_file: Path,
+    skills_dir: Path,
+    frontmatter: Dict[str, Any],
+    description: str,
+) -> Dict:
+    """为单个skill构建可序列化的元数据dict"""
+    rel_path = skill_file.relative_to(skills_dir)
+    parts = rel_path.parts
+    category = parts[0] if len(parts) >= 2 else "uncategorized"
+    return {
+        "name": skill_file.parent.name,
+        "category": category,
+        "description": description,
+        "path": str(rel_path),
+        "frontmatter": {
+            k: v for k, v in frontmatter.items()
+            if k in ("name", "description", "platforms", "always_apply")
+        },
+    }
+
+
+def clear_skills_system_prompt_cache(*, clear_snapshot: bool = False) -> None:
+    """清除内存中的skills prompt缓存（可选清除磁盘snapshot）"""
+    cache = _get_skills_prompt_snapshot_cache()
+    with _SKILLS_PROMPT_SNAPSHOT_LOCK:
+        cache.clear()
+    if clear_snapshot:
+        try:
+            get_skills_snapshot_path().unlink(missing_ok=True)
+        except OSError as e:
+            logger.debug("Could not remove skills prompt snapshot: %s", e)
+
+
+def get_skills_for_system_prompt(
+    skills_dir: Optional[Path] = None,
+    disabled_names: Optional[Set[str]] = None,
+    categories: Optional[Dict[str, str]] = None,
+) -> Tuple[List[Dict], Dict[str, str]]:
+    """
+    获取用于system prompt的skills列表
+    
+    优先使用磁盘snapshot加速冷启动，
+    当snapshot过期时重新扫描并更新。
+    
+    Returns:
+        (skill_entries, category_descriptions)
+    """
+    if skills_dir is None:
+        skills_dir = get_skills_dir()
+    
+    if not skills_dir.exists():
+        return [], {}
+    
+    if disabled_names is None:
+        disabled_names = get_disabled_skill_names()
+    
+    if categories is None:
+        categories = {}
+    
+    # 尝试从磁盘加载snapshot
+    snapshot = _load_skills_snapshot(skills_dir)
+    if snapshot:
+        logger.debug("Using cached skills snapshot")
+        return snapshot.get("skills", []), snapshot.get("category_descriptions", {})
+    
+    # 构建新的manifest和entries
+    manifest = _build_skills_manifest(skills_dir)
+    skill_entries: List[Dict] = []
+    seen_categories: Set[str] = set()
+    
+    for skill_file in iter_skill_index_files(skills_dir, "SKILL.md"):
+        try:
+            raw = skill_file.read_text(encoding="utf-8")
+            frontmatter, body = parse_frontmatter(raw)
+        except Exception:
+            continue
+        
+        name = str(skill_file.parent.name)
+        if name in disabled_names:
+            continue
+        
+        if not skill_matches_platform(frontmatter):
+            continue
+        
+        description = extract_skill_description(frontmatter)
+        entry = _build_snapshot_entry(skill_file, skills_dir, frontmatter, description)
+        skill_entries.append(entry)
+        
+        # 收集category描述
+        category = entry["category"]
+        if category not in seen_categories:
+            seen_categories.add(category)
+            cat_desc = frontmatter.get("category_description", "")
+            if cat_desc:
+                categories[category] = cat_desc
+    
+    # 写入磁盘snapshot
+    _write_skills_snapshot(skills_dir, manifest, skill_entries, categories)
+    
+    return skill_entries, categories

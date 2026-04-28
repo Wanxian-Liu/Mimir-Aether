@@ -5,7 +5,7 @@ Phase 5: Multi-Platform Gateway
 Supports: Telegram, Discord, Feishu
 
 Architecture:
-- PlatformAdapter: Abstract base for platform integrations
+- BasePlatformAdapter: Abstract base for platform integrations (in platforms/)
 - Message: Unified message protocol
 - SessionManager: Cross-platform session management
 - MessageRouter: Message routing and handling
@@ -22,19 +22,19 @@ except ImportError:
     SessionManager = None
     Session = None
 
-# 可选适配器 - 导入失败时优雅降级
+# 可选适配器 - 从platforms子目录导入，失败时优雅降级
 try:
-    from .telegram_adapter import TelegramAdapter
+    from .platforms.telegram_adapter import TelegramAdapter
 except ImportError:
     TelegramAdapter = None
 
 try:
-    from .discord_adapter import DiscordAdapter
+    from .platforms.discord_adapter import DiscordAdapter
 except ImportError:
     DiscordAdapter = None
 
 try:
-    from .feishu_adapter import FeishuAdapter
+    from .platforms.feishu_adapter import FeishuAdapter
 except ImportError:
     FeishuAdapter = None
 
@@ -51,15 +51,3 @@ __all__ = [
     "DiscordAdapter",
     "FeishuAdapter",
 ]
-
-try:
-    from .discord_adapter import DiscordAdapter
-    __all__.append("DiscordAdapter")
-except ImportError:
-    DiscordAdapter = None
-
-try:
-    from .feishu_adapter import FeishuAdapter
-    __all__.append("FeishuAdapter")
-except ImportError:
-    FeishuAdapter = None

@@ -1,0 +1,137 @@
+"""Shared constants for MimirAether Agent - 统一版本"""
+
+import os
+from pathlib import Path
+
+# MimirAether official home
+MIMIR_HOME = Path(os.getenv("MIMIR_AETHER_HOME", Path.home() / ".openclaw" / "projects" / "MimirAether"))
+
+def get_mimir_home() -> Path:
+    """Return the MimirAether home directory."""
+    return MIMIR_HOME
+
+# Backward compatibility aliases
+def get_hermes_home() -> Path:
+    """Alias for backward compatibility."""
+    return MIMIR_HOME
+
+HERMES_HOME = MIMIR_HOME
+MIMIRAETHER_HOME = MIMIR_HOME
+
+def get_mimir_dir(new_subpath: str, old_name: str) -> Path:
+    """Resolve a MimirAether subdirectory."""
+    home = get_mimir_home()
+    old_path = home / old_name
+    if old_path.exists():
+        return old_path
+    return home / new_subpath
+
+def display_mimir_home() -> str:
+    """Return user-friendly display string."""
+    return str(get_mimir_home()).replace(str(Path.home()), "~")
+
+display_hermes_home = display_mimir_home  # backward compat
+
+def get_optional_skills_dir(default: Path | None = None) -> Path:
+    """Return the optional-skills directory."""
+    override = os.getenv("MIMIR_AETHER_OPTIONAL_SKILLS", "").strip()
+    if override:
+        return Path(override)
+    if default is not None:
+        return default
+    return get_mimir_home() / "optional-skills"
+
+get_optional_skills_dir_hermes = get_optional_skills_dir  # backward compat
+
+# Additional backward compatibility
+def get_hermes_dir(new_subpath: str, old_name: str) -> Path:
+    """Alias for backward compatibility."""
+    return get_mimir_dir(new_subpath, old_name)
+
+# ── Hermes backward-compatible constants ──────────────────────────────────
+
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+OPENROUTER_MODELS_URL = f"{OPENROUTER_BASE_URL}/models"
+
+
+# ── Hermes backward-compatible functions ──────────────────────────────────
+
+def get_default_hermes_root() -> Path:
+    """Return the root Hermes directory for profile-level operations.
+
+    In standard deployments this is ``~/.openclaw``.
+
+    In Docker or custom deployments where ``HERMES_HOME`` points outside
+    ``~/.openclaw`` (e.g. ``/opt/data``), returns ``HERMES_HOME`` directly
+    — that IS the root.
+
+    In profile mode where ``HERMES_HOME`` is ``<root>/profiles/<name>``,
+    returns ``<root>`` so that ``profile list`` can see all profiles.
+    Works both for standard (``~/.openclaw/profiles/coder``) and Docker
+    (``/opt/data/profiles/coder``) layouts.
+
+    Import-safe — no dependencies beyond stdlib.
+    """
+    native_home = Path.home() / ".openclaw"
+    env_home = os.environ.get("HERMES_HOME", "")
+    if not env_home:
+        return native_home
+    env_path = Path(env_home)
+    try:
+        env_path.resolve().relative_to(native_home.resolve())
+        # HERMES_HOME is under ~/.openclaw (normal or profile mode)
+        return native_home
+    except ValueError:
+        pass
+
+    # Docker / custom deployment.
+    # Check if this is a profile path: <root>/profiles/<name>
+    # If the immediate parent dir is named "profiles", the root is
+    # the grandparent — this covers Docker profiles correctly.
+    if env_path.parent.name == "profiles":
+        return env_path.parent.parent
+
+    # Not a profile path — HERMES_HOME itself is the root
+    return env_path
+
+
+def apply_ipv4_preference(force: bool = False) -> None:
+    """Monkey-patch ``socket.getaddrinfo`` to prefer IPv4 connections.
+
+    On servers with broken or unreachable IPv6, Python tries AAAA records
+    first and hangs for the full TCP timeout before falling back to IPv4.
+    This affects httpx, requests, urllib, the OpenAI SDK — everything that
+    uses ``socket.getaddrinfo``.
+
+    When *force* is True, patches ``getaddrinfo`` so that calls with
+    ``family=AF_UNSPEC`` (the default) resolve as ``AF_INET`` instead,
+    skipping IPv6 entirely.  If no A record exists, falls back to the
+    original unfiltered resolution so pure-IPv6 hosts still work.
+
+    Safe to call multiple times — only patches once.
+    Set ``network.force_ipv4: true`` in ``config.yaml`` to enable.
+    """
+    if not force:
+        return
+
+    import socket
+
+    # Guard against double-patching
+    if getattr(socket.getaddrinfo, "_hermes_ipv4_patched", False):
+        return
+
+    _original_getaddrinfo = socket.getaddrinfo
+
+    def _ipv4_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+        if family == 0:  # AF_UNSPEC — caller didn't request a specific family
+            try:
+                return _original_getaddrinfo(
+                    host, port, socket.AF_INET, type, proto, flags
+                )
+            except socket.gaierror:
+                # No A record — fall back to full resolution (pure-IPv6 hosts)
+                return _original_getaddrinfo(host, port, family, type, proto, flags)
+        return _original_getaddrinfo(host, port, family, type, proto, flags)
+
+    _ipv4_getaddrinfo._hermes_ipv4_patched = True  # type: ignore[attr-defined]
+    socket.getaddrinfo = _ipv4_getaddrinfo  # type: ignore[assignment]

@@ -20,7 +20,7 @@ from pathlib import Path
 from datetime import datetime, timedelta
 
 MIMIRAETHER_DIR = Path.home() / ".openclaw" / "projects" / "MimirAether"
-MIMIRAETHER_HOME = Path.home() / ".mimiraether"
+MIMIRAETHER_HOME = Path.home() / ".openclaw" / "projects" / "MimirAether"
 LEARNINGS_DIR = MIMIRAETHER_HOME / "learnings"
 EVOLUTION_LOG = LEARNINGS_DIR / "evolution_log_8h.json"
 HERMES_DIR = Path.home() / ".openclaw" / "projects" / "hermes-agent"

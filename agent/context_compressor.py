@@ -67,10 +67,10 @@ class ContextCompressorV2(ContextEngine):
     def __init__(
         self,
         model: str = "deepseek-chat",
-        threshold_percent: float = 0.85,
+        threshold_percent: float = 0.50,  # Hermes 1:1学习：从0.85改为0.50
         protect_first_n: int = 3,
         protect_last_n: int = 6,
-        tail_token_budget: int = 4000,
+        tail_token_budget: int = None,  # Hermes 1:1学习：动态计算
         summary_target_ratio: float = 0.20,
         summary_model: str = None,
         base_url: str = "https://api.deepseek.com",
@@ -86,7 +86,6 @@ class ContextCompressorV2(ContextEngine):
         self.threshold_percent = threshold_percent
         self.protect_first_n = protect_first_n
         self.protect_last_n = protect_last_n
-        self.tail_token_budget = tail_token_budget
         self.summary_target_ratio = summary_target_ratio
         self.summary_model = summary_model or model
         self.quiet_mode = quiet_mode
@@ -94,6 +93,14 @@ class ContextCompressorV2(ContextEngine):
         self.context_length = 8000
         self.threshold_percent = threshold_percent
         self.threshold_tokens = int(self.context_length * threshold_percent)
+        
+        # Hermes 1:1学习：动态计算tail_token_budget
+        # tail_budget = threshold_tokens * summary_target_ratio
+        if tail_token_budget is None:
+            self.tail_token_budget = int(self.threshold_tokens * summary_target_ratio)
+        else:
+            self.tail_token_budget = tail_token_budget
+        
         self.max_summary_tokens = min(
             int(self.context_length * 0.05), 
             _SUMMARY_TOKENS_CEILING
@@ -107,7 +114,7 @@ class ContextCompressorV2(ContextEngine):
         if not quiet_mode:
             logger.info(
                 f"V2.3 initialized: threshold={self.threshold_tokens}, "
-                f"tail={self.tail_token_budget}"
+                f"tail={self.tail_token_budget} (dynamic)"
             )
     
     def update_from_response(self, usage: Dict[str, Any]) -> None:
@@ -700,3 +707,141 @@ if __name__ == "__main__":
     print("\n" + "=" * 60)
     print("测试完成")
     print("=" * 60)
+
+# ============================================================================
+# Hermes-Style Advanced Compressor (新增)
+# ============================================================================
+
+class HermesStyleCompressor(ContextCompressorV2):
+    """
+    Hermes风格压缩器
+    
+    对齐Hermes ContextCompressor的策略:
+    1. 工具结果修剪（无LLM调用）
+    2. 保护头部消息（system + first exchange）
+    3. 保护尾部消息（按token预算）
+    4. LLM摘要中间消息
+    5. 迭代摘要更新
+    """
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Hermes风格的额外配置
+        self._iterative_summary = True  # 迭代摘要
+        self._tool_pruning_enabled = True
+        self._context_probed = False
+    
+    def on_session_reset(self) -> None:
+        """重置会话状态（学习自Hermes）"""
+        super().on_session_reset()
+        self._context_probed = False
+        self._previous_summary = None
+    
+    def mark_context_probed(self) -> None:
+        """标记上下文已探测（从上下文错误恢复后）"""
+        self._context_probed = True
+    
+    def is_context_probed(self) -> bool:
+        """检查是否已探测上下文"""
+        return self._context_probed
+    
+    def prune_tool_results_aggressive(
+        self, 
+        messages: List[Dict],
+        keep_last: int = 5
+    ) -> List[Dict]:
+        """
+        激进工具结果修剪
+        
+        学习自Hermes: 清除旧工具输出以节省上下文空间
+        """
+        if not messages:
+            return messages
+        
+        result = []
+        tool_count = 0
+        
+        for msg in messages:
+            msg_copy = msg.copy()
+            content = msg.get("content", "")
+            
+            # 检测工具消息
+            if msg.get("role") == "tool" or "tool_call" in str(msg):
+                tool_count += 1
+                # 保留最近N个工具结果
+                if tool_count > keep_last:
+                    msg_copy["content"] = _PRUNED_TOOL_PLACEHOLDER
+            
+            result.append(msg_copy)
+        
+        return result
+    
+    def protect_tail_by_tokens(
+        self,
+        messages: List[Dict],
+        token_budget: int
+    ) -> Tuple[List[Dict], List[Dict]]:
+        """
+        按token预算保护尾部消息
+        
+        学习自Hermes: 使用token预算而不是固定消息数
+        """
+        if not messages or token_budget <= 0:
+            return [], messages
+        
+        protected = []
+        current_tokens = 0
+        
+        # 从后向前保护
+        for msg in reversed(messages):
+            content = msg.get("content", "") or ""
+            msg_tokens = len(content) // _CHARS_PER_TOKEN + 50  # 估算开销
+            
+            if current_tokens + msg_tokens <= token_budget:
+                protected.insert(0, msg)
+                current_tokens += msg_tokens
+            else:
+                # 分割点
+                break
+        
+        # 未保护的部分
+        unprotected = messages[:-len(protected)] if protected else messages
+        
+        return unprotected, protected
+    
+    def get_compression_ratio(self) -> float:
+        """获取压缩比率"""
+        if self.original_tokens == 0:
+            return 0.0
+        return 1.0 - (self.compressed_tokens / self.original_tokens)
+    
+    def should_trigger_compression(
+        self,
+        prompt_tokens: int,
+        completion_tokens: int = 0,
+        include_reserve: bool = True
+    ) -> Tuple[bool, str]:
+        """
+        判断是否应触发压缩
+        
+        Returns:
+            (should_compress, reason)
+        """
+        total_tokens = prompt_tokens + completion_tokens
+        
+        # 检查阈值
+        if total_tokens >= self.threshold_tokens:
+            reserve = 2000 if include_reserve else 0
+            if total_tokens >= self.threshold_tokens + reserve:
+                return True, f"Exceeded threshold: {total_tokens} >= {self.threshold_tokens + reserve}"
+        
+        # 检查冷却
+        if time.time() < self._summary_failure_cooldown_until:
+            return False, "In cooldown period"
+        
+        # 检查是否已探测
+        if self._context_probed:
+            # 已经压缩过，警告但允许
+            return True, "Context already probed, re-compression allowed"
+        
+        return False, "Within safe bounds"

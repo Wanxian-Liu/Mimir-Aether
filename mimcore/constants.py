@@ -1,6 +1,6 @@
 """MimCore constants - re-export from hermes_constants."""
 
-from hermes_constants import (
+from mimir_constants import (
     get_hermes_home,
     get_default_hermes_root,
     get_config_path,

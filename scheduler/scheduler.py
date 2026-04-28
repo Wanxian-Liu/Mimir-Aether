@@ -13,7 +13,7 @@ from .jobs import get_due_jobs, mark_job_run
 logger = logging.getLogger(__name__)
 
 # 文件锁路径
-_LOCK_FILE = Path.home() / ".mimiraether" / "cron" / ".tick.lock"
+_LOCK_FILE = Path.home() / ".openclaw" / "projects" / "MimirAether" / "cron" / ".tick.lock"
 
 # 尝试导入fcntl（Unix系统）
 try:

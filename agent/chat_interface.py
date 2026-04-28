@@ -23,7 +23,7 @@ class HistoryManager:
     """简单的历史管理"""
     
     def __init__(self, history_file: Optional[str] = None):
-        self.history_file = history_file or os.path.expanduser("~/.mimiraether_history")
+        self.history_file = history_file or os.path.expanduser("~/.openclaw/projects/MimirAether/history")
         self.history = []
         self._load_history()
     

@@ -27,6 +27,9 @@ from aiohttp import web
 PROJECT_ROOT = Path(__file__).parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+# 导入模型配置（动态读取OpenClaw配置）
+from mimicore.config.model_defaults import get_model, get_available_models, DEFAULT_MODEL as MIMIR_DEFAULT_MODEL
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -110,7 +113,7 @@ class AgentManager:
             if session_id not in self._agents:
                 from agent.core_loop import MimirAetherAgent
                 self._agents[session_id] = MimirAetherAgent(
-                    model=os.environ.get("MIMIR_MODEL", "deepseek/deepseek-chat"),
+                    model=get_model(),
                     max_iterations=90,
                     platform="api",
                 )
@@ -156,7 +159,7 @@ async def handle_chat_completions(request: web.Request) -> web.Response:
             )
         
         # 获取参数
-        model = body.get("model", os.environ.get("MIMIR_MODEL", "deepseek/deepseek-chat"))
+        model = body.get("model", get_model())
         messages = body.get("messages", [])
         stream = body.get("stream", False)
         max_tokens = body.get("max_tokens", 4096)
@@ -347,6 +350,13 @@ async def handle_models(request: web.Request) -> web.Response:
     """
     models = [
         {
+            "id": get_model(),
+            "object": "model",
+            "created": int(time.time()),
+            "owned_by": "MimirAether",
+            "note": "默认模型"
+        },
+        {
             "id": "deepseek/deepseek-chat",
             "object": "model",
             "created": int(time.time()),
@@ -377,7 +387,7 @@ async def handle_v1_runs(request: web.Request) -> web.Response:
     try:
         body = await request.json()
         task = body.get("task", "")
-        model = body.get("model", os.environ.get("MIMIR_MODEL", "deepseek/deepseek-chat"))
+        model = body.get("model", get_model())
         
         run_id = f"run_{uuid.uuid4().hex[:12]}"
         
@@ -536,7 +546,7 @@ def main():
     parser = argparse.ArgumentParser(description="MimirAether API服务")
     parser.add_argument("--host", default=DEFAULT_HOST, help="监听地址")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="监听端口")
-    parser.add_argument("--model", default="deepseek/deepseek-chat", help="默认模型")
+    parser.add_argument("--model", default=get_model(), help="默认模型")
     parser.add_argument("--verbose", action="store_true", help="详细输出")
     
     args = parser.parse_args()

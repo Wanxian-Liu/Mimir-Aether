@@ -23,15 +23,46 @@ import os
 import threading
 import uuid
 import hashlib
-from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Callable, Union
-from enum import Enum
+
+# 统一类型系统: 从 types.py 导入所有数据类型
+from .types import (
+    MessageRole,
+    Message,
+    ToolCall,
+    ToolResult,
+    ToolError,
+    ExecutionMetadata,
+    Plan,
+    ExecutionResult,
+    _get_tool_name,
+    _get_tool_arguments,
+    _get_tool_id,
+)
+# 技能函数: 从 skill_funcs.py 导入 (Phase 3 M2)
+from .skill_funcs import (
+    skill_view_func,
+    skills_list_func,
+    skill_manage_func,
+    SKILL_TOOL_SCHEMAS,
+    SKILL_MANAGE_SCHEMA,
+)
 
 # 新模块导入
-from .context_compressor import ContextCompressor, CompressionResult
+from .context_compressor import ContextCompressor, CompressionResult, HermesStyleCompressor
 from .insights import InsightsEngine, MetricType
 from memory.fencing import MemoryFencer
 from skills.skill_manager import SkillManager, SkillStatus
+
+# 自我进化模块：多层次错误恢复 & 增强迭代预算
+from .recovery import (
+    MultiLevelRecovery, RecoveryContext, RecoveryStats, RecoveryLevel,
+    get_recovery, set_recovery
+)
+from .iteration_budget import (
+    EnhancedIterationBudget, BudgetWarning, BudgetStats, IterationRecord,
+    get_global_budget, set_global_budget, IterationBudget  # 保留向后兼容
+)
 
 # 导入Hermes SessionDB用于数据持久化
 import sys
@@ -61,182 +92,30 @@ from . import anthropic_adapter
 # 集成凭证池模块
 from . import credential_pool
 from .credential_pool import CredentialPool, PooledCredential, create_credential
-# Thread pool for running sync tool calls that internally use asyncio.run()
-# (e.g., the Modal/Docker/Daytona terminal backends). Running them in a
-# separate thread gives them a clean event loop so they don't deadlock.
-import concurrent.futures
-_tool_executor = concurrent.futures.ThreadPoolExecutor(max_workers=128)
+# Async bridge: persistent event loops for safe sync-tool dispatch.
+# Imported from agent/async_bridge.py (Hermes pattern).
+# _tool_executor, resize_tool_pool, get_tool_loop, get_worker_loop
+from .async_bridge import (
+    get_tool_executor,
+    resize_tool_pool,
+    get_tool_loop,
+    get_worker_loop,
+)
+# Backward-compatible alias
+_tool_executor = get_tool_executor()
 
-
-def resize_tool_pool(max_workers):
-    """Replace the global tool executor with a new one of the given size."""
-    global _tool_executor
-    old = _tool_executor
-    _tool_executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
-    old.shutdown(wait=False)
-    logger.info("Tool thread pool resized to %d workers", max_workers)
+# MimirAgentLoop: pure execution engine extracted from this class
+from .agent_loop import MimirAgentLoop, AgentResult as LoopAgentResult, ToolError as LoopToolError
 
 
 logger = logging.getLogger(__name__)
 
 
-class MessageRole(Enum):
-    """消息角色"""
-    SYSTEM = "system"
-    USER = "user"
-    ASSISTANT = "assistant"
-    TOOL = "tool"
+# IterationBudget已移动到iteration_budget.py模块
+# 保留此注释以保持向后兼容
+# 新代码请使用: from .iteration_budget import EnhancedIterationBudget, get_global_budget
+from .iteration_budget import IterationBudget
 
-
-@dataclass
-@dataclass
-class Message:
-    """对话消息"""
-    role: MessageRole
-    content: str
-    name: Optional[str] = None
-    tool_calls: Optional[List[Dict]] = None
-    tool_call_id: Optional[str] = None
-    reasoning_content: Optional[str] = None  # DeepSeek V4 Pro reasoning
-
-
-@dataclass
-class ToolCall:
-    """工具调用"""
-    id: str
-    name: str
-    arguments: Union[str, Dict[str, Any]]
-
-
-@dataclass
-class ToolResult:
-    """工具执行结果"""
-    tool_call_id: str
-    content: str
-    is_error: bool = False
-
-
-@dataclass
-class ToolError:
-    """
-    工具执行错误记录
-
-    学习自Hermes ToolError:收集工具执行错误,不中断流程,
-    但记录完整上下文用于调试和分析。
-    """
-    turn: int                    # 哪个轮次出错
-    tool_name: str               # 工具名
-    arguments: str               # 参数(截断到200字符)
-    error: str                   # 错误类型和消息
-    tool_result: str             # 返回给模型的原始结果(截断)
-
-
-@dataclass
-class ExecutionMetadata:
-    """
-    执行元数据
-
-    学习自Hermes AgentResult:返回完整执行元数据,
-    便于分析、调试和续传。
-    """
-    turns_used: int = 0                    # LLM调用次数
-    finished_naturally: bool = False       # 是否自然结束(非max_turns)
-    reasoning_per_turn: List[str] = field(default_factory=list)  # 每轮推理内容
-    tool_errors: List[ToolError] = field(default_factory=list)  # 工具错误列表
-    total_api_time_ms: float = 0.0        # 总API调用时间
-    total_tool_time_ms: float = 0.0       # 总工具执行时间
-
-
-@dataclass
-class Plan:
-    """任务分解计划"""
-    task: str
-    subtasks: List[Dict[str, Any]] = field(default_factory=list)
-    complexity: int = 0
-    estimated_time: int = 0
-
-
-@dataclass
-class ExecutionResult:
-    """执行结果"""
-    success: bool
-    output: Any
-    error: Optional[str] = None
-    tool_calls_made: int = 0
-    duration: float = 0.0
-
-
-# ──────────────────────────────────────────────
-# 工具调用格式工具函数
-# 兼容OpenAI格式: {"type": "function", "function": {"name": "xxx", "arguments": "..."}}
-# 和旧格式: {"name": "xxx", "arguments": {...}}
-# ──────────────────────────────────────────────
-
-def _get_tool_name(tc: dict) -> str:
-    """从工具调用dict中提取工具名称，兼容OpenAI嵌套格式和旧格式。"""
-    if not isinstance(tc, dict):
-        return ""
-    func = tc.get("function")
-    if isinstance(func, dict):
-        name = func.get("name")
-        if name:
-            return name
-    return tc.get("name", "")
-
-
-def _get_tool_arguments(tc: dict) -> str:
-    """从工具调用dict中提取arguments，兼容OpenAI嵌套格式和旧格式。"""
-    if not isinstance(tc, dict):
-        return ""
-    func = tc.get("function")
-    if isinstance(func, dict):
-        if "arguments" in func:
-            return func["arguments"]
-    if "arguments" in tc:
-        return tc["arguments"]
-    return ""
-
-
-def _get_tool_id(tc: dict) -> str:
-    """从工具调用dict中提取id。"""
-    if isinstance(tc, dict):
-        return tc.get("id", "")
-    return ""
-
-
-class IterationBudget:
-    """
-    迭代预算控制器
-
-    学习自Hermes IterationBudget:
-    - 父Agent默认90次迭代
-    - 子Agent默认50次迭代
-    - execute_code等工具调用不消耗预算
-    """
-
-    def __init__(self, max_total: int = 90):
-        self.max_total = max_total
-        self._used = 0
-        self._lock = asyncio.Lock()
-
-    async def consume(self) -> bool:
-        """尝试消耗一次迭代"""
-        async with self._lock:
-            if self._used >= self.max_total:
-                return False
-            self._used += 1
-            return True
-
-    async def refund(self) -> None:
-        """退还一次迭代(如execute_code)"""
-        async with self._lock:
-            if self._used > 0:
-                self._used -= 1
-
-    async def get_remaining(self) -> int:
-        """获取剩余迭代次数(异步安全)"""
-        async with self._lock:
-            return self.max_total - self._used
 
 
 
@@ -377,13 +256,37 @@ class MimirAetherAgent:
             setattr(self, f"_{hook_name}_hooks", [])
 
         # 初始化组件
-        self.budget = IterationBudget(max_iterations)
+        # 增强版迭代预算控制器（学习自Hermes）
+        self.budget = EnhancedIterationBudget(
+            max_total=max_iterations,
+            track_history=True,
+            warning_threshold=0.3,
+            critical_threshold=0.1,
+        )
         self.tool_registry = ToolRegistry()
+        
+        # 多层次错误恢复器（学习自Hermes 4层恢复策略）
+        self.recovery = MultiLevelRecovery(
+            max_retries=3,
+            base_delay=1.0,
+            max_delay=30.0,
+            enable_degrade=True,
+            enable_compress=True,
+            enable_truncate=True,
+        )
+        
         self.conversation_history: List[Message] = []
         self.max_history_length = 100  # 对话历史最大长度,防止内存耗尽
 
         # 新模块初始化
-        self.compressor = ContextCompressor()
+        # Hermes风格压缩器
+        self.compressor = HermesStyleCompressor(
+            model=model,
+            threshold_percent=0.85,
+            protect_first_n=3,
+            protect_last_n=6,
+            tail_token_budget=4000,
+        )
 
         # 初始化SessionDB并传入InsightsEngine(SQL模式)
         _db = None
@@ -505,6 +408,98 @@ class MimirAetherAgent:
             logger.info(f"Credential pool initialized with {len(entries)} entries")
         else:
             logger.debug("No credentials found for pool, using environment variables directly")
+
+    # ============================================================================
+    # 预算和恢复状态（学习自Hermes）
+    # ============================================================================
+    
+    def get_budget_warning(self) -> str:
+        """获取当前预算警告级别"""
+        level = self.budget.get_warning_level()
+        remaining = asyncio.run(self.budget.get_remaining())
+        total = self.budget.max_total
+        pct = remaining / total * 100
+        return f"[{level.value.upper()}] {remaining}/{total} ({pct:.1f}% remaining)"
+    
+    def get_recovery_stats(self) -> str:
+        """获取恢复统计"""
+        return self.recovery.format_stats()
+    
+    async def check_and_warn_budget(self) -> bool:
+        """
+        检查预算并发出警告
+        
+        Returns:
+            是否应该继续执行
+        """
+        if self.budget.should_warn():
+            warning = self.get_budget_warning()
+            logger.warning(f"Iteration budget warning: {warning}")
+            if self.status_callback:
+                await self._emit_status(f"⚠️ {warning}")
+            return self.budget.is_safe_to_continue()
+        return True
+    
+    async def handle_error_with_recovery(
+        self,
+        error: Exception,
+        context: dict = None
+    ) -> bool:
+        """
+        使用多层次恢复处理错误
+        
+        Args:
+            error: 发生的错误
+            context: 错误上下文
+            
+        Returns:
+            是否恢复成功
+        """
+        error_ctx = RecoveryContext(
+            error=error,
+            error_type=type(error).__name__,
+            metadata=context or {}
+        )
+        
+        try:
+            # 使用恢复器的with_recovery
+            await self.recovery.with_recovery(
+                lambda: None,  # 恢复操作在error_handler中处理
+                error_handler=self._recovery_error_handler,
+                context=error_ctx
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Unrecoverable error: {e}")
+            return False
+    
+    async def _recovery_error_handler(
+        self, 
+        error: Exception, 
+        context: RecoveryContext
+    ) -> None:
+        """恢复错误处理器"""
+        level = context.current_level
+        logger.warning(f"Recovery at level {level.value}: {error}")
+        
+        if level == RecoveryLevel.COMPRESS:
+            # 触发上下文压缩
+            self.budget.stats.compression_triggered += 1
+            self.compressor.mark_context_probed()
+            await self._emit_status("🔄 Compressing context...")
+            
+        elif level == RecoveryLevel.TRUNCATE:
+            # 强制截断历史
+            await self._truncate_history()
+            await self._emit_status("✂️ Truncating history...")
+    
+    async def _truncate_history(self, keep_recent: int = 10) -> None:
+        """截断对话历史"""
+        if len(self.conversation_history) > keep_recent:
+            truncated = self.conversation_history[-keep_recent:]
+            removed = len(self.conversation_history) - len(truncated)
+            self.conversation_history = truncated
+            logger.info(f"Truncated {removed} messages from history")
 
     def _get_api_key(self) -> str:
         """获取当前模型的API key"""
@@ -1987,20 +1982,81 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 try:
                     arguments = json.loads(raw_args)
                 except json.JSONDecodeError as e:
-                    logger.warning(f"Failed to parse arguments as JSON for tool {func_name}")
-                    # Hermes风格:收集ToolError
-                    self._tool_errors.append(ToolError(
-                        turn=turn,
-                        tool_name=func_name,
-                        arguments=str(raw_args)[:200],
-                        error=f"JSONDecodeError: {e}",
-                        tool_result="Error: invalid JSON in tool arguments",
-                    ))
-                    return ToolResult(
-                        tool_call_id=tool_call_id,
-                        content="Error: invalid JSON in tool arguments",
-                        is_error=True
-                    )
+                    logger.warning(f"SINDRI_DEBUG: JSONDecodeError for {func_name}, raw_args type={type(raw_args)}, len={len(str(raw_args))}, chars={repr(str(raw_args)[:200])}")
+                    # sindri: 为 execute_code 工具尝试修复
+                    if func_name == "execute_code" and isinstance(raw_args, str):
+                        logger.info(f"execute_code: sindri fix - wrapping raw code string as {{code: ...}}")
+                        arguments = {"code": raw_args}
+                    # sindri: 为 write_file 工具尝试修复（处理截断的JSON）
+                    elif func_name == "write_file" and isinstance(raw_args, str):
+                        import re
+                        # 尝试从截断的JSON中提取path和content
+                        path_match = re.search(r'"path"\s*:\s*"([^"]*)"', raw_args)
+                        content_match = re.search(r'"content"\s*:\s*"(.*)"', raw_args, re.DOTALL)
+                        if path_match:
+                            path_val = path_match.group(1)
+                            content_val = content_match.group(1) if content_match else ""
+                            logger.info(f"write_file: extracted path={path_val}, content_len={len(content_val)}")
+                            arguments = {"path": path_val, "content": content_val}
+                        elif "|" in raw_args:
+                            parts = raw_args.split("|", 1)
+                            arguments = {"path": parts[0], "content": parts[1] if len(parts) > 1 else ""}
+                        else:
+                            # 尝试补全截断的JSON
+                            try:
+                                fixed = raw_args.rstrip()
+                                if not fixed.endswith('}'):
+                                    # 尝试找到最后一个完整的字段对并补全
+                                    fixed = fixed + '"}}'
+                                arguments = json.loads(fixed)
+                                logger.info(f"write_file: fixed truncated JSON succeeded")
+                            except:
+                                self._tool_errors.append(ToolError(
+                                    turn=turn,
+                                    tool_name=func_name,
+                                    arguments=str(raw_args)[:200],
+                                    error=f"write_file needs path and content",
+                                    tool_result="Error: write_file requires path and content in JSON format",
+                                ))
+                                return ToolResult(
+                                    tool_call_id=tool_call_id,
+                                    content="Error: write_file requires path and content in JSON format",
+                                    is_error=True
+                                )
+                    else:
+                        # 其他工具，尝试将raw_args作为纯字符串处理
+                        logger.info(f"Unknown tool {func_name}: treating raw_args as string")
+                        arguments = {"raw": raw_args}
+            # sindri: 深度修复 execute_code 参数
+            if func_name == "execute_code" and isinstance(arguments, dict):
+                if "code" not in arguments:
+                    # arguments可能是 {"type": "function", ...} 格式或缺少code字段
+                    if len(arguments) == 1 and "type" in arguments:
+                        # OpenAI嵌套格式，跳过
+                        pass
+                    else:
+                        logger.warning(f"execute_code: no 'code' field in arguments, attempting修复")
+                        # 尝试从其他字段提取code或使用整个arguments作为code
+                        for k, v in arguments.items():
+                            if k != "type" and isinstance(v, str):
+                                arguments = {"code": v}
+                                logger.info(f"execute_code: 使用字段 '{k}' 作为code")
+                                break
+                        else:
+                            # 如果没有找到合适的字符串字段，尝试用str(arguments)
+                            arguments = {"code": str(arguments)}
+            # sindri: 深度修复 write_file 参数
+            if func_name == "write_file" and isinstance(arguments, dict):
+                if "content" not in arguments and "path" not in arguments:
+                    # 尝试从其他字段提取path和content
+                    logger.warning(f"write_file: no 'path' or 'content' field, attempting修复")
+                    for k, v in arguments.items():
+                        if k == "path" or k == "file_path" or k == "filename":
+                            arguments["path"] = v
+                        elif k == "content" or k == "text" or k == "data":
+                            arguments["content"] = v
+                    if "content" not in arguments:
+                        arguments["content"] = str(arguments)
             if not isinstance(arguments, dict):
                 logger.warning(f"Arguments is not a dict for tool {func_name}: {type(arguments)}")
                 # Hermes风格:收集ToolError
@@ -2456,161 +2512,5 @@ __all__ = [
 ]
 
 
-# ========================================================================
-# Skill工具函数(供Agent调用)
-# ========================================================================
-
-def skill_view_func(name: str, file_path: str = None) -> str:
-    """
-    加载skill完整内容
-
-    Args:
-        name: skill名称
-        file_path: 可选,加载skill下的具体文件
-
-    Returns:
-        skill内容
-    """
-    from skills.skills_loader import skill_view as _skill_view, SkillLoadError
-    try:
-        result = _skill_view(name, file_path)
-        if file_path:
-            return f"文件: {file_path}\n\n{result['content']}"
-        return result['content']
-    except SkillLoadError as e:
-        return f"Error: {e}"
-
-
-def skills_list_func(category: str = None) -> str:
-    """
-    列出所有可用的skill
-
-    Args:
-        category: 可选,按分类过滤
-
-    Returns:
-        skill列表
-    """
-    from skills.skills_loader import skills_list as _skills_list
-    skills = _skills_list(category)
-    if not skills:
-        return "No skills found."
-
-    lines = [f"Found {len(skills)} skills:\n"]
-    for s in skills:
-        lines.append(f"- {s['name']}: {s.get('description', 'No description')[:60]}")
-    return "\n".join(lines)
-
-
-# Skill工具schema
-SKILL_TOOL_SCHEMAS = {
-    "skill_view": {
-        "name": "skill_view",
-        "description": "Load the full content of a skill by name. Use this to get the complete instructions for a skill.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "name": {
-                    "type": "string",
-                    "description": "The name of the skill to view"
-                },
-                "file_path": {
-                    "type": "string",
-                    "description": "Optional: Load a specific file within the skill (e.g., 'references/api.md')"
-                }
-            },
-            "required": ["name"]
-        }
-    },
-    "skills_list": {
-        "name": "skills_list",
-        "description": "List all available skills. Returns skill names and descriptions.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "category": {
-                    "type": "string",
-                    "description": "Optional: Filter by category (e.g., 'github', 'data-science')"
-                }
-            }
-        }
-    }
-}
-
-
-# ========================================================================
-# Skill管理工具函数(Hermes 1:1)
-# ========================================================================
-
-def skill_manage_func(
-    action: str,
-    name: str,
-    content: str = None,
-    category: str = None,
-    file_path: str = None,
-    file_content: str = None,
-    old_string: str = None,
-    new_string: str = None,
-    replace_all: bool = False,
-) -> str:
-    """
-    管理skill(创建、编辑、删除)
-
-    Actions:
-    - create: 创建新skill
-    - edit: 编辑skill(完整重写)
-    - patch: 打补丁(局部修改)
-    - delete: 删除skill
-    - write_file: 写入skill下的文件
-    - remove_file: 删除skill下的文件
-    """
-    from skills.skills_loader import skill_manage as _skill_manage
-    return _skill_manage(
-        action=action,
-        name=name,
-        content=content,
-        category=category,
-        file_path=file_path,
-        file_content=file_content,
-        old_string=old_string,
-        new_string=new_string,
-        replace_all=replace_all,
-    )
-
-
-# Skill管理工具schema
-SKILL_MANAGE_SCHEMA = {
-    "name": "skill_manage",
-    "description": (
-        "Manage skills (create, update, delete). Skills are your procedural memory - "
-        "reusable approaches for recurring task types.\n\n"
-        "Actions: create (full SKILL.md + optional category), "
-        "patch (old_string/new_string - preferred for fixes), "
-        "edit (full SKILL.md rewrite), "
-        "delete, write_file, remove_file.\n\n"
-        "Create when: complex task succeeded (5+ calls), errors overcome, "
-        "user-corrected approach worked, non-trivial workflow discovered.\n"
-        "Update when: instructions stale/wrong, missing steps or pitfalls found.\n"
-        "After difficult tasks, offer to save as a skill."
-    ),
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "action": {
-                "type": "string",
-                "enum": ["create", "patch", "edit", "delete", "write_file", "remove_file"],
-                "description": "The action to perform"
-            },
-            "name": {"type": "string", "description": "Skill name"},
-            "content": {"type": "string", "description": "Full SKILL.md content for create/edit"},
-            "category": {"type": "string", "description": "Category for new skill"},
-            "file_path": {"type": "string", "description": "File path within skill"},
-            "file_content": {"type": "string", "description": "File content for write_file"},
-            "old_string": {"type": "string", "description": "Text to find for patch"},
-            "new_string": {"type": "string", "description": "Replacement text for patch"},
-            "replace_all": {"type": "boolean", "description": "Replace all occurrences"},
-        },
-        "required": ["action", "name"]
-    }
-}
-# 当前状态:健康成长中
+# 技能函数已迁移到 agent/skill_funcs.py
+# 导入已在上方完成，保持向后兼容

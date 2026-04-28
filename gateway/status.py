@@ -2,7 +2,7 @@
 # Gateway运行时状态管理 (已自研)
 # 来源: hermes-agent/gateway/status.py
 # 改造点:
-#   1. 移除 hermes_constants 依赖 → 适配 OpenClaw 常量
+#   1. 移除 mimir_constants 依赖 → 适配 OpenClaw 常量
 #   2. PID文件路径改为 ~/.openclaw/gateway.pid
 #   3. 状态文件路径改为 ~/.openclaw/gateway_state.json
 #   4. _GATEWAY_KIND 改为 "MimirAether-gateway"
@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-# hermes_constants依赖已移除
+# mimir_constants依赖已移除
 # Path.home()/.openclaw 已完成
 
 logger = logging.getLogger(__name__)

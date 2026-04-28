@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import List, Dict, Optional
 from datetime import datetime
 
-MIMIRAETHER_DIR = Path.home() / ".mimiraether"
+MIMIRAETHER_DIR = Path.home() / ".openclaw" / "projects" / "MimirAether"
 CRON_DIR = MIMIRAETHER_DIR / "cron"
 JOBS_FILE = CRON_DIR / "jobs.json"
 

@@ -88,7 +88,7 @@ def test_cron_parsing():
         print(f"  - {job['name']} (ID: {job['id']})")
     
     # 清理测试文件
-    jobs_file = os.path.expanduser("~/.mimiraether/cron/jobs.json")
+    jobs_file = os.path.expanduser("~/.openclaw/projects/MimirAether/cron/jobs.json")
     if os.path.exists(jobs_file):
         os.remove(jobs_file)
         print(f"\n清理测试文件: {jobs_file}")

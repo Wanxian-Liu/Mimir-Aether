@@ -16,7 +16,7 @@ from datetime import datetime
 MIMIRAETHER_DIR = Path.home() / ".openclaw" / "projects" / "MimirAether"
 sys.path.insert(0, str(MIMIRAETHER_DIR))
 
-MIMIRAETHER_HOME = Path.home() / ".mimiraether"
+MIMIRAETHER_HOME = Path.home() / ".openclaw" / "projects" / "MimirAether"
 LEARNINGS_DIR = MIMIRAETHER_HOME / "learnings"
 EVOLUTION_LOG = LEARNINGS_DIR / "evolution_log.json"
 BACKUP_DIR = MIMIRAETHER_HOME / "backups"

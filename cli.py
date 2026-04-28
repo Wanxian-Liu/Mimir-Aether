@@ -304,61 +304,278 @@ def cmd_status(args):
 # =============================================================================
 
 def cmd_config(args):
-    """查看/修改配置"""
-    import yaml
-    config_path = Path.home() / ".hermes" / "config.yaml"
-    if config_path.exists():
-        with open(config_path) as f:
-            config = yaml.safe_load(f) or {}
-    else:
-        config = {}
+    """配置管理命令 - 对齐Hermes config功能"""
+    subcmd = getattr(args, 'subcmd', None)
     
-    if args.get:
-        keys = args.get.split('.')
-        value = config
-        for key in keys:
-            if isinstance(value, dict):
-                value = value.get(key, None)
-            else:
-                value = None
-                break
-        
-        if value is not None:
-            print(f"{args.get}: {json.dumps(value, indent=2)}")
-        else:
-            print(f"配置项 {args.get} 不存在")
+    # 获取.env路径
+    env_path = PROJECT_ROOT / ".env"
+    
+    # 读取当前环境变量
+    def load_env_vars():
+        """从.env文件加载环境变量"""
+        env_vars = {}
+        if env_path.exists():
+            try:
+                with open(env_path, encoding='utf-8') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith('#') and '=' in line:
+                            key, _, val = line.partition('=')
+                            env_vars[key.strip()] = val.strip()
+            except Exception:
+                pass
+        return env_vars
+    
+    def save_env_vars(env_vars):
+        """保存环境变量到.env文件"""
+        try:
+            with open(env_path, 'w', encoding='utf-8') as f:
+                f.write("# MimirAether配置文件\n")
+                for key, value in env_vars.items():
+                    f.write(f"{key}={value}\n")
+            return True
+        except Exception as e:
+            print(f"保存失败: {e}")
+            return False
+    
+    def get_env_value(key):
+        """获取环境变量值，优先从.env读取"""
+        env_vars = load_env_vars()
+        return env_vars.get(key, os.environ.get(key, ''))
+    
+    # =========================================================================
+    # config path - 显示配置文件路径
+    # =========================================================================
+    if subcmd == "path":
+        print(str(env_path))
         return 0
     
-    if args.set:
-        key, _, value = args.set.partition('=')
-        if not key or not value:
-            print("格式错误，请使用: config --set KEY=VALUE")
+    # =========================================================================
+    # config env-path - 显示.env文件路径
+    # =========================================================================
+    if subcmd == "env-path":
+        print(str(env_path))
+        return 0
+    
+    # =========================================================================
+    # config get KEY - 获取指定配置项
+    # =========================================================================
+    if subcmd == "get":
+        key = getattr(args, 'key', None)
+        if not key:
+            print("Usage: config get <key>")
+            print("示例: config get DEFAULT_MODEL")
             return 1
-        print(f"设置配置: {key} = {value}")
-        print("注意: 当前配置存储在文件中，需要手动编辑")
+        
+        value = get_env_value(key)
+        if value:
+            print(f"{key}={value}")
+        else:
+            # 尝试从os.environ获取
+            value = os.environ.get(key, '')
+            if value:
+                print(f"{key}={value}")
+            else:
+                print(f"配置项 '{key}' 不存在")
+                return 1
         return 0
     
-    print("=" * 60)
-    print("MimirAether 配置")
-    print("=" * 60)
+    # =========================================================================
+    # config set KEY VALUE - 设置配置项
+    # =========================================================================
+    if subcmd == "set":
+        key = getattr(args, 'key', None)
+        value = getattr(args, 'value', None)
+        if not key or value is None:
+            print("Usage: config set <key> <value>")
+            print()
+            print("示例:")
+            print("  config set DEFAULT_MODEL deepseek/deepseek-v3")
+            print("  config set MIMIR_PORT 18999")
+            print("  config set MAX_ITERATIONS 90")
+            return 1
+        
+        env_vars = load_env_vars()
+        old_value = env_vars.get(key, os.environ.get(key, ''))
+        env_vars[key] = value
+        
+        if save_env_vars(env_vars):
+            print(f"✅ 已设置: {key} = {value}")
+            if old_value:
+                print(f"   (原值: {old_value})")
+        return 0
     
-    print("\n【模型配置】")
-    print(f"  默认模型: {get_model()}")
-    print(f"  API Base URL: {os.environ.get('DEEPSEEK_API_BASE', 'https://api.deepseek.com')}")
+    # =========================================================================
+    # config edit - 打开编辑器编辑配置
+    # =========================================================================
+    if subcmd == "edit":
+        editor = os.environ.get('EDITOR', 'vi' if platform.system() != 'Windows' else 'notepad')
+        try:
+            subprocess.run([editor, str(env_path)], check=True)
+            print(f"已使用 {editor} 编辑配置文件")
+        except subprocess.CalledProcessError:
+            print(f"编辑器 {editor} 启动失败")
+            return 1
+        except FileNotFoundError:
+            print(f"编辑器 {editor} 未找到")
+            return 1
+        return 0
     
-    print("\n【Gateway配置】")
-    print(f"  端口: {os.environ.get('MIMIR_PORT', '18999')}")
-    print(f"  适配器: {os.environ.get('MIMIR_ADAPTERS', 'telegram,feishu,discord')}")
+    # =========================================================================
+    # config check - 检查配置完整性
+    # =========================================================================
+    if subcmd == "check":
+        print()
+        print("┌" + "─" * 58 + "┐")
+        print("│" + " 📋 MimirAether 配置检查".center(58) + "│")
+        print("└" + "─" * 58 + "┘")
+        
+        env_vars = load_env_vars()
+        issues = []
+        
+        # 检查必需的配置项
+        print()
+        print("◆ 模型配置")
+        model = get_env_value('DEFAULT_MODEL') or get_env_value('MIMIR_MODEL')
+        if model:
+            print(f"  ✅ 默认模型: {model}")
+        else:
+            model = get_model()
+            print(f"  ⚠️ 未配置默认模型，使用: {model}")
+        
+        print()
+        print("◆ API密钥")
+        api_keys = {
+            "DEEPSEEK_API_KEY": "DeepSeek",
+            "MINIMAX_API_KEY": "MiniMax",
+            "ANTHROPIC_API_KEY": "Anthropic",
+            "OPENAI_API_KEY": "OpenAI",
+        }
+        has_any = False
+        for key, name in api_keys.items():
+            value = get_env_value(key)
+            if value:
+                has_any = True
+                print(f"  ✅ {name}: 已配置")
+            else:
+                print(f"  ○ {name}: 未配置")
+        
+        if not has_any:
+            issues.append("至少需要一个API密钥")
+        
+        print()
+        print("◆ 运行时配置")
+        port = get_env_value('MIMIR_PORT') or '18999'
+        print(f"  端口: {port}")
+        adapters = get_env_value('MIMIR_ADAPTERS') or ''
+        print(f"  适配器: {adapters or '(未配置)'}")
+        
+        print()
+        print("◆ 路径信息")
+        print(f"  项目目录: {PROJECT_ROOT}")
+        print(f"  配置文件: {env_path}")
+        
+        print()
+        print("─" * 60)
+        if issues:
+            print(f"  ⚠️ 发现 {len(issues)} 个问题:")
+            for issue in issues:
+                print(f"    • {issue}")
+        else:
+            print("  ✅ 配置检查通过！")
+        print()
+        return 0 if not issues else 1
     
-    print("\n【路径配置】")
+    # =========================================================================
+    # config show (default) - 显示当前配置
+    # =========================================================================
+    print()
+    print("┌" + "─" * 58 + "┐")
+    print("│" + " ⚕ MimirAether 配置".center(58) + "│")
+    print("└" + "─" * 58 + "┘")
+    
+    env_vars = load_env_vars()
+    
+    print()
+    print("◆ 模型配置")
+    model = get_env_value('DEFAULT_MODEL') or get_env_value('MIMIR_MODEL') or get_model()
+    print(f"  默认模型: {model}")
+    base_url = get_env_value('DEEPSEEK_API_BASE') or os.environ.get('DEEPSEEK_API_BASE', 'https://api.deepseek.com')
+    print(f"  API Base: {base_url}")
+    
+    max_iter = get_env_value('MAX_ITERATIONS') or '90'
+    print(f"  最大迭代: {max_iter}")
+    
+    print()
+    print("◆ API密钥状态")
+    api_keys = [
+        ("DEEPSEEK_API_KEY", "DeepSeek"),
+        ("MINIMAX_API_KEY", "MiniMax"),
+        ("ANTHROPIC_API_KEY", "Anthropic"),
+        ("OPENAI_API_KEY", "OpenAI"),
+        ("DEEPSEEK_V3_API_KEY", "DeepSeek V3"),
+        ("MINIMAX_V2_API_KEY", "MiniMax V2"),
+        ("SILICONFLOW_API_KEY", "SiliconFlow"),
+        ("ZHIPU_API_KEY", "Zhipu"),
+        ("QWEN_API_KEY", "Qwen"),
+    ]
+    for key, name in api_keys:
+        value = get_env_value(key)
+        if value:
+            print(f"  {name:<14} ✅ 已配置")
+        else:
+            print(f"  {name:<14} ○ 未配置")
+    
+    print()
+    print("◆ Gateway配置")
+    port = get_env_value('MIMIR_PORT') or '18999'
+    print(f"  端口: {port}")
+    adapters = get_env_value('MIMIR_ADAPTERS') or ''
+    print(f"  适配器: {adapters or '(未配置)'}")
+    
+    print()
+    print("◆ 消息平台")
+    platforms = [
+        ("FEISHU_APP_ID", "Feishu"),
+        ("TELEGRAM_BOT_TOKEN", "Telegram"),
+        ("DISCORD_BOT_TOKEN", "Discord"),
+        ("WEIXIN_ACCOUNT_ID", "WeChat"),
+    ]
+    for key, name in platforms:
+        value = get_env_value(key)
+        if value:
+            print(f"  {name:<10} ✅ 已配置")
+        else:
+            print(f"  {name:<10} ○ 未配置")
+    
+    print()
+    print("◆ 路径信息")
     print(f"  项目目录: {PROJECT_ROOT}")
-    print(f"  凭证目录: {Path.home() / '.openclaw' / 'credentials'}")
+    print(f"  配置文件: {env_path}")
     
-    if args.verbose and config:
-        print("\n【完整配置】")
-        print(json.dumps(config, indent=2, ensure_ascii=False))
+    # verbose模式显示完整.env内容
+    if getattr(args, 'verbose', False):
+        print()
+        print("◆ 完整.env内容")
+        if env_vars:
+            for key, value in env_vars.items():
+                # 对敏感值进行脱敏
+                if any(s in key.upper() for s in ['KEY', 'TOKEN', 'SECRET', 'PASSWORD']):
+                    if len(value) > 8:
+                        value = value[:4] + "..." + value[-4:]
+                    else:
+                        value = "***"
+                print(f"  {key}={value}")
+        else:
+            print("  (空)")
     
-    print("\n" + "=" * 60)
+    print()
+    print("─" * 60)
+    print("  使用 'config edit' 编辑配置")
+    print("  使用 'config set <key> <value>' 设置配置")
+    print("  使用 'config check' 检查配置完整性")
+    print()
+    
     return 0
 
 # =============================================================================
@@ -1115,6 +1332,9 @@ def main():
         args.deep = False
         args.all = False
         args.fix = False
+        args.subcmd = None
+        args.key = None
+        args.value = None
         
         # 特殊处理
         for i, arg in enumerate(args.args):
@@ -1137,6 +1357,18 @@ def main():
                 args.all = True
             elif arg == "--fix":
                 args.fix = True
+        
+        # 处理config子命令 (config edit, config set KEY VALUE, config get KEY, etc.)
+        if args.command == "config" and args.args:
+            subcmd = args.args[0]
+            args.subcmd = subcmd
+            # config set KEY VALUE
+            if subcmd == "set" and len(args.args) >= 3:
+                args.key = args.args[1]
+                args.value = args.args[2]
+            # config get KEY
+            elif subcmd == "get" and len(args.args) >= 2:
+                args.key = args.args[1]
     else:
         args.action = None
         args.add = None
@@ -1148,6 +1380,9 @@ def main():
         args.deep = False
         args.all = False
         args.fix = False
+        args.subcmd = None
+        args.key = None
+        args.value = None
     
     # 处理命令
     if args.command == "status":

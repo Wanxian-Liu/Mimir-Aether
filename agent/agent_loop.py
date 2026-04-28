@@ -1,0 +1,365 @@
+"""
+MimirAgentLoop - Pure Agent Execution Engine
+
+Extracted from MimirAetherAgent.run_conversation() following the Hermes
+microkernel pattern. This class is a pure execution engine:
+
+  - Receives: model caller, tool schemas, tool dispatcher, messages
+  - Runs: the tool-calling loop (standard OpenAI-spec)
+  - Returns: AgentResult with full metadata
+
+It does NOT manage models, credentials, system prompts, or tool registration.
+Those are MimirAetherAgent's responsibility (the configuration layer).
+
+Key design from Hermes:
+  - ThreadPoolExecutor for sync tool calls (async bridge)
+  - Persistent event loops via async_bridge.py
+  - AgentResult with ToolError for structured error collection
+  - Reasoning extraction across provider formats
+  - Fallback <tool_call> parser
+"""
+
+import asyncio
+import json
+import logging
+import os
+import uuid
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Set, Callable, Awaitable
+
+from .async_bridge import get_tool_executor
+# 统一类型: 从 types.py 导入 (Phase 3 M1)
+from .types import AgentLoopToolError as ToolError, AgentLoopResult as AgentResult
+
+logger = logging.getLogger(__name__)
+
+
+# ============== Helpers ==============
+
+def _extract_reasoning(message) -> Optional[str]:
+    """Extract reasoning from message - handles dict and object forms."""
+    if hasattr(message, "reasoning_content") and message.reasoning_content:
+        return message.reasoning_content
+    if hasattr(message, "reasoning") and message.reasoning:
+        return message.reasoning
+    if hasattr(message, "reasoning_details") and message.reasoning_details:
+        for detail in message.reasoning_details:
+            if hasattr(detail, "text") and detail.text:
+                return detail.text
+            if isinstance(detail, dict) and detail.get("text"):
+                return detail["text"]
+    return None
+
+
+def _tc_to_dict(tc) -> dict:
+    """Normalize tool_call to canonical dict (handles object and dict forms)."""
+    if isinstance(tc, dict):
+        func = tc.get("function", {})
+        return {
+            "id": tc.get("id", f"call_{uuid.uuid4().hex[:8]}"),
+            "type": "function",
+            "function": {
+                "name": func.get("name", tc.get("name", "")),
+                "arguments": func.get("arguments", tc.get("arguments", "{}")),
+            },
+        }
+    return {
+        "id": tc.id,
+        "type": "function",
+        "function": {"name": tc.function.name, "arguments": tc.function.arguments},
+    }
+
+
+def _get_tc_name(tc) -> str:
+    if isinstance(tc, dict):
+        return tc.get("function", {}).get("name", tc.get("name", ""))
+    return tc.function.name
+
+
+def _get_tc_args(tc) -> str:
+    if isinstance(tc, dict):
+        return tc.get("function", {}).get("arguments", tc.get("arguments", "{}"))
+    return tc.function.arguments
+
+
+def _get_tc_id(tc) -> str:
+    if isinstance(tc, dict):
+        return tc.get("id", "")
+    return tc.id
+
+
+# ============== The Loop ==============
+
+class MimirAgentLoop:
+    """Pure agent execution engine following the Hermes microkernel pattern.
+
+    Responsibilities:
+      - Call the model repeatedly until it stops calling tools
+      - Dispatch tool calls to a provided executor
+      - Collect errors and metadata in AgentResult
+      - Apply budget controls
+      - Support interruption
+
+    Does NOT manage: models, credentials, system prompts, tool registration.
+    Those belong to the configuration layer (MimirAetherAgent).
+    """
+
+    def __init__(
+        self,
+        model_call: Callable[[List[Dict[str, Any]]], Awaitable[Any]],
+        tool_schemas: List[Dict[str, Any]],
+        valid_tool_names: Set[str],
+        tool_dispatcher: Callable[[str, dict, Optional[str]], str],
+        max_turns: int = 90,
+        task_id: Optional[str] = None,
+        temperature: float = 1.0,
+        max_tokens: Optional[int] = None,
+        extra_body: Optional[Dict[str, Any]] = None,
+        budget_config: Any = None,
+        interrupt_check: Optional[Callable[[], bool]] = None,
+    ):
+        self.model_call = model_call
+        self.tool_schemas = tool_schemas
+        self.valid_tool_names = valid_tool_names
+        self.tool_dispatcher = tool_dispatcher
+        self.max_turns = max_turns
+        self.task_id = task_id or str(uuid.uuid4())
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.extra_body = extra_body
+        self.budget_config = budget_config
+        self.interrupt_check = interrupt_check or (lambda: False)
+
+    async def run(self, messages: List[Dict[str, Any]]) -> AgentResult:
+        """Execute the full agent loop.
+
+        Args:
+            messages: Initial conversation messages (system + user).
+                      Modified IN-PLACE.
+
+        Returns:
+            AgentResult with full history and metadata.
+        """
+        reasoning_per_turn: List[Optional[str]] = []
+        tool_errors: List[ToolError] = []
+
+        user_task = None
+        for msg in messages:
+            if msg.get("role") == "user":
+                c = msg.get("content", "")
+                if isinstance(c, str) and c.strip():
+                    user_task = c.strip()[:500]
+                break
+
+        import time as _time
+        _executor = get_tool_executor()
+
+        for turn in range(self.max_turns):
+            if self.interrupt_check():
+                logger.info("Loop interrupted at turn %d", turn + 1)
+                return AgentResult(
+                    messages=messages, turns_used=turn + 1,
+                    finished_naturally=False, reasoning_per_turn=reasoning_per_turn,
+                    tool_errors=tool_errors, interrupted=True,
+                )
+
+            turn_start = _time.monotonic()
+
+            # --- Call model ---
+            api_start = _time.monotonic()
+            try:
+                response = await self.model_call(messages)
+            except Exception as e:
+                api_elapsed = _time.monotonic() - api_start
+                logger.error("API call failed on turn %d (%.1fs): %s", turn + 1, api_elapsed, e)
+                return AgentResult(
+                    messages=messages, turns_used=turn + 1,
+                    finished_naturally=False, reasoning_per_turn=reasoning_per_turn,
+                    tool_errors=tool_errors,
+                )
+            api_elapsed = _time.monotonic() - api_start
+
+            if not response:
+                return AgentResult(
+                    messages=messages, turns_used=turn + 1,
+                    finished_naturally=False, reasoning_per_turn=reasoning_per_turn,
+                    tool_errors=tool_errors,
+                )
+
+            # --- Extract response parts (dict or object) ---
+            if isinstance(response, dict):
+                choices = response.get("choices", [])
+                if not choices:
+                    return AgentResult(
+                        messages=messages, turns_used=turn + 1,
+                        finished_naturally=False, reasoning_per_turn=reasoning_per_turn,
+                        tool_errors=tool_errors,
+                    )
+                msg = choices[0].get("message", {})
+                content = msg.get("content", "") if isinstance(msg, dict) else getattr(msg, "content", "")
+                _tool_calls = msg.get("tool_calls") if isinstance(msg, dict) else getattr(msg, "tool_calls", None)
+                _reasoning = msg.get("reasoning_content") if isinstance(msg, dict) else _extract_reasoning(msg)
+            else:
+                if not getattr(response, "choices", None):
+                    return AgentResult(
+                        messages=messages, turns_used=turn + 1,
+                        finished_naturally=False, reasoning_per_turn=reasoning_per_turn,
+                        tool_errors=tool_errors,
+                    )
+                msg = response.choices[0].message
+                content = getattr(msg, "content", "") or ""
+                _tool_calls = getattr(msg, "tool_calls", None)
+                _reasoning = _extract_reasoning(msg)
+
+            reasoning_per_turn.append(_reasoning)
+
+            # --- Fallback parser ---
+            if not _tool_calls and content and self.tool_schemas and "<tool_call>" in (content or ""):
+                _tool_calls = _fallback_parse_tool_calls(content)
+                if _tool_calls:
+                    tag_idx = content.find("<tool_call>")
+                    content = content[:tag_idx].strip()
+
+            # --- Tool calls? ---
+            if _tool_calls:
+                normalized = [_tc_to_dict(tc) for tc in _tool_calls]
+                msg_dict: Dict[str, Any] = {
+                    "role": "assistant", "content": content or "",
+                    "tool_calls": normalized,
+                }
+                if _reasoning:
+                    msg_dict["reasoning_content"] = _reasoning
+                messages.append(msg_dict)
+
+                for tc in _tool_calls:
+                    tname = _get_tc_name(tc)
+                    targs_raw = _get_tc_args(tc)
+                    tid = _get_tc_id(tc)
+
+                    if tname not in self.valid_tool_names:
+                        tr = json.dumps({"error": f"Unknown tool '{tname}'."})
+                        tool_errors.append(ToolError(
+                            turn=turn + 1, tool_name=tname,
+                            arguments=str(targs_raw)[:200],
+                            error=f"Unknown tool '{tname}'", tool_result=tr,
+                        ))
+                        messages.append({"role": "tool", "tool_call_id": tid, "content": tr})
+                        continue
+
+                    try:
+                        args = json.loads(targs_raw) if isinstance(targs_raw, str) else (targs_raw or {})
+                    except json.JSONDecodeError as e:
+                        tr = json.dumps({"error": f"Invalid JSON: {e}"})
+                        tool_errors.append(ToolError(
+                            turn=turn + 1, tool_name=tname,
+                            arguments=str(targs_raw)[:200],
+                            error=f"Invalid JSON: {e}", tool_result=tr,
+                        ))
+                        messages.append({"role": "tool", "tool_call_id": tid, "content": tr})
+                        continue
+
+                    try:
+                        t0 = _time.monotonic()
+                        loop = asyncio.get_event_loop()
+                        _tn, _ta, _tid = tname, args, self.task_id
+                        tool_result = await loop.run_in_executor(
+                            _executor,
+                            lambda tn=_tn, ta=_ta, tid=_tid: self.tool_dispatcher(tn, ta, tid),
+                        )
+                        telapsed = _time.monotonic() - t0
+
+                        pool_q = _executor._work_queue.qsize()
+                        if telapsed > 30:
+                            logger.warning(
+                                "[%s] turn %d: %s took %.1fs (pool q=%d)",
+                                self.task_id[:8], turn + 1, tname, telapsed, pool_q,
+                            )
+                    except Exception as e:
+                        tool_result = json.dumps({
+                            "error": f"{type(e).__name__}: {str(e)}"
+                        })
+                        tool_errors.append(ToolError(
+                            turn=turn + 1, tool_name=tname,
+                            arguments=str(targs_raw)[:200],
+                            error=f"{type(e).__name__}: {str(e)}",
+                            tool_result=tool_result,
+                        ))
+
+                    # Budget control
+                    try:
+                        from tools.tool_result_storage import maybe_persist_tool_result
+                        from tools.terminal_tool import get_active_env
+                        tool_result = maybe_persist_tool_result(
+                            content=tool_result, tool_name=tname,
+                            tool_use_id=tid,
+                            env=get_active_env(self.task_id),
+                            config=self.budget_config,
+                        )
+                    except Exception:
+                        pass
+
+                    messages.append({"role": "tool", "tool_call_id": tid, "content": tool_result})
+
+                turn_elapsed = _time.monotonic() - turn_start
+                logger.info(
+                    "[%s] turn %d: api=%.1fs, %d tools, total=%.1fs",
+                    self.task_id[:8], turn + 1, api_elapsed,
+                    len(_tool_calls), turn_elapsed,
+                )
+            else:
+                # No tool calls - model is done
+                msg_dict = {"role": "assistant", "content": content or ""}
+                if _reasoning:
+                    msg_dict["reasoning_content"] = _reasoning
+                messages.append(msg_dict)
+
+                logger.info(
+                    "[%s] turn %d: api=%.1fs, no tools (finished)",
+                    self.task_id[:8], turn + 1, api_elapsed,
+                )
+                return AgentResult(
+                    messages=messages, turns_used=turn + 1,
+                    finished_naturally=True, reasoning_per_turn=reasoning_per_turn,
+                    tool_errors=tool_errors,
+                )
+
+        # Hit max turns
+        logger.info("Agent hit max_turns (%d)", self.max_turns)
+        return AgentResult(
+            messages=messages, turns_used=self.max_turns,
+            finished_naturally=False, reasoning_per_turn=reasoning_per_turn,
+            tool_errors=tool_errors,
+        )
+
+
+def _fallback_parse_tool_calls(content: str) -> Optional[List[dict]]:
+    """Parse <tool_call> tags from content when structured tool_calls absent."""
+    import re as _re
+    pattern = _re.compile(
+        r"<tool_call>\s*(.*?)\s*</tool_call>|<tool_call>\s*(.*)",
+        _re.DOTALL,
+    )
+    matches = pattern.findall(content)
+    if not matches:
+        return None
+    parsed = []
+    for m in matches:
+        raw = m[0] or m[1]
+        if not raw.strip():
+            continue
+        try:
+            data = json.loads(raw)
+            if "name" in data:
+                parsed.append({
+                    "id": f"call_{uuid.uuid4().hex[:8]}",
+                    "type": "function",
+                    "function": {
+                        "name": data["name"],
+                        "arguments": json.dumps(
+                            data.get("arguments", {}), ensure_ascii=False
+                        ),
+                    },
+                })
+        except Exception:
+            pass
+    return parsed or None

@@ -1,253 +1,266 @@
-#!/usr/bin/env python3
 """
-MimirAether 会话管理器
-
-基于SQLite的会话持久化，支持：
-- 会话创建/恢复
-- 消息历史
-- 自动保存
+MimirAether Session Manager
+会话状态管理器 - 基于Hermes Agent设计
 """
-
 import json
+import os
 import sqlite3
-import time
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Optional, Any
-from dataclasses import dataclass
-
-# =============================================================================
-# 路径配置
-# =============================================================================
-
-def get_session_db_path() -> Path:
-    """获取会话数据库路径"""
-    db_dir = Path.home() / ".openclaw" / "sessions"
-    db_dir.mkdir(parents=True, exist_ok=True)
-    return db_dir / "sessions.db"
-
-# =============================================================================
-# 数据类
-# =============================================================================
-
-@dataclass
-class Session:
-    """会话数据"""
-    id: str
-    title: str
-    created_at: float
-    updated_at: float
-    message_count: int
-    metadata: Dict[str, Any]
-
-@dataclass  
-class Message:
-    """消息数据"""
-    id: int
-    session_id: str
-    role: str  # user/assistant/system
-    content: str
-    created_at: float
-    metadata: Dict[str, Any]
-
-# =============================================================================
-# SessionManager
-# =============================================================================
+from typing import Optional, Dict, Any, List
+import threading
+import uuid
 
 class SessionManager:
-    """
-    会话管理器
+    """会话管理器 - 管理对话状态、检查点、和上下文"""
     
-    支持：
-    - 创建新会话
-    - 恢复会话
-    - 保存消息
-    - 列出最近会话
-    """
-    
-    def __init__(self, db_path: Optional[Path] = None):
-        self.db_path = db_path or get_session_db_path()
+    def __init__(self, db_path: Optional[str] = None):
+        if db_path is None:
+            db_path = os.path.expanduser("~/.openclaw/projects/MimirAether/sessions.db")
+        
+        self.db_path = db_path
+        self.db_dir = os.path.dirname(db_path)
+        if self.db_dir:
+            os.makedirs(self.db_dir, exist_ok=True)
+        
+        self._local = threading.local()
         self._init_db()
     
+    def _get_conn(self) -> sqlite3.Connection:
+        if not hasattr(self._local, 'conn'):
+            self._local.conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            self._local.conn.row_factory = sqlite3.Row
+        return self._local.conn
+    
     def _init_db(self):
-        """初始化数据库"""
-        conn = sqlite3.connect(str(self.db_path))
-        conn.execute("""
+        """初始化数据库表"""
+        conn = self._get_conn()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS sessions (
                 id TEXT PRIMARY KEY,
-                title TEXT NOT NULL DEFAULT '新会话',
-                created_at REAL NOT NULL,
-                updated_at REAL NOT NULL,
-                message_count INTEGER DEFAULT 0,
-                metadata TEXT DEFAULT '{}'
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                title TEXT,
+                metadata TEXT,
+                active INTEGER DEFAULT 1
             )
         """)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS messages (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS checkpoints (
+                id TEXT PRIMARY KEY,
                 session_id TEXT NOT NULL,
-                role TEXT NOT NULL,
-                content TEXT NOT NULL,
-                created_at REAL NOT NULL,
-                metadata TEXT DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                context_snapshot TEXT NOT NULL,
+                description TEXT,
                 FOREIGN KEY (session_id) REFERENCES sessions(id)
             )
         """)
-        conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_messages_session 
-            ON messages(session_id, created_at)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                data TEXT,
+                FOREIGN KEY (session_id) REFERENCES sessions(id)
+            )
         """)
+        
         conn.commit()
-        conn.close()
     
-    def create_session(self, title: str = "新会话", metadata: Optional[Dict] = None) -> Session:
+    def create_session(self, title: Optional[str] = None, metadata: Optional[Dict] = None) -> str:
         """创建新会话"""
-        import uuid
+        session_id = str(uuid.uuid4())[:8]
+        now = datetime.now().isoformat()
         
-        session_id = str(uuid.uuid4())[:12]
-        now = time.time()
+        conn = self._get_conn()
+        cursor = conn.cursor()
         
-        conn = sqlite3.connect(str(self.db_path))
-        conn.execute("""
-            INSERT INTO sessions (id, title, created_at, updated_at, message_count, metadata)
-            VALUES (?, ?, ?, ?, 0, ?)
-        """, (session_id, title, now, now, json.dumps(metadata or {})))
-        conn.commit()
-        conn.close()
-        
-        return Session(
-            id=session_id,
-            title=title,
-            created_at=now,
-            updated_at=now,
-            message_count=0,
-            metadata=metadata or {}
+        cursor.execute(
+            'INSERT INTO sessions (id, created_at, updated_at, title, metadata, active) VALUES (?, ?, ?, ?, ?, ?)',
+            (session_id, now, now, title, json.dumps(metadata or {}), 1)
         )
+        
+        conn.commit()
+        return session_id
     
-    def get_session(self, session_id: str) -> Optional[Session]:
-        """获取会话"""
-        conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.execute("""
-            SELECT id, title, created_at, updated_at, message_count, metadata
-            FROM sessions WHERE id = ?
-        """, (session_id,))
+    def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """获取会话信息"""
+        conn = self._get_conn()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM sessions WHERE id = ?', (session_id,))
         row = cursor.fetchone()
-        conn.close()
-        
-        if not row:
-            return None
-        
-        return Session(
-            id=row[0],
-            title=row[1],
-            created_at=row[2],
-            updated_at=row[3],
-            message_count=row[4],
-            metadata=json.loads(row[5] or '{}')
-        )
+        if row:
+            return dict(row)
+        return None
     
-    def list_sessions(self, limit: int = 20) -> List[Session]:
-        """列出最近会话"""
-        conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.execute("""
-            SELECT id, title, created_at, updated_at, message_count, metadata
-            FROM sessions
-            ORDER BY updated_at DESC
-            LIMIT ?
-        """, (limit,))
-        rows = cursor.fetchall()
-        conn.close()
+    def list_sessions(self, limit: int = 20, active_only: bool = True) -> List[Dict]:
+        """列出所有会话"""
+        conn = self._get_conn()
+        cursor = conn.cursor()
         
-        return [
-            Session(
-                id=row[0],
-                title=row[1],
-                created_at=row[2],
-                updated_at=row[3],
-                message_count=row[4],
-                metadata=json.loads(row[5] or '{}')
-            )
-            for row in rows
-        ]
+        query = 'SELECT * FROM sessions'
+        if active_only:
+            query += ' WHERE active = 1'
+        query += ' ORDER BY updated_at DESC LIMIT ?'
+        
+        cursor.execute(query, (limit,))
+        return [dict(row) for row in cursor.fetchall()]
     
-    def add_message(self, session_id: str, role: str, content: str, 
-                   metadata: Optional[Dict] = None) -> Message:
-        """添加消息到会话"""
-        now = time.time()
+    def update_session(self, session_id: str, **kwargs):
+        """更新会话"""
+        conn = self._get_conn()
+        cursor = conn.cursor()
         
-        conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.execute("""
-            INSERT INTO messages (session_id, role, content, created_at, metadata)
-            VALUES (?, ?, ?, ?, ?)
-        """, (session_id, role, content, now, json.dumps(metadata or {})))
-        message_id = cursor.lastrowid
+        updates = []
+        values = []
         
-        # 更新会话的updated_at和message_count
-        conn.execute("""
-            UPDATE sessions 
-            SET updated_at = ?, message_count = message_count + 1
-            WHERE id = ?
-        """, (now, session_id))
+        for key, value in kwargs.items():
+            if key in ('title', 'metadata', 'active'):
+                updates.append(f"{key} = ?")
+                values.append(json.dumps(value) if key == 'metadata' else value)
         
-        conn.commit()
-        conn.close()
-        
-        return Message(
-            id=message_id,
-            session_id=session_id,
-            role=role,
-            content=content,
-            created_at=now,
-            metadata=metadata or {}
-        )
-    
-    def get_messages(self, session_id: str, limit: int = 100) -> List[Message]:
-        """获取会话消息"""
-        conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.execute("""
-            SELECT id, session_id, role, content, created_at, metadata
-            FROM messages
-            WHERE session_id = ?
-            ORDER BY created_at ASC
-            LIMIT ?
-        """, (session_id, limit))
-        rows = cursor.fetchall()
-        conn.close()
-        
-        return [
-            Message(
-                id=row[0],
-                session_id=row[1],
-                role=row[2],
-                content=row[3],
-                created_at=row[4],
-                metadata=json.loads(row[5] or '{}')
-            )
-            for row in rows
-        ]
-    
-    def update_title(self, session_id: str, title: str):
-        """更新会话标题"""
-        conn = sqlite3.connect(str(self.db_path))
-        conn.execute("""
-            UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?
-        """, (title, time.time(), session_id))
-        conn.commit()
-        conn.close()
+        if updates:
+            updates.append("updated_at = ?")
+            values.append(datetime.now().isoformat())
+            values.append(session_id)
+            cursor.execute(f'UPDATE sessions SET {", ".join(updates)} WHERE id = ?', values)
+            conn.commit()
     
     def delete_session(self, session_id: str):
-        """删除会话"""
-        conn = sqlite3.connect(str(self.db_path))
-        conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
-        conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
-        conn.commit()
-        conn.close()
+        """软删除会话"""
+        self.update_session(session_id, active=0)
     
-    def get_or_create_session(self, session_id: Optional[str] = None) -> Session:
-        """获取或创建会话"""
-        if session_id:
-            session = self.get_session(session_id)
-            if session:
-                return session
+    def create_checkpoint(self, session_id: str, context_snapshot: Dict[str, Any], description: Optional[str] = None) -> str:
+        """创建检查点"""
+        checkpoint_id = str(uuid.uuid4())[:12]
+        now = datetime.now().isoformat()
         
-        return self.create_session()
+        conn = self._get_conn()
+        cursor = conn.cursor()
+        
+        cursor.execute(
+            'INSERT INTO checkpoints (id, session_id, created_at, context_snapshot, description) VALUES (?, ?, ?, ?, ?)',
+            (checkpoint_id, session_id, now, json.dumps(context_snapshot), description)
+        )
+        
+        conn.commit()
+        return checkpoint_id
+    
+    def get_checkpoint(self, checkpoint_id: str) -> Optional[Dict[str, Any]]:
+        """获取检查点"""
+        conn = self._get_conn()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM checkpoints WHERE id = ?', (checkpoint_id,))
+        row = cursor.fetchone()
+        if row:
+            return dict(row)
+        return None
+    
+    def list_checkpoints(self, session_id: str) -> List[Dict]:
+        """列出会话的所有检查点"""
+        conn = self._get_conn()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM checkpoints WHERE session_id = ? ORDER BY created_at DESC', (session_id,))
+        return [dict(row) for row in cursor.fetchall()]
+    
+    def delete_checkpoint(self, checkpoint_id: str):
+        """删除检查点"""
+        conn = self._get_conn()
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM checkpoints WHERE id = ?', (checkpoint_id,))
+        conn.commit()
+    
+    def log_event(self, session_id: str, event_type: str, data: Optional[Dict] = None):
+        """记录事件"""
+        now = datetime.now().isoformat()
+        
+        conn = self._get_conn()
+        cursor = conn.cursor()
+        
+        cursor.execute(
+            'INSERT INTO events (session_id, timestamp, event_type, data) VALUES (?, ?, ?, ?)',
+            (session_id, now, event_type, json.dumps(data or {}))
+        )
+        
+        conn.commit()
+    
+    def get_events(self, session_id: str, event_type: Optional[str] = None, limit: int = 100) -> List[Dict]:
+        """获取事件历史"""
+        conn = self._get_conn()
+        cursor = conn.cursor()
+        
+        query = 'SELECT * FROM events WHERE session_id = ?'
+        params = [session_id]
+        
+        if event_type:
+            query += ' AND event_type = ?'
+            params.append(event_type)
+        
+        query += ' ORDER BY timestamp DESC LIMIT ?'
+        params.append(limit)
+        
+        cursor.execute(query, params)
+        return [dict(row) for row in cursor.fetchall()]
+    
+    def get_session_stats(self, session_id: str) -> Dict[str, Any]:
+        """获取会话统计"""
+        conn = self._get_conn()
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT COUNT(*) FROM checkpoints WHERE session_id = ?', (session_id,))
+        checkpoint_count = cursor.fetchone()[0]
+        
+        cursor.execute('SELECT COUNT(*) FROM events WHERE session_id = ?', (session_id,))
+        event_count = cursor.fetchone()[0]
+        
+        cursor.execute('SELECT event_type, COUNT(*) as count FROM events WHERE session_id = ? GROUP BY event_type', (session_id,))
+        events_by_type = {row['event_type']: row['count'] for row in cursor.fetchall()}
+        
+        return {
+            'session_id': session_id,
+            'checkpoint_count': checkpoint_count,
+            'event_count': event_count,
+            'events_by_type': events_by_type
+        }
+    
+    def close(self):
+        """关闭数据库连接"""
+        if hasattr(self._local, 'conn'):
+            self._local.conn.close()
+            del self._local.conn
+
+
+_session_manager = None
+
+def get_session_manager() -> SessionManager:
+    """获取全局会话管理器实例"""
+    global _session_manager
+    if _session_manager is None:
+        _session_manager = SessionManager()
+    return _session_manager
+
+
+if __name__ == '__main__':
+    sm = SessionManager()
+    session_id = sm.create_session(title="Test Session", metadata={"source": "test"})
+    print(f"Created session: {session_id}")
+    
+    checkpoint_id = sm.create_checkpoint(session_id, {"messages": [{"role": "user", "content": "Hello"}]}, "Initial state")
+    print(f"Created checkpoint: {checkpoint_id}")
+    
+    sm.log_event(session_id, "user_message", {"content": "Hello"})
+    sm.log_event(session_id, "assistant_message", {"content": "Hi there!"})
+    
+    stats = sm.get_session_stats(session_id)
+    print(f"Stats: {stats}")
+    
+    checkpoints = sm.list_checkpoints(session_id)
+    print(f"Checkpoints: {len(checkpoints)}")
+    
+    sm.close()
+    print("Session manager test completed!")

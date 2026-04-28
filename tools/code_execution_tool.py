@@ -159,7 +159,23 @@ def generate_hermes_tools_module(enabled_tools: List[str],
     else:
         header = _UDS_TRANSPORT_HEADER
 
-    return header + "\n".join(stub_functions)
+    code = header + "\n".join(stub_functions)
+    
+    # Override RPC stubs with native implementations for reliable file I/O
+    # This ensures write_file/read_file use native Python instead of going through RPC
+    native_overrides = """
+# ---------------------------------------------------------------------------
+# Native file I/O overrides (reliable, bypasses RPC)
+# ---------------------------------------------------------------------------
+# These override the RPC stubs above to provide reliable native Python file I/O.
+# Use native_write_file/native_read_file/native_append_file for direct access.
+
+write_file = native_write_file
+read_file_local = native_read_file
+append_file = native_append_file
+"""
+    
+    return code + native_overrides
 
 
 # ---- Shared helpers section (embedded in both transport headers) ----------
@@ -199,6 +215,90 @@ def retry(fn, max_attempts=3, delay=2):
             if attempt < max_attempts - 1:
                 time.sleep(delay * (2 ** attempt))
     raise last_err
+
+
+# ---------------------------------------------------------------------------
+# Native Python file I/O (bypass RPC for reliable file operations)
+# ---------------------------------------------------------------------------
+
+def native_write_file(path: str, content: str) -> dict:
+    """Write content to a file using native Python open().write().
+    
+    This is the RECOMMENDED way to write files in execute_code scripts.
+    Unlike the write_file() RPC stub, this uses direct Python file I/O
+    and bypasses the JSON RPC mechanism entirely.
+    
+    - Creates parent directories automatically
+    - Always overwrites existing files
+    - Returns dict with success status
+    
+    Example:
+        native_write_file("/tmp/test.txt", "Hello, World!")
+    """
+    abs_path = os.path.abspath(os.path.expanduser(path))
+    parent = os.path.dirname(abs_path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    try:
+        with open(abs_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        return {"success": True, "path": abs_path, "bytes_written": len(content.encode("utf-8"))}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def native_read_file(path: str, offset: int = 1, limit: int = 500) -> dict:
+    """Read a file using native Python file I/O (bypasses RPC).
+    
+    - offset: 1-indexed line number to start from (default: 1)
+    - limit: Maximum lines to return (default: 500)
+    - Returns dict with "content", "total_lines", "truncated"
+    
+    Example:
+        result = native_read_file("/tmp/test.txt", offset=1, limit=100)
+    """
+    abs_path = os.path.abspath(os.path.expanduser(path))
+    try:
+        with open(abs_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        total_lines = len(lines)
+        
+        # Convert 1-indexed offset to 0-indexed
+        start = max(0, offset - 1)
+        end = min(len(lines), start + limit)
+        
+        content = "".join(lines[start:end])
+        truncated = end < len(lines)
+        
+        return {
+            "content": content,
+            "total_lines": total_lines,
+            "truncated": truncated,
+            "lines_returned": end - start
+        }
+    except Exception as e:
+        return {"content": "", "total_lines": 0, "truncated": False, "error": str(e)}
+
+
+def native_append_file(path: str, content: str) -> dict:
+    """Append content to a file using native Python.
+    
+    Creates the file if it doesn't exist. Uses direct Python file I/O.
+    
+    Example:
+        native_append_file("/tmp/log.txt", "New log entry\n")
+    """
+    abs_path = os.path.abspath(os.path.expanduser(path))
+    parent = os.path.dirname(abs_path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    try:
+        with open(abs_path, "a", encoding="utf-8") as f:
+            f.write(content)
+        return {"success": True, "path": abs_path, "bytes_written": len(content.encode("utf-8"))}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 
 '''
 

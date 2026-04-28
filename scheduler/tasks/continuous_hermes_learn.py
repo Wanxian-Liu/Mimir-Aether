@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 from datetime import datetime, timedelta
 
-MIMIRAETHER_DIR = Path.home() / ".mimiraether"
+MIMIRAETHER_DIR = Path.home() / ".openclaw" / "projects" / "MimirAether"
 LEARNINGS_DIR = MIMIRAETHER_DIR / "learnings"
 HERMES_DIR = Path.home() / ".openclaw" / "projects" / "hermes-agent"
 

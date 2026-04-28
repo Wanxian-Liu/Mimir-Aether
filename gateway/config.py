@@ -2,8 +2,8 @@
 # Gateway配置管理模块 (已自研)
 # 来源: mimir-aether/gateway/config.py
 # 改造点:
-#   1. 移除 hermes_cli.config 依赖 → 适配 OpenClaw 配置结构
-#   2. 移除 hermes_constants 依赖 → 使用 OpenClaw 常量
+#   1. 移除 mimir_cli.config 依赖 → 适配 OpenClaw 配置结构
+#   2. 移除 mimir_constants 依赖 → 使用 OpenClaw 常量
 #   3. Platform 枚举中移除 Hermite 特定平台（如有）
 #   4. sessions_dir 路径改为 ~/.openclaw/...
 """
@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any
 from enum import Enum
 
-# 移除hermes_cli.config依赖 - 已使用Path.home()/.openclaw
+# 移除mimir_cli.config依赖 - 已使用Path.home()/.openclaw
 # utils.is_truthy_value依赖已移除
 
 logger = logging.getLogger(__name__)
@@ -728,9 +728,9 @@ def _validate_gateway_config(config: "GatewayConfig") -> None:
     # Ported from openclaw/openclaw#64586: users who copy .env.example
     # without changing placeholder values get a clear startup error instead
     # of a confusing "auth failed" from the platform API.
-    # hermes_cli.auth依赖已移除
+    # mimir_cli.auth依赖已移除
     try:
-        # from hermes_cli.auth import has_usable_secret
+        # from mimir_cli.auth import has_usable_secret
         has_usable_secret = None
     except ImportError:
         has_usable_secret = None  # type: ignore[assignment]

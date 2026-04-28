@@ -2,7 +2,7 @@
 
 Provides a single ``setup_logging()`` entry point that both the CLI and
 gateway call early in their startup path.  All log files live under
-``~/.mimiraether/logs/`` (profile-aware via ``get_mimiraether_home()``).
+``~/projects/MimirAether/logs/`` (profile-aware via ``get_mimiraether_home()``).
 
 Log files produced:
     agent.log   — INFO+, all agent/tool/session activity (the main log)

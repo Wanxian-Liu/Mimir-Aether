@@ -10,7 +10,7 @@ of 4000+ models across 109+ providers.  Provides:
 
 Data resolution order:
   1. In-memory cache (1hr TTL)
-  2. Disk cache (~/.mimiraether/models_dev_cache.json)
+  2. Disk cache (~/projects/MimirAether/models_dev_cache.json)
   3. Network fetch (https://models.dev/api.json)
   4. Background refresh every 60 minutes
 

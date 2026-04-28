@@ -100,7 +100,7 @@ _MEMORY_THREAT_PATTERNS = [
     # Persistence via shell rc
     (r'authorized_keys', "ssh_backdoor"),
     (r'\$HOME/\.ssh|\~/\.ssh', "ssh_access"),
-    (r'\$HOME/\.mimiraether/\.env|\~/\.mimiraether/\.env', "mimiraether_env"),
+    (r'\$HOME/\projects/MimirAether/\.env|\~/\projects/MimirAether/\.env', "mimiraether_env"),
 ]
 
 # Subset of invisible chars for injection detection

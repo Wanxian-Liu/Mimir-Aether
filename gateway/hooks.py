@@ -2,7 +2,7 @@
 # 事件钩子系统 (已自研)
 # 来源: mimir-aether/gateway/hooks.py
 # 改造点:
-#   1. 移除 hermes_cli.config 依赖 → 适配 OpenClaw 配置结构
+#   1. 移除 mimir_cli.config 依赖 → 适配 OpenClaw 配置结构
 #   2. hooks 目录路径改为 ~/.openclaw/hooks
 #   3. builtin_hooks 路径需适配 OpenClaw 结构
 """

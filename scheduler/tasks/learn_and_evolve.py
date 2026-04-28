@@ -16,7 +16,7 @@ import signal
 from pathlib import Path
 from datetime import datetime
 
-MIMIRAETHER_DIR = Path.home() / ".mimiraether"
+MIMIRAETHER_DIR = Path.home() / ".openclaw" / "projects" / "MimirAether"
 LEARNINGS_DIR = MIMIRAETHER_DIR / "learnings"
 EVOLUTION_LOG = LEARNINGS_DIR / "evolution_log.json"
 HERMES_DIR = Path.home() / ".openclaw" / "projects" / "hermes-agent"

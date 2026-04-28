@@ -54,7 +54,7 @@ def _resolve_mimiraether_home() -> Path:
 
 def register_credential_file(
     relative_path: str,
-    container_base: str = "/root/.mimiraether",
+    container_base: str = "/root/.openclaw/projects/MimirAether",
 ) -> bool:
     """Register a credential file for mounting into remote sandboxes.
 
@@ -104,7 +104,7 @@ def register_credential_file(
 
 def register_credential_files(
     entries: list,
-    container_base: str = "/root/.mimiraether",
+    container_base: str = "/root/.openclaw/projects/MimirAether",
 ) -> List[str]:
     """Register multiple credential files from skill frontmatter entries.
 
@@ -164,7 +164,7 @@ def _load_config_files() -> List[Dict[str, str]]:
                         continue
                     resolved_path = host_path.resolve()
                     if resolved_path.is_file():
-                        container_path = f"/root/.mimiraether/{rel}"
+                        container_path = f"/root/.openclaw/projects/MimirAether/{rel}"
                         result.append({
                             "host_path": str(resolved_path),
                             "container_path": container_path,
@@ -203,7 +203,7 @@ def get_credential_file_mounts() -> List[Dict[str, str]]:
 
 
 def get_skills_directory_mount(
-    container_base: str = "/root/.mimiraether",
+    container_base: str = "/root/.openclaw/projects/MimirAether",
 ) -> list[Dict[str, str]]:
     """Return mount info for all skill directories (local + external).
 
@@ -295,7 +295,7 @@ def _safe_skills_path(skills_dir: Path) -> str:
 
 
 def iter_skills_files(
-    container_base: str = "/root/.mimiraether",
+    container_base: str = "/root/.openclaw/projects/MimirAether",
 ) -> List[Dict[str, str]]:
     """Yield individual (host_path, container_path) entries for skills files.
 
@@ -355,7 +355,7 @@ _CACHE_DIRS: list[tuple[str, str]] = [
 
 
 def get_cache_directory_mounts(
-    container_base: str = "/root/.mimiraether",
+    container_base: str = "/root/.openclaw/projects/MimirAether",
 ) -> List[Dict[str, str]]:
     """Return mount entries for each cache directory that exists on disk.
 
@@ -391,7 +391,7 @@ def get_cache_directory_mounts(
 
 
 def iter_cache_files(
-    container_base: str = "/root/.mimiraether",
+    container_base: str = "/root/.openclaw/projects/MimirAether",
 ) -> List[Dict[str, str]]:
     """Return individual (host_path, container_path) entries for cache files.
 

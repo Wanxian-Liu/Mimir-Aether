@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from datetime import datetime
 
-DELIVERY_DIR = Path.home() / ".mimiraether" / "cron" / "delivery"
+DELIVERY_DIR = Path.home() / ".openclaw" / "projects" / "MimirAether" / "cron" / "delivery"
 
 class DeliveryResult:
     def __init__(self, job_id, status, message):
