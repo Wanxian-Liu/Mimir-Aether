@@ -23,6 +23,7 @@ import sys
 import json
 import platform
 import socket
+import shutil
 import subprocess
 from pathlib import Path
 from datetime import datetime
@@ -364,82 +365,408 @@ def cmd_config(args):
 # 命令：doctor
 # =============================================================================
 
+def check_ok(text: str, detail: str = ""):
+    print(f"  ✅ {text}" + (f" {detail}" if detail else ""))
+
+def check_warn(text: str, detail: str = ""):
+    print(f"  ⚠️ {text}" + (f" {detail}" if detail else ""))
+
+def check_fail(text: str, detail: str = ""):
+    print(f"  ❌ {text}" + (f" {detail}" if detail else ""))
+
+def check_info(text: str):
+    print(f"    → {text}")
+
+
 def cmd_doctor(args):
-    """诊断系统问题"""
-    print("=" * 60)
-    print("MimirAether 诊断")
-    print("=" * 60)
-    
+    """诊断系统问题 - 对齐Hermes doctor功能"""
+    should_fix = getattr(args, 'fix', False)
     issues = []
-    warnings = []
+    manual_issues = []
+    fixed_count = 0
     
-    # 1. Python版本
-    print("\n【1. Python环境】")
-    py_version = platform.python_version()
-    if tuple(map(int, py_version.split('.')[:2])) >= (3, 10):
-        print(f"  ✅ Python {py_version}")
+    print()
+    print("┌" + "─" * 58 + "┐")
+    print("│" + " 🩺 MimirAether Doctor ".center(58) + "│")
+    print("└" + "─" * 58 + "┘")
+    
+    # =========================================================================
+    # Check: Python version
+    # =========================================================================
+    print()
+    print("◆ Python环境")
+    
+    py_version = sys.version_info
+    if py_version >= (3, 10):
+        check_ok(f"Python {py_version.major}.{py_version.minor}.{py_version.micro}")
     else:
-        issues.append(f"Python版本过低: {py_version}")
-        print(f"  ❌ Python版本过低: {py_version} (需要 3.10+)")
+        check_fail(f"Python {py_version.major}.{py_version.minor}.{py_version.micro}", "(需要 3.10+)")
+        issues.append("Python版本过低")
     
-    # 2. API Key
-    print("\n【2. API凭证】")
-    deepseek_key = os.environ.get("DEEPSEEK_API_KEY", "")
-    if deepseek_key:
-        print(f"  ✅ DeepSeek API Key 已配置")
+    # Check virtual environment
+    in_venv = sys.prefix != sys.base_prefix
+    if in_venv:
+        check_ok("虚拟环境已激活")
     else:
-        issues.append("DeepSeek API Key 未配置")
-        print("  ❌ DeepSeek API Key 未配置")
+        check_warn("未在虚拟环境中", "(建议使用虚拟环境)")
     
-    # 3. 网络连接
-    print("\n【3. 网络连接】")
+    # =========================================================================
+    # Check: Required packages
+    # =========================================================================
+    print()
+    print("◆ 依赖包")
+    
+    required_packages = [
+        ("openai", "OpenAI SDK"),
+        ("rich", "Rich (终端UI)"),
+        ("dotenv", "python-dotenv"),
+        ("yaml", "PyYAML"),
+        ("httpx", "HTTPX"),
+    ]
+    
+    optional_packages = [
+        ("croniter", "Croniter (定时任务)"),
+        ("telegram", "python-telegram-bot"),
+        ("discord", "discord.py"),
+    ]
+    
+    for module, name in required_packages:
+        try:
+            __import__(module)
+            check_ok(name)
+        except ImportError:
+            check_fail(name, "(缺失)")
+            issues.append(f"安装 {name}: pip install {module}")
+    
+    for module, name in optional_packages:
+        try:
+            __import__(module)
+            check_ok(name, "(可选)")
+        except ImportError:
+            check_warn(name, "(可选，未安装)")
+    
+    # =========================================================================
+    # Check: Configuration files
+    # =========================================================================
+    print()
+    print("◆ 配置文件")
+    
+    # Check .env file
+    env_path = PROJECT_ROOT / ".env"
+    if env_path.exists():
+        check_ok(".env 文件存在")
+        content = env_path.read_text()
+        # Check for API keys
+        api_keys = [
+            "DEEPSEEK_API_KEY", "MINIMAX_API_KEY", "ANTHROPIC_API_KEY",
+            "OPENAI_API_KEY", "DEEPSEEK_V3_API_KEY", "MINIMAX_V2_API_KEY",
+        ]
+        has_api_key = any(key in content for key in api_keys)
+        if has_api_key:
+            check_ok("API密钥已配置")
+        else:
+            check_warn("未找到API密钥配置")
+            issues.append("运行 'python cli.py setup' 配置API密钥")
+    else:
+        check_fail(".env 文件缺失")
+        if should_fix:
+            env_path.touch()
+            check_ok("已创建空的 .env 文件")
+            check_info("运行 'python cli.py setup' 配置API密钥")
+            fixed_count += 1
+        else:
+            issues.append("运行 'python cli.py setup' 创建 .env 文件")
+    
+    # Check memories directory
+    memories_dir = PROJECT_ROOT / "memories"
+    if memories_dir.exists():
+        check_ok("memories/ 目录存在")
+        memory_file = memories_dir / "MEMORY.md"
+        if memory_file.exists():
+            size = len(memory_file.read_text(encoding="utf-8").strip())
+            check_ok(f"MEMORY.md 存在 ({size} 字符)")
+        else:
+            check_info("MEMORY.md 尚未创建 (首次写入记忆时创建)")
+    else:
+        check_warn("memories/ 目录不存在")
+        if should_fix:
+            memories_dir.mkdir(parents=True, exist_ok=True)
+            check_ok("已创建 memories/ 目录")
+            fixed_count += 1
+    
+    # Check SOUL.md
+    soul_path = PROJECT_ROOT / "SOUL.md"
+    if soul_path.exists():
+        content = soul_path.read_text(encoding="utf-8").strip()
+        lines = [l for l in content.splitlines() if l.strip() and not l.strip().startswith(("<!--", "-->", "#"))]
+        if lines:
+            check_ok("SOUL.md 存在 (人格已配置)")
+        else:
+            check_warn("SOUL.md 为空")
+    else:
+        check_warn("SOUL.md 不存在", "(创建可自定义人格)")
+        if should_fix:
+            soul_path.write_text(
+                "# MimirAether Persona\n\n"
+                "<!-- 编辑此文件自定义MimirAether的交流方式 -->\n\n"
+                "You are MimirAether, a helpful AI assistant.\n",
+                encoding="utf-8",
+            )
+            check_ok("已创建 SOUL.md 基础模板")
+            fixed_count += 1
+    
+    # Check sessions directory
+    sessions_dir = PROJECT_ROOT / "sessions"
+    if sessions_dir.exists():
+        check_ok("sessions/ 目录存在")
+    else:
+        check_warn("sessions/ 目录不存在")
+        if should_fix:
+            sessions_dir.mkdir(parents=True, exist_ok=True)
+            check_ok("已创建 sessions/ 目录")
+            fixed_count += 1
+    
+    # Check logs directory
+    logs_dir = PROJECT_ROOT / "logs"
+    if logs_dir.exists():
+        check_ok("logs/ 目录存在")
+    else:
+        check_warn("logs/ 目录不存在")
+        if should_fix:
+            logs_dir.mkdir(parents=True, exist_ok=True)
+            check_ok("已创建 logs/ 目录")
+            fixed_count += 1
+    
+    # Check cron directory
+    cron_dir = PROJECT_ROOT / "cron"
+    if cron_dir.exists():
+        check_ok("cron/ 目录存在")
+        jobs_file = cron_dir / "jobs.json"
+        if jobs_file.exists():
+            check_ok("jobs.json 存在")
+    else:
+        check_warn("cron/ 目录不存在")
+        if should_fix:
+            cron_dir.mkdir(parents=True, exist_ok=True)
+            check_ok("已创建 cron/ 目录")
+            fixed_count += 1
+    
+    # Check state.db
+    state_db_path = PROJECT_ROOT / "state.db"
+    if state_db_path.exists():
+        try:
+            import sqlite3
+            conn = sqlite3.connect(str(state_db_path))
+            cursor = conn.execute("SELECT COUNT(*) FROM sessions")
+            count = cursor.fetchone()[0]
+            conn.close()
+            check_ok(f"state.db 存在 ({count} 个会话)")
+        except Exception as e:
+            check_warn(f"state.db 存在但有问题: {e}")
+    else:
+        check_info("state.db 尚未创建 (首次会话时创建)")
+    
+    # Check WAL file size
+    wal_path = PROJECT_ROOT / "state.db-wal"
+    if wal_path.exists():
+        try:
+            wal_size = wal_path.stat().st_size
+            if wal_size > 50 * 1024 * 1024:  # 50 MB
+                check_warn(f"WAL文件过大 ({wal_size // (1024*1024)} MB)", "(可能表明检查点遗漏)")
+                if should_fix:
+                    import sqlite3
+                    conn = sqlite3.connect(str(state_db_path))
+                    conn.execute("PRAGMA wal_checkpoint(PASSIVE)")
+                    conn.close()
+                    new_size = wal_path.stat().st_size if wal_path.exists() else 0
+                    check_ok(f"WAL检查点执行 ({wal_size // 1024}K → {new_size // 1024}K)")
+                    fixed_count += 1
+                else:
+                    issues.append("WAL文件过大 - 运行 'python cli.py doctor --fix' 执行检查点")
+            elif wal_size > 10 * 1024 * 1024:  # 10 MB
+                check_info(f"WAL文件大小 {wal_size // (1024*1024)} MB (活跃会话正常)")
+        except Exception:
+            pass
+    
+    # =========================================================================
+    # Check: External tools
+    # =========================================================================
+    print()
+    print("◆ 外部工具")
+    
+    # Git
+    if shutil.which("git"):
+        check_ok("git")
+    else:
+        check_warn("git 未找到", "(可选)")
+    
+    # ripgrep
+    if shutil.which("rg"):
+        check_ok("ripgrep (rg)", "(快速文件搜索)")
+    else:
+        check_warn("ripgrep (rg) 未找到", "(文件搜索使用grep回退)")
+    
+    # Docker
+    if shutil.which("docker"):
+        try:
+            result = subprocess.run(["docker", "info"], capture_output=True, timeout=10)
+            if result.returncode == 0:
+                check_ok("docker", "(守护进程运行中)")
+            else:
+                check_warn("docker", "(守护进程未运行)")
+        except subprocess.TimeoutExpired:
+            check_warn("docker", "(连接超时)")
+        except Exception:
+            check_warn("docker", "(检查失败)")
+    else:
+        check_warn("docker 未找到", "(可选)")
+    
+    # Node.js
+    if shutil.which("node"):
+        node_version = subprocess.run(["node", "--version"], capture_output=True, text=True)
+        check_ok(f"Node.js {node_version.stdout.strip()}")
+    else:
+        check_warn("Node.js 未找到", "(可选，需要浏览器工具)")
+    
+    # =========================================================================
+    # Check: API Connectivity
+    # =========================================================================
+    print()
+    print("◆ API连接性")
+    
+    # API Key providers
+    providers = [
+        ("DeepSeek", ("DEEPSEEK_API_KEY",), "https://api.deepseek.com/v1/models", "DEEPSEEK_BASE_URL"),
+        ("MiniMax", ("MINIMAX_API_KEY",), "https://api.minimax.chat/v1/models", "MINIMAX_BASE_URL"),
+        ("Anthropic", ("ANTHROPIC_API_KEY",), "https://api.anthropic.com/v1/models", None),
+        ("OpenAI", ("OPENAI_API_KEY",), "https://api.openai.com/v1/models", "OPENAI_BASE_URL"),
+    ]
+    
+    for name, env_vars, default_url, base_env in providers:
+        key = ""
+        for ev in env_vars:
+            key = os.environ.get(ev, "")
+            if key:
+                break
+        
+        if not key:
+            check_warn(f"{name} API", "(未配置)")
+            continue
+        
+        print(f"  检查 {name} API...", end="", flush=True)
+        try:
+            import httpx
+            base = os.environ.get(base_env, "") if base_env else ""
+            url = (base.rstrip("/") + "/models") if base else default_url
+            headers = {"Authorization": f"Bearer {key}"}
+            if name == "Anthropic":
+                headers["anthropic-version"] = "2023-06-01"
+                headers["x-api-key"] = key
+                del headers["Authorization"]
+            
+            response = httpx.get(url, headers=headers, timeout=10)
+            if response.status_code == 200:
+                print(f"\r  ✅ {name} API                          ")
+            elif response.status_code == 401:
+                print(f"\r  ❌ {name} API (无效的API密钥)          ")
+                issues.append(f"检查 {name} API密钥")
+            else:
+                print(f"\r  ⚠️ {name} API (HTTP {response.status_code})          ")
+        except Exception as e:
+            print(f"\r  ⚠️ {name} API ({e})          ")
+    
+    # =========================================================================
+    # Check: Gateway Service
+    # =========================================================================
+    print()
+    print("◆ Gateway服务")
+    
+    # Check Gateway process
+    gateway_running = False
+    gateway_pids = []
     try:
-        sock = socket.create_connection(("api.deepseek.com", 443), timeout=5)
-        sock.close()
-        print("  ✅ api.deepseek.com 可达")
-    except Exception:
-        issues.append("无法连接 api.deepseek.com")
-        print("  ❌ 无法连接 api.deepseek.com")
+        result = subprocess.run(
+            ["pgrep", "-f", "gateway/run.py"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            gateway_pids = result.stdout.strip().split('\n')
+            gateway_running = True
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
     
-    # 4. API服务
-    print("\n【4. API服务】")
+    if gateway_running:
+        check_ok("Gateway进程运行中")
+        if gateway_pids:
+            check_info(f"PID(s): {', '.join(gateway_pids[:3])}")
+    else:
+        check_warn("Gateway进程未运行")
+    
+    # Check Gateway health
     try:
         import httpx
         response = httpx.get("http://localhost:18999/health", timeout=3)
         if response.status_code == 200:
-            print("  ✅ API服务运行正常")
+            data = response.json()
+            version = data.get('version', 'unknown')
+            check_ok(f"Gateway健康检查", f"(v{version})")
         else:
-            warnings.append(f"API服务返回状态码: {response.status_code}")
-            print(f"  ⚠️ API服务返回状态码: {response.status_code}")
+            check_warn(f"Gateway健康检查", f"(状态码: {response.status_code})")
     except Exception:
-        warnings.append("API服务未运行 (端口18999)")
-        print("  ⚠️ API服务未运行 (端口18999)")
+        check_warn("Gateway健康检查", "(无法连接端口18999)")
     
-    # 5. 核心模块
-    print("\n【5. 核心模块】")
-    for module in ["agent.core_loop", "gateway.router", "skills.skill_manager"]:
+    # =========================================================================
+    # Check: Core Modules
+    # =========================================================================
+    print()
+    print("◆ 核心模块")
+    
+    core_modules = [
+        "agent.core_loop",
+        "mimicore.config.model_defaults",
+    ]
+    
+    for module_name in core_modules:
         try:
-            importlib.import_module(module)
-            print(f"  ✅ {module}")
+            importlib.import_module(module_name)
+            check_ok(module_name)
         except Exception as e:
-            issues.append(f"模块导入失败 {module}")
-            print(f"  ❌ {module}: {e}")
+            check_fail(module_name, str(e))
+            issues.append(f"模块导入失败: {module_name}")
     
-    # 总结
-    print("\n" + "=" * 60)
-    if not issues and not warnings:
-        print("✅ 所有检查通过！系统正常。")
-    elif issues:
-        print(f"❌ 发现 {len(issues)} 个问题：")
-        for issue in issues:
-            print(f"   - {issue}")
-    elif warnings:
-        print(f"⚠️ 发现 {len(warnings)} 个警告：")
-        for warning in warnings:
-            print(f"   - {warning}")
+    # =========================================================================
+    # Summary
+    # =========================================================================
+    remaining_issues = issues + manual_issues
+    print()
+    print("─" * 60)
     
-    print("=" * 60)
-    return 0 if not issues else 1
+    if should_fix and fixed_count > 0:
+        print(f"  ✅ 已修复 {fixed_count} 个问题.", end="")
+        if remaining_issues:
+            print(f" 还有 {len(remaining_issues)} 个问题需要手动处理.")
+        else:
+            print()
+        print()
+        if remaining_issues:
+            for i, issue in enumerate(remaining_issues, 1):
+                print(f"  {i}. {issue}")
+            print()
+    elif remaining_issues:
+        print(f"  ❌ 发现 {len(remaining_issues)} 个问题：")
+        print()
+        for i, issue in enumerate(remaining_issues, 1):
+            print(f"  {i}. {issue}")
+        print()
+        if not should_fix:
+            print("  提示: 运行 'python cli.py doctor --fix' 自动修复")
+    else:
+        print("  ✅ 所有检查通过！系统正常。🎉")
+    
+    print()
+    return 0 if not remaining_issues else 1
 
 # =============================================================================
 # 命令：setup
@@ -745,7 +1072,7 @@ def main():
     status --deep   深度检查(API连通性等)
     status --all    显示完整密钥(不脱敏)
     config          查看配置
-    doctor          诊断系统问题
+    doctor          诊断系统问题 (--fix 自动修复)
     setup           交互式设置向导
     model           模型管理
     cron            定时任务管理
@@ -787,6 +1114,7 @@ def main():
         args.check = False
         args.deep = False
         args.all = False
+        args.fix = False
         
         # 特殊处理
         for i, arg in enumerate(args.args):
@@ -807,6 +1135,8 @@ def main():
                 args.deep = True
             elif arg == "--all":
                 args.all = True
+            elif arg == "--fix":
+                args.fix = True
     else:
         args.action = None
         args.add = None
@@ -817,6 +1147,7 @@ def main():
         args.check = False
         args.deep = False
         args.all = False
+        args.fix = False
     
     # 处理命令
     if args.command == "status":
