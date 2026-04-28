@@ -5,6 +5,7 @@ MimirAether CLI - 命令行入口
 支持多种命令：
     python cli.py                          # 交互模式
     python cli.py status                  # 查看状态
+    python cli.py status --deep           # 深度检查
     python cli.py config                  # 查看配置
     python cli.py doctor                  # 诊断问题
     python cli.py setup                  # 设置向导
@@ -30,6 +31,10 @@ from datetime import datetime
 PROJECT_ROOT = Path(__file__).parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+# 导入模型配置（动态读取OpenClaw配置）
+from mimicore.config.model_defaults import get_model, get_available_models, DEFAULT_MODEL as MIMIR_DEFAULT_MODEL
+sys.path.insert(0, str(PROJECT_ROOT))
+
 # =============================================================================
 # 版本信息
 # =============================================================================
@@ -41,48 +46,192 @@ __agent_version__ = "MimirAether"
 # 命令：status
 # =============================================================================
 
+def check_mark(ok: bool) -> str:
+    """返回状态标记符号"""
+    return "✅" if ok else "❌"
+
+
+def redact_key(key: str) -> str:
+    """对API密钥进行脱敏显示"""
+    if not key:
+        return "(未配置)"
+    if len(key) < 12:
+        return "***"
+    return key[:4] + "..." + key[-4:]
+
+
 def cmd_status(args):
-    """查看系统状态"""
+    """查看系统状态 - 对齐Hermes status功能"""
+    deep = getattr(args, 'deep', False)
+    show_all = getattr(args, 'all', False)
+    
     from agent.core_loop import MimirAetherAgent
     
-    print("=" * 60)
-    print("MimirAether 状态")
-    print("=" * 60)
+    print()
+    print("┌" + "─" * 58 + "┐")
+    print("│" + " ⚕ MimirAether Status ".center(58) + "│")
+    print("└" + "─" * 58 + "┘")
     
-    # 系统信息
-    print("\n【系统信息】")
-    print(f"  Python版本: {platform.python_version()}")
-    print(f"  操作系统: {platform.system()} {platform.release()}")
-    print(f"  主机名: {socket.gethostname()}")
+    # =========================================================================
+    # Environment
+    # =========================================================================
+    print()
+    print("◆ 环境信息")
+    print(f"  项目路径:    {PROJECT_ROOT}")
+    print(f"  Python:      {sys.version.split()[0]}")
     
-    # Agent信息
-    print("\n【Agent信息】")
-    print(f"  版本: {__version__}")
-    print(f"  默认模型: {os.environ.get('MIMIR_MODEL', 'deepseek/deepseek-chat')}")
+    # .env文件检查
+    env_path = PROJECT_ROOT / ".env"
+    env_exists = env_path.exists()
+    print(f"  .env文件:    {check_mark(env_exists)} {'存在' if env_exists else '不存在'}")
     
-    # 凭证信息
-    print("\n【凭证状态】")
-    deepseek_key = os.environ.get("DEEPSEEK_API_KEY", "")
-    if deepseek_key:
-        masked = deepseek_key[:8] + "..." if len(deepseek_key) > 8 else "***"
-        print(f"  DeepSeek API Key: ✅ 已配置 ({masked})")
+    # 模型信息
+    print(f"  默认模型:    {get_model()}")
+    
+    # 操作系统
+    print(f"  操作系统:    {platform.system()} {platform.release()}")
+    print(f"  主机名:      {socket.gethostname()}")
+    
+    # =========================================================================
+    # API Keys
+    # =========================================================================
+    print()
+    print("◆ API密钥")
+    
+    keys = {
+        "DeepSeek": "DEEPSEEK_API_KEY",
+        "DeepSeek V3": "DEEPSEEK_V3_API_KEY",
+        "MiniMax": "MINIMAX_API_KEY",
+        "MiniMax V2": "MINIMAX_V2_API_KEY",
+        "Anthropic": "ANTHROPIC_API_KEY",
+        "OpenAI": "OPENAI_API_KEY",
+        "SiliconFlow": "SILICONFLOW_API_KEY",
+        "Zhipu": "ZHIPU_API_KEY",
+        "Qwen": "QWEN_API_KEY",
+    }
+    
+    for name, env_var in keys.items():
+        value = os.environ.get(env_var, "") or ""
+        has_key = bool(value)
+        display = redact_key(value) if not show_all else value
+        print(f"  {name:<12}  {check_mark(has_key)} {display}")
+    
+    # =========================================================================
+    # Messaging Platforms
+    # =========================================================================
+    print()
+    print("◆ 消息平台")
+    
+    platforms = {
+        "Feishu": ("FEISHU_APP_ID", "FEISHU_HOME_CHANNEL"),
+        "WeChat": ("WEIXIN_ACCOUNT_ID", "WEIXIN_HOME_CHANNEL"),
+        "Telegram": ("TELEGRAM_BOT_TOKEN", "TELEGRAM_HOME_CHANNEL"),
+        "Discord": ("DISCORD_BOT_TOKEN", "DISCORD_HOME_CHANNEL"),
+    }
+    
+    for name, (token_var, home_var) in platforms.items():
+        token = os.environ.get(token_var, "")
+        has_token = bool(token)
+        
+        home_channel = os.environ.get(home_var, "") if home_var else ""
+        
+        status = "已配置" if has_token else "未配置"
+        if home_channel:
+            status += f" (home: {home_channel})"
+        
+        print(f"  {name:<10}  {check_mark(has_token)} {status}")
+    
+    # =========================================================================
+    # Gateway Service
+    # =========================================================================
+    print()
+    print("◆ Gateway服务")
+    
+    # 检查Gateway进程
+    gateway_running = False
+    gateway_pids = []
+    try:
+        result = subprocess.run(
+            ["pgrep", "-f", "gateway/run.py"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            gateway_pids = result.stdout.strip().split('\n')
+            gateway_running = True
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    
+    print(f"  状态:       {check_mark(gateway_running)} {'运行中' if gateway_running else '未运行'}")
+    print(f"  API地址:    http://localhost:18999")
+    
+    if gateway_running and gateway_pids:
+        rendered = ", ".join(gateway_pids[:3])
+        if len(gateway_pids) > 3:
+            rendered += ", ..."
+        print(f"  PID(s):     {rendered}")
+    
+    # 检查Gateway健康状态
+    try:
+        import httpx
+        response = httpx.get("http://localhost:18999/health", timeout=3)
+        if response.status_code == 200:
+            data = response.json()
+            version = data.get('version', 'unknown')
+            print(f"  健康检查:   ✅ 正常 (v{version})")
+        else:
+            print(f"  健康检查:   ⚠️ 异常 (状态码: {response.status_code})")
+    except Exception:
+        print(f"  健康检查:   ❌ 无法连接")
+    
+    # =========================================================================
+    # Sessions
+    # =========================================================================
+    print()
+    print("◆ 会话状态")
+    
+    sessions_file = PROJECT_ROOT / "sessions" / "sessions.json"
+    if sessions_file.exists():
+        try:
+            with open(sessions_file, encoding="utf-8") as f:
+                data = json.load(f)
+                active_count = len(data) if isinstance(data, list) else len(data.get('sessions', []))
+                print(f"  活跃会话:   {active_count} 个")
+        except Exception:
+            print("  活跃会话:   (读取失败)")
     else:
-        print("  DeepSeek API Key: ❌ 未配置")
+        print("  活跃会话:   0")
     
-    minimax_key = os.environ.get("MINIMAX_API_KEY", "")
-    print(f"  MiniMax API Key: {'✅ 已配置' if minimax_key else '❌ 未配置'}")
+    # =========================================================================
+    # Scheduled Jobs
+    # =========================================================================
+    print()
+    print("◆ 定时任务")
     
-    # Gateway状态
-    print("\n【Gateway状态】")
-    print(f"  API服务: http://localhost:18999")
-    print(f"  适配器: {os.environ.get('MIMIR_ADAPTERS', 'telegram,feishu,discord')}")
+    jobs_file = PROJECT_ROOT / "cron" / "jobs.json"
+    if jobs_file.exists():
+        try:
+            with open(jobs_file, encoding="utf-8") as f:
+                data = json.load(f)
+                jobs = data.get("jobs", [])
+                enabled_jobs = [j for j in jobs if j.get("enabled", True)]
+                print(f"  任务数:     {len(enabled_jobs)} 个活跃, {len(jobs)} 个总计")
+        except Exception:
+            print("  任务数:     (读取失败)")
+    else:
+        print("  任务数:     0")
     
-    # 工具数
-    print("\n【工具统计】")
+    # =========================================================================
+    # Tools
+    # =========================================================================
+    print()
+    print("◆ 工具统计")
+    
     try:
         agent = MimirAetherAgent()
         tools = agent.tool_registry.list_tools()
-        print(f"  内置工具: {len(tools)} 个")
+        print(f"  内置工具:   {len(tools)} 个")
         if args.verbose:
             for tool in tools[:15]:
                 print(f"    - {tool}")
@@ -91,7 +240,62 @@ def cmd_status(args):
     except Exception as e:
         print(f"  Agent初始化失败: {e}")
     
-    print("\n" + "=" * 60)
+    # =========================================================================
+    # Deep Checks
+    # =========================================================================
+    if deep:
+        print()
+        print("◆ 深度检查")
+        
+        # DeepSeek API连通性
+        deepseek_key = os.environ.get("DEEPSEEK_API_KEY", "")
+        if deepseek_key:
+            try:
+                import httpx
+                response = httpx.get(
+                    "https://api.deepseek.com/models",
+                    headers={"Authorization": f"Bearer {deepseek_key}"},
+                    timeout=10
+                )
+                ok = response.status_code == 200
+                status_text = "可连接" if ok else f"错误 ({response.status_code})"
+                print(f"  DeepSeek API: {check_mark(ok)} {status_text}")
+            except Exception as e:
+                print(f"  DeepSeek API: ❌ 连接失败: {e}")
+        
+        # MiniMax API连通性
+        minimax_key = os.environ.get("MINIMAX_API_KEY", "")
+        if minimax_key:
+            try:
+                import httpx
+                response = httpx.get(
+                    "https://api.minimax.chat/v1/models",
+                    headers={"Authorization": f"Bearer {minimax_key}"},
+                    timeout=10
+                )
+                ok = response.status_code == 200
+                status_text = "可连接" if ok else f"错误 ({response.status_code})"
+                print(f"  MiniMax API:  {check_mark(ok)} {status_text}")
+            except Exception as e:
+                print(f"  MiniMax API:  ❌ 连接失败: {e}")
+        
+        # Gateway端口检查
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(1)
+            result = sock.connect_ex(('127.0.0.1', 18999))
+            sock.close()
+            port_in_use = result == 0
+            print(f"  端口18999:   {'已被占用' if port_in_use else '可用'}")
+        except OSError:
+            pass
+    
+    print()
+    print("─" * 60)
+    print("  运行 'python cli.py doctor' 获取详细诊断")
+    print("  运行 'python cli.py setup' 进行配置")
+    print()
+    
     return 0
 
 # =============================================================================
@@ -138,7 +342,7 @@ def cmd_config(args):
     print("=" * 60)
     
     print("\n【模型配置】")
-    print(f"  默认模型: {os.environ.get('MIMIR_MODEL', 'deepseek/deepseek-chat')}")
+    print(f"  默认模型: {get_model()}")
     print(f"  API Base URL: {os.environ.get('DEEPSEEK_API_BASE', 'https://api.deepseek.com')}")
     
     print("\n【Gateway配置】")
@@ -264,7 +468,7 @@ def cmd_setup(args):
     
     # 2. 默认模型
     print("\n【2/4】默认模型")
-    current_model = os.environ.get("MIMIR_MODEL", 'deepseek/deepseek-chat')
+    current_model = get_model()
     print(f"  当前: {current_model}")
     model = input(f"  输入模型 (默认: {current_model}): ").strip() or current_model
     print(f"  ✅ 默认模型: {model}")
@@ -288,7 +492,7 @@ def cmd_setup(args):
     print("=" * 60)
     print("\n要使配置永久生效，请添加到您的 shell 配置文件:")
     print("  export DEEPSEEK_API_KEY=your_key")
-    print("  export MIMIR_MODEL=deepseek/deepseek-chat")
+    print(f"  export MIMIR_MODEL={get_model()}")
     print("  export MIMIR_PORT=18999")
     print("  export MIMIR_ADAPTERS=telegram,feishu,discord")
     
@@ -300,21 +504,17 @@ def cmd_setup(args):
 
 def cmd_model(args):
     """查看/切换模型"""
-    models = [
-        ("deepseek/deepseek-chat", "DeepSeek Chat", "默认"),
-        ("kimi-k2.5", "Moonshot Kimi K2.5", ""),
-        ("minimax/minimax", "MiniMax", ""),
-    ]
+    models = get_available_models()
     
     print("=" * 60)
     print("MimirAether 模型管理")
     print("=" * 60)
     
     print("\n【可用模型】")
-    current = os.environ.get("MIMIR_MODEL", 'deepseek/deepseek-chat')
+    current = get_model()
     for i, (model_id, name, note) in enumerate(models, 1):
         marker = " ← 当前" if model_id == current else ""
-        print(f"  {i}. {name} ({model_id}){marker}")
+        print(f"  {i}. {name} ({model_id}) - {note}{marker}")
     
     if args.list:
         print("\n【当前配置】")
@@ -471,7 +671,7 @@ async def run_interactive():
     print("提示: 输入任务后按回车，输入 'quit' 或 'exit' 退出\n")
     
     agent = MimirAetherAgent(
-        model=os.environ.get("MIMIR_MODEL", "deepseek/deepseek-chat"),
+        model=get_model(),
         max_iterations=90,
         platform="cli",
     )
@@ -541,19 +741,23 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 命令:
-    status      查看系统状态
-    config      查看配置
-    doctor      诊断系统问题
-    setup       交互式设置向导
-    model       模型管理
-    cron        定时任务管理
-    version     版本信息
-    gateway     Gateway管理
-    logs        查看日志
-    -q TASK    执行单次任务
+    status          查看系统状态
+    status --deep   深度检查(API连通性等)
+    status --all    显示完整密钥(不脱敏)
+    config          查看配置
+    doctor          诊断系统问题
+    setup           交互式设置向导
+    model           模型管理
+    cron            定时任务管理
+    version         版本信息
+    gateway         Gateway管理
+    logs            查看日志
+    -q TASK        执行单次任务
 
 示例:
     python cli.py status
+    python cli.py status --deep
+    python cli.py status --all
     python cli.py doctor
     python cli.py setup
     python cli.py model --list
@@ -566,7 +770,7 @@ def main():
     parser.add_argument("command", nargs="?", help="命令")
     parser.add_argument("args", nargs=argparse.REMAINDER, help="命令参数")
     parser.add_argument("-q", "--query", type=str, help="单次任务模式")
-    parser.add_argument("--model", type=str, default=os.environ.get("MIMIR_MODEL", "deepseek/deepseek-chat"), help="指定模型")
+    parser.add_argument("--model", type=str, default=get_model(), help="指定模型")
     parser.add_argument("--max-iterations", type=int, default=90, help="最大迭代次数")
     parser.add_argument("--verbose", action="store_true", help="详细输出")
     
@@ -581,6 +785,8 @@ def main():
         args.set = None
         args.tail = None
         args.check = False
+        args.deep = False
+        args.all = False
         
         # 特殊处理
         for i, arg in enumerate(args.args):
@@ -597,6 +803,10 @@ def main():
                     pass
             elif arg == "--check":
                 args.check = True
+            elif arg == "--deep":
+                args.deep = True
+            elif arg == "--all":
+                args.all = True
     else:
         args.action = None
         args.add = None
@@ -605,6 +815,8 @@ def main():
         args.set = None
         args.tail = None
         args.check = False
+        args.deep = False
+        args.all = False
     
     # 处理命令
     if args.command == "status":
