@@ -510,9 +510,9 @@ def build_context_files_prompt(
     if cursorrules_content:
         sections.append(cursorrules_content.strip())
     
-    # SOUL.md（从配置的home目录）
+    # SOUL.md（从MimirAether自己的目录）
     if not skip_soul:
-        soul_path = Path.home() / ".openclaw" / "workspace" / "SOUL.md"
+        soul_path = Path.home() / ".mimiraether" / "SOUL.md"
         if soul_path.exists():
             content = load_context_file(soul_path, "SOUL.md")
             if content:

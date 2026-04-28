@@ -545,7 +545,7 @@ class MimirAetherAgent:
         if "deepseek" in model_lower:
             return os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
         elif "minimax" in model_lower:
-            return os.environ.get("MINIMAX_BASE_URL", "https://api.minimax.chat")
+            return os.environ.get("MINIMAX_BASE_URL", "https://api.minimaxi.com")
         elif "anthropic" in model_lower or "claude" in model_lower:
             return os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
         elif "openai" in model_lower or "gpt" in model_lower:
