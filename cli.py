@@ -13,6 +13,7 @@ MimirAether CLI - 命令行入口
     python cli.py cron list              # 定时任务
     python cli.py version                # 版本信息
     python cli.py auth                   # 凭证管理
+    python cli.py profiles               # Profile管理
     python cli.py -q "你的任务"         # 单次任务模式
 """
 
@@ -2918,6 +2919,227 @@ async def run_task(task: str, model: str, max_iterations: int, verbose: bool):
     return 0
 
 # =============================================================================
+# 命令：profiles
+# =============================================================================
+
+def cmd_profiles(args):
+    """Profile管理命令 - 对齐Hermes profiles功能"""
+    # 解析profiles子命令
+    subcmd = getattr(args, 'profile_action', None) or (args.profile_args[0] if args.profile_args else 'list')
+    
+    # 导入profiles模块
+    try:
+        from mimir_cli.profiles import (
+            list_profiles,
+            create_profile,
+            delete_profile,
+            get_active_profile,
+            set_active_profile,
+            export_profile,
+            import_profile,
+            rename_profile,
+            validate_profile_name,
+            profile_exists,
+            get_active_profile_name,
+            _get_wrapper_dir,
+            _PROFILE_ID_RE,
+        )
+    except ImportError as e:
+        print(f"❌ 无法导入profiles模块: {e}")
+        return 1
+    
+    # profiles list - 列出所有profile
+    if subcmd == "list":
+        print()
+        print("┌" + "─" * 58 + "┐")
+        print("│" + " 📋 MimirAether Profiles ".center(58) + "│")
+        print("└" + "─" * 58 + "┘")
+        
+        profiles = list_profiles()
+        active_name = get_active_profile_name()
+        
+        if not profiles:
+            print("\n  没有找到任何profile")
+            return 0
+        
+        print()
+        for p in profiles:
+            is_active = p.name == active_name
+            marker = "👉" if is_active else "  "
+            gw_status = "🟢" if p.gateway_running else "⚪"
+            env_status = "📄" if p.has_env else "  "
+            
+            print(f"  {marker} {p.name}")
+            print(f"      路径: {p.path}")
+            if p.model:
+                print(f"      模型: {p.model}" + (f" ({p.provider})" if p.provider else ""))
+            print(f"      网关: {gw_status} {'运行中' if p.gateway_running else '未运行'}  |  环境: {env_status}")
+            if p.skill_count > 0:
+                print(f"      技能: {p.skill_count} 个")
+            if p.alias_path:
+                print(f"      别名: {p.alias_path}")
+            print()
+        
+        print("  使用 'python cli.py profiles create <name>' 创建新profile")
+        print("  使用 'python cli.py profiles use <name>' 切换默认profile")
+        print()
+        return 0
+    
+    # profiles create <name> - 创建新profile
+    elif subcmd == "create":
+        if not args.profile_args:
+            print("❌ 请指定profile名称")
+            print("   用法: profiles create <name> [--clone] [--clone-all]")
+            return 1
+        
+        name = args.profile_args[0]
+        clone = getattr(args, 'clone', False)
+        clone_all = getattr(args, 'clone_all', False)
+        no_alias = getattr(args, 'no_alias', False)
+        
+        try:
+            profile_dir = create_profile(
+                name=name,
+                clone_config=clone,
+                clone_all=clone_all,
+                no_alias=no_alias,
+            )
+            print(f"✅ Profile '{name}' 已创建: {profile_dir}")
+            
+            # 询问是否设为默认
+            try:
+                confirm = input("   是否设为默认profile? [y/N]: ").strip().lower()
+                if confirm == 'y':
+                    set_active_profile(name)
+                    print(f"   ✅ 已设为默认profile")
+            except (KeyboardInterrupt, EOFError):
+                print()
+            
+            return 0
+        except ValueError as e:
+            print(f"❌ {e}")
+            return 1
+        except FileExistsError as e:
+            print(f"❌ {e}")
+            return 1
+    
+    # profiles delete <name> - 删除profile
+    elif subcmd == "delete":
+        if not args.profile_args:
+            print("❌ 请指定要删除的profile名称")
+            print("   用法: profiles delete <name> [--yes]")
+            return 1
+        
+        name = args.profile_args[0]
+        yes = getattr(args, 'yes', False)
+        
+        try:
+            delete_profile(name, yes=yes)
+            return 0
+        except ValueError as e:
+            print(f"❌ {e}")
+            return 1
+        except FileNotFoundError as e:
+            print(f"❌ {e}")
+            return 1
+    
+    # profiles use <name> - 设置默认profile
+    elif subcmd == "use":
+        if not args.profile_args:
+            current = get_active_profile_name()
+            print(f"当前默认profile: {current}")
+            return 0
+        
+        name = args.profile_args[0]
+        
+        try:
+            set_active_profile(name)
+            print(f"✅ 默认profile已设置为: {name}")
+            return 0
+        except ValueError as e:
+            print(f"❌ {e}")
+            return 1
+        except FileNotFoundError as e:
+            print(f"❌ {e}")
+            return 1
+    
+    # profiles show - 显示当前profile
+    elif subcmd == "show":
+        active = get_active_profile_name()
+        print(f"当前默认profile: {active}")
+        return 0
+    
+    # profiles export <name> <path> - 导出profile
+    elif subcmd == "export":
+        if len(args.profile_args) < 2:
+            print("❌ 请指定profile名称和导出路径")
+            print("   用法: profiles export <name> <output.tar.gz>")
+            return 1
+        
+        name = args.profile_args[0]
+        output_path = args.profile_args[1]
+        
+        try:
+            result = export_profile(name, output_path)
+            print(f"✅ Profile '{name}' 已导出: {result}")
+            return 0
+        except (ValueError, FileNotFoundError) as e:
+            print(f"❌ {e}")
+            return 1
+    
+    # profiles import <archive> [--name <name>] - 导入profile
+    elif subcmd == "import":
+        if not args.profile_args:
+            print("❌ 请指定归档文件路径")
+            print("   用法: profiles import <archive.tar.gz> [--name <name>]")
+            return 1
+        
+        archive_path = args.profile_args[0]
+        name = getattr(args, 'import_name', None)
+        
+        try:
+            result = import_profile(archive_path, name=name)
+            imported_name = name or result.name
+            print(f"✅ Profile '{imported_name}' 已导入: {result}")
+            return 0
+        except (ValueError, FileNotFoundError, FileExistsError) as e:
+            print(f"❌ {e}")
+            return 1
+    
+    # profiles rename <old> <new> - 重命名profile
+    elif subcmd == "rename":
+        if len(args.profile_args) < 2:
+            print("❌ 请指定原名称和新名称")
+            print("   用法: profiles rename <old_name> <new_name>")
+            return 1
+        
+        old_name = args.profile_args[0]
+        new_name = args.profile_args[1]
+        
+        try:
+            result = rename_profile(old_name, new_name)
+            print(f"✅ Profile已重命名: {result}")
+            return 0
+        except (ValueError, FileNotFoundError, FileExistsError) as e:
+            print(f"❌ {e}")
+            return 1
+    
+    # 未知子命令
+    else:
+        print(f"❌ 未知子命令: {subcmd}")
+        print()
+        print("可用子命令:")
+        print("  list                    列出所有profile")
+        print("  create <name>           创建新profile")
+        print("  delete <name>           删除profile")
+        print("  use [<name>]            设置/显示默认profile")
+        print("  show                    显示当前默认profile")
+        print("  export <name> <path>    导出profile到归档")
+        print("  import <archive>        从归档导入profile")
+        print("  rename <old> <new>      重命名profile")
+        return 1
+
+# =============================================================================
 # 主入口
 # =============================================================================
 
@@ -2966,6 +3188,15 @@ def main():
     python cli.py auth add <provider>  添加凭证
     python cli.py auth remove <provider> <target> 移除凭证
     python cli.py auth reset <provider> 重置冷却状态
+    python cli.py profiles              Profile管理
+    python cli.py profiles list        列出所有profile
+    python cli.py profiles create <name> 创建新profile
+    python cli.py profiles delete <name> 删除profile
+    python cli.py profiles use <name>  设置默认profile
+    python cli.py profiles show        显示当前profile
+    python cli.py profiles export <name> <path> 导出profile
+    python cli.py profiles import <archive> 导入profile
+    python cli.py profiles rename <old> <new> 重命名profile
     python cli.py -q "改进gdi_scorer"
         """
     )
@@ -3088,6 +3319,35 @@ def main():
             args.auth_provider = None
             args.auth_target = None
 
+        # 处理profiles子命令 (profiles list/create/delete/use/show/export/import/rename)
+        if args.command == "profiles" and args.args:
+            args.profile_action = args.args[0] if args.args else "list"
+            args.profile_args = args.args[1:] if len(args.args) > 1 else []
+            # profiles create支持 --clone, --clone-all, --no-alias
+            args.clone = False
+            args.clone_all = False
+            args.no_alias = False
+            for flag in ["--clone", "--clone-all", "--no-alias"]:
+                if flag in args.args:
+                    if flag == "--clone":
+                        args.clone = True
+                    elif flag == "--clone-all":
+                        args.clone_all = True
+                    elif flag == "--no-alias":
+                        args.no_alias = True
+            # profiles delete支持 --yes
+            args.yes = False
+            if "--yes" in args.args:
+                args.yes = True
+            # profiles import支持 --name
+            args.import_name = None
+            for i, arg in enumerate(args.args):
+                if arg == "--name" and i + 1 < len(args.args):
+                    args.import_name = args.args[i + 1]
+        else:
+            args.profile_action = None
+            args.profile_args = []
+
         # 处理setup子命令 (setup model/gateway/tools/agent)
         if args.command == "setup" and args.args:
             valid_sections = ["model", "gateway", "tools", "agent", "help"]
@@ -3123,6 +3383,8 @@ def main():
         args.auth_provider = None
         args.auth_target = None
         args.section = None
+        args.profile_action = None
+        args.profile_args = []
     
     # 处理命令
     if args.command == "status":
@@ -3151,6 +3413,8 @@ def main():
         return cmd_marketplace(args)
     elif args.command == "auth":
         return cmd_auth(args)
+    elif args.command == "profiles":
+        return cmd_profiles(args)
     elif args.query:
         return asyncio.run(run_task(args.query, args.model, args.max_iterations, args.verbose))
     else:
