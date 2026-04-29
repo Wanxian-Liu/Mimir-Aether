@@ -2919,6 +2919,437 @@ async def run_task(task: str, model: str, max_iterations: int, verbose: bool):
     return 0
 
 # =============================================================================
+# 命令：providers
+# =============================================================================
+
+def _load_env_vars():
+    """从.env文件加载环境变量"""
+    env_path = PROJECT_ROOT / ".env"
+    env_vars = {}
+    if env_path.exists():
+        try:
+            with open(env_path, encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, _, val = line.partition('=')
+                        env_vars[key.strip()] = val.strip()
+        except Exception:
+            pass
+    return env_vars
+
+
+def cmd_providers(args):
+    """Provider管理命令 - 对齐Hermes providers功能"""
+    subcmd = getattr(args, 'provider_action', None)
+    provider_filter = getattr(args, 'provider_name', None)
+    
+    # Known providers with their metadata
+    PROVIDERS = {
+        "deepseek": {
+            "name": "DeepSeek",
+            "env_vars": ["DEEPSEEK_API_KEY", "DEEPSEEK_V3_API_KEY"],
+            "base_url": "https://api.deepseek.com",
+            "auth_type": "api_key",
+            "models": ["deepseek-v4-pro", "deepseek-v4-flash", "deepseek-chat", "deepseek-reasoner"],
+        },
+        "minimax": {
+            "name": "MiniMax",
+            "env_vars": ["MINIMAX_API_KEY", "MINIMAX_V2_API_KEY"],
+            "base_url": "https://api.minimax.chat",
+            "auth_type": "api_key",
+            "models": ["MiniMax-M2.7", "MiniMax-M2.5", "MiniMax-M2.1"],
+        },
+        "anthropic": {
+            "name": "Anthropic",
+            "env_vars": ["ANTHROPIC_API_KEY"],
+            "base_url": "https://api.anthropic.com",
+            "auth_type": "api_key",
+            "models": ["claude-opus-4-5", "claude-sonnet-4-5", "claude-haiku-4-5"],
+        },
+        "openai": {
+            "name": "OpenAI",
+            "env_vars": ["OPENAI_API_KEY"],
+            "base_url": "https://api.openai.com/v1",
+            "auth_type": "api_key",
+            "models": ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"],
+        },
+        "openrouter": {
+            "name": "OpenRouter",
+            "env_vars": ["OPENAI_API_KEY", "OPENROUTER_API_KEY"],
+            "base_url": "https://openrouter.ai/api/v1",
+            "auth_type": "api_key",
+            "models": ["openrouter/*"],
+        },
+        "siliconflow": {
+            "name": "SiliconFlow",
+            "env_vars": ["SILICONFLOW_API_KEY"],
+            "base_url": "https://api.siliconflow.cn/v1",
+            "auth_type": "api_key",
+            "models": ["Qwen/Qwen2.5-72B-Instruct", "deepseek-ai/DeepSeek-V3"],
+        },
+        "zhipu": {
+            "name": "Zhipu (智谱)",
+            "env_vars": ["ZHIPU_API_KEY"],
+            "base_url": "https://open.bigmodel.cn/api/paas/v4",
+            "auth_type": "api_key",
+            "models": ["glm-4", "glm-4-flash", "glm-4-plus"],
+        },
+        "qwen": {
+            "name": "Qwen (通义千问)",
+            "env_vars": ["QWEN_API_KEY"],
+            "base_url": "https://dashscope.aliyuncs.com/api/v1",
+            "auth_type": "api_key",
+            "models": ["qwen-turbo", "qwen-plus", "qwen-max"],
+        },
+        "google": {
+            "name": "Google (Gemini)",
+            "env_vars": ["GOOGLE_API_KEY"],
+            "base_url": "https://generativelanguage.googleapis.com/v1beta",
+            "auth_type": "api_key",
+            "models": ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"],
+        },
+        "groq": {
+            "name": "Groq",
+            "env_vars": ["GROQ_API_KEY"],
+            "base_url": "https://api.groq.com/openai/v1",
+            "auth_type": "api_key",
+            "models": ["llama-3.3-70b-versatile", "mixtral-8x7b-32768"],
+        },
+        "togetherai": {
+            "name": "TogetherAI",
+            "env_vars": ["TOGETHER_API_KEY"],
+            "base_url": "https://api.together.xyz/v1",
+            "auth_type": "api_key",
+            "models": ["meta-llama/Llama-3.3-70B-Instruct-Turbo", "mistralai/Mixtral-8x7B-Instruct-v0.1"],
+        },
+        "fireworks": {
+            "name": "Fireworks AI",
+            "env_vars": ["FIREWORKS_API_KEY"],
+            "base_url": "https://api.fireworks.ai/inference/v1",
+            "auth_type": "api_key",
+            "models": ["accounts/fireworks/models/llama-v3-70b-instruct"],
+        },
+        "perplexity": {
+            "name": "Perplexity",
+            "env_vars": ["PERPLEXITY_API_KEY"],
+            "base_url": "https://api.perplexity.ai",
+            "auth_type": "api_key",
+            "models": ["sonar", "sonar-pro", "sonar-reasoning"],
+        },
+        "cohere": {
+            "name": "Cohere",
+            "env_vars": ["COHERE_API_KEY"],
+            "base_url": "https://api.cohere.ai/v1",
+            "auth_type": "api_key",
+            "models": ["command-r-plus", "command-r", "command"],
+        },
+        "mistral": {
+            "name": "Mistral",
+            "env_vars": ["MISTRAL_API_KEY"],
+            "base_url": "https://api.mistral.ai/v1",
+            "auth_type": "api_key",
+            "models": ["mistral-large-latest", "mistral-medium-latest", "mistral-small-latest"],
+        },
+        "huggingface": {
+            "name": "HuggingFace",
+            "env_vars": ["HF_API_KEY"],
+            "base_url": "https://api-inference.huggingface.co/v1",
+            "auth_type": "api_key",
+            "models": ["meta-llama/Llama-3-70b", "mistralai/Mistral-7B-Instruct-v0.2"],
+        },
+        "xai": {
+            "name": "xAI",
+            "env_vars": ["XAI_API_KEY"],
+            "base_url": "https://api.x.ai/v1",
+            "auth_type": "api_key",
+            "models": ["grok-2", "grok-2-mini", "grok-beta"],
+        },
+        "nvidia": {
+            "name": "NVIDIA",
+            "env_vars": ["NVIDIA_API_KEY"],
+            "base_url": "https://integrate.api.nvidia.com/v1",
+            "auth_type": "api_key",
+            "models": ["nvidia/llama-3.1-nemotron-70b-instruct"],
+        },
+    }
+    
+    # Get current model to highlight active provider
+    current_model = get_model()
+    current_provider = None
+    for pid, pinfo in PROVIDERS.items():
+        for model in pinfo["models"]:
+            if model in current_model or pid in current_model:
+                current_provider = pid
+                break
+        if current_provider:
+            break
+    
+    env_vars = _load_env_vars()
+    
+    # =========================================================================
+    # providers list (default) - 列出所有provider
+    # =========================================================================
+    if subcmd == "list" or subcmd is None:
+        json_output = getattr(args, 'json', False)
+        
+        if json_output:
+            output = []
+            for pid, pinfo in sorted(PROVIDERS.items()):
+                has_key = any(os.environ.get(ev) or env_vars.get(ev) for ev in pinfo["env_vars"])
+                output.append({
+                    "id": pid,
+                    "name": pinfo["name"],
+                    "has_key": has_key,
+                    "base_url": pinfo["base_url"],
+                    "auth_type": pinfo["auth_type"],
+                    "models": pinfo["models"],
+                    "is_current": pid == current_provider,
+                })
+            print(json.dumps(output, indent=2, ensure_ascii=False))
+            return 0
+        
+        print()
+        print("┌" + "─" * 58 + "┐")
+        print("│" + " 🔌 MimirAether Providers ".center(58) + "│")
+        print("└" + "─" * 58 + "┘")
+        
+        # Current provider info
+        print()
+        print("◆ 当前Provider")
+        if current_provider:
+            pinfo = PROVIDERS.get(current_provider, {})
+            print(f"  ✅ {pinfo.get('name', current_provider)} ({current_provider})")
+            print(f"     模型: {current_model}")
+        else:
+            print(f"  ⚠️  未识别当前Provider")
+            print(f"     模型: {current_model}")
+        
+        # Provider列表
+        print()
+        print("◆ 可用Providers")
+        print()
+        
+        # 表头
+        name_col = 18
+        status_col = 8
+        base_url_col = 30
+        print(f"  {'名称':<{name_col}} {'状态':<{status_col}} {'API Base':<{base_url_col}} 认证方式")
+        print(f"  {'─' * name_col} {'─' * status_col} {'─' * base_url_col} {'─────────'}")
+        
+        # 按名称排序
+        for pid in sorted(PROVIDERS.keys(), key=lambda x: PROVIDERS[x]["name"]):
+            pinfo = PROVIDERS[pid]
+            has_key = any(os.environ.get(ev) or env_vars.get(ev) for ev in pinfo["env_vars"])
+            
+            is_current = "👉" if pid == current_provider else "  "
+            status = "✅ 已配置" if has_key else "○ 未配置"
+            name = pinfo["name"]
+            base_url = pinfo["base_url"].replace("https://", "").replace("http://", "")
+            auth_type = pinfo["auth_type"]
+            
+            print(f"  {is_current}{name:<{name_col-2}} {status:<{status_col}} {base_url:<{base_url_col}} {auth_type}")
+        
+        # 显示当前模型的provider详情
+        if current_provider:
+            print()
+            print("◆ 当前Provider详情")
+            pinfo = PROVIDERS.get(current_provider, {})
+            print(f"  ID:        {current_provider}")
+            print(f"  名称:      {pinfo.get('name', 'N/A')}")
+            print(f"  API Base:  {pinfo.get('base_url', 'N/A')}")
+            print(f"  认证方式:  {pinfo.get('auth_type', 'N/A')}")
+            print(f"  环境变量:  {', '.join(pinfo.get('env_vars', []))}")
+            print(f"  模型:      {', '.join(pinfo.get('models', [])[:5])}")
+            if len(pinfo.get('models', [])) > 5:
+                print(f"             ... 共 {len(pinfo.get('models', []))} 个模型")
+        
+        print()
+        print("─" * 60)
+        print("  使用 'python cli.py providers list --json' 查看JSON格式")
+        print("  使用 'python cli.py providers show <provider>' 查看Provider详情")
+        print()
+        return 0
+    
+    # =========================================================================
+    # providers show <name> - 显示指定provider详情
+    # =========================================================================
+    if subcmd == "show":
+        if not provider_filter:
+            print("❌ 请指定Provider名称")
+            print("\n用法: python cli.py providers show <provider>")
+            print("示例: python cli.py providers show deepseek")
+            return 1
+        
+        # 尝试匹配provider
+        matched_pid = None
+        for pid in PROVIDERS:
+            if pid == provider_filter.lower() or \
+               PROVIDERS[pid]["name"].lower().startswith(provider_filter.lower()):
+                matched_pid = pid
+                break
+        
+        if not matched_pid:
+            print(f"❌ 未知Provider: {provider_filter}")
+            print("\n可用Providers:")
+            for pid in sorted(PROVIDERS.keys(), key=lambda x: PROVIDERS[x]["name"]):
+                print(f"  - {pid}: {PROVIDERS[pid]['name']}")
+            return 1
+        
+        pinfo = PROVIDERS[matched_pid]
+        has_key = any(os.environ.get(ev) or env_vars.get(ev) for ev in pinfo["env_vars"])
+        
+        print()
+        print("┌" + "─" * 58 + "┐")
+        print("│" + f" 🔌 {pinfo['name']} ".center(58) + "│")
+        print("└" + "─" * 58 + "┘")
+        
+        print()
+        print("◆ 基本信息")
+        print(f"  ID:          {matched_pid}")
+        print(f"  名称:        {pinfo['name']}")
+        print(f"  状态:        {'✅ 已配置API密钥' if has_key else '○ 未配置API密钥'}")
+        print(f"  API Base:    {pinfo['base_url']}")
+        print(f"  认证方式:    {pinfo['auth_type']}")
+        
+        print()
+        print("◆ 环境变量")
+        for ev in pinfo["env_vars"]:
+            value = os.environ.get(ev) or env_vars.get(ev, "")
+            if value:
+                if len(value) > 12:
+                    display = value[:4] + "..." + value[-4:]
+                else:
+                    display = "***"
+                print(f"  ✅ {ev}={display}")
+            else:
+                print(f"  ○ {ev}=(未配置)")
+        
+        print()
+        print("◆ 支持的模型")
+        for model in pinfo["models"]:
+            print(f"  - {model}")
+        
+        print()
+        print("─" * 60)
+        print()
+        return 0
+    
+    # =========================================================================
+    # providers models <name> - 显示provider支持的模型
+    # =========================================================================
+    if subcmd == "models":
+        if not provider_filter:
+            # 显示所有provider的模型
+            print()
+            print("┌" + "─" * 58 + "┐")
+            print("│" + " 🤖 所有Provider模型 ".center(58) + "│")
+            print("└" + "─" * 58 + "┘")
+            print()
+            
+            for pid in sorted(PROVIDERS.keys(), key=lambda x: PROVIDERS[x]["name"]):
+                pinfo = PROVIDERS[pid]
+                has_key = any(os.environ.get(ev) or env_vars.get(ev) for ev in pinfo["env_vars"])
+                status = "✅" if has_key else "○"
+                print(f"◆ {status} {pinfo['name']} ({pid})")
+                for model in pinfo["models"]:
+                    marker = "← 当前" if model in current_model else ""
+                    print(f"    - {model} {marker}")
+                print()
+            return 0
+        
+        # 显示指定provider的模型
+        matched_pid = None
+        for pid in PROVIDERS:
+            if pid == provider_filter.lower() or \
+               PROVIDERS[pid]["name"].lower().startswith(provider_filter.lower()):
+                matched_pid = pid
+                break
+        
+        if not matched_pid:
+            print(f"❌ 未知Provider: {provider_filter}")
+            return 1
+        
+        pinfo = PROVIDERS[matched_pid]
+        print()
+        print(f"◆ {pinfo['name']} 支持的模型")
+        print()
+        for model in pinfo["models"]:
+            marker = "← 当前" if model in current_model else ""
+            print(f"  - {model} {marker}")
+        print()
+        return 0
+    
+    # =========================================================================
+    # providers check - 检查provider配置状态
+    # =========================================================================
+    if subcmd == "check":
+        print()
+        print("┌" + "─" * 58 + "┐")
+        print("│" + " 🔍 Provider配置检查 ".center(58) + "│")
+        print("└" + "─" * 58 + "┘")
+        print()
+        
+        configured = []
+        unconfigured = []
+        
+        for pid in sorted(PROVIDERS.keys(), key=lambda x: PROVIDERS[x]["name"]):
+            pinfo = PROVIDERS[pid]
+            has_key = any(os.environ.get(ev) or env_vars.get(ev) for ev in pinfo["env_vars"])
+            if has_key:
+                configured.append((pid, pinfo))
+            else:
+                unconfigured.append((pid, pinfo))
+        
+        if configured:
+            print("◆ 已配置")
+            for pid, pinfo in configured:
+                print(f"  ✅ {pinfo['name']} ({pid})")
+                for ev in pinfo["env_vars"]:
+                    value = os.environ.get(ev) or env_vars.get(ev, "")
+                    if value:
+                        print(f"      {ev}: {value[:8]}...")
+            print()
+        
+        if unconfigured:
+            print("◆ 未配置")
+            for pid, pinfo in unconfigured:
+                print(f"  ○ {pinfo['name']} ({pid})")
+                print(f"      需要: {', '.join(pinfo['env_vars'])}")
+            print()
+        
+        print(f"总计: {len(configured)} 个已配置, {len(unconfigured)} 个未配置")
+        print()
+        return 0
+    
+    # =========================================================================
+    # 默认帮助
+    # =========================================================================
+    print("""
+MimirAether Providers 命令
+
+用法: python cli.py providers <子命令> [选项]
+
+子命令:
+    list                    列出所有provider
+    show <provider>         显示provider详情
+    models [provider]        显示provider支持的模型
+    check                   检查配置状态
+
+选项:
+    --json                  输出JSON格式 (仅 list)
+
+示例:
+    python cli.py providers list
+    python cli.py providers list --json
+    python cli.py providers show deepseek
+    python cli.py providers models
+    python cli.py providers models minimax
+    python cli.py providers check
+""")
+    return 0
+
+# =============================================================================
 # 命令：profiles
 # =============================================================================
 
@@ -3161,6 +3592,7 @@ def main():
     version         版本信息
     gateway         Gateway管理
     logs            查看日志
+    providers       Provider管理
     -q TASK        执行单次任务
 
 示例:
@@ -3197,6 +3629,11 @@ def main():
     python cli.py profiles export <name> <path> 导出profile
     python cli.py profiles import <archive> 导入profile
     python cli.py profiles rename <old> <new> 重命名profile
+    python cli.py providers              Provider管理
+    python cli.py providers list       列出所有provider
+    python cli.py providers show <name> 显示provider详情
+    python cli.py providers models      显示所有模型
+    python cli.py providers check       检查配置状态
     python cli.py -q "改进gdi_scorer"
         """
     )
@@ -3348,6 +3785,18 @@ def main():
             args.profile_action = None
             args.profile_args = []
 
+        # 处理providers子命令 (providers list/show/models/check)
+        if args.command == "providers" and args.args:
+            args.provider_action = args.args[0] if args.args else "list"
+            args.provider_name = args.args[1] if len(args.args) > 1 else None
+            args.json = False
+            for i, arg in enumerate(args.args):
+                if arg == "--json":
+                    args.json = True
+        else:
+            args.provider_action = None
+            args.provider_name = None
+
         # 处理setup子命令 (setup model/gateway/tools/agent)
         if args.command == "setup" and args.args:
             valid_sections = ["model", "gateway", "tools", "agent", "help"]
@@ -3385,6 +3834,9 @@ def main():
         args.section = None
         args.profile_action = None
         args.profile_args = []
+        args.provider_action = None
+        args.provider_name = None
+        args.json = False
     
     # 处理命令
     if args.command == "status":
@@ -3415,6 +3867,8 @@ def main():
         return cmd_auth(args)
     elif args.command == "profiles":
         return cmd_profiles(args)
+    elif args.command == "providers":
+        return cmd_providers(args)
     elif args.query:
         return asyncio.run(run_task(args.query, args.model, args.max_iterations, args.verbose))
     else:
