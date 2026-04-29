@@ -990,57 +990,666 @@ def cmd_doctor(args):
 # 命令：setup
 # =============================================================================
 
-def cmd_setup(args):
-    """交互式设置向导"""
-    print("=" * 60)
-    print("MimirAether 设置向导")
-    print("=" * 60)
-    
-    print("\n这个向导将帮助您配置MimirAether。")
-    print("按Enter使用默认值或输入您自己的值。\n")
-    
-    # 1. API Key
-    print("【1/4】DeepSeek API Key")
-    current_key = os.environ.get("DEEPSEEK_API_KEY", "")
-    if current_key:
-        print(f"  当前: {current_key[:8]}...")
-    api_key = input("  输入新的API Key (留空跳过): ").strip()
-    
-    if api_key:
-        # 保存到环境或配置文件
-        print(f"  ✅ API Key已设置")
-        print("  注意: 请使用 'export DEEPSEEK_API_KEY=your_key' 永久保存")
-    
-    # 2. 默认模型
-    print("\n【2/4】默认模型")
+# =============================================================================
+# Setup命令 - 增强版 - 对齐Hermes setup功能
+# =============================================================================
+
+# ANSI颜色码
+class Colors:
+    """终端颜色输出"""
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+    DIM = "\033[2m"
+    CYAN = "\033[36m"
+    GREEN = "\033[32m"
+    YELLOW = "\033[33m"
+    RED = "\033[31m"
+    MAGENTA = "\033[35m"
+
+def color(text: str, *styles) -> str:
+    """为文本添加颜色"""
+    style_code = ""
+    for s in styles:
+        if s == Colors.BOLD:
+            style_code += "\033[1m"
+        elif s == Colors.DIM:
+            style_code += "\033[2m"
+        elif s == Colors.CYAN:
+            style_code += "\033[36m"
+        elif s == Colors.GREEN:
+            style_code += "\033[32m"
+        elif s == Colors.YELLOW:
+            style_code += "\033[33m"
+        elif s == Colors.RED:
+            style_code += "\033[31m"
+        elif s == Colors.MAGENTA:
+            style_code += "\033[35m"
+    return f"{style_code}{text}{Colors.RESET}"
+
+def print_header(title: str):
+    """打印分节标题"""
+    print()
+    print(color(f"◆ {title}", Colors.CYAN, Colors.BOLD))
+
+def print_success(text: str):
+    """打印成功信息"""
+    print(color(f"  ✅ {text}", Colors.GREEN))
+
+def print_warning(text: str):
+    """打印警告信息"""
+    print(color(f"  ⚠️ {text}", Colors.YELLOW))
+
+def print_error(text: str):
+    """打印错误信息"""
+    print(color(f"  ❌ {text}", Colors.RED))
+
+def print_info(text: str):
+    """打印普通信息"""
+    print(color(f"  {text}", Colors.DIM))
+
+def prompt(question: str, default: str = None, password: bool = False) -> str:
+    """提示用户输入"""
+    if default:
+        display = f"{question} [{default}]: "
+    else:
+        display = f"{question}: "
+
+    try:
+        if password:
+            import getpass
+            value = getpass.getpass(color(display, Colors.YELLOW))
+        else:
+            value = input(color(display, Colors.YELLOW))
+        return value.strip() or default or ""
+    except (KeyboardInterrupt, EOFError):
+        print()
+        return ""
+
+def prompt_yes_no(question: str, default: bool = True) -> bool:
+    """Yes/No提示"""
+    default_str = "Y/n" if default else "y/N"
+    while True:
+        try:
+            value = input(color(f"{question} [{default_str}]: ", Colors.YELLOW)).strip().lower()
+        except (KeyboardInterrupt, EOFError):
+            print()
+            return False
+        if not value:
+            return default
+        if value in ("y", "yes"):
+            return True
+        if value in ("n", "no"):
+            return False
+        print_error("请输入 'y' 或 'n'")
+
+def prompt_choice(question: str, choices: list, default: int = 0) -> int:
+    """数字选择提示"""
+    print()
+    print(color(question, Colors.YELLOW))
+    for i, choice in enumerate(choices):
+        marker = "●" if i == default else "○"
+        if i == default:
+            print(color(f"  {marker} {choice}", Colors.GREEN))
+        else:
+            print(f"  {marker} {choice}")
+    print_info(f"  输入数字选择 (默认: {default + 1})")
+    print_info("  Ctrl+C 退出")
+
+    while True:
+        try:
+            value = input(color(f"  选择 [1-{len(choices)}] ({default + 1}): ", Colors.DIM)).strip()
+            if not value:
+                return default
+            idx = int(value) - 1
+            if 0 <= idx < len(choices):
+                return idx
+            print_error(f"请输入 1-{len(choices)} 之间的数字")
+        except ValueError:
+            print_error("请输入数字")
+        except (KeyboardInterrupt, EOFError):
+            print()
+            return default
+
+def _load_env_vars() -> dict:
+    """从.env文件加载环境变量"""
+    env_path = PROJECT_ROOT / ".env"
+    env_vars = {}
+    if env_path.exists():
+        try:
+            with open(env_path, encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, _, val = line.partition('=')
+                        env_vars[key.strip()] = val.strip()
+        except Exception:
+            pass
+    return env_vars
+
+def _save_env_var(key: str, value: str):
+    """保存环境变量到.env文件"""
+    env_path = PROJECT_ROOT / ".env"
+    env_vars = _load_env_vars()
+    env_vars[key] = value
+    try:
+        with open(env_path, 'w', encoding='utf-8') as f:
+            f.write("# MimirAether配置文件\n")
+            for k, v in env_vars.items():
+                f.write(f"{k}={v}\n")
+        return True
+    except Exception as e:
+        print_error(f"保存失败: {e}")
+        return False
+
+def _setup_model_provider():
+    """Section 1: 模型与Provider配置"""
+    print_header("模型与Provider配置")
+    print_info("选择您的主模型提供商和默认模型。")
+    print()
+
+    # 显示当前状态
+    env_vars = _load_env_vars()
     current_model = get_model()
-    print(f"  当前: {current_model}")
-    model = input(f"  输入模型 (默认: {current_model}): ").strip() or current_model
-    print(f"  ✅ 默认模型: {model}")
-    
-    # 3. 端口
-    print("\n【3/4】API服务端口")
-    current_port = os.environ.get("MIMIR_PORT", '18999')
-    print(f"  当前: {current_port}")
-    port = input(f"  输入端口 (默认: {current_port}): ").strip() or current_port
-    print(f"  ✅ 端口: {port}")
-    
-    # 4. 适配器
-    print("\n【4/4】启用的消息适配器")
-    current_adapters = os.environ.get("MIMIR_ADAPTERS", 'telegram,feishu,discord')
-    print(f"  当前: {current_adapters}")
-    adapters = input(f"  输入适配器 (默认: {current_adapters}): ").strip() or current_adapters
-    print(f"  ✅ 适配器: {adapters}")
-    
-    print("\n" + "=" * 60)
-    print("设置完成！")
-    print("=" * 60)
-    print("\n要使配置永久生效，请添加到您的 shell 配置文件:")
-    print("  export DEEPSEEK_API_KEY=your_key")
-    print(f"  export MIMIR_MODEL={get_model()}")
-    print("  export MIMIR_PORT=18999")
-    print("  export MIMIR_ADAPTERS=telegram,feishu,discord")
-    
+    print_info(f"当前模型: {current_model}")
+
+    # Provider选择
+    providers = [
+        "DeepSeek - 默认推荐 (deepseek-v4-pro, 100万上下文)",
+        "MiniMax - 高速 (MiniMax-M2.7, 高速推理)",
+        "OpenAI - GPT系列",
+        "Anthropic - Claude系列",
+        "自定义 - 自定义API端点",
+    ]
+    provider_map = {
+        0: ("deepseek", "https://api.deepseek.com"),
+        1: ("minimax", "https://api.minimax.chat"),
+        2: ("openai", "https://api.openai.com/v1"),
+        3: ("anthropic", "https://api.anthropic.com"),
+        4: ("custom", None),
+    }
+
+    idx = prompt_choice("选择模型Provider:", providers, 0)
+    selected_provider, default_base = provider_map[idx]
+
+    if selected_provider == "custom":
+        print()
+        base_url = prompt("  输入API Base URL", "https://api.deepseek.com/v1")
+        _save_env_var("CUSTOM_API_BASE", base_url)
+        print_success(f"已设置自定义API Base: {base_url}")
+        print_info("接下来设置模型名称...")
+
+    # 模型选择
+    print()
+    if selected_provider == "deepseek":
+        models = [
+            ("deepseek/deepseek-v4-pro", "V4 Pro - 推荐, 100万上下文"),
+            ("deepseek/deepseek-v4-flash", "V4 Flash - 快速, 100万上下文"),
+            ("deepseek/deepseek-chat", "DeepSeek Chat - 标准, 13万上下文"),
+            ("deepseek/deepseek-reasoner", "DeepSeek Reasoner - 推理专用"),
+        ]
+    elif selected_provider == "minimax":
+        models = [
+            ("MiniMax-M2.7", "MiniMax M2.7 - 高速推理"),
+            ("MiniMax-M2.5", "MiniMax M2.5 - 平衡"),
+            ("MiniMax-M2.1", "MiniMax M2.1 - 性价比"),
+        ]
+    elif selected_provider == "openai":
+        models = [
+            ("gpt-4o", "GPT-4o - 最新旗舰"),
+            ("gpt-4o-mini", "GPT-4o-mini - 轻量快速"),
+            ("gpt-4-turbo", "GPT-4 Turbo - 高性能"),
+        ]
+    elif selected_provider == "anthropic":
+        models = [
+            ("claude-opus-4-5", "Claude Opus 4.5 - 最强推理"),
+            ("claude-sonnet-4-5", "Claude Sonnet 4.5 - 平衡"),
+            ("claude-haiku-4-5", "Claude Haiku 4.5 - 快速"),
+        ]
+    else:
+        models = [
+            ("custom-model", "自定义模型"),
+        ]
+
+    model_choices = [m[1] for m in models]
+    model_idx = prompt_choice("选择模型:", model_choices, 0)
+    selected_model = models[model_idx][0]
+
+    # 保存配置
+    _save_env_var("DEFAULT_MODEL", selected_model)
+    if default_base:
+        _save_env_var(f"{selected_provider.upper()}_API_BASE", default_base)
+
+    print()
+    print_success(f"默认模型已设置为: {selected_model}")
+
+    # API Key配置
+    print()
+    api_key_map = {
+        "deepseek": ("DEEPSEEK_API_KEY", "DeepSeek API Key", "https://platform.deepseek.com/api_keys"),
+        "minimax": ("MINIMAX_API_KEY", "MiniMax API Key", "https://platform.minimax.chat/"),
+        "openai": ("OPENAI_API_KEY", "OpenAI API Key", "https://platform.openai.com/api-keys"),
+        "anthropic": ("ANTHROPIC_API_KEY", "Anthropic API Key", "https://console.anthropic.com/settings/keys"),
+        "custom": ("CUSTOM_API_KEY", "自定义API Key", None),
+    }
+
+    env_var, key_name, key_url = api_key_map.get(selected_provider, ("CUSTOM_API_KEY", "API Key", None))
+    current_key = os.environ.get(env_var, "") or env_vars.get(env_var, "")
+
+    if current_key:
+        print_info(f"{key_name}: 已配置 ({current_key[:8]}...)")
+        if prompt_yes_no("  重新配置API Key?", False):
+            current_key = ""
+
+    if not current_key:
+        print()
+        print_info(f"配置 {key_name}")
+        if key_url:
+            print_info(f"  获取地址: {key_url}")
+        api_key = prompt(f"  输入{key_name} (留空跳过)", password=True)
+        if api_key:
+            _save_env_var(env_var, api_key)
+            print_success(f"{key_name}已保存")
+        else:
+            print_warning("跳过API Key配置，可稍后使用 'python cli.py auth add' 添加")
+
+def _setup_gateway():
+    """Section 2: Gateway消息平台配置"""
+    print_header("Gateway消息平台配置")
+    print_info("连接消息平台，从任何地方与MimirAether对话。")
+    print()
+
+    platforms = [
+        ("Telegram", "TELEGRAM_BOT_TOKEN", _setup_telegram),
+        ("Feishu (飞书)", "FEISHU_APP_ID", _setup_feishu),
+        ("Discord", "DISCORD_BOT_TOKEN", _setup_discord),
+        ("WeChat (微信)", "WEIXIN_ACCOUNT_ID", _setup_weixin),
+    ]
+
+    # 显示当前状态
+    env_vars = _load_env_vars()
+    configured = []
+    for name, env_var, _ in platforms:
+        if os.environ.get(env_var, "") or env_vars.get(env_var, ""):
+            configured.append(name)
+
+    if configured:
+        print_info(f"已配置平台: {', '.join(configured)}")
+    else:
+        print_info("暂无已配置的消息平台")
+    print()
+
+    # 让用户选择要配置的平台
+    print_info("选择要配置的消息平台:")
+    for i, (name, env_var, _) in enumerate(platforms, 1):
+        is_configured = bool(os.environ.get(env_var, "") or env_vars.get(env_var, ""))
+        marker = "✅" if is_configured else "○"
+        print(f"  {i}. {marker} {name}")
+
+    print()
+    choice = prompt("输入平台编号 (如: 1,2 或 all, 留空跳过)", "")
+
+    if choice.lower() == "all":
+        selected_indices = list(range(len(platforms)))
+    elif choice:
+        selected_indices = []
+        for c in choice.split(","):
+            try:
+                idx = int(c.strip()) - 1
+                if 0 <= idx < len(platforms):
+                    selected_indices.append(idx)
+            except ValueError:
+                pass
+    else:
+        selected_indices = []
+
+    for idx in selected_indices:
+        name, env_var, setup_func = platforms[idx]
+        try:
+            setup_func()
+        except Exception as e:
+            print_error(f"{name}配置失败: {e}")
+
+    if not selected_indices:
+        print_info("未选择任何平台。使用 'python cli.py setup gateway' 稍后配置。")
+
+def _setup_telegram():
+    """配置Telegram"""
+    print()
+    print_info("【Telegram配置】")
+    print_info("  1. 在 Telegram 中搜索 @BotFather")
+    print_info("  2. 发送 /newbot 创建新机器人")
+    print_info("  3. 复制获得的 Bot Token")
+
+    env_vars = _load_env_vars()
+    current_token = os.environ.get("TELEGRAM_BOT_TOKEN", "") or env_vars.get("TELEGRAM_BOT_TOKEN", "")
+
+    if current_token:
+        print_success(f"Token已配置: {current_token[:10]}...")
+        if prompt_yes_no("  重新配置?", False):
+            current_token = ""
+
+    if not current_token:
+        token = prompt("  输入Bot Token", password=True)
+        if token:
+            _save_env_var("TELEGRAM_BOT_TOKEN", token)
+            print_success("Telegram Bot Token已保存")
+
+    # 允许的用户
+    print()
+    current_users = os.environ.get("TELEGRAM_ALLOWED_USERS", "") or env_vars.get("TELEGRAM_ALLOWED_USERS", "")
+    if current_users:
+        print_info(f"允许的用户: {current_users}")
+    else:
+        print_warning("⚠️  未配置用户白名单，任何人都可以使用您的机器人！")
+        if prompt_yes_no("  现在配置用户白名单?", True):
+            print_info("  查找您的Telegram用户ID: 发送消息给 @userinfobot")
+            users = prompt("  允许的用户ID (逗号分隔)", "")
+            if users:
+                _save_env_var("TELEGRAM_ALLOWED_USERS", users.replace(" ", ""))
+                print_success("用户白名单已配置")
+
+def _setup_feishu():
+    """配置Feishu飞书"""
+    print()
+    print_info("【Feishu飞书配置】")
+    print_info("  1. 访问 https://open.feishu.cn/app 创建应用")
+    print_info("  2. 获取 App ID 和 App Secret")
+    print_info("  3. 配置机器人功能")
+
+    env_vars = _load_env_vars()
+    current_app_id = os.environ.get("FEISHU_APP_ID", "") or env_vars.get("FEISHU_APP_ID", "")
+
+    if current_app_id:
+        print_success(f"App ID已配置: {current_app_id[:10]}...")
+        if prompt_yes_no("  重新配置?", False):
+            current_app_id = ""
+
+    if not current_app_id:
+        app_id = prompt("  输入Feishu App ID")
+        app_secret = prompt("  输入Feishu App Secret", password=True)
+        if app_id and app_secret:
+            _save_env_var("FEISHU_APP_ID", app_id)
+            _save_env_var("FEISHU_APP_SECRET", app_secret)
+            print_success("Feishu配置已保存")
+
+def _setup_discord():
+    """配置Discord"""
+    print()
+    print_info("【Discord配置】")
+    print_info("  1. 访问 https://discord.com/developers/applications")
+    print_info("  2. 创建新Application")
+    print_info("  3. 在BOT页面获取Token")
+
+    env_vars = _load_env_vars()
+    current_token = os.environ.get("DISCORD_BOT_TOKEN", "") or env_vars.get("DISCORD_BOT_TOKEN", "")
+
+    if current_token:
+        print_success(f"Token已配置: {current_token[:10]}...")
+        if prompt_yes_no("  重新配置?", False):
+            current_token = ""
+
+    if not current_token:
+        token = prompt("  输入Discord Bot Token", password=True)
+        if token:
+            _save_env_var("DISCORD_BOT_TOKEN", token)
+            print_success("Discord Bot Token已保存")
+
+def _setup_weixin():
+    """配置WeChat微信"""
+    print()
+    print_info("【WeChat微信配置】")
+    print_info("  微信配置需要通过网关服务进行QR码登录")
+    print_info("  使用 'python cli.py gateway --setup weixin' 进行配置")
+    print_warning("  微信个人账号存在风险，建议使用Telegram或飞书")
+
+def _setup_tools():
+    """Section 3: 工具配置"""
+    print_header("工具配置")
+    print_info("配置可选工具的API密钥。")
+    print()
+
+    tools = [
+        ("SiliconFlow", "SILICONFLOW_API_KEY", "https://docs.siliconflow.cn/"),
+        ("Zhipu智谱", "ZHIPU_API_KEY", "https://open.bigmodel.cn/"),
+        ("Qwen通义千问", "QWEN_API_KEY", "https://dashscope.console.aliyun.com/"),
+        ("MiniMax TTS", "MINIMAX_API_KEY", "https://platform.minimax.chat/"),
+    ]
+
+    env_vars = _load_env_vars()
+
+    for name, env_var, url in tools:
+        current_key = os.environ.get(env_var, "") or env_vars.get(env_var, "")
+        if current_key:
+            print_success(f"{name}: 已配置")
+        else:
+            print_info(f"{name}: 未配置")
+
+    print()
+    if prompt_yes_no("配置额外的API密钥?", False):
+        for name, env_var, url in tools:
+            current_key = os.environ.get(env_var, "") or env_vars.get(env_var, "")
+            if current_key:
+                continue
+            print()
+            print_info(f"【{name}】")
+            print_info(f"  获取地址: {url}")
+            key = prompt(f"  输入{name} API Key (留空跳过)", password=True)
+            if key:
+                _save_env_var(env_var, key)
+                print_success(f"{name}已配置")
+
+def _setup_agent_settings():
+    """Section 4: Agent设置"""
+    print_header("Agent设置")
+    print_info("配置Agent行为参数。")
+    print()
+
+    env_vars = _load_env_vars()
+
+    # 最大迭代次数
+    current_iter = os.environ.get("MAX_ITERATIONS", "") or env_vars.get("MAX_ITERATIONS", "90")
+    print_info("最大迭代次数: 单次对话中Agent可以执行的最大工具调用数")
+    print_info("  较高的值允许处理更复杂的任务，但会消耗更多tokens")
+    max_iter = prompt("  最大迭代次数", current_iter)
+    try:
+        max_iter_int = int(max_iter)
+        if max_iter_int > 0:
+            _save_env_var("MAX_ITERATIONS", str(max_iter_int))
+            print_success(f"最大迭代次数: {max_iter_int}")
+    except ValueError:
+        print_warning("无效数字，保持当前设置")
+
+    # 工具进度显示
+    print()
+    print_info("工具进度显示模式:")
+    print_info("  off   - 静默模式，只显示最终回复")
+    print_info("  new   - 只显示工具名称变化 (减少噪音)")
+    print_info("  all   - 显示每个工具调用及简短预览")
+    print_info("  verbose - 完整参数、结果和调试日志")
+
+    current_mode = os.environ.get("TOOL_PROGRESS", "") or env_vars.get("TOOL_PROGRESS", "all")
+    mode = prompt("  工具进度模式", current_mode)
+    if mode.lower() in ("off", "new", "all", "verbose"):
+        _save_env_var("TOOL_PROGRESS", mode.lower())
+        print_success(f"工具进度模式: {mode.lower()}")
+    else:
+        print_warning(f"未知模式 '{mode}'，保持当前设置")
+
+def _print_setup_summary():
+    """打印设置完成摘要"""
+    env_vars = _load_env_vars()
+
+    print()
+    print(color("┌" + "─" * 56 + "┐", Colors.GREEN))
+    print(color("│" + " ✅ 设置完成！ ".center(56) + "│", Colors.GREEN))
+    print(color("└" + "─" * 56 + "┘", Colors.GREEN))
+    print()
+
+    # 工具可用性摘要
+    print_header("工具可用性摘要")
+
+    tool_status = []
+
+    # 模型
+    model = get_model()
+    model_key_configured = any(
+        os.environ.get(k, "") or env_vars.get(k, "")
+        for k in ["DEEPSEEK_API_KEY", "MINIMAX_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
+    )
+    tool_status.append(("主模型 (聊天)", model_key_configured, "配置API密钥"))
+
+    # 消息平台
+    messaging_configured = any(
+        os.environ.get(k, "") or env_vars.get(k, "")
+        for k in ["TELEGRAM_BOT_TOKEN", "FEISHU_APP_ID", "DISCORD_BOT_TOKEN", "WEIXIN_ACCOUNT_ID"]
+    )
+    tool_status.append(("消息平台", messaging_configured, "python cli.py setup gateway"))
+
+    # TTS
+    tts_key = os.environ.get("MINIMAX_API_KEY", "") or env_vars.get("MINIMAX_API_KEY", "")
+    tool_status.append(("语音合成 (TTS)", bool(tts_key), "配置MINIMAX_API_KEY"))
+
+    # 命令执行
+    tool_status.append(("命令执行", True, None))
+
+    # 文件操作
+    tool_status.append(("文件操作", True, None))
+
+    # 定时任务
+    tool_status.append(("定时任务 (Cron)", True, None))
+
+    available_count = sum(1 for _, avail, _ in tool_status if avail)
+    total_count = len(tool_status)
+
+    print_info(f"{available_count}/{total_count} 工具类别可用:")
+    print()
+
+    for name, available, hint in tool_status:
+        if available:
+            print(color(f"   ✅ {name}", Colors.GREEN))
+        else:
+            hint_text = f" (缺少: {hint})" if hint else ""
+            print(color(f"   ❌ {name}{hint_text}", Colors.RED))
+
+    print()
+    disabled_tools = [(name, hint) for name, avail, hint in tool_status if not avail]
+    if disabled_tools:
+        print_warning("部分工具未启用。运行 'python cli.py setup' 重新配置。")
+        print()
+
+    # 文件位置
+    print(color(f"📁 配置文件位置:", Colors.CYAN, Colors.BOLD))
+    print()
+    print(f"   {color('设置文件:', Colors.YELLOW)}  {PROJECT_ROOT / '.env'}")
+    print(f"   {color('项目目录:', Colors.YELLOW)}  {PROJECT_ROOT}")
+    print()
+
+    print(color("─" * 58, Colors.DIM))
+    print()
+    print(color("📝 配置命令:", Colors.CYAN, Colors.BOLD))
+    print()
+    print(f"   {color('python cli.py setup', Colors.GREEN)}           重新运行设置向导")
+    print(f"   {color('python cli.py setup model', Colors.GREEN)}    配置模型/Provider")
+    print(f"   {color('python cli.py setup gateway', Colors.GREEN)}  配置消息平台")
+    print(f"   {color('python cli.py setup tools', Colors.GREEN)}    配置工具")
+    print(f"   {color('python cli.py setup agent', Colors.GREEN)}    配置Agent行为")
+    print()
+    print(f"   {color('python cli.py config', Colors.GREEN)}         查看当前配置")
+    print(f"   {color('python cli.py doctor', Colors.GREEN)}         诊断系统问题")
+    print()
+    print(color("─" * 58, Colors.DIM))
+    print()
+    print(color("🚀 开始使用:", Colors.CYAN, Colors.BOLD))
+    print()
+    print(f"   {color('python cli.py', Colors.GREEN)}              启动交互模式")
+    print(f"   {color('python cli.py -q \"任务\"', Colors.GREEN)}  执行单次任务")
+    print()
+
+def cmd_setup(args):
+    """交互式设置向导 - 对齐Hermes setup功能"""
+    # 解析section参数
+    section = getattr(args, 'section', None)
+
+    print()
+    print(color("┌" + "─" * 56 + "┐", Colors.CYAN, Colors.BOLD))
+    print(color("│" + " ⚕ MimirAether 设置向导 ".center(56) + "│", Colors.CYAN, Colors.BOLD))
+    print(color("└" + "─" * 56 + "┘", Colors.CYAN, Colors.BOLD))
+
+    # 显示section帮助
+    if section == "help":
+        print()
+        print_info("可用section:")
+        print_info("  model   - 模型与Provider配置")
+        print_info("  gateway - Gateway消息平台配置")
+        print_info("  tools   - 工具配置")
+        print_info("  agent   - Agent行为配置")
+        print_info("  (无)    - 运行完整设置向导")
+        return 0
+
+    # 运行对应section
+    if section == "model":
+        _setup_model_provider()
+        _print_setup_summary()
+        return 0
+
+    if section == "gateway":
+        _setup_gateway()
+        return 0
+
+    if section == "tools":
+        _setup_tools()
+        _print_setup_summary()
+        return 0
+
+    if section == "agent":
+        _setup_agent_settings()
+        _print_setup_summary()
+        return 0
+
+    # 完整设置向导
+    print()
+    print_info("这个向导将帮助您配置MimirAether。")
+    print_info("按Ctrl+C随时退出(保持已完成的配置)。")
+    print()
+
+    # Section 1: 模型
+    try:
+        _setup_model_provider()
+    except KeyboardInterrupt:
+        print()
+        print_warning("设置已取消")
+        return 0
+
+    # Section 2: Gateway
+    print()
+    if prompt_yes_no("配置消息平台 (Telegram/飞书/Discord)?", False):
+        try:
+            _setup_gateway()
+        except KeyboardInterrupt:
+            print()
+            print_warning("Gateway配置已跳过")
+
+    # Section 3: 工具
+    print()
+    if prompt_yes_no("配置额外的工具API密钥?", False):
+        try:
+            _setup_tools()
+        except KeyboardInterrupt:
+            print()
+            print_warning("工具配置已跳过")
+
+    # Section 4: Agent设置
+    print()
+    if prompt_yes_no("配置Agent行为参数?", False):
+        try:
+            _setup_agent_settings()
+        except KeyboardInterrupt:
+            print()
+            print_warning("Agent设置已跳过")
+
+    # 打印摘要
+    _print_setup_summary()
+
     return 0
 
 # =============================================================================
@@ -2478,6 +3087,17 @@ def main():
             args.auth_action = None
             args.auth_provider = None
             args.auth_target = None
+
+        # 处理setup子命令 (setup model/gateway/tools/agent)
+        if args.command == "setup" and args.args:
+            valid_sections = ["model", "gateway", "tools", "agent", "help"]
+            section = args.args[0].lower()
+            if section in valid_sections:
+                args.section = section
+            else:
+                args.section = None
+        else:
+            args.section = None
     else:
         args.action = None
         args.add = None
@@ -2502,6 +3122,7 @@ def main():
         args.auth_action = None
         args.auth_provider = None
         args.auth_target = None
+        args.section = None
     
     # 处理命令
     if args.command == "status":
