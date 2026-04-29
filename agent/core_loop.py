@@ -24,6 +24,26 @@ import threading
 import uuid
 import hashlib
 from typing import List, Dict, Any, Optional, Callable, Union
+from pathlib import Path
+
+# 加载.env文件（如果存在），确保API key正确
+_env_file = Path(__file__).parent.parent / ".env"
+if _env_file.exists():
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(_env_file)
+    except ImportError:
+        # 如果没有dotenv，手动解析.env文件
+        with open(_env_file) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    if "=" in line:
+                        key, value = line.split("=", 1)
+                        key = key.strip()
+                        value = value.strip().strip('"').strip("'")
+                        if key and not os.environ.get(key):
+                            os.environ[key] = value
 
 # 统一类型系统: 从 types.py 导入所有数据类型
 from .types import (
@@ -74,10 +94,14 @@ mimir_path = str(mimir_root)
 if mimir_path not in sys.path:
     sys.path.insert(0, mimir_path)
 
-# 添加Hermes路径(用于SessionDB,放在MimirAether之后)
-hermes_path = str(Path.home() / ".openclaw" / "projects" / "hermes-agent")
-if hermes_path not in sys.path:
-    sys.path.append(hermes_path)
+# 可选兼容：仅在显式开启且路径存在时才注入 hermes-agent 路径。
+# 默认保持纯 MimirAether 自包含，避免隐式依赖外部仓库。
+_enable_legacy_hermes_path = os.getenv("MIMIRAETHER_ENABLE_HERMES_PATH", "0") == "1"
+_hermes_root = Path.home() / ".openclaw" / "projects" / "hermes-agent"
+if _enable_legacy_hermes_path and _hermes_root.exists():
+    hermes_path = str(_hermes_root)
+    if hermes_path not in sys.path:
+        sys.path.append(hermes_path)
 
 try:
     from mimcore.gateway.session import SessionDB

@@ -363,3 +363,98 @@ def _fallback_parse_tool_calls(content: str) -> Optional[List[dict]]:
         except Exception:
             pass
     return parsed or None
+
+
+STRING_PARAM = {"type": "string"}
+
+
+def tool_schema(name: str, description: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    """Backward-compatible helper to build OpenAI function tool schema."""
+    return {
+        "type": "function",
+        "function": {
+            "name": name,
+            "description": description,
+            "parameters": parameters,
+        },
+    }
+
+
+class MimirAetherAgentLoop:
+    """Compatibility facade for legacy tests/code expecting old constructor."""
+
+    def __init__(
+        self,
+        chat_fn: Callable[[List[Dict[str, Any]]], Any],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        max_turns: int = 90,
+        task_id: Optional[str] = None,
+    ):
+        self._chat_fn = chat_fn
+        self._handlers: Dict[str, Callable[[str, dict, Optional[str]], Any]] = {}
+        self._tool_schemas = tools or []
+        valid_names = {
+            t.get("function", {}).get("name")
+            for t in self._tool_schemas
+            if isinstance(t, dict)
+        }
+        valid_names = {n for n in valid_names if n}
+
+        async def _model_call(messages: List[Dict[str, Any]]) -> Any:
+            out = self._chat_fn(messages)
+            if asyncio.iscoroutine(out):
+                return await out
+            return out
+
+        def _dispatch(name: str, args: dict, session_id: Optional[str]) -> str:
+            handler = self._handlers.get(name)
+            if handler is None:
+                raise NotImplementedError(f"Tool handler not implemented: '{name}'")
+            result = handler(name, args, session_id)
+            if asyncio.iscoroutine(result):
+                result = asyncio.run(result)
+            return result if isinstance(result, str) else json.dumps(result, ensure_ascii=False)
+
+        self._loop = MimirAgentLoop(
+            model_call=_model_call,
+            tool_schemas=self._tool_schemas,
+            valid_tool_names=valid_names,
+            tool_dispatcher=_dispatch,
+            max_turns=max_turns,
+            task_id=task_id,
+        )
+        self.valid_tool_names = self._loop.valid_tool_names
+
+    def register_tool(self, name: str, handler: Callable[[str, dict, Optional[str]], Any]) -> None:
+        self._handlers[name] = handler
+
+    def register_tools(self, handlers: Dict[str, Callable[[str, dict, Optional[str]], Any]]) -> None:
+        for name, handler in handlers.items():
+            self.register_tool(name, handler)
+
+    async def run(self, messages: List[Dict[str, Any]]) -> AgentResult:
+        return await self._loop.run(messages)
+
+
+class SimpleAgentLoop(MimirAetherAgentLoop):
+    """Synchronous wrapper around MimirAetherAgentLoop."""
+
+    def __init__(
+        self,
+        chat_fn: Callable[[List[Dict[str, Any]]], Any],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        max_turns: int = 90,
+        task_id: Optional[str] = None,
+    ):
+        super().__init__(chat_fn=chat_fn, tools=tools, max_turns=max_turns, task_id=task_id)
+
+    def tool(self, name: str) -> Callable[[Callable[[dict], Any]], Callable[[dict], Any]]:
+        def _decorator(fn: Callable[[dict], Any]) -> Callable[[dict], Any]:
+            def _adapter(_tool_name: str, args: dict, _session_id: Optional[str]) -> Any:
+                return fn(args)
+            self.register_tool(name, _adapter)
+            return fn
+        return _decorator
+
+    def run(self, messages: List[Dict[str, Any]]) -> AgentResult:
+        return asyncio.run(super().run(messages))

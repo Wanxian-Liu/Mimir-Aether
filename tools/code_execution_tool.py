@@ -42,6 +42,7 @@ import tempfile
 import threading
 import time
 import uuid
+from pathlib import Path
 
 _IS_WINDOWS = platform.system() == "Windows"
 from typing import Any, Dict, List, Optional
@@ -1123,8 +1124,8 @@ def execute_code(
         # Per-profile HOME isolation: redirect system tool configs into
         # {MIMIRAETHER_HOME}/home/ when that directory exists.
         _profile_home = Path.home() / ".openclaw" / "mimir-aether"
-        if _profile_home:
-            child_env["HOME"] = _profile_home
+        if _profile_home.exists():
+            child_env["HOME"] = str(_profile_home)
 
         proc = subprocess.Popen(
             [sys.executable, "script.py"],
