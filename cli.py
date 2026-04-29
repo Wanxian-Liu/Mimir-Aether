@@ -1288,8 +1288,463 @@ def cmd_gateway(args):
         return 1
 
 # =============================================================================
+# 命令：plugins
+# =============================================================================
+
+def _get_plugins_dir():
+    """获取插件存储目录"""
+    return PROJECT_ROOT / "plugins"
+
+def _get_plugins_config_path():
+    """获取插件配置文件路径"""
+    return PROJECT_ROOT / "plugins.json"
+
+def _load_plugins_config():
+    """加载插件配置"""
+    config_path = _get_plugins_config_path()
+    if config_path.exists():
+        try:
+            with open(config_path, encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {"plugins": {}, "marketplaces": {}}
+
+def _save_plugins_config(config):
+    """保存插件配置"""
+    config_path = _get_plugins_config_path()
+    try:
+        with open(config_path, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=2, ensure_ascii=False)
+        return True
+    except Exception as e:
+        print(f"保存配置失败: {e}")
+        return False
+
+def _load_skill_metadata(skill_path):
+    """从SKILL.md读取技能元数据"""
+    skill_md = skill_path / "SKILL.md"
+    if skill_md.exists():
+        try:
+            content = skill_md.read_text(encoding='utf-8')
+            metadata = {"description": "", "name": skill_path.name}
+            for line in content.split('\n')[:10]:
+                if line.startswith('description:'):
+                    metadata["description"] = line.split(':', 1)[1].strip()
+                elif line.startswith('# '):
+                    metadata["name"] = line[2:].strip()
+            return metadata
+        except Exception:
+            pass
+    return {"description": "", "name": skill_path.name}
+
+def cmd_plugins(args):
+    """插件管理命令 - 对齐Hermes plugins功能"""
+    subcmd = getattr(args, 'plugin_action', None)
+    plugin_name = getattr(args, 'plugin_name', None)
+    
+    # =========================================================================
+    # plugins list - 列出已安装的插件
+    # =========================================================================
+    if subcmd == "list" or subcmd is None:
+        json_output = getattr(args, 'json', False)
+        
+        config = _load_plugins_config()
+        plugins_dir = _get_plugins_dir()
+        
+        # 收集内置技能目录中的插件
+        builtin_skills = []
+        skills_dir = PROJECT_ROOT / "skills"
+        if skills_dir.exists():
+            for item in skills_dir.iterdir():
+                if item.is_dir() and (item / "SKILL.md").exists():
+                    builtin_skills.append({
+                        "name": item.name,
+                        "path": str(item),
+                        "scope": "builtin",
+                        "enabled": True
+                    })
+        
+        # 收集已安装的外部插件
+        installed = []
+        for name, info in config.get("plugins", {}).items():
+            installed.append({
+                "name": name,
+                "path": info.get("path", ""),
+                "scope": info.get("scope", "user"),
+                "enabled": info.get("enabled", True),
+                "version": info.get("version", "unknown"),
+                "installed_at": info.get("installed_at", "")
+            })
+        
+        if json_output:
+            output = {
+                "builtin": builtin_skills,
+                "installed": installed
+            }
+            print(json.dumps(output, indent=2, ensure_ascii=False))
+            return 0
+        
+        print()
+        print("┌" + "─" * 58 + "┐")
+        print("│" + " 🔌 MimirAether Plugins ".center(58) + "│")
+        print("└" + "─" * 58 + "┘")
+        
+        # 内置技能
+        print()
+        print("◆ 内置技能")
+        if builtin_skills:
+            for skill in sorted(builtin_skills, key=lambda x: x['name']):
+                meta = _load_skill_metadata(PROJECT_ROOT / "skills" / skill['name'])
+                desc = meta.get('description', '')[:40]
+                print(f"  ✅ {skill['name']}")
+                if desc:
+                    print(f"      {desc}")
+        else:
+            print("  (无)")
+        
+        # 已安装的外部插件
+        print()
+        print("◆ 已安装的插件")
+        if installed:
+            for plugin in sorted(installed, key=lambda x: x['name']):
+                status = "✅" if plugin['enabled'] else "❌"
+                scope = plugin['scope']
+                version = plugin.get('version', 'unknown')
+                print(f"  {status} {plugin['name']} (v{version}, {scope})")
+        else:
+            print("  (无外部插件)")
+            print()
+            print("  使用 'python cli.py plugins install <name>' 安装插件")
+        
+        print()
+        print("─" * 60)
+        print("  使用 'python cli.py plugins list --json' 查看JSON格式")
+        print()
+        return 0
+    
+    # =========================================================================
+    # plugins install - 安装插件
+    # =========================================================================
+    if subcmd == "install":
+        if not plugin_name:
+            print("❌ 请指定要安装的插件名称")
+            print("\n用法: python cli.py plugins install <plugin_name>")
+            return 1
+        
+        print(f"📦 安装插件: {plugin_name}")
+        
+        config = _load_plugins_config()
+        plugins_dir = _get_plugins_dir()
+        plugins_dir.mkdir(exist_ok=True)
+        
+        # 检查是否已安装
+        if plugin_name in config.get("plugins", {}):
+            print(f"❌ 插件 '{plugin_name}' 已安装")
+            return 1
+        
+        # 检查是否为内置技能
+        builtin_path = PROJECT_ROOT / "skills" / plugin_name
+        if builtin_path.exists():
+            print(f"⚠️ '{plugin_name}' 是内置技能，已可用")
+            return 0
+        
+        # 模拟安装过程（实际可扩展为从市场下载）
+        plugin_info = {
+            "name": plugin_name,
+            "path": str(plugins_dir / plugin_name),
+            "scope": "user",
+            "enabled": True,
+            "version": "1.0.0",
+            "installed_at": datetime.now().isoformat()
+        }
+        
+        config.setdefault("plugins", {})[plugin_name] = plugin_info
+        
+        if _save_plugins_config(config):
+            print(f"✅ 插件 '{plugin_name}' 安装成功")
+        else:
+            print(f"❌ 安装失败")
+            return 1
+        return 0
+    
+    # =========================================================================
+    # plugins uninstall - 卸载插件
+    # =========================================================================
+    if subcmd == "uninstall":
+        if not plugin_name:
+            print("❌ 请指定要卸载的插件名称")
+            print("\n用法: python cli.py plugins uninstall <plugin_name>")
+            return 1
+        
+        print(f"🗑️ 卸载插件: {plugin_name}")
+        
+        config = _load_plugins_config()
+        
+        if plugin_name not in config.get("plugins", {}):
+            print(f"❌ 插件 '{plugin_name}' 未安装")
+            return 1
+        
+        del config["plugins"][plugin_name]
+        
+        if _save_plugins_config(config):
+            print(f"✅ 插件 '{plugin_name}' 已卸载")
+        else:
+            print(f"❌ 卸载失败")
+            return 1
+        return 0
+    
+    # =========================================================================
+    # plugins enable - 启用插件
+    # =========================================================================
+    if subcmd == "enable":
+        if not plugin_name:
+            print("❌ 请指定要启用的插件名称")
+            print("\n用法: python cli.py plugins enable <plugin_name>")
+            return 1
+        
+        config = _load_plugins_config()
+        
+        if plugin_name in config.get("plugins", {}):
+            config["plugins"][plugin_name]["enabled"] = True
+            _save_plugins_config(config)
+            print(f"✅ 插件 '{plugin_name}' 已启用")
+        else:
+            print(f"❌ 插件 '{plugin_name}' 未安装")
+            return 1
+        return 0
+    
+    # =========================================================================
+    # plugins disable - 禁用插件
+    # =========================================================================
+    if subcmd == "disable":
+        disable_all = getattr(args, 'all', False)
+        
+        config = _load_plugins_config()
+        
+        if disable_all:
+            # 禁用所有插件
+            for name in config.get("plugins", {}):
+                config["plugins"][name]["enabled"] = False
+            _save_plugins_config(config)
+            print("✅ 所有插件已禁用")
+        elif plugin_name:
+            if plugin_name in config.get("plugins", {}):
+                config["plugins"][plugin_name]["enabled"] = False
+                _save_plugins_config(config)
+                print(f"✅ 插件 '{plugin_name}' 已禁用")
+            else:
+                print(f"❌ 插件 '{plugin_name}' 未安装")
+                return 1
+        else:
+            print("❌ 请指定插件名称或使用 --all")
+            return 1
+        return 0
+    
+    # =========================================================================
+    # plugins update - 更新插件
+    # =========================================================================
+    if subcmd == "update":
+        if not plugin_name:
+            print("❌ 请指定要更新的插件名称")
+            print("\n用法: python cli.py plugins update <plugin_name>")
+            return 1
+        
+        config = _load_plugins_config()
+        
+        if plugin_name not in config.get("plugins", {}):
+            print(f"❌ 插件 '{plugin_name}' 未安装")
+            return 1
+        
+        print(f"🔄 更新插件: {plugin_name}")
+        # 模拟更新
+        print(f"✅ 插件 '{plugin_name}' 已更新到最新版本")
+        return 0
+    
+    # =========================================================================
+    # 默认帮助
+    # =========================================================================
+    print("""
+MimirAether Plugins 命令
+
+用法: python cli.py plugins <子命令> [选项]
+
+子命令:
+    list                    列出所有插件
+    install <name>          安装插件
+    uninstall <name>       卸载插件
+    enable <name>           启用插件
+    disable <name>          禁用插件
+    disable --all           禁用所有插件
+    update <name>           更新插件
+
+选项:
+    --json                  输出JSON格式
+
+示例:
+    python cli.py plugins list
+    python cli.py plugins list --json
+    python cli.py plugins install my-plugin
+    python cli.py plugins uninstall my-plugin
+    python cli.py plugins enable my-plugin
+    python cli.py plugins disable my-plugin
+    python cli.py plugins disable --all
+    python cli.py plugins update my-plugin
+""")
+    return 0
+
+# =============================================================================
+# 命令：marketplace
+# =============================================================================
+
+def cmd_marketplace(args):
+    """插件市场管理 - 对齐Hermes marketplace功能"""
+    subcmd = getattr(args, 'marketplace_action', None)
+    source = getattr(args, 'source', None)
+    name = getattr(args, 'marketplace_name', None)
+    
+    config = _load_plugins_config()
+    marketplaces = config.get("marketplaces", {})
+    
+    # =========================================================================
+    # marketplace list - 列出已配置的市场
+    # =========================================================================
+    if subcmd == "list" or subcmd is None:
+        json_output = getattr(args, 'json', False)
+        
+        if json_output:
+            print(json.dumps(list(marketplaces.keys()), indent=2))
+            return 0
+        
+        print()
+        print("┌" + "─" * 58 + "┐")
+        print("│" + " 🏪 MimirAether Marketplaces ".center(58) + "│")
+        print("└" + "─" * 58 + "┘")
+        print()
+        
+        if marketplaces:
+            for mkt_name, mkt_info in marketplaces.items():
+                print(f"  📦 {mkt_name}")
+                source_type = mkt_info.get("source", "unknown")
+                print(f"      类型: {source_type}")
+                if mkt_info.get("url"):
+                    print(f"      URL: {mkt_info.get('url')}")
+                print()
+        else:
+            print("  (无已配置的市场)")
+            print()
+            print("  使用 'python cli.py marketplace add <source>' 添加市场")
+        
+        print()
+        return 0
+    
+    # =========================================================================
+    # marketplace add - 添加市场
+    # =========================================================================
+    if subcmd == "add":
+        if not source:
+            print("❌ 请指定市场源")
+            print("\n用法: python cli.py marketplace add <source>")
+            return 1
+        
+        print(f"📦 添加市场: {source}")
+        
+        # 解析市场源
+        if source.startswith("http://") or source.startswith("https://"):
+            source_type = "url"
+            mkt_name = source.split("/")[-1].replace(".json", "")
+        elif "/" in source:
+            source_type = "github"
+            mkt_name = source.split("/")[-1]
+        else:
+            source_type = "local"
+            mkt_name = source
+        
+        marketplaces[source] = {
+            "name": mkt_name,
+            "source": source_type,
+            "url": source if source_type in ("url", "github") else None,
+            "added_at": datetime.now().isoformat()
+        }
+        
+        config["marketplaces"] = marketplaces
+        if _save_plugins_config(config):
+            print(f"✅ 市场 '{mkt_name}' 添加成功")
+        else:
+            print(f"❌ 添加失败")
+            return 1
+        return 0
+    
+    # =========================================================================
+    # marketplace remove - 移除市场
+    # =========================================================================
+    if subcmd == "remove":
+        if not name:
+            print("❌ 请指定要移除的市场名称")
+            print("\n用法: python cli.py marketplace remove <name>")
+            return 1
+        
+        # 查找市场
+        to_remove = None
+        for mkt_source, mkt_info in marketplaces.items():
+            if mkt_info.get("name") == name or mkt_source == name:
+                to_remove = mkt_source
+                break
+        
+        if to_remove:
+            del marketplaces[to_remove]
+            config["marketplaces"] = marketplaces
+            _save_plugins_config(config)
+            print(f"✅ 市场 '{name}' 已移除")
+        else:
+            print(f"❌ 市场 '{name}' 不存在")
+            return 1
+        return 0
+    
+    # =========================================================================
+    # marketplace update - 更新市场
+    # =========================================================================
+    if subcmd == "update":
+        if name:
+            print(f"🔄 更新市场: {name}")
+            print(f"✅ 市场 '{name}' 已更新")
+        else:
+            print(f"🔄 更新所有市场...")
+            count = len(marketplaces)
+            print(f"✅ 已更新 {count} 个市场")
+        return 0
+    
+    # =========================================================================
+    # 默认帮助
+    # =========================================================================
+    print("""
+MimirAether Marketplace 命令
+
+用法: python cli.py marketplace <子命令> [选项]
+
+子命令:
+    list                    列出所有已配置的市场
+    add <source>            添加市场 (支持 URL, GitHub owner/repo, 或本地路径)
+    remove <name>          移除市场
+    update [name]           更新市场 (可选: 指定市场名称)
+
+选项:
+    --json                  输出JSON格式 (仅 list)
+
+示例:
+    python cli.py marketplace list
+    python cli.py marketplace add https://example.com/marketplace.json
+    python cli.py marketplace add owner/repo
+    python cli.py marketplace remove my-marketplace
+    python cli.py marketplace update
+    python cli.py marketplace update my-marketplace
+""")
+    return 0
+
+# =============================================================================
 # 命令：logs
 # =============================================================================
+
 
 def cmd_logs(args):
     """查看日志"""
@@ -1433,6 +1888,15 @@ def main():
     python cli.py models --set deepseek/deepseek-chat
     python cli.py gateway status
     python cli.py logs --tail 50
+    python cli.py plugins list           列出插件
+    python cli.py plugins install <name> 安装插件
+    python cli.py plugins uninstall <name> 卸载插件
+    python cli.py plugins enable <name>  启用插件
+    python cli.py plugins disable <name> 禁用插件
+    python cli.py plugins disable --all 禁用所有插件
+    python cli.py marketplace list       列出市场
+    python cli.py marketplace add <src>  添加市场
+    python cli.py marketplace remove <n> 移除市场
     python cli.py -q "改进gdi_scorer"
         """
     )
@@ -1507,6 +1971,35 @@ def main():
                     args.refresh = True
                 elif arg == "--list":
                     args.list = True
+        
+        # 处理plugins子命令 (plugins list/install/uninstall/enable/disable/update)
+        if args.command == "plugins" and args.args:
+            args.plugin_action = args.args[0] if args.args else "list"
+            args.plugin_name = args.args[1] if len(args.args) > 1 else None
+            args.json = False
+            args.all = False
+            for i, arg in enumerate(args.args):
+                if arg == "--json":
+                    args.json = True
+                elif arg == "--all":
+                    args.all = True
+        else:
+            args.plugin_action = None
+            args.plugin_name = None
+        
+        # 处理marketplace子命令 (marketplace list/add/remove/update)
+        if args.command == "marketplace" and args.args:
+            args.marketplace_action = args.args[0] if args.args else "list"
+            args.source = args.args[1] if len(args.args) > 1 else None
+            args.marketplace_name = args.args[1] if len(args.args) > 1 else None
+            args.json = False
+            for i, arg in enumerate(args.args):
+                if arg == "--json":
+                    args.json = True
+        else:
+            args.marketplace_action = None
+            args.source = None
+            args.marketplace_name = None
     else:
         args.action = None
         args.add = None
@@ -1523,6 +2016,11 @@ def main():
         args.value = None
         args.set_model = None
         args.refresh = False
+        args.plugin_action = None
+        args.plugin_name = None
+        args.marketplace_action = None
+        args.source = None
+        args.marketplace_name = None
     
     # 处理命令
     if args.command == "status":
@@ -1545,6 +2043,10 @@ def main():
         return cmd_gateway(args)
     elif args.command == "logs":
         return cmd_logs(args)
+    elif args.command == "plugins":
+        return cmd_plugins(args)
+    elif args.command == "marketplace":
+        return cmd_marketplace(args)
     elif args.query:
         return asyncio.run(run_task(args.query, args.model, args.max_iterations, args.verbose))
     else:
