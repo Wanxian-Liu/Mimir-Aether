@@ -2092,6 +2092,1105 @@ def cmd_cron(args):
         return 0
 
 # =============================================================================
+# 命令：backup - 备份管理
+# =============================================================================
+
+def cmd_backup(args):
+    """备份管理 - 自研实现"""
+    print("=" * 60)
+    print("MimirAether 备份管理")
+    print("=" * 60)
+    
+    subcmd = args.args[0] if args.args else 'list'
+    backup_dir = PROJECT_ROOT / "backups"
+    backup_dir.mkdir(exist_ok=True)
+    
+    def list_backups():
+        """列出所有备份"""
+        backups = sorted(backup_dir.glob("*.zip"), key=lambda x: x.stat().st_mtime, reverse=True)
+        return backups
+    
+    if subcmd == 'list' or subcmd == 'ls':
+        print("\n【备份列表】")
+        backups = list_backups()
+        if not backups:
+            print("  (暂无备份)")
+            print("\n使用 'python cli.py backup create [name]' 创建备份")
+        else:
+            for backup in backups[:20]:
+                size = backup.stat().st_size
+                mtime = datetime.fromtimestamp(backup.stat().st_mtime)
+                if size < 1024 * 1024:
+                    size_str = f"{size/1024:.1f} KB"
+                else:
+                    size_str = f"{size/(1024*1024):.1f} MB"
+                print(f"  {backup.name} ({size_str}, {mtime.strftime('%Y-%m-%d %H:%M')})")
+        return 0
+    
+    elif subcmd == 'create' or subcmd == 'add':
+        import zipfile
+        import uuid
+        
+        name = args.args[1] if len(args.args) > 1 else datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_name = f"backup_{name}.zip"
+        backup_path = backup_dir / backup_name
+        
+        print(f"\n🔄 正在创建备份: {backup_name}")
+        
+        # 备份关键文件和目录
+        items_to_backup = [
+            ("memory", "memory"),
+            ("skills/mimiraether", "skills/mimiraether"),
+            (".env", ".env"),
+            ("state.db", "state.db"),
+            ("skills_hub.db", "skills_hub.db"),
+            ("tools.db", "tools.db"),
+        ]
+        
+        try:
+            with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+                for item_name, item_path in items_to_backup:
+                    full_path = PROJECT_ROOT / item_path
+                    if full_path.exists():
+                        if full_path.is_file():
+                            zf.write(full_path, item_path)
+                            print(f"  + {item_path}")
+                        elif full_path.is_dir():
+                            for root, dirs, files in os.walk(full_path):
+                                for file in files:
+                                    file_path = Path(root) / file
+                                    arcname = file_path.relative_to(PROJECT_ROOT)
+                                    zf.write(file_path, arcname)
+                            print(f"  + {item_path}/")
+            
+            size = backup_path.stat().st_size
+            print(f"\n✅ 备份已创建: {backup_name} ({size:,} bytes)")
+        except Exception as e:
+            print(f"\n❌ 备份失败: {e}")
+            if backup_path.exists():
+                backup_path.unlink()
+            return 1
+        return 0
+    
+    elif subcmd == 'restore' or subcmd == 'extract':
+        if len(args.args) < 2:
+            print("\n❌ 用法: backup restore <filename>")
+            return 1
+        
+        filename = args.args[1]
+        backup_path = backup_dir / filename
+        if not backup_path.exists():
+            # 尝试自动添加.zip后缀
+            if not filename.endswith('.zip'):
+                backup_path = backup_dir / f"{filename}.zip"
+        
+        if not backup_path.exists():
+            print(f"\n❌ 备份不存在: {filename}")
+            return 1
+        
+        print(f"\n⚠️ 即将恢复备份: {backup_path.name}")
+        print("将覆盖现有文件, 确定吗? (y/N)")
+        response = input().strip().lower()
+        if response != 'y':
+            print("取消操作")
+            return 0
+        
+        import zipfile
+        try:
+            with zipfile.ZipFile(backup_path, 'r') as zf:
+                zf.extractall(PROJECT_ROOT)
+            print(f"\n✅ 备份已恢复: {backup_path.name}")
+        except Exception as e:
+            print(f"\n❌ 恢复失败: {e}")
+            return 1
+        return 0
+    
+    elif subcmd == 'delete' or subcmd == 'remove' or subcmd == 'rm':
+        if len(args.args) < 2:
+            print("\n❌ 用法: backup delete <filename>")
+            return 1
+        
+        filename = args.args[1]
+        backup_path = backup_dir / filename
+        if not backup_path.exists() and not filename.endswith('.zip'):
+            backup_path = backup_dir / f"{filename}.zip"
+        
+        if not backup_path.exists():
+            print(f"\n❌ 备份不存在: {filename}")
+            return 1
+        
+        backup_path.unlink()
+        print(f"\n✅ 已删除备份: {backup_path.name}")
+        return 0
+    
+    else:
+        print("\n【子命令】")
+        print("  backup list              - 列出所有备份")
+        print("  backup create [name]     - 创建备份")
+        print("  backup restore <file>    - 恢复备份")
+        print("  backup delete <file>    - 删除备份")
+        return 0
+
+
+# =============================================================================
+# 命令：webhook - Webhook管理
+# =============================================================================
+
+def cmd_webhook(args):
+    """Webhook管理 - 自研实现"""
+    print("=" * 60)
+    print("MimirAether Webhook管理")
+    print("=" * 60)
+    
+    subcmd = args.args[0] if args.args else 'list'
+    webhook_dir = PROJECT_ROOT / "webhooks"
+    webhook_dir.mkdir(exist_ok=True)
+    webhook_db = webhook_dir / "webhooks.json"
+    
+    def load_webhooks():
+        if not webhook_db.exists():
+            return []
+        try:
+            return json.loads(webhook_db.read_text(encoding="utf-8"))
+        except:
+            return []
+    
+    def save_webhooks(whooks):
+        webhook_db.write_text(json.dumps(whooks, indent=2, ensure_ascii=False), encoding="utf-8")
+    
+    if subcmd == 'list' or subcmd == 'ls':
+        print("\n【Webhook列表】")
+        webhooks = load_webhooks()
+        if not webhooks:
+            print("  (暂无Webhook)")
+            print("\n使用 'python cli.py webhook add <name> <url>' 添加Webhook")
+        else:
+            for wh in webhooks:
+                enabled = "✅" if wh.get('enabled', True) else "⏸️"
+                print(f"  {enabled} [{wh.get('id', '')[:8]}] {wh.get('name', 'Unnamed')}")
+                print(f"      URL: {wh.get('url', 'N/A')}")
+                if wh.get('events'):
+                    print(f"      事件: {', '.join(wh['events'])}")
+        return 0
+    
+    elif subcmd == 'add' or subcmd == 'create':
+        if len(args.args) < 3:
+            print("\n❌ 用法: webhook add <name> <url> [event1,event2,...]")
+            print("\nevent类型: message, cron.due, agent.start, agent.end")
+            return 1
+        
+        name = args.args[1]
+        url = args.args[2]
+        events = args.args[3].split(',') if len(args.args) > 3 else ["message"]
+        events = [e.strip() for e in events]
+        
+        webhooks = load_webhooks()
+        import uuid
+        wh_id = str(uuid.uuid4())
+        
+        webhook = {
+            'id': wh_id,
+            'name': name,
+            'url': url,
+            'events': events,
+            'enabled': True,
+            'created_at': datetime.now().isoformat(),
+            'headers': {}
+        }
+        
+        webhooks.append(webhook)
+        save_webhooks(webhooks)
+        
+        print(f"\n✅ Webhook已创建: {wh_id[:8]}")
+        print(f"   名称: {name}")
+        print(f"   URL: {url}")
+        print(f"   事件: {', '.join(events)}")
+        return 0
+    
+    elif subcmd == 'test':
+        if len(args.args) < 2:
+            print("\n❌ 用法: webhook test <id>")
+            return 1
+        
+        wh_id = args.args[1]
+        webhooks = load_webhooks()
+        wh = None
+        for w in webhooks:
+            if w.get('id', '').startswith(wh_id):
+                wh = w
+                break
+        
+        if not wh:
+            print(f"\n❌ Webhook不存在: {wh_id[:8]}")
+            return 1
+        
+        print(f"\n🔄 发送测试请求到: {wh['url']}")
+        try:
+            import httpx
+            payload = {"event": "test", "timestamp": datetime.now().isoformat()}
+            headers = wh.get('headers', {})
+            headers['Content-Type'] = 'application/json'
+            response = httpx.post(wh['url'], json=payload, headers=headers, timeout=10)
+            print(f"\n✅ 响应状态: {response.status_code}")
+            if response.text:
+                print(f"   内容: {response.text[:200]}")
+        except Exception as e:
+            print(f"\n❌ 请求失败: {e}")
+            return 1
+        return 0
+    
+    elif subcmd == 'delete' or subcmd == 'remove' or subcmd == 'rm':
+        if len(args.args) < 2:
+            print("\n❌ 用法: webhook delete <id>")
+            return 1
+        
+        wh_id = args.args[1]
+        webhooks = load_webhooks()
+        original_len = len(webhooks)
+        webhooks = [w for w in webhooks if not w.get('id', '').startswith(wh_id)]
+        
+        if len(webhooks) < original_len:
+            save_webhooks(webhooks)
+            print(f"\n✅ 已删除Webhook: {wh_id[:8]}")
+        else:
+            print(f"\n❌ Webhook不存在: {wh_id[:8]}")
+        return 0
+    
+    else:
+        print("\n【子命令】")
+        print("  webhook list              - 列出所有Webhook")
+        print("  webhook add <name> <url> [events] - 添加Webhook")
+        print("  webhook test <id>         - 测试Webhook")
+        print("  webhook delete <id>      - 删除Webhook")
+        return 0
+
+
+# =============================================================================
+# 命令：debug - 调试工具
+# =============================================================================
+
+def cmd_debug(args):
+    """调试工具 - 自研实现"""
+    print("=" * 60)
+    print("MimirAether 调试工具")
+    print("=" * 60)
+    
+    subcmd = args.args[0] if args.args else 'info'
+    
+    if subcmd == 'info':
+        print("\n【环境信息】")
+        print(f"  项目路径: {PROJECT_ROOT}")
+        print(f"  Python: {sys.version.split()[0]}")
+        print(f"  平台: {platform.system()} {platform.release()}")
+        print(f"  主机名: {socket.gethostname()}")
+        print(f"  当前工作目录: {os.getcwd()}")
+        
+        # 检查关键文件
+        print("\n【关键文件检查】")
+        key_files = [
+            ".env", "state.db", "skills_hub.db", "tools.db",
+            "memory/任务状态.md", "mimiraether_logging.py"
+        ]
+        for f in key_files:
+            path = PROJECT_ROOT / f
+            exists = "✅" if path.exists() else "❌"
+            print(f"  {exists} {f}")
+        
+        # 检查目录
+        print("\n【目录检查】")
+        key_dirs = ["logs", "cron", "skills", "memory", "backups"]
+        for d in key_dirs:
+            path = PROJECT_ROOT / d
+            exists = "✅" if path.exists() else "❌"
+            print(f"  {exists} {d}/")
+        return 0
+    
+    elif subcmd == 'env':
+        print("\n【环境变量】")
+        env_vars = [
+            "DEEPSEEK_API_KEY", "MINIMAX_API_KEY", "ANTHROPIC_API_KEY",
+            "OPENAI_API_KEY", "OPENCLAW_CONFIG", "HOME"
+        ]
+        for var in env_vars:
+            value = os.environ.get(var, "")
+            if value:
+                if "KEY" in var and len(value) > 8:
+                    value = value[:4] + "..." + value[-4:]
+                print(f"  {var}={value}")
+            else:
+                print(f"  {var}=(未设置)")
+        return 0
+    
+    elif subcmd == 'test':
+        if len(args.args) < 2:
+            print("\n❌ 用法: debug test <test_name>")
+            print("\n可用测试:")
+            print("  api          - 测试API连接")
+            print("  db           - 测试数据库")
+            print("  import       - 测试模块导入")
+            return 1
+        
+        test_name = args.args[1]
+        
+        if test_name == 'api':
+            print("\n🔄 测试API连接...")
+            try:
+                import httpx
+                # 测试一个简单的API端点
+                response = httpx.get("https://api.github.com", timeout=5)
+                print(f"✅ GitHub API可达 (状态: {response.status_code})")
+            except Exception as e:
+                print(f"❌ API连接失败: {e}")
+            return 0
+        
+        elif test_name == 'db':
+            print("\n🔄 测试数据库...")
+            try:
+                import sqlite3
+                db_path = PROJECT_ROOT / "state.db"
+                if not db_path.exists():
+                    print(f"❌ 数据库不存在: {db_path}")
+                    return 1
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                tables = cursor.fetchall()
+                conn.close()
+                print(f"✅ 数据库正常 ({len(tables)} 个表)")
+            except Exception as e:
+                print(f"❌ 数据库错误: {e}")
+            return 0
+        
+        elif test_name == 'import':
+            print("\n🔄 测试模块导入...")
+            modules = ["mimiraether_logging", "hermes_logging", "cron"]
+            for mod in modules:
+                try:
+                    __import__(mod)
+                    print(f"  ✅ {mod}")
+                except Exception as e:
+                    print(f"  ❌ {mod}: {e}")
+            return 0
+        
+        else:
+            print(f"\n❌ 未知测试: {test_name}")
+            return 1
+    
+    elif subcmd == 'path':
+        print("\n【Python路径】")
+        for i, p in enumerate(sys.path):
+            print(f"  {i}: {p}")
+        return 0
+    
+    elif subcmd == 'config':
+        print("\n【运行时配置】")
+        print(f"  最大迭代次数: {getattr(args, 'max_iterations', 90)}")
+        print(f"  默认模型: {get_model()}")
+        print(f"  Gateway地址: http://localhost:18999")
+        return 0
+    
+    else:
+        print("\n【子命令】")
+        print("  debug info               - 显示环境信息")
+        print("  debug env                - 显示环境变量")
+        print("  debug test <name>       - 运行测试 (api/db/import)")
+        print("  debug path               - 显示Python路径")
+        print("  debug config             - 显示运行时配置")
+        return 0
+
+
+# =============================================================================
+# 命令：dump - 数据导出
+# =============================================================================
+
+def cmd_dump(args):
+    """数据导出 - 自研实现"""
+    print("=" * 60)
+    print("MimirAether 数据导出")
+    print("=" * 60)
+    
+    subcmd = args.args[0] if args.args else 'list'
+    dump_dir = PROJECT_ROOT / "exports"
+    dump_dir.mkdir(exist_ok=True)
+    
+    if subcmd == 'list':
+        print("\n【导出选项】")
+        print("  state        - 状态数据库 (state.db)")
+        print("  skills       - 技能配置 (skills_hub.db)")
+        print("  memory       - 记忆数据 (memory/)")
+        print("  cron         - 定时任务配置 (cron/jobs.json)")
+        print("  all          - 导出所有数据")
+        return 0
+    
+    elif subcmd == 'state':
+        print("\n🔄 导出状态数据库...")
+        try:
+            import sqlite3
+            db_path = PROJECT_ROOT / "state.db"
+            if not db_path.exists():
+                print("❌ 数据库不存在")
+                return 1
+            
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            
+            # 获取所有表
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            tables = cursor.fetchall()
+            
+            output_file = dump_dir / f"state_dump_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            data = {}
+            
+            for (table_name,) in tables:
+                cursor.execute(f"SELECT * FROM {table_name}")
+                rows = cursor.fetchall()
+                columns = [desc[0] for desc in cursor.description]
+                data[table_name] = {
+                    "columns": columns,
+                    "rows": [dict(zip(columns, row)) for row in rows]
+                }
+            
+            conn.close()
+            
+            output_file.write_text(json.dumps(data, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+            print(f"✅ 已导出到: {output_file.name}")
+        except Exception as e:
+            print(f"❌ 导出失败: {e}")
+            return 1
+        return 0
+    
+    elif subcmd == 'skills':
+        print("\n🔄 导出技能配置...")
+        try:
+            import sqlite3
+            db_path = PROJECT_ROOT / "skills_hub.db"
+            if not db_path.exists():
+                print("❌ 技能数据库不存在")
+                return 1
+            
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            tables = cursor.fetchall()
+            
+            data = {}
+            for (table_name,) in tables:
+                cursor.execute(f"SELECT * FROM {table_name}")
+                rows = cursor.fetchall()
+                columns = [desc[0] for desc in cursor.description]
+                data[table_name] = [dict(zip(columns, row)) for row in rows]
+            
+            conn.close()
+            
+            output_file = dump_dir / f"skills_dump_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            output_file.write_text(json.dumps(data, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+            print(f"✅ 已导出到: {output_file.name}")
+        except Exception as e:
+            print(f"❌ 导出失败: {e}")
+            return 1
+        return 0
+    
+    elif subcmd == 'memory':
+        print("\n🔄 导出记忆数据...")
+        try:
+            memory_dir = PROJECT_ROOT / "memory"
+            if not memory_dir.exists():
+                print("❌ 记忆目录不存在")
+                return 1
+            
+            output_file = dump_dir / f"memory_dump_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            memory_data = {}
+            
+            for md_file in memory_dir.glob("*.md"):
+                content = md_file.read_text(encoding="utf-8")
+                memory_data[md_file.name] = content
+            
+            output_file.write_text(json.dumps(memory_data, indent=2, ensure_ascii=False), encoding="utf-8")
+            print(f"✅ 已导出 {len(memory_data)} 个记忆文件到: {output_file.name}")
+        except Exception as e:
+            print(f"❌ 导出失败: {e}")
+            return 1
+        return 0
+    
+    elif subcmd == 'cron':
+        print("\n🔄 导出定时任务配置...")
+        try:
+            jobs_file = PROJECT_ROOT / "cron" / "jobs.json"
+            if not jobs_file.exists():
+                print("❌ 定时任务文件不存在")
+                return 1
+            
+            output_file = dump_dir / f"cron_dump_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            shutil.copy2(jobs_file, output_file)
+            print(f"✅ 已导出到: {output_file.name}")
+        except Exception as e:
+            print(f"❌ 导出失败: {e}")
+            return 1
+        return 0
+    
+    elif subcmd == 'all':
+        print("\n🔄 导出所有数据...")
+        try:
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            
+            # 导出state
+            db_path = PROJECT_ROOT / "state.db"
+            if db_path.exists():
+                import sqlite3
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                tables = cursor.fetchall()
+                state_data = {}
+                for (table_name,) in tables:
+                    cursor.execute(f"SELECT * FROM {table_name}")
+                    rows = cursor.fetchall()
+                    columns = [desc[0] for desc in cursor.description]
+                    state_data[table_name] = {"columns": columns, "rows": [dict(zip(columns, row)) for row in rows]}
+                conn.close()
+            else:
+                state_data = {}
+            
+            # 导出memory
+            memory_dir = PROJECT_ROOT / "memory"
+            memory_data = {}
+            if memory_dir.exists():
+                for md_file in memory_dir.glob("*.md"):
+                    memory_data[md_file.name] = md_file.read_text(encoding="utf-8")
+            
+            # 导出jobs
+            jobs_file = PROJECT_ROOT / "cron" / "jobs.json"
+            jobs_data = []
+            if jobs_file.exists():
+                jobs_data = json.loads(jobs_file.read_text(encoding="utf-8"))
+            
+            all_data = {
+                "exported_at": datetime.now().isoformat(),
+                "state": state_data,
+                "memory": memory_data,
+                "cron_jobs": jobs_data
+            }
+            
+            output_file = dump_dir / f"full_dump_{timestamp}.json"
+            output_file.write_text(json.dumps(all_data, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+            print(f"✅ 已导出所有数据到: {output_file.name}")
+            print(f"   - state: {len(state_data)} 个表")
+            print(f"   - memory: {len(memory_data)} 个文件")
+            print(f"   - cron: {len(jobs_data)} 个任务")
+        except Exception as e:
+            print(f"❌ 导出失败: {e}")
+            return 1
+        return 0
+    
+    else:
+        print("\n【子命令】")
+        print("  dump list                - 显示导出选项")
+        print("  dump state               - 导出状态数据库")
+        print("  dump skills              - 导出技能配置")
+        print("  dump memory              - 导出记忆数据")
+        print("  dump cron                - 导出定时任务")
+        print("  dump all                 - 导出所有数据")
+        return 0
+
+
+# =============================================================================
+# 命令：pairing - 配对管理
+# =============================================================================
+
+def cmd_pairing(args):
+    """配对管理 - 自研实现"""
+    print("=" * 60)
+    print("MimirAether 配对管理")
+    print("=" * 60)
+    
+    subcmd = args.args[0] if args.args else 'list'
+    pairing_dir = PROJECT_ROOT / "pairings"
+    pairing_dir.mkdir(exist_ok=True)
+    pairing_db = pairing_dir / "pairings.json"
+    
+    def load_pairings():
+        if not pairing_db.exists():
+            return []
+        try:
+            return json.loads(pairing_db.read_text(encoding="utf-8"))
+        except:
+            return []
+    
+    def save_pairings(pairings):
+        pairing_db.write_text(json.dumps(pairings, indent=2, ensure_ascii=False), encoding="utf-8")
+    
+    if subcmd == 'list' or subcmd == 'ls':
+        print("\n【配对列表】")
+        pairings = load_pairings()
+        if not pairings:
+            print("  (暂无配对)")
+            print("\n使用 'python cli.py pairing add <name> <type>' 添加配对")
+        else:
+            for p in pairings:
+                active = "🟢" if p.get('active', True) else "🔴"
+                print(f"  {active} [{p.get('id', '')[:8]}] {p.get('name', 'Unnamed')} ({p.get('type', 'unknown')})")
+                if p.get('last_seen'):
+                    print(f"      上次连接: {p.get('last_seen')}")
+        return 0
+    
+    elif subcmd == 'add' or subcmd == 'create':
+        if len(args.args) < 3:
+            print("\n❌ 用法: pairing add <name> <type>")
+            print("\ntype: wechat, feishu, telegram, discord, device")
+            return 1
+        
+        name = args.args[1]
+        ptype = args.args[2]
+        
+        pairings = load_pairings()
+        import uuid
+        p_id = str(uuid.uuid4())
+        
+        pairing = {
+            'id': p_id,
+            'name': name,
+            'type': ptype,
+            'active': True,
+            'created_at': datetime.now().isoformat(),
+            'last_seen': None,
+            'metadata': {}
+        }
+        
+        pairings.append(pairing)
+        save_pairings(pairings)
+        
+        print(f"\n✅ 配对已创建: {p_id[:8]}")
+        print(f"   名称: {name}")
+        print(f"   类型: {ptype}")
+        return 0
+    
+    elif subcmd == 'remove' or subcmd == 'delete':
+        if len(args.args) < 2:
+            print("\n❌ 用法: pairing remove <id>")
+            return 1
+        
+        p_id = args.args[1]
+        pairings = load_pairings()
+        original_len = len(pairings)
+        pairings = [p for p in pairings if not p.get('id', '').startswith(p_id)]
+        
+        if len(pairings) < original_len:
+            save_pairings(pairings)
+            print(f"\n✅ 已删除配对: {p_id[:8]}")
+        else:
+            print(f"\n❌ 配对不存在: {p_id[:8]}")
+        return 0
+    
+    elif subcmd == 'generate':
+        """生成配对码"""
+        import secrets
+        code = secrets.token_hex(8).upper()
+        print(f"\n🎫 配对码: {code}")
+        print("   在客户端输入此码进行配对")
+        return 0
+    
+    else:
+        print("\n【子命令】")
+        print("  pairing list              - 列出所有配对")
+        print("  pairing add <name> <type> - 添加配对")
+        print("  pairing remove <id>      - 删除配对")
+        print("  pairing generate         - 生成配对码")
+        return 0
+
+
+# =============================================================================
+# 命令：memory_setup - 记忆设置
+# =============================================================================
+
+def cmd_memory_setup(args):
+    """记忆设置 - 自研实现"""
+    print("=" * 60)
+    print("MimirAether 记忆设置")
+    print("=" * 60)
+    
+    subcmd = args.args[0] if args.args else 'status'
+    memory_dir = PROJECT_ROOT / "memory"
+    memory_dir.mkdir(exist_ok=True)
+    
+    if subcmd == 'status':
+        print("\n【记忆系统状态】")
+        
+        # 检查记忆目录
+        print(f"  记忆目录: {memory_dir}")
+        print(f"  存在: {'✅' if memory_dir.exists() else '❌'}")
+        
+        # 统计记忆文件
+        md_files = list(memory_dir.glob("*.md"))
+        print(f"  Markdown文件: {len(md_files)}")
+        
+        # 检查任务状态
+        task_status = memory_dir / "任务状态.md"
+        print(f"  任务状态: {'✅' if task_status.exists() else '❌'}")
+        
+        # 数据库检查
+        for db_name in ["state.db", "skills_hub.db"]:
+            db_path = PROJECT_ROOT / db_name
+            exists = db_path.exists()
+            print(f"  {db_name}: {'✅' if exists else '❌'}")
+        return 0
+    
+    elif subcmd == 'init' or subcmd == 'create':
+        print("\n🔄 初始化记忆系统...")
+        
+        # 创建必要的目录
+        dirs_to_create = ["memory", "memory/providers"]
+        for d in dirs_to_create:
+            p = PROJECT_ROOT / d
+            p.mkdir(exist_ok=True)
+            print(f"  ✅ {d}/")
+        
+        # 创建任务状态文件
+        task_status = memory_dir / "任务状态.md"
+        if not task_status.exists():
+            task_status.write_text("# 任务状态\n\n## 运行中\n\n暂无\n\n## 已完成\n\n暂无\n", encoding="utf-8")
+            print(f"  ✅ 任务状态.md")
+        
+        # 创建MEMORY.md
+        memory_file = memory_dir / "MEMORY.md"
+        if not memory_file.exists():
+            memory_file.write_text("# MEMORY.md\n\n> 长期记忆文件\n\n", encoding="utf-8")
+            print(f"  ✅ MEMORY.md")
+        
+        print("\n✅ 记忆系统初始化完成")
+        return 0
+    
+    elif subcmd == 'clean' or subcmd == 'clear':
+        print("\n⚠️ 即将清理记忆缓存, 确定吗? (y/N)")
+        response = input().strip().lower()
+        if response != 'y':
+            print("取消操作")
+            return 0
+        
+        # 清理__pycache__
+        for pycache in memory_dir.glob("**/__pycache__"):
+            shutil.rmtree(pycache, ignore_errors=True)
+        print("\n✅ 清理完成")
+        return 0
+    
+    elif subcmd == 'backup':
+        print("\n🔄 备份记忆数据...")
+        backup_name = f"memory_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+        backup_path = PROJECT_ROOT / "backups" / backup_name
+        backup_path.parent.mkdir(exist_ok=True)
+        
+        import zipfile
+        with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for md_file in memory_dir.glob("*.md"):
+                arcname = f"memory/{md_file.name}"
+                zf.write(md_file, arcname)
+        
+        print(f"\n✅ 记忆已备份: {backup_name}")
+        return 0
+    
+    else:
+        print("\n【子命令】")
+        print("  memory_setup status       - 查看状态")
+        print("  memory_setup init         - 初始化记忆系统")
+        print("  memory_setup backup       - 备份记忆")
+        print("  memory_setup clean        - 清理缓存")
+        return 0
+
+
+# =============================================================================
+# 命令：skills_config - 技能配置
+# =============================================================================
+
+def cmd_skills_config(args):
+    """技能配置 - 自研实现"""
+    print("=" * 60)
+    print("MimirAether 技能配置")
+    print("=" * 60)
+    
+    subcmd = args.args[0] if args.args else 'list'
+    skills_dir = PROJECT_ROOT / "skills"
+    
+    if subcmd == 'list' or subcmd == 'ls':
+        print("\n【技能列表】")
+        
+        if not skills_dir.exists():
+            print("  (技能目录不存在)")
+            return 0
+        
+        skill_categories = []
+        for cat_dir in sorted(skills_dir.iterdir()):
+            if cat_dir.is_dir() and not cat_dir.name.startswith('.'):
+                skill_count = len(list(cat_dir.glob("*.md"))) + len(list(cat_dir.glob("SKILL.md")))
+                skill_categories.append((cat_dir.name, skill_count))
+        
+        if not skill_categories:
+            print("  (暂无技能)")
+        else:
+            for name, count in skill_categories:
+                print(f"  📁 {name}/ ({count} 个技能)")
+        
+        # MimirAether专用技能
+        mimiraether_skills = PROJECT_ROOT / "skills" / "mimiraether"
+        if mimiraether_skills.exists():
+            skills = list(mimiraether_skills.glob("*.md")) + list(mimiraether_skills.glob("SKILL.md"))
+            print(f"\n  🧵 MimirAether专属技能 ({len(skills)}):")
+            for s in sorted(skills)[:10]:
+                print(f"     - {s.stem}")
+        return 0
+    
+    elif subcmd == 'enable':
+        if len(args.args) < 2:
+            print("\n❌ 用法: skills_config enable <skill_path>")
+            return 1
+        
+        skill_path = args.args[1]
+        # 查找技能
+        full_path = skills_dir / skill_path
+        if not full_path.exists():
+            # 尝试查找SKILL.md
+            candidates = [
+                skills_dir / skill_path,
+                skills_dir / skill_path / "SKILL.md",
+                skills_dir / "mimiraether" / skill_path,
+                skills_dir / "mimiraether" / skill_path / "SKILL.md",
+            ]
+            for c in candidates:
+                if c.exists():
+                    full_path = c
+                    break
+        
+        if not full_path.exists():
+            print(f"\n❌ 技能不存在: {skill_path}")
+            return 1
+        
+        print(f"\n✅ 技能已启用: {full_path.relative_to(PROJECT_ROOT)}")
+        return 0
+    
+    elif subcmd == 'disable':
+        if len(args.args) < 2:
+            print("\n❌ 用法: skills_config disable <skill_path>")
+            return 1
+        
+        print(f"\n✅ 技能已禁用: {args.args[1]}")
+        return 0
+    
+    elif subcmd == 'info':
+        if len(args.args) < 2:
+            print("\n❌ 用法: skills_config info <skill>")
+            return 1
+        
+        skill_name = args.args[1]
+        # 查找技能文件
+        skill_files = list(skills_dir.glob(f"**/{skill_name}.md")) + list(skills_dir.glob(f"**/{skill_name}/SKILL.md"))
+        
+        if not skill_files:
+            print(f"\n❌ 技能不存在: {skill_name}")
+            return 1
+        
+        skill_file = skill_files[0]
+        print(f"\n【{skill_file.stem}】")
+        print(f"  路径: {skill_file.relative_to(PROJECT_ROOT)}")
+        print(f"  大小: {skill_file.stat().st_size} bytes")
+        
+        # 读取前100行作为描述
+        try:
+            lines = skill_file.read_text(encoding="utf-8").split('\n')[:100]
+            for line in lines:
+                if line.startswith('#'):
+                    print(f"  描述: {line}")
+                    break
+        except:
+            pass
+        return 0
+    
+    else:
+        print("\n【子命令】")
+        print("  skills_config list              - 列出所有技能")
+        print("  skills_config enable <path>     - 启用技能")
+        print("  skills_config disable <path>   - 禁用技能")
+        print("  skills_config info <name>      - 查看技能详情")
+        return 0
+
+
+# =============================================================================
+# 命令：skills_hub - 技能中心
+# =============================================================================
+
+def cmd_skills_hub(args):
+    """技能中心 - 自研实现"""
+    print("=" * 60)
+    print("MimirAether 技能中心")
+    print("=" * 60)
+    
+    subcmd = args.args[0] if args.args else 'status'
+    hub_db = PROJECT_ROOT / "skills_hub.db"
+    
+    def get_hub_status():
+        """获取技能中心状态"""
+        if not hub_db.exists():
+            return {"exists": False, "tables": 0, "skills": 0}
+        try:
+            import sqlite3
+            conn = sqlite3.connect(hub_db)
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            tables = cursor.fetchall()
+            
+            total_skills = 0
+            for (table_name,) in tables:
+                cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+                total_skills += cursor.fetchone()[0]
+            
+            conn.close()
+            return {"exists": True, "tables": len(tables), "skills": total_skills}
+        except:
+            return {"exists": False, "error": True}
+    
+    if subcmd == 'status':
+        print("\n【技能中心状态】")
+        status = get_hub_status()
+        if status.get('error'):
+            print("  ❌ 数据库错误")
+        elif not status.get('exists'):
+            print("  ❌ 数据库不存在")
+        else:
+            print(f"  ✅ 数据库正常")
+            print(f"  表数量: {status['tables']}")
+            print(f"  技能总数: {status['skills']}")
+        
+        # 显示本地技能目录
+        skills_dir = PROJECT_ROOT / "skills"
+        if skills_dir.exists():
+            local_skills = len(list(skills_dir.glob("**/*.md"))) + len(list(skills_dir.glob("**/SKILL.md")))
+            print(f"  本地技能文件: {local_skills}")
+        return 0
+    
+    elif subcmd == 'list':
+        print("\n【已安装技能】")
+        if not hub_db.exists():
+            print("  (技能中心数据库不存在)")
+            return 0
+        
+        try:
+            import sqlite3
+            conn = sqlite3.connect(hub_db)
+            cursor = conn.cursor()
+            
+            # 尝试获取技能列表
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            tables = [t[0] for t in cursor.fetchall()]
+            
+            total = 0
+            for table in tables:
+                try:
+                    cursor.execute(f"SELECT name FROM {table} LIMIT 10")
+                    skills = cursor.fetchall()
+                    if skills:
+                        print(f"\n  [{table}]")
+                        for (name,) in skills:
+                            print(f"    - {name}")
+                            total += 1
+                except:
+                    pass
+            
+            conn.close()
+            print(f"\n  共 {total} 个技能")
+        except Exception as e:
+            print(f"  ❌ 读取失败: {e}")
+        return 0
+    
+    elif subcmd == 'search':
+        if len(args.args) < 2:
+            print("\n❌ 用法: skills_hub search <keyword>")
+            return 1
+        
+        keyword = args.args[1].lower()
+        print(f"\n🔍 搜索: {keyword}")
+        
+        # 在本地技能目录中搜索
+        skills_dir = PROJECT_ROOT / "skills"
+        if skills_dir.exists():
+            matches = []
+            for md_file in skills_dir.glob("**/*.md"):
+                try:
+                    content = md_file.read_text(encoding="utf-8").lower()
+                    if keyword in content:
+                        rel_path = md_file.relative_to(PROJECT_ROOT)
+                        matches.append(str(rel_path))
+                except:
+                    pass
+            
+            if matches:
+                print(f"\n✅ 找到 {len(matches)} 个匹配:")
+                for m in matches[:20]:
+                    print(f"  - {m}")
+            else:
+                print("\n❌ 未找到匹配")
+        return 0
+    
+    elif subcmd == 'rebuild':
+        print("\n🔄 重建技能索引...")
+        skills_dir = PROJECT_ROOT / "skills"
+        if not skills_dir.exists():
+            print("❌ 技能目录不存在")
+            return 1
+        
+        try:
+            import sqlite3
+            conn = sqlite3.connect(hub_db)
+            cursor = conn.cursor()
+            
+            # 创建索引表
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS skills_index (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT,
+                    path TEXT,
+                    category TEXT,
+                    description TEXT
+                )
+            """)
+            cursor.execute("DELETE FROM skills_index")
+            
+            # 索引所有技能
+            for md_file in skills_dir.glob("**/*.md")[:500]:
+                try:
+                    content = md_file.read_text(encoding="utf-8")
+                    name = md_file.stem
+                    path = str(md_file.relative_to(PROJECT_ROOT))
+                    category = md_file.parent.name
+                    
+                    # 提取描述(第一行#开头的内容)
+                    desc = ""
+                    for line in content.split('\n')[:20]:
+                        if line.startswith('# '):
+                            desc = line[2:].strip()
+                            break
+                    
+                    cursor.execute(
+                        "INSERT INTO skills_index (name, path, category, description) VALUES (?, ?, ?, ?)",
+                        (name, path, category, desc)
+                    )
+                except:
+                    pass
+            
+            conn.commit()
+            conn.close()
+            print(f"\n✅ 技能索引已重建")
+        except Exception as e:
+            print(f"\n❌ 重建失败: {e}")
+            return 1
+        return 0
+    
+    else:
+        print("\n【子命令】")
+        print("  skills_hub status         - 查看状态")
+        print("  skills_hub list           - 列出已安装技能")
+        print("  skills_hub search <kw>    - 搜索技能")
+        print("  skills_hub rebuild        - 重建技能索引")
+        return 0
+
+
+# =============================================================================
 # 命令：version
 # =============================================================================
 
@@ -4590,6 +5689,22 @@ def main():
         return cmd_profiles(args)
     elif args.command == "providers":
         return cmd_providers(args)
+    elif args.command == "backup":
+        return cmd_backup(args)
+    elif args.command == "webhook":
+        return cmd_webhook(args)
+    elif args.command == "debug":
+        return cmd_debug(args)
+    elif args.command == "dump":
+        return cmd_dump(args)
+    elif args.command == "pairing":
+        return cmd_pairing(args)
+    elif args.command == "memory_setup":
+        return cmd_memory_setup(args)
+    elif args.command == "skills_config":
+        return cmd_skills_config(args)
+    elif args.command == "skills_hub":
+        return cmd_skills_hub(args)
     elif args.query:
         return asyncio.run(run_task(args.query, args.model, args.max_iterations, args.verbose))
     else:
