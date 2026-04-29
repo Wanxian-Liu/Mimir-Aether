@@ -1857,45 +1857,312 @@ def cmd_version(args):
 # 命令：gateway
 # =============================================================================
 
+import subprocess
+import signal
+import time
+import os
+import sys
+
+def _get_gateway_pids() -> list:
+    """Find PIDs of running gateway processes."""
+    pids = []
+    patterns = [
+        "gateway/run.py",
+        "MimirAether/gateway/run.py",
+        "mimir_aether/gateway/run.py",
+    ]
+    try:
+        result = subprocess.run(
+            ["ps", "eww", "-ax", "-o", "pid=,command="],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        for line in result.stdout.split('\n'):
+            stripped = line.strip()
+            if not stripped or 'grep' in stripped:
+                continue
+            parts = stripped.split(None, 1)
+            if len(parts) >= 2:
+                try:
+                    pid = int(parts[0])
+                    cmd = parts[1]
+                    if any(p in cmd for p in patterns) and pid != os.getpid():
+                        pids.append(pid)
+                except ValueError:
+                    pass
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return pids
+
+
+def _kill_gateway_processes(force: bool = False) -> int:
+    """Kill running gateway processes. Returns count killed."""
+    pids = _get_gateway_pids()
+    killed = 0
+    for pid in pids:
+        try:
+            sig = signal.SIGKILL if force else signal.SIGTERM
+            os.kill(pid, sig)
+            killed += 1
+        except (ProcessLookupError, PermissionError, OSError):
+            pass
+    return killed
+
+
+def _wait_gateway_exit(timeout: float = 10.0) -> bool:
+    """Wait for gateway processes to exit. Returns True if all exited."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if not _get_gateway_pids():
+            return True
+        time.sleep(0.5)
+    return False
+
+
+def _check_gateway_health() -> dict:
+    """Check gateway health via HTTP endpoint."""
+    try:
+        import httpx
+        response = httpx.get("http://localhost:18999/health", timeout=3)
+        if response.status_code == 200:
+            return {"status": "running", "data": response.json()}
+        return {"status": "error", "code": response.status_code}
+    except Exception:
+        return {"status": "not_running"}
+
+
 def cmd_gateway(args):
-    """Gateway管理"""
+    """Gateway管理命令 - 对齐Hermes gateway功能
+    
+    支持的子命令:
+        run         - 前台运行Gateway
+        start       - 后台启动Gateway
+        stop        - 停止Gateway
+        restart     - 重启Gateway
+        status      - 查看Gateway状态
+        health      - 检查Gateway健康状态
+        setup       - 配置消息平台
+    """
     action = args.action or "status"
     
-    if action == "start":
+    # 解析gateway子命令专有参数
+    verbose = getattr(args, 'verbose', False)
+    force = getattr(args, 'force', False)
+    
+    if action == "run":
+        # 前台运行Gateway
+        print("=" * 60)
+        print("MimirAether Gateway - 前台运行模式")
+        print("=" * 60)
+        print("按 Ctrl+C 停止\n")
+        
+        # 切换到项目根目录
+        os.chdir(PROJECT_ROOT)
+        
+        # 导入并运行gateway
+        sys.path.insert(0, str(PROJECT_ROOT))
+        try:
+            from gateway.run import start_gateway
+            import asyncio
+            asyncio.run(start_gateway())
+        except KeyboardInterrupt:
+            print("\nGateway已停止")
+            return 0
+        except Exception as e:
+            print(f"Gateway运行错误: {e}")
+            return 1
+    
+    elif action == "start":
+        # 后台启动Gateway
         print("启动Gateway...")
-        print("\n请使用: python gateway/run.py")
-        print("或设置后台运行:")
-        print("  nohup python gateway/run.py &")
-        return 0
+        
+        # 检查是否已运行
+        pids = _get_gateway_pids()
+        if pids:
+            print(f"Gateway已在运行 (PID: {', '.join(map(str, pids))})")
+            return 0
+        
+        # 使用nohup后台启动
+        log_dir = PROJECT_ROOT / "logs"
+        log_dir.mkdir(exist_ok=True)
+        log_file = log_dir / "gateway.log"
+        
+        cmd = [
+            sys.executable,
+            str(PROJECT_ROOT / "gateway" / "run.py")
+        ]
+        
+        with open(log_file, "a") as f:
+            proc = subprocess.Popen(
+                cmd,
+                cwd=str(PROJECT_ROOT),
+                stdout=f,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
+        
+        # 等待启动
+        time.sleep(2)
+        
+        # 检查是否成功启动
+        health = _check_gateway_health()
+        if health["status"] == "running":
+            print(f"✅ Gateway已启动 (PID: {proc.pid})")
+            print(f"   日志: {log_file}")
+            return 0
+        else:
+            print("⚠️ Gateway可能未正常启动，请检查日志")
+            print(f"   日志: {log_file}")
+            return 1
     
     elif action == "stop":
+        # 停止Gateway
         print("停止Gateway...")
-        print("  发送停止信号...")
+        
+        pids = _get_gateway_pids()
+        if not pids:
+            # 尝试通过健康检查确认
+            health = _check_gateway_health()
+            if health["status"] == "running":
+                print("Gateway运行中但无法获取PID，强制终止...")
+                _kill_gateway_processes(force=True)
+            else:
+                print("Gateway未运行")
+            return 0
+        
+        print(f"发送停止信号到PID: {', '.join(map(str, pids))}")
+        killed = _kill_gateway_processes(force=force)
+        
+        # 等待进程退出
+        if _wait_gateway_exit(timeout=5 if force else 15):
+            print(f"✅ Gateway已停止 ({killed}个进程)")
+        else:
+            print(f"⚠️ Gateway进程未能及时停止，强制终止...")
+            killed = _kill_gateway_processes(force=True)
+            print(f"✅ Gateway已强制停止 ({killed}个进程)")
+        
         return 0
     
     elif action == "restart":
+        # 重启Gateway
         print("重启Gateway...")
-        print("  1. 停止当前Gateway...")
-        print("  2. 启动新Gateway...")
+        
+        # 停止
+        pids = _get_gateway_pids()
+        if pids:
+            print(f"停止当前Gateway (PID: {', '.join(map(str, pids))})...")
+            _kill_gateway_processes(force=force)
+            _wait_gateway_exit(timeout=10)
+        
+        # 启动
+        print("启动新Gateway...")
+        
+        log_dir = PROJECT_ROOT / "logs"
+        log_dir.mkdir(exist_ok=True)
+        log_file = log_dir / "gateway.log"
+        
+        cmd = [
+            sys.executable,
+            str(PROJECT_ROOT / "gateway" / "run.py")
+        ]
+        
+        with open(log_file, "a") as f:
+            proc = subprocess.Popen(
+                cmd,
+                cwd=str(PROJECT_ROOT),
+                stdout=f,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
+        
+        time.sleep(2)
+        
+        health = _check_gateway_health()
+        if health["status"] == "running":
+            print(f"✅ Gateway已重启 (PID: {proc.pid})")
+        else:
+            print("⚠️ Gateway可能未正常启动")
+            print(f"   日志: {log_file}")
+        
         return 0
     
     elif action == "status":
+        # 查看Gateway状态
         print("Gateway状态:")
-        try:
-            import httpx
-            response = httpx.get("http://localhost:18999/health", timeout=3)
-            if response.status_code == 200:
-                data = response.json()
-                print(f"  ✅ API服务运行中")
-                print(f"     版本: {data.get('version', 'unknown')}")
-            else:
-                print(f"  ⚠️ API服务异常 (状态码: {response.status_code})")
-        except Exception:
-            print("  ❌ Gateway未运行")
+        print("-" * 40)
+        
+        # 检查进程
+        pids = _get_gateway_pids()
+        if pids:
+            print(f"✅ Gateway进程运行中")
+            print(f"   PID(s): {', '.join(map(str, pids))}")
+        else:
+            print("❌ Gateway进程未运行")
+        
+        # 检查健康状态
+        health = _check_gateway_health()
+        print()
+        if health["status"] == "running":
+            data = health.get("data", {})
+            print(f"✅ API服务正常")
+            print(f"   版本: {data.get('version', 'unknown')}")
+        else:
+            print("⚠️ API服务不可用")
+        
+        # 显示最后几行日志
+        log_file = PROJECT_ROOT / "logs" / "gateway.log"
+        if log_file.exists():
+            try:
+                lines = log_file.read_text(encoding="utf-8").splitlines()
+                if lines:
+                    print()
+                    print("【最近日志】")
+                    for line in lines[-10:]:
+                        print(f"  {line}")
+            except Exception:
+                pass
+        
+        return 0
+    
+    elif action == "health":
+        # 健康检查
+        health = _check_gateway_health()
+        if health["status"] == "running":
+            data = health.get("data", {})
+            print("✅ Gateway健康")
+            import json
+            print(json.dumps(data, indent=2, ensure_ascii=False))
+            return 0
+        else:
+            print("❌ Gateway不健康或未运行")
+            return 1
+    
+    elif action == "setup":
+        # 配置消息平台
+        print("配置消息平台...")
+        print()
+        print("可用平台配置:")
+        print("  1. WeChat (微信)")
+        print("  2. Telegram")
+        print("  3. Feishu (飞书)")
+        print()
+        print("请编辑配置文件进行配置:")
+        config_file = PROJECT_ROOT / "config.yaml"
+        print(f"  {config_file}")
         return 0
     
     else:
         print(f"未知操作: {action}")
+        print()
+        print("可用操作:")
+        print("  run     - 前台运行Gateway")
+        print("  start   - 后台启动Gateway")
+        print("  stop    - 停止Gateway")
+        print("  restart - 重启Gateway")
+        print("  status  - 查看Gateway状态")
+        print("  health  - 健康检查")
+        print("  setup   - 配置消息平台")
         return 1
 
 # =============================================================================
