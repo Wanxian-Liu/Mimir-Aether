@@ -12,6 +12,7 @@ MimirAether CLI - 命令行入口
     python cli.py model                  # 模型选择
     python cli.py cron list              # 定时任务
     python cli.py version                # 版本信息
+    python cli.py auth                   # 凭证管理
     python cli.py -q "你的任务"         # 单次任务模式
 """
 
@@ -1742,6 +1743,460 @@ MimirAether Marketplace 命令
     return 0
 
 # =============================================================================
+# 命令：auth
+# =============================================================================
+
+
+def _load_env_vars():
+    """从.env文件加载环境变量"""
+    env_path = PROJECT_ROOT / ".env"
+    env_vars = {}
+    if env_path.exists():
+        try:
+            with open(env_path, encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, _, val = line.partition('=')
+                        env_vars[key.strip()] = val.strip()
+        except Exception:
+            pass
+    return env_vars
+
+
+def _format_exhausted_status(entry) -> str:
+    """格式化耗尽状态显示"""
+    import math
+    import time as time_module
+    
+    if entry.last_status != "exhausted":
+        return ""
+    reason = getattr(entry, "last_error_reason", None)
+    reason_text = f" {reason}" if isinstance(reason, str) and reason.strip() else ""
+    code = f" ({entry.last_error_code})" if entry.last_error_code else ""
+    
+    # 计算剩余冷却时间
+    reset_at = getattr(entry, "last_error_reset_at", None)
+    if reset_at:
+        remaining = max(0, int(math.ceil(reset_at - time_module.time())))
+        if remaining > 0:
+            minutes, seconds = divmod(remaining, 60)
+            hours, minutes = divmod(minutes, 60)
+            days, hours = divmod(hours, 24)
+            if days:
+                wait = f"{days}d {hours}h"
+            elif hours:
+                wait = f"{hours}h {minutes}m"
+            elif minutes:
+                wait = f"{minutes}m {seconds}s"
+            else:
+                wait = f"{seconds}s"
+            return f" exhausted{reason_text}{code} ({wait} left)"
+        else:
+            return f" exhausted{reason_text}{code} (ready to retry)"
+    return f" exhausted{reason_text}{code}"
+
+
+def _normalize_provider(provider: str) -> str:
+    """标准化provider名称"""
+    normalized = (provider or "").strip().lower()
+    mapping = {
+        "or": "openrouter",
+        "open-router": "openrouter",
+        "ds": "deepseek",
+        "mm": "minimax",
+        "anthropic": "anthropic",
+        "openai": "openai",
+        "deepseek": "deepseek",
+        "minimax": "minimax",
+    }
+    return mapping.get(normalized, normalized)
+
+
+def _get_known_providers() -> list:
+    """获取已知provider列表"""
+    return ["deepseek", "minimax", "anthropic", "openai", "openrouter", "siliconflow", "zhipu", "qwen"]
+
+
+def cmd_auth(args):
+    """凭证管理命令 - 对齐Hermes auth功能"""
+    from agent.credential_pool import (
+        CredentialPool,
+        PooledCredential,
+        STATUS_OK,
+        STATUS_EXHAUSTED,
+        AUTH_TYPE_API_KEY,
+        AUTH_TYPE_OAUTH,
+        SOURCE_MANUAL,
+        STRATEGY_FILL_FIRST,
+    )
+    
+    action = getattr(args, 'auth_action', None)
+    provider_filter = getattr(args, 'auth_provider', None)
+    target = getattr(args, 'auth_target', None)
+    
+    # 如果有provider_filter，进行标准化
+    if provider_filter:
+        provider_filter = _normalize_provider(provider_filter)
+    
+    # =========================================================================
+    # auth list - 列出凭证
+    # =========================================================================
+    if action == "list":
+        print()
+        print("┌" + "─" * 58 + "┐")
+        print("│" + " 🔐 MimirAether Credentials ".center(58) + "│")
+        print("└" + "─" * 58 + "┘")
+        
+        # 从环境变量收集凭证
+        env_vars = _load_env_vars()
+        
+        # Known API keys
+        api_keys = {
+            "deepseek": ["DEEPSEEK_API_KEY", "DEEPSEEK_V3_API_KEY"],
+            "minimax": ["MINIMAX_API_KEY", "MINIMAX_V2_API_KEY"],
+            "anthropic": ["ANTHROPIC_API_KEY"],
+            "openai": ["OPENAI_API_KEY"],
+            "siliconflow": ["SILICONFLOW_API_KEY"],
+            "zhipu": ["ZHIPU_API_KEY"],
+            "qwen": ["QWEN_API_KEY"],
+        }
+        
+        # 凭证池凭证
+        pool_file = PROJECT_ROOT / "credentials" / "credential_pool.json"
+        pool_creds = []
+        if pool_file.exists():
+            try:
+                import json
+                with open(pool_file) as f:
+                    pool_creds = json.load(f)
+            except Exception:
+                pass
+        
+        has_any = False
+        
+        # 按provider显示
+        providers = _get_known_providers()
+        if provider_filter:
+            providers = [p for p in providers if p == provider_filter]
+        
+        for provider in providers:
+            # 环境变量凭证
+            env_keys = api_keys.get(provider, [])
+            env_creds = []
+            for key in env_keys:
+                value = os.environ.get(key, "") or env_vars.get(key, "")
+                if value:
+                    env_creds.append({
+                        "label": key,
+                        "source": f"env:{key}",
+                        "status": "ok",
+                        "auth_type": "api_key",
+                    })
+            
+            # 池凭证
+            provider_pool_creds = [
+                c for c in pool_creds 
+                if c.get("provider", "").lower() == provider or 
+                   c.get("label", "").lower().startswith(provider)
+            ]
+            
+            if not env_creds and not provider_pool_creds:
+                continue
+            
+            has_any = True
+            print()
+            print(f"◆ {provider.upper()}")
+            
+            # 环境变量凭证
+            for cred in env_creds:
+                print(f"  ✅ {cred['label']:<30} {cred['auth_type']:<8} {cred['source']}")
+            
+            # 池凭证
+            for cred in provider_pool_creds:
+                label = cred.get("label", "unknown")
+                auth_type = cred.get("auth_type", "api_key")
+                source = cred.get("source", "unknown")
+                status = cred.get("last_status", "ok")
+                status_icon = "✅" if status == "ok" else "⏳"
+                
+                # 尝试获取PooledCredential对象以获取完整状态
+                try:
+                    pool = CredentialPool(provider, auto_seed_env=False)
+                    entry = None
+                    for e in pool.entries:
+                        if e.label == label:
+                            entry = e
+                            break
+                    if entry:
+                        exhausted_str = _format_exhausted_status(entry)
+                        print(f"  {status_icon} {label:<30} {auth_type:<8} {source}{exhausted_str}")
+                    else:
+                        print(f"  {status_icon} {label:<30} {auth_type:<8} {source}")
+                except Exception:
+                    print(f"  {status_icon} {label:<30} {auth_type:<8} {source}")
+        
+        if not has_any:
+            print()
+            print("  (无已配置的凭证)")
+            print()
+            print("  使用 'python cli.py auth add <provider>' 添加凭证")
+        
+        print()
+        print("─" * 60)
+        print()
+        return 0
+    
+    # =========================================================================
+    # auth add - 添加凭证
+    # =========================================================================
+    if action == "add":
+        provider = provider_filter
+        if not provider:
+            # 交互式选择provider
+            print()
+            print("┌" + "─" * 58 + "┐")
+            print("│" + " 🔐 添加凭证 ".center(58) + "│")
+            print("└" + "─" * 58 + "┘")
+            print()
+            print("可用Provider:")
+            providers = _get_known_providers()
+            for i, p in enumerate(providers, 1):
+                print(f"  {i}. {p}")
+            print()
+            try:
+                choice = input("选择Provider (输入编号或名称): ").strip()
+            except (EOFError, KeyboardInterrupt):
+                print()
+                return 1
+            
+            if not choice:
+                print("取消添加。")
+                return 0
+            
+            if choice.isdigit():
+                idx = int(choice) - 1
+                if 0 <= idx < len(providers):
+                    provider = providers[idx]
+                else:
+                    print(f"无效选择: {choice}")
+                    return 1
+            else:
+                provider = _normalize_provider(choice)
+                if provider not in providers:
+                    print(f"未知Provider: {provider}")
+                    return 1
+        else:
+            providers = _get_known_providers()
+            if provider not in providers:
+                print(f"未知Provider: {provider}")
+                print(f"可用Provider: {', '.join(providers)}")
+                return 1
+        
+        print()
+        print(f"为 {provider} 添加凭证")
+        print()
+        
+        # API Key映射
+        api_key_map = {
+            "deepseek": "DEEPSEEK_API_KEY",
+            "minimax": "MINIMAX_API_KEY",
+            "anthropic": "ANTHROPIC_API_KEY",
+            "openai": "OPENAI_API_KEY",
+            "siliconflow": "SILICONFLOW_API_KEY",
+            "zhipu": "ZHIPU_API_KEY",
+            "qwen": "QWEN_API_KEY",
+        }
+        
+        env_var = api_key_map.get(provider)
+        current_key = os.environ.get(env_var, "") or _load_env_vars().get(env_var, "")
+        
+        if current_key:
+            print(f"当前已配置的密钥: {current_key[:8]}...")
+            print()
+        
+        # 获取新密钥
+        try:
+            from getpass import getpass
+            new_key = getpass("输入新的API密钥 (留空跳过): ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return 1
+        
+        if not new_key:
+            print("未提供新密钥，取消添加。")
+            return 0
+        
+        # 保存到.env
+        env_path = PROJECT_ROOT / ".env"
+        env_vars = _load_env_vars()
+        
+        if env_var:
+            env_vars[env_var] = new_key
+            try:
+                with open(env_path, 'w', encoding='utf-8') as f:
+                    f.write("# MimirAether配置文件\n")
+                    for key, value in env_vars.items():
+                        f.write(f"{key}={value}\n")
+                print(f"✅ 已保存 {env_var} 到 .env")
+            except Exception as e:
+                print(f"❌ 保存失败: {e}")
+                return 1
+        else:
+            print(f"⚠️ {provider} 的环境变量映射未定义，请手动配置")
+            return 1
+        
+        print()
+        return 0
+    
+    # =========================================================================
+    # auth remove - 移除凭证
+    # =========================================================================
+    if action == "remove":
+        provider = provider_filter
+        target = getattr(args, 'auth_target', None)
+        
+        if not provider:
+            print("❌ 请指定provider: python cli.py auth remove <provider> <target>")
+            return 1
+        
+        if not target:
+            print("❌ 请指定要移除的凭证 (索引、ID或label): python cli.py auth remove <provider> <target>")
+            return 1
+        
+        # API Key映射
+        api_key_map = {
+            "deepseek": "DEEPSEEK_API_KEY",
+            "minimax": "MINIMAX_API_KEY",
+            "anthropic": "ANTHROPIC_API_KEY",
+            "openai": "OPENAI_API_KEY",
+            "siliconflow": "SILICONFLOW_API_KEY",
+            "zhipu": "ZHIPU_API_KEY",
+            "qwen": "QWEN_API_KEY",
+        }
+        
+        env_var = api_key_map.get(provider)
+        
+        # 检查是否是环境变量凭证
+        if env_var:
+            env_vars = _load_env_vars()
+            current_key = env_vars.get(env_var, "")
+            
+            if target.lower() in [env_var.lower(), "env", f"env:{env_var}"]:
+                # 移除环境变量凭证
+                if current_key:
+                    env_vars.pop(env_var, None)
+                    env_path = PROJECT_ROOT / ".env"
+                    try:
+                        with open(env_path, 'w', encoding='utf-8') as f:
+                            f.write("# MimirAether配置文件\n")
+                            for key, value in env_vars.items():
+                                f.write(f"{key}={value}\n")
+                        print(f"✅ 已移除 {env_var}")
+                        return 0
+                    except Exception as e:
+                        print(f"❌ 移除失败: {e}")
+                        return 1
+        
+        # 尝试从池中移除
+        try:
+            pool = CredentialPool(provider, auto_seed_env=False)
+            index, matched, error = pool.resolve_target(target)
+            if matched is None or index is None:
+                print(f"❌ {error}")
+                return 1
+            removed = pool.remove_index(index)
+            if removed:
+                print(f"✅ 已移除凭证: {removed.label}")
+                return 0
+            else:
+                print(f"❌ 移除失败")
+                return 1
+        except Exception as e:
+            print(f"❌ 移除失败: {e}")
+            return 1
+    
+    # =========================================================================
+    # auth reset - 重置凭证状态
+    # =========================================================================
+    if action == "reset":
+        provider = provider_filter
+        
+        if not provider:
+            print("❌ 请指定provider: python cli.py auth reset <provider>")
+            return 1
+        
+        try:
+            pool = CredentialPool(provider, auto_seed_env=False)
+            count = pool.reset_all_statuses()
+            print(f"✅ 已重置 {count} 个凭证的冷却状态")
+            return 0
+        except Exception as e:
+            print(f"❌ 重置失败: {e}")
+            return 1
+    
+    # =========================================================================
+    # auth (默认) - 显示凭证状态摘要
+    # =========================================================================
+    print()
+    print("┌" + "─" * 58 + "┐")
+    print("│" + " 🔐 MimirAether Auth ".center(58) + "│")
+    print("└" + "─" * 58 + "┘")
+    
+    # 从环境变量收集凭证状态
+    env_vars = _load_env_vars()
+    
+    api_keys = [
+        ("DeepSeek", "DEEPSEEK_API_KEY"),
+        ("DeepSeek V3", "DEEPSEEK_V3_API_KEY"),
+        ("MiniMax", "MINIMAX_API_KEY"),
+        ("MiniMax V2", "MINIMAX_V2_API_KEY"),
+        ("Anthropic", "ANTHROPIC_API_KEY"),
+        ("OpenAI", "OPENAI_API_KEY"),
+        ("SiliconFlow", "SILICONFLOW_API_KEY"),
+        ("Zhipu", "ZHIPU_API_KEY"),
+        ("Qwen", "QWEN_API_KEY"),
+    ]
+    
+    print()
+    print("◆ API密钥")
+    has_any = False
+    for name, env_var in api_keys:
+        value = os.environ.get(env_var, "") or env_vars.get(env_var, "")
+        if value:
+            has_any = True
+            print(f"  ✅ {name:<14} {redact_key(value)}")
+    
+    if not has_any:
+        print("  (无已配置的API密钥)")
+    
+    # 凭证池状态
+    print()
+    print("◆ 凭证池")
+    
+    pool_dir = PROJECT_ROOT / "credentials"
+    if pool_dir.exists():
+        pool_files = list(pool_dir.glob("*/credential_pool.json"))
+        if pool_files:
+            for pool_file in pool_files:
+                provider_name = pool_file.parent.name
+                print(f"  📦 {provider_name}")
+        else:
+            print("  (无凭证池条目)")
+    else:
+        print("  (凭证池目录不存在)")
+    
+    print()
+    print("─" * 60)
+    print("  使用 'python cli.py auth list' 查看详细信息")
+    print("  使用 'python cli.py auth add <provider>' 添加凭证")
+    print("  使用 'python cli.py auth remove <provider> <target>' 移除凭证")
+    print("  使用 'python cli.py auth reset <provider>' 重置冷却状态")
+    print()
+    
+    return 0
+
+# =============================================================================
 # 命令：logs
 # =============================================================================
 
@@ -1897,6 +2352,11 @@ def main():
     python cli.py marketplace list       列出市场
     python cli.py marketplace add <src>  添加市场
     python cli.py marketplace remove <n> 移除市场
+    python cli.py auth                  凭证管理
+    python cli.py auth list            列出凭证
+    python cli.py auth add <provider>  添加凭证
+    python cli.py auth remove <provider> <target> 移除凭证
+    python cli.py auth reset <provider> 重置冷却状态
     python cli.py -q "改进gdi_scorer"
         """
     )
@@ -2000,6 +2460,24 @@ def main():
             args.marketplace_action = None
             args.source = None
             args.marketplace_name = None
+        
+        # 处理auth子命令 (auth list/add/remove/reset)
+        if args.command == "auth" and args.args:
+            args.auth_action = args.args[0] if args.args else None
+            # auth remove 和 auth reset 需要provider
+            if args.auth_action in ("remove", "reset") and len(args.args) > 1:
+                args.auth_provider = args.args[1]
+                args.auth_target = args.args[2] if len(args.args) > 2 else None
+            elif args.auth_action == "add" and len(args.args) > 1:
+                args.auth_provider = args.args[1]
+                args.auth_target = None
+            else:
+                args.auth_provider = None
+                args.auth_target = None
+        else:
+            args.auth_action = None
+            args.auth_provider = None
+            args.auth_target = None
     else:
         args.action = None
         args.add = None
@@ -2021,6 +2499,9 @@ def main():
         args.marketplace_action = None
         args.source = None
         args.marketplace_name = None
+        args.auth_action = None
+        args.auth_provider = None
+        args.auth_target = None
     
     # 处理命令
     if args.command == "status":
@@ -2047,6 +2528,8 @@ def main():
         return cmd_plugins(args)
     elif args.command == "marketplace":
         return cmd_marketplace(args)
+    elif args.command == "auth":
+        return cmd_auth(args)
     elif args.query:
         return asyncio.run(run_task(args.query, args.model, args.max_iterations, args.verbose))
     else:
