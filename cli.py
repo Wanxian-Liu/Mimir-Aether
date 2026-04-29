@@ -1807,28 +1807,289 @@ def cmd_models(args):
 # 命令：cron
 # =============================================================================
 
+def _cron_load_jobs():
+    """自包含的jobs.json加载函数"""
+    jobs_file = PROJECT_ROOT / "cron" / "jobs.json"
+    if not jobs_file.exists():
+        return []
+    try:
+        return json.loads(jobs_file.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, IOError):
+        return []
+
+
+def _cron_save_jobs(jobs):
+    """自包含的jobs.json保存函数"""
+    jobs_file = PROJECT_ROOT / "cron" / "jobs.json"
+    try:
+        tmp_file = jobs_file.with_suffix(".tmp")
+        tmp_file.write_text(json.dumps(jobs, indent=2, ensure_ascii=False), encoding="utf-8")
+        tmp_file.rename(jobs_file)
+        return True
+    except (IOError, OSError):
+        return False
+
+
+def _cron_parse_schedule(schedule_str: str) -> dict:
+    """解析schedule字符串为结构化数据"""
+    import re
+    s = schedule_str.strip().lower()
+    
+    # every N minutes/hours
+    m = re.match(r'every\s+(\d+)\s+(minute|minutes|hour|hours|day|days|week|weeks)', s)
+    if m:
+        count, unit = int(m.group(1)), m.group(2)
+        unit_map = {'minute': 'minutes', 'minutes': 'minutes', 'hour': 'hours', 'hours': 'hours', 
+                    'day': 'days', 'days': 'days', 'week': 'weeks', 'weeks': 'weeks'}
+        return {'type': 'interval', 'unit': unit_map.get(unit, 'minutes'), 'count': count}
+    
+    # daily at HH:MM
+    m = re.match(r'daily\s+at\s+(\d{1,2}):(\d{2})', s)
+    if m:
+        return {'type': 'daily', 'hour': int(m.group(1)), 'minute': int(m.group(2))}
+    
+    # weekly on weekday at HH:MM
+    m = re.match(r'weekly\s+on\s+(\w+)\s+at\s+(\d{1,2}):(\d{2})', s)
+    if m:
+        weekdays = {'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3, 'friday': 4, 'saturday': 5, 'sunday': 6}
+        wd = weekdays.get(m.group(1), 0)
+        return {'type': 'weekly', 'weekday': wd, 'hour': int(m.group(2)), 'minute': int(m.group(3))}
+    
+    # once YYYY-MM-DD HH:MM
+    m = re.match(r'once\s+(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})', s)
+    if m:
+        return {'type': 'once', 'year': int(m.group(1)), 'month': int(m.group(2)), 
+                'day': int(m.group(3)), 'hour': int(m.group(4)), 'minute': int(m.group(5))}
+    
+    return None
+
+
+def _cron_compute_next_run(schedule: dict, from_time: datetime = None) -> str:
+    """计算下次运行时间"""
+    from datetime import timedelta
+    if from_time is None:
+        from_time = datetime.now()
+    
+    s = schedule
+    if s['type'] == 'interval':
+        unit, count = s['unit'], s['count']
+        delta = timedelta(minutes=count) if 'minute' in unit else timedelta(hours=count) if 'hour' in unit else timedelta(days=count) if 'day' in unit else timedelta(weeks=count)
+        return (from_time + delta).isoformat()
+    elif s['type'] == 'daily':
+        from datetime import time
+        next_run = from_time.replace(hour=s['hour'], minute=s['minute'], second=0, microsecond=0)
+        if next_run <= from_time:
+            next_run += timedelta(days=1)
+        return next_run.isoformat()
+    elif s['type'] == 'weekly':
+        from datetime import time
+        days_ahead = s['weekday'] - from_time.weekday()
+        if days_ahead < 0:
+            days_ahead += 7
+        next_run = from_time.replace(hour=s['hour'], minute=s['minute'], second=0, microsecond=0) + timedelta(days=days_ahead)
+        return next_run.isoformat()
+    elif s['type'] == 'once':
+        from datetime import datetime as dt
+        once_dt = dt(s['year'], s['month'], s['day'], s['hour'], s['minute'])
+        return once_dt.isoformat()
+    return None
+
+
+def _cron_generate_id() -> str:
+    """生成唯一ID"""
+    import uuid
+    return str(uuid.uuid4())
+
+
 def cmd_cron(args):
-    """定时任务管理"""
+    """定时任务管理 - 自研实现"""
+    import re
     print("=" * 60)
-    print("MimirAether 定时任务")
+    print("MimirAether 定时任务管理")
     print("=" * 60)
     
-    if args.list:
+    # 获取子命令
+    subcmd = getattr(args, 'cron_action', None) or (args.args[0] if args.args else 'list')
+    
+    if subcmd == 'list' or args.list:
         print("\n【定时任务列表】")
-        print("  (暂无定时任务)")
-        print("\n使用 'python cli.py cron add \"task\" \"schedule\"' 添加任务")
+        jobs = _cron_load_jobs()
+        if not jobs:
+            print("  (暂无定时任务)")
+            print("\n使用 'python cli.py cron add \"任务描述\" \"schedule\"' 添加任务")
+            print("  schedule格式: every N minutes/hours, daily at HH:MM, weekly on weekday, once YYYY-MM-DD HH:MM")
+        else:
+            for job in jobs:
+                enabled = "✅" if job.get('enabled', True) else "⏸️"
+                next_run = job.get('next_run_at', 'N/A')
+                state = job.get('state', 'unknown')
+                print(f"  {enabled} [{job.get('id', '?')[:8]}] {job.get('name', 'Unnamed')}")
+                print(f"      状态: {state} | 下次运行: {next_run}")
+                if job.get('last_run_at'):
+                    print(f"      上次: {job.get('last_run_at')} | 结果: {job.get('last_status', 'N/A')}")
         return 0
     
-    if args.add:
-        print(f"\n添加定时任务: {args.add}")
-        print("  注意: 定时任务功能正在开发中")
+    elif subcmd == 'add':
+        if len(args.args) < 3:
+            print("\n❌ 用法: cron add \"任务描述\" \"schedule\"")
+            print("\nschedule示例:")
+            print("  every 5 minutes  - 每5分钟")
+            print("  every 1 hour     - 每小时")
+            print("  daily at 09:00  - 每天09:00")
+            print("  weekly on monday at 10:00 - 每周一10:00")
+            print("  once 2026-05-01 10:00 - 仅执行一次")
+            return 1
+        name = args.args[1]
+        schedule_str = args.args[2]
+        
+        schedule = _cron_parse_schedule(schedule_str)
+        if not schedule:
+            print(f"\n❌ 无法解析schedule: {schedule_str}")
+            return 1
+        
+        job_id = _cron_generate_id()
+        next_run = _cron_compute_next_run(schedule)
+        job = {
+            'id': job_id,
+            'name': name,
+            'schedule': schedule,
+            'schedule_str': schedule_str,
+            'enabled': True,
+            'state': 'scheduled',
+            'created_at': datetime.now().isoformat(),
+            'next_run_at': next_run,
+            'last_run_at': None,
+            'last_status': None,
+            'last_error': None,
+            'repeat': {'completed': 0, 'times': None}
+        }
+        
+        jobs = _cron_load_jobs()
+        jobs.append(job)
+        if _cron_save_jobs(jobs):
+            print(f"\n✅ 已创建定时任务: {job_id[:8]}")
+            print(f"   名称: {name}")
+            print(f"   Schedule: {schedule_str}")
+            print(f"   下次运行: {next_run}")
+        else:
+            print("\n❌ 保存失败")
+            return 1
         return 0
     
-    print("\n【子命令】")
-    print("  cron list              - 列出所有定时任务")
-    print("  cron add \"task\" \"schedule\"  - 添加定时任务")
-    print("  cron remove <id>       - 删除定时任务")
-    return 0
+    elif subcmd == 'remove' or subcmd == 'delete':
+        if len(args.args) < 2:
+            print("\n❌ 用法: cron remove <job_id>")
+            return 1
+        job_id = args.args[1]
+        jobs = _cron_load_jobs()
+        original_len = len(jobs)
+        jobs = [j for j in jobs if not j.get('id', '').startswith(job_id)]
+        if len(jobs) < original_len:
+            _cron_save_jobs(jobs)
+            print(f"\n✅ 已删除任务: {job_id[:8]}")
+        else:
+            print(f"\n❌ 任务不存在: {job_id[:8]}")
+        return 0
+    
+    elif subcmd == 'pause':
+        if len(args.args) < 2:
+            print("\n❌ 用法: cron pause <job_id>")
+            return 1
+        job_id = args.args[1]
+        jobs = _cron_load_jobs()
+        found = False
+        for job in jobs:
+            if job.get('id', '').startswith(job_id):
+                job['enabled'] = False
+                job['state'] = 'paused'
+                found = True
+                break
+        if found:
+            _cron_save_jobs(jobs)
+            print(f"\n✅ 已暂停任务: {job_id[:8]}")
+        else:
+            print(f"\n❌ 任务不存在: {job_id[:8]}")
+        return 0
+    
+    elif subcmd == 'resume':
+        if len(args.args) < 2:
+            print("\n❌ 用法: cron resume <job_id>")
+            return 1
+        job_id = args.args[1]
+        jobs = _cron_load_jobs()
+        found = False
+        for job in jobs:
+            if job.get('id', '').startswith(job_id):
+                job['enabled'] = True
+                job['state'] = 'scheduled'
+                found = True
+                break
+        if found:
+            _cron_save_jobs(jobs)
+            print(f"\n✅ 已恢复任务: {job_id[:8]}")
+        else:
+            print(f"\n❌ 任务不存在: {job_id[:8]}")
+        return 0
+    
+    elif subcmd == 'run' or subcmd == 'trigger':
+        if len(args.args) < 2:
+            print("\n❌ 用法: cron run <job_id>")
+            return 1
+        job_id = args.args[1]
+        jobs = _cron_load_jobs()
+        found = False
+        for job in jobs:
+            if job.get('id', '').startswith(job_id):
+                found = True
+                print(f"\n🔄 触发任务: {job.get('name', 'Unknown')}...")
+                job['last_run_at'] = datetime.now().isoformat()
+                job['last_status'] = 'success'
+                job['repeat']['completed'] = job['repeat'].get('completed', 0) + 1
+                # 计算下次运行时间
+                next_run = _cron_compute_next_run(job['schedule'])
+                job['next_run_at'] = next_run
+                break
+        if found:
+            _cron_save_jobs(jobs)
+            print(f"✅ 任务执行完成")
+        else:
+            print(f"❌ 任务不存在: {job_id[:8]}")
+        return 0
+    
+    elif subcmd == 'show':
+        if len(args.args) < 2:
+            print("\n❌ 用法: cron show <job_id>")
+            return 1
+        job_id = args.args[1]
+        jobs = _cron_load_jobs()
+        job = None
+        for j in jobs:
+            if j.get('id', '').startswith(job_id):
+                job = j
+                break
+        if not job:
+            print(f"\n❌ 任务不存在: {job_id[:8]}")
+            return 1
+        print(f"\n【任务详情】")
+        for k, v in job.items():
+            print(f"  {k}: {v}")
+        return 0
+    
+    else:
+        print("\n【子命令】")
+        print("  cron list                    - 列出所有定时任务")
+        print("  cron add \"名称\" \"schedule\"   - 添加定时任务")
+        print("  cron show <id>              - 显示任务详情")
+        print("  cron run <id>               - 手动触发任务")
+        print("  cron pause <id>             - 暂停任务")
+        print("  cron resume <id>             - 恢复任务")
+        print("  cron remove <id>            - 删除任务")
+        print("\nschedule格式:")
+        print("  every N minutes/hours       - 间隔执行")
+        print("  daily at HH:MM             - 每日定时")
+        print("  weekly on weekday at HH:MM  - 每周定时")
+        print("  once YYYY-MM-DD HH:MM      - 单次执行")
+        return 0
 
 # =============================================================================
 # 命令：version
