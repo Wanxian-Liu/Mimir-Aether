@@ -3340,37 +3340,230 @@ def cmd_auth(args):
 
 
 def cmd_logs(args):
-    """查看日志"""
+    """日志管理 - 自研实现"""
     print("=" * 60)
-    print("MimirAether 日志")
+    print("MimirAether 日志管理")
     print("=" * 60)
+    
+    # 获取子命令
+    subcmd = getattr(args, 'logs_action', None) or (args.args[0] if args.args else 'list')
     
     log_dir = PROJECT_ROOT / "logs"
     if not log_dir.exists():
-        print(f"\n日志目录不存在: {log_dir}")
+        log_dir.mkdir(parents=True, exist_ok=True)
+    
+    def get_all_logs():
+        """获取所有日志文件"""
+        logs = []
+        for ext in ["*.log", "*.txt", "*.out"]:
+            logs.extend(log_dir.glob(ext))
+        return sorted(logs)
+    
+    if subcmd == 'list' or subcmd == 'ls':
+        print("\n【日志文件列表】")
+        log_files = get_all_logs()
+        if not log_files:
+            print("  (暂无日志文件)")
+        else:
+            total_size = 0
+            for log_file in log_files:
+                size = log_file.stat().st_size
+                total_size += size
+                mtime = datetime.fromtimestamp(log_file.stat().st_mtime)
+                print(f"  {log_file.name} ({size:,} bytes, {mtime.strftime('%Y-%m-%d %H:%M')})")
+            print(f"\n  共 {len(log_files)} 个文件, 总计 {total_size:,} bytes")
         return 0
     
-    log_files = list(log_dir.glob("*.log"))
-    if not log_files:
-        print("\n暂无日志文件")
-        return 0
-    
-    print(f"\n【日志文件】(共 {len(log_files)} 个)")
-    for log_file in sorted(log_files)[-10:]:
-        size = log_file.stat().st_size
-        mtime = datetime.fromtimestamp(log_file.stat().st_mtime)
-        print(f"  {log_file.name} ({size} bytes, {mtime.strftime('%Y-%m-%d %H:%M')})")
-    
-    if args.tail:
-        print(f"\n【最后 {args.tail} 行】")
-        if log_files:
-            latest = sorted(log_files)[-1]
-            with open(latest) as f:
-                lines = f.readlines()
-                for line in lines[-args.tail:]:
+    elif subcmd == 'tail':
+        lines = getattr(args, 'tail', 50)
+        # 如果args.tail存在且是数字
+        if args.tail and isinstance(args.tail, int):
+            lines = args.tail
+        
+        log_files = get_all_logs()
+        if not log_files:
+            print("\n暂无日志文件")
+            return 0
+        
+        # 可以指定具体文件
+        filename = args.args[1] if len(args.args) > 1 else None
+        if filename:
+            log_file = log_dir / filename
+            if not log_file.exists():
+                print(f"\n❌ 文件不存在: {filename}")
+                return 1
+        else:
+            log_file = sorted(log_files)[-1]
+        
+        print(f"\n【{log_file.name} - 最后 {lines} 行】")
+        try:
+            with open(log_file, encoding='utf-8', errors='replace') as f:
+                all_lines = f.readlines()
+                for line in all_lines[-lines:]:
                     print(line.rstrip())
+        except Exception as e:
+            print(f"❌ 读取失败: {e}")
+        return 0
     
-    return 0
+    elif subcmd == 'cat' or subcmd == 'show':
+        if len(args.args) < 2:
+            print("\n❌ 用法: logs show <filename>")
+            return 1
+        filename = args.args[1]
+        log_file = log_dir / filename
+        if not log_file.exists():
+            print(f"\n❌ 文件不存在: {filename}")
+            return 1
+        
+        # 支持分页
+        PAGE_SIZE = 100
+        try:
+            with open(log_file, encoding='utf-8', errors='replace') as f:
+                all_lines = f.readlines()
+            
+            total = len(all_lines)
+            print(f"\n【{filename} - 共 {total} 行】")
+            
+            start = 0
+            while start < total:
+                end = min(start + PAGE_SIZE, total)
+                for line in all_lines[start:end]:
+                    print(line.rstrip())
+                
+                if end >= total:
+                    break
+                
+                print(f"\n--- 第 {start+1}-{end} 行, 按回车继续 ---")
+                input()
+                start = end
+        except Exception as e:
+            print(f"❌ 读取失败: {e}")
+        return 0
+    
+    elif subcmd == 'grep':
+        if len(args.args) < 2:
+            print("\n❌ 用法: logs grep <pattern> [filename]")
+            return 1
+        
+        pattern = args.args[1]
+        filename = args.args[2] if len(args.args) > 2 else None
+        
+        import re
+        try:
+            regex = re.compile(pattern, re.IGNORECASE)
+        except re.error as e:
+            print(f"\n❌ 无效的正则表达式: {e}")
+            return 1
+        
+        log_files = [log_dir / filename] if filename else get_all_logs()
+        matches = 0
+        
+        for lf in log_files:
+            if not lf.exists():
+                continue
+            try:
+                with open(lf, encoding='utf-8', errors='replace') as f:
+                    for lineno, line in enumerate(f, 1):
+                        if regex.search(line):
+                            matches += 1
+                            print(f"{lf.name}:{lineno}: {line.rstrip()}")
+            except Exception as e:
+                print(f"⚠️ 读取 {lf.name} 失败: {e}")
+        
+        print(f"\n共找到 {matches} 处匹配")
+        return 0
+    
+    elif subcmd == 'clear' or subcmd == 'clean':
+        log_files = get_all_logs()
+        if not log_files:
+            print("\n暂无日志文件需要清理")
+            return 0
+        
+        # 确认删除
+        confirm = getattr(args, 'yes', False) or getattr(args, 'f', False)
+        if not confirm:
+            print(f"\n⚠️ 将删除 {len(log_files)} 个日志文件, 确定吗? (y/N)")
+            response = input().strip().lower()
+            if response != 'y':
+                print("取消操作")
+                return 0
+        
+        deleted = 0
+        for log_file in log_files:
+            try:
+                log_file.unlink()
+                deleted += 1
+            except Exception as e:
+                print(f"⚠️ 删除 {log_file.name} 失败: {e}")
+        
+        print(f"\n✅ 已删除 {deleted} 个日志文件")
+        return 0
+    
+    elif subcmd == 'size':
+        log_files = get_all_logs()
+        if not log_files:
+            print("\n暂无日志文件")
+            return 0
+        
+        print("\n【日志文件大小统计】")
+        sizes = []
+        for log_file in log_files:
+            size = log_file.stat().st_size
+            sizes.append((log_file.name, size))
+        
+        sizes.sort(key=lambda x: x[1], reverse=True)
+        for name, size in sizes:
+            if size < 1024:
+                size_str = f"{size} B"
+            elif size < 1024 * 1024:
+                size_str = f"{size/1024:.1f} KB"
+            else:
+                size_str = f"{size/(1024*1024):.1f} MB"
+            print(f"  {name}: {size_str}")
+        
+        total = sum(s[1] for s in sizes)
+        print(f"\n  总计: {total/(1024*1024):.2f} MB")
+        return 0
+    
+    elif subcmd == 'watch':
+        if len(args.args) < 2:
+            filename = sorted(get_all_logs())[-1].name if get_all_logs() else None
+            if not filename:
+                print("\n❌ 暂无日志文件")
+                return 1
+        else:
+            filename = args.args[1]
+        
+        log_file = log_dir / filename
+        if not log_file.exists():
+            print(f"\n❌ 文件不存在: {filename}")
+            return 1
+        
+        print(f"\n【监控 {filename} - Ctrl+C 退出】")
+        try:
+            with open(log_file, encoding='utf-8', errors='replace') as f:
+                f.seek(0, 2)  # 跳到末尾
+                while True:
+                    line = f.readline()
+                    if line:
+                        print(line.rstrip())
+                    else:
+                        import time
+                        time.sleep(0.5)
+        except KeyboardInterrupt:
+            print("\n\n已停止监控")
+        return 0
+    
+    else:
+        print("\n【子命令】")
+        print("  logs list                 - 列出所有日志文件")
+        print("  logs tail [n] [filename] - 查看最后n行(默认50)")
+        print("  logs show <filename>      - 查看完整日志(分页)")
+        print("  logs grep <pattern> [f]   - 搜索日志内容")
+        print("  logs size                 - 查看日志大小统计")
+        print("  logs clear                - 清理所有日志")
+        print("  logs watch [filename]    - 实时监控日志")
+        return 0
 
 # =============================================================================
 # 交互模式
