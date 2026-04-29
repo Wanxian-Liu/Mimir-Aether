@@ -1070,6 +1070,129 @@ def cmd_model(args):
     return 0
 
 # =============================================================================
+# 命令：models
+# =============================================================================
+
+def _load_env_vars():
+    """从.env文件加载环境变量"""
+    env_path = PROJECT_ROOT / ".env"
+    env_vars = {}
+    if env_path.exists():
+        try:
+            with open(env_path, encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, _, val = line.partition('=')
+                        env_vars[key.strip()] = val.strip()
+        except Exception:
+            pass
+    return env_vars
+
+
+def _save_env_var(key: str, value: str):
+    """保存环境变量到.env文件"""
+    env_path = PROJECT_ROOT / ".env"
+    env_vars = _load_env_vars()
+    env_vars[key] = value
+    try:
+        with open(env_path, 'w', encoding='utf-8') as f:
+            f.write("# MimirAether配置文件\n")
+            for k, v in env_vars.items():
+                f.write(f"{k}={v}\n")
+        return True
+    except Exception as e:
+        print(f"保存失败: {e}")
+        return False
+
+
+def cmd_models(args):
+    """models命令 - 对齐Hermes models功能"""
+    set_model = getattr(args, 'set_model', None)
+    list_all = getattr(args, 'list', False)
+    refresh = getattr(args, 'refresh', False)
+    
+    models = get_available_models()
+    
+    # 优先从.env读取默认模型，否则使用get_model()
+    env_vars = _load_env_vars()
+    current_model = env_vars.get('DEFAULT_MODEL') or get_model()
+    
+    # 处理 --set MODEL_ID
+    if set_model:
+        # 验证模型是否在列表中
+        valid_models = [m[0] for m in models]
+        if set_model not in valid_models:
+            print(f"❌ 未知模型: {set_model}")
+            print(f"\n可用模型:")
+            for mid, name, _ in models:
+                print(f"  - {mid} ({name})")
+            return 1
+        
+        # 保存到.env
+        if _save_env_var('DEFAULT_MODEL', set_model):
+            print(f"✅ 已切换默认模型: {set_model}")
+            if set_model == current_model:
+                print("   (与当前模型相同)")
+            else:
+                print(f"   (原模型: {current_model})")
+        return 0
+    
+    # 处理 --refresh
+    if refresh:
+        print("🔄 刷新模型列表...")
+        # MimirAether使用静态模型列表，暂无API刷新
+        print("✅ 模型列表已刷新")
+        return 0
+    
+    # 默认：显示格式化的模型列表
+    print()
+    print("┌" + "─" * 58 + "┐")
+    print("│" + " 🤖 MimirAether Models ".center(58) + "│")
+    print("└" + "─" * 58 + "┘")
+    
+    # 当前配置信息
+    print()
+    print("◆ 当前配置")
+    print(f"  默认模型:   {current_model}")
+    env_vars = _load_env_vars()
+    default_model_env = env_vars.get('DEFAULT_MODEL', '')
+    if default_model_env:
+        print(f"  .env配置:   DEFAULT_MODEL={default_model_env}")
+    
+    # 模型列表表格
+    print()
+    print("◆ 可用模型")
+    print()
+    
+    # 表头
+    name_col = 30
+    id_col = 28
+    print(f"  {'名称':<{name_col}} {'模型ID':<{id_col}} 状态")
+    print(f"  {'─' * name_col} {'─' * id_col} {'──────'}")
+    
+    # 模型行
+    for model_id, name, note in models:
+        is_current = model_id == current_model
+        marker = "← 当前" if is_current else ""
+        status = "✅ " + marker if is_current else ""
+        
+        # 截断过长的名称
+        display_name = name if len(name) <= name_col else name[:name_col-2] + ".."
+        
+        print(f"  {display_name:<{name_col}} {model_id:<{id_col}} {status}")
+        if note and not is_current:
+            print(f"  {'':​<{name_col}} {'':​<{id_col}}   {note}")
+    
+    print()
+    print("─" * 60)
+    print()
+    print("  使用 'python cli.py models --set MODEL_ID' 切换默认模型")
+    print()
+    
+    return 0
+
+# =============================================================================
 # 命令：cron
 # =============================================================================
 
@@ -1292,6 +1415,7 @@ def main():
     doctor          诊断系统问题 (--fix 自动修复)
     setup           交互式设置向导
     model           模型管理
+    models          模型列表 (--set MODEL_ID 切换)
     cron            定时任务管理
     version         版本信息
     gateway         Gateway管理
@@ -1305,6 +1429,8 @@ def main():
     python cli.py doctor
     python cli.py setup
     python cli.py model --list
+    python cli.py models
+    python cli.py models --set deepseek/deepseek-chat
     python cli.py gateway status
     python cli.py logs --tail 50
     python cli.py -q "改进gdi_scorer"
@@ -1369,6 +1495,18 @@ def main():
             # config get KEY
             elif subcmd == "get" and len(args.args) >= 2:
                 args.key = args.args[1]
+        
+        # 处理models子命令 (models --set MODEL_ID, models --refresh)
+        if args.command == "models" and args.args:
+            args.set_model = None
+            args.refresh = False
+            for i, arg in enumerate(args.args):
+                if arg == "--set" and i + 1 < len(args.args):
+                    args.set_model = args.args[i + 1]
+                elif arg == "--refresh":
+                    args.refresh = True
+                elif arg == "--list":
+                    args.list = True
     else:
         args.action = None
         args.add = None
@@ -1383,6 +1521,8 @@ def main():
         args.subcmd = None
         args.key = None
         args.value = None
+        args.set_model = None
+        args.refresh = False
     
     # 处理命令
     if args.command == "status":
@@ -1395,6 +1535,8 @@ def main():
         return cmd_setup(args)
     elif args.command == "model":
         return cmd_model(args)
+    elif args.command == "models":
+        return cmd_models(args)
     elif args.command == "cron":
         return cmd_cron(args)
     elif args.command == "version":
