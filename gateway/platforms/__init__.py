@@ -8,13 +8,13 @@ Each adapter inherits from BasePlatformAdapter and implements the required metho
 from .base import BasePlatformAdapter
 
 # Import available platform adapters
+_import_errors = {}
+
 try:
     from .telegram_adapter import TelegramAdapter
 except ImportError as e:
     TelegramAdapter = None
-    _import_errors = {"telegram": str(e)}
-else:
-    _import_errors = {}
+    _import_errors["telegram"] = str(e)
 
 try:
     from .discord_adapter import DiscordAdapter
@@ -28,6 +28,18 @@ except ImportError as e:
     FeishuAdapter = None
     _import_errors["feishu"] = str(e)
 
+try:
+    from .whatsapp import WhatsAppAdapter
+except ImportError as e:
+    WhatsAppAdapter = None
+    _import_errors["whatsapp"] = str(e)
+
+try:
+    from .homeassistant import HomeAssistantAdapter
+except ImportError as e:
+    HomeAssistantAdapter = None
+    _import_errors["homeassistant"] = str(e)
+
 
 def get_adapter(name: str):
     """Get a platform adapter by name."""
@@ -36,6 +48,10 @@ def get_adapter(name: str):
         "discord": DiscordAdapter,
         "feishu": FeishuAdapter,
         "lark": FeishuAdapter,  # Alias
+        "whatsapp": WhatsAppAdapter,
+        "homeassistant": HomeAssistantAdapter,
+        "home_assistant": HomeAssistantAdapter,  # Alias
+        "ha": HomeAssistantAdapter,  # Alias
     }
     adapter = adapters.get(name.lower())
     if adapter is None:
@@ -48,7 +64,9 @@ def get_adapter(name: str):
 __all__ = [
     "BasePlatformAdapter",
     "TelegramAdapter",
-    "DiscordAdapter", 
+    "DiscordAdapter",
     "FeishuAdapter",
+    "WhatsAppAdapter",
+    "HomeAssistantAdapter",
     "get_adapter",
 ]
