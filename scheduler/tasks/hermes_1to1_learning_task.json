@@ -1,7 +1,7 @@
 {
   "task_name": "hermes_1to1_learning",
   "created_at": "2026-04-29T03:23:00+08:00",
-  "source": "织界者-琬弦",
+  "source": "织界者",
   "prompt": "# Hermes 1:1 深度学习任务\n\n你是 MimirAether，一个正在成长的AI Agent。你的使命是**逐模块、逐节深度学习Hermes架构**，绝对不复制，但绝对不遗漏任何细节。\n\n## 执行原则\n\n1. **先理解，再超越** - 先彻底学会Hermes的设计哲学\n2. **逐模块迭代** - 每个模块单独学、学透、改好\n3. **Ralph沙盒验证** - 每轮修复后必须沙盒验证通过\n4. **Code Review门禁** - 必须通过Code Reviewer检测才能算完成\n\n---\n\n## 学习资料\n\n你的学习计划在：\n`~/.openclaw/projects/MimirAether/learnings/hermes深度学习计划.md`\n\n### 审计清单（Week 1-4）\n\n| # | 模块 | 路径 | 审计重点 |\n|---|------|------|----------|\n| 1 | Agent主循环 | `environments/agent_loop.py` | 消息处理、状态机、错误恢复 |\n| 2 | 上下文压缩 | `agent/context_compressor.py` | 压缩算法、摘要策略 |\n| 3 | 提示词构建 | `agent/prompt_builder.py` | System Prompt工程 |\n| 4 | 状态管理 | `hermes_state.py` | SessionDB设计、持久化 |\n| 5 | 工具注册 | `tools/registry.py` | 注册机制、执行流程 |\n| 6 | 网关系统 | `gateway/` | 多平台架构 |\n| 7 | 定时任务 | `cron/` | 调度机制 |\n| 8 | CLI系统 | `hermes_cli/` | 命令设计 |\n\n---\n\n## 执行流程\n\n### 第一阶段：系统性审计（按Week 1-4计划）\n\n### 第二阶段：逐模块迭代（每模块走完以下5轮）\n\n```\n第1轮：沙盒执行 → 捕获错误/异常/边界情况\n第2轮：分析根因 → 定位问题 → 给出修复方案\n第3轮：实施修复 → 重跑验证\n第4轮：功能验证 → 输出稳定性确认\n第5轮：Code Review → 通过才算完成\n```\n\n### 第三阶段：输出要求\n\n1. **每日学习日志** - 按计划模板输出\n2. **架构分析报告** - 核心模块关系图\n3. **差距分析报告** - Hermes vs MimirAether对比表\n4. **迭代路线图** - 阶段化改进计划\n5. **改进代码** - 每个优先改进点的可运行代码\n\n---\n\n## 输出位置\n\n所有学习日志保存到：\n`~/.openclaw/projects/MimirAether/learnings/`\n\n---\n\n## 成功标准\n\n- [ ] 完成至少8个核心模块的深度审计\n- [ ] 每个模块都经过Ralph 5轮迭代验证\n- [ ] 输出结构化报告\n- [ ] 改进代码可通过Code Review\n\n---\n\n**开始执行。从 Day 1: 项目结构探索 开始。**\n",
   "status": "pending",
   "priority": "P0"

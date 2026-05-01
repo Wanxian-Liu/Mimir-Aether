@@ -1,7 +1,7 @@
 # 深度自研改造方案 - Hermes残留依赖替换
 
 > 分析日期: 2026-04-27
-> QA Lead: 琬弦 (subagent)
+> QA Lead: 织界者 (subagent)
 > 项目: MimirAether深度自研改造
 
 ---
@@ -192,4 +192,4 @@ EOF
 
 ---
 
-*QA Lead: 琬弦 | 2026-04-27*
+*QA Lead: 织界者 | 2026-04-27*

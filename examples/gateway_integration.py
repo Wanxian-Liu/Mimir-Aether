@@ -118,8 +118,8 @@ async def demo():
     print("=== Gateway Integration Demo ===\n")
     
     # 第一轮
-    response1 = await gateway.handle_message("你好，我是刘哥", session_id="user_1")
-    print(f"User: 你好，我是刘哥")
+    response1 = await gateway.handle_message("你好，我是负责人", session_id="user_1")
+    print(f"User: 你好，我是负责人")
     print(f"Agent: {response1}\n")
     
     # 第二轮（带历史）

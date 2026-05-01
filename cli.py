@@ -1719,6 +1719,12 @@ def _save_env_var(key: str, value: str):
 
 def cmd_models(args):
     """models命令 - 对齐Hermes models功能"""
+    if getattr(args, "models_set_missing_value", False):
+        print("❌ --set 需要模型 ID")
+        print("   示例: python cli.py models --set deepseek-chat")
+        print("   使用 'python cli.py models' 查看可用模型。")
+        return 1
+
     set_model = getattr(args, 'set_model', None)
     list_all = getattr(args, 'list', False)
     refresh = getattr(args, 'refresh', False)
@@ -5523,11 +5529,14 @@ def main():
             args.refresh = False
             for i, arg in enumerate(args.args):
                 if arg == "--set" and i + 1 < len(args.args):
-                    args.set_model = args.args[i + 1]
+                    nxt = args.args[i + 1]
+                    if not str(nxt).startswith("-"):
+                        args.set_model = nxt
                 elif arg == "--refresh":
                     args.refresh = True
                 elif arg == "--list":
                     args.list = True
+            args.models_set_missing_value = "--set" in args.args and args.set_model is None
         
         # 处理plugins子命令 (plugins list/install/uninstall/enable/disable/update)
         if args.command == "plugins" and args.args:
@@ -5643,6 +5652,7 @@ def main():
         args.value = None
         args.set_model = None
         args.refresh = False
+        args.models_set_missing_value = False
         args.plugin_action = None
         args.plugin_name = None
         args.marketplace_action = None
@@ -5659,6 +5669,14 @@ def main():
         args.json = False
     
     # 处理命令
+    if args.query and args.command:
+        print("❌ 不能同时使用单次任务模式 (-q/--query) 与显式子命令。")
+        print(f"   当前子命令: {args.command}")
+        print("   请二选一，例如:")
+        print('     python cli.py -q "你的任务"')
+        print("     python cli.py version")
+        return 1
+
     if args.command == "status":
         return cmd_status(args)
     elif args.command == "config":

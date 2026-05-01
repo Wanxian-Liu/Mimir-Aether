@@ -18,12 +18,12 @@
 
 | 行为面 | 对应用例（G2 / G3 / ext） | 说明 |
 |--------|---------------------------|------|
-| **输入语义**（同类输入 → 同类分支：工具 / 错误 / 终止） | G2: `agent/test_agent_loop.py::test_basic_conversation`, `test_single_tool_call`, `test_unknown_tool`, `test_tool_execution_error`, `test_api_call_failure`, `test_max_turns`; `agent/test_agent_loop_edge.py::test_multi_tool_in_single_turn`, `test_json_parse_error`, `test_no_handler_registered`, `test_max_turns_enforced`, `test_no_tools_agent`, `test_batch_register`; G3: `agent/test_tier1_e2e_agent.py::test_tier1_plain_assistant_reply`, `test_tier1_tool_call_then_final_reply` | 覆盖无工具、单/多工具、未知工具、执行失败、API 失败、预算截断；Tier-1 覆盖 `core_loop.run_conversation` 主路径 |
+| **输入语义**（同类输入 → 同类分支：工具 / 错误 / 终止） | G2: `agent/test_agent_loop.py::test_basic_conversation`, `test_single_tool_call`, `test_unknown_tool`, `test_tool_execution_error`, `test_api_call_failure`, `test_max_turns`; `agent/test_agent_loop_edge.py::test_multi_tool_in_single_turn`, `test_json_parse_error`, `test_no_handler_registered`, `test_max_turns_enforced`, `test_no_tools_agent`, `test_batch_register`; G3: `agent/test_tier1_e2e_agent.py::test_tier1_plain_assistant_reply`, `test_tier1_tool_call_then_final_reply` | 覆盖无工具、单/多工具、未知工具、执行失败、API 失败、预算截断；Tier-1 覆盖 `core_loop.run_conversation` 主路径。**Hermes 桩级等价**：`hermes-agent/tests/run_agent/test_agent_loop.py::TestHermesAgentLoop`（见 `docs/hermes_mimir_behavior_matrix.md` **H19**） |
 | **输出语义**（文案可不同，含义一致） | 与上列相同；断言侧重最终 role=assistant 内容或 tool 消息结构 | 未单独拆测试文件；依赖各用例内的 assert |
-| **错误语义**（未知工具、JSON 错误、无 handler 等） | G2: `test_unknown_tool`, `test_json_parse_error`, `test_no_handler_registered`, `test_tool_execution_error`, `test_api_call_failure`; `agent/test_agent_loop_edge.py::test_malformed_tool_call_empty_name_is_unknown_tool`; `agent/test_delegate_subagent_semantics.py::test_delegate_task_unknown_agent_marks_failed`; `agent/test_cli_arg_boundaries.py`；`agent/test_write_file_arg_repair.py`（`write_file` 字符串参数修复） | — |
-| **轮次语义**（`max_turns` / 预算耗尽） | G2: `test_max_turns`, `test_max_turns_enforced`, `agent/test_turn_loop_budget.py::test_turn_manager_budget_exhausted_skips_chat` | `agent_loop` 与 `turn_loop` 两条线均有覆盖 |
+| **错误语义**（未知工具、JSON 错误、无 handler 等） | G2: `test_unknown_tool`, `test_json_parse_error`, `test_no_handler_registered`, `test_tool_execution_error`, `test_api_call_failure`; `agent/test_agent_loop_edge.py::test_malformed_tool_call_empty_name_is_unknown_tool`; `agent/test_delegate_subagent_semantics.py`（未知 agent → FAILED；缺失 / 非 PENDING `task_id`）；`agent/test_cli_arg_boundaries.py`（含 **`-q` 与显式子命令并存 → 报错退出**、`version` 后 REMAINDER 中含 `-q` 不崩）；`agent/test_write_file_arg_repair.py`（`write_file` 字符串参数修复） | — |
+| **轮次语义**（`max_turns` / 预算耗尽） | G2: `test_max_turns`, `test_max_turns_enforced`, `agent/test_turn_loop_budget.py`（跳过 `chat`；耗尽 turn 字段/`current_turn`/history/stats；连续耗尽多 turn；`reset` 后可正常对话） | `agent_loop` 与 `turn_loop` 两条线均有覆盖 |
 | **工具语义**（顺序、次数、结果回写） | G2: `test_single_tool_call`, `test_multi_tool_in_single_turn`, `test_batch_register`, `agent/test_agent_loop_edge.py::test_tool_call_missing_id_synthesized_matches_tool_message`; G3: `test_tier1_tool_call_then_final_reply`（`_execute_tools` 桩） | Hermes 严格顺序对齐若需加强，可再加对比用例 |
-| **安全语义**（注入、秘钥、HOME 等） | G2: `agent/test_code_execution_tool_env.py::test_execute_code_home_overrides_when_profile_dir_exists`; G2: `agent/test_security_fencer_and_paths.py`（fencer 红act、敏感路径、`@file` 阻断、`allowed_root` 逃逸）；ext: `agent/test_integration.py::test_memory_fencer`, `test_fencer_used_in_run_conversation` | `execute_code` secret 过滤等可继续加 case |
+| **安全语义**（注入、秘钥、HOME 等） | G2: `agent/test_code_execution_tool_env.py`（HOME/profile、`secret` 名剥离、registry/config passthrough、组合「只放行一条 KEY」）；G2: `agent/test_security_fencer_and_paths.py`（fencer 红act、敏感路径、`@file` 阻断、`allowed_root` 逃逸）；ext: `agent/test_integration.py::test_memory_fencer`, `test_fencer_used_in_run_conversation` | — |
 
 ---
 
@@ -31,13 +31,13 @@
 
 | 模块 | 对应用例 | 缺口（GAP） |
 |------|----------|-------------|
-| `cli.py` | G2: `agent/test_cli_arg_boundaries.py`（`version`；`profiles`：`rename` / `export` / `create` / `delete` / `import` 缺参；`config`：`set` 缺 value、`get` 缺 key） | `models --set` 无值（当前仅展示列表）；冲突 flag、非法类型等仍可选补充 |
+| `cli.py` | G2: `agent/test_cli_arg_boundaries.py`（`version`；`profiles` / `config` / `models` 缺参；**`-q` 与显式子命令同时出现 → 退出码 1 + 说明**；**`version -q x` → REMAINDER，不崩**） | 非法类型等仍可选补充 |
 | `agent/core_loop.py` | G3: `agent/test_tier1_e2e_agent.py`（全文）；G2: `agent/test_write_file_arg_repair.py`（`_parse_write_file_arguments_string`）；ext: `agent/test_integration.py::test_fencer_used_in_run_conversation`, `test_compressor_used_in_run_conversation`, `test_insights_recorded_during_conversation`, `test_agent_initialization` | `execute_code` 字符串修复可另增单测 |
-| `agent/turn_loop.py` | G2: `agent/test_turn_loop_budget.py::test_turn_manager_budget_exhausted_skips_chat` | 预算耗尽后状态一致性专项 |
+| `agent/turn_loop.py` | G2: `agent/test_turn_loop_budget.py`（见 §2「轮次语义」） | 与真实 `MimirAetherAgent`+预算实现联调可另增 ext |
 | `agent/skill_funcs.py` | G2: `agent/test_skill_funcs.py`（schema、`skill_view`/`skills_list`/`skill_manage` 桩与错误路径） | 与真实 `skills/` 目录的集成可另增 ext 用例 |
-| `agent/delegate_subagent.py` | G2: `agent/test_delegate_subagent_semantics.py::test_delegate_task_unknown_agent_marks_failed` | `agent_type` 其它分支、成功路径 |
-| `agent/tool_registry.py` | G2: `agent/test_tool_registry_concurrency.py::test_tool_registry_concurrent_register_and_get`; G2: `agent/test_tool_registry_api.py::test_tool_registry_enable_disable_list_all`, `test_tool_registry_search_order_and_get_stats` | 与 Hermes registry 语义 1:1 的差异需文档化 |
-| `tools/code_execution_tool.py` | G2: `agent/test_code_execution_tool_env.py::test_execute_code_home_overrides_when_profile_dir_exists`; G2: `agent/test_code_execution_tool_schema.py::test_execute_code_schema_mentions_only_enabled_tools`, `test_execute_code_schema_contains_import_examples` | 沙箱 secret 过滤、PYTHONPATH 边界 |
+| `agent/delegate_subagent.py` | G2: `agent/test_delegate_subagent_semantics.py`（未知 agent → FAILED；缺失 task_id → False；非 PENDING 再 delegate → False；mock 成功路径 → COMPLETED + result） | 与真实 CLI 子进程集成可另增 ext |
+| `agent/tool_registry.py` | G2: `agent/test_tool_registry_concurrency.py::test_tool_registry_concurrent_register_and_get`; G2: `agent/test_tool_registry_api.py`（list/enable/disable、search/stats、**禁用后 `get`/search 不可见**、**enable 恢复**、**unregister 清空**）；**ext**：`scripts/diff_tool_names_hermes_mimir.py`（`tools/registry` 名集合 vs Hermes `get_tool_definitions`） | 与 Hermes **toolset 管道**的差异见 `docs/hermes_mimir_behavior_matrix.md` **H15** |
+| `tools/code_execution_tool.py` | G2: `agent/test_code_execution_tool_env.py`（本地子进程 env / `PYTHONPATH`）；G2: `agent/test_code_execution_remote_mock.py`（远程 mock：**无 python3** 早退；**最小成功** 无 RPC；**exit 124/130**；**畸形 `req_*` JSON**；**file RPC**（沙箱工具单测 + **同脚本 `web_search`+`read_file`**；除 **`write_file`** native 覆盖）与 **`max_tool_calls`**）；G2: `agent/test_code_execution_tool_schema.py::test_execute_code_schema_mentions_only_enabled_tools`, `test_execute_code_schema_contains_import_examples` | 远程完整 RPC/ ship 文件路径可另增 mock 或 ext；远程不复制本地 `PYTHONPATH` 拼接语义已文档化 |
 
 ---
 
@@ -53,7 +53,7 @@
 
 | 主题 | 建议用例名（占位） | 备注 |
 |------|-------------------|------|
-| CLI（`models`/全局 flag 冲突等） | `test_cli_*` | 按需补充；`profiles`/`config` 缺参见 `test_cli_arg_boundaries.py` |
+| CLI（非法类型等） | `test_cli_*` | `models --set`、`-q` 与子命令互斥已覆盖 |
 
 暂缓某条时，请在表中增加「暂缓 + 原因 + 目标日期」，并在 `ralph_parity_contract_v1.md` 或 Issue 中留痕。
 
@@ -78,6 +78,8 @@
 
 ## 7. 相关文档
 
+- `docs/hermes_mimir_behavior_matrix.md` — Hermes **HERMES_REF** 与行为行对照（草案，可随 ref 更新）  
+- `scripts/diff_tool_names_hermes_mimir.py` — Hermes vs Mimir **工具名集合** diff（子进程隔离，见矩阵 **§5**）  
 - `docs/ralph_parity_contract_v1.md` — 契约正文  
 - `docs/ralph_tiers.md` — Gate1–3 说明  
 - `docs/ralph_tier0_case_matrix.md` — 用例矩阵  

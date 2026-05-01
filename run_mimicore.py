@@ -7,9 +7,9 @@ async def main():
     agent = MimirAetherAgent()
     task = """请调用produce_capsule生成一个GDI≥70的高质量胶囊。
 
-内容要求：关于"织界者琬弦的工作模式"
-- 核心规则：永远叫刘哥，温故而知新
-- 三角色分工：琬弦发指令、MimirAether执行、Mimicore提炼胶囊
+内容要求：关于"织界者的工作模式"
+- 核心规则：永远叫负责人，温故而知新
+- 三角色分工：织界者发指令、MimirAether执行、Mimicore提炼胶囊
 - 记忆系统：MEMORY.md长期记忆
 - 进化方式：从旧知识探索新知识
 

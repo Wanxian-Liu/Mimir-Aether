@@ -36,6 +36,10 @@
 6. `profiles import` 缺归档路径  
 7. `config set` 缺 value  
 8. `config get` 缺 key  
+9. `models --set` 缺模型 ID  
+10. `models --set --refresh`（不把 `--refresh` 当模型 ID）  
+11. `-q` 与末尾 `version` 并存 → 退出码 1，提示不能同时使用单次任务与子命令  
+12. `version -q …`（`-q` 落在 REMAINDER）→ 仍正常打印版本，不崩溃  
 
 ## A3. `write_file` 参数修复（`test_write_file_arg_repair.py`）
 
@@ -54,15 +58,59 @@
 5. `_resolve_path` + `allowed_root` 阻止 `..` 逃逸  
 6. `preprocess_context_references` 对 `~/.ssh/config` 类 `@file` 置 `blocked`  
 
+## A5. `execute_code` 子进程环境（`test_code_execution_tool_env.py`）
+
+1. 存在 profile 目录时 `HOME` 指向 profile home；不存在时不强行覆盖  
+2. 父进程 secret 型 / 非白名单变量名不进入子环境；`PATH` 仍保留  
+3. `register_env_passthrough` 可放行名称含 `API_KEY` 的变量  
+4. `terminal.env_passthrough`（`config.yaml`）同上  
+5. 仅放行一条 `API_KEY` 时，其它 `*_API_KEY` 仍不可见  
+6. 本地子进程：`PYTHONPATH` 首段为仓库根（可 `import tools`）；父环境 `PYTHONPATH` 追加在后（POSIX；Windows 跳过）  
+7. 远程 mock：`command -v python3` 失败路径 → `status=error`，且不再发起后续 `env.execute`（POSIX；Windows 跳过）  
+8. 远程 mock：python3 / mkdir / ship / 跑 `script.py` / `rm -rf` 成功，`status=success`，RPC 轮询仅 `ls` 空结果  
+9. 远程 mock：子进程真实写 `req_*` / 等 `res_*`，轮询线程 `cat` → `handle_function_call`（桩）→ 写回；`tool_calls_made==1`  
+10. 远程 mock：连续两次 `web_search`，`tool_calls_made==2`，`rm -f` 正确删掉 `req_*`（避免重复派发）  
+11. 远程 mock：`max_tool_calls=1` 时第二次 RPC 返回 limit 错误，`handle_function_call` 仅一次  
+12. 远程 mock：`python3 script.py` 返回码 **124** → `status=timeout`，`error` 含配置中的 `timeout` 秒数  
+13. 远程 mock：返回码 **130** → `status=interrupted`，`output` 追加说明文案  
+14. 远程 mock：预置非法 `req_000000` → 轮询 `rm` 后仅合法 `web_search` 进 `handle_function_call`  
+15. 远程 mock：**`read_file`**（非 web）一轮 file RPC，`enabled_tools` 仅含 `read_file`  
+16. 远程 mock：**`terminal`** 一轮 file RPC，`enabled_tools` 仅含 `terminal`  
+17. 远程 mock：**`web_extract`** 一轮 file RPC  
+18. 远程 mock：**`patch`**（`mode=replace`）一轮 file RPC  
+19. 远程 mock：**`search_files`** 一轮 file RPC（多参数）  
+20. 远程 mock：同脚本 **`web_search` + `read_file`**，`tool_calls_made==2`  
+
+## A6. `delegate_subagent`（`test_delegate_subagent_semantics.py`）
+
+1. 未知 agent 命令 → 任务 `FAILED`，错误含 `not found in PATH`  
+2. 不存在的 `task_id` → `delegate_task` 返回 `False`  
+3. 已完成任务再次 `delegate` → `False`，状态与结果不变  
+4. Mock `_execute_agent` 成功 → `COMPLETED`，`assigned_agent` / `result` / `agent_config` 传递正确  
+
+## A7a. `tool_registry` 状态（`test_tool_registry_api.py` 补充）
+
+1. `disable` 后 `get` 为 `None`  
+2. `search` 不命中已禁用项  
+3. `enable` 后 `get` 与 `search` 恢复  
+4. `unregister` 后库中无该工具（`list_all(enabled_only=False)` 为空）  
+
+## A7. `turn_loop` 预算（`test_turn_loop_budget.py`）
+
+1. `remaining<=0` 时不调用 `chat`，返回上限提示  
+2. 耗尽 turn：`assistant_message` 为空、`error` 与 `status` 一致、`current_turn`/history/stats 一致  
+3. 连续两次用户消息在预算仍为 0 时各生成一条 `MAX_ITERATIONS` turn  
+4. `TurnManager.reset` 清空 turns 后，提高 `remaining` 可再走 `COMPLETED` 路径  
+
 ## B. 待补齐（下一批 Tier-0）
 
 优先级 P0（建议先补）：
 
-- CLI 子命令参数边界（空参数、冲突参数、非法参数）
-- `delegate_subagent` 的 agent_type 分支边界
-- `code_execution_tool` 的环境隔离边界（HOME / PYTHONPATH / secret 过滤）
-- `turn_loop` 预算耗尽后的状态一致性
-- `tool_registry` 并发注册/查询一致性
+- CLI 非法类型、互斥 flag 显式报错（`profiles`/`config`/`models`、`-q` 调度见 A2）
+- `delegate_subagent` 与真实子进程/超时的集成（语义见 A6）
+- `code_execution_tool` 远程 **三工具及以上同脚本**、**`patch`+`terminal` 组合**、`write_file` native 与 RPC 文档化（§20 已覆盖双工具；单工具 §15–19）
+- `turn_loop` 与真实 Agent 预算递减/联调（语义见 A7）
+- `tool_registry` 并发注册/查询一致性（启用/禁用/注销语义见 A7a）
 
 ## C. 每日结果记录（建议）
 

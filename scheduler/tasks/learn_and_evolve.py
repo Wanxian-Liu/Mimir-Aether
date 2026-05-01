@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 MimirAether 学一段+进化一段 循环任务
-学完一个模块 → 立即自动进化 → 再学下一个 → 直到刘哥说停
+学完一个模块 → 立即自动进化 → 再学下一个 → 直到负责人说停
 
 启动方式:
     python3 learn_and_evolve.py           # 运行直到手动停止

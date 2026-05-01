@@ -42,3 +42,44 @@ def test_tool_registry_search_order_and_get_stats(tmp_path):
     assert s["successful_calls"] == 1
     assert abs(s["success_rate"] - 0.5) < 1e-9
 
+
+def test_tool_registry_get_none_when_disabled(tmp_path):
+    db_path = str(tmp_path / "tools.db")
+    reg = ToolRegistry(db_path=db_path)
+    reg.register(name="off_tool", category="test", description="d")
+    assert reg.get("off_tool") is not None
+    reg.disable("off_tool")
+    assert reg.get("off_tool") is None
+
+
+def test_tool_registry_search_ignores_disabled(tmp_path):
+    db_path = str(tmp_path / "tools.db")
+    reg = ToolRegistry(db_path=db_path)
+    reg.register(name="visible_kw", category="test", description="keyword token")
+    reg.register(name="hidden_kw", category="test", description="keyword token")
+    reg.disable("hidden_kw")
+    hits = reg.search("keyword")
+    assert {t["name"] for t in hits} == {"visible_kw"}
+
+
+def test_tool_registry_enable_restores_get_and_search(tmp_path):
+    db_path = str(tmp_path / "tools.db")
+    reg = ToolRegistry(db_path=db_path)
+    reg.register(name="toggle_me", category="test", description="unique-find-xyz")
+    reg.disable("toggle_me")
+    assert reg.get("toggle_me") is None
+    assert not any(t["name"] == "toggle_me" for t in reg.search("unique-find"))
+
+    assert reg.enable("toggle_me") is True
+    assert reg.get("toggle_me") is not None
+    assert any(t["name"] == "toggle_me" for t in reg.search("unique-find"))
+
+
+def test_tool_registry_unregister_removes_from_db(tmp_path):
+    db_path = str(tmp_path / "tools.db")
+    reg = ToolRegistry(db_path=db_path)
+    reg.register(name="gone", category="test", description="d")
+    assert reg.unregister("gone") is True
+    assert reg.get("gone") is None
+    assert reg.list_all(enabled_only=False) == []
+

@@ -38,7 +38,7 @@ OpenClaw的subagent系统存在以下问题：
 ### 3. 架构层面的问题
 
 ```
-Main Session (刘哥对话)
+Main Session (负责人对话)
     │
     │ sessions_spawn()
     ▼

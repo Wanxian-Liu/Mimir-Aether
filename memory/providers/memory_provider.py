@@ -418,7 +418,7 @@ if __name__ == "__main__":
     
     # 初始化会话（带初始记忆）
     initial_memories = [
-        {"content": "刘哥喜欢简洁直接的沟通风格", "type": "preference"},
+        {"content": "负责人喜欢简洁直接的沟通风格", "type": "preference"},
         {"content": "MimirAether项目是核心项目", "type": "project"},
         {"content": "使用DeepSeek模型", "type": "config"},
     ]

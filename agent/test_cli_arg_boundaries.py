@@ -79,3 +79,47 @@ def test_cli_config_get_missing_key_returns_one(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "Usage: config get" in out or "config get" in out.lower()
 
+
+def test_cli_models_set_missing_model_id_returns_one(monkeypatch, capsys):
+    import cli as cli_mod
+
+    rc = _run_cli_main(cli_mod, monkeypatch, ["cli.py", "models", "--set"])
+    assert rc == 1
+    out = capsys.readouterr().out
+    assert "--set 需要模型 ID" in out or "模型 ID" in out
+
+
+def test_cli_models_set_followed_by_flag_treated_as_missing_value(monkeypatch, capsys):
+    import cli as cli_mod
+
+    # Next token starts with "-" → do not consume as model id; same boundary as bare --set
+    rc = _run_cli_main(cli_mod, monkeypatch, ["cli.py", "models", "--set", "--refresh"])
+    assert rc == 1
+    out = capsys.readouterr().out
+    assert "--set 需要模型 ID" in out or "模型 ID" in out
+
+
+def test_cli_query_and_explicit_subcommand_rejected(monkeypatch, capsys):
+    import cli as cli_mod
+
+    # -q 与显式子命令同时出现 → 报错退出，避免静默忽略其中一种意图。
+    rc = _run_cli_main(
+        cli_mod,
+        monkeypatch,
+        ["cli.py", "-q", "parity-query-must-not-run-as-task", "version"],
+    )
+    assert rc == 1
+    out = capsys.readouterr().out
+    assert "不能同时使用" in out or "单次任务" in out
+    assert "parity-query-must-not-run-as-task" not in out
+
+
+def test_cli_version_with_query_tokens_in_remainder_is_safe(monkeypatch, capsys):
+    import cli as cli_mod
+
+    # -q after positional command stays in REMAINDER; optional --query is unset.
+    rc = _run_cli_main(cli_mod, monkeypatch, ["cli.py", "version", "-q", "remainder-orphan"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "MimirAether 版本信息" in out
+

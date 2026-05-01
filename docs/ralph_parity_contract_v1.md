@@ -14,6 +14,8 @@
 - `agent/tool_registry.py`
 - `tools/code_execution_tool.py`
 
+**Hermes 对照锚点（可选但推荐）**：固定上游版本并在表中勾选行为——见 **`docs/hermes_mimir_behavior_matrix.md`**（`HERMES_REF` + 行为行）。
+
 ## 2. 必须一致的行为面
 
 行为面 ↔ 具体 pytest 用例：**`docs/ralph_parity_testmap.md`**（M1 映射表）。

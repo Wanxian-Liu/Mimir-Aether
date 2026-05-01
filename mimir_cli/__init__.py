@@ -2,7 +2,7 @@
 MimirAether CLI - Unified command-line interface for MimirAether.
 
 Adapted from Hermes mimir_cli for MimirAether project.
-MimirAether is 刘哥's personal AI assistant project.
+MimirAether is a personal AI assistant project (maintainer-focused deployment).
 
 Provides subcommands for:
 - mimir chat          - Interactive chat (same as ./mimir)
