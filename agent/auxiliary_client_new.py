@@ -12,8 +12,10 @@ from openai import OpenAI
 import yaml
 from pathlib import Path
 
+from mimir_constants import get_mimir_home
+
 def __load_config():
-    config_path = Path.home() / ".hermes" / "config.yaml"
+    config_path = get_mimir_home() / "config.yaml"
     if config_path.exists():
         with open(config_path) as f:
             return yaml.safe_load(f) or {}

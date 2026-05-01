@@ -787,28 +787,41 @@ def _remap_path_for_user(path: str, target_home_dir: str) -> str:
 
 
 def _hermes_home_for_target_user(target_home_dir: str) -> str:
-    """Remap the current HERMES_HOME to the equivalent under a target user's home.
+    """Remap the current agent home to the equivalent under a target user's home.
 
     When installing a system service via sudo, get_hermes_home() resolves to
-    root's home.  This translates it to the target user's equivalent path:
-      /root/.hermes                    → /home/alice/.hermes
-      /root/.hermes/profiles/coder     → /home/alice/.hermes/profiles/coder
-      /opt/custom-hermes               → /opt/custom-hermes  (kept as-is)
+    root's tree.  This translates it to the target user's equivalent path:
+      /root/.openclaw/projects/MimirAether → /home/alice/.openclaw/projects/MimirAether
+      (subdir under that root) → same relative path under alice's default root
+      /root/.hermes (legacy) → /home/alice/.hermes (+ relative suffix if any)
+      /opt/custom                         → kept as-is when not under the roots above
     """
+    invoking_home = Path.home()
     current_hermes = get_hermes_home().resolve()
-    current_default = (Path.home() / ".hermes").resolve()
-    target_default = Path(target_home_dir) / ".hermes"
+    current_default = (
+        invoking_home / ".openclaw" / "projects" / "MimirAether"
+    ).resolve()
+    target_default = (
+        Path(target_home_dir) / ".openclaw" / "projects" / "MimirAether"
+    ).resolve()
 
-    # Default ~/.hermes → remap to target user's default
     if current_hermes == current_default:
         return str(target_default)
 
-    # Profile or subdir of ~/.hermes → preserve the relative structure
     try:
         relative = current_hermes.relative_to(current_default)
         return str(target_default / relative)
     except ValueError:
-        # Completely custom path (not under ~/.hermes) — keep as-is
+        pass
+
+    legacy_current = (invoking_home / ".hermes").resolve()
+    legacy_target = Path(target_home_dir) / ".hermes"
+    if current_hermes == legacy_current:
+        return str(legacy_target)
+    try:
+        relative = current_hermes.relative_to(legacy_current)
+        return str(legacy_target / relative)
+    except ValueError:
         return str(current_hermes)
 
 

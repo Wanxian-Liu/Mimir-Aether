@@ -46,18 +46,19 @@ from typing import Any, Dict, List, Optional, Tuple
 from openai import OpenAI
 
 from agent.credential_pool import load_pool
+from mimir_constants import get_mimir_home
 
 # 自研: 硬编码常量（替代hermes_constants）
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 def _get_mimiraether_home():
     """Return MimirAether home directory."""
-    return Path.home() / ".hermes"
+    return get_mimir_home()
 
 def _load_config():
-    """Load config from ~/.hermes/config.yaml."""
+    """Load config from the agent home ``config.yaml``."""
     import yaml
-    config_path = Path.home() / ".hermes" / "config.yaml"
+    config_path = get_mimir_home() / "config.yaml"
     if config_path.exists():
         with open(config_path) as f:
             return yaml.safe_load(f) or {}
