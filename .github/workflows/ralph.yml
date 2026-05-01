@@ -1,5 +1,5 @@
 # Ralph Tier-0/1: same gates as ./run_ralph_tier0.sh (Gate1 compile/import, Gate2 pytest, Gate3 tier1 e2e)
-# If CI fails on import, add packages to the pip install line below (match your local `pip freeze`).
+# If CI fails on import, add the missing package to requirements-ci.txt (single source of truth).
 
 name: Ralph Tier-0
 
@@ -45,7 +45,7 @@ jobs:
       - name: Install Python dependencies for tests
         run: |
           pip install --upgrade pip
-          pip install pytest pytest-asyncio pyyaml aiohttp python-dotenv requests
+          pip install -r requirements-ci.txt
 
       - name: Run Ralph (Gate1–3)
         run: ./run_ralph_tier0.sh
