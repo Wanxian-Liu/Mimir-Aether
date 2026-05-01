@@ -1,5 +1,7 @@
 # Gateway health checks vs `api_server`
 
+For the short **three-layer path rules** (agent home vs profiles vs OpenClaw platform config), see **[path-contract.md](./path-contract.md)**.
+
 ## Single codebase vs two config files
 
 There is **one** MimirAether tree: resolve it with `mimir_constants.get_mimir_home()` (default `~/.openclaw/projects/MimirAether`, overridable via `MIMIR_AETHER_HOME`). That directory is the git project root and where `gateway/`, `cli.py`, and `cron/` live.
