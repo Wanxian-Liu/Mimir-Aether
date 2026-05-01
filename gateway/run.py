@@ -8732,8 +8732,188 @@ class GatewayRunner:
         
         return response
 
+    async def execute_cron_job(self, job: Dict[str, Any]) -> None:
+        """Run one due cron job: optional script, else agent prompt; then deliver."""
+        import subprocess
+        from agent.prompt_builder import PLATFORM_HINTS
+        from agent.skill_commands import _build_skill_message, _load_skill_payload
+        from cron.jobs import mark_job_run
+        from gateway.config import Platform
+        from gateway.delivery import DeliveryTarget
+        from gateway.session import (
+            SessionSource,
+            build_session_context,
+            build_session_context_prompt,
+        )
+        from gateway.session_context import clear_session_vars, set_session_vars
 
-def _start_cron_ticker(stop_event: threading.Event, adapters=None, loop=None, interval: int = 60):
+        job_id = str(job.get("id") or "")
+        job_name = str(job.get("name") or job_id)
+        if not job_id:
+            return
+
+        logger.info("Cron: executing job %s (%s)", job_id, job_name)
+
+        script_rel = (job.get("script") or "").strip()
+        deliver_raw = job.get("deliver", "local")
+        if isinstance(deliver_raw, list):
+            deliver_targets = deliver_raw
+        else:
+            deliver_targets = [deliver_raw]
+
+        origin = None
+        if job.get("origin"):
+            try:
+                origin = SessionSource.from_dict(job["origin"])
+            except Exception as exc:
+                logger.debug("Cron job %s: invalid origin, ignoring: %s", job_id, exc)
+
+        source = SessionSource(
+            platform=Platform.LOCAL,
+            chat_id=f"cron:{job_id}",
+            chat_type="dm",
+            user_id="cron",
+            user_name="cron",
+        )
+        session_entry = self.session_store.get_or_create_session(source)
+        session_key = session_entry.session_key
+        session_id = session_entry.session_id
+
+        tokens = set_session_vars(
+            platform=source.platform.value,
+            chat_id=source.chat_id,
+            user_name=source.user_name or "",
+            user_id=source.user_id or "",
+            session_key=session_key,
+        )
+        final_text = ""
+        try:
+            context = build_session_context(source, self.config, session_entry)
+            context_prompt = build_session_context_prompt(context, redact_pii=False)
+            cron_hint = PLATFORM_HINTS.get("cron")
+            if cron_hint:
+                context_prompt = f"{context_prompt}\n\n{cron_hint}"
+
+            message_body = job.get("prompt") or ""
+            skills = job.get("skills") or ([] if not job.get("skill") else [job["skill"]])
+            if skills:
+                try:
+                    parts: List[str] = []
+                    for sname in skills:
+                        loaded = _load_skill_payload(sname, task_id=session_key)
+                        if loaded:
+                            _ls, _sdir, _dname = loaded
+                            note = f'[SYSTEM: The "{_dname}" skill is loaded for this cron job.]'
+                            part = _build_skill_message(_ls, _sdir, note)
+                            if part:
+                                parts.append(part)
+                    if parts:
+                        message_body = "\n\n".join(parts + ([message_body] if message_body.strip() else []))
+                except Exception as exc:
+                    logger.warning("Cron job %s: skill load failed: %s", job_id, exc)
+
+            if script_rel:
+                scripts_dir = Path(get_hermes_home()) / "scripts"
+                scripts_dir.mkdir(parents=True, exist_ok=True)
+                script_path = (scripts_dir / script_rel).resolve()
+                if not str(script_path).startswith(str(scripts_dir.resolve())):
+                    mark_job_run(job_id, "error", "invalid script path")
+                    return
+                if not script_path.is_file():
+                    mark_job_run(job_id, "error", f"script not found: {script_rel}")
+                    return
+                try:
+                    proc = subprocess.run(
+                        ["/bin/bash", str(script_path)],
+                        capture_output=True,
+                        text=True,
+                        timeout=600,
+                        cwd=str(get_hermes_home()),
+                    )
+                    final_text = proc.stdout or ""
+                    if proc.stderr:
+                        final_text = f"{final_text}\n--- stderr ---\n{proc.stderr}"
+                    if proc.returncode != 0:
+                        mark_job_run(
+                            job_id,
+                            "error",
+                            f"script exit {proc.returncode}",
+                        )
+                    else:
+                        mark_job_run(job_id, "ok", None)
+                except subprocess.TimeoutExpired:
+                    mark_job_run(job_id, "error", "script timeout (600s)")
+                    final_text = "(timeout)"
+                except Exception as exc:
+                    logger.exception("Cron job %s: script failed", job_id)
+                    mark_job_run(job_id, "error", str(exc))
+                    final_text = str(exc)
+            else:
+                if not str(message_body).strip():
+                    mark_job_run(job_id, "error", "empty prompt and no script")
+                    return
+                history = self.session_store.load_transcript(session_id)
+                try:
+                    result = await self._run_agent(
+                        message=message_body,
+                        context_prompt=context_prompt,
+                        history=history,
+                        source=source,
+                        session_id=session_id,
+                        session_key=session_key,
+                        event_message_id=None,
+                    )
+                    final_text = result.get("final_response") or ""
+                    if result.get("error"):
+                        mark_job_run(job_id, "error", str(result.get("error")))
+                    else:
+                        mark_job_run(job_id, "ok", None)
+                except Exception as exc:
+                    logger.exception("Cron job %s: agent failed", job_id)
+                    mark_job_run(job_id, "error", str(exc))
+                    final_text = f"cron error: {exc}"
+
+            if not str(final_text).strip():
+                return
+            if "[SILENT]" in final_text:
+                return
+
+            targets: List[DeliveryTarget] = []
+            for d in deliver_targets:
+                t = str(d).strip()
+                if not t:
+                    continue
+                try:
+                    targets.append(DeliveryTarget.parse(t, origin=origin))
+                except Exception as exc:
+                    logger.warning("Cron job %s: bad deliver target %r: %s", job_id, t, exc)
+
+            if not targets:
+                targets = [DeliveryTarget.parse("local", origin=origin)]
+
+            metadata = {"job_id": job_id, "job_name": job_name}
+            self.delivery_router.adapters = self.adapters
+            try:
+                await self.delivery_router.deliver(
+                    final_text,
+                    targets,
+                    job_id=job_id,
+                    job_name=job_name,
+                    metadata=metadata,
+                )
+            except Exception as exc:
+                logger.warning("Cron job %s: delivery failed: %s", job_id, exc)
+        finally:
+            clear_session_vars(tokens)
+
+
+def _start_cron_ticker(
+    stop_event: threading.Event,
+    adapters=None,
+    loop=None,
+    runner=None,
+    interval: int = 60,
+):
     """
     Background thread that ticks the cron scheduler at a regular interval.
     
@@ -8756,7 +8936,7 @@ def _start_cron_ticker(stop_event: threading.Event, adapters=None, loop=None, in
     tick_count = 0
     while not stop_event.is_set():
         try:
-            cron_tick(verbose=False, adapters=adapters, loop=loop)
+            cron_tick(verbose=False, adapters=adapters, loop=loop, runner=runner)
         except Exception as e:
             logger.debug("Cron tick error: %s", e)
 
@@ -8944,7 +9124,11 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
     cron_thread = threading.Thread(
         target=_start_cron_ticker,
         args=(cron_stop,),
-        kwargs={"adapters": runner.adapters, "loop": asyncio.get_running_loop()},
+        kwargs={
+            "adapters": runner.adapters,
+            "loop": asyncio.get_running_loop(),
+            "runner": runner,
+        },
         daemon=True,
         name="cron-ticker",
     )
