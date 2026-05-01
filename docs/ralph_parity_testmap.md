@@ -20,7 +20,7 @@
 |--------|---------------------------|------|
 | **输入语义**（同类输入 → 同类分支：工具 / 错误 / 终止） | G2: `agent/test_agent_loop.py::test_basic_conversation`, `test_single_tool_call`, `test_unknown_tool`, `test_tool_execution_error`, `test_api_call_failure`, `test_max_turns`; `agent/test_agent_loop_edge.py::test_multi_tool_in_single_turn`, `test_json_parse_error`, `test_no_handler_registered`, `test_max_turns_enforced`, `test_no_tools_agent`, `test_batch_register`; G3: `agent/test_tier1_e2e_agent.py::test_tier1_plain_assistant_reply`, `test_tier1_tool_call_then_final_reply` | 覆盖无工具、单/多工具、未知工具、执行失败、API 失败、预算截断；Tier-1 覆盖 `core_loop.run_conversation` 主路径 |
 | **输出语义**（文案可不同，含义一致） | 与上列相同；断言侧重最终 role=assistant 内容或 tool 消息结构 | 未单独拆测试文件；依赖各用例内的 assert |
-| **错误语义**（未知工具、JSON 错误、无 handler 等） | G2: `test_unknown_tool`, `test_json_parse_error`, `test_no_handler_registered`, `test_tool_execution_error`, `test_api_call_failure`; `agent/test_agent_loop_edge.py::test_malformed_tool_call_empty_name_is_unknown_tool`; `agent/test_delegate_subagent_semantics.py::test_delegate_task_unknown_agent_marks_failed`; `agent/test_cli_arg_boundaries.py::test_cli_profiles_rename_missing_new_arg_returns_one` | `core_loop` 层 write_file 等 JSON 修复见实现，**专用单测仍缺** |
+| **错误语义**（未知工具、JSON 错误、无 handler 等） | G2: `test_unknown_tool`, `test_json_parse_error`, `test_no_handler_registered`, `test_tool_execution_error`, `test_api_call_failure`; `agent/test_agent_loop_edge.py::test_malformed_tool_call_empty_name_is_unknown_tool`; `agent/test_delegate_subagent_semantics.py::test_delegate_task_unknown_agent_marks_failed`; `agent/test_cli_arg_boundaries.py`；`agent/test_write_file_arg_repair.py`（`write_file` 字符串参数修复） | — |
 | **轮次语义**（`max_turns` / 预算耗尽） | G2: `test_max_turns`, `test_max_turns_enforced`, `agent/test_turn_loop_budget.py::test_turn_manager_budget_exhausted_skips_chat` | `agent_loop` 与 `turn_loop` 两条线均有覆盖 |
 | **工具语义**（顺序、次数、结果回写） | G2: `test_single_tool_call`, `test_multi_tool_in_single_turn`, `test_batch_register`, `agent/test_agent_loop_edge.py::test_tool_call_missing_id_synthesized_matches_tool_message`; G3: `test_tier1_tool_call_then_final_reply`（`_execute_tools` 桩） | Hermes 严格顺序对齐若需加强，可再加对比用例 |
 | **安全语义**（注入、秘钥、HOME 等） | G2: `agent/test_code_execution_tool_env.py::test_execute_code_home_overrides_when_profile_dir_exists`; ext: `agent/test_integration.py::test_memory_fencer`, `test_fencer_used_in_run_conversation` | 路径/秘钥过滤、PYTHONPATH 等见 **GAP** |
@@ -32,7 +32,7 @@
 | 模块 | 对应用例 | 缺口（GAP） |
 |------|----------|-------------|
 | `cli.py` | G2: `agent/test_cli_arg_boundaries.py`（`version`；`profiles`：`rename` / `export` / `create` / `delete` / `import` 缺参；`config`：`set` 缺 value、`get` 缺 key） | `models --set` 无值（当前仅展示列表）；冲突 flag、非法类型等仍可选补充 |
-| `agent/core_loop.py` | G3: `agent/test_tier1_e2e_agent.py`（全文）；ext: `agent/test_integration.py::test_fencer_used_in_run_conversation`, `test_compressor_used_in_run_conversation`, `test_insights_recorded_during_conversation`, `test_agent_initialization` | `write_file` / `execute_code` 参数修复的单元级断言可单独补 |
+| `agent/core_loop.py` | G3: `agent/test_tier1_e2e_agent.py`（全文）；G2: `agent/test_write_file_arg_repair.py`（`_parse_write_file_arguments_string`）；ext: `agent/test_integration.py::test_fencer_used_in_run_conversation`, `test_compressor_used_in_run_conversation`, `test_insights_recorded_during_conversation`, `test_agent_initialization` | `execute_code` 字符串修复可另增单测 |
 | `agent/turn_loop.py` | G2: `agent/test_turn_loop_budget.py::test_turn_manager_budget_exhausted_skips_chat` | 预算耗尽后状态一致性专项 |
 | `agent/skill_funcs.py` | G2: `agent/test_skill_funcs.py`（schema、`skill_view`/`skills_list`/`skill_manage` 桩与错误路径） | 与真实 `skills/` 目录的集成可另增 ext 用例 |
 | `agent/delegate_subagent.py` | G2: `agent/test_delegate_subagent_semantics.py::test_delegate_task_unknown_agent_marks_failed` | `agent_type` 其它分支、成功路径 |
@@ -54,7 +54,6 @@
 | 主题 | 建议用例名（占位） | 备注 |
 |------|-------------------|------|
 | CLI（`models`/全局 flag 冲突等） | `test_cli_*` | 按需补充；`profiles`/`config` 缺参见 `test_cli_arg_boundaries.py` |
-| `core_loop` `write_file` JSON 修复 | `test_write_file_arg_repair_*` | 可与 Hermes 对照场景 |
 | 路径注入 / 秘钥泄露回归 | `test_security_path_injection_*` | 可与 fencer / 工具结合 |
 
 暂缓某条时，请在表中增加「暂缓 + 原因 + 目标日期」，并在 `ralph_parity_contract_v1.md` 或 Issue 中留痕。

@@ -37,6 +37,14 @@
 7. `config set` 缺 value  
 8. `config get` 缺 key  
 
+## A3. `write_file` 参数修复（`test_write_file_arg_repair.py`）
+
+1. 合法 JSON 字符串  
+2. 非 JSON 前缀 + `"path"`/`"content"` 正则抽取  
+3. `path|content` 管道格式（含空 content）  
+4. 双重转义引号修复  
+5. 不可解析输入 → `None`  
+
 ## B. 待补齐（下一批 Tier-0）
 
 优先级 P0（建议先补）：

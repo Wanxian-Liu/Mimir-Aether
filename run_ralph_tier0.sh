@@ -41,6 +41,7 @@ python3 -m pytest -q \
   agent/test_delegate_subagent_semantics.py \
   agent/test_skill_funcs.py \
   agent/test_turn_loop_budget.py \
+  agent/test_write_file_arg_repair.py \
   agent/test_tool_registry_api.py \
   agent/test_tool_registry_concurrency.py \
   agent/test_cli_arg_boundaries.py
