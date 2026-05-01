@@ -40,6 +40,7 @@ python3 -m pytest -q \
   agent/test_code_execution_remote_mock.py \
   agent/test_code_execution_tool_schema.py \
   agent/test_delegate_subagent_semantics.py \
+  agent/test_delegate_subagent_integration.py \
   agent/test_skill_funcs.py \
   agent/test_security_fencer_and_paths.py \
   agent/test_turn_loop_budget.py \

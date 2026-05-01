@@ -678,6 +678,63 @@ print("X", hermes_tools.web_extract(["https://example.invalid/triple-wx"]))
     assert dispatched[2][1]["urls"] == ["https://example.invalid/triple-wx"]
 
 
+def test_execute_remote_patch_and_terminal_in_one_script(monkeypatch, tmp_path):
+    """One execute_code run: patch + terminal in a single remote script."""
+    import tools.code_execution_tool as cet
+    from tools import terminal_tool as tt
+
+    class _FixedUUID:
+        hex = "8" * 32
+
+    patch_file = (tmp_path / "patch_then_term.txt").resolve()
+    patch_file.write_text("before OLD after\n", encoding="utf-8")
+
+    dispatched: list[tuple[str, dict]] = []
+
+    def fake_handle(name, args, task_id=None):
+        dispatched.append((name, dict(args)))
+        if name == "patch":
+            return json.dumps({"success": True, "stub": "patch-ok"})
+        if name == "terminal":
+            return json.dumps({"output": "terminal-ok\n", "exit_code": 0})
+        raise AssertionError(name)
+
+    monkeypatch.setattr(model_tools, "handle_function_call", fake_handle)
+    monkeypatch.setattr(cet.uuid, "uuid4", lambda: _FixedUUID())
+    monkeypatch.delenv("HERMES_TIMEZONE", raising=False)
+    monkeypatch.setattr(tt, "_get_env_config", lambda: {"env_type": "docker"})
+    monkeypatch.setattr(
+        cet,
+        "_get_or_create_env",
+        lambda _tid: (FilesystemEmulatingEnv(tmp_path), "docker"),
+    )
+
+    code = f"""import hermes_tools
+print("P", hermes_tools.patch({str(patch_file)!r}, "OLD", "NEW"))
+print("T", hermes_tools.terminal("echo combo", 30, None))
+"""
+    raw = cet.execute_code(
+        code,
+        enabled_tools=["patch", "terminal"],
+    )
+    data = json.loads(raw)
+    assert data.get("status") == "success", data
+    assert data.get("tool_calls_made") == 2
+    out = data.get("output") or ""
+    assert "patch-ok" in out
+    assert "terminal-ok" in out
+    assert [d[0] for d in dispatched] == ["patch", "terminal"]
+    p_args = dispatched[0][1]
+    assert p_args["path"] == str(patch_file)
+    assert p_args["old_string"] == "OLD"
+    assert p_args["new_string"] == "NEW"
+    assert p_args.get("mode") == "replace"
+    t_args = dispatched[1][1]
+    assert t_args["command"] == "echo combo"
+    assert t_args.get("timeout") == 30
+    assert t_args.get("workdir") is None or t_args.get("workdir") == ""
+
+
 def test_execute_remote_two_tool_calls_via_file_rpc(monkeypatch, tmp_path):
     import tools.code_execution_tool as cet
     from tools import terminal_tool as tt
