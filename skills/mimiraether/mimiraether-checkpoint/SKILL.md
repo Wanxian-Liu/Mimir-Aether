@@ -160,7 +160,7 @@ hermes chat --checkpoints
 ### Hermes检查点配置
 
 ```yaml
-# ~/.hermes/config.yaml
+# ~/.openclaw/projects/MimirAether/config.yaml
 checkpoints:
   enabled: true
   max_snapshots: 50  # 保留的最大快照数

@@ -63,7 +63,7 @@ on CLI, Telegram, Discord, or any platform.
 Define a shorthand first:
 
 ```bash
-HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
+HERMES_HOME="${HERMES_HOME:-$HOME/.openclaw/projects/MimirAether}"
 GWORKSPACE_SKILL_DIR="$HERMES_HOME/skills/productivity/google-workspace"
 PYTHON_BIN="${HERMES_PYTHON:-python3}"
 if [ -x "$HERMES_HOME/hermes-agent/venv/bin/python" ]; then
@@ -137,7 +137,7 @@ Should print `AUTHENTICATED`. Token refreshes automatically from now on.
 All commands go through the API script:
 
 ```bash
-HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
+HERMES_HOME="${HERMES_HOME:-$HOME/.openclaw/projects/MimirAether}"
 GWORKSPACE_SKILL_DIR="$HERMES_HOME/skills/productivity/google-workspace"
 PYTHON_BIN="${HERMES_PYTHON:-python3}"
 if [ -x "$HERMES_HOME/hermes-agent/venv/bin/python" ]; then

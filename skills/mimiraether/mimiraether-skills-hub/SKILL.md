@@ -72,7 +72,7 @@ hermes skills install <identifier> [--category CATEGORY] [--force] [--now]
 3. 运行安全扫描（skills_guard）
 4. 检查安装策略（allow/block）
 5. 显示上游元数据（GitHub stars、安装数等）
-6. 用户确认后复制到 `~/.hermes/skills/`
+6. 用户确认后复制到 `~/.openclaw/projects/MimirAether/skills/`
 
 **示例：**
 ```

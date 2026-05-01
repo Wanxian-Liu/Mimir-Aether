@@ -19,8 +19,12 @@ See also: [gateway-cli-health.md](./gateway-cli-health.md) for `api_server` and 
 
 ## Optional skills / bundled scripts
 
-Python under **`skills/**`** and **`optional-skills/**`** should use the same resolution pattern as core code: **`HERMES_HOME`** if set, else **`get_mimir_home()`**, with a small **ImportError** fallback to `~/.openclaw/projects/MimirAether`. Skill **markdown** may still mention legacy paths in prose; update when editing those docs.
+Python under **`skills/**`** and **`optional-skills/**`** should use the same resolution pattern as core code: **`HERMES_HOME`** if set, else **`get_mimir_home()`**, with a small **ImportError** fallback to `~/.openclaw/projects/MimirAether`.
+
+## Skill documentation (`SKILL.md`)
+
+Copy-paste examples in **`skills/**`** and **`optional-skills/**`** use the **default agent home** path `~/.openclaw/projects/MimirAether` (same as `get_mimir_home()` with no overrides). Shell snippets should still prefer **`HERMES_HOME`** when profile installs matter.
 
 ## Intentionally lower priority
 
-- Wide rewrites of **`SKILL.md`** examples that only illustrate concepts and are not executed as code paths.
+- Ad-hoc notes under **`learnings/`**, **`*_plan.md`**, etc., may lag; align when those docs are next edited.

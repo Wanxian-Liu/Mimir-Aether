@@ -153,7 +153,7 @@ BROWSERBASE_API_KEY   # 浏览器自动化
 ```
 
 ### 加载优先级
-1. `~/.hermes/.env` (override=True)
+1. `~/.openclaw/projects/MimirAether/.env` (override=True)
 2. 项目 `.env` (override取决于步骤1)
 
 ## Day 10: 架构总览
@@ -568,7 +568,7 @@ def _run_async(coro):
 
 ```python
 # 技能目录结构
-~/.hermes/skills/
+~/.openclaw/projects/MimirAether/skills/
 ├── my-skill/
 │   ├── SKILL.md           # 主指令（必需）
 │   ├── references/        # 支持文档
@@ -745,7 +745,7 @@ _DEFAULT_MAX_READ_CHARS = 100_000  # 约25-35K tokens
 ### 技能目录结构
 
 ```
-~/.hermes/skills/           # 本地技能目录
+~/.openclaw/projects/MimirAether/skills/           # 本地技能目录
 ├── github/                 # 分类目录
 │   ├── github-pr-workflow/
 │   │   └── SKILL.md
