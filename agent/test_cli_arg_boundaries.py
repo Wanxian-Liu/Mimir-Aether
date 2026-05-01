@@ -1,5 +1,7 @@
 import sys
 
+import pytest
+
 
 def _run_cli_main(cli_mod, monkeypatch, argv: list[str]) -> int:
     monkeypatch.setattr(sys, "argv", argv)
@@ -122,4 +124,73 @@ def test_cli_version_with_query_tokens_in_remainder_is_safe(monkeypatch, capsys)
     assert rc == 0
     out = capsys.readouterr().out
     assert "MimirAether 版本信息" in out
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 9),
+    reason="argparse.ArgumentParser(exit_on_error=False) requires Python 3.9+",
+)
+def test_cli_max_iterations_non_int_returns_one(monkeypatch, capsys):
+    import cli as cli_mod
+
+    rc = _run_cli_main(
+        cli_mod,
+        monkeypatch,
+        ["cli.py", "--max-iterations", "not-an-int", "version"],
+    )
+    assert rc == 1
+    out = capsys.readouterr().out
+    assert "须为整数" in out or "max-iterations" in out.lower()
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 9),
+    reason="argparse.ArgumentParser(exit_on_error=False) requires Python 3.9+",
+)
+def test_cli_max_iterations_below_one_returns_one(monkeypatch, capsys):
+    import cli as cli_mod
+
+    rc = _run_cli_main(
+        cli_mod,
+        monkeypatch,
+        ["cli.py", "--max-iterations", "0", "version"],
+    )
+    assert rc == 1
+    out = capsys.readouterr().out
+    assert ">=" in out or "须" in out
+
+
+def test_cli_config_unknown_subcommand_returns_one(monkeypatch, capsys):
+    import cli as cli_mod
+
+    rc = _run_cli_main(cli_mod, monkeypatch, ["cli.py", "config", "not-a-real-subcmd"])
+    assert rc == 1
+    out = capsys.readouterr().out
+    assert "未知 config 子命令" in out
+
+
+def test_cli_models_set_and_list_mutex_returns_one(monkeypatch, capsys):
+    import cli as cli_mod
+
+    rc = _run_cli_main(
+        cli_mod,
+        monkeypatch,
+        ["cli.py", "models", "--set", "deepseek/deepseek-chat", "--list"],
+    )
+    assert rc == 1
+    out = capsys.readouterr().out
+    assert "不能同时使用" in out or "--set" in out
+
+
+def test_cli_profiles_create_clone_mutex_returns_one(monkeypatch, capsys):
+    import cli as cli_mod
+
+    rc = _run_cli_main(
+        cli_mod,
+        monkeypatch,
+        ["cli.py", "profiles", "create", "parity-name", "--clone", "--clone-all"],
+    )
+    assert rc == 1
+    out = capsys.readouterr().out
+    assert "不能同时使用" in out
 

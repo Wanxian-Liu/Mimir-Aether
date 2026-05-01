@@ -40,6 +40,10 @@
 10. `models --set --refresh`（不把 `--refresh` 当模型 ID）  
 11. `-q` 与末尾 `version` 并存 → 退出码 1，提示不能同时使用单次任务与子命令  
 12. `version -q …`（`-q` 落在 REMAINDER）→ 仍正常打印版本，不崩溃  
+13. `--max-iterations` 非整数或 `<1` → 退出码 1，提示须为整数 / 下限（Python 3.9+，`exit_on_error=False`）  
+14. `config <未知子命令>` → 退出码 1，提示未知子命令（`show` 视为查看摘要）  
+15. `models --set` 与 `models --list` 同时出现 → 退出码 1，互斥说明  
+16. `profiles create … --clone --clone-all` → 退出码 1，互斥说明  
 
 ## A3. `write_file` 参数修复（`test_write_file_arg_repair.py`）
 
@@ -113,9 +117,7 @@
 
 ## B. 待补齐（下一批 Tier-0）
 
-优先级 P0（建议先补）：
-
-- CLI 非法类型、互斥 flag 显式报错（`profiles`/`config`/`models`、`-q` 调度见 A2）
+（当前无阻塞 P0；后续扩展见各模块 GAP 列于 `docs/ralph_parity_testmap.md`。）
 
 ## C. 每日结果记录（建议）
 

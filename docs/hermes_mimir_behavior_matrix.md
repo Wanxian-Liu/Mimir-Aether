@@ -48,8 +48,9 @@ git -C /path/to/hermes-agent checkout bcdd720741f4988b66877f2bfe6a8ef930640a0d
 | ID | 域 | 行为摘要 | Hermes（REF） | MimirAether | 证据 | 差异说明 |
 |----|----|----------|---------------|-------------|------|----------|
 | H01 | CLI | `-q` 与显式子命令同时出现时失败退出 | 不应静默忽略其一 | **OK** | `agent/test_cli_arg_boundaries.py::test_cli_query_and_explicit_subcommand_rejected` | |
-| H02 | CLI | `models --set` 缺模型 ID 或下一 token 为 flag | 明确报错 | **OK** | `test_cli_models_set_*` | |
-| H03 | CLI | `profiles` / `config` 缺参边界 | 退出码 1 + 用法提示 | **OK** | `agent/test_cli_arg_boundaries.py` | |
+| H02 | CLI | `models --set` 缺模型 ID 或下一 token 为 flag；**`--set` 与 `--list` 互斥** | 明确报错 | **OK** | `test_cli_models_set_*`, `test_cli_models_set_and_list_mutex_returns_one` | |
+| H03 | CLI | `profiles` / `config` 缺参边界；**`config` 未知子命令**；**`profiles create` 中 `--clone` / `--clone-all` 互斥** | 退出码 1 + 用法提示 | **OK** | `agent/test_cli_arg_boundaries.py` | |
+| H21 | CLI | 全局 `--max-iterations` 为正整数 | 非整数或 `<1` 报错退出（Python 3.9+ `exit_on_error=False`） | **OK** | `test_cli_max_iterations_*` | |
 | H04 | Agent | 未知工具 / JSON 错 / 无 handler | 进入约定错误分支 | **OK** | `agent/test_agent_loop.py`, `test_agent_loop_edge.py` | |
 | H05 | Agent | `max_turns` / 预算截断 | 停止策略一致 | **OK** | `test_max_turns*`, `test_turn_loop_budget.py` | |
 | H06 | Agent | 单轮多工具顺序与回写 | **`assistant_msg.tool_calls` 列表顺序**串行 `for tc in …` 执行；每条结果按序追加 `role=tool`（`environments/agent_loop.py` L328–471） | **OK** | `test_multi_tool_in_single_turn` 等 | 与 Hermes **语义 OK**；具体工具实现/线程池细节另表 |

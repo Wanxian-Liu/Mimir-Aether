@@ -308,6 +308,17 @@ def cmd_status(args):
 def cmd_config(args):
     """配置管理命令 - 对齐Hermes config功能"""
     subcmd = getattr(args, 'subcmd', None)
+    _config_known = frozenset({
+        "path", "env-path", "get", "set", "edit", "check", "show",
+    })
+    if subcmd == "show":
+        subcmd = None
+    elif subcmd is not None and subcmd not in _config_known:
+        print(f"❌ 未知 config 子命令: {subcmd}")
+        print()
+        print("可用子命令: path, env-path, get, set, edit, check")
+        print("或不带子命令以查看当前配置摘要。")
+        return 1
     
     # 获取.env路径
     env_path = PROJECT_ROOT / ".env"
@@ -1728,6 +1739,11 @@ def cmd_models(args):
     set_model = getattr(args, 'set_model', None)
     list_all = getattr(args, 'list', False)
     refresh = getattr(args, 'refresh', False)
+
+    if set_model and list_all:
+        print("❌ 不能同时使用 models --set 与 --list。")
+        print("   请二选一：用 --set <MODEL_ID> 切换默认模型，或使用 --list / 无参数查看列表。")
+        return 1
     
     models = get_available_models()
     
@@ -5253,6 +5269,11 @@ def cmd_profiles(args):
         clone = getattr(args, 'clone', False)
         clone_all = getattr(args, 'clone_all', False)
         no_alias = getattr(args, 'no_alias', False)
+
+        if clone and clone_all:
+            print("❌ 不能同时使用 --clone 与 --clone-all。")
+            print("   请只选其一。")
+            return 1
         
         try:
             profile_dir = create_profile(
@@ -5400,8 +5421,27 @@ def cmd_profiles(args):
 # 主入口
 # =============================================================================
 
+def _parse_positive_int(flag_label: str, minimum: int = 1):
+    """argparse type=… helper: integer >= minimum with Chinese error text."""
+
+    def _coerce(raw: str) -> int:
+        try:
+            v = int(str(raw), 10)
+        except (ValueError, TypeError):
+            raise argparse.ArgumentTypeError(
+                f"{flag_label} 须为整数，收到: {raw!r}"
+            ) from None
+        if v < minimum:
+            raise argparse.ArgumentTypeError(
+                f"{flag_label} 须 >= {minimum}，收到: {v}"
+            )
+        return v
+
+    return _coerce
+
+
 def main():
-    parser = argparse.ArgumentParser(
+    _ap_kwargs = dict(
         description="MimirAether CLI - 自主Agent",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
@@ -5463,15 +5503,31 @@ def main():
     python cli.py -q "改进gdi_scorer"
         """
     )
+    if sys.version_info >= (3, 9):
+        _ap_kwargs["exit_on_error"] = False
+
+    parser = argparse.ArgumentParser(**_ap_kwargs)
     
     parser.add_argument("command", nargs="?", help="命令")
     parser.add_argument("args", nargs=argparse.REMAINDER, help="命令参数")
     parser.add_argument("-q", "--query", type=str, help="单次任务模式")
     parser.add_argument("--model", type=str, default=get_model(), help="指定模型")
-    parser.add_argument("--max-iterations", type=int, default=90, help="最大迭代次数")
+    parser.add_argument(
+        "--max-iterations",
+        type=_parse_positive_int("--max-iterations"),
+        default=90,
+        help="最大迭代次数",
+    )
     parser.add_argument("--verbose", action="store_true", help="详细输出")
-    
-    args = parser.parse_args()
+
+    if sys.version_info >= (3, 9):
+        try:
+            args = parser.parse_args()
+        except argparse.ArgumentError as exc:
+            print(f"❌ {exc}")
+            return 1
+    else:
+        args = parser.parse_args()
     
     # 解析子命令参数
     if args.args:

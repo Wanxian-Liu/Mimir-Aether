@@ -31,7 +31,7 @@
 
 | 模块 | 对应用例 | 缺口（GAP） |
 |------|----------|-------------|
-| `cli.py` | G2: `agent/test_cli_arg_boundaries.py`（`version`；`profiles` / `config` / `models` 缺参；**`-q` 与显式子命令同时出现 → 退出码 1 + 说明**；**`version -q x` → REMAINDER，不崩**） | 非法类型等仍可选补充 |
+| `cli.py` | G2: `agent/test_cli_arg_boundaries.py`（`version`；`profiles` / `config` / `models` 缺参；**`-q` 与显式子命令同时出现 → 退出码 1 + 说明**；**`version -q x` → REMAINDER，不崩**；**`--max-iterations` 非法 / `<1`（3.9+）**；**`config` 未知子命令**；**`models --set` 与 `--list` 互斥**；**`profiles create --clone` 与 `--clone-all` 互斥**） | — |
 | `agent/core_loop.py` | G3: `agent/test_tier1_e2e_agent.py`（全文）；G2: `agent/test_write_file_arg_repair.py`（`_parse_write_file_arguments_string`）；ext: `agent/test_integration.py::test_fencer_used_in_run_conversation`, `test_compressor_used_in_run_conversation`, `test_insights_recorded_during_conversation`, `test_agent_initialization` | `execute_code` 字符串修复可另增单测 |
 | `agent/turn_loop.py` | G2: `agent/test_turn_loop_budget.py`（见 §2「轮次语义」，含真实 `MimirAetherAgent`+stub LLM 的预算递减/耗尽联调） | — |
 | `agent/skill_funcs.py` | G2: `agent/test_skill_funcs.py`（schema、`skill_view`/`skills_list`/`skill_manage` 桩与错误路径） | 与真实 `skills/` 目录的集成可另增 ext 用例 |
@@ -53,7 +53,7 @@
 
 | 主题 | 建议用例名（占位） | 备注 |
 |------|-------------------|------|
-| CLI（非法类型等） | `test_cli_*` | `models --set`、`-q` 与子命令互斥已覆盖 |
+| CLI 非法类型 / 互斥 flag（历史 GAP） | — | 已并入 `test_cli_arg_boundaries.py`（见 §2 `cli.py` 行） |
 
 暂缓某条时，请在表中增加「暂缓 + 原因 + 目标日期」，并在 `ralph_parity_contract_v1.md` 或 Issue 中留痕。
 
