@@ -687,7 +687,7 @@ def build_skills_system_prompt(
     
     # 检查磁盘快照（仅单目录时）
     if len(existing_dirs) == 1:
-        snapshot = _load_skills_snapshot(existing_dirs[0])
+        snapshot = _load_skills_snapshot([existing_dirs[0]])
         if snapshot is not None:
             result = snapshot.get("skills_prompt", "")
             if result:
@@ -809,7 +809,7 @@ def build_skills_system_prompt(
     
     # 存入磁盘快照（仅单目录时）
     if len(existing_dirs) == 1:
-        _write_skills_snapshot(existing_dirs[0], result, category_descriptions)
+        _write_skills_snapshot([existing_dirs[0]], result, category_descriptions)
     
     return result
 

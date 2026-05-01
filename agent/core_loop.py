@@ -660,7 +660,7 @@ class MimirAetherAgent:
                 platform=self.platform,
                 include_skills=True,
                 include_context=True,
-                skills_dir=skills_dir,
+                skills_dirs=[skills_dir],
             )
 
             return system_prompt if system_prompt else self._default_system_prompt()
