@@ -81,6 +81,8 @@
 19. 远程 mock：**`search_files`** 一轮 file RPC（多参数）  
 20. 远程 mock：同脚本 **`web_search` + `read_file`**，`tool_calls_made==2`  
 21. 远程 mock：同脚本 **`web_search` + `read_file` + `web_extract`**（三工具），`tool_calls_made==3`  
+22. 远程 mock：同脚本 **`patch` + `terminal`**（双工具），`tool_calls_made==2`  
+23. 远程 mock：**`write_file` 走 native 覆盖**（非 RPC），`tool_calls_made==0` 且目标文件写入成功  
 
 ## A6. `delegate_subagent`（`test_delegate_subagent_semantics.py`）
 
@@ -114,7 +116,6 @@
 优先级 P0（建议先补）：
 
 - CLI 非法类型、互斥 flag 显式报错（`profiles`/`config`/`models`、`-q` 调度见 A2）
-- `code_execution_tool` 远程 **`patch`+`terminal` 组合**、`write_file` native 与 RPC 文档化（§20 双工具；**§21 三工具 `web_search`+`read_file`+`web_extract`**；单工具 §15–19）
 
 ## C. 每日结果记录（建议）
 

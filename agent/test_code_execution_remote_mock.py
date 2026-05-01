@@ -735,6 +735,46 @@ print("T", hermes_tools.terminal("echo combo", 30, None))
     assert t_args.get("workdir") is None or t_args.get("workdir") == ""
 
 
+def test_execute_remote_write_file_uses_native_io_not_rpc(monkeypatch, tmp_path):
+    """write_file in sandbox script should use native override (no RPC dispatch)."""
+    import tools.code_execution_tool as cet
+    from tools import terminal_tool as tt
+
+    class _FixedUUID:
+        hex = "9" * 32
+
+    target = (tmp_path / "native_write.txt").resolve()
+    dispatched: list[tuple[str, dict]] = []
+
+    def fake_handle(name, args, task_id=None):
+        dispatched.append((name, dict(args)))
+        return json.dumps({"tool": name})
+
+    monkeypatch.setattr(model_tools, "handle_function_call", fake_handle)
+    monkeypatch.setattr(cet.uuid, "uuid4", lambda: _FixedUUID())
+    monkeypatch.delenv("HERMES_TIMEZONE", raising=False)
+    monkeypatch.setattr(tt, "_get_env_config", lambda: {"env_type": "docker"})
+    monkeypatch.setattr(
+        cet,
+        "_get_or_create_env",
+        lambda _tid: (FilesystemEmulatingEnv(tmp_path), "docker"),
+    )
+
+    code = f"""import hermes_tools
+print("W", hermes_tools.write_file({str(target)!r}, "NATIVE-WRITE-OK\\n"))
+"""
+    raw = cet.execute_code(
+        code,
+        enabled_tools=["write_file"],
+    )
+    data = json.loads(raw)
+    assert data.get("status") == "success", data
+    # Native override bypasses RPC, so execute_code should see zero dispatched RPC calls.
+    assert data.get("tool_calls_made") == 0
+    assert target.read_text(encoding="utf-8") == "NATIVE-WRITE-OK\n"
+    assert dispatched == []
+
+
 def test_execute_remote_two_tool_calls_via_file_rpc(monkeypatch, tmp_path):
     import tools.code_execution_tool as cet
     from tools import terminal_tool as tt
