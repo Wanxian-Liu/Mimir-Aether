@@ -36,9 +36,12 @@
 
 ## 5. Ralph 验收门
 
+统一脚本：`./run_ralph_tier0.sh`（说明见 `docs/ralph_tiers.md`）。
+
 - **Gate1（语法/导入）**：目标组件 `py_compile` 与 import 全通过。
-- **Gate2（Parity-Tier0）**：`agent/test_agent_loop.py` + `agent/test_agent_loop_edge.py` 全通过。
-- **Gate3（稳定性）**：连续 3 轮无错误。
+- **Gate2（Parity-Tier0）**：`agent/test_agent_loop.py` 等 parity 用例全通过（见脚本列表）。
+- **Gate3（Tier-1 E2E）**：`agent/test_tier1_e2e_agent.py` 全通过（`run_conversation` + 桩 LLM，无网络）。
+- **稳定性（人工/CI 可选）**：连续 3 轮完整脚本无错误。
 
 ## 6. 执行纪律
 

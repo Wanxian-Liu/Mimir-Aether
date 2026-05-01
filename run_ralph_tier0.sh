@@ -42,4 +42,7 @@ python3 -m pytest -q \
   agent/test_tool_registry_concurrency.py \
   agent/test_cli_arg_boundaries.py
 
-echo "=== Ralph Tier-0: PASS ==="
+echo "=== Ralph Tier-1: Gate3 Core E2E (mocked LLM) ==="
+python3 -m pytest -q agent/test_tier1_e2e_agent.py
+
+echo "=== Ralph Tier-0/1: PASS ==="
