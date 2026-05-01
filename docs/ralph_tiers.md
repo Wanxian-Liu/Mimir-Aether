@@ -17,5 +17,6 @@ Out of scope for Tier-1: real HTTP to providers, gateway/WebSocket, or Hermes bi
 
 ## Related
 
+- Milestones & completion criteria: `docs/ralph_roadmap_milestones.md`
 - Parity contract (behavior targets): `docs/ralph_parity_contract_v1.md`
 - Tier-0 case matrix: `docs/ralph_tier0_case_matrix.md`

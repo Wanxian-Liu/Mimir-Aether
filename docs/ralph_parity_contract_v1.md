@@ -2,6 +2,8 @@
 
 目标：以**行为一致**为标准，对齐本地 Hermes 的核心能力；禁止复制源码。
 
+里程碑与完成判据（M0–M6）：见 `docs/ralph_roadmap_milestones.md`。
+
 ## 1. 对齐范围（首批）
 
 - `cli.py`
