@@ -45,7 +45,7 @@ jobs:
       - name: Install Python dependencies for tests
         run: |
           pip install --upgrade pip
-          pip install pytest pytest-asyncio pyyaml aiohttp python-dotenv
+          pip install pytest pytest-asyncio pyyaml aiohttp python-dotenv requests
 
       - name: Run Ralph (Gate1–3)
         run: ./run_ralph_tier0.sh
