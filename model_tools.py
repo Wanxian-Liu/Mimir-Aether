@@ -24,7 +24,7 @@ Import chain (circular-import safe):
     run_agent.py, cli.py, batch_runner.py, etc.
 """
 
-import asyncio
+from agent.async_bridge import run_async
 import importlib
 import json
 import logging
@@ -45,6 +45,7 @@ def _discover_tools():
     """
     _modules = [
         "tools.builtin",  # Built-in tools (read_file, write_file, execute_code, etc.)
+        "tools.strategy",  # Strategy framework + tool dispatch pre-validation/routing
         "tools.web_tools",
         "tools.terminal_tool",
         "tools.file_tools",
@@ -97,8 +98,10 @@ toolset is not corrupted by child initialization.
 def _run_async(coro):
     """Run an async coroutine from a sync handler.
 
-    If already inside a running event loop, spawns a thread to avoid
-    "cannot run event loop while another is running" errors.
+    Delegates to agent.async_bridge.run_async() which uses persistent
+    event loops (Hermes pattern) instead of creating+closing a fresh
+    loop per call via asyncio.run(). This prevents "Event loop is closed"
+    errors from cached httpx/AsyncOpenAI clients.
 
     Args:
         coro: An awaitable (coroutine object).
@@ -106,18 +109,7 @@ def _run_async(coro):
     Returns:
         The return value of the coroutine.
     """
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
-
-    if loop and loop.is_running():
-        import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(asyncio.run, coro)
-            return future.result(timeout=30)
-    else:
-        return asyncio.run(coro)
+    return run_async(coro)
 
 
 # ---------------------------------------------------------------------------
@@ -210,6 +202,12 @@ def handle_function_call(name, args, task_id=None):
     Used by code_execution_tool's sandbox/remote-sandbox worker threads
     to execute tools without going through the full agent loop.
 
+    Integrated strategy layer (tools.strategy):
+      1. Pre-validate  — param size limits, path safety
+      2. Route         — capability gating, tool name remapping
+      3. Coerce        — align args with JSON Schema types
+      4. Dispatch      — registry.dispatch()
+
     Args:
         name: The name of the tool to call.
         args: The arguments dict for the tool.
@@ -218,9 +216,30 @@ def handle_function_call(name, args, task_id=None):
     Returns:
         JSON string with the tool result.
     """
-    # Coerce arguments to match schema types
+    # 1. Pre-validation (param size, path safety)
+    from tools.strategy import pre_validate_tool_call, route_tool_call
+
+    pre_result = pre_validate_tool_call(name, args)
+    if not pre_result.ok:
+        logger.warning(
+            "Tool dispatch PRE-VALIDATION FAIL tool=%s: %s",
+            name, pre_result.error_message,
+        )
+        return json.dumps({"error": pre_result.error_message, "type": "pre_validation_error"})
+
+    # 2. Routing (capability check, name remapping)
+    name, args, routing_error = route_tool_call(name, args)
+    if routing_error:
+        logger.warning(
+            "Tool dispatch ROUTING FAIL tool=%s: %s",
+            name, routing_error,
+        )
+        return json.dumps({"error": routing_error, "type": "routing_error"})
+
+    # 3. Coerce arguments to match schema types
     args = coerce_tool_args(name, args)
-    
+
+    # 4. Dispatch
     from tools.registry import registry
     return registry.dispatch(name, args)
 
