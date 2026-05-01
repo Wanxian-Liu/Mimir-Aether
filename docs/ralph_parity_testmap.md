@@ -34,7 +34,7 @@
 | `cli.py` | G2: `agent/test_cli_arg_boundaries.py::test_cli_version_returns_zero`, `test_cli_profiles_rename_missing_new_arg_returns_one` | 更多子命令、冲突参数、非法参数（见 `ralph_tier0_case_matrix` B 节） |
 | `agent/core_loop.py` | G3: `agent/test_tier1_e2e_agent.py`（全文）；ext: `agent/test_integration.py::test_fencer_used_in_run_conversation`, `test_compressor_used_in_run_conversation`, `test_insights_recorded_during_conversation`, `test_agent_initialization` | `write_file` / `execute_code` 参数修复的单元级断言可单独补 |
 | `agent/turn_loop.py` | G2: `agent/test_turn_loop_budget.py::test_turn_manager_budget_exhausted_skips_chat` | 预算耗尽后状态一致性专项 |
-| `agent/skill_funcs.py` | **GAP** | 需补充最小调用或行为单测 |
+| `agent/skill_funcs.py` | G2: `agent/test_skill_funcs.py`（schema、`skill_view`/`skills_list`/`skill_manage` 桩与错误路径） | 与真实 `skills/` 目录的集成可另增 ext 用例 |
 | `agent/delegate_subagent.py` | G2: `agent/test_delegate_subagent_semantics.py::test_delegate_task_unknown_agent_marks_failed` | `agent_type` 其它分支、成功路径 |
 | `agent/tool_registry.py` | G2: `agent/test_tool_registry_concurrency.py::test_tool_registry_concurrent_register_and_get`; G2: `agent/test_tool_registry_api.py::test_tool_registry_enable_disable_list_all`, `test_tool_registry_search_order_and_get_stats` | 与 Hermes registry 语义 1:1 的差异需文档化 |
 | `tools/code_execution_tool.py` | G2: `agent/test_code_execution_tool_env.py::test_execute_code_home_overrides_when_profile_dir_exists`; G2: `agent/test_code_execution_tool_schema.py::test_execute_code_schema_mentions_only_enabled_tools`, `test_execute_code_schema_contains_import_examples` | 沙箱 secret 过滤、PYTHONPATH 边界 |
@@ -55,7 +55,6 @@
 |------|-------------------|------|
 | `tool_call` 缺失 `id` | `test_tool_call_missing_id_rejected_or_synthesized` | 需在 `agent_loop` 或 `core_loop` 层定义期望 |
 | 畸形 `tool_call` 结构 | `test_malformed_tool_call_recorded_as_tool_error` | 同上 |
-| `skill_funcs` 最小行为 | `test_skill_funcs_*` | 对齐 §1 范围 |
 | CLI 更广边界 | `test_cli_*` | 空参数、冲突 flag |
 | `core_loop` `write_file` JSON 修复 | `test_write_file_arg_repair_*` | 可与 Hermes 对照场景 |
 | 路径注入 / 秘钥泄露回归 | `test_security_path_injection_*` | 可与 fencer / 工具结合 |
