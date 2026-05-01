@@ -130,15 +130,14 @@ def _resolve_model_override(model_obj: Optional[Dict[str, Any]]) -> tuple:
     model_name = (model_obj.get("model") or "").strip() or None
     provider_name = (model_obj.get("provider") or "").strip() or None
     if model_name and not provider_name:
-        # Pin to the current main provider so the job is stable
+        # Pin to the current main provider so the job is stable (same config.yaml as CLI).
         try:
-            cfg_path = Path.home() / ".hermes" / "config.yaml"
-            if cfg_path.exists():
-                with open(cfg_path) as f:
-                    cfg = yaml.safe_load(f) or {}
-                model_cfg = cfg.get("model", {})
-                if isinstance(model_cfg, dict):
-                    provider_name = model_cfg.get("provider") or None
+            from mimir_cli.config import read_raw_config
+
+            cfg = read_raw_config()
+            model_cfg = cfg.get("model", {})
+            if isinstance(model_cfg, dict):
+                provider_name = model_cfg.get("provider") or None
         except Exception:
             pass  # Best-effort; provider stays None
     return (provider_name, model_name)

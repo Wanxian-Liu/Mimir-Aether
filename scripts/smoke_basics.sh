@@ -5,6 +5,8 @@
 # MIMIR_PORT). That endpoint exists only when `platforms.api_server` is enabled
 # in ~/.openclaw/config.yaml. Without it, this script may report failure even if
 # the gateway is running other platforms. See docs/gateway-cli-health.md.
+#
+# Cron: scheduled jobs run inside the gateway process, not from `cli.py cron run` alone.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
