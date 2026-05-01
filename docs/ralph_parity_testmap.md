@@ -31,7 +31,7 @@
 
 | 模块 | 对应用例 | 缺口（GAP） |
 |------|----------|-------------|
-| `cli.py` | G2: `agent/test_cli_arg_boundaries.py::test_cli_version_returns_zero`, `test_cli_profiles_rename_missing_new_arg_returns_one` | 更多子命令、冲突参数、非法参数（见 `ralph_tier0_case_matrix` B 节） |
+| `cli.py` | G2: `agent/test_cli_arg_boundaries.py`（`version`；`profiles`：`rename` / `export` / `create` / `delete` / `import` 缺参；`config`：`set` 缺 value、`get` 缺 key） | `models --set` 无值（当前仅展示列表）；冲突 flag、非法类型等仍可选补充 |
 | `agent/core_loop.py` | G3: `agent/test_tier1_e2e_agent.py`（全文）；ext: `agent/test_integration.py::test_fencer_used_in_run_conversation`, `test_compressor_used_in_run_conversation`, `test_insights_recorded_during_conversation`, `test_agent_initialization` | `write_file` / `execute_code` 参数修复的单元级断言可单独补 |
 | `agent/turn_loop.py` | G2: `agent/test_turn_loop_budget.py::test_turn_manager_budget_exhausted_skips_chat` | 预算耗尽后状态一致性专项 |
 | `agent/skill_funcs.py` | G2: `agent/test_skill_funcs.py`（schema、`skill_view`/`skills_list`/`skill_manage` 桩与错误路径） | 与真实 `skills/` 目录的集成可另增 ext 用例 |
@@ -53,7 +53,7 @@
 
 | 主题 | 建议用例名（占位） | 备注 |
 |------|-------------------|------|
-| CLI 更广边界 | `test_cli_*` | 空参数、冲突 flag |
+| CLI（`models`/全局 flag 冲突等） | `test_cli_*` | 按需补充；`profiles`/`config` 缺参见 `test_cli_arg_boundaries.py` |
 | `core_loop` `write_file` JSON 修复 | `test_write_file_arg_repair_*` | 可与 Hermes 对照场景 |
 | 路径注入 / 秘钥泄露回归 | `test_security_path_injection_*` | 可与 fencer / 工具结合 |
 
