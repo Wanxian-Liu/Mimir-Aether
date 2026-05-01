@@ -46,7 +46,7 @@ _SENSITIVE_HOME_FILES = (
     ".pypirc",
 )
 
-# Subdirectories under ~/.hermes that must not be attached via @file/@folder.
+# Subdirectories under the agent home that must not be attached via @file/@folder.
 _SENSITIVE_HERMES_DIRS: tuple[str, ...] = ()
 
 
@@ -481,9 +481,10 @@ def _resolve_path(cwd: Path, target: str, *, allowed_root: Path | None = None) -
 
 def _ensure_reference_path_allowed(path: Path) -> None:
     """确保引用路径不在敏感区域内（Hermès兼容）"""
-    # 自研: 用Path替代
+    from mimir_constants import get_mimir_home
+
     home = Path(os.path.expanduser("~")).resolve()
-    hermes_home = Path.home() / ".hermes".resolve()
+    hermes_home = get_mimir_home().resolve()
 
     blocked_exact = {home / rel for rel in _SENSITIVE_HOME_FILES}
     blocked_exact.add(hermes_home / ".env")

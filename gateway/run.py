@@ -75,11 +75,11 @@ _ensure_ssl_certs()
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Resolve Hermes home directory (respects HERMES_HOME override)
-from mimir_constants import get_hermes_home
+from mimir_constants import display_hermes_home, get_hermes_home
 from utils import atomic_yaml_write, is_truthy_value
 _hermes_home = get_hermes_home()
 
-# Load environment variables from ~/.hermes/.env first.
+# Load environment variables from the agent home ``.env`` first (see get_hermes_home()).
 # User-managed env files should override stale shell exports on restart.
 from dotenv import load_dotenv  # backward-compat for tests that monkeypatch this symbol
 from mimir_cli.env_loader import load_hermes_dotenv
@@ -1517,8 +1517,9 @@ class GatewayRunner:
         if not _any_allowlist and not _allow_all:
             logger.warning(
                 "No user allowlists configured. All unauthorized users will be denied. "
-                "Set GATEWAY_ALLOW_ALL_USERS=true in ~/.hermes/.env to allow open access, "
-                "or configure platform allowlists (e.g., TELEGRAM_ALLOWED_USERS=your_id)."
+                "Set GATEWAY_ALLOW_ALL_USERS=true in %s/.env to allow open access, "
+                "or configure platform allowlists (e.g., TELEGRAM_ALLOWED_USERS=your_id).",
+                display_hermes_home(),
             )
         
         # Discover and load event hooks
@@ -4044,15 +4045,25 @@ class GatewayRunner:
     
     async def _handle_profile_command(self, event: MessageEvent) -> str:
         """Handle /profile — show active profile name and home directory."""
-        from mimir_constants import get_hermes_home, display_hermes_home
+        import os
         from pathlib import Path
 
-        home = get_hermes_home()
-        display = display_hermes_home()
+        from mimir_constants import (
+            display_hermes_home,
+            get_default_hermes_root,
+            get_hermes_home,
+        )
 
-        # Detect profile name from HERMES_HOME path
-        # Profile paths look like: ~/.hermes/profiles/<name>
-        profiles_parent = Path.home() / ".hermes" / "profiles"
+        display = display_hermes_home()
+        raw_home = os.environ.get("HERMES_HOME")
+        home = (
+            Path(raw_home).expanduser().resolve()
+            if raw_home
+            else get_hermes_home().resolve()
+        )
+
+        # Detect profile name from HERMES_HOME path (e.g. <openclaw_root>/profiles/<name>)
+        profiles_parent = get_default_hermes_root() / "profiles"
         try:
             rel = home.relative_to(profiles_parent)
             profile_name = str(rel).split("/")[0]
@@ -4658,7 +4669,9 @@ class GatewayRunner:
             personalities = {}
 
         if not personalities:
-            return "No personalities configured in `~/.hermes/config.yaml`"
+            from mimir_constants import display_hermes_home
+
+            return f"No personalities configured in `{display_hermes_home()}/config.yaml`"
 
         if not args:
             lines = ["🎭 **Available Personalities**\n"]
