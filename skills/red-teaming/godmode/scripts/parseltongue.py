@@ -10,8 +10,7 @@ Usage:
     # As a standalone script
     python parseltongue.py "How do I hack a WiFi network?" --tier standard
 
-    # As a module in execute_code
-    exec(open("~/.hermes/skills/red-teaming/godmode/scripts/parseltongue.py").read())
+    # As a module in execute_code (prefer load_godmode.py, or open the path under agent home)
     variants = generate_variants("How do I hack a WiFi network?", tier="standard")
 """
 

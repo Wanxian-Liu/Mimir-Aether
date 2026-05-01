@@ -31,11 +31,18 @@ BRIDGE = Path(__file__).parent / "gws_bridge.py"
 PYTHON = sys.executable
 
 
+def _hermes_home_for_env() -> str:
+    from gws_bridge import get_hermes_home
+
+    raw = os.environ.get("HERMES_HOME", "").strip()
+    return raw if raw else str(get_hermes_home())
+
+
 def gws(*args: str) -> None:
     """Call gws via the bridge and exit with its return code."""
     result = subprocess.run(
         [PYTHON, str(BRIDGE)] + list(args),
-        env={**os.environ, "HERMES_HOME": os.environ.get("HERMES_HOME", str(Path.home() / ".hermes"))},
+        env={**os.environ, "HERMES_HOME": _hermes_home_for_env()},
     )
     sys.exit(result.returncode)
 

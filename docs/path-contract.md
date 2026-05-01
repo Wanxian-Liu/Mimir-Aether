@@ -17,6 +17,10 @@ See also: [gateway-cli-health.md](./gateway-cli-health.md) for `api_server` and 
 1. No new **`Path.home() / ".hermes"`** (or other hardcoded legacy roots) for agent-visible paths — use **`get_mimir_home()`**, existing config helpers, or env vars already used in-tree.
 2. Run **`./run_ralph_tier0.sh`** before merge (matches pre-push / CI Ralph job).
 
-## Intentionally out of scope
+## Optional skills / bundled scripts
 
-- Bulk edits to **`skills/**` / `optional-skills/**`** markdown that still say `~/.hermes` in examples — treat as documentation backlog unless users copy-paste them into production paths.
+Python under **`skills/**`** and **`optional-skills/**`** should use the same resolution pattern as core code: **`HERMES_HOME`** if set, else **`get_mimir_home()`**, with a small **ImportError** fallback to `~/.openclaw/projects/MimirAether`. Skill **markdown** may still mention legacy paths in prose; update when editing those docs.
+
+## Intentionally lower priority
+
+- Wide rewrites of **`SKILL.md`** examples that only illustrate concepts and are not executed as code paths.

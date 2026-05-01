@@ -15,7 +15,20 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-_HERMES_HOME = Path(os.environ.get("HERMES_HOME", Path.home() / ".hermes"))
+
+def _agent_home() -> Path:
+    raw = os.environ.get("HERMES_HOME", "").strip()
+    if raw:
+        return Path(raw).expanduser()
+    try:
+        from mimir_constants import get_mimir_home
+
+        return get_mimir_home()
+    except ImportError:
+        return Path.home() / ".openclaw" / "projects" / "MimirAether"
+
+
+_HERMES_HOME = _agent_home()
 DATA_DIR = _HERMES_HOME / "skills" / "productivity" / "memento-flashcards" / "data"
 CARDS_FILE = DATA_DIR / "cards.json"
 

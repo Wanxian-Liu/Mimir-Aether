@@ -12,7 +12,15 @@ from pathlib import Path
 
 
 def get_hermes_home() -> Path:
-    return Path(os.environ.get("HERMES_HOME", Path.home() / ".hermes"))
+    raw = os.environ.get("HERMES_HOME", "").strip()
+    if raw:
+        return Path(raw).expanduser()
+    try:
+        from mimir_constants import get_mimir_home
+
+        return get_mimir_home()
+    except ImportError:
+        return Path.home() / ".openclaw" / "projects" / "MimirAether"
 
 
 def get_token_path() -> Path:

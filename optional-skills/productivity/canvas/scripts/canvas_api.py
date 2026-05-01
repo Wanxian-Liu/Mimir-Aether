@@ -28,9 +28,15 @@ def _check_config():
     if not CANVAS_BASE_URL:
         missing.append("CANVAS_BASE_URL")
     if missing:
+        try:
+            from mimir_constants import display_mimir_home
+
+            _env_hint = f"{display_mimir_home()}/.env"
+        except ImportError:
+            _env_hint = "your agent home .env file"
         print(
             f"Missing required environment variables: {', '.join(missing)}\n"
-            "Set them in ~/.hermes/.env or export them in your shell.\n"
+            f"Set them in {_env_hint} or export them in your shell.\n"
             "See the canvas skill SKILL.md for setup instructions.",
             file=sys.stderr,
         )

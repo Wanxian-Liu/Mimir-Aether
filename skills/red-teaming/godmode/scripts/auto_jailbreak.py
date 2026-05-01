@@ -6,9 +6,9 @@ Automatically tests jailbreak techniques against the current model,
 finds what works, and locks it in by writing config.yaml + prefill.json.
 
 Usage in execute_code:
-    exec(open(os.path.expanduser(
-        "~/.hermes/skills/red-teaming/godmode/scripts/auto_jailbreak.py"
-    )).read())
+    Prefer ``load_godmode.py`` (loads this file automatically). Otherwise open
+    ``<agent_home>/skills/red-teaming/godmode/scripts/auto_jailbreak.py``
+    where ``agent_home`` is ``HERMES_HOME`` or ``get_mimir_home()``.
     
     result = auto_jailbreak()  # Uses current model from config
     # or:
@@ -20,6 +20,19 @@ import json
 import time
 import yaml
 from pathlib import Path
+
+
+def _agent_home() -> Path:
+    raw = os.environ.get("HERMES_HOME", "").strip()
+    if raw:
+        return Path(raw).expanduser()
+    try:
+        from mimir_constants import get_mimir_home
+
+        return get_mimir_home()
+    except ImportError:
+        return Path.home() / ".openclaw" / "projects" / "MimirAether"
+
 
 try:
     from openai import OpenAI
@@ -35,7 +48,7 @@ try:
     _SKILL_DIR = Path(__file__).resolve().parent.parent
 except NameError:
     # __file__ not defined when loaded via exec() — search standard paths
-    _SKILL_DIR = Path(os.getenv("HERMES_HOME", Path.home() / ".hermes")) / "skills" / "red-teaming" / "godmode"
+    _SKILL_DIR = _agent_home() / "skills" / "red-teaming" / "godmode"
 
 _SCRIPTS_DIR = _SKILL_DIR / "scripts"
 _TEMPLATES_DIR = _SKILL_DIR / "templates"
@@ -57,7 +70,7 @@ if _race_path.exists():
 # Hermes config paths
 # ═══════════════════════════════════════════════════════════════════
 
-HERMES_HOME = Path(os.getenv("HERMES_HOME", Path.home() / ".hermes"))
+HERMES_HOME = _agent_home()
 CONFIG_PATH = HERMES_HOME / "config.yaml"
 PREFILL_PATH = HERMES_HOME / "prefill.json"
 
@@ -407,7 +420,7 @@ def _write_config(system_prompt: str = None, prefill_file: str = None):
 
 
 def _write_prefill(prefill_messages: list):
-    """Write prefill messages to ~/.hermes/prefill.json."""
+    """Write prefill messages to ``<agent_home>/prefill.json``."""
     with open(PREFILL_PATH, "w") as f:
         json.dump(prefill_messages, f, indent=2, ensure_ascii=False)
     return str(PREFILL_PATH)

@@ -2,7 +2,7 @@
 """Telephony helper for the Hermes optional telephony skill.
 
 Capabilities:
-- Persist telephony provider credentials to ~/.hermes/.env
+- Persist telephony provider credentials to the agent home ``.env`` file
 - Search for, buy, and remember Twilio phone numbers
 - Make direct Twilio calls (TwiML <Say> or <Play>)
 - Send SMS / MMS via Twilio
@@ -56,6 +56,30 @@ DEFAULT_AI_PROVIDER = "bland"
 STATE_VERSION = 1
 
 
+def _agent_home() -> Path:
+    raw = os.environ.get("HERMES_HOME", "").strip()
+    if raw:
+        return Path(raw).expanduser()
+    try:
+        from mimir_constants import get_mimir_home
+
+        return get_mimir_home()
+    except ImportError:
+        return Path.home() / ".openclaw" / "projects" / "MimirAether"
+
+
+def _agent_home_display() -> str:
+    try:
+        from mimir_constants import display_mimir_home
+
+        return display_mimir_home()
+    except ImportError:
+        p = _agent_home()
+        home_s = str(Path.home())
+        s = str(p)
+        return s.replace(home_s, "~", 1) if s.startswith(home_s) else s
+
+
 class TelephonyError(RuntimeError):
     """Domain-specific failure surfaced to the skill/user."""
 
@@ -69,7 +93,7 @@ class OwnedTwilioNumber:
 
 
 def _hermes_home() -> Path:
-    return Path(os.environ.get("HERMES_HOME", "~/.hermes")).expanduser()
+    return _agent_home()
 
 
 def _env_path() -> Path:
@@ -286,7 +310,7 @@ def _twilio_creds() -> tuple[str, str]:
     if not sid or not token:
         raise TelephonyError(
             "Twilio credentials are not configured. Use 'save-twilio' or set "
-            "TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN in ~/.hermes/.env."
+            f"TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN in {_agent_home_display()}/.env."
         )
     return sid, token
 
@@ -420,7 +444,7 @@ def _resolve_twilio_number(identifier: str | None = None) -> OwnedTwilioNumber:
 
     raise TelephonyError(
         "No default Twilio phone number is set. Use 'twilio-buy --save-env', "
-        "'twilio-set-default', or set TWILIO_PHONE_NUMBER in ~/.hermes/.env."
+        f"'twilio-set-default', or set TWILIO_PHONE_NUMBER in {_agent_home_display()}/.env."
     )
 
 
@@ -756,7 +780,7 @@ def _vapi_import_twilio_number(
     api_key = _vapi_api_key()
     if not api_key:
         raise TelephonyError(
-            "Vapi is not configured. Use 'save-vapi' or set VAPI_API_KEY in ~/.hermes/.env first."
+            f"Vapi is not configured. Use 'save-vapi' or set VAPI_API_KEY in {_agent_home_display()}/.env first."
         )
     owned = _resolve_twilio_number(phone_identifier)
     sid, token = _twilio_creds()
@@ -803,7 +827,7 @@ def _bland_call(
     api_key = _bland_api_key()
     if not api_key:
         raise TelephonyError(
-            "Bland.ai is not configured. Use 'save-bland' or set BLAND_API_KEY in ~/.hermes/.env."
+            f"Bland.ai is not configured. Use 'save-bland' or set BLAND_API_KEY in {_agent_home_display()}/.env."
         )
     normalized = _normalize_phone(phone_number)
     if voice is None:
@@ -881,13 +905,13 @@ def _vapi_call(
     api_key = _vapi_api_key()
     if not api_key:
         raise TelephonyError(
-            "Vapi is not configured. Use 'save-vapi' or set VAPI_API_KEY in ~/.hermes/.env."
+            f"Vapi is not configured. Use 'save-vapi' or set VAPI_API_KEY in {_agent_home_display()}/.env."
         )
     phone_number_id = _vapi_phone_number_id()
     if not phone_number_id:
         raise TelephonyError(
             "No Vapi phone number id is configured. Import an owned Twilio number with "
-            "'vapi-import-twilio --save-env' or set VAPI_PHONE_NUMBER_ID in ~/.hermes/.env."
+            f"'vapi-import-twilio --save-env' or set VAPI_PHONE_NUMBER_ID in {_agent_home_display()}/.env."
         )
     normalized = _normalize_phone(phone_number)
     voice_provider = _env_or_config(
@@ -1091,7 +1115,7 @@ def save_twilio(account_sid: str, auth_token: str, phone_number: str = "", phone
         "provider": "twilio",
         "saved_env_keys": sorted(updates),
         "env_path": str(env_file),
-        "message": "Twilio credentials saved to ~/.hermes/.env.",
+        "message": f"Twilio credentials saved to {_agent_home_display()}/.env.",
     }
     if phone_number:
         result.update(_remember_twilio_number(phone_number=updates["TWILIO_PHONE_NUMBER"], phone_sid=phone_sid.strip(), save_env=False))
@@ -1111,7 +1135,7 @@ def save_bland(api_key: str, voice: str = BLAND_DEFAULT_VOICE) -> dict[str, Any]
         "provider": "bland",
         "saved_env_keys": ["BLAND_API_KEY", "BLAND_DEFAULT_VOICE", "PHONE_PROVIDER"],
         "env_path": str(env_file),
-        "message": "Bland.ai configuration saved to ~/.hermes/.env.",
+        "message": f"Bland.ai configuration saved to {_agent_home_display()}/.env.",
     }
 
 
@@ -1138,7 +1162,7 @@ def save_vapi(
         "provider": "vapi",
         "saved_env_keys": sorted(updates),
         "env_path": str(env_file),
-        "message": "Vapi configuration saved to ~/.hermes/.env.",
+        "message": f"Vapi configuration saved to {_agent_home_display()}/.env.",
     }
     if phone_number_id:
         result.update(_remember_vapi_number(phone_number_id=phone_number_id.strip(), save_env=False))
@@ -1146,22 +1170,23 @@ def save_vapi(
 
 
 def _build_parser() -> argparse.ArgumentParser:
+    _env_hint = f"{_agent_home_display()}/.env"
     parser = argparse.ArgumentParser(description="Hermes telephony helper")
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("diagnose", help="Show saved telephony state and provider readiness")
 
-    p = sub.add_parser("save-twilio", help="Save Twilio credentials to ~/.hermes/.env")
+    p = sub.add_parser("save-twilio", help=f"Save Twilio credentials to {_env_hint}")
     p.add_argument("account_sid")
     p.add_argument("auth_token")
     p.add_argument("--phone-number", default="")
     p.add_argument("--phone-sid", default="")
 
-    p = sub.add_parser("save-bland", help="Save Bland.ai settings to ~/.hermes/.env")
+    p = sub.add_parser("save-bland", help=f"Save Bland.ai settings to {_env_hint}")
     p.add_argument("api_key")
     p.add_argument("--voice", default=BLAND_DEFAULT_VOICE)
 
-    p = sub.add_parser("save-vapi", help="Save Vapi settings to ~/.hermes/.env")
+    p = sub.add_parser("save-vapi", help=f"Save Vapi settings to {_env_hint}")
     p.add_argument("api_key")
     p.add_argument("--phone-number-id", default="")
     p.add_argument("--voice-provider", default=VAPI_DEFAULT_VOICE_PROVIDER)
@@ -1312,7 +1337,7 @@ def _dispatch(args: argparse.Namespace) -> dict[str, Any]:
             )
         raise TelephonyError(
             f"Unsupported AI call provider '{provider}'. Use --provider bland or --provider vapi, "
-            "or set PHONE_PROVIDER in ~/.hermes/.env."
+            f"or set PHONE_PROVIDER in {_agent_home_display()}/.env."
         )
     if cmd == "ai-status":
         provider = (args.provider or _ai_provider()).lower().strip()
@@ -1322,7 +1347,7 @@ def _dispatch(args: argparse.Namespace) -> dict[str, Any]:
             return _bland_status(args.call_id, analyze=args.analyze or None)
         raise TelephonyError(
             f"Unsupported AI call provider '{provider}'. Use --provider bland or --provider vapi, "
-            "or set PHONE_PROVIDER in ~/.hermes/.env."
+            f"or set PHONE_PROVIDER in {_agent_home_display()}/.env."
         )
     raise TelephonyError(f"Unknown command: {cmd}")
 

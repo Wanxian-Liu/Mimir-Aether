@@ -2,9 +2,8 @@
 Loader for G0DM0D3 scripts. Handles the exec-scoping issues.
 
 Usage in execute_code:
-    exec(open(os.path.expanduser(
-        "~/.hermes/skills/red-teaming/godmode/scripts/load_godmode.py"
-    )).read())
+    from mimir_constants import get_mimir_home
+    exec(open(get_mimir_home() / "skills/red-teaming/godmode/scripts/load_godmode.py").read())
     
     # Now all functions are available:
     # - auto_jailbreak(), undo_jailbreak()
@@ -17,7 +16,20 @@ Usage in execute_code:
 import os, sys
 from pathlib import Path
 
-_gm_scripts_dir = Path(os.getenv("HERMES_HOME", Path.home() / ".hermes")) / "skills" / "red-teaming" / "godmode" / "scripts"
+
+def _agent_home() -> Path:
+    raw = os.environ.get("HERMES_HOME", "").strip()
+    if raw:
+        return Path(raw).expanduser()
+    try:
+        from mimir_constants import get_mimir_home
+
+        return get_mimir_home()
+    except ImportError:
+        return Path.home() / ".openclaw" / "projects" / "MimirAether"
+
+
+_gm_scripts_dir = _agent_home() / "skills" / "red-teaming" / "godmode" / "scripts"
 
 _gm_old_argv = sys.argv
 sys.argv = ["_godmode_loader"]

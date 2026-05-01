@@ -27,6 +27,15 @@ except Exception:  # pragma: no cover - handled at runtime
 
 ENTRY_DELIMITER = "\n§\n"
 DEFAULT_MEMORY_CHAR_LIMIT = 2200
+
+
+def _default_agent_home_str() -> str:
+    try:
+        from mimir_constants import get_mimir_home
+
+        return str(get_mimir_home())
+    except ImportError:
+        return str(Path.home() / ".openclaw" / "projects" / "MimirAether")
 DEFAULT_USER_CHAR_LIMIT = 1375
 SKILL_CATEGORY_DIRNAME = "openclaw-imports"
 SKILL_CATEGORY_DESCRIPTION = (
@@ -73,11 +82,11 @@ MIGRATION_OPTION_METADATA: Dict[str, Dict[str, str]] = {
     },
     "skills": {
         "label": "User skills",
-        "description": "Copy OpenClaw skills into ~/.hermes/skills/openclaw-imports/.",
+        "description": "Copy OpenClaw skills into <target>/skills/openclaw-imports/.",
     },
     "tts-assets": {
         "label": "TTS assets",
-        "description": "Copy compatible workspace TTS assets into ~/.hermes/tts/.",
+        "description": "Copy compatible workspace TTS assets into <target>/tts/.",
     },
     "discord-settings": {
         "label": "Discord settings",
@@ -2618,7 +2627,7 @@ class Migrator:
 
         notes.extend([
             "- Run `hermes gateway install` if you need the gateway service",
-            "- Review `~/.hermes/config.yaml` for any adjustments",
+            "- Review the target `config.yaml` for any adjustments",
             "",
         ])
 
@@ -2632,7 +2641,11 @@ class Migrator:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Migrate OpenClaw user state into Hermes Agent.")
     parser.add_argument("--source", default=str(Path.home() / ".openclaw"), help="OpenClaw home directory")
-    parser.add_argument("--target", default=str(Path.home() / ".hermes"), help="Hermes home directory")
+    parser.add_argument(
+        "--target",
+        default=_default_agent_home_str(),
+        help="Agent home directory (MimirAether / Hermes; default: get_mimir_home())",
+    )
     parser.add_argument(
         "--workspace-target",
         help="Optional workspace root where the workspace instructions file should be copied",
@@ -2694,6 +2707,14 @@ def main() -> int:
     )
     report = migrator.migrate()
 
+    _target_root_s = str(report["target_root"])
+    _home_s = str(Path.home())
+    _target_tilde = (
+        _target_root_s.replace(_home_s, "~", 1)
+        if _target_root_s.startswith(_home_s)
+        else _target_root_s
+    )
+
     # ── Human-readable terminal recap ─────────────────────────
     s = report["summary"]
     items = report["items"]
@@ -2724,8 +2745,9 @@ def main() -> int:
                 continue
             seen_kinds.add(label)
             dest = item.get("destination") or ""
-            if dest.startswith(str(report["target_root"])):
-                dest = "~/.hermes/" + dest[len(str(report["target_root"])) + 1:]
+            if dest.startswith(_target_root_s):
+                rest = dest[len(_target_root_s) :].lstrip("/")
+                dest = f"{_target_tilde.rstrip('/')}/{rest}" if rest else _target_tilde
             meta = MIGRATION_OPTION_METADATA.get(label, {})
             display = meta.get("label", label)
             print(f"    ✔ {display:<35s} -> {dest}")
@@ -2771,7 +2793,7 @@ def main() -> int:
     if args.execute:
         print()
         print("  Next steps:")
-        print("    1. Review ~/.hermes/config.yaml")
+        print(f"    1. Review {_target_tilde}/config.yaml")
         print("    2. Run: hermes mcp list")
         if any(i["kind"] == "cron-jobs" and i["status"] == "archived" for i in items):
             print("    3. Recreate cron jobs: hermes cron")

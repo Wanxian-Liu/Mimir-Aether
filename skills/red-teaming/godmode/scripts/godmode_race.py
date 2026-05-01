@@ -7,7 +7,7 @@ Queries multiple models in parallel via OpenRouter, scores responses
 on quality/filteredness/speed, returns the best unfiltered answer.
 
 Usage in execute_code:
-    exec(open(os.path.expanduser("~/.hermes/skills/red-teaming/godmode/scripts/godmode_race.py")).read())
+    Prefer ``load_godmode.py``. Or: ``exec(open(<agent_home>/skills/red-teaming/godmode/scripts/godmode_race.py).read())``
     
     result = race_models(
         query="Your query here",
