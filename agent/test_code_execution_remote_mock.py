@@ -623,6 +623,61 @@ print("R", hermes_tools.read_file({str(target)!r}, 1, 10))
     assert dispatched[1][1]["path"] == str(target)
 
 
+def test_execute_remote_three_distinct_tools_in_one_script(monkeypatch, tmp_path):
+    """One execute_code run: web_search + read_file + web_extract (Tier-0 matrix B)."""
+    import tools.code_execution_tool as cet
+    from tools import terminal_tool as tt
+
+    class _FixedUUID:
+        hex = "7" * 32
+
+    target = (tmp_path / "triple_read.txt").resolve()
+    target.write_text("triple-line\n", encoding="utf-8")
+
+    dispatched: list[tuple[str, dict]] = []
+
+    def fake_handle(name, args, task_id=None):
+        dispatched.append((name, dict(args)))
+        if name == "web_search":
+            return json.dumps({"ok": "triple-search"})
+        if name == "read_file":
+            return json.dumps({"content": "triple-read-stub", "total_lines": 1})
+        if name == "web_extract":
+            return json.dumps({"results": [{"url": "triple-url", "content": "xe"}]})
+        raise AssertionError(name)
+
+    monkeypatch.setattr(model_tools, "handle_function_call", fake_handle)
+    monkeypatch.setattr(cet.uuid, "uuid4", lambda: _FixedUUID())
+    monkeypatch.delenv("HERMES_TIMEZONE", raising=False)
+    monkeypatch.setattr(tt, "_get_env_config", lambda: {"env_type": "docker"})
+    monkeypatch.setattr(
+        cet,
+        "_get_or_create_env",
+        lambda _tid: (FilesystemEmulatingEnv(tmp_path), "docker"),
+    )
+
+    code = f"""import hermes_tools
+print("W", hermes_tools.web_search("triple-q", 3))
+print("R", hermes_tools.read_file({str(target)!r}, 1, 10))
+print("X", hermes_tools.web_extract(["https://example.invalid/triple-wx"]))
+"""
+    raw = cet.execute_code(
+        code,
+        enabled_tools=["web_search", "read_file", "web_extract"],
+    )
+    data = json.loads(raw)
+    assert data.get("status") == "success", data
+    assert data.get("tool_calls_made") == 3
+    out = data.get("output") or ""
+    assert "triple-search" in out or "ok" in out.lower()
+    assert "triple-read-stub" in out
+    assert "triple-url" in out
+    assert [d[0] for d in dispatched] == ["web_search", "read_file", "web_extract"]
+    assert dispatched[0][1]["query"] == "triple-q"
+    assert dispatched[1][1]["path"] == str(target)
+    assert dispatched[2][1]["urls"] == ["https://example.invalid/triple-wx"]
+
+
 def test_execute_remote_two_tool_calls_via_file_rpc(monkeypatch, tmp_path):
     import tools.code_execution_tool as cet
     from tools import terminal_tool as tt

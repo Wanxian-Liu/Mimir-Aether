@@ -80,6 +80,7 @@
 18. 远程 mock：**`patch`**（`mode=replace`）一轮 file RPC  
 19. 远程 mock：**`search_files`** 一轮 file RPC（多参数）  
 20. 远程 mock：同脚本 **`web_search` + `read_file`**，`tool_calls_made==2`  
+21. 远程 mock：同脚本 **`web_search` + `read_file` + `web_extract`**（三工具），`tool_calls_made==3`  
 
 ## A6. `delegate_subagent`（`test_delegate_subagent_semantics.py`）
 
@@ -108,7 +109,7 @@
 
 - CLI 非法类型、互斥 flag 显式报错（`profiles`/`config`/`models`、`-q` 调度见 A2）
 - `delegate_subagent` 与真实子进程/超时的集成（语义见 A6）
-- `code_execution_tool` 远程 **三工具及以上同脚本**、**`patch`+`terminal` 组合**、`write_file` native 与 RPC 文档化（§20 已覆盖双工具；单工具 §15–19）
+- `code_execution_tool` 远程 **`patch`+`terminal` 组合**、`write_file` native 与 RPC 文档化（§20 双工具；**§21 三工具 `web_search`+`read_file`+`web_extract`**；单工具 §15–19）
 - `turn_loop` 与真实 Agent 预算递减/联调（语义见 A7）
 - `tool_registry` 并发注册/查询一致性（启用/禁用/注销语义见 A7a）
 
