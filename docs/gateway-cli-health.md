@@ -40,3 +40,5 @@ python3 cli.py gateway health
 ## Cron jobs
 
 Scheduled jobs in `cron/jobs.json` are **executed from the gateway process** (`GatewayRunner.execute_cron_job` on each tick). A standalone `python3 cli.py cron run` loop only calls `cron.scheduler.tick` **without** a runner — it will log that jobs are due but will **not** run the agent. Keep the gateway up for automatic cron execution.
+
+Optional `job["script"]` paths are **relative to `get_mimir_home()/scripts`** — the same root used by `cronjob` tool validation (`tools/cronjob_tools.py`).

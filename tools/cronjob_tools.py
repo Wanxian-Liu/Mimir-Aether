@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 # Import from cron module (will be available when properly installed)
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from mimir_constants import display_mimir_home, get_mimir_home
+
 from cron.jobs import (
     create_job,
     get_job,
@@ -154,7 +156,8 @@ def _normalize_optional_job_value(value: Optional[Any], *, strip_trailing_slash:
 def _validate_cron_script_path(script: Optional[str]) -> Optional[str]:
     """Validate a cron job script path at the API boundary.
 
-    Scripts must be relative paths that resolve within HERMES_HOME/scripts/.
+    Scripts must be relative paths that resolve under ``get_mimir_home()/scripts``
+    (same directory the gateway uses when executing ``job["script"]``).
     Absolute paths and ~ expansion are rejected to prevent arbitrary script
     execution via prompt injection.
 
@@ -164,20 +167,20 @@ def _validate_cron_script_path(script: Optional[str]) -> Optional[str]:
         return None  # empty/None = clearing the field, always OK
 
     raw = script.strip()
+    scripts_root = f"{display_mimir_home()}/scripts"
 
     # Reject absolute paths and ~ expansion at the API boundary.
-    # Only relative paths within ~/.hermes/scripts/ are allowed.
     if raw.startswith(("/", "~")) or (len(raw) >= 2 and raw[1] == ":"):
         return (
-            f"Script path must be relative to ~/.hermes/scripts/. "
+            f"Script path must be relative to {scripts_root}/. "
             f"Got absolute or home-relative path: {raw!r}. "
-            f"Place scripts in ~/.hermes/scripts/ and use just the filename."
+            f"Place scripts in that directory and pass a relative path (e.g. my_hook.sh)."
         )
 
     # Validate containment after resolution
     from tools.path_security import validate_within_dir
 
-    scripts_dir = Path.home() / ".hermes" / "scripts"
+    scripts_dir = get_mimir_home() / "scripts"
     scripts_dir.mkdir(parents=True, exist_ok=True)
     containment_error = validate_within_dir(scripts_dir / raw, scripts_dir)
     if containment_error:
@@ -454,7 +457,7 @@ Important safety rule: cron-run sessions should not recursively schedule more cr
             },
             "script": {
                 "type": "string",
-                "description": "Optional path to a Python script that runs before each cron job execution. Its stdout is injected into the prompt as context. Use for data collection and change detection. Relative paths resolve under ~/.hermes/scripts/. On update, pass empty string to clear."
+                "description": "Optional script (e.g. shell/Python) run by the gateway before the agent turn; capture output for context. Relative paths resolve under <MimirAether>/scripts/ (get_mimir_home()/scripts). On update, pass empty string to clear."
             },
         },
         "required": ["action"]
