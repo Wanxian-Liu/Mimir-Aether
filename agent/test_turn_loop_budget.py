@@ -1,6 +1,7 @@
 import asyncio
 
 import pytest
+from unittest.mock import patch
 
 from agent.turn_loop import TurnManager, TurnStatus
 
@@ -132,4 +133,89 @@ def test_turn_manager_reset_after_exhausted_allows_normal_turn():
     assert len(mgr.turns) == 1
     assert mgr.turns[0].status == TurnStatus.COMPLETED
     assert mgr.current_turn is mgr.turns[0]
+
+
+@pytest.fixture
+def isolate_checkpoints_for_turn_loop(tmp_path, monkeypatch):
+    import checkpoint_manager
+
+    mgr = checkpoint_manager.CheckpointManager(checkpoint_dir=tmp_path / "turn_loop_ckpt")
+    monkeypatch.setattr(checkpoint_manager, "_checkpoint_manager", mgr)
+
+
+def test_turn_manager_real_agent_budget_decrements_per_completed_turn(
+    isolate_checkpoints_for_turn_loop,
+):
+    from agent.core_loop import MimirAetherAgent
+
+    async def fake_llm(self, messages, session_id):
+        return (
+            {"content": "ok", "tool_calls": None, "reasoning_content": None},
+            0.01,
+        )
+
+    agent = MimirAetherAgent(
+        model="deepseek-chat",
+        max_iterations=2,
+        platform="turn-loop-test",
+        system_prompt="budget integration test",
+        save_trajectories=False,
+    )
+    mgr = TurnManager(agent=agent)
+
+    with patch.object(MimirAetherAgent, "_restore_session", lambda self, session_id=None: False):
+        with patch.object(MimirAetherAgent, "_call_model_with_tokens", new=fake_llm):
+            out1 = asyncio.run(mgr.execute_turn("first"))
+            out2 = asyncio.run(mgr.execute_turn("second"))
+
+    assert out1 == "ok"
+    assert out2 == "ok"
+    assert len(mgr.turns) == 2
+    assert mgr.turns[0].status == TurnStatus.COMPLETED
+    assert mgr.turns[1].status == TurnStatus.COMPLETED
+    # turn.iterations mirrors agent.budget._used at each turn completion.
+    assert mgr.turns[0].iterations == 1
+    assert mgr.turns[1].iterations == 2
+
+    stats = mgr.get_statistics()
+    assert stats["total_turns"] == 2
+    assert stats["completed"] == 2
+    assert stats["max_iterations"] == 0
+
+
+def test_turn_manager_real_agent_budget_exhausted_after_two_turns(
+    isolate_checkpoints_for_turn_loop,
+):
+    from agent.core_loop import MimirAetherAgent
+
+    async def fake_llm(self, messages, session_id):
+        return (
+            {"content": "ok", "tool_calls": None, "reasoning_content": None},
+            0.01,
+        )
+
+    agent = MimirAetherAgent(
+        model="deepseek-chat",
+        max_iterations=2,
+        platform="turn-loop-test",
+        system_prompt="budget integration test",
+        save_trajectories=False,
+    )
+    mgr = TurnManager(agent=agent)
+
+    with patch.object(MimirAetherAgent, "_restore_session", lambda self, session_id=None: False):
+        with patch.object(MimirAetherAgent, "_call_model_with_tokens", new=fake_llm):
+            asyncio.run(mgr.execute_turn("first"))
+            asyncio.run(mgr.execute_turn("second"))
+            blocked = asyncio.run(mgr.execute_turn("third"))
+
+    assert "迭代次数已达上限" in blocked
+    assert len(mgr.turns) == 3
+    assert [t.status for t in mgr.turns] == [
+        TurnStatus.COMPLETED,
+        TurnStatus.COMPLETED,
+        TurnStatus.MAX_ITERATIONS,
+    ]
+    assert mgr.turns[2].assistant_message is None
+    assert mgr.turns[2].error == "迭代次数已达上限"
 

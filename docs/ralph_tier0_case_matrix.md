@@ -104,6 +104,8 @@
 2. 耗尽 turn：`assistant_message` 为空、`error` 与 `status` 一致、`current_turn`/history/stats 一致  
 3. 连续两次用户消息在预算仍为 0 时各生成一条 `MAX_ITERATIONS` turn  
 4. `TurnManager.reset` 清空 turns 后，提高 `remaining` 可再走 `COMPLETED` 路径  
+5. 真实 `MimirAetherAgent` 联调（stub LLM）：两轮正常回复后，`turn.iterations` 随预算累计为 `1 -> 2`  
+6. 真实 `MimirAetherAgent` 联调（stub LLM）：第三轮在预算耗尽前置检查处生成 `MAX_ITERATIONS` turn  
 
 ## B. 待补齐（下一批 Tier-0）
 
@@ -111,7 +113,6 @@
 
 - CLI 非法类型、互斥 flag 显式报错（`profiles`/`config`/`models`、`-q` 调度见 A2）
 - `code_execution_tool` 远程 **`patch`+`terminal` 组合**、`write_file` native 与 RPC 文档化（§20 双工具；**§21 三工具 `web_search`+`read_file`+`web_extract`**；单工具 §15–19）
-- `turn_loop` 与真实 Agent 预算递减/联调（语义见 A7）
 - `tool_registry` 并发注册/查询一致性（启用/禁用/注销语义见 A7a）
 
 ## C. 每日结果记录（建议）

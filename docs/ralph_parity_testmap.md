@@ -33,7 +33,7 @@
 |------|----------|-------------|
 | `cli.py` | G2: `agent/test_cli_arg_boundaries.py`（`version`；`profiles` / `config` / `models` 缺参；**`-q` 与显式子命令同时出现 → 退出码 1 + 说明**；**`version -q x` → REMAINDER，不崩**） | 非法类型等仍可选补充 |
 | `agent/core_loop.py` | G3: `agent/test_tier1_e2e_agent.py`（全文）；G2: `agent/test_write_file_arg_repair.py`（`_parse_write_file_arguments_string`）；ext: `agent/test_integration.py::test_fencer_used_in_run_conversation`, `test_compressor_used_in_run_conversation`, `test_insights_recorded_during_conversation`, `test_agent_initialization` | `execute_code` 字符串修复可另增单测 |
-| `agent/turn_loop.py` | G2: `agent/test_turn_loop_budget.py`（见 §2「轮次语义」） | 与真实 `MimirAetherAgent`+预算实现联调可另增 ext |
+| `agent/turn_loop.py` | G2: `agent/test_turn_loop_budget.py`（见 §2「轮次语义」，含真实 `MimirAetherAgent`+stub LLM 的预算递减/耗尽联调） | — |
 | `agent/skill_funcs.py` | G2: `agent/test_skill_funcs.py`（schema、`skill_view`/`skills_list`/`skill_manage` 桩与错误路径） | 与真实 `skills/` 目录的集成可另增 ext 用例 |
 | `agent/delegate_subagent.py` | G2: `agent/test_delegate_subagent_semantics.py`（未知 agent → FAILED；缺失 task_id → False；非 PENDING 再 delegate → False；mock 成功路径 → COMPLETED + result）；`agent/test_delegate_subagent_integration.py`（POSIX：真实 stub 子进程成功；`sleep` + 短 `timeout` → FAILED + timed out） | — |
 | `agent/tool_registry.py` | G2: `agent/test_tool_registry_concurrency.py::test_tool_registry_concurrent_register_and_get`; G2: `agent/test_tool_registry_api.py`（list/enable/disable、search/stats、**禁用后 `get`/search 不可见**、**enable 恢复**、**unregister 清空**）；**ext**：`scripts/diff_tool_names_hermes_mimir.py`（`tools/registry` 名集合 vs Hermes `get_tool_definitions`） | 与 Hermes **toolset 管道**的差异见 `docs/hermes_mimir_behavior_matrix.md` **H15** |
