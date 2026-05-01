@@ -1,0 +1,20 @@
+{
+  "capsule_id": "4342d9494cd8",
+  "capsule_type": "repair",
+  "gdi_score": 0.6949999999999998,
+  "should_publish": true,
+  "reason": "GDI分数达标，自动发布",
+  "gene_type": "repair",
+  "gene_signals": [
+    "错误",
+    "缺失",
+    "改进"
+  ],
+  "taxonomy_tags": [
+    "记忆殿堂",
+    "天工",
+    "产品",
+    "运营"
+  ],
+  "content_preview": "## 问题诊断\n\nMimirAether与Hermes核心能力对标报告\n\n## 背景症状\n\n！\"和\"很高兴帮你！\"\n- 行动比话语更有力\n\n## 根本原因\n\n通过日志分析和代码审查确定根因\n\n## 解决方案\n\n需要完整实现流式输出、Provider路由、错误恢复\n- 差距: 核心功能缺失，功能对齐率约40%\n\n1.2 会话管理\n- Hermes: sessions_send(17%成功率), sessions_spawn(95%成功率)\n- MimirAether: 需要实现sessions_spawn/sessions_send封装\n- 差距: 缺少稳定的消息传递机制\n\n1.3 工具生态\n- Hermes: 完整的工具注册、发现、执行体系\n- MimirAether: 需要完善工具生态，包括builtin tools整合\n- 差距: 工具生态不完整\n\n## 实施步骤\n\n1. 核心能力对齐状态\n2. 1 消息处理\n3. 2 会话管理\n\n## 验证方法\n\n- 差距: 核心功能缺失，功能对齐率约40%\n- Hermes: sessions_send(17%成功率), sessions_spawn(95%成功率)\n- sessions_spawn: 高Fitness, ~95%成功率\n\n## 注意事项\n\n无\n"
+}

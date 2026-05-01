@@ -1,0 +1,43 @@
+OpenClaw心跳机制核心知识：
+
+1. 心跳配置
+   心跳prompt: Read HEARTBEAT.md if it exists (workspace context). Follow it strictly.
+   如果没有需要关注的，回复HEARTBEAT_OK
+
+2. 心跳 vs Cron选择
+   Heartbeat when:
+   - 多个检查可以批量（inbox + calendar + notifications）
+   - 需要对话上下文
+   - 时间可以漂移（每30分钟一次）
+
+   Cron when:
+   - 需要精确时间（每周一9:00 AM）
+   - 任务需要隔离
+   - 想要不同模型或思维级别
+   - 一次性提醒
+
+3. 心跳检查清单（HEARTBEAT.md）
+   - 加载最近3天memory文件
+   - 用memory_search检索重要关键词
+   - 检查是否有该固化到MEMORY.md的信息
+   - 记忆空间隔离检查
+   - 织界中枢主动检查
+   - MimirCoreTool监督检查
+
+4. 检查轮换（每天2-4次）
+   - 邮件 - 紧急未读消息？
+   - 日历 - 未来24-48小时事件？
+   - 提及 - Twitter/社交通知？
+   - 天气 - 相关如果可能出门？
+
+5. 何时主动联系负责人
+   - 重要邮件到达
+   - 日历事件即将到来（<2h）
+   - 发现有趣的东西
+   - 已经>8小时没说话
+
+6. 何时保持安静
+   - 深夜（23:00-08:00）除非紧急
+   - 负责人明显很忙
+   - 自上次检查后没什么新消息
+   - 刚检查过<30分钟前

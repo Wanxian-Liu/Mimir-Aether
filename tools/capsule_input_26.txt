@@ -1,0 +1,36 @@
+浏览器自动化与Playwright核心知识：
+
+1. 浏览器工具
+   OpenClaw提供了browser工具来控制浏览器，支持：
+   - status: 查看浏览器状态
+   - start/stop: 启动/停止浏览器
+   - snapshot: 截图并提取可访问性树
+   - screenshot: 纯截图
+   - navigate: 导航到URL
+   - act: 执行操作（click, type, press等）
+
+2. profile选项
+   - 默认（无profile）: OpenClaw管理的隔离浏览器
+   - profile="user": 使用本地登录用户的浏览器
+
+3. 前提条件
+   - 需要Chromium内核浏览器（v144+）
+   - 浏览器需要运行中
+
+4. snapshot获取
+   - refs参数: "role"（默认）或"aria"
+   - targetId: 用于后续操作的元素引用
+   - compact: 简化输出
+
+5. act操作类型
+   - click: 点击
+   - type: 输入文本
+   - press: 按键
+   - hover: 悬停
+   - drag: 拖拽
+   - select: 选择
+   - wait: 等待
+
+6. 浏览器自动化skill
+   路径: ~/.agents/skills/browser-automation/
+   描述: 浏览器自动化用于Web测试、爬虫和AI Agent交互

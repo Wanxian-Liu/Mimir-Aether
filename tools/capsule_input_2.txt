@@ -1,0 +1,30 @@
+OpenClaw工具使用核心经验：
+
+1. exec工具preflight限制
+   - 问题：exec preflight: complex interpreter invocation detected
+   - 解决：使用python3 -c "import module" 而非 python <file>.py
+   - 解决：使用 node <file>.js 而非 node <file>
+
+2. sessions_send低成功率
+   - 问题：20% fitness (1/5 success)
+   - 原因：gateway timeout
+   - 解决：使用sessions_spawn替代，或增加timeoutSeconds
+
+3. web_fetch失败模式
+   - Blocked: resolves to private/internal/special-use IP address (4x)
+   - fetch failed (58x)
+   - 解决：使用web_search替代，或添加User-Agent
+
+4. edit工具的精确匹配要求
+   - 问题：oldText必须完全匹配
+   - 解决：先read文件确认实际内容，再用exec + cat/echo修改
+
+5. foundry工具族
+   - foundry_evolve: 进化低成功率工具
+   - foundry_crystallize: 将失败模式结晶为hook
+   - foundry_track_outcome: 追踪任务结果
+
+6. subagent管理
+   - sessions_spawn启动子代理
+   - subagents list查看活跃子代理
+   - sessions_yield让出控制权等待子代理结果

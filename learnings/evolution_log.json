@@ -1,0 +1,200 @@
+[
+  {
+    "timestamp": "2026-04-23T03:45:01.318255",
+    "topic": "SessionDB",
+    "status": "new_module",
+    "details": "需要从Hermes移植: hermes_state.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:01.320413",
+    "topic": "CLI",
+    "status": "new_module",
+    "details": "需要从Hermes移植: hermes_cli/main.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:01.320846",
+    "topic": "MCPServer",
+    "status": "new_module",
+    "details": "需要从Hermes移植: mcp_serve.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:06.323603",
+    "topic": "SessionDB",
+    "status": "new_module",
+    "details": "需要从Hermes移植: hermes_state.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:06.326300",
+    "topic": "CLI",
+    "status": "new_module",
+    "details": "需要从Hermes移植: hermes_cli/main.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:06.326986",
+    "topic": "MCPServer",
+    "status": "new_module",
+    "details": "需要从Hermes移植: mcp_serve.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:11.330335",
+    "topic": "SessionDB",
+    "status": "new_module",
+    "details": "需要从Hermes移植: hermes_state.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:11.332989",
+    "topic": "CLI",
+    "status": "new_module",
+    "details": "需要从Hermes移植: hermes_cli/main.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:11.333586",
+    "topic": "MCPServer",
+    "status": "new_module",
+    "details": "需要从Hermes移植: mcp_serve.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:16.336277",
+    "topic": "SessionDB",
+    "status": "new_module",
+    "details": "需要从Hermes移植: hermes_state.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:16.338479",
+    "topic": "CLI",
+    "status": "new_module",
+    "details": "需要从Hermes移植: hermes_cli/main.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:16.339071",
+    "topic": "MCPServer",
+    "status": "new_module",
+    "details": "需要从Hermes移植: mcp_serve.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:21.341209",
+    "topic": "SessionDB",
+    "status": "new_module",
+    "details": "需要从Hermes移植: hermes_state.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:21.343512",
+    "topic": "CLI",
+    "status": "new_module",
+    "details": "需要从Hermes移植: hermes_cli/main.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:21.344018",
+    "topic": "MCPServer",
+    "status": "new_module",
+    "details": "需要从Hermes移植: mcp_serve.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:26.346434",
+    "topic": "SessionDB",
+    "status": "new_module",
+    "details": "需要从Hermes移植: hermes_state.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:26.349117",
+    "topic": "CLI",
+    "status": "new_module",
+    "details": "需要从Hermes移植: hermes_cli/main.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:26.349658",
+    "topic": "MCPServer",
+    "status": "new_module",
+    "details": "需要从Hermes移植: mcp_serve.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:31.351776",
+    "topic": "SessionDB",
+    "status": "new_module",
+    "details": "需要从Hermes移植: hermes_state.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:31.354183",
+    "topic": "CLI",
+    "status": "new_module",
+    "details": "需要从Hermes移植: hermes_cli/main.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:31.354711",
+    "topic": "MCPServer",
+    "status": "new_module",
+    "details": "需要从Hermes移植: mcp_serve.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:36.357023",
+    "topic": "SessionDB",
+    "status": "new_module",
+    "details": "需要从Hermes移植: hermes_state.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:36.359262",
+    "topic": "CLI",
+    "status": "new_module",
+    "details": "需要从Hermes移植: hermes_cli/main.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:36.359775",
+    "topic": "MCPServer",
+    "status": "new_module",
+    "details": "需要从Hermes移植: mcp_serve.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:41.362313",
+    "topic": "SessionDB",
+    "status": "new_module",
+    "details": "需要从Hermes移植: hermes_state.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:41.365007",
+    "topic": "CLI",
+    "status": "new_module",
+    "details": "需要从Hermes移植: hermes_cli/main.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:41.365719",
+    "topic": "MCPServer",
+    "status": "new_module",
+    "details": "需要从Hermes移植: mcp_serve.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:46.369007",
+    "topic": "SessionDB",
+    "status": "new_module",
+    "details": "需要从Hermes移植: hermes_state.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:46.371138",
+    "topic": "CLI",
+    "status": "new_module",
+    "details": "需要从Hermes移植: hermes_cli/main.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:46.371652",
+    "topic": "MCPServer",
+    "status": "new_module",
+    "details": "需要从Hermes移植: mcp_serve.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:51.374183",
+    "topic": "SessionDB",
+    "status": "new_module",
+    "details": "需要从Hermes移植: hermes_state.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:51.376650",
+    "topic": "CLI",
+    "status": "new_module",
+    "details": "需要从Hermes移植: hermes_cli/main.py"
+  },
+  {
+    "timestamp": "2026-04-23T03:45:51.377216",
+    "topic": "MCPServer",
+    "status": "new_module",
+    "details": "需要从Hermes移植: mcp_serve.py"
+  }
+]

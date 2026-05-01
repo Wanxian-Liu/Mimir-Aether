@@ -1,0 +1,10 @@
+[
+  {
+    "id": "test_001",
+    "name": "Test Job",
+    "command": "echo test",
+    "cron": "*/5 * * * *",
+    "enabled": true,
+    "next_run": 0
+  }
+]

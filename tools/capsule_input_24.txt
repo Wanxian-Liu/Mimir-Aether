@@ -1,0 +1,37 @@
+Mimir-Core项目结构与组件：
+
+1. 核心目录结构
+   MimirAether项目: ~/.openclaw/projects/MimirAether/
+   MimirCore项目: ~/.openclaw/projects/Mimir-Core/
+
+2. MimirAether结构
+   - agent/: Agent核心实现
+   - gateway/: 网关适配器
+   - skills/: 技能目录
+   - tools/: 工具实现（包含MimirCoreTool）
+   - rl/: 强化学习模块
+   - memory/: 记忆管理
+   - mimiraether_constants.py: 常量配置
+
+3. MimirCore结构
+   - public/: 胶囊存储（69个胶囊）
+   - capsule_generator.py: 胶囊生成器
+   - gdi_scorer.py: GDI评分器
+   - gene_mapper.py: 基因映射
+   - evomap_validator.py: EvoMap验证
+   - benchmark.py: 基准测试
+
+4. MimirCoreTool (MimirAether/tools/mimircore_tool.py)
+   - produce_capsule: 生成胶囊
+   - get_capsule_by_id: 获取胶囊
+   - list_capsules: 列出胶囊
+   - improve_capsule: 改进胶囊
+
+5. 胶囊存储路径
+   - public/: 39个胶囊文件（.md格式）
+   - capsules-ready/: 5个可发布胶囊（JSON格式）
+   - memory-vault/: 记忆殿堂主存储
+
+6. GDI分析
+   - gdi_analysis.json: GDI评分数据
+   - capsule-analysis-report.md: 胶囊分析报告

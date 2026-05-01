@@ -1,0 +1,42 @@
+MimirCoreTool深度使用指南：
+
+1. 工具函数概述
+   MimirCoreTool有4个核心工具：
+   - produce_capsule: 生成胶囊，调用Mimir-Core的胶囊生成能力
+   - get_capsule_by_id: 根据ID获取胶囊详情
+   - list_capsules: 列出所有胶囊，支持过滤和分页
+   - improve_capsule: 改进现有胶囊
+
+2. produce_capsule参数详解
+   - input_text: 要生成胶囊的知识内容（必填）
+   - capsule_type: 胶囊类型（auto/innovate/optimize/repair）
+   - auto_publish: 是否自动发布（GDI≥0.5时）
+
+3. GDI评分体系
+   - GDI_intrinsic (35%): 内容质量
+   - GDI_usage (30%): 使用指标（基于引用、检索、复用）
+   - GDI_social (20%): 社交信号
+   - GDI_freshness (15%): 新鲜度
+   - PUBLISH_THRESHOLD: 0.5
+
+4. 胶囊文件格式
+   - 存储位置：~/.openclaw/projects/Mimir-Core/public/
+   - 文件格式：{capsule_id}_{title}.md
+   - frontmatter包含：title, source, gdi, imported_at, capsule_id, capsule_type
+
+5. Ralph进化闭环
+   MimirAether工作 → 发现有价值知识 → produce_capsule → GDI评分
+   GDI<0.5 → improve_capsule修复 → 重新评分
+   GDI≥0.5 → 自动发布 → 记忆殿堂
+
+6. 使用场景
+   - 经验固化：把工作中学到的经验生成胶囊
+   - 错误修复：把bug和解决方案生成repair胶囊
+   - 优化建议：把性能优化方案生成optimize胶囊
+   - 创新发现：把新想法新技术生成innovate胶囊
+
+7. 最佳实践
+   - 内容要结构化：使用清晰的标题和列表
+   - 代码示例：包含可运行的代码片段
+   - 避免冗余：每个胶囊聚焦一个主题
+   - 定期回顾：检查并改进低分胶囊

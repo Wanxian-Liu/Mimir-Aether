@@ -1,0 +1,22 @@
+---
+description: OpenClaw workspace CLAUDE.md — behavioral guidelines for agent coding
+alwaysApply: true
+---
+
+# OpenClaw `CLAUDE.md` 行为准则
+
+对与 OpenClaw、`~/.openclaw`、Mimir 系列或本仓库相关的实现与修改，除用户消息与 Cursor 用户规则外，须对齐 **OpenClaw 工作区总则**：
+
+**权威文件（全文请用 Read 打开）：** 本机 **`~/.openclaw/workspace/CLAUDE.md`**（与 `/home/rayliu/.openclaw/workspace/CLAUDE.md` 等价时任选其一）。
+
+## 摘要（不能与原文冲突；有歧义以原文为准）
+
+1. **Think Before Coding** — 不默认；不确定则说明并提问；多解时列出取舍，不静默替用户选。
+2. **Simplicity First** — 最小可工作实现；不擅自加功能、抽象或未要求的配置。
+3. **Surgical Changes** — 只改与请求直接相关的行；不顺手重构无关代码；风格与现有一致。
+4. **Goal-Driven Execution** — 先定义可验证的成功标准（测试、命令、复现步骤），再实现与收尾。
+
+## 执行约定
+
+- 若当前任务明显属于上述范围且上下文中尚无该文件内容，**应先 Read** `CLAUDE.md` 再做大改动。
+- 本条与「用户规则 / 其他 Cursor 规则」冲突时，**以用户当轮明确指令为准**，并在必要时简要说明取舍。

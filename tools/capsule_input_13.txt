@@ -1,0 +1,39 @@
+exec工具preflight限制与解决方案：
+
+1. 问题描述
+   错误信息：exec preflight: complex interpreter invocation detected; refusing to run without script preflight validation
+
+2. 触发原因
+   - 使用 python <file>.py 格式（复杂解释器调用）
+   - 使用带管道的复杂shell命令
+   - 使用某些需要特殊权限的系统命令
+
+3. 解决方案汇总
+
+   方案1：使用python3 -c替代python <file>
+   错误：python /path/to/script.py
+   正确：python3 -c "import sys; sys.path.insert(0, '/path'); import module"
+
+   方案2：使用node <file>.js替代node <file>
+   错误：node script.js
+   正确：node -e "require('./script')()"
+
+   方案3：使用bash -c包装
+   错误：python script.py | grep something
+   正确：bash -c "python3 /path/script.py | grep something"
+
+   方案4：直接调用脚本（如果脚本有执行权限）
+   错误：python3 /home/rayliu/.openclaw/sandbox/九重天量化系统/watch_300749.py
+   正确：/home/rayliu/.openclaw/sandbox/九重天量化系统/watch_300749.py（需要chmod +x）
+
+4. 实际案例
+   - 九重天量化盯盘脚本：
+     错误：python3 /home/rayliu/.openclaw/sandbox/九重天量化系统/watch_300749.py
+     问题：找不到文件（路径错误）
+     解决：find查找正确路径
+
+5. 最佳实践
+   - 优先使用 python3 -c "import module; module.function()"
+   - 避免在exec中使用管道和复杂shell语法
+   - 使用绝对路径而非相对路径
+   - 脚本文件需要执行权限时先chmod

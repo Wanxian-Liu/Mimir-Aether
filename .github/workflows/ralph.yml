@@ -1,0 +1,51 @@
+# Ralph Tier-0/1: same gates as ./run_ralph_tier0.sh (Gate1 compile/import, Gate2 pytest, Gate3 tier1 e2e)
+# If CI fails on import, add packages to the pip install line below (match your local `pip freeze`).
+
+name: Ralph Tier-0
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master, "feat/**"]
+  pull_request:
+    branches: [main, master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ralph:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # mimicore lives in a submodule (see .gitmodules). CI must init it or Gate1 import fails.
+      # Rewrite SSH submodule URLs to HTTPS so the runner does not need an SSH key.
+      - name: Init git submodules
+        env:
+          # Optional: repo secret SUBMODULE_PAT (fine-grained/classic PAT with read to submodule repos).
+          SUBMODULE_PAT: ${{ secrets.SUBMODULE_PAT }}
+        run: |
+          set -euo pipefail
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          if [ -n "${SUBMODULE_PAT:-}" ]; then
+            git config --global url."https://x-access-token:${SUBMODULE_PAT}@github.com/".insteadOf "https://github.com/"
+          fi
+          git submodule sync --recursive
+          git submodule update --init --recursive --depth 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies for tests
+        run: |
+          pip install --upgrade pip
+          pip install pytest pytest-asyncio pyyaml aiohttp python-dotenv requests
+
+      - name: Run Ralph (Gate1–3)
+        run: ./run_ralph_tier0.sh

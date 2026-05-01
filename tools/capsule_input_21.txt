@@ -1,0 +1,32 @@
+MimirAether自我进化循环核心知识：
+
+1. 进化逻辑
+   旧知识：所有存进电脑的、在网上能搜索到的
+   进化 = 从旧知识中探索新知识、新规则、新体系
+
+2. Ralph进化闭环
+   MimirAether工作 → 发现有价值知识 → produce_capsule → GDI评分
+   GDI<0.5 → improve_capsule修复 → 重新评分
+   GDI≥0.5 → 自动发布 → 记忆殿堂
+
+3. MimirCoreTool让MimirAether能够调用Mimir-Core的胶囊生成能力，实现自我进化。
+
+4. 检查机制（每次心跳）
+   - 检查MimirCoreTool是否可导入
+   - 检查Mimir-Core胶囊数量变化
+   - 检查是否有GDI<0.5的胶囊需要优化
+
+5. 禁止Evolver Loop模式（2026-03-21确认）
+   - 禁止: node evolver/index.js --loop
+   - 可以: node evolver/index.js run（单次）
+
+6. 进化方向探索
+   - 有没有未完成的任务？
+   - 有没有可以用团队协调处理的事？
+   - 有没有需要主动学习的知识？
+   - 衍化有没有新的进化方向可以探索？
+
+7. 进化执行原则
+   - 主动检查，不等负责人提醒
+   - 有任务就执行
+   - 重大决定再问负责人

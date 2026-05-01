@@ -1,0 +1,36 @@
+群聊与消息管理核心知识：
+
+1. 群聊参与原则
+   - 直接被提及或被问问题时才回应
+   - 能添加真正价值时才贡献
+   - 群聊里谨慎——不是负责人的声音
+   - 质量 > 数量
+
+2. 回复风格
+   - Discord/WhatsApp: No markdown tables, use bullet lists
+   - Discord links: 多个链接用<>包裹避免embed
+   - WhatsApp: No headers, 用bold或CAPS强调
+
+3. 反应（React）使用
+   React when:
+   - 欣赏但不需要回复（👍, ❤️, 🙌）
+   - 觉得有趣或发人深省（🤔, 💡）
+   - 想确认但不打断对话（✅, 👀）
+   - 简单yes/no或批准（✅, 👀）
+
+   Don't overdo it: 每个消息最多一个reaction
+
+4. 消息路由
+   - Reply in current session → 自动路由到源channel
+   - Cross-session messaging → sessions_send
+   - Sub-agent orchestration → subagents
+
+5. 主动发送
+   - message工具用于主动发送
+   - 可以指定channel（feishu|googlechat|nostr等）
+   - Inline buttons: 需要配置openclaw-weixin.capabilities.inlineButtons
+
+6. HEARTBEAT_OK规则
+   - 消息匹配heartbeat prompt时回复HEARTBEAT_OK
+   - 开头或结尾有HEARTBEAT_OK才被认为是心跳ACK
+   - 不要发半生不熟的回复

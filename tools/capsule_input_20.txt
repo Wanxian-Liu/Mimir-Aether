@@ -1,0 +1,44 @@
+自我改进与学习核心知识：
+
+1. Self-Improvement Reminder规则
+   After completing tasks, evaluate if any learnings should be captured:
+
+   Log when:
+   - User corrects you → .learnings/LEARNINGS.md
+   - Command/operation fails → .learnings/ERRORS.md
+   - User wants missing capability → .learnings/FEATURE_REQUESTS.md
+   - You discover your knowledge was wrong → .learnings/LEARNINGS.md
+   - You find a better approach → .learnings/LEARNINGS.md
+
+   Promote when pattern is proven:
+   - Behavioral patterns → SOUL.md
+   - Workflow improvements → AGENTS.md
+   - Tool gotchas → TOOLS.md
+
+2. 学习文件位置
+   - .learnings/LEARNINGS.md: 经验教训
+   - .learnings/ERRORS.md: 错误记录
+   - .learnings/FEATURE_REQUESTS.md: 功能请求
+
+3. 记忆检查时机
+   - 每3次心跳执行一次记忆检查
+   - 加载最近3天memory文件
+   - 用memory_search检索重要关键词
+   - 检查是否有该固化到MEMORY.md的信息
+
+4. 每日记忆维护（每几天）
+   - 读最近memory/YYYY-MM-DD.md文件
+   - 识别值得保留的重要事件、教训
+   - 更新MEMORY.md（蒸馏精华）
+   - 删除MEMORY.md中过时信息
+
+5. 错误处理学习
+   - 错误发生立即记录
+   - 分析根本原因
+   - 制定防止再犯的措施
+   - 更新相关文档
+
+6. 温故而知新
+   - 不是机械复制
+   - 从旧知识中发现联系、规律、可能性
+   - 通过推理和组合产生新知识

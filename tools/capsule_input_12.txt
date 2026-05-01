@@ -1,0 +1,23 @@
+智维通·城市乳业数字员工平台核心知识：
+
+1. 项目概述
+   智维通是一个基于Streamlit的数字员工平台，用于城市乳业业务场景。
+
+2. 启动命令
+   cd ~/.openclaw/workspace/skills/zhihuitong/app
+   streamlit run app.py --server.port 8501
+
+3. 访问地址
+   - 本地: http://localhost:8501
+   - 局域网: http://192.168.2.198:8501
+
+4. 技术栈
+   - Streamlit: Web框架
+   - Python: 后端语言
+   - 飞书: 集成消息通道
+
+5. 定位
+   这是一个企业级的数字员工解决方案，集成在OpenClaw系统中。
+
+6. 相关文件
+   - memory/智维通-摘要.md: 项目详细文档

@@ -1,0 +1,485 @@
+# Self Evolution Skill
+
+> MimirAether 自我进化技能 | 集成三环闭环 + 自驱动引擎
+
+## 描述
+
+MimirAether 的自我进化核心能力，基于**三环闭环架构**（监控环→决策环→执行环）和**自驱动引擎**（ε-greedy策略选择）实现全自动自我改进。
+
+**核心流程:**
+```
+收集指标 → 分析差距 → 执行改进 → 验证效果
+     ↑                                   |
+     └──────────── 反馈循环 ←────────────┘
+```
+
+## 触发条件
+
+当用户明确要求自我进化、自我改进、系统优化时触发。
+
+## 核心功能
+
+### 1. collect_metrics() - 收集系统指标
+
+收集 MimirAether 当前运行状态指标。
+
+```python
+async def collect_metrics() -> Dict[str, Any]:
+    """收集系统指标"""
+    metrics = {
+        # 基础系统指标
+        "memory_usage": psutil.virtual_memory().percent / 100,
+        "cpu_usage": psutil.cpu_percent() / 100,
+        "context_length": 当前上下文长度比例,
+        "session_count": len(active_sessions),
+        
+        # 进化相关指标
+        "cycle_count": three_ring.cycle_count,
+        "success_rate": self_drive.get_stats()["success_rate"],
+        "exploration_rate": self_drive.exploration_rate,
+        "strategy_count": len(self_drive._strategies),
+        "pattern_count": len(self_drive._patterns),
+        
+        # 性能指标
+        "avg_response_time_ms": recent_avg_response_time,
+        "error_rate": recent_error_rate,
+        
+        # 置信度指标
+        "avg_confidence": recent_avg_confidence,
+        
+        "timestamp": time.time()
+    }
+    return metrics
+```
+
+**阈值配置:**
+- memory_usage > 0.85 → 异常
+- context_length > 0.90 → 异常
+- confidence < 0.70 → 异常
+- error_rate > 0.05 → 异常
+
+### 2. analyze_gaps() - 分析差距
+
+基于收集的指标，分析需要改进的地方。
+
+```python
+async def analyze_gaps(metrics: Dict[str, Any]) -> Dict[str, Any]:
+    """分析差距，识别改进方向"""
+    gaps = []
+    
+    # 检测内存压力
+    if metrics.get("memory_usage", 0) > 0.85:
+        gaps.append({
+            "type": "memory_pressure",
+            "severity": metrics["memory_usage"] - 0.85,
+            "recommendation": "clear_buffer or compact_memory"
+        })
+    
+    # 检测上下文溢出风险
+    if metrics.get("context_length", 0) > 0.90:
+        gaps.append({
+            "type": "context_overflow",
+            "severity": metrics["context_length"] - 0.90,
+            "recommendation": "truncate_context or compress_history"
+        })
+    
+    # 检测置信度下降
+    if metrics.get("avg_confidence", 1.0) < 0.70:
+        gaps.append({
+            "type": "low_confidence",
+            "severity": 0.70 - metrics["avg_confidence"],
+            "recommendation": "enable_verification or add_uncertainty_marker"
+        })
+    
+    # 检测成功率下降
+    if metrics.get("success_rate", 1.0) < 0.60:
+        gaps.append({
+            "type": "low_success_rate",
+            "severity": 0.60 - metrics["success_rate"],
+            "recommendation": "increase_exploration or review_strategies"
+        })
+    
+    return {
+        "gaps": gaps,
+        "priority_gap": max(gaps, key=lambda g: g["severity"]) if gaps else None,
+        "metrics_snapshot": metrics
+    }
+```
+
+### 3. execute_improvement(plan) - 执行改进
+
+根据分析结果执行具体改进措施。
+
+```python
+async def execute_improvement(plan: Dict[str, Any]) -> Dict[str, Any]:
+    """执行改进计划"""
+    gap = plan.get("priority_gap", {})
+    gap_type = gap.get("type", "unknown")
+    
+    # 使用 SelfDriveEngine 选择最优策略
+    context = {
+        "gap_type": gap_type,
+        "severity": gap.get("severity", 0.5),
+        "tags": {gap_type.split("_")[0]}  # e.g., {"memory"}, {"context"}
+    }
+    
+    strategy, is_exploration = self_drive.select_strategy(context)
+    
+    # 构建决策
+    decision = DecisionOutput(
+        decision_id=f"dec_{int(time.time() * 1000)}",
+        timestamp=time.time(),
+        root_cause=gap_type,
+        confidence=1.0 - gap.get("severity", 0.5),
+        strategy=strategy
+    )
+    
+    # 执行
+    execution = await execution_ring.execute(decision, context)
+    
+    # 记录结果到自驱动引擎
+    self_drive.record_outcome(strategy, execution.effectiveness_score, context)
+    
+    return {
+        "strategy_used": strategy,
+        "is_exploration": is_exploration,
+        "execution_result": execution.__dict__,
+        "effectiveness": execution.effectiveness_score
+    }
+```
+
+### 4. verify_result() - 验证结果
+
+验证改进效果，判断是否需要继续迭代。
+
+```python
+async def verify_result(
+    before: Dict[str, Any],
+    after: Dict[str, Any],
+    execution: ExecutionOutput
+) -> Dict[str, Any]:
+    """验证改进效果"""
+    
+    # 比较关键指标
+    improvements = {}
+    for key in ["memory_usage", "context_length", "avg_confidence", "success_rate"]:
+        if key in before and key in after:
+            delta = after[key] - before[key]
+            # 方向修正（有些指标下降是好的）
+            if key in ["memory_usage", "context_length", "error_rate"]:
+                delta = -delta  # 这些越低越好
+            improvements[key] = {
+                "before": before[key],
+                "after": after[key],
+                "delta": delta,
+                "improved": delta > 0
+            }
+    
+    # 综合判定
+    improvement_count = sum(1 for v in improvements.values() if v["improved"])
+    verification_passed = (
+        execution.verification_passed and
+        improvement_count >= len(improvements) / 2 and
+        execution.effectiveness_score >= 0.7
+    )
+    
+    return {
+        "verification_passed": verification_passed,
+        "effectiveness_score": execution.effectiveness_score,
+        "improvements": improvements,
+        "recommendation": "continue" if not verification_passed else "success"
+    }
+```
+
+## 集成架构
+
+### 三环闭环 (ThreeRingClosedLoop)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      三环闭环                                │
+│                                                             │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    │
+│  │   监控环     │───▶│   决策环     │───▶│   执行环     │    │
+│  │ MonitorRing │    │DecisionRing │    │ExecutionRing│    │
+│  └─────────────┘    └─────────────┘    └─────────────┘    │
+│         │                                     │             │
+│         │              反馈循环               │             │
+│         └─────────────────────────────────────┘             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**监控环 (MonitorRing):**
+- `observe()` - 观察当前状态
+- `detect_anomalies()` - 检测异常
+- 可配置阈值: memory_usage, context_length, confidence, error_rate
+
+**决策环 (DecisionRing):**
+- `analyze_root_cause()` - 分析根因
+- `generate_strategies()` - 生成策略候选
+- `select_best_strategy()` - 选择最优策略
+- 内置决策库映射异常类型→策略
+
+**执行环 (ExecutionRing):**
+- `execute()` - 执行修复
+- `verify()` - 验证效果
+- 内置18种执行器
+
+### 自驱动引擎 (SelfDriveEngine)
+
+```python
+class SelfDriveEngine:
+    """自驱动演进引擎 - ε-greedy 策略选择"""
+    
+    def select_strategy(context) -> Tuple[str, bool]:
+        """选择策略 (策略名, 是否探索模式)"""
+        # ε-greedy: exploration_rate概率随机探索
+        # 否则选择评分最高的策略
+        pass
+    
+    def record_outcome(strategy, effect_score, context):
+        """记录执行结果，更新策略评分"""
+        pass
+    
+    def _adapt_params():
+        """根据执行效果自适应调整参数"""
+        pass
+```
+
+**内置策略:**
+| 策略 | 标签 | 基础评分 |
+|------|------|---------|
+| clear_buffer | memory | 0.7 |
+| compact_memory | memory | 0.65 |
+| compress_history | context | 0.8 |
+| truncate_context | context | 0.75 |
+| enable_verification | quality | 0.85 |
+| optimize_query | performance | 0.8 |
+| expand_search | retrieval | 0.7 |
+| add_uncertainty_marker | confidence | 0.6 |
+| parallel_execute | performance | 0.75 |
+| use_fallback | fallback | 0.8 |
+
+## 使用方式
+
+### 完整自我进化循环
+
+```python
+async def run_self_evolution_cycle():
+    """执行一次完整的自我进化循环"""
+    
+    # 1. 收集指标
+    metrics = await collect_metrics()
+    
+    # 2. 分析差距
+    gap_analysis = await analyze_gaps(metrics)
+    
+    if not gap_analysis["gaps"]:
+        return {"status": "no_improvement_needed", "metrics": metrics}
+    
+    # 3. 执行改进
+    improvement = await execute_improvement(gap_analysis)
+    
+    # 4. 收集新指标
+    new_metrics = await collect_metrics()
+    
+    # 5. 验证结果
+    verification = await verify_result(metrics, new_metrics, 
+                                       improvement["execution_result"])
+    
+    return {
+        "status": "completed" if verification["verification_passed"] else "needs_retry",
+        "gap_analyzed": gap_analysis["priority_gap"],
+        "improvement": improvement,
+        "verification": verification,
+        "metrics_before": metrics,
+        "metrics_after": new_metrics
+    }
+```
+
+### 使用三环闭环引擎
+
+```python
+from mimicore.evolve.three_ring_architecture import ThreeRingClosedLoop
+from mimicore.evolve.self_drive_engine import SelfDriveEngine
+
+# 初始化
+three_ring = ThreeRingClosedLoop()
+self_drive = SelfDriveEngine(
+    learning_rate=0.1,
+    exploration_rate=0.1,
+    min_exploration=0.01,
+    decay_rate=0.995
+)
+
+# 运行闭环周期
+result = await three_ring.run_cycle(context={"task": "self_evolution"})
+```
+
+### 查看引擎状态
+
+```python
+# 获取自驱动引擎统计
+stats = self_drive.get_stats()
+print(f"总决策: {stats['total_decisions']}")
+print(f"成功率: {stats['success_rate']:.2%}")
+print(f"探索率: {stats['current_exploration_rate']:.2%}")
+print(f"策略数: {stats['strategy_count']}")
+print(f"模式数: {stats['pattern_count']}")
+
+# 获取最佳策略
+best = self_drive.get_best_strategies(limit=5)
+for name, score in best:
+    print(f"  {name}: {score:.3f}")
+
+# 获取参数调整建议
+suggestions = self_drive.suggest_param_adjustments()
+for param, (old, new) in suggestions.items():
+    print(f"  {param}: {old:.3f} → {new:.3f}")
+```
+
+## 实现代码模板
+
+```python
+"""
+MimirAether Self Evolution Skill
+集成三环闭环 + 自驱动引擎
+"""
+
+import sys
+import time
+import asyncio
+from pathlib import Path
+
+# 添加项目路径
+PROJECT_ROOT = Path("~/.openclaw/projects/MimirAether").expanduser()
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from mimicore.evolve.three_ring_architecture import (
+    ThreeRingClosedLoop, MonitorRing, DecisionRing, ExecutionRing
+)
+from mimicore.evolve.self_drive_engine import SelfDriveEngine
+
+
+class SelfEvolutionSkill:
+    """MimirAether 自我进化技能"""
+    
+    def __init__(self):
+        self.three_ring = ThreeRingClosedLoop()
+        self.self_drive = SelfDriveEngine(
+            learning_rate=0.1,
+            exploration_rate=0.1,
+            min_exploration=0.01,
+            decay_rate=0.995
+        )
+        self._initialized = True
+    
+    async def collect_metrics(self) -> dict:
+        """收集系统指标"""
+        # 调用三环闭环的监控环观察
+        metrics = await self.three_ring.monitor.observe()
+        return metrics
+    
+    async def analyze_gaps(self, metrics: dict) -> dict:
+        """分析差距"""
+        # 检测异常
+        anomalies = await self.three_ring.monitor.detect_anomalies(metrics)
+        
+        if not anomalies:
+            return {"gaps": [], "priority_gap": None}
+        
+        # 决策环分析根因
+        root_cause = await self.three_ring.decision.analyze_root_cause(anomalies)
+        strategies = await self.three_ring.decision.generate_strategies(root_cause)
+        
+        return {
+            "root_cause": root_cause,
+            "strategies": strategies,
+            "anomaly_count": len(anomalies)
+        }
+    
+    async def execute_improvement(self, plan: dict) -> dict:
+        """执行改进"""
+        strategies = plan.get("strategies", [])
+        if not strategies:
+            return {"status": "no_strategy"}
+        
+        # 选择最佳策略
+        decision = await self.three_ring.decision.select_best_strategy(strategies)
+        
+        # 执行
+        execution = await self.three_ring.execution.execute(decision, {})
+        
+        # 记录到自驱动引擎
+        self.self_drive.record_outcome(
+            decision.strategy,
+            execution.effectiveness_score
+        )
+        
+        return {
+            "decision": decision.__dict__,
+            "execution": execution.__dict__
+        }
+    
+    async def verify_result(self, before: dict, after: dict, execution) -> dict:
+        """验证结果"""
+        verified = await self.three_ring.execution.verify(execution, {})
+        return {
+            "verification_passed": verified,
+            "effectiveness": execution.effectiveness_score
+        }
+    
+    async def run_cycle(self) -> dict:
+        """执行完整进化周期"""
+        metrics_before = await self.collect_metrics()
+        gap_analysis = await self.analyze_gaps(metrics_before)
+        
+        if not gap_analysis.get("gaps"):
+            return {"status": "healthy", "metrics": metrics_before}
+        
+        improvement = await self.execute_improvement(gap_analysis)
+        metrics_after = await self.collect_metrics()
+        
+        execution = improvement["execution"]
+        verification = await self.verify_result(
+            metrics_before, metrics_after, execution
+        )
+        
+        return {
+            "status": "completed" if verification["verification_passed"] else "retry_needed",
+            "before": metrics_before,
+            "after": metrics_after,
+            "gap_analysis": gap_analysis,
+            "improvement": improvement,
+            "verification": verification
+        }
+
+
+# 导出
+__all__ = ["SelfEvolutionSkill"]
+```
+
+## 依赖
+
+- `mimicore.evolve.three_ring_architecture`
+- `mimicore.evolve.self_drive_engine`
+- Python 3.8+ with asyncio
+
+## 验证方式
+
+技能实现后，可通过以下方式验证：
+
+```python
+# 初始化技能
+skill = SelfEvolutionSkill()
+
+# 执行进化周期
+result = await skill.run_cycle()
+
+# 检查结果
+assert result["status"] in ["healthy", "completed", "retry_needed"]
+assert "metrics" in result or "before" in result
+```
+
+---
+*Self Evolution Skill for MimirAether | 三环闭环 + 自驱动引擎 | 2026-04-29*

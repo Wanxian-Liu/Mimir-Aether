@@ -1,0 +1,39 @@
+OpenClaw工作目录与文件管理：
+
+1. 工作目录
+   - 路径: /home/rayliu/.openclaw/workspace
+   - Treat this directory as the single global workspace for file operations unless explicitly instructed otherwise.
+
+2. 重要文件
+   - SOUL.md: 身份定义
+   - USER.md: 用户信息
+   - MEMORY.md: 长期记忆
+   - AGENTS.md: 工作流定义
+   - TOOLS.md: 工具配置
+   - IDENTITY.md: 织界者身份
+
+3. 记忆文件规范
+   - memory/YYYY-MM-DD.md: 每日日志
+   - memory/任务状态.md: 运行中/待办任务
+   - memory/heartbeat-state.json: 心跳状态
+
+4. 文件修改安全规则（2026-04-07）
+   修改重要文件前：
+   - 必须先read确认文件存在
+   - 必须用edit精确替换，禁止用write覆盖
+   - 必须验证操作后用tail检查末尾
+   - 自动备份：~/.openclaw/scripts/auto_backup.sh
+
+5. 验证规则
+   - 端到端验证：任务完成后验证交付物真实存在
+   - Git提交验证：提交前验证代码能正常运行
+   - 不带问题提交
+
+6. 正确的追加方式
+   cat >> 文件路径 << 'EOF'
+   追加内容
+   EOF
+
+7. 验证命令
+   tail -10 文件路径  # 检查末尾
+   wc -l 文件路径    # 检查行数

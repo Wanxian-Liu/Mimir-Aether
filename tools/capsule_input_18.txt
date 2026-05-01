@@ -1,0 +1,33 @@
+Token预算与模型配置核心知识：
+
+1. 模型配置
+   主代理: MiniMax-M2.7-highspeed
+   子代理: MiniMax-M2.5-highspeed
+   备选: DeepSeek Reasoner（仅当MiniMax不可用时）
+
+2. 深度思考级别
+   - 默认: high（最大预算）
+   - 子代理也用high
+
+3. Token优化策略
+   - context_optimizer: 上下文优化
+   - model_router: 模型路由
+   - heartbeat_optimizer: 心跳优化
+   - token_tracker: 消耗追踪
+
+4. 上下文管理
+   - 上下文85%时自动触发压缩
+   - 保留摘要+最近消息
+   - /status: 查看上下文使用情况
+   - /compact: 手动压缩
+   - /new: 新会话
+
+5. 缓存策略
+   - 缓存TTL对齐
+   - bootstrap大小限制
+   - session pruning
+
+6. 成本控制
+   - 监控API调用次数
+   - 使用轻量级模型处理简单任务
+   - 批量处理减少API调用
