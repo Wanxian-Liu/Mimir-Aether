@@ -23,6 +23,8 @@
 14. malformed tool_call
 15. reasoning 变体提取
 16. 批量 `register_tools`
+17. `tool_call` 缺失 `id`（合成 id 与 tool 消息一致）
+18. 畸形 `tool_call`（空工具名 → 未知工具错误）
 
 ## B. 待补齐（下一批 Tier-0）
 

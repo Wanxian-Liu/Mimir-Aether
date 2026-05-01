@@ -20,9 +20,9 @@
 |--------|---------------------------|------|
 | **输入语义**（同类输入 → 同类分支：工具 / 错误 / 终止） | G2: `agent/test_agent_loop.py::test_basic_conversation`, `test_single_tool_call`, `test_unknown_tool`, `test_tool_execution_error`, `test_api_call_failure`, `test_max_turns`; `agent/test_agent_loop_edge.py::test_multi_tool_in_single_turn`, `test_json_parse_error`, `test_no_handler_registered`, `test_max_turns_enforced`, `test_no_tools_agent`, `test_batch_register`; G3: `agent/test_tier1_e2e_agent.py::test_tier1_plain_assistant_reply`, `test_tier1_tool_call_then_final_reply` | 覆盖无工具、单/多工具、未知工具、执行失败、API 失败、预算截断；Tier-1 覆盖 `core_loop.run_conversation` 主路径 |
 | **输出语义**（文案可不同，含义一致） | 与上列相同；断言侧重最终 role=assistant 内容或 tool 消息结构 | 未单独拆测试文件；依赖各用例内的 assert |
-| **错误语义**（未知工具、JSON 错误、无 handler 等） | G2: `test_unknown_tool`, `test_json_parse_error`, `test_no_handler_registered`, `test_tool_execution_error`, `test_api_call_failure`; `agent/test_delegate_subagent_semantics.py::test_delegate_task_unknown_agent_marks_failed`; `agent/test_cli_arg_boundaries.py::test_cli_profiles_rename_missing_new_arg_returns_one` | `core_loop` 层 write_file 等 JSON 修复见实现，**专用单测见 GAP** |
+| **错误语义**（未知工具、JSON 错误、无 handler 等） | G2: `test_unknown_tool`, `test_json_parse_error`, `test_no_handler_registered`, `test_tool_execution_error`, `test_api_call_failure`; `agent/test_agent_loop_edge.py::test_malformed_tool_call_empty_name_is_unknown_tool`; `agent/test_delegate_subagent_semantics.py::test_delegate_task_unknown_agent_marks_failed`; `agent/test_cli_arg_boundaries.py::test_cli_profiles_rename_missing_new_arg_returns_one` | `core_loop` 层 write_file 等 JSON 修复见实现，**专用单测仍缺** |
 | **轮次语义**（`max_turns` / 预算耗尽） | G2: `test_max_turns`, `test_max_turns_enforced`, `agent/test_turn_loop_budget.py::test_turn_manager_budget_exhausted_skips_chat` | `agent_loop` 与 `turn_loop` 两条线均有覆盖 |
-| **工具语义**（顺序、次数、结果回写） | G2: `test_single_tool_call`, `test_multi_tool_in_single_turn`, `test_batch_register`; G3: `test_tier1_tool_call_then_final_reply`（`_execute_tools` 桩） | Hermes 严格顺序对齐若需加强，可再加对比用例 |
+| **工具语义**（顺序、次数、结果回写） | G2: `test_single_tool_call`, `test_multi_tool_in_single_turn`, `test_batch_register`, `agent/test_agent_loop_edge.py::test_tool_call_missing_id_synthesized_matches_tool_message`; G3: `test_tier1_tool_call_then_final_reply`（`_execute_tools` 桩） | Hermes 严格顺序对齐若需加强，可再加对比用例 |
 | **安全语义**（注入、秘钥、HOME 等） | G2: `agent/test_code_execution_tool_env.py::test_execute_code_home_overrides_when_profile_dir_exists`; ext: `agent/test_integration.py::test_memory_fencer`, `test_fencer_used_in_run_conversation` | 路径/秘钥过滤、PYTHONPATH 等见 **GAP** |
 
 ---
@@ -53,8 +53,6 @@
 
 | 主题 | 建议用例名（占位） | 备注 |
 |------|-------------------|------|
-| `tool_call` 缺失 `id` | `test_tool_call_missing_id_rejected_or_synthesized` | 需在 `agent_loop` 或 `core_loop` 层定义期望 |
-| 畸形 `tool_call` 结构 | `test_malformed_tool_call_recorded_as_tool_error` | 同上 |
 | CLI 更广边界 | `test_cli_*` | 空参数、冲突 flag |
 | `core_loop` `write_file` JSON 修复 | `test_write_file_arg_repair_*` | 可与 Hermes 对照场景 |
 | 路径注入 / 秘钥泄露回归 | `test_security_path_injection_*` | 可与 fencer / 工具结合 |

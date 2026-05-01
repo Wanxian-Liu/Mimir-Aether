@@ -250,6 +250,89 @@ def test_batch_register():
 
 
 # ============================================================================
+# 测试E8: tool_call 缺失 id — 应合成 id 并与 tool 消息一致
+# ============================================================================
+
+def test_tool_call_missing_id_synthesized_matches_tool_message():
+    print("\n[E8] tool_call 缺失 id")
+
+    call_count = [0]
+
+    async def chat_fn(messages):
+        call_count[0] += 1
+        if call_count[0] == 1:
+            tc = MockMessage(tool_calls=[{
+                "type": "function",
+                "function": {
+                    "name": "echo",
+                    "arguments": json.dumps({"text": "no-id"}),
+                },
+            }])
+            return MockResponse([MockChoice(tc)])
+        return MockResponse([MockChoice(MockMessage(content="done"))])
+
+    tools = [tool_schema("echo", "Echo", {
+        "type": "object", "properties": {"text": STRING_PARAM}, "required": ["text"]
+    })]
+    loop = MimirAetherAgentLoop(chat_fn=chat_fn, tools=tools, max_turns=5)
+
+    async def echo_handler(name, args, session_id):
+        return json.dumps({"echo": args["text"]})
+
+    loop.register_tool("echo", echo_handler)
+    result = asyncio.run(loop.run([{"role": "user", "content": "test"}]))
+
+    asst_with_tools = [
+        m for m in result.messages
+        if m.get("role") == "assistant" and m.get("tool_calls")
+    ]
+    assert len(asst_with_tools) == 1
+    syn_id = asst_with_tools[0]["tool_calls"][0]["id"]
+    assert syn_id.startswith("call_")
+
+    tool_msgs = [m for m in result.messages if m["role"] == "tool"]
+    assert len(tool_msgs) == 1
+    assert tool_msgs[0]["tool_call_id"] == syn_id
+    assert "no-id" in tool_msgs[0]["content"]
+    print("  ✅ 通过")
+
+
+# ============================================================================
+# 测试E9: 畸形 tool_call（无工具名）— 记录为未知工具错误
+# ============================================================================
+
+def test_malformed_tool_call_empty_name_is_unknown_tool():
+    print("\n[E9] 畸形 tool_call 空名称")
+
+    call_count = [0]
+
+    async def chat_fn(messages):
+        call_count[0] += 1
+        if call_count[0] == 1:
+            tc = MockMessage(tool_calls=[{
+                "id": "call_mal_1",
+                "type": "function",
+                "function": {},
+            }])
+            return MockResponse([MockChoice(tc)])
+        return MockResponse([MockChoice(MockMessage(content="after error"))])
+
+    tools = [tool_schema("echo", "Echo", {
+        "type": "object", "properties": {"text": STRING_PARAM}
+    })]
+    loop = MimirAetherAgentLoop(chat_fn=chat_fn, tools=tools, max_turns=5)
+    result = asyncio.run(loop.run([{"role": "user", "content": "test"}]))
+
+    assert len(result.tool_errors) >= 1
+    err = result.tool_errors[0].error.lower()
+    assert "unknown" in err
+    tool_msgs = [m for m in result.messages if m["role"] == "tool"]
+    assert len(tool_msgs) == 1
+    assert tool_msgs[0]["tool_call_id"] == "call_mal_1"
+    print("  ✅ 通过")
+
+
+# ============================================================================
 # 主函数
 # ============================================================================
 
@@ -266,6 +349,8 @@ if __name__ == "__main__":
         test_max_turns_enforced,
         test_no_tools_agent,
         test_batch_register,
+        test_tool_call_missing_id_synthesized_matches_tool_message,
+        test_malformed_tool_call_empty_name_is_unknown_tool,
     ]
 
     passed = 0

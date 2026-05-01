@@ -231,7 +231,9 @@ class MimirAgentLoop:
                     msg_dict["reasoning_content"] = _reasoning
                 messages.append(msg_dict)
 
-                for tc in _tool_calls:
+                # Use normalized calls for dispatch so missing `id` matches assistant.tool_calls
+                # (dict path in _tc_to_dict synthesizes call_<uuid> when id absent).
+                for tc in normalized:
                     tname = _get_tc_name(tc)
                     targs_raw = _get_tc_args(tc)
                     tid = _get_tc_id(tc)
