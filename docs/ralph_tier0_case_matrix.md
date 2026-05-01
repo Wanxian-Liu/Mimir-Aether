@@ -4,7 +4,8 @@
 
 ## A. 已落地自动化用例（当前）
 
-来源：`agent/test_agent_loop.py`、`agent/test_agent_loop_edge.py`
+来源：`agent/test_agent_loop.py`、`agent/test_agent_loop_edge.py`。  
+完整 Gate2 文件列表与契约映射见 `docs/ralph_parity_testmap.md`。
 
 1. 基本对话（无工具调用）
 2. 单工具调用

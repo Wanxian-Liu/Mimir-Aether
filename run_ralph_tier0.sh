@@ -37,8 +37,10 @@ python3 -m pytest -q \
   agent/test_agent_loop.py \
   agent/test_agent_loop_edge.py \
   agent/test_code_execution_tool_env.py \
+  agent/test_code_execution_tool_schema.py \
   agent/test_delegate_subagent_semantics.py \
   agent/test_turn_loop_budget.py \
+  agent/test_tool_registry_api.py \
   agent/test_tool_registry_concurrency.py \
   agent/test_cli_arg_boundaries.py
 

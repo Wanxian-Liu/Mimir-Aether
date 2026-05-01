@@ -43,7 +43,7 @@
 
 **产出物**
 
-- 在 `docs/ralph_parity_contract_v1.md` 末尾或单独附录增加 **「行为条目 → 测试文件::用例名」** 表格；或维护 `docs/ralph_parity_testmap.md` 并由契约引用。
+- **`docs/ralph_parity_testmap.md`**：契约 §2 / §1 ↔ `agent/test_*.py::用例`；**GAP** 与 **ext** 分区维护。
 
 **完成判据**
 
