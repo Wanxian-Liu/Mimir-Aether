@@ -216,3 +216,7 @@ def get_skills_dir() -> Path:
 def get_env_path() -> Path:
     """Return the path to the ``.env`` file under MIMIR_HOME."""
     return get_hermes_home() / ".env"
+
+
+# Gateway and tools import these from mimir_constants; implementation lives in hermes_constants.
+from hermes_constants import parse_reasoning_effort  # noqa: E402

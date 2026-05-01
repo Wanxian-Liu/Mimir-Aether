@@ -140,7 +140,7 @@ COMPONENT_PREFIXES = {
     "gateway": ("gateway",),
     "agent": ("agent", "run_agent", "model_tools", "batch_runner"),
     "tools": ("tools",),
-    "cli": ("hermes_cli", "cli"),
+    "cli": ("hermes_cli", "mimir_cli", "cli"),
     "cron": ("cron",),
 }
 
@@ -303,7 +303,7 @@ class _ManagedRotatingFileHandler(RotatingFileHandler):
     """
 
     def __init__(self, *args, **kwargs):
-        from hermes_cli.config import is_managed
+        from mimir_cli.config import is_managed
         self._managed = is_managed()
         super().__init__(*args, **kwargs)
 
