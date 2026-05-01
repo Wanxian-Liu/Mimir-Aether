@@ -14,6 +14,8 @@ import threading
 from pathlib import Path
 from typing import Any, Optional
 
+from mimir_constants import get_mimir_home
+
 # (自研) 用Path替代get_hermes_home
 from tools.environments.base import (
     BaseEnvironment,
@@ -31,7 +33,7 @@ from tools.environments.file_sync import (
 
 logger = logging.getLogger(__name__)
 
-_SNAPSHOT_STORE = Path.home() / ".hermes" / "modal_snapshots.json"
+_SNAPSHOT_STORE = get_mimir_home() / "modal_snapshots.json"
 _DIRECT_SNAPSHOT_NAMESPACE = "direct"
 
 

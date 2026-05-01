@@ -89,10 +89,13 @@ def _normalize_env_dict(env: dict | None) -> dict[str, str]:
 
 
 def _load_hermes_env_vars() -> dict[str, str]:
-    """Load ~/.hermes/.env values without failing Docker command execution."""
+    """Load agent home ``.env`` values without failing Docker command execution."""
     try:
         from pathlib import Path
-        env_path = Path.home() / ".hermes" / ".env"
+
+        from mimir_constants import get_mimir_home
+
+        env_path = get_mimir_home() / ".env"
         if not env_path.exists():
             return {}
         result = {}

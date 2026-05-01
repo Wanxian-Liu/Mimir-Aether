@@ -424,7 +424,9 @@ def _allow_private_urls() -> bool:
     _cached_allow_private_urls = False  # safe default
     try:
         import yaml
-        config_path = Path.home() / ".hermes" / "config.yaml"
+        from mimir_constants import get_mimir_home
+
+        config_path = get_mimir_home() / "config.yaml"
         if config_path.exists():
             with open(config_path) as f:
                 cfg = yaml.safe_load(f) or {}

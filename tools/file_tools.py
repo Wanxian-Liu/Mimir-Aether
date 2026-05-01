@@ -41,7 +41,10 @@ def _get_max_read_chars() -> int:
         return _max_read_chars_cached
     try:
         import yaml
-        config_path = Path.home() / ".hermes" / "config.yaml"
+        from mimir_constants import get_mimir_home
+
+        config_path = get_mimir_home() / "config.yaml"
+        val = None
         if config_path.exists():
             with open(config_path) as f:
                 cfg = yaml.safe_load(f) or {}

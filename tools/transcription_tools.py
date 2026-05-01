@@ -96,7 +96,9 @@ def _load_stt_config() -> dict:
     """Load the ``stt`` section from user config, falling back to defaults."""
     try:
         import yaml
-        config_path = Path.home() / ".hermes" / "config.yaml"
+        from mimir_constants import get_mimir_home
+
+        config_path = get_mimir_home() / "config.yaml"
         if config_path.exists():
             with open(config_path) as f:
                 return yaml.safe_load(f) or {}

@@ -14,6 +14,8 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
+from mimir_constants import get_mimir_home
+
 # (自研) 用Path替代get_hermes_home
 from tools.environments.base import (
     BaseEnvironment,
@@ -24,7 +26,7 @@ from tools.environments.base import (
 
 logger = logging.getLogger(__name__)
 
-_SNAPSHOT_STORE = Path.home() / ".hermes" / "singularity_snapshots.json"
+_SNAPSHOT_STORE = get_mimir_home() / "singularity_snapshots.json"
 
 
 def _find_singularity_executable() -> str:

@@ -170,7 +170,12 @@ def _handle_send(args):
 
     pconfig = config.platforms.get(platform)
     if not pconfig or not pconfig.enabled:
-        return tool_error(f"Platform '{platform_name}' is not configured. Set up credentials in ~/.hermes/config.yaml or environment variables.")
+        from mimir_constants import display_mimir_home
+
+        return tool_error(
+            f"Platform '{platform_name}' is not configured. Set up credentials in "
+            f"{display_mimir_home()}/config.yaml or environment variables."
+        )
 
     from gateway.platforms.base import BasePlatformAdapter
 

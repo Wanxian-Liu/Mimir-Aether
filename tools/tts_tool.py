@@ -93,7 +93,9 @@ DEFAULT_MISTRAL_TTS_MODEL = "voxtral-mini-tts-2603"
 DEFAULT_MISTRAL_TTS_VOICE_ID = "c69964a6-ab8b-4f8a-9465-ec0925096ec8"  # Paul - Neutral
 
 def _get_default_output_dir() -> str:
-    return str(Path.home() / ".hermes" / "audio_cache")
+    from mimir_constants import get_mimir_home
+
+    return str(get_mimir_home() / "audio_cache")
 
 DEFAULT_OUTPUT_DIR = _get_default_output_dir()
 MAX_TEXT_LENGTH = 4000
@@ -111,7 +113,9 @@ def _load_tts_config() -> Dict[str, Any]:
     """
     try:
         import yaml
-        config_path = Path.home() / ".hermes" / "config.yaml"
+        from mimir_constants import get_mimir_home
+
+        config_path = get_mimir_home() / "config.yaml"
         if config_path.exists():
             with open(config_path) as f:
                 config = yaml.safe_load(f) or {}

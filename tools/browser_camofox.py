@@ -31,6 +31,8 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from mimir_constants import get_mimir_home
+
 import requests
 import yaml
 
@@ -39,7 +41,9 @@ from tools.browser_camofox_state import get_camofox_identity
 
 def _load_config():
     """Load config from ~/.hermes/config.yaml (replaces hermes_cli.config)."""
-    config_path = Path.home() / ".hermes" / "config.yaml"
+        from mimir_constants import get_mimir_home
+
+        config_path = get_mimir_home() / "config.yaml"
     if config_path.exists():
         with open(config_path) as f:
             return yaml.safe_load(f) or {}
@@ -507,7 +511,7 @@ def camofox_vision(question: str, annotate: bool = False,
         )
 
         # Save screenshot to cache
-        screenshots_dir = Path.home() / ".hermes" / "browser_screenshots"
+        screenshots_dir = get_mimir_home() / "browser_screenshots"
         screenshots_dir.mkdir(parents=True, exist_ok=True)
         screenshot_path = str(screenshots_dir / f"browser_screenshot_{uuid.uuid4().hex[:8]}.png")
 

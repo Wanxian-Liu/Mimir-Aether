@@ -47,7 +47,9 @@ def get_sandbox_dir() -> Path:
     if custom:
         p = Path(custom)
     else:
-        p = Path.home() / ".hermes" / "sandboxes"
+        from mimir_constants import get_mimir_home
+
+        p = get_mimir_home() / "sandboxes"
     p.mkdir(parents=True, exist_ok=True)
     return p
 

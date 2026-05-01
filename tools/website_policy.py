@@ -1,6 +1,6 @@
 """Website access policy helpers for URL-capable tools.
 
-This module loads a user-managed website blocklist from ~/.hermes/config.yaml
+This module loads a user-managed website blocklist from the agent ``config.yaml``
 and optional shared list files. It is intentionally lightweight so web/browser
 tools can enforce URL policy without pulling in the heavier CLI config stack.
 
@@ -18,8 +18,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
-# Self-hosted: use ~/.mimir_aether instead of hermes_constants
-_MIMIR_AETHER_HOME = Path.home() / ".mimir_aether"
+from mimir_constants import get_mimir_home
+
+_MIMIR_AETHER_HOME = get_mimir_home()
 
 logger = logging.getLogger(__name__)
 

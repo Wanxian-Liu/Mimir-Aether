@@ -72,10 +72,12 @@ def _has_env(name: str) -> bool:
     return bool(val and val.strip())
 
 def _load_web_config() -> dict:
-    """Load the ``web:`` section from ~/.hermes/config.yaml."""
+    """Load the ``web:`` section from MimirAether config.yaml."""
     try:
         import yaml
-        config_path = Path.home() / ".hermes" / "config.yaml"
+        from mimir_constants import get_mimir_home
+
+        config_path = get_mimir_home() / "config.yaml"
         if config_path.exists():
             with open(config_path) as f:
                 return yaml.safe_load(f) or {}

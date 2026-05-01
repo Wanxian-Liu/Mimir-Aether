@@ -75,7 +75,9 @@ def _load_security_config() -> dict:
     }
     try:
         import yaml
-        config_path = Path.home() / ".hermes" / "config.yaml"
+        from mimir_constants import get_mimir_home
+
+        config_path = get_mimir_home() / "config.yaml"
         with open(config_path) as f:
             cfg = yaml.safe_load(f) or {}
         cfg = cfg.get("security", {}) or {}
@@ -109,8 +111,10 @@ _MARKER_TTL = 86400  # 24 hours
 
 
 def _get_hermes_home() -> str:
-    """Return the Hermes home directory, respecting HERMES_HOME env var."""
-    return os.environ.get("HERMES_HOME", str(Path.home() / ".hermes"))
+    """Return the agent home directory, respecting HERMES_HOME env var."""
+    from mimir_constants import get_mimir_home
+
+    return os.environ.get("HERMES_HOME", str(get_mimir_home()))
 
 
 def _failure_marker_path() -> str:

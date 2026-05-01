@@ -57,7 +57,10 @@ def _resolve_download_timeout() -> float:
             pass
     try:
         import yaml
-        config_path = Path.home() / ".hermes" / "config.yaml"
+        from mimir_constants import get_mimir_home
+
+        config_path = get_mimir_home() / "config.yaml"
+        val = None
         if config_path.exists():
             with open(config_path) as f:
                 cfg = yaml.safe_load(f) or {}
@@ -558,7 +561,10 @@ async def vision_analyze_tool(
         vision_timeout = 120.0
         try:
             import yaml
-            config_path = Path.home() / ".hermes" / "config.yaml"
+            from mimir_constants import get_mimir_home
+
+            config_path = get_mimir_home() / "config.yaml"
+            _cfg: dict = {}
             if config_path.exists():
                 with open(config_path) as f:
                     _cfg = yaml.safe_load(f) or {}

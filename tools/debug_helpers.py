@@ -29,6 +29,8 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict
 
+from mimir_constants import get_mimir_home
+
 logger = logging.getLogger(__name__)
 
 
@@ -43,7 +45,7 @@ class DebugSession:
         self.tool_name = tool_name
         self.enabled = os.getenv(env_var, "false").lower() == "true"
         self.session_id = str(uuid.uuid4()) if self.enabled else ""
-        self.log_dir = Path.home() / ".hermes" / "logs"
+        self.log_dir = get_mimir_home() / "logs"
         self._calls: list[Dict[str, Any]] = []
         self._start_time = datetime.datetime.now().isoformat() if self.enabled else ""
 
