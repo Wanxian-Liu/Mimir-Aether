@@ -45,6 +45,15 @@
 4. 双重转义引号修复  
 5. 不可解析输入 → `None`  
 
+## A4. 安全回归（`test_security_fencer_and_paths.py`）
+
+1. MemoryFencer 指令注入红act  
+2. 无害用户语可正常包裹  
+3. `_is_sensitive_path`（`.ssh` / `.aws` vs 临时文件）  
+4. `_read_file_safe` 拒绝 `.ssh` 形态路径  
+5. `_resolve_path` + `allowed_root` 阻止 `..` 逃逸  
+6. `preprocess_context_references` 对 `~/.ssh/config` 类 `@file` 置 `blocked`  
+
 ## B. 待补齐（下一批 Tier-0）
 
 优先级 P0（建议先补）：

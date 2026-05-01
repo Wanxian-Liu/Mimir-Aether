@@ -23,7 +23,7 @@
 | **错误语义**（未知工具、JSON 错误、无 handler 等） | G2: `test_unknown_tool`, `test_json_parse_error`, `test_no_handler_registered`, `test_tool_execution_error`, `test_api_call_failure`; `agent/test_agent_loop_edge.py::test_malformed_tool_call_empty_name_is_unknown_tool`; `agent/test_delegate_subagent_semantics.py::test_delegate_task_unknown_agent_marks_failed`; `agent/test_cli_arg_boundaries.py`；`agent/test_write_file_arg_repair.py`（`write_file` 字符串参数修复） | — |
 | **轮次语义**（`max_turns` / 预算耗尽） | G2: `test_max_turns`, `test_max_turns_enforced`, `agent/test_turn_loop_budget.py::test_turn_manager_budget_exhausted_skips_chat` | `agent_loop` 与 `turn_loop` 两条线均有覆盖 |
 | **工具语义**（顺序、次数、结果回写） | G2: `test_single_tool_call`, `test_multi_tool_in_single_turn`, `test_batch_register`, `agent/test_agent_loop_edge.py::test_tool_call_missing_id_synthesized_matches_tool_message`; G3: `test_tier1_tool_call_then_final_reply`（`_execute_tools` 桩） | Hermes 严格顺序对齐若需加强，可再加对比用例 |
-| **安全语义**（注入、秘钥、HOME 等） | G2: `agent/test_code_execution_tool_env.py::test_execute_code_home_overrides_when_profile_dir_exists`; ext: `agent/test_integration.py::test_memory_fencer`, `test_fencer_used_in_run_conversation` | 路径/秘钥过滤、PYTHONPATH 等见 **GAP** |
+| **安全语义**（注入、秘钥、HOME 等） | G2: `agent/test_code_execution_tool_env.py::test_execute_code_home_overrides_when_profile_dir_exists`; G2: `agent/test_security_fencer_and_paths.py`（fencer 红act、敏感路径、`@file` 阻断、`allowed_root` 逃逸）；ext: `agent/test_integration.py::test_memory_fencer`, `test_fencer_used_in_run_conversation` | `execute_code` secret 过滤等可继续加 case |
 
 ---
 
@@ -54,7 +54,6 @@
 | 主题 | 建议用例名（占位） | 备注 |
 |------|-------------------|------|
 | CLI（`models`/全局 flag 冲突等） | `test_cli_*` | 按需补充；`profiles`/`config` 缺参见 `test_cli_arg_boundaries.py` |
-| 路径注入 / 秘钥泄露回归 | `test_security_path_injection_*` | 可与 fencer / 工具结合 |
 
 暂缓某条时，请在表中增加「暂缓 + 原因 + 目标日期」，并在 `ralph_parity_contract_v1.md` 或 Issue 中留痕。
 

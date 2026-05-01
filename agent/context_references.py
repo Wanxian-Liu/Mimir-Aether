@@ -46,6 +46,9 @@ _SENSITIVE_HOME_FILES = (
     ".pypirc",
 )
 
+# Subdirectories under ~/.hermes that must not be attached via @file/@folder.
+_SENSITIVE_HERMES_DIRS: tuple[str, ...] = ()
+
 
 # ============================================================================
 # 数据类
