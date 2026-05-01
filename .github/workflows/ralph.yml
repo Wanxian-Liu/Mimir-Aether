@@ -23,6 +23,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # mimicore lives in a submodule (see .gitmodules). CI must init it or Gate1 import fails.
+      # Rewrite SSH submodule URLs to HTTPS so the runner does not need an SSH key.
+      - name: Init git submodules
+        env:
+          # Optional: repo secret SUBMODULE_PAT (fine-grained/classic PAT with read to submodule repos).
+          SUBMODULE_PAT: ${{ secrets.SUBMODULE_PAT }}
+        run: |
+          set -euo pipefail
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          if [ -n "${SUBMODULE_PAT:-}" ]; then
+            git config --global url."https://x-access-token:${SUBMODULE_PAT}@github.com/".insteadOf "https://github.com/"
+          fi
+          git submodule sync --recursive
+          git submodule update --init --recursive --depth 1
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
