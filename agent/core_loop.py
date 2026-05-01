@@ -601,9 +601,9 @@ class MimirAetherAgent:
             # 获取可用工具列表
             available_tools = set(self.tool_registry.list_tools())
 
-            # MimirAether的skills目录
-            mimir_root = Path(__file__).parent.parent
-            skills_dir = str(mimir_root / "skills")
+            # MimirAether的skills目录（多目录，由prompt_builder内部处理）
+            # 留空让prompt_builder使用默认多目录配置
+            # skills_dirs=None 会自动扫描：~/.openclaw/skills/ + MIMIR专属 + OpenClaw内置
 
             # 使用prompt_builder构建系统提示
             system_prompt = prompt_builder.build_system_prompt(
@@ -613,7 +613,7 @@ class MimirAetherAgent:
                 platform=self.platform,
                 include_skills=True,
                 include_context=True,
-                skills_dir=skills_dir,
+                skills_dirs=None,  # 使用默认多目录配置
             )
 
             return system_prompt if system_prompt else self._default_system_prompt()
@@ -2011,42 +2011,44 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                     if func_name == "execute_code" and isinstance(raw_args, str):
                         logger.info(f"execute_code: sindri fix - wrapping raw code string as {{code: ...}}")
                         arguments = {"code": raw_args}
-                    # sindri: 为 write_file 工具尝试修复（处理截断的JSON）
+                    # sindri: 为 write_file 工具尝试修复（双重转义和截断JSON）
                     elif func_name == "write_file" and isinstance(raw_args, str):
                         import re
-                        # 尝试从截断的JSON中提取path和content
-                        path_match = re.search(r'"path"\s*:\s*"([^"]*)"', raw_args)
-                        content_match = re.search(r'"content"\s*:\s*"(.*)"', raw_args, re.DOTALL)
-                        if path_match:
-                            path_val = path_match.group(1)
-                            content_val = content_match.group(1) if content_match else ""
-                            logger.info(f"write_file: extracted path={path_val}, content_len={len(content_val)}")
-                            arguments = {"path": path_val, "content": content_val}
-                        elif "|" in raw_args:
-                            parts = raw_args.split("|", 1)
-                            arguments = {"path": parts[0], "content": parts[1] if len(parts) > 1 else ""}
-                        else:
-                            # 尝试补全截断的JSON
+                        # sindri: 首先尝试直接解析JSON
+                        try:
+                            arguments = json.loads(raw_args)
+                            logger.info(f"write_file: parsed JSON directly, content_len={len(arguments.get('content', ''))}")
+                        except json.JSONDecodeError:
+                            # sindri: 双重转义修复：content中的\\" 还原为 "
                             try:
-                                fixed = raw_args.rstrip()
-                                if not fixed.endswith('}'):
-                                    # 尝试找到最后一个完整的字段对并补全
-                                    fixed = fixed + '"}}'
+                                fixed = raw_args.replace('\\"', '"')
                                 arguments = json.loads(fixed)
-                                logger.info(f"write_file: fixed truncated JSON succeeded")
-                            except:
-                                self._tool_errors.append(ToolError(
-                                    turn=turn,
-                                    tool_name=func_name,
-                                    arguments=str(raw_args)[:200],
-                                    error=f"write_file needs path and content",
-                                    tool_result="Error: write_file requires path and content in JSON format",
-                                ))
-                                return ToolResult(
-                                    tool_call_id=tool_call_id,
-                                    content="Error: write_file requires path and content in JSON format",
-                                    is_error=True
-                                )
+                                logger.info("write_file: fixed double-escaped JSON")
+                            except json.JSONDecodeError:
+                                # sindri: 正则提取path和content
+                                path_match = re.search(r'"path"\s*:\s*"([^"]*)"', raw_args)
+                                content_match = re.search(r'"content"\s*:\s*"(.*)"', raw_args, re.DOTALL)
+                                if path_match:
+                                    path_val = path_match.group(1)
+                                    content_val = content_match.group(1) if content_match else ""
+                                    logger.info(f"write_file: extracted path={path_val}, content_len={len(content_val)}")
+                                    arguments = {"path": path_val, "content": content_val}
+                                elif "|" in raw_args:
+                                    parts = raw_args.split("|", 1)
+                                    arguments = {"path": parts[0], "content": parts[1] if len(parts) > 1 else ""}
+                                else:
+                                    self._tool_errors.append(ToolError(
+                                        turn=turn,
+                                        tool_name=func_name,
+                                        arguments=str(raw_args)[:200],
+                                        error=f"write_file needs path and content",
+                                        tool_result="Error: write_file requires path and content",
+                                    ))
+                                    return ToolResult(
+                                        tool_call_id=tool_call_id,
+                                        content="Error: write_file requires path and content",
+                                        is_error=True
+                                    )
                     else:
                         # 其他工具，尝试将raw_args作为纯字符串处理
                         logger.info(f"Unknown tool {func_name}: treating raw_args as string")

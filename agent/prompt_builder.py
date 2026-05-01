@@ -21,7 +21,7 @@ import re
 import threading
 from collections import OrderedDict
 from pathlib import Path
-from typing import Optional, Set
+from typing import List, Optional, Set
 
 logger = logging.getLogger(__name__)
 
@@ -620,33 +620,59 @@ def _iter_skill_files(skills_dir: Path) -> list:
     
     return skill_files
 
+def _find_openclaw_builtin_skills_dir() -> Optional[Path]:
+    """动态查找OpenClaw内置skills目录（pnpm全局安装）"""
+    pnpm_root = Path.home() / ".local/share/pnpm/global/5/.pnpm"
+    if pnpm_root.exists():
+        for candidate in sorted(pnpm_root.glob("openclaw@*"), reverse=True):
+            skills_path = candidate / "node_modules/openclaw/skills"
+            if skills_path.exists():
+                return skills_path
+    return None
+
+
+def _resolve_default_skills_dirs() -> List[Path]:
+    """解析默认skills多目录列表"""
+    dirs = [
+        Path.home() / ".openclaw" / "skills",
+        Path.home() / ".openclaw" / "projects" / "MimirAether" / "skills" / "mimiraether",
+    ]
+    builtin = _find_openclaw_builtin_skills_dir()
+    if builtin:
+        dirs.append(builtin)
+    return dirs
+
 
 def build_skills_system_prompt(
     available_tools: Optional[Set[str]] = None,
     available_toolsets: Optional[Set[str]] = None,
-    skills_dir: Optional[str] = None,
+    skills_dirs: Optional[List[str]] = None,
 ) -> str:
     """
-    构建技能索引system prompt
+    构建技能索引system prompt（多目录扫描）
     
     两层缓存：
     1. 进程内LRU缓存
-    2. 磁盘快照
+    2. 磁盘快照（仅单目录时使用）
     
     支持条件激活：根据可用工具/工具集筛选技能
+    支持多目录扫描：遍历多个skills目录，合并去重（先到先得）
     """
-    if skills_dir is None:
-        skills_dir = Path.home() / ".openclaw" / "skills"
+    # 解析目录列表
+    if skills_dirs is None:
+        resolved_dirs = _resolve_default_skills_dirs()
     else:
-        skills_dir = Path(skills_dir)
+        resolved_dirs = [Path(d) for d in skills_dirs]
     
-    if not skills_dir.exists():
+    # 过滤存在的目录
+    existing_dirs = [d for d in resolved_dirs if d.exists()]
+    if not existing_dirs:
         return ""
     
-    # 构建缓存key
+    # 构建缓存key（包含所有目录）
     platform_hint = os.environ.get("PLATFORM", "cli")
     cache_key = (
-        str(skills_dir.resolve()),
+        tuple(str(d.resolve()) for d in existing_dirs),
         platform_hint,
         tuple(sorted(str(t) for t in (available_tools or set()))),
         tuple(sorted(str(ts) for ts in (available_toolsets or set()))),
@@ -659,63 +685,75 @@ def build_skills_system_prompt(
             _SKILLS_PROMPT_CACHE.move_to_end(cache_key)
             return cached
     
-    # 检查磁盘快照（Hermes 1:1学习：两层缓存）
-    snapshot = _load_skills_snapshot(skills_dir)
-    if snapshot is not None:
-        result = snapshot.get("skills_prompt", "")
-        if result:
-            with _SKILLS_PROMPT_CACHE_LOCK:
-                _SKILLS_PROMPT_CACHE[cache_key] = result
-            return result
+    # 检查磁盘快照（仅单目录时）
+    if len(existing_dirs) == 1:
+        snapshot = _load_skills_snapshot(existing_dirs[0])
+        if snapshot is not None:
+            result = snapshot.get("skills_prompt", "")
+            if result:
+                with _SKILLS_PROMPT_CACHE_LOCK:
+                    _SKILLS_PROMPT_CACHE[cache_key] = result
+                return result
     
-    # 扫描技能目录
+    # 扫描多个技能目录，合并去重
     skills_by_category: dict[str, list[tuple[str, str]]] = {}
     category_descriptions: dict[str, str] = {}
+    seen_skills: set[tuple[str, str]] = set()  # (category, skill_name)
     
-    for skill_file in _iter_skill_files(skills_dir):
-        is_compatible, description, conditions = _get_skill_description(skill_file)
-        if not is_compatible:
-            continue
-        
-        # 应用条件激活过滤
-        if not _skill_should_show(conditions, available_tools, available_toolsets):
-            continue
-        
-        # 获取技能名称（目录名）
-        rel_path = skill_file.relative_to(skills_dir)
-        parts = rel_path.parts
-        if len(parts) >= 2:
-            category = parts[0] if parts[0] != "skills" else "general"
-            skill_name = parts[1]
-        else:
-            category = "general"
-            skill_name = skill_file.parent.name
-        
-        skills_by_category.setdefault(category, []).append((skill_name, description))
-    
-    # Read category-level DESCRIPTION.md files
-    for desc_file in skills_dir.rglob("DESCRIPTION.md"):
-        try:
-            desc_content = desc_file.read_text(encoding="utf-8").strip()
-            if not desc_content:
+    for skills_dir in existing_dirs:
+        for skill_file in _iter_skill_files(skills_dir):
+            is_compatible, description, conditions = _get_skill_description(skill_file)
+            if not is_compatible:
                 continue
-            # Extract description from frontmatter or first line
-            fm_desc = ""
-            if desc_content.startswith("---"):
-                end = desc_content.find("\n---", 3)
-                if end != -1:
-                    fm_text = desc_content[3:end]
-                    for line in fm_text.split("\n"):
-                        if ":" in line:
-                            key, value = line.split(":", 1)
-                            if key.strip().lower() == "description":
-                                fm_desc = value.strip().strip("'\"")
-            rel = desc_file.relative_to(skills_dir)
-            cat = "/".join(rel.parts[:-1]) if len(rel.parts) > 1 else "general"
-            cat_desc = fm_desc or desc_content.split("\n")[0].strip("# ").strip()
-            category_descriptions[cat] = cat_desc
-        except Exception as e:
-            logger.debug("Could not read skill description %s: %s", desc_file, e)
+            
+            # 应用条件激活过滤
+            if not _skill_should_show(conditions, available_tools, available_toolsets):
+                continue
+            
+            # 获取技能名称（目录名）
+            rel_path = skill_file.relative_to(skills_dir)
+            parts = rel_path.parts
+            if len(parts) >= 2:
+                category = parts[0] if parts[0] != "skills" else "general"
+                skill_name = parts[1]
+            else:
+                category = "general"
+                skill_name = skill_file.parent.name
+            
+            # 去重：先到先得
+            key = (category, skill_name)
+            if key in seen_skills:
+                continue
+            seen_skills.add(key)
+            
+            skills_by_category.setdefault(category, []).append((skill_name, description))
+        
+        # Read category-level DESCRIPTION.md files from each dir
+        for desc_file in skills_dir.rglob("DESCRIPTION.md"):
+            try:
+                desc_content = desc_file.read_text(encoding="utf-8").strip()
+                if not desc_content:
+                    continue
+                fm_desc = ""
+                if desc_content.startswith("---"):
+                    end = desc_content.find("\n---", 3)
+                    if end != -1:
+                        fm_text = desc_content[3:end]
+                        for line in fm_text.split("\n"):
+                            if ":" in line:
+                                key, value = line.split(":", 1)
+                                if key.strip().lower() == "description":
+                                    fm_desc = value.strip().strip("'\"")
+                rel = desc_file.relative_to(skills_dir)
+                cat = "/".join(rel.parts[:-1]) if len(rel.parts) > 1 else "general"
+                if cat not in category_descriptions:
+                    cat_desc = fm_desc or desc_content.split("\n")[0].strip("# ").strip()
+                    category_descriptions[cat] = cat_desc
+            except Exception as e:
+                logger.debug("Could not read skill description %s: %s", desc_file, e)
+    
+    total_skills = sum(len(v) for v in skills_by_category.values())
+    logger.info("Skills scan: %d skills from %d directories", total_skills, len(existing_dirs))
     
     if not skills_by_category:
         result = ""
@@ -769,8 +807,9 @@ def build_skills_system_prompt(
         while len(_SKILLS_PROMPT_CACHE) > _SKILLS_PROMPT_CACHE_MAX:
             _SKILLS_PROMPT_CACHE.popitem(last=False)
     
-    # 存入磁盘快照（Hermes 1:1学习：两层缓存）
-    _write_skills_snapshot(skills_dir, result, category_descriptions)
+    # 存入磁盘快照（仅单目录时）
+    if len(existing_dirs) == 1:
+        _write_skills_snapshot(existing_dirs[0], result, category_descriptions)
     
     return result
 
@@ -786,16 +825,20 @@ def _get_skills_snapshot_path() -> Path:
     """获取快照文件路径"""
     return _SKILLS_SNAPSHOT_CACHE_PATH
 
-def _build_skills_manifest(skills_dir: Path) -> dict:
+def _build_skills_manifest(skills_dirs: list) -> dict:
     """构建skills目录清单（用于快照校验）"""
     manifest = {}
-    for skill_file in skills_dir.rglob("SKILL.md"):
-        stat = skill_file.stat()
-        rel = skill_file.relative_to(skills_dir)
-        manifest[str(rel)] = int(stat.st_mtime)
+    for skills_dir in skills_dirs:
+        if not skills_dir.exists():
+            continue
+        for skill_file in skills_dir.rglob("SKILL.md"):
+            stat = skill_file.stat()
+            rel = skill_file.relative_to(skills_dir)
+            key = f"{skills_dir.name}/{rel}"
+            manifest[key] = int(stat.st_mtime)
     return manifest
 
-def _load_skills_snapshot(skills_dir: Path) -> Optional[dict]:
+def _load_skills_snapshot(skills_dirs: list) -> Optional[dict]:
     """加载skill快照（如果存在且有效）"""
     snapshot_path = _get_skills_snapshot_path()
     if not snapshot_path.exists():
@@ -809,15 +852,15 @@ def _load_skills_snapshot(skills_dir: Path) -> Optional[dict]:
         return None
     if snapshot.get("version") != _SKILLS_SNAPSHOT_VERSION:
         return None
-    if snapshot.get("manifest") != _build_skills_manifest(skills_dir):
+    if snapshot.get("manifest") != _build_skills_manifest(skills_dirs):
         return None
     return snapshot
 
-def _write_skills_snapshot(skills_dir: Path, skills_prompt: str, category_descriptions: dict) -> None:
+def _write_skills_snapshot(skills_dirs: list, skills_prompt: str, category_descriptions: dict) -> None:
     """持久化skill快照用于快速冷启动（Hermes 1:1学习）"""
     try:
         import json
-        manifest = _build_skills_manifest(skills_dir)
+        manifest = _build_skills_manifest(skills_dirs)
         payload = {
             "version": _SKILLS_SNAPSHOT_VERSION,
             "manifest": manifest,
@@ -842,7 +885,7 @@ def build_system_prompt(
     platform: Optional[str] = None,
     include_skills: bool = True,
     include_context: bool = True,
-    skills_dir: Optional[str] = None,
+    skills_dirs: Optional[List[str]] = None,
 ) -> str:
     """
     构建完整的system prompt
@@ -855,7 +898,7 @@ def build_system_prompt(
         platform: 平台类型
         include_skills: 是否包含技能索引
         include_context: 是否包含上下文文件
-        skills_dir: 技能目录路径（默认从环境变量或 ~/.openclaw/skills）
+        skills_dirs: 技能目录路径列表（默认多目录扫描）
     """
     sections = []
     
@@ -897,7 +940,7 @@ def build_system_prompt(
     
     # 9. 技能索引
     if include_skills:
-        skills_prompt = build_skills_system_prompt(available_tools, available_toolsets, skills_dir=skills_dir)
+        skills_prompt = build_skills_system_prompt(available_tools, available_toolsets, skills_dirs=skills_dirs)
         if skills_prompt:
             sections.append(skills_prompt)
     

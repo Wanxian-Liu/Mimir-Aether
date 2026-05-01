@@ -8,6 +8,7 @@ transport during garbage collection.
 Pattern from Hermes model_tools.py _get_tool_loop / _get_worker_loop:
 - _get_tool_loop(): persistent loop for the main thread
 - _get_worker_loop(): persistent per-thread loop for worker threads
+- _run_async(): sync→async bridge, detects event loop context
 - ThreadPoolExecutor: runs sync tool handlers in separate threads
 
 Why persistent loops:
@@ -75,6 +76,47 @@ def get_worker_loop():
         asyncio.set_event_loop(loop)
         _worker_thread_local.loop = loop
     return loop
+
+
+def run_async(coro):
+    """Run a coroutine from synchronous code, handling event loop context.
+
+    Three cases handled:
+    1. No running event loop, main thread (CLI / sync path)
+       → uses the persistent tool_loop via get_tool_loop()
+    2. Running event loop (inside an async handler calling sync→async)
+       → defers to the thread pool executor (300s timeout)
+    3. No running event loop, worker thread (non-main)
+       → uses a per-thread persistent loop via get_worker_loop()
+
+    This is the bridge between sync tool dispatch (registry.dispatch)
+    and async tool handlers (httpx, AsyncOpenAI, etc.).
+
+    Pattern from Hermes model_tools.py _run_async().
+    """
+    try:
+        running_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        running_loop = None
+
+    if running_loop is not None:
+        # Inside an async context — can't use run_until_complete() on a
+        # running loop. Run the coroutine in a separate thread via the
+        # global tool executor (reuses pool, unlike Hermes which creates
+        # a single-use ThreadPoolExecutor per call).
+        future = _tool_executor.submit(asyncio.run, coro)
+        return future.result(timeout=300)
+    else:
+        # Worker thread (non-main thread without running loop) — use a
+        # per-thread persistent loop to avoid contention with the main
+        # thread's loop. asyncio event loops are not thread-safe, so
+        # each worker thread must have its own.
+        if threading.current_thread() is not threading.main_thread():
+            worker_loop = get_worker_loop()
+            return worker_loop.run_until_complete(coro)
+        # Sync context (CLI main thread path): use the persistent tool loop.
+        loop = get_tool_loop()
+        return loop.run_until_complete(coro)
 
 
 def get_tool_executor():
