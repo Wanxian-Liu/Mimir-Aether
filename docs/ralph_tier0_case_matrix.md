@@ -97,6 +97,8 @@
 2. `search` 不命中已禁用项  
 3. `enable` 后 `get` 与 `search` 恢复  
 4. `unregister` 后库中无该工具（`list_all(enabled_only=False)` 为空）  
+5. 并发可见性切换：`enable/disable` 与并发 `get` 下可观测到启用与禁用状态  
+6. 并发切换后 `disable` + `search` 不可见；`unregister` 首次 `True`、再次 `False`（幂等语义）  
 
 ## A7. `turn_loop` 预算（`test_turn_loop_budget.py`）
 
@@ -113,7 +115,6 @@
 
 - CLI 非法类型、互斥 flag 显式报错（`profiles`/`config`/`models`、`-q` 调度见 A2）
 - `code_execution_tool` 远程 **`patch`+`terminal` 组合**、`write_file` native 与 RPC 文档化（§20 双工具；**§21 三工具 `web_search`+`read_file`+`web_extract`**；单工具 §15–19）
-- `tool_registry` 并发注册/查询一致性（启用/禁用/注销语义见 A7a）
 
 ## C. 每日结果记录（建议）
 
