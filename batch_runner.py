@@ -19,6 +19,9 @@ Usage:
     # Resume an interrupted run
     python batch_runner.py --dataset_file=data.jsonl --batch_size=10 --run_name=my_run --resume
 
+    # Abort entire run on first batch worker error (default is to continue other batches)
+    python batch_runner.py --dataset_file=data.jsonl --batch_size=10 --run_name=my_run --fail_fast
+
     # Use a specific toolset distribution
     python batch_runner.py --dataset_file=data.jsonl --batch_size=10 --run_name=my_run --distribution=image_gen
 """
@@ -595,6 +598,7 @@ class BatchRunner:
         reasoning_config: Dict[str, Any] = None,
         prefill_messages: List[Dict[str, Any]] = None,
         max_samples: int = None,
+        fail_fast: bool = False,
     ):
         """
         Initialize the batch runner.
@@ -620,6 +624,8 @@ class BatchRunner:
             reasoning_config (Dict): OpenRouter reasoning config override (e.g. {"effort": "none"} to disable thinking)
             prefill_messages (List[Dict]): Messages to prepend as prefilled conversation context (few-shot priming)
             max_samples (int): Only process the first N samples from the dataset (optional, processes all if not set)
+            fail_fast (bool): If True, abort the whole run when any batch worker raises. If False (default),
+                log the error and continue with remaining batches (multi-batch / multi-slice runs keep going).
         """
         self.dataset_file = Path(dataset_file)
         self.batch_size = batch_size
@@ -641,6 +647,7 @@ class BatchRunner:
         self.reasoning_config = reasoning_config
         self.prefill_messages = prefill_messages
         self.max_samples = max_samples
+        self.fail_fast = fail_fast
 
         # Validate distribution
         if not validate_distribution(distribution):
@@ -975,7 +982,23 @@ class BatchRunner:
                 root_logger.setLevel(logging.WARNING)
 
                 try:
-                    for result in pool.imap_unordered(_process_batch_worker, tasks):
+                    _imap = pool.imap_unordered(_process_batch_worker, tasks)
+                    while True:
+                        try:
+                            result = next(_imap)
+                        except StopIteration:
+                            break
+                        except Exception as e:
+                            logger.error("Batch worker failed: %s", e, exc_info=True)
+                            if self.fail_fast:
+                                raise
+                            print(
+                                f"⚠️  Batch task failed (continuing; use --fail_fast to abort): {e}",
+                                flush=True,
+                            )
+                            progress.update(task, advance=1)
+                            continue
+
                         results.append(result)
                         progress.update(task, advance=1)
 
@@ -997,9 +1020,6 @@ class BatchRunner:
                         except Exception as ckpt_err:
                             # Don't fail the run if checkpoint write fails
                             print(f"⚠️  Warning: Failed to save incremental checkpoint: {ckpt_err}")
-                except Exception as e:
-                    logger.error("Batch worker failed: %s", e, exc_info=True)
-                    raise
                 finally:
                     root_logger.setLevel(original_level)
 
@@ -1191,6 +1211,7 @@ def main(
     reasoning_disabled: bool = False,
     prefill_messages_file: str = None,
     max_samples: int = None,
+    fail_fast: bool = False,
 ):
     """
     Run batch processing of agent prompts from a dataset.
@@ -1219,6 +1240,7 @@ def main(
         reasoning_disabled (bool): Completely disable reasoning/thinking tokens (default: False)
         prefill_messages_file (str): Path to JSON file containing prefill messages (list of {role, content} dicts)
         max_samples (int): Only process the first N samples from the dataset (optional, processes all if not set)
+        fail_fast (bool): If True, stop the whole run when any parallel batch worker raises (default: False — keep processing remaining batches).
 
     Examples:
         # Basic usage
@@ -1328,6 +1350,7 @@ def main(
             reasoning_config=reasoning_config,
             prefill_messages=prefill_messages,
             max_samples=max_samples,
+            fail_fast=fail_fast,
         )
 
         runner.run(resume=resume)
