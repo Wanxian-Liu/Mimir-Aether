@@ -174,13 +174,12 @@ class FeishuAdapter(BasePlatformAdapter):
             logger.info("[%s] Connected (HTTP send only; no long connection)", self.name)
             return True
 
-        try:
-            import lark_oapi  # noqa: F401
-        except ImportError:
-            logger.error("[%s] Long connection needs lark-oapi: pip install lark-oapi", self.name)
-            await self._close_http()
-            return False
-
+        # NOTE: Do NOT import lark_oapi here (on the main event loop thread).
+        # lark_oapi.ws.client binds a module-level ``loop`` at import time via
+        # ``asyncio.get_event_loop()``. If imported here, it captures the
+        # *running* main loop, causing "This event loop is already running"
+        # later in the worker thread. All lark_oapi imports happen exclusively
+        # inside _blocking_lark_ws_main, after a dedicated event loop is installed.
         self._mark_connected()
         self._ws_task = asyncio.create_task(self._ws_runner(), name="feishu-lark-ws")
         logger.info("[%s] Long connection task started (lark-oapi ws.Client)", self.name)
@@ -221,9 +220,17 @@ class FeishuAdapter(BasePlatformAdapter):
 
         enc = self._encrypt_key or ""
         ver = self._verification_token or ""
+        # Feishu pushes many IM event types over the same WS. Only
+        # ``im.message.receive_v1`` drives the agent; others would trigger
+        # lark_oapi "processor not found" ERROR spam. Register no-ops for the
+        # noisy types we see in production logs.
         handler = (
             lark.EventDispatcherHandler.builder(enc, ver)
             .register_p2_im_message_receive_v1(self._sync_p2_im_message_receive_v1)
+            .register_p2_im_message_message_read_v1(self._lark_noop_message_read_v1)
+            .register_p2_im_chat_access_event_bot_p2p_chat_entered_v1(
+                self._lark_noop_bot_p2p_chat_entered_v1
+            )
             .build()
         )
         domain = (
@@ -239,6 +246,14 @@ class FeishuAdapter(BasePlatformAdapter):
             domain=domain,
         )
         cli.start()
+
+    def _lark_noop_message_read_v1(self, _data: Any) -> None:
+        """Read receipts — ignore (keeps lark_oapi from logging processor not found)."""
+        logger.debug("[%s] Ignoring im.message.message_read_v1", self.name)
+
+    def _lark_noop_bot_p2p_chat_entered_v1(self, _data: Any) -> None:
+        """User entered bot DM — ignore for agent purposes."""
+        logger.debug("[%s] Ignoring im.chat.access_event.bot_p2p_chat_entered_v1", self.name)
 
     def _sync_p2_im_message_receive_v1(self, data: Any) -> None:
         import lark_oapi as lark
@@ -289,19 +304,25 @@ class FeishuAdapter(BasePlatformAdapter):
         if not self._session:
             return
         url = f"{self._origin()}/open-apis/auth/v3/tenant_access_token/internal"
-        async with self._session.post(
-            url,
-            json={"app_id": self._app_id, "app_secret": self._app_secret},
-        ) as resp:
-            if resp.status != 200:
-                logger.error("[%s] Token HTTP %s", self.name, resp.status)
-                return
-            result = await resp.json()
-            if result.get("code") == 0:
-                self._tenant_token = result.get("tenant_access_token")
-                self._token_expires_at = time.time() + 7000
-            else:
-                logger.error("[%s] Token error: %s", self.name, result)
+        try:
+            async with self._session.post(
+                url,
+                json={"app_id": self._app_id, "app_secret": self._app_secret},
+                timeout=aiohttp.ClientTimeout(total=15),
+            ) as resp:
+                if resp.status != 200:
+                    logger.error("[%s] Token HTTP %s", self.name, resp.status)
+                    return
+                result = await resp.json()
+                if result.get("code") == 0:
+                    self._tenant_token = result.get("tenant_access_token")
+                    self._token_expires_at = time.time() + 7000
+                else:
+                    logger.error("[%s] Token error: %s", self.name, result)
+        except asyncio.TimeoutError:
+            logger.error("[%s] Token refresh timeout", self.name)
+        except Exception as e:
+            logger.error("[%s] Token refresh failed: %s", self.name, e)
 
     async def send(
         self,
@@ -336,6 +357,7 @@ class FeishuAdapter(BasePlatformAdapter):
                 json=body,
                 params={"receive_id_type": rid_type},
                 headers=self._headers(),
+                timeout=aiohttp.ClientTimeout(total=30),
             ) as resp:
                 result = await resp.json()
                 if result.get("code") != 0:
@@ -348,7 +370,21 @@ class FeishuAdapter(BasePlatformAdapter):
                     )
                     return SendResult(success=False, error=str(result))
                 mid = result.get("data", {}).get("message_id")
+                logger.info(
+                    "[%s] send success message_id=%s chat_id=%s…",
+                    self.name,
+                    str(mid)[:24] if mid else "?",
+                    (chat_id or "")[:24],
+                )
                 return SendResult(success=True, message_id=str(mid) if mid else None, raw_response=result)
+        except asyncio.TimeoutError:
+            logger.error(
+                "[%s] send timeout (30s) receive_id_type=%s chat_id=%s…",
+                self.name,
+                rid_type,
+                (chat_id or "")[:24],
+            )
+            return SendResult(success=False, error="send timeout", retryable=True)
         except Exception as e:
             return SendResult(success=False, error=str(e), retryable=True)
 
