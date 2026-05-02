@@ -1,7 +1,8 @@
 """M5: explicit port for model invocation (replaceability seam).
 
-Production today: ``MimirAetherAgent._call_model_with_tokens`` in ``core_loop.py``.
-Tests today: patch that method with async callables. This module names the contract
+Production: ``MimirAetherAgent`` holds a ``LlmInvocationPort`` (default
+``_BuiltinLlmBackend`` delegating to ``_builtin_call_model_with_tokens``).
+Tests often patch ``_call_model_with_tokens`` with async callables. This module names the contract
 so alternate implementations can be type-checked without changing test semantics.
 """
 

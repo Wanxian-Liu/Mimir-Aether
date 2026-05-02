@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any, Dict, List
+from unittest.mock import patch
 
 from agent.llm_port import LlmInvocationPort
 
@@ -41,3 +42,32 @@ def test_missing_method_not_port() -> None:
         pass
 
     assert not isinstance(Bad(), LlmInvocationPort)
+
+
+def test_agent_uses_injected_llm_backend() -> None:
+    """``llm_backend=`` wires through ``_call_model_with_tokens`` without hitting builtin HTTP path."""
+
+    class Echo:
+        async def call_model_with_tokens(
+            self, messages: List[Dict[str, Any]], session_id: str
+        ) -> tuple[Dict[str, Any], float]:
+            return (
+                {"content": "injected", "tool_calls": None, "reasoning_content": None},
+                3.0,
+            )
+
+    from agent.core_loop import MimirAetherAgent
+
+    with patch.object(MimirAetherAgent, "_restore_session", lambda self, session_id=None: False):
+        agent = MimirAetherAgent(
+            llm_backend=Echo(),
+            max_iterations=2,
+            platform="cli",
+            model="deepseek/deepseek-chat",
+        )
+
+    async def _run() -> None:
+        out, ms = await agent._call_model_with_tokens([], "sid")
+        assert out["content"] == "injected" and ms == 3.0
+
+    asyncio.run(_run())

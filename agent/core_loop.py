@@ -130,6 +130,7 @@ _tool_executor = get_tool_executor()
 
 # MimirAgentLoop: pure execution engine extracted from this class
 from .agent_loop import MimirAgentLoop, AgentResult as LoopAgentResult, ToolError as LoopToolError
+from .llm_port import LlmInvocationPort
 
 
 logger = logging.getLogger(__name__)
@@ -233,6 +234,20 @@ class ToolRegistry:
         return self._real_registry.get_schema(name)
 
 
+class _BuiltinLlmBackend:
+    """Default LLM path: HTTP / Anthropic / OpenAI-compatible (see ``_builtin_call_model_with_tokens``)."""
+
+    __slots__ = ("_agent",)
+
+    def __init__(self, agent: "MimirAetherAgent") -> None:
+        self._agent = agent
+
+    async def call_model_with_tokens(
+        self, messages: List[Dict[str, Any]], session_id: str
+    ) -> tuple[Dict[str, Any], float]:
+        return await self._agent._builtin_call_model_with_tokens(messages, session_id)
+
+
 class MimirAetherAgent:
     """
     MimirAether核心Agent类
@@ -266,6 +281,7 @@ class MimirAetherAgent:
         tool_gen_callback: callable = None,
         # Fallback机制
         fallback_model: dict = None,
+        llm_backend: Optional[LlmInvocationPort] = None,
     ):
         """
         初始化MimirAether Agent
@@ -288,6 +304,7 @@ class MimirAetherAgent:
             interim_assistant_callback: 临时助手响应回调
             tool_gen_callback: 工具生成回调
             fallback_model: Fallback模型配置
+            llm_backend: 可选；实现 :class:`~agent.llm_port.LlmInvocationPort` 则替代默认 HTTP 调用路径
         """
         self.model = model
         self.max_iterations = max_iterations
@@ -410,6 +427,10 @@ class MimirAetherAgent:
 
         # 注册内置工具
         self._register_builtin_tools()
+
+        self._llm_backend: LlmInvocationPort = (
+            llm_backend if llm_backend is not None else _BuiltinLlmBackend(self)
+        )
 
         logger.info(f"MimirAether initialized with model: {model}, context_length: {self._context_length}")
 
@@ -1579,14 +1600,15 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 return True
 
         return False
-    async def _call_model_with_tokens(
+    async def _builtin_call_model_with_tokens(
         self, messages: List[Dict], session_id: str
     ) -> tuple[Dict, float]:
         """
-        调用模型API并记录token使用
+        内置模型调用实现（HTTP/Anthropic/OpenAI 兼容路径）。
 
         统一入口:先解析API配置和工具schemas(只做一次),
         然后根据模型类型和流式需求分发到不同路径。
+        对外请通过 ``_call_model_with_tokens`` → ``LlmInvocationPort``。
 
         Returns:
             (response_dict, latency_ms)
@@ -1742,6 +1764,17 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
             raise RuntimeError(f"API error ({e.status}): {e}")
         except aiohttp.ClientError:
             raise RuntimeError("Network error during model call")
+
+    async def _call_model_with_tokens(
+        self, messages: List[Dict], session_id: str
+    ) -> tuple[Dict, float]:
+        """委托给当前 ``llm_backend``（默认 :class:`_BuiltinLlmBackend`）。"""
+        return await self._llm_backend.call_model_with_tokens(messages, session_id)
+
+    def set_llm_backend(self, backend: LlmInvocationPort) -> None:
+        """运行时切换 LLM 后端（须实现 :class:`~agent.llm_port.LlmInvocationPort`）。"""
+        self._llm_backend = backend
+
     async def _call_anthropic_api(
         self,
         model_name: str,
