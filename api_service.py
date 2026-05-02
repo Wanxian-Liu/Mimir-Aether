@@ -93,7 +93,7 @@ class AgentManager:
     支持：
     - 单例模式（默认）
     - 会话隔离
-    - 可选：通过 :meth:`set_llm_backend_override` / :meth:`set_tool_backend_override` 为**新建**的 Agent 注入后端（测试/定制）
+    - 可选：通过 :meth:`set_llm_backend_override` / :meth:`set_tool_backend_override` / :meth:`set_session_backend_override` 为**新建**的 Agent 注入后端（测试/定制）
     """
 
     _instance: Optional['AgentManager'] = None
@@ -101,6 +101,8 @@ class AgentManager:
     _llm_backend_override: Optional[Any] = None
     #: 非 None 时，下一次创建的 ``MimirAetherAgent`` 会收到 ``tool_backend=``（通常仅测试使用）
     _tool_backend_override: Optional[Any] = None
+    #: 非 None 时，下一次创建的 ``MimirAetherAgent`` 会收到 ``session_backend=``（通常仅测试使用）
+    _session_backend_override: Optional[Any] = None
 
     def __new__(cls):
         if cls._instance is None:
@@ -118,6 +120,11 @@ class AgentManager:
     def set_tool_backend_override(cls, backend: Optional[Any]) -> None:
         """为后续新创建的 API Agent 设置 ``ToolInvocationPort``；传 ``None`` 清除。"""
         cls._tool_backend_override = backend
+
+    @classmethod
+    def set_session_backend_override(cls, backend: Optional[Any]) -> None:
+        """为后续新创建的 API Agent 设置 ``SessionRestorePort``；传 ``None`` 清除。"""
+        cls._session_backend_override = backend
     
     async def get_agent(self, session_id: Optional[str] = None) -> Any:
         """获取Agent实例"""
@@ -136,6 +143,8 @@ class AgentManager:
                     kwargs["llm_backend"] = self.__class__._llm_backend_override
                 if self.__class__._tool_backend_override is not None:
                     kwargs["tool_backend"] = self.__class__._tool_backend_override
+                if self.__class__._session_backend_override is not None:
+                    kwargs["session_backend"] = self.__class__._session_backend_override
                 self._agents[session_id] = MimirAetherAgent(**kwargs)
                 logger.info(f"创建新Agent实例: {session_id}")
             

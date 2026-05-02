@@ -4737,6 +4737,7 @@ async def run_task(
     verbose: bool,
     llm_backend=None,
     tool_backend=None,
+    session_backend=None,
 ):
     """执行单个任务。
 
@@ -4745,6 +4746,8 @@ async def run_task(
             默认 None 使用内置 HTTP 路径。
         tool_backend: 可选，实现 :class:`agent.tool_port.ToolInvocationPort` 时走注入工具批处理（测试/定制）；
             默认 None 使用内置 registry 路径。
+        session_backend: 可选，实现 :class:`agent.session_port.SessionRestorePort` 时走注入会话恢复（测试/定制）；
+            默认 None 使用内置 SessionDB 路径。
     """
     from agent.core_loop import MimirAetherAgent
 
@@ -4765,6 +4768,8 @@ async def run_task(
         kwargs["llm_backend"] = llm_backend
     if tool_backend is not None:
         kwargs["tool_backend"] = tool_backend
+    if session_backend is not None:
+        kwargs["session_backend"] = session_backend
 
     agent = MimirAetherAgent(**kwargs)
     

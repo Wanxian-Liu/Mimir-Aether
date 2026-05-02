@@ -12,12 +12,16 @@
   - **CLI**：`cli.run_task(..., tool_backend=…)`。  
   - **API**：`api_service.AgentManager.set_tool_backend_override(backend)`。  
   - 测试：`agent/test_m5_tool_port_slice.py`、`agent/test_m5_entry_tool_injection_slice.py`。
-- **之后**：会话存储等端口可继续按同模式扩展。
+- **会话恢复端口**：`agent/session_port.py` 声明 **`SessionRestorePort`**（`restore_after_init`）；`_restore_session` → **`session_backend`**（默认 **`_BuiltinSessionRestore`** → **`_builtin_restore_session`**，与原先 SessionDB 恢复体一致）。  
+  - **CLI**：`cli.run_task(..., session_backend=…)`。  
+  - **API**：`api_service.AgentManager.set_session_backend_override(backend)`。  
+  - 测试：`agent/test_m5_session_restore_port_slice.py`、`agent/test_m5_entry_session_injection_slice.py`。  
+- **之后**：若要把 Insights 用 DB 与「恢复 transcript」统一为同一端口，可再开切片（本切片仅覆盖 init 末尾恢复路径）。
 
 ## 自动化验收（无网）
 
 ```bash
-python3 -m pytest -q agent/test_m5_kernel_replaceability_slice.py agent/test_m5_tool_port_slice.py agent/test_m5_entry_tool_injection_slice.py
+python3 -m pytest -q agent/test_m5_kernel_replaceability_slice.py agent/test_m5_tool_port_slice.py agent/test_m5_entry_tool_injection_slice.py agent/test_m5_session_restore_port_slice.py agent/test_m5_entry_session_injection_slice.py
 ```
 
 纳入：`./run_ralph_tier0.sh`（Gate2）。
@@ -31,6 +35,7 @@ python3 -m pytest -q agent/test_m5_kernel_replaceability_slice.py agent/test_m5_
 
 | 日期 | 说明 |
 |------|------|
+| 2026-05-02 | `SessionRestorePort`；`session_backend` / `set_session_backend`；CLI/API 注入；`test_m5_session_restore_port_slice`、`test_m5_entry_session_injection_slice`。 |
 | 2026-05-02 | `ToolInvocationPort`；`tool_backend` / `set_tool_backend`；CLI/API 注入；`test_m5_tool_port_slice`、`test_m5_entry_tool_injection_slice`。 |
 | 2026-05-03 | CLI `run_task(..., llm_backend=…)`；`AgentManager.set_llm_backend_override`；`agent/test_m5_entry_llm_injection_slice.py`。 |
 | 2026-05-03 | `MimirAetherAgent(llm_backend=…)` / `set_llm_backend`；默认 `_BuiltinLlmBackend` → `_builtin_call_model_with_tokens`。 |

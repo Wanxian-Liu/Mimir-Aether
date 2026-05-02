@@ -132,6 +132,7 @@ _tool_executor = get_tool_executor()
 from .agent_loop import MimirAgentLoop, AgentResult as LoopAgentResult, ToolError as LoopToolError
 from .llm_port import LlmInvocationPort
 from .tool_port import ToolInvocationPort
+from .session_port import SessionRestorePort
 
 
 logger = logging.getLogger(__name__)
@@ -261,6 +262,18 @@ class _BuiltinToolBackend:
         return await self._agent._builtin_execute_tools(tool_calls, turn)
 
 
+class _BuiltinSessionRestore:
+    """Default session restore: Hermes SessionDB → ``conversation_history``."""
+
+    __slots__ = ("_agent",)
+
+    def __init__(self, agent: "MimirAetherAgent") -> None:
+        self._agent = agent
+
+    def restore_after_init(self, session_id: Optional[str] = None) -> bool:
+        return self._agent._builtin_restore_session(session_id)
+
+
 class MimirAetherAgent:
     """
     MimirAether核心Agent类
@@ -296,6 +309,7 @@ class MimirAetherAgent:
         fallback_model: dict = None,
         llm_backend: Optional[LlmInvocationPort] = None,
         tool_backend: Optional[ToolInvocationPort] = None,
+        session_backend: Optional[SessionRestorePort] = None,
     ):
         """
         初始化MimirAether Agent
@@ -320,6 +334,7 @@ class MimirAetherAgent:
             fallback_model: Fallback模型配置
             llm_backend: 可选；实现 :class:`~agent.llm_port.LlmInvocationPort` 则替代默认 HTTP 调用路径
             tool_backend: 可选；实现 :class:`~agent.tool_port.ToolInvocationPort` 则替代默认工具批处理路径
+            session_backend: 可选；实现 :class:`~agent.session_port.SessionRestorePort` 则替代默认 SessionDB 恢复路径
         """
         self.model = model
         self.max_iterations = max_iterations
@@ -448,6 +463,9 @@ class MimirAetherAgent:
         )
         self._tool_backend: ToolInvocationPort = (
             tool_backend if tool_backend is not None else _BuiltinToolBackend(self)
+        )
+        self._session_backend: SessionRestorePort = (
+            session_backend if session_backend is not None else _BuiltinSessionRestore(self)
         )
 
         logger.info(f"MimirAether initialized with model: {model}, context_length: {self._context_length}")
@@ -1797,6 +1815,10 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
         """运行时切换工具批处理后端（须实现 :class:`~agent.tool_port.ToolInvocationPort`）。"""
         self._tool_backend = backend
 
+    def set_session_backend(self, backend: SessionRestorePort) -> None:
+        """运行时切换会话恢复后端（须实现 :class:`~agent.session_port.SessionRestorePort`）。"""
+        self._session_backend = backend
+
     async def _call_anthropic_api(
         self,
         model_name: str,
@@ -2439,8 +2461,12 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
         logger.info("Agent reset")
 
     def _restore_session(self, session_id: str = None) -> bool:
+        """委托给当前 ``session_backend``（默认 :class:`_BuiltinSessionRestore`）。"""
+        return self._session_backend.restore_after_init(session_id)
+
+    def _builtin_restore_session(self, session_id: str = None) -> bool:
         """
-        从SessionDB恢复会话
+        内置：从 SessionDB 恢复会话
 
         学习自Hermes会话持久化:
         - 从Hermes SessionDB恢复消息历史
