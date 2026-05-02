@@ -22,7 +22,7 @@
 | M3 | 垂直切片 | **绿** | **两条**：CLI（`docs/m3_cli_quick_task_slice.md`）+ **API** `POST /v1/chat/completions`（`docs/m3_api_chat_slice.md`，`agent/test_m3_api_chat_slice.py`） |
 | M4 | Tier-2 HTTP（可选） | **未** | 可选 |
 | M5 | 内核可替换 | **未** | 接口化与替换说明 |
-| M6 | 进化可审计 | **未** | 进化需绑定 commit / 测试 / 指标 |
+| M6 | 进化可审计 | **黄** | **`docs/M6_EVOLUTION.md`** + **`docs/evolution_log.md`** + **`scripts/record_m6_evolution.sh`** 已落地；合并触达 agent/gateway/tools/契约测时须补记一行。**绿** = 团队默认执行满 2 个合并周期无漏记 |
 
 状态图例：**绿** = 满足文档完成判据或等价；**黄** = 部分/待复核；**未** = 未达成。
 
@@ -44,15 +44,15 @@
 | 主线 | 健康度 | 备注 |
 |------|--------|------|
 | **Parity** | 强 | 契约 + Gate1–3 + 测试映射可追踪 |
-| **Evolution** | 弱 | M6 未落地；大改需指标与回归 |
+| **Evolution** | 中 | M6 最小闭环已落地；习惯养成中（见 `docs/evolution_log.md`） |
 
 ---
 
 ## 4. 近期焦点（可改）
 
-1. 里程碑 A 已绿；M3 含 CLI + API 两条切片；可选 **M6** 进化记录模板。
-2. 保持 `run_ralph_tier0.sh` 全绿；合入用 Ralph 模式三轮。
-3. M6 最小记录模板（commit / 测试子集 / 指标）。
+1. **执行 M6**：合并前对「agent / gateway / tools / 契约测试」类 PR 运行 `./scripts/record_m6_evolution.sh "…"` 或等价手工行。
+2. 保持 `run_ralph_tier0.sh` 全绿；合入用 Ralph 模式三轮（若启用严格迭代）。
+3. M6 标 **绿** 前：连续 2 个合并周期无漏记（自证习惯）。
 
 ---
 
@@ -60,6 +60,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-02 | **M6 黄**：新增 `docs/M6_EVOLUTION.md`、`docs/evolution_log.md`、`scripts/record_m6_evolution.sh`，`AGENTS.md` 合并指引；tier0 当次全绿。 |
 | 2026-05-02 | M3 **第二条**：`agent/test_m3_api_chat_slice.py` + `docs/m3_api_chat_slice.md`，纳入 `run_ralph_tier0.sh`；M3 标 **绿**。 |
 | 2026-05-02 | 飞书连接成功（Bot「wan」）；里程碑 **A** 标 **绿**。 |
 | 2026-05-01 | 里程碑 A smoke 首轮：代理回报写入 `mimir_prod_smoke.md`；A2 真实消息仍缺，阶段 1 保持黄。 |

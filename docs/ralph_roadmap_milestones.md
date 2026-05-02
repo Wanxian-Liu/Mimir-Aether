@@ -114,7 +114,8 @@
 
 **产出物**
 
-- 一次「进化运行」的最小记录模板（markdown/json 均可）+ 存放位置约定。
+- 一次「进化运行」的最小记录模板（markdown/json 均可）+ 存放位置约定。  
+- **本仓库落地**：`docs/M6_EVOLUTION.md`（规则）、`docs/evolution_log.md`（追加日志）、`scripts/record_m6_evolution.sh`（跑 `./run_ralph_tier0.sh` 并追加一行）。
 
 **完成判据**
 

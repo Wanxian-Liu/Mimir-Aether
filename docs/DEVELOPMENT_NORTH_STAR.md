@@ -28,7 +28,7 @@
 ### 2.2 Evolution（可证收益）
 
 - **含义**：每一轮「进化」须能回答：**哪项指标变好**，且 **回归未破坏** Parity 契约允许的差异范围。
-- **验收**：**Evolution Loop Checklist**：采样 → 评估 → 选择 → 更新 → **回归**；禁止默认流程为「仅迁移/归档/改文档」却宣称策略进化。与 `docs/ralph_roadmap_milestones.md` **M6（进化可审计）** 对齐。
+- **验收**：**Evolution Loop Checklist**：采样 → 评估 → 选择 → 更新 → **回归**；禁止默认流程为「仅迁移/归档/改文档」却宣称策略进化。与 `docs/ralph_roadmap_milestones.md` **M6（进化可审计）** 对齐。最小执行入口：**`docs/M6_EVOLUTION.md`** + `./scripts/record_m6_evolution.sh`。
 - **伪进化信号**：无关联测试/指标、无对照基线的批量改动。
 
 ---
@@ -101,4 +101,5 @@ OpenClaw → Hermes 迁移逻辑集中在：
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-02 | M6 最小闭环：`docs/M6_EVOLUTION.md`、`docs/evolution_log.md`、`scripts/record_m6_evolution.sh`；Evolution 验收入口写入 §2.2。 |
 | 2026-05-01 | 主仓版：作用域以本树为运行时真源；链接 ralph/成长路线图/path-contract；迁移有损索引与备份树初版对齐。 |

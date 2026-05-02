@@ -28,3 +28,13 @@ When **Ralph 模式** is requested: follow **`docs/RALPH_MODE.md`** — iterate 
 ## Merge gate
 
 Before pushing, **`./run_ralph_tier0.sh`** must pass (repository pre-push hook runs the same checks).
+
+## M6 — evolution audit (minimal)
+
+For changes that touch **agent / gateway / tools / parity tests**, append one row to **`docs/evolution_log.md`** before merging (or immediately after, same commit if squashed). Prefer:
+
+```bash
+./scripts/record_m6_evolution.sh "what changed; metrics or metrics: n/a"
+```
+
+Rules and template: **`docs/M6_EVOLUTION.md`**.
