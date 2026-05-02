@@ -93,16 +93,24 @@ class AgentManager:
     支持：
     - 单例模式（默认）
     - 会话隔离
+    - 可选：通过 :meth:`set_llm_backend_override` 为**新建**的 Agent 注入 ``llm_backend``（测试/定制）
     """
-    
+
     _instance: Optional['AgentManager'] = None
-    
+    #: 非 None 时，下一次创建的 ``MimirAetherAgent`` 会收到 ``llm_backend=``（通常仅测试使用）
+    _llm_backend_override: Optional[Any] = None
+
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._agents: Dict[str, Any] = {}
             cls._instance._lock = asyncio.Lock()
         return cls._instance
+
+    @classmethod
+    def set_llm_backend_override(cls, backend: Optional[Any]) -> None:
+        """为后续新创建的 API Agent 设置 ``LlmInvocationPort``；传 ``None`` 清除。"""
+        cls._llm_backend_override = backend
     
     async def get_agent(self, session_id: Optional[str] = None) -> Any:
         """获取Agent实例"""
@@ -112,11 +120,14 @@ class AgentManager:
         async with self._lock:
             if session_id not in self._agents:
                 from agent.core_loop import MimirAetherAgent
-                self._agents[session_id] = MimirAetherAgent(
+                kwargs = dict(
                     model=get_model(),
                     max_iterations=90,
                     platform="api",
                 )
+                if self.__class__._llm_backend_override is not None:
+                    kwargs["llm_backend"] = self.__class__._llm_backend_override
+                self._agents[session_id] = MimirAetherAgent(**kwargs)
                 logger.info(f"创建新Agent实例: {session_id}")
             
             return self._agents[session_id]

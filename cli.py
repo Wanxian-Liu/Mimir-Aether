@@ -4730,10 +4730,15 @@ async def run_interactive():
 # 单次任务
 # =============================================================================
 
-async def run_task(task: str, model: str, max_iterations: int, verbose: bool):
-    """执行单个任务"""
+async def run_task(task: str, model: str, max_iterations: int, verbose: bool, llm_backend=None):
+    """执行单个任务。
+
+    Args:
+        llm_backend: 可选，实现 :class:`agent.llm_port.LlmInvocationPort` 时走注入后端（测试/定制）；
+            默认 None 使用内置 HTTP 路径。
+    """
     from agent.core_loop import MimirAetherAgent
-    
+
     print("=" * 60)
     print("🎯 MIMIRAETHER - 任务执行模式")
     print("=" * 60)
@@ -4741,12 +4746,16 @@ async def run_task(task: str, model: str, max_iterations: int, verbose: bool):
     print(f"模型: {model}")
     print(f"最大迭代: {max_iterations}")
     print("=" * 60)
-    
-    agent = MimirAetherAgent(
+
+    kwargs = dict(
         model=model,
         max_iterations=max_iterations,
         platform="cli",
     )
+    if llm_backend is not None:
+        kwargs["llm_backend"] = llm_backend
+
+    agent = MimirAetherAgent(**kwargs)
     
     if verbose:
         print(f"\n开始执行任务...")

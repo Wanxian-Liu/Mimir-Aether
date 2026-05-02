@@ -21,7 +21,7 @@
 | M2 | Tier-0 矩阵闭合 | **绿** | `ralph_tier0_case_matrix.md`：当前无阻塞 P0；契约变更后需复核 |
 | M3 | 垂直切片 | **绿** | **两条**：CLI（`docs/m3_cli_quick_task_slice.md`）+ **API** `POST /v1/chat/completions`（`docs/m3_api_chat_slice.md`，`agent/test_m3_api_chat_slice.py`） |
 | M4 | Tier-2 HTTP（可选） | **黄** | 最小切片：辅助 HTTP 错误分类离线测试 + 文档（`docs/m4_auxiliary_http_slice.md`）；全绿需更广 Tier-2 HTTP / 录制见里程碑正文 |
-| M5 | 内核可替换 | **黄** | 最小切片：`LlmInvocationPort` + `docs/m5_kernel_replaceability_slice.md`；**绿**需依赖注入落地 + 工具/会话等边界与里程碑全文判据 |
+| M5 | 内核可替换 | **黄** | `LlmInvocationPort` + CLI `run_task(..., llm_backend=)` + `AgentManager.set_llm_backend_override` + `test_m5_entry_llm_injection_slice`；**绿**仍需工具/会话等边界与里程碑全文判据 |
 | M6 | 进化可审计 | **黄** | **`docs/M6_EVOLUTION.md`** + **`docs/evolution_log.md`** + **`scripts/record_m6_evolution.sh`** 已落地；合并触达 agent/gateway/tools/契约测时须补记一行。**绿** = 团队默认执行满 2 个合并周期无漏记 |
 
 状态图例：**绿** = 满足文档完成判据或等价；**黄** = 部分/待复核；**未** = 未达成。
@@ -60,6 +60,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-03 | **M5（续）**：CLI/API 入口注入 `llm_backend`；`agent/test_m5_entry_llm_injection_slice.py`；MAINLINE 说明更新。 |
 | 2026-05-03 | **M5 黄**：`agent/llm_port.py` + `agent/test_m5_kernel_replaceability_slice.py` + `docs/m5_kernel_replaceability_slice.md`，纳入 `run_ralph_tier0.sh`；模型调用端口显式化（替换说明见文档）。 |
 | 2026-05-01 | **M4 黄**：`agent/test_m4_auxiliary_http_slice.py` + `docs/m4_auxiliary_http_slice.md`，纳入 `run_ralph_tier0.sh`；分类层离线断言（401 / 429 语义 / 超时形状）。 |
 | 2026-05-02 | **M6 黄**：新增 `docs/M6_EVOLUTION.md`、`docs/evolution_log.md`、`scripts/record_m6_evolution.sh`，`AGENTS.md` 合并指引；tier0 当次全绿。 |
