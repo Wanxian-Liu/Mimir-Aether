@@ -1,0 +1,15 @@
+---
+description: Ralph 模式 — 沙盒迭代、三轮零失败、主线与 run_ralph_tier0 对齐
+alwaysApply: true
+---
+
+# Ralph 模式（启用时）
+
+当用户或任务要求 **Ralph 模式** / **按 Ralph 模式开发**：
+
+1. **验证入口**：优先在仓库根执行 **`./run_ralph_tier0.sh`**（Gate1–Gate3），与 pre-push 一致。
+2. **迭代**：失败则定位 → 最小修复 → 重跑；**每轮**向用户输出：**轮次 → 问题 → 修复 → 验证结果**。
+3. **完成**：同一工作区下 **`run_ralph_tier0.sh` 连续 3 次**无失败；中途失败则计数清零后重计。
+4. **主线**：不偏离 **`docs/DEVELOPMENT_NORTH_STAR.md`**（Parity + Evolution）；文档/技能改动若未触达 Python，在验证结果中说明采用了何种等价检查。
+
+全文与模板见 **`docs/RALPH_MODE.md`**。

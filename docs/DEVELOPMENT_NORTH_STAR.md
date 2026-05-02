@@ -2,7 +2,7 @@
 
 本文是**方向真源**：优先级、验收与作用域以本文为准；与具体实现文档冲突时，先更新实现或修正本文之一，避免口头约定。
 
-**相关（本仓库）**：[path-contract.md](./path-contract.md)（路径三层）、[ralph_parity_contract_v1.md](./ralph_parity_contract_v1.md)（行为契约）、[ralph_roadmap_milestones.md](./ralph_roadmap_milestones.md)（M0–M6）、[成长路线图.md](../成长路线图.md)（阶段目标）。
+**相关（本仓库）**：[path-contract.md](./path-contract.md)（路径三层）、[ralph_parity_contract_v1.md](./ralph_parity_contract_v1.md)（行为契约）、[ralph_roadmap_milestones.md](./ralph_roadmap_milestones.md)（M0–M6）、[成长路线图.md](../成长路线图.md)（阶段目标）、[RALPH_MODE.md](./RALPH_MODE.md)（Ralph 模式：三轮零失败迭代）。
 
 ---
 
