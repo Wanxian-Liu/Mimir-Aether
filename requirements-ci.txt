@@ -7,3 +7,4 @@ pyyaml
 aiohttp
 python-dotenv
 requests
+lark-oapi
