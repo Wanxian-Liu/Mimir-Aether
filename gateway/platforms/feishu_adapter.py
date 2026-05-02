@@ -34,6 +34,17 @@ logger = logging.getLogger(__name__)
 RECONNECT_DELAYS = (2, 5, 10, 30, 60)
 
 
+def _feishu_receive_id_type(chat_id: str) -> str:
+    """Lark send message API: receive_id_type must match the ID shape (open_id vs chat_id)."""
+    cid = (chat_id or "").strip()
+    if cid.startswith("oc_"):
+        return "chat_id"
+    if cid.startswith("ou_") or cid.startswith("on_"):
+        return "open_id"
+    # Single-chat / legacy: default to open_id (common for ou_ DMs)
+    return "open_id"
+
+
 def _http_origin(domain: str) -> str:
     return "https://open.larksuite.com" if domain == "lark" else "https://open.feishu.cn"
 
@@ -49,13 +60,17 @@ def _event_dict_to_message_event(adapter: "FeishuAdapter", payload: dict) -> Opt
 
     raw_content = msg.get("content")
     text = ""
-    if isinstance(raw_content, str):
+    if isinstance(raw_content, dict):
+        text = str(raw_content.get("text") or "").strip()
+    elif isinstance(raw_content, str):
         try:
             cj = json.loads(raw_content)
             if isinstance(cj, dict):
                 text = str(cj.get("text") or "").strip()
         except json.JSONDecodeError:
             text = raw_content.strip()
+    if not text:
+        text = str(msg.get("text") or "").strip()
 
     message_id = str(msg.get("message_id") or "")
     chat_id = str(msg.get("chat_id") or ev.get("chat_id") or "").strip()
@@ -63,6 +78,11 @@ def _event_dict_to_message_event(adapter: "FeishuAdapter", payload: dict) -> Opt
     is_group = chat_type_raw in ("group", "topic", "chat")
 
     sender_block = ev.get("sender") if isinstance(ev.get("sender"), dict) else {}
+    st = str(sender_block.get("sender_type", "user")).lower()
+    if st == "app":
+        logger.debug("[feishu] Skip inbound from app/bot (echo)")
+        return None
+
     sid = sender_block.get("sender_id")
     sender_id = ""
     if isinstance(sid, dict):
@@ -78,7 +98,11 @@ def _event_dict_to_message_event(adapter: "FeishuAdapter", payload: dict) -> Opt
         return None
 
     if not text:
-        logger.debug("[feishu] Inbound event has no text; skip")
+        logger.warning(
+            "[feishu] Inbound message has no extractable text (msg_type=%s); keys msg=%s",
+            msg.get("message_type"),
+            list(msg.keys())[:12],
+        )
         return None
 
     source = adapter.build_source(
@@ -282,6 +306,7 @@ class FeishuAdapter(BasePlatformAdapter):
             return SendResult(success=False, error="No tenant token")
 
         url = f"{self._origin()}/open-apis/im/v1/messages"
+        rid_type = metadata.get("feishu_receive_id_type") or _feishu_receive_id_type(chat_id)
         body: Dict[str, Any] = {
             "receive_id": chat_id,
             "msg_type": "text",
@@ -296,11 +321,18 @@ class FeishuAdapter(BasePlatformAdapter):
             async with self._session.post(
                 url,
                 json=body,
-                params={"receive_id_type": "open_id"},
+                params={"receive_id_type": rid_type},
                 headers=self._headers(),
             ) as resp:
                 result = await resp.json()
                 if result.get("code") != 0:
+                    logger.warning(
+                        "[%s] send failed receive_id_type=%s chat_id=%s… api=%s",
+                        self.name,
+                        rid_type,
+                        (chat_id or "")[:24],
+                        result,
+                    )
                     return SendResult(success=False, error=str(result))
                 mid = result.get("data", {}).get("message_id")
                 return SendResult(success=True, message_id=str(mid) if mid else None, raw_response=result)

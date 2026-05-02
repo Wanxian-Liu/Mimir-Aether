@@ -2331,7 +2331,14 @@ class GatewayRunner:
         global_allowlist = os.getenv("GATEWAY_ALLOWED_USERS", "").strip()
 
         if not platform_allowlist and not global_allowlist:
-            # No allowlists configured -- check global allow-all flag
+            # No allowlists configured -- check global allow-all flag.
+            # Feishu/Lark: company bots expect any tenant member to DM the bot;
+            # default allow unless FEISHU_ALLOW_ALL_USERS is explicitly false.
+            if source.platform == Platform.FEISHU:
+                raw = os.getenv("FEISHU_ALLOW_ALL_USERS")
+                if raw is None or not str(raw).strip():
+                    return True
+                return str(raw).strip().lower() in ("true", "1", "yes")
             return os.getenv("GATEWAY_ALLOW_ALL_USERS", "").lower() in ("true", "1", "yes")
 
         # Check if user is in any allowlist
@@ -2400,6 +2407,12 @@ class GatewayRunner:
             return None
         elif not self._is_user_authorized(source):
             logger.warning("Unauthorized user: %s (%s) on %s", source.user_id, source.user_name, source.platform.value)
+            if source.platform == Platform.FEISHU:
+                logger.warning(
+                    "Feishu auth: add open_id to FEISHU_ALLOWED_USERS or set FEISHU_ALLOW_ALL_USERS=true "
+                    "(default is allow when unset). Current FEISHU_ALLOW_ALL_USERS=%r",
+                    os.getenv("FEISHU_ALLOW_ALL_USERS"),
+                )
             # In DMs: offer pairing code. In groups: silently ignore.
             if source.chat_type == "dm" and self._get_unauthorized_dm_behavior(source.platform) == "pair":
                 platform_name = source.platform.value if source.platform else "unknown"
