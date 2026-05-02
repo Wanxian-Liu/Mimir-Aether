@@ -1,6 +1,7 @@
 # Python deps for GitHub Actions: ./run_ralph_tier0.sh (Gate1–3).
 # Keep in sync with imports used by cli/agent/tools under those gates.
 
+openai
 pytest
 pytest-asyncio
 pyyaml
