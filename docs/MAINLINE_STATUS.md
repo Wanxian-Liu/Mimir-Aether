@@ -32,7 +32,7 @@
 
 | 阶段 | 里程碑 | 状态 | 说明 |
 |------|--------|------|------|
-| 1 Hermes 影子期 | **A**：CLI + gateway + 工具链 + 基础 RL | **黄** | **CLI 单次任务路径**已有自动化切片（桩 LLM）；gateway / 真网 / RL 仍待 smoke 勾选 |
+| 1 Hermes 影子期 | **A**：CLI + gateway + 工具链 + 基础 RL | **黄** | **Smoke 首轮**：A1/A3/A4 已真机验；gateway 进程+health+api_server 已验；**至少一消息平台真实往返**未配置（见 `mimir_prod_smoke.md` §执行记录） |
 | 2 专项伙伴期 | B | **未** | 依赖 A |
 | 3 独立学习期 | C | **未** | — |
 | 4 自主进化期 | ∞ | **未** | — |
@@ -50,7 +50,7 @@
 
 ## 4. 近期焦点（可改）
 
-1. 按 **`docs/mimir_prod_smoke.md`** 完成里程碑 A 真环境勾选；第二条 M3 切片（`api_service`）可选。
+1. 配置 **任一** 消息平台并完成 A2「真实消息」复测后，将里程碑 A 标绿；第二条 M3 切片（`api_service`）可选。
 2. 保持 `run_ralph_tier0.sh` 全绿；合入用 Ralph 模式三轮。
 3. M6 最小记录模板（commit / 测试子集 / 指标）。
 
@@ -60,6 +60,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-01 | 里程碑 A smoke 首轮：代理回报写入 `mimir_prod_smoke.md`；A2 真实消息仍缺，阶段 1 保持黄。 |
 | 2026-05-01 | 新增 `docs/mimir_prod_smoke.md`：里程碑 A（A1–A4）真环境勾选表。 |
 | 2026-05-01 | M3：落地 `agent/test_m3_cli_quick_task_slice.py` + `docs/m3_cli_quick_task_slice.md`，纳入 `run_ralph_tier0.sh`。 |
 | 2026-05-01 | 初版：建立本文件；工程 M0–M2 绿、M3–M6 未；阶段 1 黄；Parity 强、Evolution 弱。 |
