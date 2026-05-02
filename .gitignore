@@ -4,5 +4,19 @@ __pycache__/
 .pytest_cache/
 *.py[cod]
 
-# 本地模型缓存（体积大、易变；若要入库可删除此行）
+# 本地模型缓存（体积大、易变；由 agent/models_dev.py 写入；勿入库）
 models_dev_cache.json
+
+# 仓库根：本机配置与运行态（path-contract：与 ~/.openclaw 并列时也不混进 git）
+/config.yaml
+/channel_directory.json
+/logs/
+/sessions/*.jsonl
+sessions/**/*.jsonl
+
+# SQLite 旁路文件（state.db、sessions/sessions.db 若已跟踪则保留；wal/shm 不提交）
+*.db-wal
+*.db-shm
+
+# 工具/安装残留
+.tirith-install-failed
