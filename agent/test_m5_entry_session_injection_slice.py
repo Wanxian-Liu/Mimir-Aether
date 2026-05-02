@@ -34,6 +34,7 @@ def _reset_agent_manager() -> None:
     api_service.AgentManager.set_llm_backend_override(None)
     api_service.AgentManager.set_tool_backend_override(None)
     api_service.AgentManager.set_session_backend_override(None)
+    api_service.AgentManager.set_session_db_factory_override(None)
 
 
 class _SessionKwStub:
@@ -91,6 +92,67 @@ def test_api_agent_manager_session_backend_override(isolate_checkpoints):
         ag = await mgr.get_agent("m5-session-override-session")
         assert isinstance(ag._session_backend, SessionRestorePort)
         assert isinstance(ag._session_backend, _ApiSessStub)
+
+    asyncio.run(_run())
+
+    _reset_agent_manager()
+
+
+class _FactoryKwStub:
+    def create_session_db(self):
+        return None
+
+
+def test_cli_run_task_passes_session_db_factory_kw(isolate_checkpoints):
+    import cli as cli_module
+
+    from agent.core_loop import MimirAetherAgent
+
+    captured: Dict[str, Any] = {}
+    _orig_init = MimirAetherAgent.__init__
+
+    def _wrap_init(self, *a, **kw):
+        captured.clear()
+        captured.update(kw)
+        return _orig_init(self, *a, **kw)
+
+    stub = _FactoryKwStub()
+    with patch.object(MimirAetherAgent, "__init__", _wrap_init):
+        with patch.object(MimirAetherAgent, "run_conversation", new_callable=AsyncMock) as m_rc:
+            m_rc.return_value = "skipped"
+            rc = asyncio.run(
+                cli_module.run_task(
+                    "m5 factory kw cli",
+                    model="deepseek/deepseek-chat",
+                    max_iterations=2,
+                    verbose=False,
+                    session_db_factory=stub,
+                )
+            )
+
+    assert rc == 0
+    assert captured.get("session_db_factory") is stub
+
+
+def test_api_agent_manager_session_db_factory_override(isolate_checkpoints):
+    from agent.core_loop import MimirAetherAgent
+    from agent.session_port import SessionDbClientFactory
+
+    _reset_agent_manager()
+
+    class _ApiFacStub:
+        def create_session_db(self):
+            return None
+
+    import api_service
+
+    api_service.AgentManager.set_session_db_factory_override(_ApiFacStub())
+
+    async def _run():
+        mgr = api_service.AgentManager()
+        ag = await mgr.get_agent("m5-factory-override-session")
+        assert isinstance(ag._session_db_factory, SessionDbClientFactory)
+        assert isinstance(ag._session_db_factory, _ApiFacStub)
 
     asyncio.run(_run())
 

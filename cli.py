@@ -4738,6 +4738,7 @@ async def run_task(
     llm_backend=None,
     tool_backend=None,
     session_backend=None,
+    session_db_factory=None,
 ):
     """执行单个任务。
 
@@ -4748,6 +4749,7 @@ async def run_task(
             默认 None 使用内置 registry 路径。
         session_backend: 可选，实现 :class:`agent.session_port.SessionRestorePort` 时走注入会话恢复（测试/定制）；
             默认 None 使用内置 SessionDB 路径。
+        session_db_factory: 可选，实现 :class:`agent.session_port.SessionDbClientFactory` 时统一 Insights 与内置恢复所用的 DB 构造。
     """
     from agent.core_loop import MimirAetherAgent
 
@@ -4770,6 +4772,8 @@ async def run_task(
         kwargs["tool_backend"] = tool_backend
     if session_backend is not None:
         kwargs["session_backend"] = session_backend
+    if session_db_factory is not None:
+        kwargs["session_db_factory"] = session_db_factory
 
     agent = MimirAetherAgent(**kwargs)
     

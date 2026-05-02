@@ -64,7 +64,8 @@ python3 -m pytest -q \
   agent/test_m5_tool_port_slice.py \
   agent/test_m5_entry_tool_injection_slice.py \
   agent/test_m5_session_restore_port_slice.py \
-  agent/test_m5_entry_session_injection_slice.py
+  agent/test_m5_entry_session_injection_slice.py \
+  agent/test_m5_session_db_factory_slice.py
 
 echo "=== Ralph Tier-1: Gate3 Core E2E (mocked LLM) ==="
 python3 -m pytest -q agent/test_tier1_e2e_agent.py

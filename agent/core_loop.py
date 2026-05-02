@@ -132,7 +132,7 @@ _tool_executor = get_tool_executor()
 from .agent_loop import MimirAgentLoop, AgentResult as LoopAgentResult, ToolError as LoopToolError
 from .llm_port import LlmInvocationPort
 from .tool_port import ToolInvocationPort
-from .session_port import SessionRestorePort
+from .session_port import SessionDbClientFactory, SessionRestorePort
 
 
 logger = logging.getLogger(__name__)
@@ -262,6 +262,20 @@ class _BuiltinToolBackend:
         return await self._agent._builtin_execute_tools(tool_calls, turn)
 
 
+class _BuiltinSessionDbFactory:
+    """Default: construct ``SessionDB()`` when the class is importable; else ``None``."""
+
+    __slots__ = ()
+
+    def create_session_db(self) -> Optional[Any]:
+        if SessionDB is None:
+            return None
+        try:
+            return SessionDB()
+        except Exception:
+            return None
+
+
 class _BuiltinSessionRestore:
     """Default session restore: Hermes SessionDB → ``conversation_history``."""
 
@@ -310,6 +324,7 @@ class MimirAetherAgent:
         llm_backend: Optional[LlmInvocationPort] = None,
         tool_backend: Optional[ToolInvocationPort] = None,
         session_backend: Optional[SessionRestorePort] = None,
+        session_db_factory: Optional[SessionDbClientFactory] = None,
     ):
         """
         初始化MimirAether Agent
@@ -335,6 +350,7 @@ class MimirAetherAgent:
             llm_backend: 可选；实现 :class:`~agent.llm_port.LlmInvocationPort` 则替代默认 HTTP 调用路径
             tool_backend: 可选；实现 :class:`~agent.tool_port.ToolInvocationPort` 则替代默认工具批处理路径
             session_backend: 可选；实现 :class:`~agent.session_port.SessionRestorePort` 则替代默认 SessionDB 恢复路径
+            session_db_factory: 可选；实现 :class:`~agent.session_port.SessionDbClientFactory` 则统一 Insights 与内置恢复所用的 DB 客户端构造
         """
         self.model = model
         self.max_iterations = max_iterations
@@ -406,13 +422,10 @@ class MimirAetherAgent:
             tail_token_budget=4000,
         )
 
-        # 初始化SessionDB并传入InsightsEngine(SQL模式)
-        _db = None
-        if SessionDB is not None:
-            try:
-                _db = SessionDB()
-            except Exception:
-                pass
+        self._session_db_factory: SessionDbClientFactory = (
+            session_db_factory if session_db_factory is not None else _BuiltinSessionDbFactory()
+        )
+        _db = self._session_db_factory.create_session_db()
         self.insights = InsightsEngine(_db) if _db else InsightsEngine()
 
         # 初始化SkillManager(自进化核心)
@@ -1819,6 +1832,10 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
         """运行时切换会话恢复后端（须实现 :class:`~agent.session_port.SessionRestorePort`）。"""
         self._session_backend = backend
 
+    def set_session_db_factory(self, factory: SessionDbClientFactory) -> None:
+        """运行时切换 SessionDB 工厂（影响后续 ``create_session_db``；已构造的 ``insights`` 不变）。"""
+        self._session_db_factory = factory
+
     async def _call_anthropic_api(
         self,
         model_name: str,
@@ -2478,11 +2495,10 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
         Returns:
             是否成功恢复
         """
-        if SessionDB is None:
-            return False
-
         try:
-            db = SessionDB()
+            db = self._session_db_factory.create_session_db()
+            if db is None:
+                return False
 
             # 如果没有指定session_id,尝试获取最近的
             if not session_id:

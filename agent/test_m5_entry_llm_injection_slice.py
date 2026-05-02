@@ -73,6 +73,7 @@ def _reset_agent_manager() -> None:
     api_service.AgentManager.set_llm_backend_override(None)
     api_service.AgentManager.set_tool_backend_override(None)
     api_service.AgentManager.set_session_backend_override(None)
+    api_service.AgentManager.set_session_db_factory_override(None)
 
 
 def test_api_agent_manager_llm_backend_override(isolate_checkpoints):
