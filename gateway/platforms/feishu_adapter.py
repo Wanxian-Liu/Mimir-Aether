@@ -204,6 +204,19 @@ class FeishuAdapter(BasePlatformAdapter):
             await asyncio.sleep(delay)
 
     def _blocking_lark_ws_main(self) -> None:
+        # lark_oapi.ws.client binds a module-level ``loop`` at import time via
+        # ``asyncio.get_event_loop()``. If that import happened on the gateway's
+        # asyncio thread, ``loop`` points at the *running* main loop and
+        # ``Client.start()`` → ``run_until_complete`` raises
+        # "This event loop is already running". Install a dedicated loop in this
+        # worker thread *before* importing the client module (first connect), and
+        # always overwrite ``lark_ws_client.loop`` (cached import from main thread).
+        ws_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(ws_loop)
+        import lark_oapi.ws.client as lark_ws_client
+
+        lark_ws_client.loop = ws_loop
+
         import lark_oapi as lark
 
         enc = self._encrypt_key or ""
