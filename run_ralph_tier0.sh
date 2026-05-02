@@ -6,6 +6,7 @@ cd "$ROOT_DIR"
 
 TARGET_FILES=(
   "cli.py"
+  "api_service.py"
   "agent/core_loop.py"
   "agent/turn_loop.py"
   "agent/skill_funcs.py"
@@ -20,6 +21,7 @@ python3 - <<'PY'
 import importlib
 mods = [
     "cli",
+    "api_service",
     "agent.core_loop",
     "agent.turn_loop",
     "agent.skill_funcs",
@@ -48,7 +50,8 @@ python3 -m pytest -q \
   agent/test_tool_registry_api.py \
   agent/test_tool_registry_concurrency.py \
   agent/test_cli_arg_boundaries.py \
-  agent/test_m3_cli_quick_task_slice.py
+  agent/test_m3_cli_quick_task_slice.py \
+  agent/test_m3_api_chat_slice.py
 
 echo "=== Ralph Tier-1: Gate3 Core E2E (mocked LLM) ==="
 python3 -m pytest -q agent/test_tier1_e2e_agent.py

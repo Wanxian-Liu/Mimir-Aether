@@ -32,6 +32,7 @@
 | 模块 | 对应用例 | 缺口（GAP） |
 |------|----------|-------------|
 | `cli.py` | G2: `agent/test_cli_arg_boundaries.py`（`version`；`profiles` / `config` / `models` 缺参；**`-q` 与显式子命令同时出现 → 退出码 1 + 说明**；**`version -q x` → REMAINDER，不崩**；**`--max-iterations` 非法 / `<1`（3.9+）**；**`config` 未知子命令**；**`models --set` 与 `--list` 互斥**；**`profiles create --clone` 与 `--clone-all` 互斥**）；G2: **`agent/test_m3_cli_quick_task_slice.py`**（**M3 垂直切片**：`run_task` / `python cli.py -q` 同栈，桩 LLM；见 **`docs/m3_cli_quick_task_slice.md`**） | — |
+| `api_service.py` | G2: **`agent/test_m3_api_chat_slice.py`**（**M3 第二条**：`POST /v1/chat/completions` + `GET /health`，aiohttp TestClient，桩 LLM；见 **`docs/m3_api_chat_slice.md`**） | — |
 | `agent/core_loop.py` | G3: `agent/test_tier1_e2e_agent.py`（全文）；G2: `agent/test_write_file_arg_repair.py`（`_parse_write_file_arguments_string`）；ext: `agent/test_integration.py::test_fencer_used_in_run_conversation`, `test_compressor_used_in_run_conversation`, `test_insights_recorded_during_conversation`, `test_agent_initialization` | `execute_code` 字符串修复可另增单测 |
 | `agent/turn_loop.py` | G2: `agent/test_turn_loop_budget.py`（见 §2「轮次语义」，含真实 `MimirAetherAgent`+stub LLM 的预算递减/耗尽联调） | — |
 | `agent/skill_funcs.py` | G2: `agent/test_skill_funcs.py`（schema、`skill_view`/`skills_list`/`skill_manage` 桩与错误路径） | 与真实 `skills/` 目录的集成可另增 ext 用例 |

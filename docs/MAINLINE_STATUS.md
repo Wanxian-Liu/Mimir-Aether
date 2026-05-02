@@ -19,7 +19,7 @@
 | M0 | 基线可回归 | **绿** | `run_ralph_tier0.sh` 日常可通过；发版前可自检「连续 3 次」 |
 | M1 | 契约可执行 | **绿** | `docs/ralph_parity_testmap.md` 已映射；扩展项见 ext / 另增 |
 | M2 | Tier-0 矩阵闭合 | **绿** | `ralph_tier0_case_matrix.md`：当前无阻塞 P0；契约变更后需复核 |
-| M3 | 垂直切片 | **黄** | 已有 **CLI `run_task` / `-q` 同栈** 切片 + 测试 + 文档（`docs/m3_cli_quick_task_slice.md`）；**第二条**（如 API）仍缺 |
+| M3 | 垂直切片 | **绿** | **两条**：CLI（`docs/m3_cli_quick_task_slice.md`）+ **API** `POST /v1/chat/completions`（`docs/m3_api_chat_slice.md`，`agent/test_m3_api_chat_slice.py`） |
 | M4 | Tier-2 HTTP（可选） | **未** | 可选 |
 | M5 | 内核可替换 | **未** | 接口化与替换说明 |
 | M6 | 进化可审计 | **未** | 进化需绑定 commit / 测试 / 指标 |
@@ -50,7 +50,7 @@
 
 ## 4. 近期焦点（可改）
 
-1. 里程碑 A 已绿；可选：**第二条 M3**（`api_service`）切片、**M6** 进化记录模板。
+1. 里程碑 A 已绿；M3 含 CLI + API 两条切片；可选 **M6** 进化记录模板。
 2. 保持 `run_ralph_tier0.sh` 全绿；合入用 Ralph 模式三轮。
 3. M6 最小记录模板（commit / 测试子集 / 指标）。
 
@@ -60,6 +60,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-02 | M3 **第二条**：`agent/test_m3_api_chat_slice.py` + `docs/m3_api_chat_slice.md`，纳入 `run_ralph_tier0.sh`；M3 标 **绿**。 |
 | 2026-05-02 | 飞书连接成功（Bot「wan」）；里程碑 **A** 标 **绿**。 |
 | 2026-05-01 | 里程碑 A smoke 首轮：代理回报写入 `mimir_prod_smoke.md`；A2 真实消息仍缺，阶段 1 保持黄。 |
 | 2026-05-01 | 新增 `docs/mimir_prod_smoke.md`：里程碑 A（A1–A4）真环境勾选表。 |
