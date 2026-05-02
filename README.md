@@ -15,6 +15,7 @@
 | [docs/ralph_parity_contract_v1.md](./docs/ralph_parity_contract_v1.md) | Parity 行为契约 |
 | [docs/ralph_roadmap_milestones.md](./docs/ralph_roadmap_milestones.md) | M0–M6 里程碑与 M6 进化可审计 |
 | [docs/m3_cli_quick_task_slice.md](./docs/m3_cli_quick_task_slice.md) | M3 垂直切片：CLI `-q` / `run_task` |
+| [docs/mimir_prod_smoke.md](./docs/mimir_prod_smoke.md) | **真环境 smoke**：里程碑 A 勾选清单 |
 | [成长路线图.md](./成长路线图.md) | 阶段成长目标与验证标准 |
 | [docs/MAINLINE_STATUS.md](./docs/MAINLINE_STATUS.md) | **主线进度快照**（问进度时更新） |
 

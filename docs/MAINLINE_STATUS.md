@@ -50,7 +50,7 @@
 
 ## 4. 近期焦点（可改）
 
-1. 补 **`docs/mimir_prod_smoke.md`**（或等价）里程碑 A 真环境 checklist；第二条 M3 切片（`api_service`）可选。
+1. 按 **`docs/mimir_prod_smoke.md`** 完成里程碑 A 真环境勾选；第二条 M3 切片（`api_service`）可选。
 2. 保持 `run_ralph_tier0.sh` 全绿；合入用 Ralph 模式三轮。
 3. M6 最小记录模板（commit / 测试子集 / 指标）。
 
@@ -60,5 +60,6 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-01 | 新增 `docs/mimir_prod_smoke.md`：里程碑 A（A1–A4）真环境勾选表。 |
 | 2026-05-01 | M3：落地 `agent/test_m3_cli_quick_task_slice.py` + `docs/m3_cli_quick_task_slice.md`，纳入 `run_ralph_tier0.sh`。 |
 | 2026-05-01 | 初版：建立本文件；工程 M0–M2 绿、M3–M6 未；阶段 1 黄；Parity 强、Evolution 弱。 |
