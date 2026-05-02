@@ -51,7 +51,8 @@ python3 -m pytest -q \
   agent/test_tool_registry_concurrency.py \
   agent/test_cli_arg_boundaries.py \
   agent/test_m3_cli_quick_task_slice.py \
-  agent/test_m3_api_chat_slice.py
+  agent/test_m3_api_chat_slice.py \
+  agent/test_m4_auxiliary_http_slice.py
 
 echo "=== Ralph Tier-1: Gate3 Core E2E (mocked LLM) ==="
 python3 -m pytest -q agent/test_tier1_e2e_agent.py

@@ -17,6 +17,8 @@ Read **`docs/DEVELOPMENT_NORTH_STAR.md`** before large changes: **Parity** (Herm
 
 Use **`~/.openclaw/projects/MimirAether`** as the **only** git root for commits, pushes, and local verification. Other directories (e.g. backups or duplicate checkouts) are not the source of truth unless you explicitly reconcile them.
 
+**Cursor:** Open this path as the **workspace root** so the agent sandbox may write under the repo (including `docs/evolution_log.md` from `./scripts/record_m6_evolution.sh`). If a command must modify paths **outside** the current workspace root, run it **without** the sandbox (e.g. tool permission `all`) for that step only.
+
 ## Paths and config
 
 Follow **`docs/path-contract.md`**: agent home vs profile roots vs `~/.openclaw/config.yaml` platform layer. Avoid ad-hoc home-dir logic in new code.

@@ -5,7 +5,7 @@
 
 | 字段 | 值 |
 |------|-----|
-| **最近更新** | 2026-05-02 |
+| **最近更新** | 2026-05-01 |
 | **更新人** | 协作者（用户问进度时刷新） |
 | **仓库根（真源）** | `~/.openclaw/projects/MimirAether` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁）；里程碑 A 项需真环境手动/清单 |
@@ -20,7 +20,7 @@
 | M1 | 契约可执行 | **绿** | `docs/ralph_parity_testmap.md` 已映射；扩展项见 ext / 另增 |
 | M2 | Tier-0 矩阵闭合 | **绿** | `ralph_tier0_case_matrix.md`：当前无阻塞 P0；契约变更后需复核 |
 | M3 | 垂直切片 | **绿** | **两条**：CLI（`docs/m3_cli_quick_task_slice.md`）+ **API** `POST /v1/chat/completions`（`docs/m3_api_chat_slice.md`，`agent/test_m3_api_chat_slice.py`） |
-| M4 | Tier-2 HTTP（可选） | **未** | 可选 |
+| M4 | Tier-2 HTTP（可选） | **黄** | 最小切片：辅助 HTTP 错误分类离线测试 + 文档（`docs/m4_auxiliary_http_slice.md`）；全绿需更广 Tier-2 HTTP / 录制见里程碑正文 |
 | M5 | 内核可替换 | **未** | 接口化与替换说明 |
 | M6 | 进化可审计 | **黄** | **`docs/M6_EVOLUTION.md`** + **`docs/evolution_log.md`** + **`scripts/record_m6_evolution.sh`** 已落地；合并触达 agent/gateway/tools/契约测时须补记一行。**绿** = 团队默认执行满 2 个合并周期无漏记 |
 
@@ -60,6 +60,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-01 | **M4 黄**：`agent/test_m4_auxiliary_http_slice.py` + `docs/m4_auxiliary_http_slice.md`，纳入 `run_ralph_tier0.sh`；分类层离线断言（401 / 429 语义 / 超时形状）。 |
 | 2026-05-02 | **M6 黄**：新增 `docs/M6_EVOLUTION.md`、`docs/evolution_log.md`、`scripts/record_m6_evolution.sh`，`AGENTS.md` 合并指引；tier0 当次全绿。 |
 | 2026-05-02 | M3 **第二条**：`agent/test_m3_api_chat_slice.py` + `docs/m3_api_chat_slice.md`，纳入 `run_ralph_tier0.sh`；M3 标 **绿**。 |
 | 2026-05-02 | 飞书连接成功（Bot「wan」）；里程碑 **A** 标 **绿**。 |

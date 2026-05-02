@@ -95,6 +95,8 @@
 1. 默认 CI 不依赖外网与真实 key。  
 2. 至少覆盖一种真实失败形态（如 401/429/超时）的**结构化处理**断言。
 
+**最小切片（本仓库已落地）**：`agent/auxiliary_client.py` 中 `_is_payment_error` / `_is_connection_error` 离线断言，见 `docs/m4_auxiliary_http_slice.md` 与 `agent/test_m4_auxiliary_http_slice.py`（无外网、无 key）。录播 / mock HTTP / VCR 为后续增量。
+
 ---
 
 ## M5：自研内核可替换
