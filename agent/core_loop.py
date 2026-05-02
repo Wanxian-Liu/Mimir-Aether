@@ -131,6 +131,7 @@ _tool_executor = get_tool_executor()
 # MimirAgentLoop: pure execution engine extracted from this class
 from .agent_loop import MimirAgentLoop, AgentResult as LoopAgentResult, ToolError as LoopToolError
 from .llm_port import LlmInvocationPort
+from .tool_port import ToolInvocationPort
 
 
 logger = logging.getLogger(__name__)
@@ -248,6 +249,18 @@ class _BuiltinLlmBackend:
         return await self._agent._builtin_call_model_with_tokens(messages, session_id)
 
 
+class _BuiltinToolBackend:
+    """Default tool path: semaphore + timeouts + registry dispatch (see ``_builtin_execute_tools``)."""
+
+    __slots__ = ("_agent",)
+
+    def __init__(self, agent: "MimirAetherAgent") -> None:
+        self._agent = agent
+
+    async def execute_tools(self, tool_calls: List[Dict[str, Any]], turn: int = 0) -> List[ToolResult]:
+        return await self._agent._builtin_execute_tools(tool_calls, turn)
+
+
 class MimirAetherAgent:
     """
     MimirAether核心Agent类
@@ -282,6 +295,7 @@ class MimirAetherAgent:
         # Fallback机制
         fallback_model: dict = None,
         llm_backend: Optional[LlmInvocationPort] = None,
+        tool_backend: Optional[ToolInvocationPort] = None,
     ):
         """
         初始化MimirAether Agent
@@ -305,6 +319,7 @@ class MimirAetherAgent:
             tool_gen_callback: 工具生成回调
             fallback_model: Fallback模型配置
             llm_backend: 可选；实现 :class:`~agent.llm_port.LlmInvocationPort` 则替代默认 HTTP 调用路径
+            tool_backend: 可选；实现 :class:`~agent.tool_port.ToolInvocationPort` 则替代默认工具批处理路径
         """
         self.model = model
         self.max_iterations = max_iterations
@@ -430,6 +445,9 @@ class MimirAetherAgent:
 
         self._llm_backend: LlmInvocationPort = (
             llm_backend if llm_backend is not None else _BuiltinLlmBackend(self)
+        )
+        self._tool_backend: ToolInvocationPort = (
+            tool_backend if tool_backend is not None else _BuiltinToolBackend(self)
         )
 
         logger.info(f"MimirAether initialized with model: {model}, context_length: {self._context_length}")
@@ -1775,6 +1793,10 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
         """运行时切换 LLM 后端（须实现 :class:`~agent.llm_port.LlmInvocationPort`）。"""
         self._llm_backend = backend
 
+    def set_tool_backend(self, backend: ToolInvocationPort) -> None:
+        """运行时切换工具批处理后端（须实现 :class:`~agent.tool_port.ToolInvocationPort`）。"""
+        self._tool_backend = backend
+
     async def _call_anthropic_api(
         self,
         model_name: str,
@@ -1898,9 +1920,13 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
             raise RuntimeError(f"Network error during Anthropic API call: {e}")
 
     async def _execute_tools(self, tool_calls: List[Dict], turn: int = 0) -> List[ToolResult]:
+        """委托给当前 ``tool_backend``（默认 :class:`_BuiltinToolBackend`）。"""
+        return await self._tool_backend.execute_tools(tool_calls, turn)
+
+    async def _builtin_execute_tools(self, tool_calls: List[Dict], turn: int = 0) -> List[ToolResult]:
         """
-        执行工具调用(带并发限制和单工具超时)
-        
+        内置工具批处理：并发限制、单工具超时、registry 分发。
+
         学习自Hermes _execute_tools：
         - 收集ToolError实例用于元数据
         - 支持turn参数用于错误追踪

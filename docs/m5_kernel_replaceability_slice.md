@@ -8,12 +8,16 @@
   - **CLI**：`cli.run_task(..., llm_backend=…)`（`python cli.py -q` 不传，行为与旧版一致）。  
   - **API**：`api_service.AgentManager.set_llm_backend_override(backend)` 作用于**随后新创建**的 Agent（测试/定制；生产默认 `None`）。  
   - 垂直切片 **M3** 仍可用 **patch `_call_model_with_tokens`**；**M5 入口注入**见 `agent/test_m5_entry_llm_injection_slice.py`（不依赖该 patch）。
-- **之后**：工具调度 / 会话存储等端口可继续按同模式扩展。
+- **工具批处理端口**：`agent/tool_port.py` 声明 **`ToolInvocationPort`**；`_execute_tools` → **`tool_backend`**（默认 **`_BuiltinToolBackend`** → **`_builtin_execute_tools`**，语义与原先 `_execute_tools` 体一致）。  
+  - **CLI**：`cli.run_task(..., tool_backend=…)`。  
+  - **API**：`api_service.AgentManager.set_tool_backend_override(backend)`。  
+  - 测试：`agent/test_m5_tool_port_slice.py`、`agent/test_m5_entry_tool_injection_slice.py`。
+- **之后**：会话存储等端口可继续按同模式扩展。
 
 ## 自动化验收（无网）
 
 ```bash
-python3 -m pytest -q agent/test_m5_kernel_replaceability_slice.py
+python3 -m pytest -q agent/test_m5_kernel_replaceability_slice.py agent/test_m5_tool_port_slice.py agent/test_m5_entry_tool_injection_slice.py
 ```
 
 纳入：`./run_ralph_tier0.sh`（Gate2）。
@@ -27,6 +31,7 @@ python3 -m pytest -q agent/test_m5_kernel_replaceability_slice.py
 
 | 日期 | 说明 |
 |------|------|
+| 2026-05-02 | `ToolInvocationPort`；`tool_backend` / `set_tool_backend`；CLI/API 注入；`test_m5_tool_port_slice`、`test_m5_entry_tool_injection_slice`。 |
 | 2026-05-03 | CLI `run_task(..., llm_backend=…)`；`AgentManager.set_llm_backend_override`；`agent/test_m5_entry_llm_injection_slice.py`。 |
 | 2026-05-03 | `MimirAetherAgent(llm_backend=…)` / `set_llm_backend`；默认 `_BuiltinLlmBackend` → `_builtin_call_model_with_tokens`。 |
 | 2026-05-03 | 初版：`LlmInvocationPort` + 离线协议测试 + Gate2。 |

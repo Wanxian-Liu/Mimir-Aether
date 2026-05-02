@@ -4730,12 +4730,21 @@ async def run_interactive():
 # 单次任务
 # =============================================================================
 
-async def run_task(task: str, model: str, max_iterations: int, verbose: bool, llm_backend=None):
+async def run_task(
+    task: str,
+    model: str,
+    max_iterations: int,
+    verbose: bool,
+    llm_backend=None,
+    tool_backend=None,
+):
     """执行单个任务。
 
     Args:
         llm_backend: 可选，实现 :class:`agent.llm_port.LlmInvocationPort` 时走注入后端（测试/定制）；
             默认 None 使用内置 HTTP 路径。
+        tool_backend: 可选，实现 :class:`agent.tool_port.ToolInvocationPort` 时走注入工具批处理（测试/定制）；
+            默认 None 使用内置 registry 路径。
     """
     from agent.core_loop import MimirAetherAgent
 
@@ -4754,6 +4763,8 @@ async def run_task(task: str, model: str, max_iterations: int, verbose: bool, ll
     )
     if llm_backend is not None:
         kwargs["llm_backend"] = llm_backend
+    if tool_backend is not None:
+        kwargs["tool_backend"] = tool_backend
 
     agent = MimirAetherAgent(**kwargs)
     

@@ -13,6 +13,7 @@ TARGET_FILES=(
   "agent/delegate_subagent.py"
   "agent/tool_registry.py"
   "agent/llm_port.py"
+  "agent/tool_port.py"
   "tools/code_execution_tool.py"
 )
 
@@ -29,6 +30,7 @@ mods = [
     "agent.delegate_subagent",
     "agent.tool_registry",
     "agent.llm_port",
+    "agent.tool_port",
     "tools.code_execution_tool",
 ]
 for m in mods:
@@ -56,7 +58,9 @@ python3 -m pytest -q \
   agent/test_m3_api_chat_slice.py \
   agent/test_m4_auxiliary_http_slice.py \
   agent/test_m5_kernel_replaceability_slice.py \
-  agent/test_m5_entry_llm_injection_slice.py
+  agent/test_m5_entry_llm_injection_slice.py \
+  agent/test_m5_tool_port_slice.py \
+  agent/test_m5_entry_tool_injection_slice.py
 
 echo "=== Ralph Tier-1: Gate3 Core E2E (mocked LLM) ==="
 python3 -m pytest -q agent/test_tier1_e2e_agent.py
