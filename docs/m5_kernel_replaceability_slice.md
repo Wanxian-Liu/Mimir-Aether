@@ -1,0 +1,27 @@
+# M5 最小切片：内核可替换（端口声明）
+
+## 本 PR 范围
+
+对应 **[M5：自研内核可替换](ralph_roadmap_milestones.md#m5自研内核可替换)** 的**第一步**：把「模型调用」从隐式方法提升为显式 **`LlmInvocationPort`**（`agent/llm_port.py`），与当前生产路径 **`MimirAetherAgent._call_model_with_tokens`**（`agent/core_loop.py`）在语义上对齐（返回 `(response_dict, latency_ms)`）。
+
+- **今天**：实现仍在 `MimirAetherAgent` 上；垂直切片与 E2E 继续通过 **patch `_call_model_with_tokens`** 注入桩（与既有测试语义一致）。
+- **之后**：可在不改动断言含义的前提下，把调用改为「持有实现 `LlmInvocationPort` 的适配器」并切换后端。
+
+## 自动化验收（无网）
+
+```bash
+python3 -m pytest -q agent/test_m5_kernel_replaceability_slice.py
+```
+
+纳入：`./run_ralph_tier0.sh`（Gate2）。
+
+## 非目标（本切片不做）
+
+- 不重写 `core_loop` 依赖注入、不迁移工具 registry / 会话存储（里程碑中的「例如」留待后续切片）。
+- 不新增对外 API 或改变 CLI / API 契约。
+
+## 修订
+
+| 日期 | 说明 |
+|------|------|
+| 2026-05-03 | 初版：`LlmInvocationPort` + 离线协议测试 + Gate2。 |

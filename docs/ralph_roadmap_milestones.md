@@ -110,6 +110,8 @@
 1. 在**不修改测试断言语义**的前提下，可切换实现并通过 M0–M3（及 M4 若启用）。  
 2. 契约 §4「不允许差异」零违反。
 
+**最小切片（本仓库已落地）**：显式 **`LlmInvocationPort`**（`agent/llm_port.py`）与离线协议测试，见 `docs/m5_kernel_replaceability_slice.md`；生产路径仍为 `_call_model_with_tokens`，依赖注入与工具/会话端口为后续增量。
+
 ---
 
 ## M6：进化可审计
