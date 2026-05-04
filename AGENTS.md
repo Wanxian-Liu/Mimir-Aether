@@ -29,7 +29,7 @@ When **Ralph 模式** is requested: follow **`docs/RALPH_MODE.md`** — iterate 
 
 ## Merge gate
 
-Before pushing, **`./run_ralph_tier0.sh`** must pass (repository pre-push hook runs the same checks).
+Before pushing, **`./run_ralph_tier0.sh`** must pass (repository pre-push hook runs the same checks). After a green run, the hook may print an **M6 reminder** if you changed `agent/` / `gateway/` / `tools/` / contract tests but not `docs/evolution_log.md` — see **`docs/M6_EVOLUTION.md`**.
 
 ## M6 — evolution audit (minimal)
 

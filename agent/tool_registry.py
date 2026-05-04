@@ -52,6 +52,9 @@ class ToolRegistry:
         if not hasattr(self._local, 'conn'):
             self._local.conn = sqlite3.connect(self.db_path, check_same_thread=False)
             self._local.conn.row_factory = sqlite3.Row
+            # WAL lets readers see fresh commits from other threads without classic
+            # journal writer starvation (important for gateway/agent concurrent access).
+            self._local.conn.execute("PRAGMA journal_mode=WAL")
         return self._local.conn
     
     def _init_db(self):

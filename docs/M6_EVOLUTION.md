@@ -14,6 +14,14 @@
 - **默认**：任何进入 `main` 的 PR，若 diff 触及 **agent / gateway / tools / 契约测试** 之一，合并前应有一条新日志（或 PR 描述中嵌入同结构表格行，由合并人复制进 `evolution_log.md`）。
 - **豁免**：纯文档 typo、仅 `skills/` 文案、与运行时无关的注释 —— 可在日志摘要写 `exempt: docs-only`。
 
+## 合并工作流（养成习惯）
+
+1. 开发、本地 `git add` / `commit` 如常。  
+2. **若本次提交（或即将 push 的范围内）改动了 `agent/`、`gateway/`、`tools/` 或 `agent/test_*.py`（契约测）**：在 **push 之前** 运行一次  
+   `./scripts/record_m6_evolution.sh "…"`（会跑完整 tier0 并追加 `evolution_log.md` 一行；与 pre-push 门禁一致，通常不必再手跑 tier0）。  
+3. **纯文档 / 仅 `skills/` 文案 / 无运行时语义**：可勾选 PR 模板 **N/A**，不必追加日志（见 §豁免）。  
+4. `git push`：pre-push 会跑 `./run_ralph_tier0.sh`；若命中上述路径且 **未** 修改 `docs/evolution_log.md`，钩子会打印 **M6 提醒**（不阻断），用于补记或下一提交补 `record_m6`。静默本次提醒可设 **`SKIP_M6_PRE_PUSH_REMINDER=1`**（与 `SKIP_RALPH_PRE_PUSH` 独立）。
+
 ## 一键记录（推荐）
 
 在仓库根执行（会跑完整 `./run_ralph_tier0.sh`，约数十秒）：

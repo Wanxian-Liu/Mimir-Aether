@@ -1,4 +1,5 @@
 import threading
+import time
 
 from agent.tool_registry import ToolRegistry
 
@@ -51,8 +52,12 @@ def test_tool_registry_concurrent_visibility_toggles_and_unregister(tmp_path):
     seen_enabled = {"yes": False}
     seen_disabled = {"yes": False}
     lock = threading.Lock()
+    # Both threads must be running before the race; otherwise the flipper can
+    # finish all toggles while the reader never gets a slice (scheduler flake).
+    both_live = threading.Barrier(2)
 
     def reader() -> None:
+        both_live.wait()
         while not stop.is_set():
             row = reg.get(name)
             with lock:
@@ -60,11 +65,17 @@ def test_tool_registry_concurrent_visibility_toggles_and_unregister(tmp_path):
                     seen_disabled["yes"] = True
                 else:
                     seen_enabled["yes"] = True
+            # Tight spin would starve the flipper on CPython (GIL); yield so both
+            # sides interleave and get() can observe enabled=1 between toggles.
+            time.sleep(0)
 
     def flipper() -> None:
+        both_live.wait()
         for _ in range(80):
             reg.disable(name)
+            time.sleep(0)  # widen window so reader can observe enabled=1
             reg.enable(name)
+            time.sleep(0)
         reg.disable(name)
 
     t_reader = threading.Thread(target=reader)

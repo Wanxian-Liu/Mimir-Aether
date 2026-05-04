@@ -11,3 +11,24 @@ if [ "${SKIP_RALPH_PRE_PUSH:-}" = "1" ]; then
 fi
 echo "pre-push: running ./run_ralph_tier0.sh (same as GitHub Actions Ralph job)..."
 ./run_ralph_tier0.sh
+
+# M6 soft reminder (non-blocking): habit nudge when guarded paths change without evolution_log.
+if [ "${SKIP_M6_PRE_PUSH_REMINDER:-}" != "1" ]; then
+  while read -r local_ref local_sha remote_ref remote_sha; do
+    [ -z "${local_sha}" ] && continue
+    if [ "${local_sha}" = "0000000000000000000000000000000000000000" ]; then
+      continue
+    fi
+    if [ "${remote_sha}" = "0000000000000000000000000000000000000000" ]; then
+      continue
+    fi
+    names="$(git diff --name-only "${remote_sha}" "${local_sha}" 2>/dev/null || true)"
+    if echo "${names}" | grep -qE '^(agent/|gateway/|tools/|agent/test_)'; then
+      if ! echo "${names}" | grep -q '^docs/evolution_log\.md$'; then
+        echo ""
+        echo "pre-push: M6 提醒 — 本次推送含 agent / gateway / tools / 契约测变更，但未包含 docs/evolution_log.md。"
+        echo "pre-push: 合并前建议: ./scripts/record_m6_evolution.sh \"…\"（或下一提交补一行，见 docs/M6_EVOLUTION.md）。"
+      fi
+    fi
+  done
+fi
