@@ -77,6 +77,11 @@ def _discover_tools():
 # Run tool discovery at module load time
 _discover_tools()
 
+# Hermes name alignment: legacy ``search_web`` (removed from tools.builtin) → ``web_search``.
+from tools.strategy import register_tool_remap
+
+register_tool_remap("search_web", "web_search")
+
 
 # ---------------------------------------------------------------------------
 # Module-level state

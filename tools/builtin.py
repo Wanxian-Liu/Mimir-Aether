@@ -232,11 +232,6 @@ def _handle_get_env(key: str, default: str = "") -> str:
     return tool_result(value=value)
 
 
-def _handle_search_web(query: str) -> str:
-    """搜索网络（模拟）"""
-    return tool_result(results=[], query=query, note="Web search requires API integration")
-
-
 # ─────────────────────────────────────────────────────────────
 # 注册所有内置工具到 registry（Hermes 模式）
 # ─────────────────────────────────────────────────────────────
@@ -370,30 +365,8 @@ registry.register(
     description="Get environment variable (whitelist restricted)",
 )
 
-# search_web
-registry.register(
-    name="search_web",
-    toolset="web",
-    schema={
-        "name": "search_web",
-        "description": "搜索网络。执行网页搜索查询。",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "搜索查询"
-                }
-            },
-            "required": ["query"]
-        }
-    },
-    handler=lambda args, **kw: _handle_search_web(
-        query=args.get("query", ""),
-    ),
-    emoji="🔍",
-    description="Search the web",
-)
+# search_web: removed — use tools.web_tools ``web_search`` (Hermes-aligned).
+# Legacy name ``search_web`` is remapped in model_tools after tool discovery.
 
 
 # ─────────────────────────────────────────────────────────────
@@ -406,7 +379,6 @@ TOOL_FUNCTIONS = {
     "write_file": _handle_write_file,
     "execute_code": _handle_execute_code,
     "get_env": _handle_get_env,
-    "search_web": _handle_search_web,
 }
 
 # 旧式 schema 字典 — 仅含 parameters 部分

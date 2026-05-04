@@ -248,7 +248,7 @@ MimirAether只注册了9个内部工具（builtin + mimircore），无法使用h
 ### 注册结果
 | 类别 | 数量 | 工具 |
 |------|------|------|
-| builtin | 5 | read_file, write_file, execute_code, get_env, search_web |
+| builtin | 4 | read_file, write_file, execute_code, get_env（web 检索见 `web_tools.web_search`） |
 | mimircore | 4 | produce_capsule, get_capsule_by_id, list_capsules, improve_capsule |
 | hermes | 5+ | delegate_task, memory, skill_view, skills_list, terminal, ... |
 | **总计** | **14+** | |

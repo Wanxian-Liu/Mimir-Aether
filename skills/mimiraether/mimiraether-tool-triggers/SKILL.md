@@ -12,7 +12,7 @@
 
 ## 工具触发规则
 
-### search_web
+### web_search
 
 **必用场景（只要命中一条就必须用）：**
 
@@ -23,7 +23,7 @@
 5. **代码集成前**：要写调用外部API/服务的代码时，先搜该API的文档/最新用法
 6. **错误排查**：遇到一个无法从第一性原理推导的错误信息，先搜
 
-**降级策略（search_web不可用时）：**
+**降级策略（web_search不可用时）：**
 - 优先检查是否有对应skill（skill_view）
 - **execute_code + curl 调用结构化API**（首选，可解析JSON）：
   - GitHub API: `curl -s https://api.github.com/search/repositories?q=关键词`
@@ -38,7 +38,7 @@
 - 凭记忆猜测API端点、参数格式、配置字段
 - 对不熟悉的工具直接假设它的用法
 - 遇到未知术语不求证直接跳过
-- search_web失败后直接放弃搜索，转而猜测
+- web_search失败后直接放弃搜索，转而猜测
 
 **触发自检问题：** "我对这个问题的答案有100%把握吗？如果没有，先搜。"
 
@@ -56,7 +56,7 @@
 
 **反模式：**
 - 看到任务后直接动手，不检查是否有skill
-- 只用search_web查方法，不先看有没有skill封装了最佳实践
+- 只用web_search查方法，不先看有没有skill封装了最佳实践
 - 知道有skill但觉得"手动也能做"就不加载
 
 **触发自检问题：** "这个任务有没有现成的skill？即使只部分相关也先加载。"
@@ -175,7 +175,7 @@
 
 ### 模式1：未知→搜索→skill
 ```
-遇到未知工具/概念 → search_web → 发现对应工具/skill → skill_view加载
+遇到未知工具/概念 → web_search → 发现对应工具/skill → skill_view加载
 ```
 
 ### 模式2：编码→验证→固化为skill
@@ -195,7 +195,7 @@ read_file读取 → 分析 → 小改patch / 大改write_file
 
 ### 模式5：搜索降级链
 ```
-search_web失败 → skill_view查相关领域skill → execute_code + curl调结构化API → terminal + curl调搜索API → 承认边界
+web_search失败 → skill_view查相关领域skill → execute_code + curl调结构化API → terminal + curl调搜索API → 承认边界
 ```
 
 **execute_code + curl 代码模板：**
@@ -217,7 +217,7 @@ def github_search(query, endpoint="repositories"):
 
 ## 任务解析自检清单（每次收到任务时执行）
 
-1. □ 这个任务涉及我不确定的知识吗？→ search_web
+1. □ 这个任务涉及我不确定的知识吗？→ web_search
 2. □ 有相关的skill吗？→ skills_list → skill_view
 3. □ 需要写代码吗？写完后→ execute_code测试
 4. □ 需要读/写文件吗？→ read_file / write_file（不要用terminal替代）

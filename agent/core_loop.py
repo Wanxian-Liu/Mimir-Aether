@@ -226,6 +226,11 @@ class ToolRegistry:
 
     async def execute(self, name: str, arguments: dict):
         """执行工具（委托到真正的 registry.dispatch）"""
+        from tools.strategy import route_tool_call
+
+        name, arguments, err = route_tool_call(name, arguments)
+        if err:
+            return json.dumps({"error": err, "type": "routing_error"})
         result_str = self._real_registry.dispatch(name, arguments)
         return result_str
 
@@ -1189,8 +1194,8 @@ When calling tools, you MUST use the exact parameter names defined in the tool s
 - execute_code: parameter is `code` NOT `command`
 - write_file: parameters are `path` and `content`
 - read_file: parameter is `path`
-- get_env: parameter is `name`
-- search_web: parameter is `query`
+- get_env: parameter is `key` (optional `default`)
+- web_search: parameter is `query`
 
 You must strictly follow the parameter names in the schema. Do not use alternative names or make assumptions about parameter names.
 
@@ -2284,6 +2289,40 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                     tool_call_id=tool_call_id,
                     content="Error: arguments must be a dict",
                     is_error=True
+                )
+
+            # Strategy layer: pre-validate + remap deprecated names (e.g. search_web → web_search)
+            from tools.strategy import pre_validate_tool_call, route_tool_call
+
+            pre_result = pre_validate_tool_call(func_name, arguments)
+            if not pre_result.ok:
+                err_msg = pre_result.error_message or "pre_validation failed"
+                self._tool_errors.append(ToolError(
+                    turn=turn,
+                    tool_name=func_name,
+                    arguments=str(raw_args)[:200],
+                    error=err_msg,
+                    tool_result=f"Error: {err_msg}",
+                ))
+                return ToolResult(
+                    tool_call_id=tool_call_id,
+                    content=f"Error: {err_msg}",
+                    is_error=True,
+                )
+
+            func_name, arguments, routing_error = route_tool_call(func_name, arguments)
+            if routing_error:
+                self._tool_errors.append(ToolError(
+                    turn=turn,
+                    tool_name=func_name,
+                    arguments=str(raw_args)[:200],
+                    error=routing_error,
+                    tool_result=f"Error: {routing_error}",
+                ))
+                return ToolResult(
+                    tool_call_id=tool_call_id,
+                    content=f"Error: {routing_error}",
+                    is_error=True,
                 )
 
             # ── 统一 dispatch：通过 tools.registry.registry.dispatch() ──

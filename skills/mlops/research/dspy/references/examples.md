@@ -167,7 +167,7 @@ def calculate(expression: str) -> str:
     except:
         return "Invalid expression"
 
-def search_web(query: str) -> str:
+def web_search(query: str) -> str:
     """Search the web."""
     # Your web search implementation
     return results
@@ -179,7 +179,7 @@ class ResearchAgent(dspy.Signature):
     answer = dspy.OutputField()
 
 # Create ReAct agent
-agent = ReAct(ResearchAgent, tools=[search_wikipedia, calculate, search_web])
+agent = ReAct(ResearchAgent, tools=[search_wikipedia, calculate, web_search])
 
 # Agent decides which tools to use
 result = agent(question="What is the population of France divided by 10?")
@@ -206,7 +206,7 @@ class MultiAgentSystem(dspy.Module):
         # Specialized agents
         self.research_agent = ReAct(
             ResearchAgent,
-            tools=[search_wikipedia, search_web]
+            tools=[search_wikipedia, web_search]
         )
         self.math_agent = dspy.ProgramOfThought("problem -> answer")
         self.reasoning_agent = dspy.ChainOfThought("question -> answer")

@@ -215,8 +215,8 @@ TOOLSETS = {
     },
 
     "mimir_web": {
-        "description": "MimirAether web search",
-        "tools": ["search_web"],
+        "description": "MimirAether web search (Hermes-aligned: web_search)",
+        "tools": ["web_search"],
         "includes": []
     },
 
