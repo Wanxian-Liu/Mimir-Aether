@@ -32,6 +32,7 @@ def _reset_agent_manager() -> None:
     api_service.AgentManager.set_session_backend_override(None)
     api_service.AgentManager.set_session_db_factory_override(None)
     api_service.AgentManager.set_checkpoint_backend_override(None)
+    api_service.AgentManager.set_kernel_overrides(None)
 
 
 class _CkptKwStub:

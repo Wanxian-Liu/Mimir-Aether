@@ -16,6 +16,7 @@ TARGET_FILES=(
   "agent/tool_port.py"
   "agent/session_port.py"
   "agent/checkpoint_port.py"
+  "agent/kernel_overrides.py"
   "tools/code_execution_tool.py"
 )
 
@@ -35,6 +36,7 @@ mods = [
     "agent.tool_port",
     "agent.session_port",
     "agent.checkpoint_port",
+    "agent.kernel_overrides",
     "tools.code_execution_tool",
 ]
 for m in mods:
@@ -69,7 +71,8 @@ python3 -m pytest -q \
   agent/test_m5_entry_session_injection_slice.py \
   agent/test_m5_session_db_factory_slice.py \
   agent/test_m5_checkpoint_port_slice.py \
-  agent/test_m5_entry_checkpoint_injection_slice.py
+  agent/test_m5_entry_checkpoint_injection_slice.py \
+  agent/test_m5_kernel_bundle_slice.py
 
 echo "=== Ralph Tier-1: Gate3 Core E2E (mocked LLM) ==="
 python3 -m pytest -q agent/test_tier1_e2e_agent.py

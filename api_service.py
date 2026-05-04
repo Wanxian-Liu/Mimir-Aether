@@ -93,7 +93,7 @@ class AgentManager:
     支持：
     - 单例模式（默认）
     - 会话隔离
-    - 可选：通过 override 类方法为**新建**的 Agent 注入后端（测试/定制）：LLM / tool / session / session_db_factory / checkpoint
+    - 可选：通过 override 类方法为**新建**的 Agent 注入后端（测试/定制）：LLM / tool / session / session_db_factory / checkpoint；或 ``set_kernel_overrides`` 一次性打包
     """
 
     _instance: Optional['AgentManager'] = None
@@ -106,6 +106,8 @@ class AgentManager:
     #: 非 None 时，下一次创建的 ``MimirAetherAgent`` 会收到 ``session_db_factory=``（通常仅测试使用）
     _session_db_factory_override: Optional[Any] = None
     _checkpoint_backend_override: Optional[Any] = None
+    #: 非 None 时，下一次创建的 ``MimirAetherAgent`` 会按 bundle 注入多后端（通常仅测试使用）
+    _kernel_overrides: Optional[Any] = None
 
     def __new__(cls):
         if cls._instance is None:
@@ -138,7 +140,15 @@ class AgentManager:
     def set_checkpoint_backend_override(cls, backend: Optional[Any]) -> None:
         """为后续新创建的 API Agent 设置 ``CheckpointPersistencePort``；传 ``None`` 清除。"""
         cls._checkpoint_backend_override = backend
-    
+
+    @classmethod
+    def set_kernel_overrides(cls, bundle: Optional[Any]) -> None:
+        """为后续新创建的 Agent 一次性注入 ``AgentKernelOverrides``；传 ``None`` 清除。
+
+        与 ``set_*_override`` 并存时：**先**应用 bundle，**再**被各单字段 override 覆盖。
+        """
+        cls._kernel_overrides = bundle
+
     async def get_agent(self, session_id: Optional[str] = None) -> Any:
         """获取Agent实例"""
         if session_id is None:
@@ -152,6 +162,18 @@ class AgentManager:
                     max_iterations=90,
                     platform="api",
                 )
+                b = self.__class__._kernel_overrides
+                if b is not None:
+                    if b.llm_backend is not None:
+                        kwargs["llm_backend"] = b.llm_backend
+                    if b.tool_backend is not None:
+                        kwargs["tool_backend"] = b.tool_backend
+                    if b.session_backend is not None:
+                        kwargs["session_backend"] = b.session_backend
+                    if b.session_db_factory is not None:
+                        kwargs["session_db_factory"] = b.session_db_factory
+                    if b.checkpoint_backend is not None:
+                        kwargs["checkpoint_backend"] = b.checkpoint_backend
                 if self.__class__._llm_backend_override is not None:
                     kwargs["llm_backend"] = self.__class__._llm_backend_override
                 if self.__class__._tool_backend_override is not None:

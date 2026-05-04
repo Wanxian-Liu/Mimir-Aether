@@ -134,6 +134,7 @@ from .llm_port import LlmInvocationPort
 from .tool_port import ToolInvocationPort
 from .session_port import SessionDbClientFactory, SessionRestorePort
 from .checkpoint_port import CheckpointPersistencePort
+from .kernel_overrides import AgentKernelOverrides
 
 
 logger = logging.getLogger(__name__)
@@ -356,6 +357,7 @@ class MimirAetherAgent:
         session_backend: Optional[SessionRestorePort] = None,
         session_db_factory: Optional[SessionDbClientFactory] = None,
         checkpoint_backend: Optional[CheckpointPersistencePort] = None,
+        kernel_overrides: Optional[AgentKernelOverrides] = None,
     ):
         """
         初始化MimirAether Agent
@@ -383,6 +385,7 @@ class MimirAetherAgent:
             session_backend: 可选；实现 :class:`~agent.session_port.SessionRestorePort` 则替代默认 SessionDB 恢复路径
             session_db_factory: 可选；实现 :class:`~agent.session_port.SessionDbClientFactory` 则统一 Insights 与内置恢复所用的 DB 客户端构造
             checkpoint_backend: 可选；实现 :class:`~agent.checkpoint_port.CheckpointPersistencePort` 则替代断点续传用的检查点存取
+            kernel_overrides: 可选；一次性打包多个后端字段；各显式构造参数优先于 bundle 内同名字段
         """
         self.model = model
         self.max_iterations = max_iterations
@@ -417,7 +420,6 @@ class MimirAetherAgent:
         self.quiet_mode = False  # 安静模式标志
 
         # Plugin hooks(学习自Hermes)
-                # Plugin hooks(学习自Hermes)
         for hook_name in self.VALID_HOOKS:
             setattr(self, f"_{hook_name}_hooks", [])
 
@@ -454,8 +456,13 @@ class MimirAetherAgent:
             tail_token_budget=4000,
         )
 
+        ko = kernel_overrides
+        eff_session_db_factory = session_db_factory
+        if eff_session_db_factory is None and ko is not None:
+            eff_session_db_factory = ko.session_db_factory
+
         self._session_db_factory: SessionDbClientFactory = (
-            session_db_factory if session_db_factory is not None else _BuiltinSessionDbFactory()
+            eff_session_db_factory if eff_session_db_factory is not None else _BuiltinSessionDbFactory()
         )
         _db = self._session_db_factory.create_session_db()
         self.insights = InsightsEngine(_db) if _db else InsightsEngine()
@@ -503,17 +510,30 @@ class MimirAetherAgent:
         # 注册内置工具
         self._register_builtin_tools()
 
+        eff_llm = llm_backend
+        if eff_llm is None and ko is not None:
+            eff_llm = ko.llm_backend
+        eff_tool = tool_backend
+        if eff_tool is None and ko is not None:
+            eff_tool = ko.tool_backend
+        eff_session = session_backend
+        if eff_session is None and ko is not None:
+            eff_session = ko.session_backend
+        eff_checkpoint = checkpoint_backend
+        if eff_checkpoint is None and ko is not None:
+            eff_checkpoint = ko.checkpoint_backend
+
         self._llm_backend: LlmInvocationPort = (
-            llm_backend if llm_backend is not None else _BuiltinLlmBackend(self)
+            eff_llm if eff_llm is not None else _BuiltinLlmBackend(self)
         )
         self._tool_backend: ToolInvocationPort = (
-            tool_backend if tool_backend is not None else _BuiltinToolBackend(self)
+            eff_tool if eff_tool is not None else _BuiltinToolBackend(self)
         )
         self._session_backend: SessionRestorePort = (
-            session_backend if session_backend is not None else _BuiltinSessionRestore(self)
+            eff_session if eff_session is not None else _BuiltinSessionRestore(self)
         )
         self._checkpoint_backend: CheckpointPersistencePort = (
-            checkpoint_backend if checkpoint_backend is not None else _BuiltinCheckpointBackend()
+            eff_checkpoint if eff_checkpoint is not None else _BuiltinCheckpointBackend()
         )
 
         logger.info(f"MimirAether initialized with model: {model}, context_length: {self._context_length}")

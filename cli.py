@@ -4740,6 +4740,7 @@ async def run_task(
     session_backend=None,
     session_db_factory=None,
     checkpoint_backend=None,
+    kernel_overrides=None,
 ):
     """执行单个任务。
 
@@ -4752,6 +4753,7 @@ async def run_task(
             默认 None 使用内置 SessionDB 路径。
         session_db_factory: 可选，实现 :class:`agent.session_port.SessionDbClientFactory` 时统一 Insights 与内置恢复所用的 DB 构造。
         checkpoint_backend: 可选，实现 :class:`agent.checkpoint_port.CheckpointPersistencePort` 时替代断点续传存储。
+        kernel_overrides: 可选，:class:`agent.kernel_overrides.AgentKernelOverrides` 打包多后端；各 ``*_backend`` 显式参数优先覆盖 bundle 同名字段。
     """
     from agent.core_loop import MimirAetherAgent
 
@@ -4768,6 +4770,18 @@ async def run_task(
         max_iterations=max_iterations,
         platform="cli",
     )
+    if kernel_overrides is not None:
+        b = kernel_overrides
+        if b.llm_backend is not None:
+            kwargs["llm_backend"] = b.llm_backend
+        if b.tool_backend is not None:
+            kwargs["tool_backend"] = b.tool_backend
+        if b.session_backend is not None:
+            kwargs["session_backend"] = b.session_backend
+        if b.session_db_factory is not None:
+            kwargs["session_db_factory"] = b.session_db_factory
+        if b.checkpoint_backend is not None:
+            kwargs["checkpoint_backend"] = b.checkpoint_backend
     if llm_backend is not None:
         kwargs["llm_backend"] = llm_backend
     if tool_backend is not None:
