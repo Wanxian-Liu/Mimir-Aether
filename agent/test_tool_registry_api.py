@@ -1,3 +1,5 @@
+"""Parity-facing tests for `agent.tool_registry.ToolRegistry` (enable/disable, search, stats)."""
+
 import threading
 
 from agent.tool_registry import ToolRegistry
