@@ -537,6 +537,9 @@ class SessionStore:
     When ``transcript_session_db`` is set (typically the gateway runner's shared
     ``hermes_state.SessionDB``), ``append_to_transcript`` also appends to SQLite
     unless ``skip_db=True`` — aligning gateway JSONL with Hermes-compatible storage.
+    ``rewrite_transcript`` overwrites JSONL and, when ``_db`` is set, calls
+    ``clear_messages(session_id)`` then re-appends each message (same mapping as
+    ``append_to_transcript``).
     """
 
     def __init__(
@@ -997,27 +1000,32 @@ class SessionStore:
     
     def rewrite_transcript(self, session_id: str, messages: List[Dict[str, Any]]) -> None:
         """Replace the entire transcript for a session with new messages.
-        
+
         Used by /retry, /undo, and /compress to persist modified conversation history.
-        # SQLite rewrite已移除，保留JSONL写入
-        
-        Rewrites JSONL storage only (SQLite removed).
+        Writes JSONL, then when ``self._db`` is set: ``clear_messages`` (if present)
+        and re-append each row to SQLite using the same mapping as
+        ``append_to_transcript``.
         """
-        # SQLite clear_messages已移除
-        # if self._db:
-        #     try:
-        #         self._db.clear_messages(session_id)
-        #         for msg in messages:
-        #             ...
-        #     except Exception as e:
-        #         logger.debug("Failed to rewrite transcript in DB: %s", e)
-        
-        # JSONL: overwrite the file
         self.sessions_dir.mkdir(parents=True, exist_ok=True)
         transcript_path = self.get_transcript_path(session_id)
         with open(transcript_path, "w", encoding="utf-8") as f:
             for msg in messages:
                 f.write(json.dumps(msg, ensure_ascii=False) + "\n")
+
+        if self._db:
+            try:
+                clear = getattr(self._db, "clear_messages", None)
+                if not callable(clear):
+                    logger.debug(
+                        "Session DB has no clear_messages; SQLite rewrite skipped for %s",
+                        session_id,
+                    )
+                else:
+                    clear(session_id)
+                    for msg in messages:
+                        _append_transcript_dict_to_session_db(self._db, session_id, msg)
+            except Exception as e:
+                logger.debug("Session DB transcript rewrite failed: %s", e)
 
     def load_transcript(self, session_id: str) -> List[Dict[str, Any]]:
         """Load all messages from a session's transcript.

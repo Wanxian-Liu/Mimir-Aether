@@ -33,7 +33,8 @@
 - **Gateway SQLite 注入**：`gateway.run.GatewayRunner(..., session_db_factory=…)` 接受与 **`SessionDbClientFactory`** 相同的 **`create_session_db()`** 协议；用于替换网关侧 SessionDB 实例（`/title`、`/branch`、`AIAgent(session_db=)`、`/insights` 在已有 `_session_db` 时复用且不再 ``close`` 共享连接）。  
   - **JSONL ↔ SQLite 双写**：`gateway.session.SessionStore(..., transcript_session_db=…)`；网关启动时将 **`GatewayRunner._session_db`** 传入，使 **`append_to_transcript`** 在 **`skip_db=False`** 时除 JSONL 外调用 **`SessionDB.append_message`**（与 Hermes 消息表对齐）。**`skip_db=True`**（如 agent 已写入 SQLite）仍只写 JSONL。  
   - 测试：`agent/test_m5_gateway_session_db_slice.py`。  
-- **之后**：`rewrite_transcript` / SQLite 全量替换路径仍仅为 JSONL；若要与压缩 /branch 等命令同步 SQLite，可再收口 ``clear_messages`` + 批量写入。
+- **``rewrite_transcript`` SQLite**：在存在 ``transcript_session_db`` 且实现 ``clear_messages(session_id)`` 时，先清空再按行 ``append_message`` 重放（与 JSONL 覆盖一致）；无 ``clear_messages`` 时仅写 JSONL，避免重复追加。  
+- **之后**（可选）：为仅实现 append 的自定义后端提供显式 ``replace_transcript`` 协议，或对接非 Hermes 存储的删除语义。
 
 ## 自动化验收（无网）
 
@@ -52,6 +53,7 @@ python3 -m pytest -q agent/test_m5_kernel_replaceability_slice.py agent/test_m5_
 
 | 日期 | 说明 |
 |------|------|
+| 2026-05-04 | `rewrite_transcript`：`clear_messages` + 重放 `append_message`；无 `clear_messages` 则跳过 SQLite。 |
 | 2026-05-04 | `SessionStore(transcript_session_db=)` + `append_to_transcript` SQLite 双写；`GatewayRunner` 先初始化 `_session_db` 再挂入 SessionStore。 |
 | 2026-05-04 | `GatewayRunner(session_db_factory=)` → `SessionDbClientFactory`；`/insights` 复用 `_session_db`；`test_m5_gateway_session_db_slice`。 |
 | 2026-05-04 | `AgentKernelOverrides`；`kernel_overrides=` / `set_kernel_overrides` / CLI `kernel_overrides`；`test_m5_kernel_bundle_slice`。 |

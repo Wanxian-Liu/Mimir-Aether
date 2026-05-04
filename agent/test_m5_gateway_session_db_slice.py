@@ -89,3 +89,47 @@ def test_gateway_runner_passes_session_db_to_session_store():
     sentinel = object()
     runner = GatewayRunner(load_gateway_config(), session_db_factory=_Fac(sentinel))
     assert runner.session_store._db is sentinel
+
+
+def test_session_store_rewrite_transcript_clears_and_replays_sqlite(tmp_path):
+    from unittest.mock import MagicMock
+
+    from gateway.config import load_gateway_config
+    from gateway.session import SessionStore
+
+    db = MagicMock()
+    store = SessionStore(
+        tmp_path / "sessions",
+        load_gateway_config(),
+        transcript_session_db=db,
+    )
+    msgs = [
+        {"role": "user", "content": "one"},
+        {"role": "assistant", "content": "two"},
+    ]
+    store.rewrite_transcript("sid-rw", msgs)
+    db.clear_messages.assert_called_once_with("sid-rw")
+    assert db.append_message.call_count == 2
+    roles = [db.append_message.call_args_list[i][1]["role"] for i in range(2)]
+    assert roles == ["user", "assistant"]
+
+
+def test_session_store_rewrite_skips_sqlite_without_clear_messages(tmp_path):
+    from gateway.config import load_gateway_config
+    from gateway.session import SessionStore
+
+    class _AppendOnly:
+        def __init__(self) -> None:
+            self.appends: list = []
+
+        def append_message(self, **kwargs):
+            self.appends.append(kwargs)
+
+    db = _AppendOnly()
+    store = SessionStore(
+        tmp_path / "sessions",
+        load_gateway_config(),
+        transcript_session_db=db,
+    )
+    store.rewrite_transcript("sid", [{"role": "user", "content": "x"}])
+    assert db.appends == []
