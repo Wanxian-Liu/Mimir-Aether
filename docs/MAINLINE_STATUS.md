@@ -16,11 +16,11 @@
 
 | ID | 名称 | 状态 | 说明 |
 |----|------|------|------|
-| M0 | 基线可回归 | **绿** | `run_ralph_tier0.sh` 日常可通过。**稳定性（2026-05-04，真源）**：连续 **3** 次执行 Gate1–3 **全 PASS**（每次 Gate2 **153**、Gate3 **2**）。发版/大合并前建议复跑同一检查：`for n in 1 2 3; do ./run_ralph_tier0.sh || exit 1; done` |
+| M0 | 基线可回归 | **绿** | `run_ralph_tier0.sh` 日常可通过。**稳定性（2026-05-04，真源）**：连续 **3** 次执行 Gate1–3 **全 PASS**（当时 Gate2 **153**、Gate3 **2**；用例总数随仓库增长以脚本输出为准）。发版/大合并前建议复跑：`for n in 1 2 3; do ./run_ralph_tier0.sh || exit 1; done` |
 | M1 | 契约可执行 | **绿** | `docs/ralph_parity_testmap.md` 已映射；扩展项见 ext / 另增 |
 | M2 | Tier-0 矩阵闭合 | **绿** | `ralph_tier0_case_matrix.md`：当前无阻塞 P0；契约变更后需复核 |
 | M3 | 垂直切片 | **绿** | **两条**：CLI（`docs/m3_cli_quick_task_slice.md`）+ **API** `POST /v1/chat/completions`（`docs/m3_api_chat_slice.md`，`agent/test_m3_api_chat_slice.py`） |
-| M4 | Tier-2 HTTP（可选） | **黄** | 最小切片：辅助 HTTP 错误分类离线测试 + 文档（`docs/m4_auxiliary_http_slice.md`）；全绿需更广 Tier-2 HTTP / 录制见里程碑正文 |
+| M4 | Tier-2 HTTP（可选） | **绿** | 路线图 M4 判据对齐：无网无 key；**`fixtures/m4_http/`**（`error_shapes.json` + README）+ **`scripts/refresh_m4_http_fixtures.sh`**；401 / 429 / 计费 429 / 超时 / 连接类形态经 **`agent/test_m4_auxiliary_http_slice.py`**（含 JSON 驱动用例）。详见 **`docs/m4_auxiliary_http_slice.md`**；VCR / 常驻 mock 为增强项 |
 | M5 | 内核可替换 | **绿** | 产出物与 **`docs/ralph_roadmap_milestones.md`** M5 判据已对齐：多端口 seams（LLM / tool / session restore / checkpoint）、`SessionDbClientFactory`、`AgentKernelOverrides`、CLI/API 注入、`GatewayRunner(session_db_factory=)` 与 `SessionStore` JSONL↔SQLite（含 `rewrite_transcript`）；清单与验收见 **`docs/m5_kernel_replaceability_slice.md`**。可替换 = 边界可注入 + 各切片验证 + 默认路径 **`./run_ralph_tier0.sh`** 全绿；**全栈第二套生产实现同时替换**若需要则另立项 |
 | M6 | 进化可审计 | **绿** | 产出物与 **`docs/ralph_roadmap_milestones.md`** M6 判据对齐：**`docs/M6_EVOLUTION.md`**、**`docs/evolution_log.md`**、**`scripts/record_m6_evolution.sh`**、**`.github/pull_request_template.md`**；**`core.hooksPath=.githooks`** 时 pre-push 在 tier0 通过后对「受保护路径变更但未含 `evolution_log`」打印软提醒（见 **`docs/M6_EVOLUTION.md`**）。合入仍须带门禁证据；受保护变更用 `record_m6` 或 PR 模板 **Recorded**；豁免见 M6 文档。**维持**：勿长期跳过记录 |
 
@@ -60,6 +60,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-04 | **M4 绿**：`fixtures/m4_http/` + `scripts/refresh_m4_http_fixtures.sh`；扩展 `test_m4_auxiliary_http_slice`；工程表 **全绿**（M0–M6 除路线图自声明可选项外已闭合）。 |
 | 2026-05-04 | **M0 稳定性条**：真源连续 **3** 次 `./run_ralph_tier0.sh` 全绿；MAINLINE M0 说明已记证据与复跑命令。 |
 | 2026-05-04 | **M6 绿**：MAINLINE 标 **绿**；Evolution 健康度 **强**；闭环 = M6 文档 + `evolution_log` + `record_m6` + PR 模板 + pre-push 软提醒（`.githooks/pre-push`）。 |
 | 2026-05-04 | **M5 绿**：路线图 M5 判据复核通过；MAINLINE 标 **绿**；同步 **`docs/ralph_roadmap_milestones.md`** M5「最小切片」与仓库事实一致。可替换范围见 M5 表内说明（全栈第二实现非必要条件）。 |

@@ -1,0 +1,81 @@
+[
+  {
+    "id": "401_invalid_key",
+    "payment": false,
+    "connection": false,
+    "exc": {
+      "kind": "status_exception",
+      "status_code": 401,
+      "message": "Incorrect API key provided"
+    }
+  },
+  {
+    "id": "402_payment_required",
+    "payment": true,
+    "connection": false,
+    "exc": {
+      "kind": "status_exception",
+      "status_code": 402,
+      "message": "Payment required"
+    }
+  },
+  {
+    "id": "429_plain_rate_limit",
+    "payment": false,
+    "connection": false,
+    "exc": {
+      "kind": "status_exception",
+      "status_code": 429,
+      "message": "Too many requests"
+    }
+  },
+  {
+    "id": "429_insufficient_credits",
+    "payment": true,
+    "connection": false,
+    "exc": {
+      "kind": "status_exception",
+      "status_code": 429,
+      "message": "You have insufficient credits for this model"
+    }
+  },
+  {
+    "id": "runtime_payment_hint",
+    "payment": true,
+    "connection": false,
+    "exc": {
+      "kind": "message_only",
+      "message": "payment required for this model tier"
+    }
+  },
+  {
+    "id": "read_timed_out",
+    "payment": false,
+    "connection": true,
+    "exc": {
+      "kind": "message_only",
+      "message": "read operation timed out"
+    }
+  },
+  {
+    "id": "connection_refused_oserror",
+    "payment": false,
+    "connection": true,
+    "exc": {
+      "kind": "message_only",
+      "message": "connection refused"
+    }
+  },
+  {
+    "id": "api_timeout_openai",
+    "payment": false,
+    "connection": true,
+    "exc": { "kind": "openai_api_timeout" }
+  },
+  {
+    "id": "api_connection_openai",
+    "payment": false,
+    "connection": true,
+    "exc": { "kind": "openai_api_connection" }
+  }
+]
