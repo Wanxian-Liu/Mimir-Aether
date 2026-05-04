@@ -34,7 +34,7 @@
 |------|--------|------|------|
 | 1 Hermes 影子期 | **A**：CLI + gateway + 工具链 + 基础 RL | **绿** | Smoke：A1–A4 已验；**飞书** Bot「wan」真实消息已通（`mimir_prod_smoke.md`） |
 | 2 专项伙伴期 | B | **绿** | 证据见 **`docs/mimir_phase_b_checklist.md`**（§B 绿裁定记录、§执行记录）；依赖 **A** 已绿。**范围**：工程可审计的伙伴交付链（git + M6 日志 + MAINLINE）；路线图人际条款仍由负责人日常验收。**维持**：新任务继续往 §执行记录 追加 |
-| 3 独立学习期 | C | **未** | — |
+| 3 独立学习期 | C | **黄** | **进行中**；勾选与证据见 **`docs/mimir_phase_c_checklist.md`**；默认首学习主题：**Agent 主循环 + 工具调用链**（报告目录 **`docs/phase_c_studies/`**）。对照真源：**`docs/hermes_mimir_behavior_matrix.md`**。**C 绿**前须满足该文档 §建议的 C「绿」门槛 |
 | 4 自主进化期 | ∞ | **未** | — |
 
 ---
@@ -54,6 +54,7 @@
 2. 保持 `run_ralph_tier0.sh` 全绿；合入用 Ralph 模式三轮（若启用严格迭代）。
 3. **维持 M6 绿**：受保护路径合入不长期漏记；新 clone 记得 `git config core.hooksPath .githooks`。
 4. **维持 B 绿**：伙伴期任务继续在 **`docs/mimir_phase_b_checklist.md`** §执行记录 留痕；重大偏离时复核 §B 绿裁定记录中的**范围说明**。
+5. **维持 C 黄 / 推进 C 绿**：每轮独立学习更新 **`docs/mimir_phase_c_checklist.md`** §执行记录；达标后填 §C 绿裁定记录并将 MAINLINE **C** 标 **绿**。
 
 ---
 
@@ -61,6 +62,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-04 | **阶段 3 启动**：新增 **`docs/mimir_phase_c_checklist.md`**；MAINLINE 里程碑 **C** 标 **黄**（独立学习期进行中）；默认首主题与 behavior_matrix 见清单。 |
 | 2026-05-04 | **里程碑 B 绿**：**`docs/mimir_phase_b_checklist.md`** 补齐 §B 绿裁定记录与执行记录（≥3 交付 + 四类任务）；MAINLINE **B** 标 **绿**。 |
 | 2026-05-04 | **阶段 2 启动**：新增 **`docs/mimir_phase_b_checklist.md`**；MAINLINE 里程碑 **B** 标 **黄**（伙伴期进行中）。 |
 | 2026-05-04 | **M4 绿**：`fixtures/m4_http/` + `scripts/refresh_m4_http_fixtures.sh`；扩展 `test_m4_auxiliary_http_slice`；工程表 **全绿**（M0–M6 除路线图自声明可选项外已闭合）。 |

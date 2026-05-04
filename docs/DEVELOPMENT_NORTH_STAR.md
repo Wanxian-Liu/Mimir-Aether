@@ -2,7 +2,7 @@
 
 本文是**方向真源**：优先级、验收与作用域以本文为准；与具体实现文档冲突时，先更新实现或修正本文之一，避免口头约定。
 
-**相关（本仓库）**：[path-contract.md](./path-contract.md)（路径三层）、[ralph_parity_contract_v1.md](./ralph_parity_contract_v1.md)（行为契约）、[ralph_roadmap_milestones.md](./ralph_roadmap_milestones.md)（M0–M6）、[成长路线图.md](../成长路线图.md)（阶段目标）、[RALPH_MODE.md](./RALPH_MODE.md)（Ralph 模式：三轮零失败迭代）、[MAINLINE_STATUS.md](./MAINLINE_STATUS.md)（主线进度快照，问进度时更新）、[mimir_prod_smoke.md](./mimir_prod_smoke.md)（里程碑 A 真环境勾选）、[mimir_phase_b_checklist.md](./mimir_phase_b_checklist.md)（阶段 2 / 里程碑 B 伙伴期勾选）。
+**相关（本仓库）**：[path-contract.md](./path-contract.md)（路径三层）、[ralph_parity_contract_v1.md](./ralph_parity_contract_v1.md)（行为契约）、[ralph_roadmap_milestones.md](./ralph_roadmap_milestones.md)（M0–M6）、[成长路线图.md](../成长路线图.md)（阶段目标）、[RALPH_MODE.md](./RALPH_MODE.md)（Ralph 模式：三轮零失败迭代）、[MAINLINE_STATUS.md](./MAINLINE_STATUS.md)（主线进度快照，问进度时更新）、[mimir_prod_smoke.md](./mimir_prod_smoke.md)（里程碑 A 真环境勾选）、[mimir_phase_b_checklist.md](./mimir_phase_b_checklist.md)（阶段 2 / 里程碑 B 伙伴期勾选）、[mimir_phase_c_checklist.md](./mimir_phase_c_checklist.md)（阶段 3 / 里程碑 C 独立学习期勾选）。
 
 ---
 
