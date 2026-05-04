@@ -16,7 +16,7 @@
 
 | ID | 名称 | 状态 | 说明 |
 |----|------|------|------|
-| M0 | 基线可回归 | **绿** | `run_ralph_tier0.sh` 日常可通过；发版前可自检「连续 3 次」 |
+| M0 | 基线可回归 | **绿** | `run_ralph_tier0.sh` 日常可通过。**稳定性（2026-05-04，真源）**：连续 **3** 次执行 Gate1–3 **全 PASS**（每次 Gate2 **153**、Gate3 **2**）。发版/大合并前建议复跑同一检查：`for n in 1 2 3; do ./run_ralph_tier0.sh || exit 1; done` |
 | M1 | 契约可执行 | **绿** | `docs/ralph_parity_testmap.md` 已映射；扩展项见 ext / 另增 |
 | M2 | Tier-0 矩阵闭合 | **绿** | `ralph_tier0_case_matrix.md`：当前无阻塞 P0；契约变更后需复核 |
 | M3 | 垂直切片 | **绿** | **两条**：CLI（`docs/m3_cli_quick_task_slice.md`）+ **API** `POST /v1/chat/completions`（`docs/m3_api_chat_slice.md`，`agent/test_m3_api_chat_slice.py`） |
@@ -60,6 +60,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-04 | **M0 稳定性条**：真源连续 **3** 次 `./run_ralph_tier0.sh` 全绿；MAINLINE M0 说明已记证据与复跑命令。 |
 | 2026-05-04 | **M6 绿**：MAINLINE 标 **绿**；Evolution 健康度 **强**；闭环 = M6 文档 + `evolution_log` + `record_m6` + PR 模板 + pre-push 软提醒（`.githooks/pre-push`）。 |
 | 2026-05-04 | **M5 绿**：路线图 M5 判据复核通过；MAINLINE 标 **绿**；同步 **`docs/ralph_roadmap_milestones.md`** M5「最小切片」与仓库事实一致。可替换范围见 M5 表内说明（全栈第二实现非必要条件）。 |
 | 2026-05-03 | **M5（续）**：CLI/API 入口注入 `llm_backend`；`agent/test_m5_entry_llm_injection_slice.py`；MAINLINE 说明更新。 |
