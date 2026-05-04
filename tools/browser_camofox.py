@@ -40,14 +40,14 @@ from tools.browser_camofox_state import get_camofox_identity
 
 
 def _load_config():
-    """Load config from ~/.hermes/config.yaml (replaces hermes_cli.config)."""
-        from mimir_constants import get_mimir_home
-
-        config_path = get_mimir_home() / "config.yaml"
+    """Load config from agent home ``config.yaml``."""
+    config_path = get_mimir_home() / "config.yaml"
     if config_path.exists():
         with open(config_path) as f:
             return yaml.safe_load(f) or {}
     return {}
+
+
 from tools.registry import tool_error
 
 logger = logging.getLogger(__name__)

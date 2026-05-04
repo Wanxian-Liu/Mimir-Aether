@@ -763,7 +763,13 @@ SKILL_MANAGE_SCHEMA = {
 
 
 # --- Registry ---
-from tools.registry import registry, tool_error
+from tools.registry import registry, tool_error, tool_result
+
+from agent.skill_funcs import (
+    SKILL_TOOL_SCHEMAS,
+    skill_view_func,
+    skills_list_func,
+)
 
 registry.register(
     name="skill_manage",
@@ -780,4 +786,24 @@ registry.register(
         new_string=args.get("new_string"),
         replace_all=args.get("replace_all", False)),
     emoji="📝",
+)
+
+registry.register(
+    name="skill_view",
+    toolset="skills",
+    schema=SKILL_TOOL_SCHEMAS["skill_view"],
+    handler=lambda args, **kw: tool_result(
+        content=skill_view_func(args.get("name", ""), args.get("file_path"))
+    ),
+    emoji="📖",
+)
+
+registry.register(
+    name="skills_list",
+    toolset="skills",
+    schema=SKILL_TOOL_SCHEMAS["skills_list"],
+    handler=lambda args, **kw: tool_result(
+        content=skills_list_func(args.get("category"))
+    ),
+    emoji="📚",
 )

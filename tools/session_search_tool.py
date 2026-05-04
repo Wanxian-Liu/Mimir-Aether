@@ -431,6 +431,86 @@ def session_search(
 
 
 # ============================================================================
+# Registry (Hermes-parity tool name ``session_search``)
+# ============================================================================
+
+from tools.registry import registry, tool_error, tool_result
+
+
+def check_session_search_requirements() -> bool:
+    try:
+        from mimir_constants import get_mimir_home
+
+        return get_mimir_home().is_dir()
+    except Exception:
+        return True
+
+
+SESSION_SEARCH_SCHEMA = {
+    "name": "session_search",
+    "description": (
+        "Search stored session messages by keyword (local SQLite index). "
+        "Use when the user refers to past work across sessions."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "Keywords to match in message content.",
+            },
+            "db_path": {
+                "type": "string",
+                "description": "Optional override path to sessions SQLite DB.",
+            },
+            "limit": {
+                "type": "integer",
+                "description": "Max messages sampled per session (default 5).",
+            },
+            "session_limit": {
+                "type": "integer",
+                "description": "Max sessions to return (default 3).",
+            },
+        },
+        "required": [],
+    },
+}
+
+
+def _session_search_handler(args, **kw):
+    q = args.get("query")
+    if q is None:
+        q = ""
+    if not isinstance(q, str):
+        return tool_error("query must be a string", success=False)
+    try:
+        lim = int(args.get("limit", 5))
+        sess_lim = int(args.get("session_limit", 3))
+    except (TypeError, ValueError):
+        return tool_error("limit and session_limit must be integers", success=False)
+    db_path = args.get("db_path")
+    if db_path is not None and not isinstance(db_path, str):
+        return tool_error("db_path must be a string", success=False)
+    results = session_search(
+        query=q,
+        db_path=db_path,
+        limit=max(1, min(lim, 50)),
+        session_limit=max(1, min(sess_lim, 20)),
+    )
+    return tool_result(success=True, query=q, results=results, count=len(results))
+
+
+registry.register(
+    name="session_search",
+    toolset="session_search",
+    schema=SESSION_SEARCH_SCHEMA,
+    handler=lambda args, **kw: _session_search_handler(args, **kw),
+    check_fn=check_session_search_requirements,
+    emoji="🔍",
+)
+
+
+# ============================================================================
 # 测试
 # ============================================================================
 
