@@ -33,7 +33,7 @@
 | 阶段 | 里程碑 | 状态 | 说明 |
 |------|--------|------|------|
 | 1 Hermes 影子期 | **A**：CLI + gateway + 工具链 + 基础 RL | **绿** | Smoke：A1–A4 已验；**飞书** Bot「wan」真实消息已通（`mimir_prod_smoke.md`） |
-| 2 专项伙伴期 | B | **未** | 依赖 A |
+| 2 专项伙伴期 | B | **黄** | **进行中**；勾选与证据见 **`docs/mimir_phase_b_checklist.md`**；依赖 **A** 已绿。**B 绿**前建议满足该文档 §建议的 B「绿」门槛 |
 | 3 独立学习期 | C | **未** | — |
 | 4 自主进化期 | ∞ | **未** | — |
 
@@ -60,6 +60,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-04 | **阶段 2 启动**：新增 **`docs/mimir_phase_b_checklist.md`**；MAINLINE 里程碑 **B** 标 **黄**（伙伴期进行中）。 |
 | 2026-05-04 | **M4 绿**：`fixtures/m4_http/` + `scripts/refresh_m4_http_fixtures.sh`；扩展 `test_m4_auxiliary_http_slice`；工程表 **全绿**（M0–M6 除路线图自声明可选项外已闭合）。 |
 | 2026-05-04 | **M0 稳定性条**：真源连续 **3** 次 `./run_ralph_tier0.sh` 全绿；MAINLINE M0 说明已记证据与复跑命令。 |
 | 2026-05-04 | **M6 绿**：MAINLINE 标 **绿**；Evolution 健康度 **强**；闭环 = M6 文档 + `evolution_log` + `record_m6` + PR 模板 + pre-push 软提醒（`.githooks/pre-push`）。 |
