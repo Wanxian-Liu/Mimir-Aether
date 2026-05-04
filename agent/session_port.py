@@ -5,6 +5,9 @@
 - ``SessionDbClientFactory``: create the Hermes-compatible store client used by
   ``InsightsEngine`` (SQL mode) and by the builtin restore path (default
   ``_BuiltinSessionDbFactory`` → ``SessionDB()`` when the class is available).
+  The same protocol is used by ``gateway.run.GatewayRunner(..., session_db_factory=)``
+  to inject the SQLite store used for titles, branching, and ``session_db=`` passed
+  to the Hermes ``AIAgent``.
 """
 
 from __future__ import annotations

@@ -531,7 +531,21 @@ class GatewayRunner:
     _stop_task: Optional[asyncio.Task] = None
     _session_model_overrides: Dict[str, Dict[str, str]] = {}
     
-    def __init__(self, config: Optional[GatewayConfig] = None):
+    def __init__(
+        self,
+        config: Optional[GatewayConfig] = None,
+        session_db_factory: Optional[Any] = None,
+    ):
+        """Create the gateway runner.
+
+        Args:
+            config: Gateway platform / paths configuration.
+            session_db_factory: Optional :class:`~agent.session_port.SessionDbClientFactory`.
+                When set, ``create_session_db()`` supplies the SQLite **SessionDB** (or
+                compatible) instance used for session metadata, branch/import writes,
+                and ``session_db=`` on Hermes ``AIAgent``. When omitted, behaviour
+                matches the historical ``SessionDB()`` lazy import inside this class.
+        """
         self.config = config or load_gateway_config()
         self.adapters: Dict[Platform, BasePlatformAdapter] = {}
 
@@ -613,11 +627,18 @@ class GatewayRunner:
         
         # Initialize session database for session_search tool support
         self._session_db = None
-        try:
-            from hermes_state import SessionDB
-            self._session_db = SessionDB()
-        except Exception as e:
-            logger.debug("SQLite session store not available: %s", e)
+        if session_db_factory is not None:
+            try:
+                self._session_db = session_db_factory.create_session_db()
+            except Exception as e:
+                logger.debug("session_db_factory failed: %s", e)
+                self._session_db = None
+        else:
+            try:
+                from hermes_state import SessionDB
+                self._session_db = SessionDB()
+            except Exception as e:
+                logger.debug("SQLite session store not available: %s", e)
         
         # DM pairing store for code-based user authorization
         from gateway.pairing import PairingStore
@@ -6300,18 +6321,25 @@ class GatewayRunner:
                     i += 1
 
         try:
-            from hermes_state import SessionDB
             from agent.insights import InsightsEngine
 
             loop = _asyncio.get_event_loop()
 
             def _run_insights():
-                db = SessionDB()
-                engine = InsightsEngine(db)
-                report = engine.generate(days=days, source=source)
-                result = engine.format_gateway(report)
-                db.close()
-                return result
+                own_db = False
+                db = self._session_db
+                if db is None:
+                    from hermes_state import SessionDB
+
+                    db = SessionDB()
+                    own_db = True
+                try:
+                    engine = InsightsEngine(db)
+                    report = engine.generate(days=days, source=source)
+                    return engine.format_gateway(report)
+                finally:
+                    if own_db and hasattr(db, "close"):
+                        db.close()
 
             return await loop.run_in_executor(None, _run_insights)
         except Exception as e:

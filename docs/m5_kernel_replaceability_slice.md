@@ -30,12 +30,15 @@
   - **CLI**：`cli.run_task(..., kernel_overrides=…)`；各 `*_backend` 等显式参数再覆盖 bundle 同名字段。  
   - **API**：`api_service.AgentManager.set_kernel_overrides(bundle)` 先于单字段 `set_*_override` 应用，**后者覆盖前者**。  
   - 测试：`agent/test_m5_kernel_bundle_slice.py`。  
-- **之后**：可选将会话 **写入** Hermes SessionDB 的路径（gateway / message append）单独收口为端口（若里程碑要求与 Hermes 写入语义对齐）。
+- **Gateway SQLite 注入**：`gateway.run.GatewayRunner(..., session_db_factory=…)` 接受与 **`SessionDbClientFactory`** 相同的 **`create_session_db()`** 协议；用于替换网关侧 SessionDB 实例（`/title`、`/branch`、`AIAgent(session_db=)`、`/insights` 在已有 `_session_db` 时复用且不再 ``close`` 共享连接）。  
+  - 测试：`agent/test_m5_gateway_session_db_slice.py`。  
+  - 说明：`gateway/session.py` 内 JSONL transcript 的 SQLite 写入仍注释移除状态；本切片针对 **run.py 持有的 hermes_state.SessionDB** 构造点。
+- **之后**：若需与 JSONL 双写对齐，可在 `SessionStore.append_to_transcript` 恢复可选 SQLite 路径并同样走工厂实例。
 
 ## 自动化验收（无网）
 
 ```bash
-python3 -m pytest -q agent/test_m5_kernel_replaceability_slice.py agent/test_m5_tool_port_slice.py agent/test_m5_entry_tool_injection_slice.py agent/test_m5_session_restore_port_slice.py agent/test_m5_entry_session_injection_slice.py agent/test_m5_session_db_factory_slice.py agent/test_m5_checkpoint_port_slice.py agent/test_m5_entry_checkpoint_injection_slice.py agent/test_m5_kernel_bundle_slice.py
+python3 -m pytest -q agent/test_m5_kernel_replaceability_slice.py agent/test_m5_tool_port_slice.py agent/test_m5_entry_tool_injection_slice.py agent/test_m5_session_restore_port_slice.py agent/test_m5_entry_session_injection_slice.py agent/test_m5_session_db_factory_slice.py agent/test_m5_checkpoint_port_slice.py agent/test_m5_entry_checkpoint_injection_slice.py agent/test_m5_kernel_bundle_slice.py agent/test_m5_gateway_session_db_slice.py
 ```
 
 纳入：`./run_ralph_tier0.sh`（Gate2）。
@@ -49,6 +52,7 @@ python3 -m pytest -q agent/test_m5_kernel_replaceability_slice.py agent/test_m5_
 
 | 日期 | 说明 |
 |------|------|
+| 2026-05-04 | `GatewayRunner(session_db_factory=)` → `SessionDbClientFactory`；`/insights` 复用 `_session_db`；`test_m5_gateway_session_db_slice`。 |
 | 2026-05-04 | `AgentKernelOverrides`；`kernel_overrides=` / `set_kernel_overrides` / CLI `kernel_overrides`；`test_m5_kernel_bundle_slice`。 |
 | 2026-05-03 | `CheckpointPersistencePort`；`run_conversation` 检查点；CLI/API 注入；相关测试。 |
 | 2026-05-02 | `SessionDbClientFactory`；与 Insights + builtin restore 共用；`test_m5_session_db_factory_slice`；CLI/API/kw 注入。 |
