@@ -110,7 +110,7 @@
 1. 在**不修改测试断言语义**的前提下，可切换实现并通过 M0–M3（及 M4 若启用）。  
 2. 契约 §4「不允许差异」零违反。
 
-**最小切片（本仓库已落地）**：显式 **`LlmInvocationPort`**（`agent/llm_port.py`）与离线协议测试，见 `docs/m5_kernel_replaceability_slice.md`；生产路径仍为 `_call_model_with_tokens`，依赖注入与工具/会话端口为后续增量。
+**最小切片（本仓库已落地）**：见 **`docs/m5_kernel_replaceability_slice.md`**——**`LlmInvocationPort`**（`agent/llm_port.py`）、**`ToolInvocationPort`**、**`SessionRestorePort`**、**`CheckpointPersistencePort`**、**`SessionDbClientFactory`**、**`AgentKernelOverrides`**，以及 CLI/API 与 Gateway（**`GatewayRunner(session_db_factory=)`**、`SessionStore` 的 JSONL↔SQLite 与 **`rewrite_transcript`**）；各边界可注入替换，默认内置实现委托原生产路径；测试与 Gate2 列表见该文档。**说明**：完成判据中的「可切换实现」指上述 seams 上的替换验证 + 默认路径下 Gate1–Gate3（及 M3/M4 启用项）全绿；**不要求**已存在一套「全端口同时替换的第二套生产内核」——若需要可作为后续专项。
 
 ---
 
