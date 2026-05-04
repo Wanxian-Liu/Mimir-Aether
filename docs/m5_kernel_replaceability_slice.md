@@ -21,12 +21,17 @@
   - **API**：`api_service.AgentManager.set_session_db_factory_override(factory)`。  
   - **Agent**：`session_db_factory=`、`set_session_db_factory`（已构造的 ``insights`` 不自动重建）。  
   - 测试：`agent/test_m5_session_db_factory_slice.py`；入口_kw/API 见 `agent/test_m5_entry_session_injection_slice.py` 后半。  
-- **之后**：可选将会话写入路径也纳入端口（若与 Hermes 写入语义对齐有里程碑要求）。
+- **断点续传端口**：`agent/checkpoint_port.py` 声明 **`CheckpointPersistencePort`**（`load_checkpoint` / `save_checkpoint` / `clear_checkpoint`）；``run_conversation`` 内一律使用 **`checkpoint_backend`**（默认 **`_BuiltinCheckpointBackend`** → 全局 ``get_checkpoint_manager()``）。  
+  - **CLI**：`cli.run_task(..., checkpoint_backend=…)`。  
+  - **API**：`api_service.AgentManager.set_checkpoint_backend_override(backend)`。  
+  - **Agent**：`checkpoint_backend=`、`set_checkpoint_backend`。  
+  - 测试：`agent/test_m5_checkpoint_port_slice.py`、`agent/test_m5_entry_checkpoint_injection_slice.py`。  
+- **之后**：可选将会话 **写入** Hermes SessionDB 的路径（gateway / message append）单独收口为端口（若里程碑要求与 Hermes 写入语义对齐）。
 
 ## 自动化验收（无网）
 
 ```bash
-python3 -m pytest -q agent/test_m5_kernel_replaceability_slice.py agent/test_m5_tool_port_slice.py agent/test_m5_entry_tool_injection_slice.py agent/test_m5_session_restore_port_slice.py agent/test_m5_entry_session_injection_slice.py agent/test_m5_session_db_factory_slice.py
+python3 -m pytest -q agent/test_m5_kernel_replaceability_slice.py agent/test_m5_tool_port_slice.py agent/test_m5_entry_tool_injection_slice.py agent/test_m5_session_restore_port_slice.py agent/test_m5_entry_session_injection_slice.py agent/test_m5_session_db_factory_slice.py agent/test_m5_checkpoint_port_slice.py agent/test_m5_entry_checkpoint_injection_slice.py
 ```
 
 纳入：`./run_ralph_tier0.sh`（Gate2）。
@@ -40,6 +45,7 @@ python3 -m pytest -q agent/test_m5_kernel_replaceability_slice.py agent/test_m5_
 
 | 日期 | 说明 |
 |------|------|
+| 2026-05-03 | `CheckpointPersistencePort`；`run_conversation` 检查点；CLI/API 注入；相关测试。 |
 | 2026-05-02 | `SessionDbClientFactory`；与 Insights + builtin restore 共用；`test_m5_session_db_factory_slice`；CLI/API/kw 注入。 |
 | 2026-05-02 | `SessionRestorePort`；`session_backend` / `set_session_backend`；CLI/API 注入；`test_m5_session_restore_port_slice`、`test_m5_entry_session_injection_slice`。 |
 | 2026-05-02 | `ToolInvocationPort`；`tool_backend` / `set_tool_backend`；CLI/API 注入；`test_m5_tool_port_slice`、`test_m5_entry_tool_injection_slice`。 |

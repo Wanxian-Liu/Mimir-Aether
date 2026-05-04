@@ -4739,6 +4739,7 @@ async def run_task(
     tool_backend=None,
     session_backend=None,
     session_db_factory=None,
+    checkpoint_backend=None,
 ):
     """执行单个任务。
 
@@ -4750,6 +4751,7 @@ async def run_task(
         session_backend: 可选，实现 :class:`agent.session_port.SessionRestorePort` 时走注入会话恢复（测试/定制）；
             默认 None 使用内置 SessionDB 路径。
         session_db_factory: 可选，实现 :class:`agent.session_port.SessionDbClientFactory` 时统一 Insights 与内置恢复所用的 DB 构造。
+        checkpoint_backend: 可选，实现 :class:`agent.checkpoint_port.CheckpointPersistencePort` 时替代断点续传存储。
     """
     from agent.core_loop import MimirAetherAgent
 
@@ -4774,6 +4776,8 @@ async def run_task(
         kwargs["session_backend"] = session_backend
     if session_db_factory is not None:
         kwargs["session_db_factory"] = session_db_factory
+    if checkpoint_backend is not None:
+        kwargs["checkpoint_backend"] = checkpoint_backend
 
     agent = MimirAetherAgent(**kwargs)
     

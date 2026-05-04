@@ -133,6 +133,7 @@ from .agent_loop import MimirAgentLoop, AgentResult as LoopAgentResult, ToolErro
 from .llm_port import LlmInvocationPort
 from .tool_port import ToolInvocationPort
 from .session_port import SessionDbClientFactory, SessionRestorePort
+from .checkpoint_port import CheckpointPersistencePort
 
 
 logger = logging.getLogger(__name__)
@@ -276,6 +277,35 @@ class _BuiltinSessionDbFactory:
             return None
 
 
+class _BuiltinCheckpointBackend:
+    """Default: global ``CheckpointManager`` from ``checkpoint_manager.get_checkpoint_manager``."""
+
+    __slots__ = ()
+
+    def load_checkpoint(self, task_id: str) -> Optional[Any]:
+        from checkpoint_manager import get_checkpoint_manager
+
+        return get_checkpoint_manager().load_checkpoint(task_id)
+
+    def save_checkpoint(
+        self,
+        task_id: str,
+        state: Dict[str, Any],
+        current_step: int = 0,
+        next_action: str = "继续执行",
+    ) -> bool:
+        from checkpoint_manager import get_checkpoint_manager
+
+        return get_checkpoint_manager().save_checkpoint(
+            task_id, state, current_step, next_action
+        )
+
+    def clear_checkpoint(self, task_id: str) -> bool:
+        from checkpoint_manager import get_checkpoint_manager
+
+        return get_checkpoint_manager().clear_checkpoint(task_id)
+
+
 class _BuiltinSessionRestore:
     """Default session restore: Hermes SessionDB → ``conversation_history``."""
 
@@ -325,6 +355,7 @@ class MimirAetherAgent:
         tool_backend: Optional[ToolInvocationPort] = None,
         session_backend: Optional[SessionRestorePort] = None,
         session_db_factory: Optional[SessionDbClientFactory] = None,
+        checkpoint_backend: Optional[CheckpointPersistencePort] = None,
     ):
         """
         初始化MimirAether Agent
@@ -351,6 +382,7 @@ class MimirAetherAgent:
             tool_backend: 可选；实现 :class:`~agent.tool_port.ToolInvocationPort` 则替代默认工具批处理路径
             session_backend: 可选；实现 :class:`~agent.session_port.SessionRestorePort` 则替代默认 SessionDB 恢复路径
             session_db_factory: 可选；实现 :class:`~agent.session_port.SessionDbClientFactory` 则统一 Insights 与内置恢复所用的 DB 客户端构造
+            checkpoint_backend: 可选；实现 :class:`~agent.checkpoint_port.CheckpointPersistencePort` 则替代断点续传用的检查点存取
         """
         self.model = model
         self.max_iterations = max_iterations
@@ -479,6 +511,9 @@ class MimirAetherAgent:
         )
         self._session_backend: SessionRestorePort = (
             session_backend if session_backend is not None else _BuiltinSessionRestore(self)
+        )
+        self._checkpoint_backend: CheckpointPersistencePort = (
+            checkpoint_backend if checkpoint_backend is not None else _BuiltinCheckpointBackend()
         )
 
         logger.info(f"MimirAether initialized with model: {model}, context_length: {self._context_length}")
@@ -1222,8 +1257,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
         # 断点续传:检查是否存在未完成的检查点
         # ============================================================
         task_id = hashlib.sha256(fenced_msg.content.encode('utf-8')).hexdigest()[:16]
-        from checkpoint_manager import get_checkpoint_manager, CheckpointState
-        checkpoint_mgr = get_checkpoint_manager()
+        checkpoint_mgr = self._checkpoint_backend
         recovered_from_checkpoint = False
 
         checkpoint = checkpoint_mgr.load_checkpoint(task_id)
@@ -1835,6 +1869,10 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
     def set_session_db_factory(self, factory: SessionDbClientFactory) -> None:
         """运行时切换 SessionDB 工厂（影响后续 ``create_session_db``；已构造的 ``insights`` 不变）。"""
         self._session_db_factory = factory
+
+    def set_checkpoint_backend(self, backend: CheckpointPersistencePort) -> None:
+        """运行时切换检查点后端（须实现 :class:`~agent.checkpoint_port.CheckpointPersistencePort`）。"""
+        self._checkpoint_backend = backend
 
     async def _call_anthropic_api(
         self,
