@@ -5,7 +5,7 @@
 
 | 字段 | 值 |
 |------|-----|
-| **最近更新** | 2026-05-05 |
+| **最近更新** | 2026-05-06 |
 | **更新人** | 协作者（用户问进度时刷新） |
 | **仓库根（真源）** | `~/.openclaw/projects/MimirAether` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁）；里程碑 A 项需真环境手动/清单 |
@@ -50,6 +50,7 @@
 
 ## 4. 近期焦点（可改）
 
+0. **真源树**：提交与推送仅在 **`~/.openclaw/projects/MimirAether`**；备份/镜像 checkout 的改动须 **reconcile** 到该根再推（**[`docs/path-contract.md`](path-contract.md)** §协作习惯、**[`AGENTS.md`](../AGENTS.md)**）。
 1. **执行 M6**：合并前对「agent / gateway / tools / 契约测试」类 PR 运行 `./scripts/record_m6_evolution.sh "…"` 或等价手工行（纯文档豁免见 **`docs/M6_EVOLUTION.md`**）。
 2. 保持 `run_ralph_tier0.sh` 全绿；合入用 Ralph 模式三轮（若启用严格迭代）。
 3. **维持 M6 绿**：受保护路径合入不长期漏记；新 clone 记得 `git config core.hooksPath .githooks`。
@@ -63,6 +64,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-06 | **真源习惯 + ∞ 推进**：**[`docs/path-contract.md`](path-contract.md)** 增加 §协作习惯（Git 真源）；**[`docs/mimir_phase_infinity_checklist.md`](mimir_phase_infinity_checklist.md)** 增加 §当前推进与执行记录（∞ 仍为 **黄**）。 |
 | 2026-05-05 | **阶段 4 启动**：新增 **`docs/mimir_phase_infinity_checklist.md`**；MAINLINE 里程碑 **∞** 标 **黄**（自主进化期进行中）。 |
 | 2026-05-04 | **里程碑 C 绿**：**`docs/phase_c_studies/`** 三主题报告 + **`hermes_mimir_behavior_matrix.md`** §4 目标 D；**`docs/mimir_phase_c_checklist.md`** §裁定与执行记录；MAINLINE **C** 标 **绿**；**M6** 见 `evolution_log` **里程碑 C 绿** 行。 |
 | 2026-05-04 | **阶段 3 启动**：新增 **`docs/mimir_phase_c_checklist.md`**；MAINLINE 里程碑 **C** 标 **黄**（独立学习期进行中）；默认首主题与 behavior_matrix 见清单。 |
