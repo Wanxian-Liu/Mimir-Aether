@@ -562,11 +562,28 @@ class GatewayRunner:
         self._fallback_model = self._load_fallback_model()
         self._smart_model_routing = self._load_smart_model_routing()
 
+        # Shared SessionDB for gateway commands, AIAgent(session_db=), /insights, and
+        # optional SessionStore JSONL → SQLite dual-write (must exist before SessionStore).
+        self._session_db = None
+        if session_db_factory is not None:
+            try:
+                self._session_db = session_db_factory.create_session_db()
+            except Exception as e:
+                logger.debug("session_db_factory failed: %s", e)
+                self._session_db = None
+        else:
+            try:
+                from hermes_state import SessionDB
+                self._session_db = SessionDB()
+            except Exception as e:
+                logger.debug("SQLite session store not available: %s", e)
+
         # Wire process registry into session store for reset protection
         from tools.process_registry import process_registry
         self.session_store = SessionStore(
             self.config.sessions_dir, self.config,
             has_active_processes_fn=lambda key: process_registry.has_active_for_session(key),
+            transcript_session_db=self._session_db,
         )
         self.delivery_router = DeliveryRouter(self.config)
         self._running = False
@@ -624,21 +641,6 @@ class GatewayRunner:
             ensure_installed(log_failures=False)
         except Exception:
             pass  # Non-fatal — fail-open at scan time if unavailable
-        
-        # Initialize session database for session_search tool support
-        self._session_db = None
-        if session_db_factory is not None:
-            try:
-                self._session_db = session_db_factory.create_session_db()
-            except Exception as e:
-                logger.debug("session_db_factory failed: %s", e)
-                self._session_db = None
-        else:
-            try:
-                from hermes_state import SessionDB
-                self._session_db = SessionDB()
-            except Exception as e:
-                logger.debug("SQLite session store not available: %s", e)
         
         # DM pairing store for code-based user authorization
         from gateway.pairing import PairingStore

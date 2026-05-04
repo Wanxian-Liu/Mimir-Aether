@@ -25,7 +25,7 @@ import uuid
 from pathlib import Path
 from datetime import datetime, timedelta
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -500,39 +500,61 @@ def build_session_key(
     return ":".join(key_parts)
 
 
+def _append_transcript_dict_to_session_db(db: Any, session_id: str, message: Dict[str, Any]) -> None:
+    """Map a JSONL-style transcript row to ``SessionDB.append_message`` (best-effort)."""
+    role = str(message.get("role") or "user")
+    content = message.get("content")
+    if content is None:
+        if role == "session_meta":
+            payload = {k: v for k, v in message.items() if k != "timestamp"}
+            content = json.dumps(payload, ensure_ascii=False)
+        else:
+            content = ""
+    elif not isinstance(content, str):
+        content = json.dumps(content, ensure_ascii=False)
+    tool_name = message.get("tool_name") or message.get("name")
+    tool_calls = message.get("tool_calls")
+    tool_call_id = message.get("tool_call_id")
+    reasoning = message.get("reasoning")
+    db.append_message(
+        session_id=session_id,
+        role=role,
+        content=content,
+        tool_name=tool_name,
+        tool_calls=tool_calls,
+        tool_call_id=tool_call_id,
+        reasoning=reasoning,
+    )
+
+
 class SessionStore:
     """
     Manages session storage and retrieval.
-    
-    # SQLite持久化层已移除 (使用JSONL替代)
-    #   原始: 使用 hermes_state.SessionDB 进行 SQLite 持久化
-    #   自研: 需要适配 OpenClaw 的持久化方案
-    #         方案1: 直接使用 SQLite + OpenClaw 路径
-    #         方案2: 使用 OpenClaw 的 sessions API
-    #         方案3: 仅使用 JSON 文件存储（简化版）
-    
+
     Uses JSON file storage (sessions.json) for session metadata.
-    Falls back to legacy JSONL files for message transcripts.
+    Message transcripts default to legacy JSONL files per session.
+
+    When ``transcript_session_db`` is set (typically the gateway runner's shared
+    ``hermes_state.SessionDB``), ``append_to_transcript`` also appends to SQLite
+    unless ``skip_db=True`` — aligning gateway JSONL with Hermes-compatible storage.
     """
-    
-    def __init__(self, sessions_dir: Path, config: GatewayConfig,
-                 has_active_processes_fn=None):
+
+    def __init__(
+        self,
+        sessions_dir: Path,
+        config: GatewayConfig,
+        has_active_processes_fn=None,
+        transcript_session_db: Optional[Any] = None,
+    ):
         self.sessions_dir = sessions_dir
         self.config = config
         self._entries: Dict[str, SessionEntry] = {}
         self._loaded = False
         self._lock = threading.Lock()
         self._has_active_processes_fn = has_active_processes_fn
-        
-        # SQLite持久化层已移除
-        # 原始代码: self._db = SessionDB() from hermes_state
-        # 自研: 需要实现 OpenClaw 兼容的会话持久化
-        self._db = None  # JSONL持久化
-        # try:
-        #     from openclaw_state import SessionDB  # 可选:未来可实现SQLite持久化层
-        #     self._db = SessionDB()
-        # except Exception as e:
-        #     print(f"[gateway] Warning: SQLite session store unavailable, falling back to JSONL: {e}")
+
+        #: Optional SQLite store for transcript dual-write (same object as ``GatewayRunner._session_db``).
+        self._db = transcript_session_db
     
     def _ensure_loaded(self) -> None:
         """Load sessions index from disk if not already loaded."""
@@ -957,26 +979,21 @@ class SessionStore:
         return self.sessions_dir / f"{session_id}.jsonl"
     
     def append_to_transcript(self, session_id: str, message: Dict[str, Any], skip_db: bool = False) -> None:
-        """Append a message to a session's transcript (JSONL only, SQLite removed).
-
-        # SQLite append_message已移除
-        # 自研: 可以考虑使用 OpenClaw 的 transcript API
+        """Append a message to a session's transcript (JSONL; optional SQLite dual-write).
 
         Args:
             skip_db: When True, only write to JSONL and skip the SQLite write.
-                     (SQLite 已移除，此参数保留以保持接口兼容)
         """
-        # SQLite append_message已移除
-        # if self._db and not skip_db:
-        #     try:
-        #         self._db.append_message(...)
-        #     except Exception as e:
-        #         logger.debug("Session DB operation failed: %s", e)
-        
-        # Write legacy JSONL (keeps existing tooling working during transition)
+        self.sessions_dir.mkdir(parents=True, exist_ok=True)
         transcript_path = self.get_transcript_path(session_id)
         with open(transcript_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(message, ensure_ascii=False) + "\n")
+
+        if self._db and not skip_db:
+            try:
+                _append_transcript_dict_to_session_db(self._db, session_id, message)
+            except Exception as e:
+                logger.debug("Session DB transcript append failed: %s", e)
     
     def rewrite_transcript(self, session_id: str, messages: List[Dict[str, Any]]) -> None:
         """Replace the entire transcript for a session with new messages.
@@ -996,6 +1013,7 @@ class SessionStore:
         #         logger.debug("Failed to rewrite transcript in DB: %s", e)
         
         # JSONL: overwrite the file
+        self.sessions_dir.mkdir(parents=True, exist_ok=True)
         transcript_path = self.get_transcript_path(session_id)
         with open(transcript_path, "w", encoding="utf-8") as f:
             for msg in messages:

@@ -44,3 +44,48 @@ def test_gateway_runner_factory_none_yields_no_session_db():
 
     runner = GatewayRunner(load_gateway_config(), session_db_factory=_Null())
     assert runner._session_db is None
+
+
+def test_session_store_append_dual_writes_sqlite(tmp_path):
+    from unittest.mock import MagicMock
+
+    from gateway.config import load_gateway_config
+    from gateway.session import SessionStore
+
+    db = MagicMock()
+    store = SessionStore(
+        tmp_path / "sessions",
+        load_gateway_config(),
+        transcript_session_db=db,
+    )
+    store.append_to_transcript("sid-1", {"role": "user", "content": "hello"})
+    db.append_message.assert_called_once()
+    kw = db.append_message.call_args[1]
+    assert kw["session_id"] == "sid-1"
+    assert kw["role"] == "user"
+    assert kw["content"] == "hello"
+
+
+def test_session_store_append_skip_db_skips_sqlite(tmp_path):
+    from unittest.mock import MagicMock
+
+    from gateway.config import load_gateway_config
+    from gateway.session import SessionStore
+
+    db = MagicMock()
+    store = SessionStore(
+        tmp_path / "sessions",
+        load_gateway_config(),
+        transcript_session_db=db,
+    )
+    store.append_to_transcript("sid-1", {"role": "user", "content": "x"}, skip_db=True)
+    db.append_message.assert_not_called()
+
+
+def test_gateway_runner_passes_session_db_to_session_store():
+    from gateway.run import GatewayRunner
+    from gateway.config import load_gateway_config
+
+    sentinel = object()
+    runner = GatewayRunner(load_gateway_config(), session_db_factory=_Fac(sentinel))
+    assert runner.session_store._db is sentinel

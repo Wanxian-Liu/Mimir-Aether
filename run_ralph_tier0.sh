@@ -18,6 +18,7 @@ TARGET_FILES=(
   "agent/checkpoint_port.py"
   "agent/kernel_overrides.py"
   "gateway/run.py"
+  "gateway/session.py"
   "tools/code_execution_tool.py"
 )
 

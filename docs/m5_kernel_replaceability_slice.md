@@ -31,9 +31,9 @@
   - **API**：`api_service.AgentManager.set_kernel_overrides(bundle)` 先于单字段 `set_*_override` 应用，**后者覆盖前者**。  
   - 测试：`agent/test_m5_kernel_bundle_slice.py`。  
 - **Gateway SQLite 注入**：`gateway.run.GatewayRunner(..., session_db_factory=…)` 接受与 **`SessionDbClientFactory`** 相同的 **`create_session_db()`** 协议；用于替换网关侧 SessionDB 实例（`/title`、`/branch`、`AIAgent(session_db=)`、`/insights` 在已有 `_session_db` 时复用且不再 ``close`` 共享连接）。  
+  - **JSONL ↔ SQLite 双写**：`gateway.session.SessionStore(..., transcript_session_db=…)`；网关启动时将 **`GatewayRunner._session_db`** 传入，使 **`append_to_transcript`** 在 **`skip_db=False`** 时除 JSONL 外调用 **`SessionDB.append_message`**（与 Hermes 消息表对齐）。**`skip_db=True`**（如 agent 已写入 SQLite）仍只写 JSONL。  
   - 测试：`agent/test_m5_gateway_session_db_slice.py`。  
-  - 说明：`gateway/session.py` 内 JSONL transcript 的 SQLite 写入仍注释移除状态；本切片针对 **run.py 持有的 hermes_state.SessionDB** 构造点。
-- **之后**：若需与 JSONL 双写对齐，可在 `SessionStore.append_to_transcript` 恢复可选 SQLite 路径并同样走工厂实例。
+- **之后**：`rewrite_transcript` / SQLite 全量替换路径仍仅为 JSONL；若要与压缩 /branch 等命令同步 SQLite，可再收口 ``clear_messages`` + 批量写入。
 
 ## 自动化验收（无网）
 
@@ -52,6 +52,7 @@ python3 -m pytest -q agent/test_m5_kernel_replaceability_slice.py agent/test_m5_
 
 | 日期 | 说明 |
 |------|------|
+| 2026-05-04 | `SessionStore(transcript_session_db=)` + `append_to_transcript` SQLite 双写；`GatewayRunner` 先初始化 `_session_db` 再挂入 SessionStore。 |
 | 2026-05-04 | `GatewayRunner(session_db_factory=)` → `SessionDbClientFactory`；`/insights` 复用 `_session_db`；`test_m5_gateway_session_db_slice`。 |
 | 2026-05-04 | `AgentKernelOverrides`；`kernel_overrides=` / `set_kernel_overrides` / CLI `kernel_overrides`；`test_m5_kernel_bundle_slice`。 |
 | 2026-05-03 | `CheckpointPersistencePort`；`run_conversation` 检查点；CLI/API 注入；相关测试。 |
