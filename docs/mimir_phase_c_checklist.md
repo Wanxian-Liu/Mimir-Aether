@@ -8,10 +8,10 @@
 
 | 字段 | 填写 |
 |------|------|
-| 日期 | **2026-05-04**（阶段 3 工程入口批次） |
+| 日期 | **2026-05-04**（阶段 3：C 黄 → C 绿同批） |
 | 执行人 | 协作者 / 代理（真源维护） |
 | 仓库根 | 默认 `~/.openclaw/projects/MimirAether`（见 [`docs/path-contract.md`](path-contract.md)） |
-| **当前学习目标（默认首主题）** | **Agent 主循环 + 工具调用链**；对照 [`docs/hermes_mimir_behavior_matrix.md`](hermes_mimir_behavior_matrix.md) **H04–H06、H19** 与 [`docs/ralph_parity_testmap.md`](ralph_parity_testmap.md)。报告路径见 **`docs/phase_c_studies/`**（首轮闭环后补具体文件名）。 |
+| **当前学习目标（已闭合 3 主题）** | 见 **`docs/phase_c_studies/README.md`**：`20260504_agent_loop_tool_chain.md`、`20260504_gateway_session_transcript.md`、`20260504_parity_matrix_workflow.md`。 |
 | 备注 | 勿在仓库提交 token；可选 Hermes 上游路径仅写本机说明（**不**提交密钥）。上游锚点见行为矩阵 §0 **HERMES_REF**。 |
 
 ---
@@ -52,13 +52,17 @@
 
 ---
 
-## C 绿裁定记录（工程侧）
+## C 绿裁定记录（工程侧，2026-05-04）
 
-> **填表时机**：达标后由维护者填写；与 §执行记录 可互相引用。
+本仓库将 **里程碑 C** 在 **MAINLINE** 标 **绿** 时，依据下列 **可审计** 材料（满足 §建议的 C「绿」门槛：**≥3** 次不同主题闭环 + C4 至少一次写回）。
 
 | # | 主题（摘要） | C1 自选目标 | C2 读码/架构报告 | C3 改进方案 | C4 迁移到 Mimir | C5 归档 |
 |---|-------------|-------------|------------------|-------------|-----------------|--------|
-| — | （达标后填写） | — | — | — | — | — |
+| 1 | **Agent 主循环 + 工具链** | H04–H06、H19；`core_loop` / Tier1 E2E | [`phase_c_studies/20260504_agent_loop_tool_chain.md`](phase_c_studies/20260504_agent_loop_tool_chain.md) | 文档交叉链；真模型子集 GAP | **README 索引** + 矩阵 **§4 目标 D**（同批） | 报告 §复盘 |
+| 2 | **Gateway SessionStore 双写** | `SessionStore`、M5 对齐语义 | [`phase_c_studies/20260504_gateway_session_transcript.md`](phase_c_studies/20260504_gateway_session_transcript.md) | 可观测性；API 文档指回 `session.py` | **README 索引** | 报告 §复盘 |
+| 3 | **矩阵 + testmap 工作流** | HERMES_REF 流程、H15 脚本 | [`phase_c_studies/20260504_parity_matrix_workflow.md`](phase_c_studies/20260504_parity_matrix_workflow.md) | H20 CI；索引互链 | **behavior_matrix §4 目标 D** + **README** | 报告 §复盘 |
+
+**M6**：标 **C 绿** 后运行 **`./scripts/record_m6_evolution.sh`** 记一行（见 `docs/evolution_log.md` 最新 **里程碑 C 绿** 摘要）。
 
 **范围说明**：路线图 C 条文中 **「自动归档记忆殿堂」** 若管道未接好，**工程表 C 绿** 声明：以 **本仓库 `docs/phase_c_studies/` + §执行记录 + M6 日志** 为可审计归档链；全自动化记忆写入另立项。
 
@@ -93,12 +97,12 @@
 
 | 勾选 | 项 |
 |------|-----|
-| [ ] | 目标模块/边界：__________ |
-| [ ] | 对照矩阵 ID 或契约段落：__________ |
+| [x] | 目标模块/边界：见 §C 绿裁定记录 **#1–#3**（Agent 循环 / Gateway 会话 / 矩阵工作流） |
+| [x] | 对照矩阵 ID 或契约段落：**H04–H06、H19**；**SessionStore**；**§0 HERMES_REF** |
 
-**证据**：__________  
+**证据**：[`phase_c_studies/README.md`](phase_c_studies/README.md)  
 
-**阻塞**：__________  
+**阻塞**：无  
 
 ---
 
@@ -112,12 +116,12 @@
 
 | 勾选 | 项 |
 |------|-----|
-| [ ] | 报告路径：__________ |
-| [ ] | 核心入口/调用链已标明：__________ |
+| [x] | 报告路径：`docs/phase_c_studies/20260504_*.md`（三份） |
+| [x] | 核心入口/调用链已标明：`core_loop.run_conversation`；`SessionStore.append_to_transcript`；矩阵 §3–§4 |
 
-**证据**：__________  
+**证据**：同上  
 
-**阻塞**：__________  
+**阻塞**：无  
 
 ---
 
@@ -131,11 +135,11 @@
 
 | 勾选 | 项 |
 |------|-----|
-| [ ] | 改进摘要（可指向报告 §）：__________ |
+| [x] | 改进摘要：各报告 **§差距与改进建议**（每份 ≥2 条） |
 
-**证据**：__________  
+**证据**：[`20260504_agent_loop_tool_chain.md`](phase_c_studies/20260504_agent_loop_tool_chain.md) §4 等  
 
-**阻塞**：__________  
+**阻塞**：无  
 
 ---
 
@@ -149,11 +153,11 @@
 
 | 勾选 | 项 |
 |------|-----|
-| [ ] | 迁移说明（PR / 文件 / commit）：__________ |
+| [x] | 迁移说明：新增 **`docs/phase_c_studies/README.md`**；**[`hermes_mimir_behavior_matrix.md`](hermes_mimir_behavior_matrix.md) §4 目标 D** |
 
-**证据**：__________  
+**证据**：git diff 同批；**MAINLINE** §5  
 
-**阻塞**：__________  
+**阻塞**：无  
 
 ---
 
@@ -165,12 +169,12 @@
 
 | 勾选 | 项 |
 |------|-----|
-| [ ] | 归档引用（路径）：__________ |
-| [ ] | 含：学到什么、下一步、风险（至少 2 条） |
+| [x] | 归档引用（路径）：三份报告 **§复盘** + 本清单 §执行记录 |
+| [x] | 含：学到什么、下一步、风险（每报告 §6 或 §复盘） |
 
-**证据**：__________  
+**证据**：同上  
 
-**阻塞**：__________  
+**阻塞**：无  
 
 ---
 
@@ -178,11 +182,11 @@
 
 | 里程碑 C 条款 | 对应章节 | 完成（本轮） |
 |---------------|----------|--------------|
-| 自选学习目标 | §C1 | [ ] |
-| 读码与报告 | §C2 | [ ] |
-| 改进方案 | §C3 | [ ] |
-| 迁移到 Mimir | §C4 | [ ] |
-| 归档 | §C5 | [ ] |
+| 自选学习目标 | §C1 | [x] 见 §C 绿裁定记录 |
+| 读码与报告 | §C2 | [x] 三份 `phase_c_studies` 报告 |
+| 改进方案 | §C3 | [x] 各报告 §4 |
+| 迁移到 Mimir | §C4 | [x] README + 矩阵 §4 目标 D |
+| 归档 | §C5 | [x] 报告 §复盘 + 本清单 |
 
 ---
 
@@ -190,7 +194,11 @@
 
 | 日期 | 主题摘要 | C1–C5 要点 | 备注 |
 |------|----------|------------|------|
-| 2026-05-04 | 阶段 3 工程入口 | 新增本清单；MAINLINE **C** 拟标 **黄**；首主题默认 Agent 主循环 + 工具链 | 待首轮 `phase_c_studies` 报告 |
+| 2026-05-04 | **里程碑 C 绿**：三主题报告 + 矩阵 §4 + README | 闭环齐；MAINLINE **C**→**绿** | 见 §C 绿裁定记录；**M6** `record_m6` |
+| 2026-05-04 | Parity 矩阵维护工作流 | 报告 `20260504_parity_matrix_workflow` | 主题 3/3 |
+| 2026-05-04 | Gateway SessionStore transcript | 报告 `20260504_gateway_session_transcript` | 主题 2/3 |
+| 2026-05-04 | Agent 主循环 + 工具链 | 报告 `20260504_agent_loop_tool_chain` | 主题 1/3 |
+| 2026-05-04 | 阶段 3 工程入口 | 新增本清单；MAINLINE **C** 标 **黄** | 866a020 批次 |
 
 ---
 

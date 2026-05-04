@@ -85,6 +85,7 @@ git -C /path/to/hermes-agent checkout bcdd720741f4988b66877f2bfe6a8ef930640a0d
 - **目标 A（有门禁）**：H01–H14、H18–H20 类行尽量 **OK + 证据** → 你们已覆盖大半。  
 - **目标 B（可对账 Hermes）**：**HERMES_REF** 已锁；**H19** Hermes 锚点已写入上表；**H15** 用 `scripts/diff_tool_names_hermes_mimir.py` 做名级 diff（退出码 1 表示仍有差集，属预期直至你们刻意对齐工具面）。  
 - **目标 C（真环境运转）**：本表外另需 **真网关/真终端/真模型** 的 **ext 清单**（可再建 `docs/mimir_prod_smoke.md`）；不必塞进 Gate2。  
+- **目标 D（阶段 3 / 独立学习 / 里程碑 C）**：以本表 + **`docs/ralph_parity_testmap.md`** 为默认真源做「读码 → 报告 → 可选改表」闭环；学习报告索引见 **`docs/phase_c_studies/README.md`**，勾选与门槛见 **`docs/mimir_phase_c_checklist.md`**。  
 
 ---
 
