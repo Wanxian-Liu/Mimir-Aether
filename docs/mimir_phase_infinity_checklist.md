@@ -107,7 +107,7 @@
 | [x] | 本窗口内进化周期数（≥3 为 ∞ 绿门槛）：**4**（**#1–#3** 文档批；**#4** 代码向 + M6，见下表） |
 | [x] | 证据：**§∞1 可审计周期索引**；**#4** [`evolution_log.md`](evolution_log.md) **末行** |
 
-**阻塞**：**∞2** 须 **≥2** 条样本方达 ∞ 绿；当前 **1/2** 已登记（见 §∞2）；其余门槛未齐；MAINLINE **∞** 仍为 **黄**。  
+**阻塞**：**∞2** 两条样本已齐（§∞2 表 **#1–#2**）；**∞ 绿** 仍须 §建议门槛其余项（如 ∞1 窗口裁定、多周期叙事等）；MAINLINE **∞** 仍为 **黄**。  
 
 ---
 
@@ -135,10 +135,10 @@
 
 | 勾选 | 项 |
 |------|-----|
-| [x] | 「新类」说明：见 **§∞2 新类任务样本 #1**（**1/2**，∞ 绿尚须第二条） |
+| [x] | 「新类」说明：见 **§∞2 新类任务样本 #1–#2**（两条 **类型不同** 的端到端交付） |
 | [x] | 交付物与验收：见同表 **交付物 / 验收** 列 |
 
-**阻塞**：∞ 绿需 **第二条** 新类样本（#2）；登记后更新本表与 §汇总。  
+**阻塞**：∞ 绿仍须维护者综合 §建议门槛（含 ∞1 窗口 **as-of**、§∞ 绿裁定记录等）；MAINLINE **∞** 仍为 **黄**。  
 
 ---
 
@@ -149,6 +149,7 @@
 | # | 归档日期 | 新类标签（一句话） | 与 B / C 差异 | 交付物（路径 / commit） | 验收（可复现） |
 |---|----------|-------------------|---------------|-------------------------|----------------|
 | 1 | 2026-05-04 | **工具名级 Parity 收束（H15）**：Hermes `get_tool_definitions` 与 Mimir `registry` 的 **自动化差集 + 缺口修复** | 非「单任务伙伴验收」也非「学习报告主线」；以 **跨实现工具面** 的 **可脚本对账 + 合并修复** 为闭环 | **`e21b065`**；[`tools/browser_camofox.py`](../tools/browser_camofox.py)、[`tools/session_search_tool.py`](../tools/session_search_tool.py)、[`tools/skill_manager_tool.py`](../tools/skill_manager_tool.py)；脚本 [`scripts/diff_tool_names_hermes_mimir.py`](../scripts/diff_tool_names_hermes_mimir.py)；快照 [`docs/parity_snapshots/h15_tool_names_diff_20260506.json`](parity_snapshots/h15_tool_names_diff_20260506.json) | （1）合并时 **`./run_ralph_tier0.sh` PASS**。（2）真源下 **`python3 scripts/diff_tool_names_hermes_mimir.py --json`**：`intersection` 含全部 **`browser_*`**、**`session_search`**、**`skill_view`**、**`skills_list`**；`hermes_only` 仅为 **`feishu_*`**（5）— 与快照一致。（3）Hermes / Mimir 根路径以脚本内默认或 `--help` 为准。 |
+| 2 | 2026-05-04 | **M4 辅助 HTTP 离线分类切片**：对 **出站 HTTP** 失败形态（401 / 429 / 超时 / 连接类等）的 **无网 fixtures + JSON 驱动回归** | 与 #1 **类型不同**：不是工具注册表 / 名级 diff，而是 **Tier-2 HTTP 语义形状** 的测试资产与分类断言；亦非 C 阶段「单主题读书报告」主线 | **`2500740`**；[`fixtures/m4_http/error_shapes.json`](../fixtures/m4_http/error_shapes.json)、[`fixtures/m4_http/README.md`](../fixtures/m4_http/README.md)；[`scripts/refresh_m4_http_fixtures.sh`](../scripts/refresh_m4_http_fixtures.sh)；[`agent/test_m4_auxiliary_http_slice.py`](../agent/test_m4_auxiliary_http_slice.py)；[`docs/m4_auxiliary_http_slice.md`](m4_auxiliary_http_slice.md) | （1）合并链路上 **tier0 绿**（本切片在 Gate2 内）。（2）真源下 **`python3 -m pytest agent/test_m4_auxiliary_http_slice.py -q`** 全 PASS。（3）刷新 fixtures 流程见 [`m4_auxiliary_http_slice.md`](m4_auxiliary_http_slice.md) 与 [`fixtures/m4_http/README.md`](../fixtures/m4_http/README.md)。 |
 
 ---
 
@@ -182,7 +183,7 @@
 | [x] | 宪章真源路径：**[`docs/weave_charter.md`](weave_charter.md)**（v0.1 草案） |
 | [x] | 最近一次对照审查：§宪章对照审查记录 **#1** |
 
-**阻塞**：**∞ 绿** 须累计更多进化周期与新类任务样本（§建议的 ∞「绿」门槛）。  
+**阻塞**：**∞ 绿** 须满足 §建议门槛全文（含 ∞1 窗口裁定、§∞ 绿裁定记录）；**∞2 样本条数** 已齐。  
 
 ---
 
@@ -191,7 +192,7 @@
 | 里程碑 ∞ 条款 | 对应章节 | 完成（本轮） |
 |----------------|----------|--------------|
 | 持续增长 | §∞1 | [x] **∞1 索引**：≥3 文档周期 + **#4** 代码向 + M6（见 §∞1 可审计周期索引） |
-| 新类任务 | §∞2 | [ ] **样本 1/2** 已登记（§∞2 新类任务样本 **#1**）；∞ 绿须 **#2** |
+| 新类任务 | §∞2 | [x] **样本 2/2**（§∞2 表 **#1 H15** + **#2 M4 HTTP**；类型互斥） |
 | 价值观一致 | §∞3 | [x] 工程侧：§宪章对照审查记录 **#1** |
 | 宪章体现 | §∞4 | [x] **`weave_charter.md` v0.1** + 对照记录 |
 
@@ -201,11 +202,12 @@
 
 | 日期 | 周期摘要 | ∞1–∞4 要点 | 备注 |
 |------|----------|------------|------|
-| 2026-05-07 | **织界宪章**草案入库 + 首条对照审查 | **∞3/∞4**：书面真源与审查记录 **#1**；**∞1/∞2**：仍缺（MAINLINE **∞** 保持 **黄**） | [`weave_charter.md`](weave_charter.md)；§宪章对照审查记录 |
-| 2026-05-05 | **∞2 样本 #1** 落档（H15 工具名级 Parity） | **∞2**：新类任务 **1/2**（见 §∞2 表）；**∞ 绿** 仍缺样本 #2 | `e21b065`；[`diff_tool_names_hermes_mimir.py`](../scripts/diff_tool_names_hermes_mimir.py) |
-| 2026-05-06 | 真源习惯 + ∞ 推进对齐 | **∞1–∞4**：未达标（仍为黄）；固化「仅真源树提交/推送」与每周期 §执行记录 + M6 习惯 | [`path-contract.md`](path-contract.md) 新增 §协作习惯；本清单新增 §当前推进 |
+| 2026-05-07 | **织界宪章**草案入库 + 首条对照审查 | **∞3/∞4**：§宪章对照审查记录 **#1**；MAINLINE **∞** **黄** | [`weave_charter.md`](weave_charter.md)；§宪章对照审查记录 |
+| 2026-05-06 | 真源习惯 + ∞ 推进对齐 | **∞1–∞4**：未宣称 ∞ 绿；固化真源与 §执行记录习惯 | [`path-contract.md`](path-contract.md) 新增 §协作习惯；本清单新增 §当前推进 |
+| 2026-05-05 | **∞2 样本 #2** 落档（M4 HTTP 离线分类切片） | **∞2**：**2/2**；**∞ 绿** 仍待 §建议门槛综合裁定 | `2500740`；[`m4_auxiliary_http_slice.md`](m4_auxiliary_http_slice.md) |
+| 2026-05-05 | **∞2 样本 #1** 落档（H15 工具名级 Parity） | **∞2**：**1/2** → 与 #2 互补（见 §∞2 表） | `e21b065`；[`diff_tool_names_hermes_mimir.py`](../scripts/diff_tool_names_hermes_mimir.py) |
 | 2026-05-05 | 阶段 4 工程入口 | 新增本清单；MAINLINE **∞** 标 **黄** | 宪章真源待补；∞ 绿门槛见上文 |
-| 2026-05-04 | **∞1 加固**：契约测模块说明 + M6 | **∞1**：索引 **#4**（`bc5d111` + `evolution_log` 末行）；**∞2** 仍缺；MAINLINE **∞** **黄** | [`record_m6_evolution.sh`](../scripts/record_m6_evolution.sh)；§∞1 可审计周期索引 |
+| 2026-05-04 | **∞1 加固**：契约测模块说明 + M6 | **∞1**：索引 **#4**（`bc5d111` + `evolution_log` 末行） | [`record_m6_evolution.sh`](../scripts/record_m6_evolution.sh)；§∞1 可审计周期索引 |
 
 ---
 
