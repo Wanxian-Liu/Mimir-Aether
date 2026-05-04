@@ -12,3 +12,4 @@ Append-only. Newest rows at the **bottom**. See **`docs/M6_EVOLUTION.md`** for r
 | 20260504T140150Z_7fcfc2e-dirty | 2026-05-04T14:01:50Z | 7fcfc2e-dirty | ./run_ralph_tier0.sh | 0 | M6 pre-push soft reminder; M6 merge workflow doc; ToolRegistry WAL; stabilize tool registry concurrency test (barrier + yield) |
 | 20260504T142617Z_94abd83-dirty | 2026-05-04T14:26:17Z | 94abd83-dirty | ./run_ralph_tier0.sh | 0 | M4 green: fixtures/m4_http + refresh script; JSON-driven classification tests; MAINLINE M4 green |
 | 20260504T145125Z_4ad6c07 | 2026-05-04T14:51:25Z | 4ad6c07 | ./run_ralph_tier0.sh | 0 | 里程碑 B 绿（工程裁定）：MAINLINE B→绿 + docs/mimir_phase_b_checklist §B 绿裁定/执行记录；metrics: n/a |
+| 20260504T150637Z_5a0211b | 2026-05-04T15:06:37Z | 5a0211b | ./run_ralph_tier0.sh | 0 | 里程碑 C 绿（工程裁定）：phase_c_studies×3 + phase_c 清单 §裁定 + behavior_matrix §4 目标 D；MAINLINE C→绿；metrics: n/a |

@@ -62,7 +62,7 @@
 | 2 | **Gateway SessionStore 双写** | `SessionStore`、M5 对齐语义 | [`phase_c_studies/20260504_gateway_session_transcript.md`](phase_c_studies/20260504_gateway_session_transcript.md) | 可观测性；API 文档指回 `session.py` | **README 索引** | 报告 §复盘 |
 | 3 | **矩阵 + testmap 工作流** | HERMES_REF 流程、H15 脚本 | [`phase_c_studies/20260504_parity_matrix_workflow.md`](phase_c_studies/20260504_parity_matrix_workflow.md) | H20 CI；索引互链 | **behavior_matrix §4 目标 D** + **README** | 报告 §复盘 |
 
-**M6**：标 **C 绿** 后运行 **`./scripts/record_m6_evolution.sh`** 记一行（见 `docs/evolution_log.md` 最新 **里程碑 C 绿** 摘要）。
+**M6**：`docs/evolution_log.md` **`20260504T150637Z_5a0211b`**（`./scripts/record_m6_evolution.sh`，tier0 **0**）。
 
 **范围说明**：路线图 C 条文中 **「自动归档记忆殿堂」** 若管道未接好，**工程表 C 绿** 声明：以 **本仓库 `docs/phase_c_studies/` + §执行记录 + M6 日志** 为可审计归档链；全自动化记忆写入另立项。
 
