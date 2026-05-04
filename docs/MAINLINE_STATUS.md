@@ -22,7 +22,7 @@
 | M3 | 垂直切片 | **绿** | **两条**：CLI（`docs/m3_cli_quick_task_slice.md`）+ **API** `POST /v1/chat/completions`（`docs/m3_api_chat_slice.md`，`agent/test_m3_api_chat_slice.py`） |
 | M4 | Tier-2 HTTP（可选） | **黄** | 最小切片：辅助 HTTP 错误分类离线测试 + 文档（`docs/m4_auxiliary_http_slice.md`）；全绿需更广 Tier-2 HTTP / 录制见里程碑正文 |
 | M5 | 内核可替换 | **绿** | 产出物与 **`docs/ralph_roadmap_milestones.md`** M5 判据已对齐：多端口 seams（LLM / tool / session restore / checkpoint）、`SessionDbClientFactory`、`AgentKernelOverrides`、CLI/API 注入、`GatewayRunner(session_db_factory=)` 与 `SessionStore` JSONL↔SQLite（含 `rewrite_transcript`）；清单与验收见 **`docs/m5_kernel_replaceability_slice.md`**。可替换 = 边界可注入 + 各切片验证 + 默认路径 **`./run_ralph_tier0.sh`** 全绿；**全栈第二套生产实现同时替换**若需要则另立项 |
-| M6 | 进化可审计 | **黄** | **`docs/M6_EVOLUTION.md`** + **`docs/evolution_log.md`** + **`scripts/record_m6_evolution.sh`** 已落地；合并触达 agent/gateway/tools/契约测时须补记一行。**绿** = 团队默认执行满 2 个合并周期无漏记 |
+| M6 | 进化可审计 | **绿** | 产出物与 **`docs/ralph_roadmap_milestones.md`** M6 判据对齐：**`docs/M6_EVOLUTION.md`**、**`docs/evolution_log.md`**、**`scripts/record_m6_evolution.sh`**、**`.github/pull_request_template.md`**；**`core.hooksPath=.githooks`** 时 pre-push 在 tier0 通过后对「受保护路径变更但未含 `evolution_log`」打印软提醒（见 **`docs/M6_EVOLUTION.md`**）。合入仍须带门禁证据；受保护变更用 `record_m6` 或 PR 模板 **Recorded**；豁免见 M6 文档。**维持**：勿长期跳过记录 |
 
 状态图例：**绿** = 满足文档完成判据或等价；**黄** = 部分/待复核；**未** = 未达成。
 
@@ -44,15 +44,15 @@
 | 主线 | 健康度 | 备注 |
 |------|--------|------|
 | **Parity** | 强 | 契约 + Gate1–3 + 测试映射可追踪 |
-| **Evolution** | 中 | M6 最小闭环已落地；习惯养成中（见 `docs/evolution_log.md`） |
+| **Evolution** | 强 | M6 标 **绿**：规则 + 日志 + 脚本 + PR 模板 + pre-push 提醒；见 `docs/evolution_log.md` |
 
 ---
 
 ## 4. 近期焦点（可改）
 
-1. **执行 M6**：合并前对「agent / gateway / tools / 契约测试」类 PR 运行 `./scripts/record_m6_evolution.sh "…"` 或等价手工行。
+1. **执行 M6**：合并前对「agent / gateway / tools / 契约测试」类 PR 运行 `./scripts/record_m6_evolution.sh "…"` 或等价手工行（纯文档豁免见 **`docs/M6_EVOLUTION.md`**）。
 2. 保持 `run_ralph_tier0.sh` 全绿；合入用 Ralph 模式三轮（若启用严格迭代）。
-3. M6 标 **绿** 前：连续 2 个合并周期无漏记（自证习惯）。
+3. **维持 M6 绿**：受保护路径合入不长期漏记；新 clone 记得 `git config core.hooksPath .githooks`。
 
 ---
 
@@ -60,6 +60,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-04 | **M6 绿**：MAINLINE 标 **绿**；Evolution 健康度 **强**；闭环 = M6 文档 + `evolution_log` + `record_m6` + PR 模板 + pre-push 软提醒（`.githooks/pre-push`）。 |
 | 2026-05-04 | **M5 绿**：路线图 M5 判据复核通过；MAINLINE 标 **绿**；同步 **`docs/ralph_roadmap_milestones.md`** M5「最小切片」与仓库事实一致。可替换范围见 M5 表内说明（全栈第二实现非必要条件）。 |
 | 2026-05-03 | **M5（续）**：CLI/API 入口注入 `llm_backend`；`agent/test_m5_entry_llm_injection_slice.py`；MAINLINE 说明更新。 |
 | 2026-05-03 | **M5 黄**：`agent/llm_port.py` + `agent/test_m5_kernel_replaceability_slice.py` + `docs/m5_kernel_replaceability_slice.md`，纳入 `run_ralph_tier0.sh`；模型调用端口显式化（替换说明见文档）。 |
