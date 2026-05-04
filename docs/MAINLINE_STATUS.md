@@ -5,7 +5,7 @@
 
 | 字段 | 值 |
 |------|-----|
-| **最近更新** | 2026-05-06 |
+| **最近更新** | 2026-05-07 |
 | **更新人** | 协作者（用户问进度时刷新） |
 | **仓库根（真源）** | `~/.openclaw/projects/MimirAether` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁）；里程碑 A 项需真环境手动/清单 |
@@ -35,7 +35,7 @@
 | 1 Hermes 影子期 | **A**：CLI + gateway + 工具链 + 基础 RL | **绿** | Smoke：A1–A4 已验；**飞书** Bot「wan」真实消息已通（`mimir_prod_smoke.md`） |
 | 2 专项伙伴期 | B | **绿** | 证据见 **`docs/mimir_phase_b_checklist.md`**（§B 绿裁定记录、§执行记录）；依赖 **A** 已绿。**范围**：工程可审计的伙伴交付链（git + M6 日志 + MAINLINE）；路线图人际条款仍由负责人日常验收。**维持**：新任务继续往 §执行记录 追加 |
 | 3 独立学习期 | C | **绿** | 证据见 **`docs/mimir_phase_c_checklist.md`**（§C 绿裁定记录、§执行记录）；**≥3** 主题报告见 **`docs/phase_c_studies/`**；对照 **`docs/hermes_mimir_behavior_matrix.md`**（§4 目标 D）。**范围**：工程可审计的独立学习链；路线图「自动记忆殿堂」未接管道时以仓库报告+清单为准。**维持**：新主题继续 §执行记录 |
-| 4 自主进化期 | ∞ | **黄** | **进行中**；勾选与证据见 **`docs/mimir_phase_infinity_checklist.md`**；依赖 **C** 已绿。**∞ 绿**前须满足该文档 §建议的 ∞「绿」门槛（含宪章书面真源）。**范围**：工程可审计的自主进化周期；价值观/宪章人际验收仍由负责人承担 |
+| 4 自主进化期 | ∞ | **黄** | **进行中**；勾选与证据见 **`docs/mimir_phase_infinity_checklist.md`**；宪章书面草案 **`docs/weave_charter.md`**（v0.1）；**§宪章对照审查记录** 已有首条（工程侧）。**∞ 绿**前仍须满足清单 §建议门槛（多周期、新类任务等）。**范围**：工程可审计的自主进化周期；价值观人际验收仍由负责人承担 |
 
 ---
 
@@ -64,6 +64,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-07 | **织界宪章草案**：新增 **`docs/weave_charter.md`**（v0.1）；**[`mimir_phase_infinity_checklist.md`](mimir_phase_infinity_checklist.md)** §宪章对照审查记录 **#1**；**∞** 仍为 **黄**（∞1/∞2 门槛未齐）。 |
 | 2026-05-06 | **真源习惯 + ∞ 推进**：**[`docs/path-contract.md`](path-contract.md)** 增加 §协作习惯（Git 真源）；**[`docs/mimir_phase_infinity_checklist.md`](mimir_phase_infinity_checklist.md)** 增加 §当前推进与执行记录（∞ 仍为 **黄**）。 |
 | 2026-05-05 | **阶段 4 启动**：新增 **`docs/mimir_phase_infinity_checklist.md`**；MAINLINE 里程碑 **∞** 标 **黄**（自主进化期进行中）。 |
 | 2026-05-04 | **里程碑 C 绿**：**`docs/phase_c_studies/`** 三主题报告 + **`hermes_mimir_behavior_matrix.md`** §4 目标 D；**`docs/mimir_phase_c_checklist.md`** §裁定与执行记录；MAINLINE **C** 标 **绿**；**M6** 见 `evolution_log` **里程碑 C 绿** 行。 |
