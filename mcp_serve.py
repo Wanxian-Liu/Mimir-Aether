@@ -36,6 +36,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from mimir_constants import get_mimir_home, get_mimir_sessions_dir
+
 logger = logging.getLogger("mimiraether.mcp_serve")
 
 _MCP_SERVER_AVAILABLE = False
@@ -47,12 +49,8 @@ except ImportError:
 
 
 def _get_sessions_dir() -> Path:
-    """Return the sessions directory using MIMIRAETHER_HOME."""
-    try:
-        from mimiraether_constants import get_mimiraether_home
-        return get_mimiraether_home() / "sessions"
-    except ImportError:
-        return Path(os.environ.get("MIMIRAETHER_HOME", Path.home() / ".openclaw" / "mimir-aether")) / "sessions"
+    """Gateway session file dir (aligned with gateway/config GatewayConfig.sessions_dir)."""
+    return get_mimir_sessions_dir()
 
 
 def _get_session_db():
@@ -80,13 +78,7 @@ def _load_sessions_index() -> dict:
 
 def _load_channel_directory() -> dict:
     """Load the cached channel directory for available targets."""
-    try:
-        from mimiraether_constants import get_mimiraether_home
-        directory_file = get_mimiraether_home() / "channel_directory.json"
-    except ImportError:
-        directory_file = Path(
-            os.environ.get("MIMIRAETHER_HOME", Path.home() / ".openclaw" / "mimir-aether")
-        ) / "channel_directory.json"
+    directory_file = get_mimir_home() / "channel_directory.json"
 
     if not directory_file.exists():
         return {}
@@ -300,11 +292,7 @@ class EventBridge:
             self._sessions_json_mtime = sj_mtime
             self._cached_sessions_index = _load_sessions_index()
 
-        try:
-            from mimiraether_constants import get_mimiraether_home
-            db_file = get_mimiraether_home() / "state.db"
-        except ImportError:
-            db_file = Path(os.environ.get("MIMIRAETHER_HOME", Path.home() / ".openclaw" / "mimir-aether")) / "state.db"
+        db_file = get_mimir_home() / "state.db"
 
         try:
             db_mtime = db_file.stat().st_mtime if db_file.exists() else 0.0

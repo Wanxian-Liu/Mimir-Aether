@@ -59,9 +59,9 @@ def register_env_passthrough(var_names: Iterable[str]) -> None:
 
 def _get_config_path() -> Path:
     """Get the config.yaml path (mirrors hermes_cli.config.get_config_path)."""
-    import os
-    home = Path(os.getenv("MIMIRAETHER_HOME", Path.home() / ".openclaw/mimir-aether"))
-    return home / "config.yaml"
+    from mimir_constants import get_config_path
+
+    return get_config_path()
 
 
 def _load_config_passthrough() -> frozenset[str]:

@@ -19,10 +19,12 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 from dataclasses import dataclass, asdict
 
+from mimir_constants import get_mimir_home
+
 logger = logging.getLogger(__name__)
 
 # 检查点存储目录
-CHECKPOINT_DIR = Path.home() / ".openclaw" / "projects" / "MimirAether" / "checkpoints"
+CHECKPOINT_DIR = get_mimir_home() / "checkpoints"
 
 
 @dataclass

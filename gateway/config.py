@@ -16,10 +16,16 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any
 from enum import Enum
 
-# 移除mimir_cli.config依赖 - 已使用Path.home()/.openclaw
-# utils.is_truthy_value依赖已移除
+from mimir_constants import get_mimir_home, get_mimir_sessions_dir
+
+# 配置与 sessions 根目录：Mimir 项目树（见 mimir_constants / docs/MIMIR_RUNTIME_CONTRACT.md）
 
 logger = logging.getLogger(__name__)
+
+
+def _get_gateway_home() -> Path:
+    """Historically ~/.openclaw; now the Mimir project home."""
+    return get_mimir_home()
 
 
 def _coerce_bool(value: Any, default: bool = True) -> bool:
@@ -218,13 +224,6 @@ class StreamingConfig:
         )
 
 
-# get_openclaw_home() 已实现
-def _get_openclaw_home() -> Path:
-    """Return the OpenClaw home directory."""
-    # 已替换为OpenClaw home路径逻辑
-    return Path.home() / ".openclaw"
-
-
 @dataclass
 class GatewayConfig:
     """
@@ -246,9 +245,8 @@ class GatewayConfig:
     # User-defined quick commands (slash commands that bypass the agent loop)
     quick_commands: Dict[str, Any] = field(default_factory=dict)
     
-    # Storage paths
-    # sessions_dir 已改为 ~/.openclaw/sessions
-    sessions_dir: Path = field(default_factory=lambda: _get_openclaw_home() / "sessions")
+    # Storage paths (file-based session artifacts; SQLite state.db is separate)
+    sessions_dir: Path = field(default_factory=get_mimir_sessions_dir)
     
     # Delivery settings
     always_log_local: bool = True  # Always save cron outputs to local files
@@ -390,7 +388,7 @@ class GatewayConfig:
         if "default_reset_policy" in data:
             default_policy = SessionResetPolicy.from_dict(data["default_reset_policy"])
         
-        sessions_dir = _get_openclaw_home() / "sessions"
+        sessions_dir = get_mimir_sessions_dir()
         if "sessions_dir" in data:
             sessions_dir = Path(data["sessions_dir"])
         
@@ -441,16 +439,13 @@ def load_gateway_config() -> GatewayConfig:
     """
     Load gateway configuration from multiple sources.
 
-    .openclaw//.openclaw/
-
     Priority (highest to lowest):
     1. Environment variables
-    2. ~/.openclaw/config.yaml (primary user-facing config)
-    3. ~/.openclaw/gateway.json (legacy — provides defaults under config.yaml)
+    2. ``$MIMIR_AETHER_HOME/config.yaml`` (primary; see mimir_constants)
+    3. ``gateway.json`` under the same home (legacy — defaults under config.yaml)
     4. Built-in defaults
     """
-    # _home = get_openclaw_home() 已实现
-    _home = _get_openclaw_home()
+    _home = _get_gateway_home()
     gw_data: dict = {}
 
     # Legacy fallback: gateway.json provides the base layer.

@@ -8,11 +8,11 @@ approaches into reusable procedural knowledge.
 **Agent path note:** The main MimirAether loop registers ``skill_manage`` from
 ``skills/skills_loader.py``, which writes under the **repo** ``skills/`` tree
 (see skill ``mimiraether-skill-solidify``). This module still uses
-``~/.openclaw/mimir-aether/skills/`` for its own create/find helpers — if the
+``get_mimiraether_home()/skills/`` for its own create/find helpers — if the
 two stories diverge, treat the skills_loader / in-repo layout as the runtime
 truth for the agent tool.
 
-New skills created **via this module** go to ~/.openclaw/mimir-aether/skills/.
+New skills created **via this module** go under ``$MIMIR_AETHER_HOME/skills/``.
 Existing skills (bundled, hub-installed, or user-created) can be modified or
 deleted wherever they live.
 
@@ -31,7 +31,7 @@ Actions:
   remove_file-- Remove a supporting file from a user skill
 
 Directory layout for user skills:
-    ~/.openclaw/mimir-aether/skills/
+    $MIMIR_AETHER_HOME/skills/
     ├── my-skill/
     │   ├── SKILL.md
     │   ├── references/
@@ -87,7 +87,7 @@ def _security_scan_skill(skill_dir: Path) -> Optional[str]:
 import yaml
 
 
-# All skills live in ~/.openclaw/mimir-aether/skills/ (single source of truth)
+# User skills managed here live under the project home (see get_mimiraether_home).
 HERMES_HOME = get_mimiraether_home()
 SKILLS_DIR = HERMES_HOME / "skills"
 
@@ -211,7 +211,7 @@ def _find_skill(name: str) -> Optional[Dict[str, Any]]:
     """
     Find a skill by name across all skill directories.
 
-    Searches the local skills dir (~/.openclaw/mimir-aether/skills/) first, then any
+    Searches the project skills dir (``get_mimiraether_home()/skills/``) first, then any
     external dirs configured via skills.external_dirs.  Returns
     {"path": Path} or None.
     """
@@ -686,7 +686,7 @@ SKILL_MANAGE_SCHEMA = {
     "description": (
         "Manage skills (create, update, delete). Skills are your procedural "
         "memory — reusable approaches for recurring task types. "
-        "New skills go to ~/.openclaw/mimir-aether/skills/; existing skills can be modified wherever they live.\n\n"
+        "New skills go under $MIMIR_AETHER_HOME/skills/; existing skills can be modified wherever they live.\n\n"
         "Actions: create (full SKILL.md + optional category), "
         "patch (old_string/new_string — preferred for fixes), "
         "edit (full SKILL.md rewrite — major overhauls only), "

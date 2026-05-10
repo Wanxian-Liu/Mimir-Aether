@@ -8,7 +8,7 @@ Short rules so agent code, gateway, and configs stay aligned. **Update this file
 |--------|------|-------------------------|
 | **Agent / project home** | Git tree, `config.yaml`, `.env`, `scripts/`, tool caches, logs under this tree | `mimir_constants.get_mimir_home()` — default `~/.openclaw/projects/MimirAether`, override `MIMIR_AETHER_HOME` |
 | **Profile layout** | When `HERMES_HOME` points at a profile dir, that path is the active home for resolution; profile siblings live under | `mimir_constants.get_default_hermes_root() / "profiles"` |
-| **Platform / OpenClaw config** | `platforms`, merged gateway settings, `api_server` for `/health` | `~/.openclaw/config.yaml` via `load_gateway_config()` — **not** a second product repo |
+| **Platform / gateway config** | `platforms`, merged gateway settings, `api_server` for `/health` | **Primary:** `get_mimir_home()/config.yaml` via [`gateway/config.py`](../gateway/config.py) `load_gateway_config()`. Legacy `~/.openclaw/config.yaml` is **not** required when `MIMIR_AETHER_HOME` is set (see [`MIMIR_RUNTIME_CONTRACT.md`](./MIMIR_RUNTIME_CONTRACT.md)). |
 
 See also: [gateway-cli-health.md](./gateway-cli-health.md) for `api_server` and cron execution notes.
 

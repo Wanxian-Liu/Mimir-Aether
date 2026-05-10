@@ -5,6 +5,12 @@ import sys
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _force_local_terminal_env(monkeypatch):
+    """Parity tests exercise the UDS local sandbox; honor host TERMINAL_ENV otherwise."""
+    monkeypatch.setenv("TERMINAL_ENV", "local")
+
+
 def _run_execute_code(code: str) -> dict:
     # Import inside helper so module-level imports don't break test collection.
     from tools.code_execution_tool import execute_code
@@ -158,7 +164,8 @@ def test_execute_code_child_env_passthrough_via_config_yaml(monkeypatch, tmp_pat
     )
 
     monkeypatch.setattr(cet.Path, "home", staticmethod(lambda: tmp_path))
-    monkeypatch.setenv("MIMIRAETHER_HOME", str(cfg_root))
+    # Canonical project home (takes precedence over legacy MIMIRAETHER_HOME).
+    monkeypatch.setenv("MIMIR_AETHER_HOME", str(cfg_root))
     monkeypatch.setenv(var, sentinel)
     ep._config_passthrough = None  # force reload from temp config
 

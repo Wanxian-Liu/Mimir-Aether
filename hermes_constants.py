@@ -12,12 +12,23 @@ from pathlib import Path
 
 
 def get_hermes_home() -> Path:
-    """Return the Hermes home directory (default: ~/.openclaw).
+    """Return the active Hermes-compatible home directory.
 
-    Reads HERMES_HOME env var, falls back to ~/.openclaw.
-    This is the single source of truth — all other copies should import this.
+    Resolution order (see ``docs/MIMIR_RUNTIME_CONTRACT.md``):
+
+    1. ``MIMIR_AETHER_HOME`` when set — MimirAether project root (preferred).
+    2. ``HERMES_HOME`` when set — profile or custom layout.
+    3. Default: ``~/.openclaw/projects/MimirAether`` (historical clone layout).
+
+    Vendored ``hermes_cli`` and ``hermes_constants`` share this function.
     """
-    return Path(os.getenv("HERMES_HOME", Path.home() / ".openclaw"))
+    mimir = os.getenv("MIMIR_AETHER_HOME", "").strip()
+    if mimir:
+        return Path(mimir).expanduser()
+    hermes = os.getenv("HERMES_HOME", "").strip()
+    if hermes:
+        return Path(hermes).expanduser()
+    return Path.home() / ".openclaw" / "projects" / "MimirAether"
 
 
 def get_default_hermes_root() -> Path:

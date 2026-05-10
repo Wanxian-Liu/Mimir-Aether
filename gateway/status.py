@@ -32,16 +32,16 @@ _IS_WINDOWS = sys.platform == "win32"
 _UNSET = object()
 
 
-# get_hermes_home()已替换为_openclaw_home()
-def _get_openclaw_home() -> Path:
-    """Return the OpenClaw home directory."""
-    return Path.home() / ".openclaw"
+def _get_gateway_state_home() -> Path:
+    """Runtime PID/status files live under the project data directory."""
+    from mimir_constants import get_mimir_data_dir
+
+    return get_mimir_data_dir()
 
 
 def _get_pid_path() -> Path:
-    """Return the path to the gateway PID file, respecting OpenClaw home."""
-    home = _get_openclaw_home()
-    return home / "gateway.pid"
+    """Return the path to the gateway PID file."""
+    return _get_gateway_state_home() / "gateway.pid"
 
 
 def _get_runtime_status_path() -> Path:
@@ -54,9 +54,9 @@ def _get_lock_dir() -> Path:
     override = os.getenv("OPENCLAW_GATEWAY_LOCK_DIR")
     if override:
         return Path(override)
-    state_home = Path(os.getenv("XDG_STATE_HOME", Path.home() / ".local" / "state"))
-    # lock dir 已改为 ~/.openclaw/gateway-locks
-    return state_home / "openclaw" / _LOCKS_DIRNAME
+    from mimir_constants import get_mimir_data_dir
+
+    return get_mimir_data_dir() / _LOCKS_DIRNAME
 
 
 def _utc_now_iso() -> str:

@@ -359,10 +359,9 @@ def load_permanent(patterns: set):
 
 def _config_path() -> str:
     """Return the path to the config yaml file (MimirAether standard location)."""
-    return os.path.join(
-        os.getenv("MIMIRAETHER_HOME", str(Path.home() / ".openclaw/mimir-aether")),
-        "config.yaml"
-    )
+    from mimir_constants import get_config_path
+
+    return str(get_config_path())
 
 
 def _load_yaml_config() -> dict:

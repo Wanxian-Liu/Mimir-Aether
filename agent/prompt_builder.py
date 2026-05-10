@@ -518,7 +518,9 @@ def build_context_files_prompt(
     
     # SOUL.md（从MimirAether自己的目录）
     if not skip_soul:
-        soul_path = Path.home() / ".openclaw" / "projects" / "MimirAether" / "SOUL.md"
+        from mimir_constants import get_mimir_home
+
+        soul_path = get_mimir_home() / "SOUL.md"
         if soul_path.exists():
             content = load_context_file(soul_path, "SOUL.md")
             if content:
@@ -637,12 +639,24 @@ def _find_openclaw_builtin_skills_dir() -> Optional[Path]:
     return None
 
 
+def _extra_skills_dirs_from_env() -> List[Path]:
+    """Optional colon-separated extra roots (see docs/MIMIR_RUNTIME_CONTRACT.md)."""
+    raw = os.environ.get("EXTRA_SKILLS_DIRS", "").strip()
+    if not raw:
+        return []
+    sep = ";" if ";" in raw else ":"
+    return [Path(p.strip()).expanduser() for p in raw.split(sep) if p.strip()]
+
+
 def _resolve_default_skills_dirs() -> List[Path]:
-    """解析默认skills多目录列表"""
-    dirs = [
-        Path.home() / ".openclaw" / "skills",
-        Path.home() / ".openclaw" / "projects" / "MimirAether" / "skills" / "mimiraether",
+    """Default skills roots: project ``skills/`` + mimiraether subtree + env extras."""
+    from mimir_constants import get_mimir_home, get_skills_dir
+
+    dirs: List[Path] = [
+        get_skills_dir(),
+        get_mimir_home() / "skills" / "mimiraether",
     ]
+    dirs.extend(_extra_skills_dirs_from_env())
     builtin = _find_openclaw_builtin_skills_dir()
     if builtin:
         dirs.append(builtin)
@@ -825,11 +839,13 @@ def build_skills_system_prompt(
 # ============================================================================
 
 _SKILLS_SNAPSHOT_VERSION = 1
-_SKILLS_SNAPSHOT_CACHE_PATH = Path.home() / ".openclaw" / ".skills_snapshot_cache"
+
 
 def _get_skills_snapshot_path() -> Path:
-    """获取快照文件路径"""
-    return _SKILLS_SNAPSHOT_CACHE_PATH
+    """Skill index snapshot file under project ``data/``."""
+    from mimir_constants import get_mimir_data_dir
+
+    return get_mimir_data_dir() / ".skills_snapshot_cache"
 
 def _build_skills_manifest(skills_dirs: list) -> dict:
     """构建skills目录清单（用于快照校验）"""
@@ -1231,11 +1247,9 @@ def _load_cursorrules(cwd_path: Path) -> str:
 
 def _skills_prompt_snapshot_path() -> Path:
     """返回技能prompt快照文件路径（Hermès兼容）"""
-    try:
-        from agent.mimir_constants import get_mimir_home
-        return get_mimir_home() / ".skills_prompt_snapshot.json"
-    except Exception:
-        return Path.home() / ".openclaw" / "mimir-aether" / ".skills_prompt_snapshot.json"
+    from mimir_constants import get_mimir_data_dir
+
+    return get_mimir_data_dir() / ".skills_prompt_snapshot.json"
 
 
 def _build_snapshot_entry(
@@ -1400,9 +1414,11 @@ This is the body content.
     
     # 测试6: 主Prompt构建
     print("\n[测试6] 主Prompt构建")
+    from mimir_constants import get_mimir_home
+
     prompt = build_system_prompt(
         model="claude-opus-4-6",
-        cwd="/home/rayliu/.openclaw/projects/MimirAether",
+        cwd=str(get_mimir_home()),
         available_tools={"terminal", "read_file", "write_file"},
         platform="feishu",
     )
@@ -1424,7 +1440,9 @@ This is the body content.
     skills_prompt1 = build_skills_system_prompt()
     clear_skills_prompt_cache()
     skills_prompt2 = build_skills_system_prompt()
-    print(f"  Skills dir exists: {Path.home() / '.openclaw' / 'skills'}")
+    from mimir_constants import get_skills_dir
+
+    print(f"  Skills dir exists: {get_skills_dir()}")
     print(f"  Cache cleared and rebuilt: OK")
     
     print("\n" + "=" * 60)

@@ -3,7 +3,9 @@ import os
 from pathlib import Path
 from datetime import datetime
 
-DELIVERY_DIR = Path.home() / ".openclaw" / "projects" / "MimirAether" / "cron" / "delivery"
+from mimir_constants import get_mimir_home
+
+DELIVERY_DIR = get_mimir_home() / "cron" / "delivery"
 
 class DeliveryResult:
     def __init__(self, job_id, status, message):

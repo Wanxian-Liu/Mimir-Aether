@@ -1,0 +1,20 @@
+# Template: install under /etc/systemd/system/mimir-aether.service (adjust paths).
+[Unit]
+Description=MimirAether Gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# User=youruser
+# Group=youruser
+WorkingDirectory=/path/to/MimirAether
+Environment=MIMIR_AETHER_HOME=/path/to/MimirAether
+Environment=HERMES_HOME=/path/to/MimirAether
+EnvironmentFile=-/path/to/MimirAether/.env
+ExecStart=/path/to/MimirAether/scripts/start.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

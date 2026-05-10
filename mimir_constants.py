@@ -3,17 +3,40 @@
 import os
 from pathlib import Path
 
-# MimirAether official home
-MIMIR_HOME = Path(os.getenv("MIMIR_AETHER_HOME", Path.home() / ".openclaw" / "projects" / "MimirAether"))
+# Default when no env override (clone layout)
+_DEFAULT_MIMIR_HOME = Path.home() / ".openclaw" / "projects" / "MimirAether"
+
 
 def get_mimir_home() -> Path:
-    """Return the MimirAether home directory."""
-    return MIMIR_HOME
+    """Return the MimirAether home directory (reads env on each call).
+
+    ``MIMIR_AETHER_HOME`` is preferred; ``MIMIRAETHER_HOME`` is accepted for
+    backward compatibility (tests and older scripts).
+    """
+    for key in ("MIMIR_AETHER_HOME", "MIMIRAETHER_HOME"):
+        v = os.getenv(key, "").strip()
+        if v:
+            return Path(v).expanduser()
+    return _DEFAULT_MIMIR_HOME
+
+
+# Snapshot at import — prefer calling :func:`get_mimir_home` when env may change.
+MIMIR_HOME = get_mimir_home()
+
+
+def get_mimir_data_dir() -> Path:
+    """Persistent data under the project tree (sessions, caches, etc.)."""
+    return get_mimir_home() / "data"
+
+
+def get_mimir_sessions_dir() -> Path:
+    """Gateway file-based session artifacts (distinct from SQLite ``state.db``)."""
+    return get_mimir_data_dir() / "sessions"
 
 # Backward compatibility aliases
 def get_hermes_home() -> Path:
-    """Alias for backward compatibility."""
-    return MIMIR_HOME
+    """Alias for backward compatibility (dynamic — same as :func:`get_mimir_home`)."""
+    return get_mimir_home()
 
 HERMES_HOME = MIMIR_HOME
 MIMIRAETHER_HOME = MIMIR_HOME

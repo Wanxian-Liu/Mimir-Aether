@@ -33,5 +33,13 @@ sessions/**/*.jsonl
 # 会话遥测（体积大、含运行态；保留同目录 small markdown/json 可手动 add）
 /data/*.jsonl
 
+# Project data/ runtime (prompt_builder + gateway status; keep data/.gitkeep)
+/data/.skills_snapshot_cache
+/data/.skills_prompt_snapshot.json
+/data/gateway.pid
+/data/gateway_state.json
+/data/gateway-locks/
+/data/sessions/
+
 # 本地技能草稿 / 机要桥接（若需入库可删对应行后 git add -f）
 skills/mimiraether/mimiraether-feishu-config-bridge/

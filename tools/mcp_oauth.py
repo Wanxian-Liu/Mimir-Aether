@@ -97,11 +97,9 @@ def _get_token_dir() -> Path:
     Uses MIMIRAETHER_HOME so each profile gets its own OAuth tokens.
     Layout: ``MIMIRAETHER_HOME/mcp-tokens/``
     """
-    try:
-        from mimiraether_constants import get_mimiraether_home
-        base = Path(get_mimiraether_home())
-    except ImportError:
-        base = Path(os.environ.get("MIMIRAETHER_HOME", str(Path.home() / ".openclaw" / "mimir-aether")))
+    from mimir_constants import get_mimir_home
+
+    base = Path(get_mimir_home())
     return base / "mcp-tokens"
 
 

@@ -22,12 +22,16 @@ def get_skills_source_dir() -> Path:
     return Path(__file__).parent.parent / "skills"
 
 def get_skills_target_dir() -> Path:
-    """Skills目标目录（用户项目）"""
-    return Path.home() / ".openclaw" / "skills"
+    """Skills 目标目录（与运行时 ``get_skills_dir()`` 一致）。"""
+    from mimir_constants import get_skills_dir
+
+    return get_skills_dir()
 
 def get_sync_cache_path() -> Path:
     """同步缓存路径"""
-    cache_dir = Path.home() / ".openclaw" / "cache"
+    from mimir_constants import get_mimir_data_dir
+
+    cache_dir = get_mimir_data_dir() / "cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
     return cache_dir / "skills_sync.json"
 

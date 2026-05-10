@@ -8,12 +8,14 @@ from datetime import datetime
 from pathlib import Path
 import os
 import json
+from mimir_constants import get_mimir_home
+
 from .jobs import get_due_jobs, mark_job_run
 
 logger = logging.getLogger(__name__)
 
 # 文件锁路径
-_LOCK_FILE = Path.home() / ".openclaw" / "projects" / "MimirAether" / "cron" / ".tick.lock"
+_LOCK_FILE = get_mimir_home() / "cron" / ".tick.lock"
 
 # 尝试导入fcntl（Unix系统）
 try:
@@ -31,7 +33,7 @@ def run_job(job):
     
     try:
         # 设置工作目录为项目根目录
-        cwd = Path("/home/rayliu/.openclaw/projects/MimirAether")
+        cwd = get_mimir_home()
         
         result = subprocess.run(
             command,

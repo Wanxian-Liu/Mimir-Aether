@@ -1,0 +1,15 @@
+Third-party code in this repository
+=====================================
+
+## hermes_cli/
+
+The `hermes_cli/` Python package is vendored from the Hermes Agent project
+(Nous Research) under the MIT License. See upstream:
+
+  https://github.com/NousResearch/hermes-agent  (source may vary; copy date in git history)
+
+Copyright (c) 2025 Nous Research. A copy of the MIT license text is included
+in the upstream repository.
+
+The vendored tree may carry small local patches for path resolution; behavioral
+changes should be kept minimal and tracked in commit messages.

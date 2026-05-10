@@ -13,10 +13,12 @@ from pathlib import Path
 from datetime import datetime
 
 # 添加项目路径
-MIMIRAETHER_DIR = Path.home() / ".openclaw" / "projects" / "MimirAether"
+MIMIRAETHER_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(MIMIRAETHER_DIR))
 
-MIMIRAETHER_HOME = Path.home() / ".openclaw" / "projects" / "MimirAether"
+from mimir_constants import get_mimir_home  # noqa: E402
+
+MIMIRAETHER_HOME = get_mimir_home()
 LEARNINGS_DIR = MIMIRAETHER_HOME / "learnings"
 EVOLUTION_LOG = LEARNINGS_DIR / "evolution_log.json"
 BACKUP_DIR = MIMIRAETHER_HOME / "backups"

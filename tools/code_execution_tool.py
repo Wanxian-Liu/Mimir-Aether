@@ -1122,10 +1122,15 @@ def execute_code(
             child_env["TZ"] = _tz_name
 
         # Per-profile HOME isolation: redirect system tool configs into
-        # {MIMIRAETHER_HOME}/home/ when that directory exists.
-        _profile_home = Path.home() / ".openclaw" / "mimir-aether"
+        # ``{MIMIR_AETHER_HOME}/home/`` when that directory exists.
+        from mimir_constants import get_mimir_home
+
+        _profile_home = get_mimir_home() / "home"
+        _legacy_profile = Path.home() / ".openclaw" / "mimir-aether"
         if _profile_home.exists():
             child_env["HOME"] = str(_profile_home)
+        elif _legacy_profile.exists():
+            child_env["HOME"] = str(_legacy_profile)
 
         proc = subprocess.Popen(
             [sys.executable, "script.py"],

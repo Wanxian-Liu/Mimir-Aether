@@ -15,12 +15,14 @@ import json
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
+from mimir_constants import get_skills_dir
+
 HEARTBEAT_DIR = Path(__file__).resolve().parent
 LOG_FILE = HEARTBEAT_DIR / "logs" / "capability_snapshot.log"
 SOFT_LOG = HEARTBEAT_DIR / "logs" / "soft_beat.log"
 
-# 实际技能存放路径
-SKILLS_DIR = Path.home() / ".openclaw" / "skills"
+# Primary skills root (project tree)
+SKILLS_DIR = get_skills_dir()
 
 # ============================================================
 # 5 项最怕退化的能力
@@ -80,7 +82,7 @@ def check_tool_availability(tool_name: str) -> dict:
     """检查工具是否可用"""
     result = {"available": False, "detail": ""}
 
-    # 1. 检查 ~/.openclaw/skills/ 下是否有对应的技能目录
+    # 1. 检查主 skills 根下是否有对应的技能目录
     candidates = list(SKILLS_DIR.glob(f"**/{tool_name}*"))
     if candidates:
         result["available"] = True

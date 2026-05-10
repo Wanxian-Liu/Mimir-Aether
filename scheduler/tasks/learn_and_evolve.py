@@ -16,11 +16,17 @@ import signal
 from pathlib import Path
 from datetime import datetime
 
-MIMIRAETHER_DIR = Path.home() / ".openclaw" / "projects" / "MimirAether"
-LEARNINGS_DIR = MIMIRAETHER_DIR / "learnings"
+MIMIRAETHER_DIR = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(MIMIRAETHER_DIR))
+from mimir_constants import get_mimir_home  # noqa: E402
+
+MIMIRAETHER_HOME = get_mimir_home()
+LEARNINGS_DIR = MIMIRAETHER_HOME / "learnings"
 EVOLUTION_LOG = LEARNINGS_DIR / "evolution_log.json"
-HERMES_DIR = Path.home() / ".openclaw" / "projects" / "hermes-agent"
-MIMIRAETHER_SRC = Path.home() / ".openclaw" / "projects" / "MimirAether"
+HERMES_DIR = Path(
+    os.environ.get("HERMES_AGENT_HOME", str(Path.home() / ".openclaw/projects/hermes-agent"))
+)
+MIMIRAETHER_SRC = MIMIRAETHER_HOME
 
 # Hermes学习主题
 HERMES_TOPICS = [

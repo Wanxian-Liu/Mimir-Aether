@@ -74,16 +74,16 @@ from agent.auxiliary_client import call_llm
 
 def _get_mimiraether_home() -> Path:
     """Return the MimirAether home directory (replaces get_hermes_home)."""
-    return Path(os.environ.get("MIMIRAETHER_HOME", str(Path.home() / ".openclaw/mimir-aether")))
+    from mimir_constants import get_mimir_home
+
+    return get_mimir_home()
 
 
 def _get_mimir_aether_dir(new_subpath: str, old_name: str) -> Path:
     """Resolve a MimirAether subdirectory with backward compatibility (replaces get_hermes_dir)."""
-    home = _get_mimiraether_home()
-    old_path = home / old_name
-    if old_path.exists():
-        return old_path
-    return home / new_subpath
+    from mimir_constants import get_mimir_dir
+
+    return get_mimir_dir(new_subpath, old_name)
 
 
 def _is_termux_environment() -> bool:

@@ -72,7 +72,10 @@ class HookRegistry:
         global HOOKS_DIR
         if HOOKS_DIR is None:
             from pathlib import Path
-            HOOKS_DIR = Path.home() / ".openclaw" / "hooks"
+
+            from mimir_constants import get_mimir_home
+
+            HOOKS_DIR = get_mimir_home() / "hooks"
 
         if not HOOKS_DIR.exists():
             return
