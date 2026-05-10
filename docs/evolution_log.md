@@ -21,3 +21,4 @@ Append-only. Newest rows at the **bottom**. See **`docs/M6_EVOLUTION.md`** for r
 | 20260510T151808Z_87306a9-dirty | 2026-05-10T15:18:08Z | 87306a9-dirty | ./run_ralph_tier0.sh | 0 | auto_load: audit script; inject description/meta; fix cross-session YAML; paralysis+heartbeat auto_load; cross_ctx when skills off. metrics: n/a |
 | 20260510T153154Z_103f69c-dirty | 2026-05-10T15:31:54Z | 103f69c-dirty | ./run_ralph_tier0.sh | 0 | docs(skills): mimiraether-skill-solidify + tool-triggers link; docstring: skill_manager_tool agent path vs module home. metrics: n/a |
 | 20260510T160411Z_8f003e5 | 2026-05-10T16:04:11Z | 8f003e5 | ./run_ralph_tier0.sh | 0 | compressor update_from_response + AIAgent context_compressor/_compress_context; SKILL aligned |
+| 20260510T160637Z_62c990b | 2026-05-10T16:06:37Z | 62c990b | ./run_ralph_tier0.sh | 0 | dedupe ContextCompressorV2.compress init block (no behavior change) |
