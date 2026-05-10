@@ -502,10 +502,6 @@ TURNS TO SUMMARIZE:
         _min_for_compress = self.protect_first_n + 3 + 1
         
         display_tokens = current_tokens or self._estimate_tokens(messages)
-        n_messages = len(messages)
-        _min_for_compress = self.protect_first_n + 3 + 1
-        
-        display_tokens = current_tokens or self._estimate_tokens(messages)
         
         # 统一判断：token超过阈值 且 消息数足够
         if display_tokens < self.threshold_tokens or n_messages <= _min_for_compress:
