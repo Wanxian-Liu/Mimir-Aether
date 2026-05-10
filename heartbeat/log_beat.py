@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+"""
+软心跳包装器 — 在每次工具调用后手动触发。
+
+用法（在工具调用后执行）：
+    python3 heartbeat/log_beat.py <tool_name> <duration_ms> <status> [detail]
+
+示例：
+    python3 heartbeat/log_beat.py read_file 1234 OK
+    python3 heartbeat/log_beat.py produce_capsule 5678 FAIL "GDI<70"
+
+集成指南：
+    在每次工具调用返回后，调用本脚本记录。
+    例如在 agent 的 post-call 位置：
+        subprocess.run(["python3", "heartbeat/log_beat.py", tool_name, str(ms), status])
+
+    这个包装器会自动：
+    1. 调用 soft_beat.py 记录
+    2. 每 50 次工具调用自动触发一次能力快照
+"""
+import sys
+import os
+import subprocess
+from pathlib import Path
+
+HEARTBEAT_DIR = Path(__file__).resolve().parent
+SOFT_BEAT = HEARTBEAT_DIR / "soft_beat.py"
+SNAPSHOT = HEARTBEAT_DIR / "capability_snapshot.py"
+SOFT_LOG = HEARTBEAT_DIR / "logs" / "soft_beat.log"
+
+# 每 N 次工具调用触发一次能力快照
+SNAPSHOT_INTERVAL = 50
+
+
+def should_snapshot() -> bool:
+    """检查是否需要触发能力快照"""
+    try:
+        if SOFT_LOG.exists():
+            lines = SOFT_LOG.read_text().strip().split("\n")
+            lines = [l for l in lines if l.strip()]
+            if len(lines) > 0 and len(lines) % SNAPSHOT_INTERVAL == 0:
+                return True
+    except Exception:
+        pass
+    return False
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 4:
+        print("用法: log_beat.py <tool_name> <duration_ms> <status> [detail]")
+        sys.exit(1)
+
+    tool_name = sys.argv[1]
+    duration_ms = float(sys.argv[2])
+    status = sys.argv[3]
+    detail = sys.argv[4] if len(sys.argv) > 4 else ""
+
+    # 记录软心跳
+    result = subprocess.run(
+        [sys.executable, str(SOFT_BEAT), tool_name, str(duration_ms), status, detail],
+        capture_output=True, text=True, timeout=10
+    )
+    print(result.stdout.strip())
+    if result.returncode != 0:
+        print(f"[WARN] soft beat failed: {result.stderr.strip()}")
+
+    # 检查是否需要能力快照
+    if should_snapshot():
+        print("[TRIGGER] 达到快照间隔，触发能力快照...")
+        subprocess.run(
+            [sys.executable, str(SNAPSHOT)],
+            capture_output=True, timeout=30
+        )

@@ -1,0 +1,234 @@
+#!/usr/bin/env python3
+"""
+能力快照 — 扫描5个最怕退化的能力，记录当前状态。
+
+每项能力的检查维度：
+1. 可用性（工具/技能是否存在）
+2. 完整性（关键结构是否完整）
+3. 最近使用痕迹（从软心跳日志推断）
+
+写入：heartbeat/logs/capability_snapshot.log
+"""
+import sys
+import os
+import json
+from datetime import datetime, timezone, timedelta
+from pathlib import Path
+
+HEARTBEAT_DIR = Path(__file__).resolve().parent
+LOG_FILE = HEARTBEAT_DIR / "logs" / "capability_snapshot.log"
+SOFT_LOG = HEARTBEAT_DIR / "logs" / "soft_beat.log"
+
+# 实际技能存放路径
+SKILLS_DIR = Path.home() / ".openclaw" / "skills"
+
+# ============================================================
+# 5 项最怕退化的能力
+# ============================================================
+CAPABILITIES = [
+    {
+        "name": "skill_view",
+        "why": "技能是程序性记忆，如果skill_view不可用=失忆",
+        "check": "工具存在 + 技能文件可读",
+        "status": "unknown",
+    },
+    {
+        "name": "skill_manage",
+        "why": "技能管理是元认知，退化则无法学习/更新技能",
+        "check": "工具存在 + 可写",
+        "status": "unknown",
+    },
+    {
+        "name": "produce_capsule",
+        "why": "胶囊系统是核心知识产出机制，退化=知识工厂停产",
+        "check": "工具存在 + 可响应",
+        "status": "unknown",
+    },
+    {
+        "name": "session_search",
+        "why": "跨会话记忆检索，退化=每次从零开始",
+        "check": "工具存在",
+        "status": "unknown",
+    },
+    {
+        "name": "root_cause_debugging",
+        "why": "根源调试习惯（4-phase），退化=遇bug直接猜而非追根溯源",
+        "check": "systematic-debugging 技能存在 + 4-phase结构完整",
+        "status": "unknown",
+    },
+]
+
+
+def check_tool_availability(tool_name: str) -> dict:
+    """检查工具是否可用"""
+    # 对于 skill_view / skill_manage / produce_capsule / session_search，
+    # 它们是 Hermes Agent 的 built-in 工具。
+    # 我们通过检查技能文件和最近使用记录来推断可用性。
+    result = {"available": False, "detail": ""}
+
+    # 1. 检查 ~/.openclaw/skills/ 下是否有对应的技能目录
+    if tool_name == "skill_view":
+        # skill_view 是工具，对应的技能在 mimiraether 分类下
+        candidates = list(SKILLS_DIR.glob("**/skill_view*")) + list(SKILLS_DIR.glob("**/skill_view*"))
+    elif tool_name == "skill_manage":
+        candidates = list(SKILLS_DIR.glob("**/skill_manage*"))
+    elif tool_name == "produce_capsule":
+        candidates = list(SKILLS_DIR.glob("**/produce_capsule*"))
+    elif tool_name == "session_search":
+        candidates = list(SKILLS_DIR.glob("**/session_search*"))
+    else:
+        candidates = []
+
+    if candidates:
+        result["available"] = True
+        result["detail"] = f"skill dirs: {len(candidates)}"
+    else:
+        # 二级检查：技能可能在 agent 的 skills_hub.db 中注册
+        # 检查是否有对应的 SKILL.md 在项目 skills/ 下
+        project_skills = HEARTBEAT_DIR.parent / "skills"
+        if project_skills.exists():
+            proj_candidates = list(project_skills.glob(f"**/{tool_name}*"))
+            if proj_candidates:
+                result["available"] = True
+                result["detail"] = f"found in project skills: {proj_candidates[0].name}"
+            else:
+                result["detail"] = "not found in any skills path"
+        else:
+            result["detail"] = "not found in any skills path"
+
+    # 3. 检查最近使用记录（从软心跳日志）
+    recent_use = check_recent_usage(tool_name)
+    if recent_use["used_recently"]:
+        result["detail"] += f" | last used: {recent_use['last_used']}"
+        if not result["available"]:
+            result["available"] = "partial (used recently but no skill file)"
+
+    return result
+
+
+def check_recent_usage(tool_name: str) -> dict:
+    """检查软心跳日志中是否有该工具的最近使用记录"""
+    result = {"used_recently": False, "last_used": "never", "count": 0}
+
+    try:
+        if SOFT_LOG.exists():
+            lines = SOFT_LOG.read_text().strip().split("\n")
+            count = 0
+            last_ts = None
+            for line in reversed(lines):
+                if f"| {tool_name} |" in line:
+                    count += 1
+                    if last_ts is None:
+                        parts = line.split(" | ")
+                        last_ts = parts[0] if len(parts) > 0 else "unknown"
+            if count > 0:
+                result["used_recently"] = True
+                result["last_used"] = last_ts or "unknown"
+                result["count"] = count
+    except Exception:
+        pass
+
+    return result
+
+
+def check_root_cause_debugging() -> dict:
+    """检查根源调试技能是否完整"""
+    result = {"available": False, "detail": "", "phases_found": []}
+
+    # 在 ~/.openclaw/skills/ 下查找 systematic-debugging
+    debug_dirs = list(SKILLS_DIR.glob("**/systematic-debugging"))
+    if not debug_dirs:
+        debug_dirs = list(SKILLS_DIR.glob("**/systematic*debug*"))
+
+    if debug_dirs:
+        debug_dir = debug_dirs[0]
+        # 查找 SKILL.md
+        skill_files = list(debug_dir.glob("**/SKILL.md")) + list(debug_dir.glob("**/*.md"))
+        for sf in skill_files:
+            content = sf.read_text()
+            phases = ["Phase 1", "Phase 2", "Phase 3", "Phase 4"]
+            found_phases = [p for p in phases if p in content]
+            if found_phases:
+                result["phases_found"] = found_phases
+                result["available"] = len(found_phases) >= 4
+                result["detail"] = f"file: {sf.name} | phases: {len(found_phases)}/4"
+                break
+        if not result["phases_found"]:
+            result["detail"] = f"dir found ({debug_dir}) but no SKILL.md with phase structure"
+    else:
+        result["detail"] = "systematic-debugging not found in skills path"
+
+    return result
+
+
+def take_snapshot() -> dict:
+    """生成完整的能力快照"""
+    snapshot = {
+        "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "capabilities": [],
+    }
+
+    for cap in CAPABILITIES:
+        entry = {
+            "name": cap["name"],
+            "why": cap["why"],
+            "check": cap["check"],
+        }
+
+        if cap["name"] == "root_cause_debugging":
+            result = check_root_cause_debugging()
+        else:
+            result = check_tool_availability(cap["name"])
+
+        entry["available"] = result["available"]
+        entry["detail"] = result["detail"]
+        if "phases_found" in result:
+            entry["phases_found"] = result["phases_found"]
+
+        snapshot["capabilities"].append(entry)
+
+    return snapshot
+
+
+def report(snapshot: dict):
+    """输出报告到日志和终端"""
+    ts = snapshot["timestamp"]
+    lines = []
+    lines.append(f"{'='*60}")
+    lines.append(f"能力快照 | {ts}")
+    lines.append(f"{'='*60}")
+
+    all_ok = True
+    for cap in snapshot["capabilities"]:
+        avail = cap["available"]
+        if avail is True:
+            status_icon = "✓"
+        elif avail:
+            status_icon = "~"  # partial
+        else:
+            status_icon = "✗"
+            all_ok = False
+
+        lines.append(f"  [{status_icon}] {cap['name']}")
+        lines.append(f"        原因: {cap['why']}")
+        lines.append(f"        状态: {cap['detail']}")
+
+    lines.append(f"{'='*60}")
+    lines.append(f"总体: {'ALL OK' if all_ok else '有退化风险 — 见上方 ✗ 条目'}")
+
+    report_text = "\n".join(lines)
+
+    # 写入日志
+    with open(LOG_FILE, "a") as f:
+        f.write(report_text + "\n\n")
+
+    # 终端输出
+    print(report_text)
+
+    return all_ok
+
+
+if __name__ == "__main__":
+    snap = take_snapshot()
+    ok = report(snap)
+    sys.exit(0 if ok else 1)

@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# ============================================================
+# 硬心跳 — 每5分钟记录时间戳 + 活跃状态
+# 由 cron 或 run_ralph_tier0.sh 触发
+# 写入: heartbeat/logs/hard_beat.log
+# ============================================================
+set -euo pipefail
+
+HEARTBEAT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+LOG_FILE="${HEARTBEAT_DIR}/logs/hard_beat.log"
+TIMESTAMP=$(date --iso-8601=seconds)
+
+# 简单的活跃性检查：进程是否在运行、磁盘空间是否健康
+PROC_COUNT=$(ps aux --no-headers 2>/dev/null | wc -l || echo "0")
+DISK_USAGE=$(df /home/rayliu/.openclaw --output=pcent 2>/dev/null | tail -1 | tr -d ' %' || echo "0")
+
+# 检查关键进程（可选）
+HERMES_RUNNING="no"
+if pgrep -f "hermes" >/dev/null 2>&1; then
+    HERMES_RUNNING="yes"
+fi
+
+echo "${TIMESTAMP} | alive | procs=${PROC_COUNT} | disk=${DISK_USAGE}% | hermes=${HERMES_RUNNING}" >> "${LOG_FILE}"
+
+# 只保留最近1000条记录，防止无限增长
+tail -1000 "${LOG_FILE}" > "${LOG_FILE}.tmp" && mv "${LOG_FILE}.tmp" "${LOG_FILE}"
+
+echo "[OK] Hard beat written at ${TIMESTAMP}"

@@ -1,0 +1,63 @@
+============================================================
+能力快照 | 2026-05-10T06:01:25+00:00
+============================================================
+  [✗] skill_view
+        原因: 技能是程序性记忆，如果skill_view不可用=失忆
+        状态: not found in any skills path
+  [✓] skill_manage
+        原因: 技能管理是元认知，退化则无法学习/更新技能
+        状态: found in project skills: skill_manager.py
+  [✗] produce_capsule
+        原因: 胶囊系统是核心知识产出机制，退化=知识工厂停产
+        状态: not found in any skills path
+  [✗] session_search
+        原因: 跨会话记忆检索，退化=每次从零开始
+        状态: not found in any skills path
+  [✓] root_cause_debugging
+        原因: 根源调试习惯（4-phase），退化=遇bug直接猜而非追根溯源
+        状态: file: SKILL.md | phases: 4/4
+============================================================
+总体: 有退化风险 — 见上方 ✗ 条目
+
+============================================================
+能力快照 | 2026-05-10T06:03:34+00:00
+============================================================
+  [✗] skill_view
+        原因: 技能是程序性记忆，如果skill_view不可用=失忆
+        状态: not found in any skills path
+  [✓] skill_manage
+        原因: 技能管理是元认知，退化则无法学习/更新技能
+        状态: found in project skills: skill_manager.py
+  [✗] produce_capsule
+        原因: 胶囊系统是核心知识产出机制，退化=知识工厂停产
+        状态: not found in any skills path
+  [✗] session_search
+        原因: 跨会话记忆检索，退化=每次从零开始
+        状态: not found in any skills path
+  [✓] root_cause_debugging
+        原因: 根源调试习惯（4-phase），退化=遇bug直接猜而非追根溯源
+        状态: file: SKILL.md | phases: 4/4
+============================================================
+总体: 有退化风险 — 见上方 ✗ 条目
+
+============================================================
+能力快照 | 2026-05-10T06:10:08+00:00
+============================================================
+  [✗] skill_view
+        原因: 技能是程序性记忆，如果skill_view不可用=失忆
+        状态: not found in any skills path | no soft_beat log available
+  [Δ] skill_manage
+        原因: 技能管理是元认知，退化则无法学习/更新技能
+        状态: found in project skills: skill_manager.py | no soft_beat log available
+  [✗] produce_capsule
+        原因: 胶囊系统是核心知识产出机制，退化=知识工厂停产
+        状态: not found in any skills path | no soft_beat log available
+  [✗] session_search
+        原因: 跨会话记忆检索，退化=每次从零开始
+        状态: not found in any skills path | no soft_beat log available
+  [Δ] root_cause_debugging
+        原因: 根源调试习惯（4-phase），退化=遇bug直接猜而非追根溯源
+        状态: dir: systematic-debugging | file: SKILL.md | phases: 4/4 | no soft_beat log available
+============================================================
+总体: 有退化/风险 — 见上方 Δ/✗ 条目
+
