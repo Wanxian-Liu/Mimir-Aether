@@ -29,9 +29,10 @@ from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# MimirAether路径
-MIMIR_AETHER_PATH = '/home/rayliu/.openclaw/projects/MimirAether'
-sys.path.insert(0, MIMIR_AETHER_PATH)
+# 仓库根（与 clone 路径无关）；保留 MIMIR_AETHER_PATH 变量名供沙箱子进程与报告路径使用
+_REPO_ROOT = str(Path(__file__).resolve().parent)
+sys.path.insert(0, _REPO_ROOT)
+MIMIR_AETHER_PATH = _REPO_ROOT
 
 
 @dataclass

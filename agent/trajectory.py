@@ -26,7 +26,9 @@ logger = logging.getLogger(__name__)
 
 def get_trajectory_dir() -> Path:
     """获取轨迹存储目录"""
-    default = Path.home() / ".openclaw" / "trajectories"
+    from mimir_constants import get_mimir_data_dir
+
+    default = get_mimir_data_dir() / "trajectories"
     return Path(os.environ.get("OPENCLAW_TRAJECTORY_DIR", str(default)))
 
 

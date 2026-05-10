@@ -2,15 +2,17 @@
 auto_load: true
 auto_load_meta:
   triggers:
-    - 会话启动
-    - 跨会话
-    - 持久化
-    - 记忆
-    - persistent
-    - memory
+  - 会话启动
+  - 跨会话
+  - 持久化
+  - 记忆
+  - persistent
+  - memory
   priority: highest
   description: 每次会话启动时自动加载，确保跨会话记忆自动恢复
+description: 每次会话启动时自动加载，确保跨会话记忆自动恢复
 ---
+
 
 # mimiraether-cross-session
 

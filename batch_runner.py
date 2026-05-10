@@ -3,7 +3,7 @@
 Batch Agent Runner
 
 MimirAether-adapted version of Hermes batch_runner.py.
-Original source: /home/rayliu/.openclaw/projects/hermes-agent/batch_runner.py
+Original source: hermes-agent batch_runner.py (see NOTICE / upstream).
 
 This module provides parallel batch processing capabilities for running the agent
 across multiple prompts from a dataset. It includes:

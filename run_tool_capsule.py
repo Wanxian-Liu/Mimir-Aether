@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """通过mimircore_tool生成胶囊"""
 
-import sys
 import os
+import sys
+from pathlib import Path
 
-# 添加项目路径
-sys.path.insert(0, os.path.expanduser("~/.openclaw/projects/MimirAether"))
+_REPO_ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(_REPO_ROOT))
 
 from tools.mimircore_tool import produce_capsule
 

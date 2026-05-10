@@ -104,12 +104,10 @@ class AIAgent:
             )
         return self._real_agent
 
-    def interrupt(self) -> None:
+    def interrupt(self, message: str = "") -> None:
         """Request the agent to interrupt current execution."""
         if self._interrupt_event:
             self._interrupt_event.set()
-        if self._real_agent and hasattr(self._real_agent, 'interrupt'):
-            self._real_agent.interrupt()
 
     def _invalidate_system_prompt(self) -> None:
         """Invalidate cached system prompt (called after tool surface changes)."""

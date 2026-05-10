@@ -17,6 +17,21 @@ from tools.environments.base import _file_mtime_key
 
 logger = logging.getLogger(__name__)
 
+
+def _remap_credential_container_path(container_path: str, container_base: str) -> str:
+    """Map host credential ``container_path`` to the remote layout used by *container_base*."""
+    from tools.credential_files import get_default_container_project_base
+
+    default_base = get_default_container_project_base().rstrip("/")
+    cb = container_base.rstrip("/")
+    if container_path == default_base or container_path.startswith(default_base + "/"):
+        return cb + container_path[len(default_base) :]
+    for legacy in ("/root/.hermes", "/root/.openclaw/projects/MimirAether"):
+        if container_path.startswith(legacy):
+            return cb + container_path[len(legacy) :]
+    return container_path
+
+
 _SYNC_INTERVAL_SECONDS = 5.0
 _FORCE_SYNC_ENV = "HERMES_FORCE_FILE_SYNC"
 
@@ -45,8 +60,8 @@ def iter_sync_files(container_base: str = "/root/.hermes") -> list[tuple[str, st
 
     files: list[tuple[str, str]] = []
     for entry in get_credential_file_mounts():
-        remote = entry["container_path"].replace(
-            "/root/.hermes", container_base, 1
+        remote = _remap_credential_container_path(
+            entry["container_path"], container_base
         )
         files.append((entry["host_path"], remote))
     for entry in iter_skills_files(container_base=container_base):

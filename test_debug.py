@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import sys
-sys.path.insert(0, '/home/rayliu/.openclaw/projects/MimirAether')
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 print("Step 1: imports")
 
 import asyncio

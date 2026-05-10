@@ -28,6 +28,23 @@ from typing import Dict, List
 
 logger = logging.getLogger(__name__)
 
+
+def _resolve_container_base(container_base: str | None) -> str:
+    """Path inside remote sandboxes where the project tree is mounted.
+
+    Override with ``MIMIR_CONTAINER_PROJECT_BASE`` for images that use a
+    legacy layout (e.g. ``/root/.openclaw/projects/MimirAether``).
+    """
+    if container_base is not None:
+        return container_base
+    return os.environ.get("MIMIR_CONTAINER_PROJECT_BASE", "/workspace")
+
+
+def get_default_container_project_base() -> str:
+    """Default in-container project root (env ``MIMIR_CONTAINER_PROJECT_BASE`` or ``/workspace``)."""
+    return _resolve_container_base(None)
+
+
 # Session-scoped list of credential files to mount.
 # Backed by ContextVar to prevent cross-session data bleed in the gateway pipeline.
 _registered_files_var: ContextVar[Dict[str, str]] = ContextVar("_registered_files")
@@ -54,7 +71,7 @@ def _resolve_mimiraether_home() -> Path:
 
 def register_credential_file(
     relative_path: str,
-    container_base: str = "/root/.openclaw/projects/MimirAether",
+    container_base: str | None = None,
 ) -> bool:
     """Register a credential file for mounting into remote sandboxes.
 
@@ -67,6 +84,7 @@ def register_credential_file(
     and exfiltrate sensitive host files into a container sandbox.
     """
     mimiraether_home = _resolve_mimiraether_home()
+    base = _resolve_container_base(container_base)
 
     # Reject absolute paths — they bypass the MIMIRAETHER_HOME sandbox entirely.
     if os.path.isabs(relative_path):
@@ -96,7 +114,7 @@ def register_credential_file(
         logger.debug("credential_files: skipping %s (not found)", resolved)
         return False
 
-    container_path = f"{container_base.rstrip('/')}/{relative_path}"
+    container_path = f"{base.rstrip('/')}/{relative_path}"
     _get_registered()[container_path] = str(resolved)
     logger.debug("credential_files: registered %s -> %s", resolved, container_path)
     return True
@@ -104,7 +122,7 @@ def register_credential_file(
 
 def register_credential_files(
     entries: list,
-    container_base: str = "/root/.openclaw/projects/MimirAether",
+    container_base: str | None = None,
 ) -> List[str]:
     """Register multiple credential files from skill frontmatter entries.
 
@@ -112,6 +130,7 @@ def register_credential_files(
     key.  Returns the list of relative paths that were NOT found on the host
     (i.e. missing files).
     """
+    base = _resolve_container_base(container_base)
     missing = []
     for entry in entries:
         if isinstance(entry, str):
@@ -122,7 +141,7 @@ def register_credential_files(
             continue
         if not rel_path:
             continue
-        if not register_credential_file(rel_path, container_base):
+        if not register_credential_file(rel_path, base):
             missing.append(rel_path)
     return missing
 
@@ -164,7 +183,8 @@ def _load_config_files() -> List[Dict[str, str]]:
                         continue
                     resolved_path = host_path.resolve()
                     if resolved_path.is_file():
-                        container_path = f"/root/.openclaw/projects/MimirAether/{rel}"
+                        cb = _resolve_container_base(None).rstrip("/")
+                        container_path = f"{cb}/{rel}"
                         result.append({
                             "host_path": str(resolved_path),
                             "container_path": container_path,
@@ -203,7 +223,7 @@ def get_credential_file_mounts() -> List[Dict[str, str]]:
 
 
 def get_skills_directory_mount(
-    container_base: str = "/root/.openclaw/projects/MimirAether",
+    container_base: str | None = None,
 ) -> list[Dict[str, str]]:
     """Return mount info for all skill directories (local + external).
 
@@ -221,6 +241,7 @@ def get_skills_directory_mount(
     The local skills dir mounts at ``<container_base>/skills``, external dirs
     at ``<container_base>/external_skills/<index>``.
     """
+    base = _resolve_container_base(container_base)
     mounts = []
     mimiraether_home = _resolve_mimiraether_home()
     skills_dir = mimiraether_home / "skills"
@@ -228,7 +249,7 @@ def get_skills_directory_mount(
         host_path = _safe_skills_path(skills_dir)
         mounts.append({
             "host_path": host_path,
-            "container_path": f"{container_base.rstrip('/')}/skills",
+            "container_path": f"{base.rstrip('/')}/skills",
         })
 
     # Mount external skill dirs
@@ -239,7 +260,7 @@ def get_skills_directory_mount(
                 host_path = _safe_skills_path(ext_dir)
                 mounts.append({
                     "host_path": host_path,
-                    "container_path": f"{container_base.rstrip('/')}/external_skills/{idx}",
+                    "container_path": f"{base.rstrip('/')}/external_skills/{idx}",
                 })
     except ImportError:
         pass
@@ -295,7 +316,7 @@ def _safe_skills_path(skills_dir: Path) -> str:
 
 
 def iter_skills_files(
-    container_base: str = "/root/.openclaw/projects/MimirAether",
+    container_base: str | None = None,
 ) -> List[Dict[str, str]]:
     """Yield individual (host_path, container_path) entries for skills files.
 
@@ -304,12 +325,13 @@ def iter_skills_files(
     that upload files individually (Daytona, Modal) rather than mounting a
     directory.
     """
+    base = _resolve_container_base(container_base)
     result: List[Dict[str, str]] = []
 
     mimiraether_home = _resolve_mimiraether_home()
     skills_dir = mimiraether_home / "skills"
     if skills_dir.is_dir():
-        container_root = f"{container_base.rstrip('/')}/skills"
+        container_root = f"{base.rstrip('/')}/skills"
         for item in skills_dir.rglob("*"):
             if item.is_symlink() or not item.is_file():
                 continue
@@ -325,7 +347,7 @@ def iter_skills_files(
         for idx, ext_dir in enumerate(get_external_skills_dirs()):
             if not ext_dir.is_dir():
                 continue
-            container_root = f"{container_base.rstrip('/')}/external_skills/{idx}"
+            container_root = f"{base.rstrip('/')}/external_skills/{idx}"
             for item in ext_dir.rglob("*"):
                 if item.is_symlink() or not item.is_file():
                     continue
@@ -355,7 +377,7 @@ _CACHE_DIRS: list[tuple[str, str]] = [
 
 
 def get_cache_directory_mounts(
-    container_base: str = "/root/.openclaw/projects/MimirAether",
+    container_base: str | None = None,
 ) -> List[Dict[str, str]]:
     """Return mount entries for each cache directory that exists on disk.
 
@@ -363,6 +385,7 @@ def get_cache_directory_mounts(
     ``container_path`` keys.  The host path is resolved via
     ``get_hermes_dir()`` for backward compatibility with old directory layouts.
     """
+    base = _resolve_container_base(container_base)
     mimiraether_home = _resolve_mimiraether_home()
 
     def _get_mimiraether_dir(new_subpath: str, old_name: str) -> Path:
@@ -382,7 +405,7 @@ def get_cache_directory_mounts(
         host_dir = _get_mimiraether_dir(new_subpath, old_name)
         if host_dir.is_dir():
             # Always map to the *new* container layout regardless of host layout.
-            container_path = f"{container_base.rstrip('/')}/{new_subpath}"
+            container_path = f"{base.rstrip('/')}/{new_subpath}"
             mounts.append({
                 "host_path": str(host_dir),
                 "container_path": container_path,
@@ -391,13 +414,14 @@ def get_cache_directory_mounts(
 
 
 def iter_cache_files(
-    container_base: str = "/root/.openclaw/projects/MimirAether",
+    container_base: str | None = None,
 ) -> List[Dict[str, str]]:
     """Return individual (host_path, container_path) entries for cache files.
 
     Used by Modal to upload files individually and resync before each command.
     Skips symlinks.  The container paths use the new ``cache/<subdir>`` layout.
     """
+    base = _resolve_container_base(container_base)
     mimiraether_home = _resolve_mimiraether_home()
 
     def _get_mimiraether_dir(new_subpath: str, old_name: str) -> Path:
@@ -411,7 +435,7 @@ def iter_cache_files(
         host_dir = _get_mimiraether_dir(new_subpath, old_name)
         if not host_dir.is_dir():
             continue
-        container_root = f"{container_base.rstrip('/')}/{new_subpath}"
+        container_root = f"{base.rstrip('/')}/{new_subpath}"
         for item in host_dir.rglob("*"):
             if item.is_symlink() or not item.is_file():
                 continue

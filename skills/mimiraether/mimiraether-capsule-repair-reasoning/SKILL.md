@@ -1,3 +1,17 @@
+---
+name: "mimiraether-capsule-repair-reasoning"
+description: >
+  修复胶囊推理引擎 — _generate_repair_capsule 在输入文本信息不足时不再fallback到占位符，而是基于症状关键词反推根因与解决方案。包含症状→根因映射表和方案推理模板。
+
+version: "1.0.0"
+category: "mimiraether"
+tags:
+  - capsule
+  - repair
+  - reasoning
+  - 根因分析
+  - 修复推理
+---
 # 修复胶囊推理引擎
 
 ## 问题

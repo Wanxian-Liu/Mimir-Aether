@@ -1,5 +1,5 @@
 {
-  "counter": 3,
+  "counter": 5,
   "entries": [
     {
       "id": "session-end-20250418",
@@ -69,6 +69,33 @@
           "写文件任务自动加载 hermes-cat-write",
           "会话启动自动加载 mimiraether-cross-session",
           "复杂任务（3+步骤）先加载 mimiraether-plan-mode，做任务分解"
+        ]
+      }
+    },
+    {
+      "id": "session-end-2025-ghost-cleanup",
+      "type": "session_boundary",
+      "timestamp": "2025-05-10T12:00:00+08:00",
+      "content": {
+        "summary": "幽灵技能清理 — 106→103零幽灵，预防机制上线",
+        "key_decisions": [
+          "幽灵技能分三类：空壳(全待实现)、无头(缺frontmatter)、无描述(缺description)",
+          "删除3个空壳：auto_testing, code_refactor, performance_monitor",
+          "10个无头技能补YAML frontmatter（7 mimiraether + 3 other）",
+          "3个无description技能补顶层description字段",
+          "skills_qa 新增 detect_ghost_skills() 方法",
+          "mimiraether-skill_generator 新增空壳禁制规则",
+          "幽灵清理流水线固化：检测→分类→删除/补全→预防"
+        ],
+        "pending_tasks": [
+          "Hermes独立路线 Phase I：hermes_cli 依赖图谱"
+        ],
+        "meta_rules": [
+          "收到任务后，先skill_view('mimiraether-tool-triggers')",
+          "写文件任务自动加载 hermes-cat-write",
+          "会话启动自动加载 mimiraether-cross-session",
+          "复杂任务（3+步骤）先加载 mimiraether-plan-mode",
+          "技能创建/修改后运行 skills_qa.detect_ghost_skills() 自检"
         ]
       }
     }

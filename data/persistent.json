@@ -1,11 +1,11 @@
 {
-  "version": "1.2",
-  "last_session_end": "2025-04-28T14:30:00+08:00",
-  "session_count": 3,
+  "version": "1.4",
+  "last_session_end": "2026-05-10T12:00:00+08:00",
+  "session_count": 6,
   "identity": {
     "name": "MimirAether",
     "soul": "智慧之泉",
-    "last_known_mission": "plan-mode实施（第3条药方）"
+    "last_known_mission": "幽灵技能清理完成 → Hermes独立路线Phase I"
   },
   "memory": {
     "key_decisions": [
@@ -15,17 +15,31 @@
       "auto_load 标记格式标准化：triggers + priority + description",
       "mimiraether-plan-mode 升级为完整plan-mode：含5阶段流程 + 模板 + 验证清单",
       "plan-mode的persistent.json固化：将plan-mode路径和状态写入持久化存储",
-      "下次会话自主选择切入点，但优先推进未完成的药方"
+      "第4条药方（skill固化）标记完成——文档已就位，靠元规则驱动",
+      "第5条药方残余聚焦：扫描auto_load标记 + 更新persistent",
+      "mimiraether-self_evolution 修复：路径去硬编码 + 移除不存在的SelfDriveEngine引用",
+      "删除apple/和autonomous-ai-agents/技能经审计确认正确：自进化链路完好",
+      "Hermes独立路线分4阶段：依赖图谱→认证脱钩→模型脱钩→清理收尾",
+      "幽灵技能清理完成：删除3空壳 + 10补frontmatter + 3补description → 106→103零幽灵",
+      "skills_qa 新增 detect_ghost_skills() 和 print_ghost_report() 方法",
+      "mimiraether-skill_generator 新增空壳禁制：内容<500字/全待实现→拒绝生成"
     ],
     "learned_patterns": [
       "技能沉默的根因之一是缺少 auto_load 标记",
       "auto_load 标记需要标准化格式，统一注入到所有核心技能",
       "persistent.json 的 version 字段用于检测是否需要迁移",
       "plan-mode的核心价值在于：在动手前先做任务分解和依赖映射，减少返工",
-      "跨会话记忆的持久化需要同时更新 data/persistent.json 和 memory/persistent.json"
+      "跨会话记忆的持久化需要同时更新 data/persistent.json 和 memory/persistent.json",
+      "技能模板代码可能与实际实现脱节——SelfDriveEngine不存在于mimicore/evolve/中",
+      "先验证真实API表面再修复技能代码，避免相信技能自称的类名",
+      "幽灵技能分三类：空壳(全待实现)、无头(缺frontmatter)、无描述(缺description字段)",
+      "空壳技能的来源不是代码生成器，而是LLM直接用write_file创建的骨架——防在技能层面加禁制",
+      "幽灵清理流水线：检测→分类→删除空壳/补frontmatter/补description→预防(生成器禁制+QA检测)"
     ],
     "active_projects": [
-      "五条药方实施 — 第2条(cross-session)已完成，第3条(plan-mode)已完成"
+      "五条药方实施 — 第2/3/4/5条完成，第1条为持续约束",
+      "幽灵技能清理 — 已完成 ✅",
+      "Hermes独立路线 — Phase I 依赖图谱待启动"
     ],
     "user_preferences": {
       "name": "刘哥 / rayliu",
@@ -38,24 +52,35 @@
       "mimiraether-cross-session",
       "mimiraether-auto-load",
       "hermes-cat-write",
-      "mimiraether-plan-mode"
+      "mimiraether-plan-mode",
+      "mimiraether-skill-solidify",
+      "mimiraether-context-compressor",
+      "mimiraether-self_evolution",
+      "mimiraether-skill_generator",
+      "skills-qa"
     ]
   },
   "progress": {
-    "current_objective": "plan-mode固化到持久化 + 第4/5条药方准备",
+    "current_objective": "Hermes独立路线 Phase I — 依赖图谱",
     "completed_milestones": [
       "tool-triggers元规则验证通过 ✅",
-      "hermes-cat-write 注入 auto_load 标记 ✅",
-      "mimiraether-cross-session 注入 auto_load 标记 ✅",
-      "cross-session 技能升级：自动注入路径 + 差异检测 + 过期机制 ✅",
-      "auto_load 标记格式标准化 ✅",
-      "plan-mode 5阶段流程完整实施 ✅",
-      "plan-mode 固化到 persistent.json ✅"
+      "hermes-cat-write auto_load ✅",
+      "cross-session auto_load + 自动注入 ✅",
+      "auto_load 格式标准化 ✅",
+      "plan-mode 5阶段流程 ✅",
+      "plan-mode persistent.json固化 ✅",
+      "第4条药方(技能固化)标记完成 ✅",
+      "auto-load扫描完成——发现9个占位幽灵、4个缺frontmatter ✅",
+      "删除apple/和autonomous-ai-agents/审计通过 ✅",
+      "self_evolution 路径去硬编码修复 ✅",
+      "self_evolution 移除SelfDriveEngine(SKILL.md + __init__.py) ✅",
+      "Hermes依赖全景分析完成 ✅",
+      "幽灵技能清理完成：106→103，零幽灵 ✅",
+      "skills_qa 幽灵检测能力上线 ✅",
+      "skill_generator 空壳禁制生效 ✅"
     ],
     "pending_tasks": [
-      "skill固化流程（第4条药方）— 待选择切入点",
-      "context-compressor集成（第5条药方）— 待选择切入点",
-      "扫描所有技能，补全缺少 auto_load 标记的"
+      "Hermes独立 Phase I：hermes_cli 依赖图谱"
     ]
   }
 }

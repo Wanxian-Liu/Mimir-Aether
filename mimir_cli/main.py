@@ -169,6 +169,11 @@ from datetime import datetime
 
 from mimir_cli import __version__, __release_date__
 from mimir_constants import OPENROUTER_BASE_URL
+from mimir_cli.paths import openclaw_migration_source_default
+
+_OPENCLAW_MIGRATE_SOURCE_DEFAULT = str(openclaw_migration_source_default()).replace(
+    str(Path.home()), "~", 1
+)
 
 logger = logging.getLogger(__name__)
 
@@ -5718,7 +5723,7 @@ Examples:
     )
     claw_migrate.add_argument(
         "--source",
-        help="Path to OpenClaw directory (default: ~/.openclaw)"
+        help=f"Path to OpenClaw directory (default: {_OPENCLAW_MIGRATE_SOURCE_DEFAULT})",
     )
     claw_migrate.add_argument(
         "--dry-run",

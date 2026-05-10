@@ -14,9 +14,9 @@ import asyncio
 import sys
 from pathlib import Path
 
-# 添加项目路径
-MIMIR_AETHER_PATH = Path('/home/rayliu/.openclaw/projects/MimirAether')
-sys.path.insert(0, str(MIMIR_AETHER_PATH))
+# 仓库根（示例脚本与 clone 路径无关）
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_REPO_ROOT))
 
 
 class MimirAetherGateway:

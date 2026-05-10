@@ -217,7 +217,9 @@ class FTS5SearchEngine:
             cache_ttl: 缓存生存时间（秒）
         """
         if db_path is None:
-            db_path = str(Path.home() / ".openclaw" / "fts5_search.db")
+            from mimir_constants import get_mimir_data_dir
+
+            db_path = str(get_mimir_data_dir() / "fts5_search.db")
         
         self.db_path = db_path
         self.cache_ttl = cache_ttl

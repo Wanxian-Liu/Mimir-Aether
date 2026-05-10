@@ -35,6 +35,7 @@ from mimir_cli.setup import (
     prompt, prompt_choice, prompt_yes_no,
 )
 from mimir_cli.colors import Colors, color
+from mimir_cli.paths import openclaw_style_project_root_for_user
 
 
 # =============================================================================
@@ -798,11 +799,9 @@ def _hermes_home_for_target_user(target_home_dir: str) -> str:
     """
     invoking_home = Path.home()
     current_hermes = get_hermes_home().resolve()
-    current_default = (
-        invoking_home / ".openclaw" / "projects" / "MimirAether"
-    ).resolve()
-    target_default = (
-        Path(target_home_dir) / ".openclaw" / "projects" / "MimirAether"
+    current_default = openclaw_style_project_root_for_user(invoking_home).resolve()
+    target_default = openclaw_style_project_root_for_user(
+        Path(target_home_dir)
     ).resolve()
 
     if current_hermes == current_default:

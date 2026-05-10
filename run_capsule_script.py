@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """生成MimirAether自我进化胶囊 - Subagent版本"""
 
-import sys
 import os
+import sys
+import time
+from pathlib import Path
 
-# 添加MimirCore路径
-MIMIR_CORE_PATH = os.path.expanduser("~/.openclaw/projects/MimirAether/mimicore")
-sys.path.insert(0, MIMIR_CORE_PATH)
+_REPO_ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(_REPO_ROOT))
 
-from mimicore.capsule_generator import CapsuleGenerator
+from mimir_constants import get_mimir_home  # noqa: E402
+from mimicore.capsule_generator import CapsuleGenerator  # noqa: E402
 
 def main():
     # 胶囊内容：MimirAether自我进化新进展
@@ -120,7 +122,7 @@ MimirAether自我进化新进展 - 工具调用优化与错误恢复机制
         
         # 保存结果
         import json
-        output_file = os.path.expanduser("~/.openclaw/projects/MimirAether/output/capsule_result.json")
+        output_file = str(get_mimir_home() / "output" / "capsule_result.json")
         os.makedirs(os.path.dirname(output_file), exist_ok=True)
         
         with open(output_file, 'w', encoding='utf-8') as f:
@@ -146,7 +148,7 @@ MimirAether自我进化新进展 - 工具调用优化与错误恢复机制
         traceback.print_exc()
         
         # 尝试记录问题
-        error_log = os.path.expanduser("~/.openclaw/projects/MimirAether/output/capsule_error.log")
+        error_log = str(get_mimir_home() / "output" / "capsule_error.log")
         with open(error_log, 'w', encoding='utf-8') as f:
             f.write(f"时间: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write(f"错误: {type(e).__name__}: {e}\n")

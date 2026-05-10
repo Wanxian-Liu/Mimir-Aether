@@ -1,3 +1,18 @@
+---
+name: "mimiraether-hermes-integration"
+description: >
+  MimirAether与Hermes Agent深度集成方案 — 实现工具共享、技能互通、子代理调度和协同工作流。支持通过Hermes工具生态扩展MimirAether能力。
+
+version: "1.0.0"
+category: "mimiraether"
+tags:
+  - hermes
+  - integration
+  - tools
+  - skills
+  - 协同
+  - 集成
+---
 # mimiraether-hermes-integration
 
 ## name

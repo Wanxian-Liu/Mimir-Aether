@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# If user-site .pth hooks hang startup (e.g. coverage auto-start under COVERAGE_*),
+# run: MIMIR_TIER0_PYTHONNOUSERSITE=1 ./run_ralph_tier0.sh
+# (skips ~/.local/.../site-packages; use a venv with deps if imports then fail.)
+if [[ "${MIMIR_TIER0_PYTHONNOUSERSITE:-}" == "1" ]]; then
+  export PYTHONNOUSERSITE=1
+fi
+
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT_DIR"
 
@@ -76,9 +83,13 @@ python3 -m pytest -q \
   agent/test_m5_checkpoint_port_slice.py \
   agent/test_m5_entry_checkpoint_injection_slice.py \
   agent/test_m5_kernel_bundle_slice.py \
-  agent/test_m5_gateway_session_db_slice.py
+  agent/test_m5_gateway_session_db_slice.py \
+  agent/test_mimir_paths_resolution.py
 
 echo "=== Ralph Tier-1: Gate3 Core E2E (mocked LLM) ==="
 python3 -m pytest -q agent/test_tier1_e2e_agent.py
+
+echo "=== Advisory: .openclaw literals (non-blocking) ==="
+python3 scripts/warn_openclaw_literals.py || true
 
 echo "=== Ralph Tier-0/1: PASS ==="

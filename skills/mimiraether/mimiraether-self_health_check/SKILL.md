@@ -1,3 +1,18 @@
+---
+name: "mimiraether-self_health_check"
+description: >
+  MimirAether定期自我健康检查 — 六大维度（身份清晰度、能力边界、系统状态、问题不足、进化方向、沉没环节）确保不退化。包含自检报告模板和行动导向流程。
+
+version: "1.0.0"
+category: "mimiraether"
+tags:
+  - health-check
+  - 自检
+  - 身份
+  - 进化
+  - 诊断
+  - 退化防护
+---
 # MimirAether Self Health Check
 
 定期自我健康检查——确保MimirAether保持智慧之泉的本质，防止退化。

@@ -4,7 +4,9 @@ Test Fix 3: fence_checkpoint参数验证
 验证mimicore/gateway/gateway.py中的fence_checkpoint函数
 """
 import sys
-sys.path.insert(0, '/home/rayliu/.openclaw/projects/MimirAether')
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from mimicore.gateway.gateway import fence_checkpoint
 

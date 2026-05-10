@@ -4,7 +4,9 @@ Test Fix 2: 危险命令检测增强
 验证mimicore/mini_agent/hooks.py中的_is_dangerous_command函数
 """
 import sys
-sys.path.insert(0, '/home/rayliu/.openclaw/projects/MimirAether')
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from mimicore.mini_agent.hooks import DefaultBeforeToolCallHook, HookContext, ToolCall
 

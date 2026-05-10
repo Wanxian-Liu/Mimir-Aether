@@ -8,7 +8,7 @@ Modular wizard with independently-runnable sections:
   4. Messaging Platforms — connect Telegram, Discord, etc.
   5. Tools — configure TTS, web search, image generation, etc.
 
-Config files are stored in ~/.mimir/ for easy access.
+Config files are stored under MimirAether home (``MIMIR_AETHER_HOME``; see ``mimir_constants``).
 """
 
 import importlib.util
@@ -26,6 +26,7 @@ from mimir_cli.nous_subscription import (
 )
 from tools.tool_backend_helpers import managed_nous_tools_enabled
 from mimir_constants import get_optional_skills_dir
+from mimir_cli.paths import openclaw_migration_source_default
 
 logger = logging.getLogger(__name__)
 
@@ -2528,14 +2529,14 @@ def _print_migration_preview(report: dict):
 
 
 def _offer_openclaw_migration(hermes_home: Path) -> bool:
-    """Detect ~/.openclaw and offer to migrate during first-time setup.
+    """Detect the default OpenClaw user directory and offer to migrate during first-time setup.
 
     Runs a dry-run first to show the user exactly what would be imported,
     overwritten, or taken over. Only executes after explicit confirmation.
 
     Returns True if migration ran successfully, False otherwise.
     """
-    openclaw_dir = Path.home() / ".openclaw"
+    openclaw_dir = openclaw_migration_source_default()
     if not openclaw_dir.is_dir():
         return False
 

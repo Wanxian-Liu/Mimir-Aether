@@ -1,0 +1,51 @@
+# Optional wide pytest — NOT a merge gate. Use workflow_dispatch or schedule for health signal.
+# PR merge gate remains: ./run_ralph_tier0.sh (.github/workflows/ralph.yml).
+
+name: Pytest wide (optional)
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly Sunday 06:00 UTC — disable by deleting schedule if too noisy
+    - cron: "0 6 * * 0"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pytest-wide:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Init git submodules
+        env:
+          SUBMODULE_PAT: ${{ secrets.SUBMODULE_PAT }}
+        run: |
+          set -euo pipefail
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          if [ -n "${SUBMODULE_PAT:-}" ]; then
+            git config --global url."https://x-access-token:${SUBMODULE_PAT}@github.com/".insteadOf "https://github.com/"
+          fi
+          git submodule sync --recursive
+          git submodule update --init --recursive --depth 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements-ci.txt
+
+      # agent/test_integration.py is not part of tier0 and can drift; exclude for a stable optional signal.
+      - name: Wide pytest (agent, gateway, tools — exclude vendored hermes_cli)
+        run: |
+          python3 -m pytest -q agent/ gateway/ tools/ \
+            --ignore=tools/hermes_cli/ \
+            --ignore=agent/test_integration.py

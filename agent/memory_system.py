@@ -71,7 +71,9 @@ class MemorySystem:
     
     def __init__(self, db_path: Optional[str] = None):
         if db_path is None:
-            db_path = os.path.expanduser('~/.openclaw/projects/MimirAether/memory.db')
+            from mimir_constants import get_mimir_home
+
+            db_path = str(get_mimir_home() / "memory.db")
         
         self.db_path = db_path
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)

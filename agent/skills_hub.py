@@ -66,15 +66,15 @@ class SkillMetadata:
 
 class SkillsHub:
     """技能中心 - 管理所有技能模块"""
-    
-    DEFAULT_SKILLS_DIR = os.path.expanduser('~/.openclaw/projects/MimirAether/skills')
-    
+
     def __init__(self, db_path: Optional[str] = None, skills_dir: Optional[str] = None):
+        from mimir_constants import get_mimir_home, get_skills_dir
+
         if db_path is None:
-            db_path = os.path.expanduser('~/.openclaw/projects/MimirAether/skills_hub.db')
-        
+            db_path = str(get_mimir_home() / "skills_hub.db")
+
         self.db_path = db_path
-        self.skills_dir = skills_dir or self.DEFAULT_SKILLS_DIR
+        self.skills_dir = skills_dir or str(get_skills_dir())
         
         os.makedirs(self.skills_dir, exist_ok=True)
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)

@@ -11,9 +11,12 @@ import time
 from pathlib import Path
 from datetime import datetime, timedelta
 
-MIMIRAETHER_DIR = Path.home() / ".openclaw" / "projects" / "MimirAether"
+from mimir_constants import get_mimir_home
+
+MIMIRAETHER_DIR = get_mimir_home()
 LEARNINGS_DIR = MIMIRAETHER_DIR / "learnings"
-HERMES_DIR = Path.home() / ".openclaw" / "projects" / "hermes-agent"
+_ha = os.environ.get("HERMES_AGENT_HOME", "").strip()
+HERMES_DIR = Path(_ha).expanduser() if _ha else (Path.home() / "hermes-agent")
 
 # 学习状态文件
 STATE_FILE = LEARNINGS_DIR / "continuous_learn_state.json"

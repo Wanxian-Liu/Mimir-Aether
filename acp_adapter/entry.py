@@ -1,6 +1,6 @@
 """CLI entry point for the MimirAether ACP adapter.
 
-Loads environment variables from ``~/.openclaw/projects/MimirAether/.env``, configures logging
+Loads environment from ``$MIMIR_AETHER_HOME/.env`` (see mimir_constants), configures logging
 to write to stderr (so stdout is reserved for ACP JSON-RPC transport),
 and starts the ACP agent server.
 
@@ -37,7 +37,7 @@ def _setup_logging() -> None:
 
 
 def _load_env() -> None:
-    """Load .env from MIMIR_AETHER_HOME (default ``~/.openclaw/projects/MimirAether``)."""
+    """Load .env from MIMIR_AETHER_HOME (default project clone path; see docs/MIMIR_RUNTIME_CONTRACT.md)."""
     from mimir_cli.env_loader import load_hermes_dotenv
 
     mimiraether_home = get_hermes_home()

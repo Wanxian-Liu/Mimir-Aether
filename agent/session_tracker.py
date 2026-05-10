@@ -26,7 +26,9 @@ class SessionTracker:
     
     def __init__(self, db_path: Optional[str] = None):
         if db_path is None:
-            base_dir = os.path.expanduser("~/.openclaw/projects/MimirAether/sessions")
+            from mimir_constants import get_mimir_sessions_dir
+
+            base_dir = str(get_mimir_sessions_dir())
             os.makedirs(base_dir, exist_ok=True)
             db_path = os.path.join(base_dir, "sessions.db")
         self.db_path = db_path

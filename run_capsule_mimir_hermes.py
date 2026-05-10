@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """生成MimirAether与Hermes对标胶囊"""
 
-import sys
 import os
+import sys
+from pathlib import Path
 
-# 添加MimirCore路径
-MIMIR_CORE_PATH = os.path.expanduser("~/.openclaw/projects/MimirAether/mimicore")
-sys.path.insert(0, MIMIR_CORE_PATH)
+_REPO_ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(_REPO_ROOT))
 
-from mimicore.capsule_generator import CapsuleGenerator, CapsuleType
+from mimir_constants import get_mimir_home  # noqa: E402
+from mimicore.capsule_generator import CapsuleGenerator, CapsuleType  # noqa: E402
 
 def main():
     # 胶囊内容：MimirAether与Hermes对标
@@ -93,7 +94,7 @@ MimirAether与Hermes核心能力对标报告
     
     # 保存结果
     import json
-    output_file = os.path.expanduser("~/.openclaw/projects/MimirAether/output/capsule_result.json")
+    output_file = str(get_mimir_home() / "output" / "capsule_result.json")
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     
     with open(output_file, 'w') as f:

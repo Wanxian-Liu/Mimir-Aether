@@ -42,4 +42,4 @@ result = produce_capsule(
     auto_publish=True
 )
 print(result)
-print(f"\n胶囊已发布到: ~/.openclaw/projects/MimirAether/mimicore/public/")
+print("\n胶囊已发布到: $MIMIR_AETHER_HOME/mimicore/public/（若未设置 env 则见 mimir_constants 默认）")

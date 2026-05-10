@@ -7,9 +7,8 @@ Mimir-Core是MimirAether的知识工厂，负责生成高质量胶囊。
 使用方式：
     MimirAether发现有价值知识 → 调用produce_capsule → 生成胶囊 → GDI评分 → 发布
 
-Canonical 代码目录（唯一真身；旧 OpenClaw 的 ~/.openclaw/projects/Mimir-Core 仅为占位说明）：
-    ~/.openclaw/projects/MimirAether/mimicore/
-    可通过环境变量 MIMIR_CORE_ROOT 覆盖（展开 user 与变量后应指向上述 mimicore 目录）。
+Canonical 代码目录：``{MIMIR_AETHER_HOME}/mimicore/``（见 mimir_constants）。
+    可通过环境变量 MIMIR_CORE_ROOT 覆盖。
 
 工具注册模式（学习自 Hermes）:
     所有工具通过 tools.registry 统一注册，与 Hermes 的 registry.register() 对齐。
@@ -27,9 +26,13 @@ from typing import Dict, Any, Optional
 from tools.registry import registry, tool_error, tool_result
 
 # Mimir-Core / mimicore 包根目录（默认与 MimirAether 内嵌目录一致）
-MIMIR_CORE_PATH = os.path.expandvars(
-    os.path.expanduser(os.environ.get("MIMIR_CORE_ROOT", "~/.openclaw/projects/MimirAether/mimicore"))
-)
+_mcr_env = os.environ.get("MIMIR_CORE_ROOT", "").strip()
+if _mcr_env:
+    MIMIR_CORE_PATH = os.path.expandvars(os.path.expanduser(_mcr_env))
+else:
+    from mimir_constants import get_mimir_home
+
+    MIMIR_CORE_PATH = str(get_mimir_home() / "mimicore")
 
 
 def _ensure_mimircore_importable():

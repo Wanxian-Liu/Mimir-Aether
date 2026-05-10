@@ -1,3 +1,15 @@
+---
+name: "delegate-subagent"
+description: "委托任务给AI子代理并收集结果。管理从任务创建到委托再到结果聚合的完整生命周期。"
+version: "1.0.0"
+category: "productivity"
+tags:
+  - delegation
+  - subagent
+  - 任务委托
+  - 子代理
+  - 并行
+---
 # delegate-subagent
 
 Delegate tasks to AI sub-agents and collect their results. Manages task lifecycle from creation through delegation to result aggregation.

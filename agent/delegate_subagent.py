@@ -62,7 +62,11 @@ class SubagentManager:
     """
     
     def __init__(self, workspace_dir: Optional[Path] = None):
-        self.workspace_dir = workspace_dir or Path.home() / ".openclaw" / "projects" / "MimirAether" / "tasks"
+        if workspace_dir is None:
+            from mimir_constants import get_mimir_home
+
+            workspace_dir = get_mimir_home() / "tasks"
+        self.workspace_dir = workspace_dir
         self.workspace_dir.mkdir(parents=True, exist_ok=True)
         self.tasks: dict[str, Task] = {}
         self._load_state()

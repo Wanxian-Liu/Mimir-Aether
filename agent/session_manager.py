@@ -16,7 +16,9 @@ class SessionManager:
     
     def __init__(self, db_path: Optional[str] = None):
         if db_path is None:
-            db_path = os.path.expanduser("~/.openclaw/projects/MimirAether/sessions.db")
+            from mimir_constants import get_mimir_home
+
+            db_path = str(get_mimir_home() / "sessions.db")
         
         self.db_path = db_path
         self.db_dir = os.path.dirname(db_path)

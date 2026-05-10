@@ -2,14 +2,16 @@
 auto_load: true
 auto_load_meta:
   triggers:
-    - write_file
-    - 创建文件
-    - 覆写文件
-    - 写入
-    - 保存
+  - write_file
+  - 创建文件
+  - 覆写文件
+  - 写入
+  - 保存
   priority: high
   description: 所有文件写入操作自动加载此技能，防止 write_file 工具截断特殊字符
+description: 所有文件写入操作自动加载此技能，防止 write_file 工具截断特殊字符
 ---
+
 
 # Hermes `cat` + stdin 文件写入法（默认写文件方式）
 

@@ -320,7 +320,9 @@ def build_session_context_prompt(
         lines.append(f"- `\"origin\"` → Back to this chat ({_origin_label})")
     
     # Local always available
-    lines.append("- `\"local\"` → Save to local files only (~/.openclaw/cron/output/)")
+    lines.append(
+        '- `"local"` → Save to local files only ($MIMIR_AETHER_HOME/cron/output/)'
+    )
     
     # Platform home channels
     for platform, home in context.home_channels.items():

@@ -5,6 +5,10 @@ Test Fix 1: API Key环境变量读取
 """
 import subprocess
 import sys
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parent
+
 
 def test_missing_api_key():
     """测试：移除环境变量运行，应报清晰错误"""
@@ -36,7 +40,7 @@ except Exception as e:
         [sys.executable, '/tmp/test_api_key.py'],
         capture_output=True,
         text=True,
-        cwd='/home/rayliu/.openclaw/projects/MimirAether'
+        cwd=str(_REPO_ROOT),
     )
     
     print("=== Test 1: Missing API Key ===")
@@ -76,7 +80,7 @@ except Exception as e:
         [sys.executable, '/tmp/test_api_key_with_env.py'],
         capture_output=True,
         text=True,
-        cwd='/home/rayliu/.openclaw/projects/MimirAether'
+        cwd=str(_REPO_ROOT),
     )
     
     print("=== Test 2: With API Key ===")

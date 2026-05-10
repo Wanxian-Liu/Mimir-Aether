@@ -1,9 +1,12 @@
 """
 Configuration management for Hermes Agent.
 
-Config files are stored in ~/.openclaw/ for easy access:
-- ~/.openclaw/config.yaml  - All settings (model, toolsets, terminal, etc.)
-- ~/.openclaw/.env         - API keys and secrets
+Config and secrets live under **MimirAether home** (``MIMIR_AETHER_HOME`` when set;
+default clone layout ``~/.openclaw/projects/MimirAether`` — see ``mimir_constants`` and
+``docs/MIMIR_RUNTIME_CONTRACT.md``):
+
+- ``<MIMIR_HOME>/config.yaml`` — settings (model, toolsets, terminal, etc.)
+- ``<MIMIR_HOME>/.env`` — API keys and secrets
 
 This module provides:
 - hermes config          - Show current configuration
@@ -577,7 +580,7 @@ DEFAULT_CONFIG = {
     # "compressor" = built-in lossy summarization (default).
     # Set to a plugin name to activate an alternative engine (e.g. "lcm"
     # for Lossless Context Management).  The engine must be installed as
-    # a plugin in plugins/context_engine/<name>/ or ~/.openclaw/plugins/.
+    # a plugin in plugins/context_engine/<name>/ or <MIMIR_HOME>/plugins/.
     "context": {
         "engine": "compressor",
     },
@@ -617,7 +620,7 @@ DEFAULT_CONFIG = {
     
     # Skills — external skill directories for sharing skills across tools/agents.
     # Each path is expanded (~, ${VAR}) and resolved.  Read-only — skill creation
-    # always goes to ~/.openclaw/skills/.
+    # always goes to <MIMIR_HOME>/skills/.
     "skills": {
         "external_dirs": [],   # e.g. ["~/.agents/skills", "/shared/team-skills"]
     },
@@ -686,7 +689,7 @@ DEFAULT_CONFIG = {
         "wrap_response": True,
     },
 
-    # Logging — controls file logging to ~/.openclaw/logs/.
+    # Logging — controls file logging to <MIMIR_HOME>/logs/.
     # agent.log captures INFO+ (all agent activity); errors.log captures WARNING+.
     "logging": {
         "level": "INFO",       # Minimum level for agent.log: DEBUG, INFO, WARNING
@@ -2408,7 +2411,7 @@ def _normalize_max_turns_config(config: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def read_raw_config() -> Dict[str, Any]:
-    """Read ~/.openclaw/config.yaml as-is, without merging defaults or migrating.
+    """Read ``config.yaml`` under Mimir home as-is, without merging defaults or migrating.
 
     Returns the raw YAML dict, or ``{}`` if the file doesn't exist or can't
     be parsed.  Use this for lightweight config reads where you just need a
@@ -2426,7 +2429,7 @@ def read_raw_config() -> Dict[str, Any]:
 
 
 def load_config() -> Dict[str, Any]:
-    """Load configuration from ~/.openclaw/config.yaml."""
+    """Load configuration from ``<MIMIR_HOME>/config.yaml``."""
     import copy
     ensure_hermes_home()
     config_path = get_config_path()
@@ -2550,7 +2553,7 @@ _COMMENTED_SECTIONS = """
 
 
 def save_config(config: Dict[str, Any]):
-    """Save configuration to ~/.openclaw/config.yaml."""
+    """Save configuration to ``<MIMIR_HOME>/config.yaml``."""
     if is_managed():
         managed_error("save configuration")
         return
@@ -2579,7 +2582,7 @@ def save_config(config: Dict[str, Any]):
 
 
 def load_env() -> Dict[str, str]:
-    """Load environment variables from ~/.openclaw/.env.
+    """Load environment variables from ``<MIMIR_HOME>/.env``.
 
     Sanitizes lines before parsing so that corrupted files (e.g.
     concatenated KEY=VALUE pairs on a single line) are handled
@@ -2659,7 +2662,7 @@ def _sanitize_env_lines(lines: list) -> list:
 
 
 def sanitize_env_file() -> int:
-    """Read, sanitize, and rewrite ~/.openclaw/.env in place.
+    """Read, sanitize, and rewrite ``<MIMIR_HOME>/.env`` in place.
 
     Returns the number of lines that were fixed (concatenation splits +
     placeholder removals).  Returns 0 when no changes are needed.
@@ -2704,7 +2707,7 @@ def sanitize_env_file() -> int:
 
 
 def save_env_value(key: str, value: str):
-    """Save or update a value in ~/.openclaw/.env."""
+    """Save or update a value in ``<MIMIR_HOME>/.env``."""
     if is_managed():
         managed_error(f"set {key}")
         return
@@ -2766,7 +2769,7 @@ def save_env_value(key: str, value: str):
 
 
 def remove_env_value(key: str) -> bool:
-    """Remove a key from ~/.openclaw/.env and os.environ.
+    """Remove a key from ``<MIMIR_HOME>/.env`` and os.environ.
 
     Returns True if the key was found and removed, False otherwise.
     """
@@ -2842,7 +2845,7 @@ def save_env_value_secure(key: str, value: str) -> Dict[str, Any]:
 
 
 def reload_env() -> int:
-    """Re-read ~/.openclaw/.env into os.environ. Returns count of vars updated.
+    """Re-read ``<MIMIR_HOME>/.env`` into os.environ. Returns count of vars updated.
 
     Adds/updates vars that changed and removes vars that were deleted from
     the .env file (but only vars known to Hermes — OPTIONAL_ENV_VARS and
@@ -2864,7 +2867,7 @@ def reload_env() -> int:
 
 
 def get_env_value(key: str) -> Optional[str]:
-    """Get a value from ~/.openclaw/.env or environment."""
+    """Get a value from ``<MIMIR_HOME>/.env`` or environment."""
     # Check environment first
     if key in os.environ:
         return os.environ[key]

@@ -1,3 +1,18 @@
+---
+name: "mimiraether-timeout-guard"
+description: >
+  MimirAether Timeout Guard — 四层超时防护系统：任务分级(L1瞬答/L2浅析/L3深潜) → 时间预算 → 沉没开关 → 熔断机制。含恢复策略和自监控指标。
+
+version: "1.0.0"
+category: "mimiraether"
+tags:
+  - timeout
+  - 超时
+  - 熔断
+  - 任务分级
+  - 沉没开关
+  - 防护
+---
 # MimirAether Timeout Guard — 超时防护系统
 
 基于超时根因分析构建的四层防护：任务分级 → 时间预算 → 沉没开关 → 熔断机制。

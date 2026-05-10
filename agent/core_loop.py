@@ -88,8 +88,10 @@ from .iteration_budget import (
 import sys
 from pathlib import Path
 
+from mimir_constants import get_mimir_home
+
 # 添加MimirAether路径(优先)
-mimir_root = Path.home() / ".openclaw" / "projects" / "MimirAether"
+mimir_root = get_mimir_home()
 mimir_path = str(mimir_root)
 if mimir_path not in sys.path:
     sys.path.insert(0, mimir_path)
@@ -97,7 +99,12 @@ if mimir_path not in sys.path:
 # 可选兼容：仅在显式开启且路径存在时才注入 hermes-agent 路径。
 # 默认保持纯 MimirAether 自包含，避免隐式依赖外部仓库。
 _enable_legacy_hermes_path = os.getenv("MIMIRAETHER_ENABLE_HERMES_PATH", "0") == "1"
-_hermes_root = Path.home() / ".openclaw" / "projects" / "hermes-agent"
+_hermes_env = os.getenv("HERMES_AGENT_HOME", "").strip()
+_hermes_root = (
+    Path(_hermes_env).expanduser()
+    if _hermes_env
+    else (Path.home() / "hermes-agent")
+)
 if _enable_legacy_hermes_path and _hermes_root.exists():
     hermes_path = str(_hermes_root)
     if hermes_path not in sys.path:
@@ -478,6 +485,7 @@ class MimirAetherAgent:
         self.skill_manager = SkillManager()
 
         self.fencer = MemoryFencer()
+        self.fencer.enable_tag_wrapping = False  # Disable XML wrapping - breaks API message format
 
         # 初始化凭证池(在使用_get_api_key之前)
         self._credential_pool: Optional[CredentialPool] = None
@@ -1333,7 +1341,10 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
         # 用MemoryFencer隔离用户消息(防止注入)
         fenced_msg = self.fencer.fence(user_message)
         if fenced_msg.was_modified:
-            logger.warning(f"User message modified by fencer: {fenced_msg.warnings}")
+            if fenced_msg.warnings:
+                logger.warning(f"User message modified by fencer: {fenced_msg.warnings}")
+            else:
+                logger.debug("User message adjusted by fencer (e.g. tag wrap); no warning list")
 
         # 学习自Hermes: @引用展开
         # 展开 @file:xxx, @folder:xxx 等引用
@@ -1353,10 +1364,12 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
             except Exception as e:
                 logger.debug(f"@引用展开失败: {e}")
 
-        # 添加用户消息到历史(使用处理后的内容)
+        effective_user_message = message_text
+
+        # 添加用户消息到历史(使用 @ 展开后的最终文本)
         self.conversation_history.append(Message(
             role=MessageRole.USER,
-            content=fenced_msg.content
+            content=effective_user_message
         ))
 
         # ============================================================
@@ -1369,7 +1382,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
         
         # 断点续传:检查是否存在未完成的检查点
         # ============================================================
-        task_id = hashlib.sha256(fenced_msg.content.encode('utf-8')).hexdigest()[:16]
+        task_id = hashlib.sha256(effective_user_message.encode('utf-8')).hexdigest()[:16]
         checkpoint_mgr = self._checkpoint_backend
         recovered_from_checkpoint = False
 
@@ -1436,7 +1449,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                             "conversation_history": [{"role": m.role.value, "content": m.content, "name": m.name, "tool_calls": m.tool_calls, "tool_call_id": m.tool_call_id} for m in self.conversation_history[1:]],
                             "iteration_used": self.budget._used,
                             "session_id": session_id,
-                            "user_message": fenced_msg.content,
+                            "user_message": effective_user_message,
                         },
                         current_step=_current_step,
                         next_action="等待用户继续或重新开始",
@@ -1468,7 +1481,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                         "conversation_history": [{"role": m.role.value, "content": m.content, "name": m.name, "tool_calls": m.tool_calls, "tool_call_id": m.tool_call_id} for m in self.conversation_history[1:]],
                         "iteration_used": self.budget._used,
                         "session_id": session_id,
-                        "user_message": fenced_msg.content,
+                        "user_message": effective_user_message,
                     },
                     current_step=_current_step,
                     next_action="执行下一步迭代",
@@ -1492,7 +1505,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 try:
                     pre_results = self._invoke_hook(
                         "pre_llm_call",
-                        user_message=user_message,
+                        user_message=effective_user_message,
                         conversation_history=list(messages),
                         model=self.model,
                     )
@@ -1515,7 +1528,40 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                     logger.error("Model call timed out")
                     return "抱歉,模型响应超时,请重试。"
                 except Exception as e:
+                    err_str = str(e)
                     logger.error(f"Model call failed: {e}")
+                    
+                    # 自动恢复：检测 conversation_history 污染
+                    # 症状：DeepSeek 400 "tool must be a response to preceding tool_calls"
+                    # 原因：中断/错误导致 tool_calls 写了但是 tool result 没写
+                    is_orphan_tool = (
+                        "tool' must be a response" in err_str
+                        or "tool_calls" in err_str.lower() and "tool" in err_str.lower()
+                    )
+                    if is_orphan_tool and self.conversation_history:
+                        logger.warning(
+                            "Detected orphan tool messages in conversation_history — "
+                            "cleaning up last corrupted turn to recover"
+                        )
+                        # 删除最后一个 assistant(tool_calls) 及其后所有孤立的 tool 消息
+                        cut = len(self.conversation_history)
+                        while cut > 0:
+                            msg = self.conversation_history[cut - 1]
+                            if msg.role == MessageRole.ASSISTANT and msg.tool_calls:
+                                # 找到最近一个有 tool_calls 的 assistant 消息
+                                # 把它改成纯文本（去掉 tool_calls），然后删除后面所有消息
+                                self.conversation_history = self.conversation_history[:cut - 1]
+                                logger.info(
+                                    "Conversation history cleaned: removed %d corrupted message(s) "
+                                    "after last tool_calls at position %d",
+                                    len(self.conversation_history) - (cut - 1),
+                                    cut - 1,
+                                )
+                                break
+                            cut -= 1
+                        # 重试
+                        continue
+                    
                     # 尝试激活Fallback模型
                     if self._try_activate_fallback():
                         # Fallback激活成功,重试当前迭代
@@ -2138,8 +2184,18 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
         """
         # 检查是否被中断
         if self._interrupt_requested:
-            logger.info("Tool execution skipped: interrupt requested")
-            return []
+            logger.info("Tool execution skipped: interrupt requested — returning error placeholders for %d tool(s)", len(tool_calls))
+            # 关键修复：中断时不能返回空列表！必须给每个 tool_call 补一个错误结果，
+            # 否则 conversation_history 中 assistant(tool_calls) 后面缺 tool result，
+            # 导致下次 API 调用时 DeepSeek 400: "tool must be a response to tool_calls"
+            return [
+                ToolResult(
+                    tool_call_id=_get_tool_id(tc) or "unknown",
+                    content="Tool execution skipped: agent was interrupted",
+                    is_error=True
+                )
+                for tc in tool_calls
+            ]
 
         results = []
 

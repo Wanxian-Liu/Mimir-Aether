@@ -1,3 +1,18 @@
+---
+name: "mimiraether-memory-nudge"
+description: >
+  MimirAether Memory Nudge — 记忆轻推系统。通过上下文相关记忆检索、定时刷新、记忆强度追踪和遗忘模拟，主动唤醒长期记忆。包含记忆质量评分和主动提示机制。
+
+version: "1.0.0"
+category: "mimiraether"
+tags:
+  - memory
+  - nudge
+  - 记忆
+  - 唤醒
+  - 遗忘模拟
+  - 长期记忆
+---
 # mimiraether-memory-nudge
 
 ## name

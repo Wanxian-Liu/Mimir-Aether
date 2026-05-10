@@ -17,7 +17,7 @@ import yaml
 logger = logging.getLogger(__name__)
 
 # HOOKS_DIR已实现
-HOOKS_DIR = None  # 懒初始化: Path.home()/.openclaw/hooks
+HOOKS_DIR = None  # 懒初始化: get_mimir_home() / "hooks"
 
 
 class HookRegistry:

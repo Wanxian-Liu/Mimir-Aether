@@ -24,7 +24,7 @@ MIMIRAETHER_HOME = get_mimir_home()
 LEARNINGS_DIR = MIMIRAETHER_HOME / "learnings"
 EVOLUTION_LOG = LEARNINGS_DIR / "evolution_log.json"
 HERMES_DIR = Path(
-    os.environ.get("HERMES_AGENT_HOME", str(Path.home() / ".openclaw/projects/hermes-agent"))
+    os.environ.get("HERMES_AGENT_HOME", str(Path.home() / "hermes-agent"))
 )
 MIMIRAETHER_SRC = MIMIRAETHER_HOME
 

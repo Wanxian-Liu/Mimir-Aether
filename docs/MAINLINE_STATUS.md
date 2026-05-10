@@ -5,10 +5,11 @@
 
 | 字段 | 值 |
 |------|-----|
-| **最近更新** | 2026-05-05 |
+| **最近更新** | 2026-05-10 |
 | **更新人** | 协作者（用户问进度时刷新） |
-| **仓库根（真源）** | `~/.openclaw/projects/MimirAether` |
-| **可选校验** | `./run_ralph_tier0.sh`（门禁）；里程碑 A 项需真环境手动/清单 |
+| **仓库根（真源）** | `~/.openclaw/projects/MimirAether`（任意 clone 路径均可，以当前工作区 git 根为准） |
+| **可选校验** | `./run_ralph_tier0.sh`（门禁）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml)；里程碑 A 项需真环境手动/清单 |
+| **本轮摘要** | 维持计划落地：`path-contract` 合并门槛、`MIMIR_RUNTIME_CONTRACT` 部署清单与 smoke、`docs/CI_SUBMODULE.md`、可选 `pytest-wide` workflow |
 
 ---
 
@@ -16,7 +17,7 @@
 
 | ID | 名称 | 状态 | 说明 |
 |----|------|------|------|
-| M0 | 基线可回归 | **绿** | `run_ralph_tier0.sh` 日常可通过。**稳定性（2026-05-04，真源）**：连续 **3** 次执行 Gate1–3 **全 PASS**（当时 Gate2 **153**、Gate3 **2**；用例总数随仓库增长以脚本输出为准）。发版/大合并前建议复跑：`for n in 1 2 3; do ./run_ralph_tier0.sh || exit 1; done` |
+| M0 | 基线可回归 | **绿** | `run_ralph_tier0.sh` 日常可通过。**稳定性（2026-05-10，真源）**：Gate2 **160**、Gate3 **2**（以脚本输出为准）。发版/大合并前建议复跑：`for n in 1 2 3; do ./run_ralph_tier0.sh || exit 1; done` |
 | M1 | 契约可执行 | **绿** | `docs/ralph_parity_testmap.md` 已映射；扩展项见 ext / 另增 |
 | M2 | Tier-0 矩阵闭合 | **绿** | `ralph_tier0_case_matrix.md`：当前无阻塞 P0；契约变更后需复核 |
 | M3 | 垂直切片 | **绿** | **两条**：CLI（`docs/m3_cli_quick_task_slice.md`）+ **API** `POST /v1/chat/completions`（`docs/m3_api_chat_slice.md`，`agent/test_m3_api_chat_slice.py`） |

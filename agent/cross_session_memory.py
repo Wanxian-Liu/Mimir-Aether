@@ -36,9 +36,11 @@ from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from pathlib import Path
 
+from mimir_constants import get_mimir_data_dir
 
-# 持久化文件路径
-PERSISTENT_FILE = Path.home() / ".openclaw" / "projects" / "MimirAether" / "data" / "persistent.json"
+
+# 持久化文件路径（随 MIMIR_AETHER_HOME 解析）
+PERSISTENT_FILE = get_mimir_data_dir() / "persistent.json"
 
 
 class CrossSessionMemory:
@@ -90,6 +92,7 @@ class CrossSessionMemory:
                             if subkey not in data[key]:
                                 data[key][subkey] = default[key][subkey]
                 self._data = data
+                self._normalize_memory_shapes()
                 self._loaded = True
                 return True
             else:
@@ -101,6 +104,65 @@ class CrossSessionMemory:
             self._data = self._default_data()
             self._loaded = True
             return False
+
+    def _normalize_memory_shapes(self) -> None:
+        """Coerce hand-edited or legacy persistent.json into expected dict rows.
+
+        Older files store ``key_decisions`` / ``learned_patterns`` / ``active_projects``
+        as plain strings; code paths expect dict rows with ``decision`` / ``pattern`` /
+        ``name`` keys. Without this, :meth:`summary` and :meth:`add_project` raise
+        ``string indices must be integers, not 'str'``.
+        """
+        mem = self._data.get("memory")
+        if not isinstance(mem, dict):
+            return
+        now = datetime.now(timezone.utc).isoformat()
+
+        kd = mem.get("key_decisions")
+        if isinstance(kd, list):
+            fixed: List[Any] = []
+            for item in kd:
+                if isinstance(item, str):
+                    fixed.append({"timestamp": "", "decision": item, "context": ""})
+                elif isinstance(item, dict):
+                    fixed.append(item)
+                else:
+                    fixed.append({"timestamp": "", "decision": str(item), "context": ""})
+            mem["key_decisions"] = fixed
+
+        lp = mem.get("learned_patterns")
+        if isinstance(lp, list):
+            fixed_lp: List[Any] = []
+            for item in lp:
+                if isinstance(item, str):
+                    fixed_lp.append({"timestamp": "", "pattern": item, "evidence": ""})
+                elif isinstance(item, dict):
+                    fixed_lp.append(item)
+                else:
+                    fixed_lp.append({"timestamp": "", "pattern": str(item), "evidence": ""})
+            mem["learned_patterns"] = fixed_lp
+
+        ap = mem.get("active_projects")
+        if isinstance(ap, list):
+            fixed_ap: List[Any] = []
+            for item in ap:
+                if isinstance(item, str):
+                    fixed_ap.append({
+                        "name": item,
+                        "status": "active",
+                        "created_at": now,
+                        "updated_at": now,
+                    })
+                elif isinstance(item, dict):
+                    fixed_ap.append(item)
+                else:
+                    fixed_ap.append({
+                        "name": str(item),
+                        "status": "active",
+                        "created_at": now,
+                        "updated_at": now,
+                    })
+            mem["active_projects"] = fixed_ap
     
     def save(self) -> bool:
         """保存持久化记忆"""
@@ -235,7 +297,10 @@ class CrossSessionMemory:
         if decisions:
             lines.append(f"关键决策: {len(decisions)} 条")
             for d in decisions[-3:]:
-                lines.append(f"  - {d['decision']}")
+                if isinstance(d, dict):
+                    lines.append(f"  - {d.get('decision', d)}")
+                else:
+                    lines.append(f"  - {d}")
         
         patterns = self._data["memory"]["learned_patterns"]
         if patterns:

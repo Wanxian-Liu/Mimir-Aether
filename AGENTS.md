@@ -21,7 +21,7 @@ Use **`~/.openclaw/projects/MimirAether`** as the **only** git root for commits,
 
 ## Paths and config
 
-Follow **`docs/path-contract.md`**: agent home vs profile roots vs `~/.openclaw/config.yaml` platform layer. Avoid ad-hoc home-dir logic in new code.
+Follow **`docs/path-contract.md`**: agent home vs profile roots, `.openclaw` literal rules under `agent|gateway|tools`, and the tier0 advisory script (`OPENCLAW_STRING_WARN_THRESHOLD`, default 60 — loose on purpose; tighten via env only if you want stricter drift detection). Avoid ad-hoc home-dir logic in new code.
 
 For **standalone / de-platformed** runs, set **`MIMIR_AETHER_HOME`** (and align **`HERMES_HOME`**) per **`docs/MIMIR_RUNTIME_CONTRACT.md`**.
 
@@ -31,7 +31,7 @@ When **Ralph 模式** is requested: follow **`docs/RALPH_MODE.md`** — iterate 
 
 ## Merge gate
 
-Before pushing, **`./run_ralph_tier0.sh`** must pass (repository pre-push hook runs the same checks). After a green run, the hook may print an **M6 reminder** if you changed `agent/` / `gateway/` / `tools/` / contract tests but not `docs/evolution_log.md` — see **`docs/M6_EVOLUTION.md`**.
+Before pushing, **`./run_ralph_tier0.sh`** must pass (repository pre-push hook runs the same checks). After a green run, the hook may print an **M6 reminder** if you changed `agent/` / `gateway/` / `tools/` / contract tests but not `docs/evolution_log.md` — see **`docs/M6_EVOLUTION.md`**. Optional wider pytest (not a merge gate): **Actions → Pytest wide (optional)** or **`docs/CI_SUBMODULE.md`** if Ralph CI fails on submodules.
 
 ## M6 — evolution audit (minimal)
 

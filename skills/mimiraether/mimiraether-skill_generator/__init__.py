@@ -22,14 +22,18 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
 from pathlib import Path
 
+from mimir_constants import get_mimir_home
+
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# 路径常量
-SKILLS_DIR = Path.home() / ".openclaw" / "projects" / "MimirAether" / "skills" / "mimiraether"
-TEMPLATE_DIR = Path.home() / ".openclaw" / "skills"
-MIMICORE_DIR = Path.home() / ".openclaw" / "projects" / "MimirAether" / "mimicore"
+# 路径常量（随 MIMIR_AETHER_HOME；模板目录优先历史 OpenClaw 侧车 skills）
+_MIMIR_HOME = get_mimir_home()
+SKILLS_DIR = _MIMIR_HOME / "skills" / "mimiraether"
+_LEGACY_OPENCLAW_SKILLS = Path.home() / ".openclaw" / "skills"
+TEMPLATE_DIR = _LEGACY_OPENCLAW_SKILLS if _LEGACY_OPENCLAW_SKILLS.is_dir() else (_MIMIR_HOME / "skills")
+MIMICORE_DIR = _MIMIR_HOME / "mimicore"
 
 # 必需的核心能力列表
 CORE_CAPABILITIES = [

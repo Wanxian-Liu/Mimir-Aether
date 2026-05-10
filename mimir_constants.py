@@ -10,13 +10,21 @@ _DEFAULT_MIMIR_HOME = Path.home() / ".openclaw" / "projects" / "MimirAether"
 def get_mimir_home() -> Path:
     """Return the MimirAether home directory (reads env on each call).
 
-    ``MIMIR_AETHER_HOME`` is preferred; ``MIMIRAETHER_HOME`` is accepted for
-    backward compatibility (tests and older scripts).
+    Resolution order matches ``hermes_constants.get_hermes_home()`` for the
+    shared keys, plus ``MIMIRAETHER_HOME`` for backward compatibility:
+
+    1. ``MIMIR_AETHER_HOME``
+    2. ``MIMIRAETHER_HOME``
+    3. ``HERMES_HOME`` (systemd / legacy deploys often set only this)
+    4. Default clone layout ``~/.openclaw/projects/MimirAether``
     """
     for key in ("MIMIR_AETHER_HOME", "MIMIRAETHER_HOME"):
         v = os.getenv(key, "").strip()
         if v:
             return Path(v).expanduser()
+    hermes = os.getenv("HERMES_HOME", "").strip()
+    if hermes:
+        return Path(hermes).expanduser()
     return _DEFAULT_MIMIR_HOME
 
 
@@ -75,6 +83,7 @@ def get_hermes_dir(new_subpath: str, old_name: str) -> Path:
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 OPENROUTER_MODELS_URL = f"{OPENROUTER_BASE_URL}/models"
+AI_GATEWAY_BASE_URL = "https://ai-gateway.vercel.sh/v1"
 
 
 # ── Hermes backward-compatible functions ──────────────────────────────────
@@ -226,6 +235,23 @@ def is_container() -> bool:
 
 # ── Path helper functions ─────────────────────────────────────────────────────
 
+def get_subprocess_home() -> str | None:
+    """Return a per-profile HOME directory for subprocesses, or None.
+
+    When ``{HERMES_HOME}/home/`` exists on disk, subprocesses should use it
+    as ``HOME`` so system tools (git, ssh, gh, npm …) write their configs
+    inside the Hermes data directory instead of the OS-level ``/root`` or
+    ``~/``.
+    """
+    hermes_home = os.getenv("HERMES_HOME")
+    if not hermes_home:
+        return None
+    profile_home = os.path.join(hermes_home, "home")
+    if os.path.isdir(profile_home):
+        return profile_home
+    return None
+
+
 def get_config_path() -> Path:
     """Return the path to ``config.yaml`` under MIMIR_HOME."""
     return get_hermes_home() / "config.yaml"
@@ -241,5 +267,22 @@ def get_env_path() -> Path:
     return get_hermes_home() / ".env"
 
 
-# Gateway and tools import these from mimir_constants; implementation lives in hermes_constants.
-from hermes_constants import parse_reasoning_effort  # noqa: E402
+VALID_REASONING_EFFORTS = ("minimal", "low", "medium", "high", "xhigh")
+
+
+def parse_reasoning_effort(effort: str) -> dict | None:
+    """Parse a reasoning effort level into a config dict.
+
+    Valid levels: "none", "minimal", "low", "medium", "high", "xhigh".
+    Returns None when the input is empty or unrecognized (caller uses default).
+    Returns {"enabled": False} for "none".
+    Returns {"enabled": True, "effort": <level>} for valid effort levels.
+    """
+    if not effort or not effort.strip():
+        return None
+    effort = effort.strip().lower()
+    if effort == "none":
+        return {"enabled": False}
+    if effort in VALID_REASONING_EFFORTS:
+        return {"enabled": True, "effort": effort}
+    return None

@@ -222,9 +222,11 @@ class SessionSearchDB:
 
     def __init__(self, db_path: Optional[str] = None):
         if db_path is None:
+            from mimir_constants import get_mimir_data_dir
+
             db_path = os.environ.get(
                 "OPENCLAW_SESSION_DB",
-                str(Path.home() / ".openclaw" / "sessions.db")
+                str(get_mimir_data_dir() / "sessions_search.db"),
             )
         self.db_path = db_path
         self._ensure_schema()

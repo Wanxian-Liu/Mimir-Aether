@@ -1,3 +1,15 @@
+---
+name: "tdd"
+description: "测试驱动开发工作流 — 集成TDD最佳实践，引导完成红-绿-重构循环。"
+version: "1.0.0"
+category: "software-development"
+tags:
+  - tdd
+  - 测试驱动
+  - red-green-refactor
+  - 测试
+  - 质量
+---
 # TDD Skill - 测试驱动开发
 
 测试驱动开发工作流，集成TDD最佳实践，引导完成红-绿-重构循环。

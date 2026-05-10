@@ -5,17 +5,17 @@ When users send stickers, we describe them via the vision tool and cache
 the descriptions keyed by file_unique_id so we don't re-analyze the same
 sticker image on every send. Descriptions are concise (1-2 sentences).
 
-Cache location: ~/.openclaw/sticker_cache.json
+Cache location: ``$MIMIR_AETHER_HOME/data/sticker_cache.json`` (see mimir_constants).
 """
 
 import json
 import time
 from typing import Optional
 
-from gateway.config import _get_openclaw_home
+from mimir_constants import get_mimir_data_dir
 
 
-CACHE_PATH = _get_openclaw_home() / "sticker_cache.json"
+CACHE_PATH = get_mimir_data_dir() / "sticker_cache.json"
 
 # Vision prompt for describing stickers -- kept concise to save tokens
 STICKER_VISION_PROMPT = (

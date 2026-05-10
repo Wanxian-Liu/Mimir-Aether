@@ -11,5 +11,6 @@ if [[ -f "$MIMIR_AETHER_HOME/.env" ]]; then
   source "$MIMIR_AETHER_HOME/.env"
   set +a
 fi
-PORT="${GATEWAY_PORT:-${PORT:-18789}}"
-exec python3 "$MIMIR_AETHER_HOME/gateway/run.py" --port "$PORT" "$@"
+# Optional hint for tooling; gateway reads bind/port from config / platform env, not CLI.
+export GATEWAY_PORT="${GATEWAY_PORT:-${PORT:-18789}}"
+exec python3 "$MIMIR_AETHER_HOME/gateway/run.py" "$@"

@@ -19,6 +19,7 @@ from datetime import datetime
 from pathlib import Path
 
 from mimir_cli.config import get_hermes_home, get_config_path, load_config, save_config
+from mimir_cli.paths import openclaw_migration_source_default
 from mimir_constants import get_optional_skills_dir
 from mimir_cli.setup import (
     Colors,
@@ -309,7 +310,7 @@ def _cmd_migrate(args):
     if explicit_source:
         source_dir = Path(explicit_source)
     else:
-        source_dir = Path.home() / ".openclaw"
+        source_dir = openclaw_migration_source_default()
         if not source_dir.is_dir():
             # Try legacy directory names
             for legacy in (".clawdbot", ".moltbot"):

@@ -62,9 +62,14 @@ SUPPORTED_STRATEGIES = {
 EXHAUSTED_TTL_429 = 3600  # 1小时
 EXHAUSTED_TTL_DEFAULT = 3600  # 1小时
 
-# 凭证文件路径
-DEFAULT_CREDENTIALS_DIR = Path.home() / ".openclaw" / "credentials"
+# 凭证文件路径（项目树下 data/credentials）
 CREDENTIAL_POOL_FILE = "credential_pool.json"
+
+
+def _default_credentials_dir() -> Path:
+    from mimir_constants import get_mimir_data_dir
+
+    return get_mimir_data_dir() / "credentials"
 
 # ============================================================================
 # JWT 工具函数
@@ -509,7 +514,7 @@ def list_custom_pool_providers() -> List[str]:
     """返回所有有条目的custom:* pool keys（Hermès兼容）"""
     result = []
     try:
-        cred_dir = DEFAULT_CREDENTIALS_DIR
+        cred_dir = _default_credentials_dir()
         if cred_dir.exists():
             for provider_dir in cred_dir.iterdir():
                 if provider_dir.is_dir() and provider_dir.name.startswith("custom:"):
@@ -822,9 +827,9 @@ class CredentialPool:
     def _persist(self) -> None:
         """持久化到磁盘"""
         try:
-            DEFAULT_CREDENTIALS_DIR.mkdir(parents=True, exist_ok=True)
+            _default_credentials_dir().mkdir(parents=True, exist_ok=True)
             # 每个provider一个子目录
-            provider_dir = DEFAULT_CREDENTIALS_DIR / self.provider
+            provider_dir = _default_credentials_dir() / self.provider
             provider_dir.mkdir(parents=True, exist_ok=True)
             filepath = provider_dir / CREDENTIAL_POOL_FILE
             data = [entry.to_dict() for entry in self._entries]
@@ -1246,8 +1251,10 @@ class CredentialPool:
     def _load_config_safe(self) -> Optional[dict]:
         """安全加载配置文件（Hermes 1:1学习）"""
         try:
-            # 尝试加载MimirAether配置
-            config_path = Path.home() / ".openclaw" / "config.json"
+            # 尝试加载项目根 legacy JSON 配置（若存在）
+            from mimir_constants import get_mimir_home
+
+            config_path = get_mimir_home() / "config.json"
             if config_path.exists():
                 import json
                 with open(config_path) as f:
@@ -1560,8 +1567,12 @@ CredentialPool.resolve_target = _credential_pool_resolve_target
 import fcntl
 import stat as _stat_mod
 
-_MIMIR_AUTH_DIR = Path.home() / ".openclaw"
-_MIMIR_AUTH_FILE = _MIMIR_AUTH_DIR / "auth.json"
+def _mimir_auth_file() -> Path:
+    from mimir_constants import get_mimir_home
+
+    return get_mimir_home() / "auth.json"
+
+
 _AUTH_LOCK_TIMEOUT = 10.0
 
 _auth_lock_holder = threading.local()
@@ -1573,7 +1584,7 @@ class _AuthStoreLock:
     """
     def __init__(self, timeout_seconds: float = _AUTH_LOCK_TIMEOUT):
         self._timeout = timeout_seconds
-        self._lock_path = _MIMIR_AUTH_FILE.with_suffix(".lock")
+        self._lock_path = _mimir_auth_file().with_suffix(".lock")
 
     def __enter__(self):
         if getattr(_auth_lock_holder, "depth", 0) > 0:
@@ -1604,10 +1615,11 @@ def _mimir_auth_store_lock():
 
 
 def _mimir_load_auth_store() -> Dict[str, Any]:
-    if not _MIMIR_AUTH_FILE.exists():
+    auth_path = _mimir_auth_file()
+    if not auth_path.exists():
         return {"version": 1, "providers": {}}
     try:
-        data = json.loads(_MIMIR_AUTH_FILE.read_text())
+        data = json.loads(auth_path.read_text())
         if isinstance(data, dict):
             data.setdefault("providers", {})
             return data
@@ -1620,16 +1632,17 @@ def _mimir_save_auth_store(auth_store: Dict[str, Any]) -> None:
     auth_store["version"] = 1
     auth_store["updated_at"] = datetime.now().isoformat()
     payload = json.dumps(auth_store, indent=2) + "\n"
-    _MIMIR_AUTH_DIR.mkdir(parents=True, exist_ok=True)
-    tmp_path = _MIMIR_AUTH_FILE.with_name(f"auth.json.tmp.{uuid.uuid4().hex}")
+    auth_path = _mimir_auth_file()
+    auth_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = auth_path.with_name(f"auth.json.tmp.{uuid.uuid4().hex}")
     try:
         tmp_path.write_text(payload, encoding="utf-8")
-        os.replace(str(tmp_path), str(_MIMIR_AUTH_FILE))
+        os.replace(str(tmp_path), str(auth_path))
     finally:
         if tmp_path.exists():
             tmp_path.unlink()
     try:
-        _MIMIR_AUTH_FILE.chmod(_stat_mod.S_IRUSR | _stat_mod.S_IWUSR)
+        auth_path.chmod(_stat_mod.S_IRUSR | _stat_mod.S_IWUSR)
     except OSError:
         pass
 

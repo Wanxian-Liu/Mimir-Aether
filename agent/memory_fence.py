@@ -170,7 +170,9 @@ class MemoryFence:
     
     def __init__(self, memory_dir: Optional[str] = None):
         if memory_dir is None:
-            memory_dir = os.path.expanduser("~/.openclaw/projects/MimirAether")
+            from mimir_constants import get_mimir_home
+
+            memory_dir = str(get_mimir_home())
         self.memory_dir = memory_dir
     
     def scan_file(self, file_path: str) -> MemoryAudit:

@@ -1,6 +1,13 @@
+---
+name: mimiraether-self_evolution
+description: MimirAether 自我进化技能 — 触发条件为用户明确要求自我进化/改进/优化。基于三环闭环架构（MonitorRing→DecisionRing→ExecutionRing）+ mimicore.evolve 实现知识纠错、根因修复与意图预测。
+version: 1.1.0
+auto_load: false
+---
+
 # Self Evolution Skill
 
-> MimirAether 自我进化技能 | 集成三环闭环 + 自驱动引擎
+> MimirAether 自我进化技能 | 三环闭环 + mimicore.evolve 引擎
 
 ## 描述
 
@@ -35,10 +42,8 @@ async def collect_metrics() -> Dict[str, Any]:
         
         # 进化相关指标
         "cycle_count": three_ring.cycle_count,
-        "success_rate": self_drive.get_stats()["success_rate"],
-        "exploration_rate": self_drive.exploration_rate,
-        "strategy_count": len(self_drive._strategies),
-        "pattern_count": len(self_drive._patterns),
+        "correction_count": corrector.get_stats().get("total_decisions", 0),
+        "success_rate": three_ring.get_stats().get("success_rate", 1.0),
         
         # 性能指标
         "avg_response_time_ms": recent_avg_response_time,
@@ -116,34 +121,24 @@ async def execute_improvement(plan: Dict[str, Any]) -> Dict[str, Any]:
     gap = plan.get("priority_gap", {})
     gap_type = gap.get("type", "unknown")
     
-    # 使用 SelfDriveEngine 选择最优策略
-    context = {
-        "gap_type": gap_type,
-        "severity": gap.get("severity", 0.5),
-        "tags": {gap_type.split("_")[0]}  # e.g., {"memory"}, {"context"}
-    }
-    
-    strategy, is_exploration = self_drive.select_strategy(context)
-    
-    # 构建决策
-    decision = DecisionOutput(
-        decision_id=f"dec_{int(time.time() * 1000)}",
-        timestamp=time.time(),
-        root_cause=gap_type,
-        confidence=1.0 - gap.get("severity", 0.5),
-        strategy=strategy
+    # 使用决策环生成策略候选
+    strategies = await self.three_ring.decision.generate_strategies(
+        anomaly_type=gap_type, severity=gap.get("severity", 0.5)
     )
+    decision = await self.three_ring.decision.select_best_strategy(strategies)
     
     # 执行
-    execution = await execution_ring.execute(decision, context)
+    execution = await self.three_ring.execution.execute(decision, {})
     
-    # 记录结果到自驱动引擎
-    self_drive.record_outcome(strategy, execution.effectiveness_score, context)
+    # 记录到知识纠错器
+    self.corrector.record_outcome(
+        decision.strategy, execution.effectiveness_score,
+        context={"gap_type": gap_type}
+    )
     
     return {
-        "strategy_used": strategy,
-        "is_exploration": is_exploration,
-        "execution_result": execution.__dict__,
+        "strategy_used": decision.strategy,
+        "execution_result": execution.__dict__ if hasattr(execution, '__dict__') else execution,
         "effectiveness": execution.effectiveness_score
     }
 ```
@@ -225,25 +220,21 @@ async def verify_result(
 - `verify()` - 验证效果
 - 内置18种执行器
 
-### 自驱动引擎 (SelfDriveEngine)
+### 知识纠错器 (ProactiveKnowledgeCorrector) 与修复执行器
+
+> 真源：`mimicore/evolve/self_evolution.py`。以下为技能摘要，具体 API 以代码为准。
 
 ```python
-class SelfDriveEngine:
-    """自驱动演进引擎 - ε-greedy 策略选择"""
-    
-    def select_strategy(context) -> Tuple[str, bool]:
-        """选择策略 (策略名, 是否探索模式)"""
-        # ε-greedy: exploration_rate概率随机探索
-        # 否则选择评分最高的策略
-        pass
-    
-    def record_outcome(strategy, effect_score, context):
-        """记录执行结果，更新策略评分"""
-        pass
-    
-    def _adapt_params():
-        """根据执行效果自适应调整参数"""
-        pass
+from mimicore.evolve.self_evolution import ProactiveKnowledgeCorrector, AutonomousRepairExecutor
+
+corrector = ProactiveKnowledgeCorrector()
+repair = AutonomousRepairExecutor()
+
+# 纠错器：根据根因分析修正知识
+correction = corrector.correct(RootCauseAnalysis(...))
+
+# 修复执行器：执行修复并验证
+result = repair.execute_and_verify(fix_plan)
 ```
 
 **内置策略:**
@@ -301,16 +292,9 @@ async def run_self_evolution_cycle():
 
 ```python
 from mimicore.evolve.three_ring_architecture import ThreeRingClosedLoop
-from mimicore.evolve.self_drive_engine import SelfDriveEngine
 
 # 初始化
 three_ring = ThreeRingClosedLoop()
-self_drive = SelfDriveEngine(
-    learning_rate=0.1,
-    exploration_rate=0.1,
-    min_exploration=0.01,
-    decay_rate=0.995
-)
 
 # 运行闭环周期
 result = await three_ring.run_cycle(context={"task": "self_evolution"})
@@ -319,23 +303,17 @@ result = await three_ring.run_cycle(context={"task": "self_evolution"})
 ### 查看引擎状态
 
 ```python
-# 获取自驱动引擎统计
-stats = self_drive.get_stats()
-print(f"总决策: {stats['total_decisions']}")
+# 获取三环闭环统计
+stats = three_ring.get_stats()
+print(f"周期数: {stats['cycle_count']}")
 print(f"成功率: {stats['success_rate']:.2%}")
-print(f"探索率: {stats['current_exploration_rate']:.2%}")
-print(f"策略数: {stats['strategy_count']}")
-print(f"模式数: {stats['pattern_count']}")
 
-# 获取最佳策略
-best = self_drive.get_best_strategies(limit=5)
-for name, score in best:
-    print(f"  {name}: {score:.3f}")
-
-# 获取参数调整建议
-suggestions = self_drive.suggest_param_adjustments()
-for param, (old, new) in suggestions.items():
-    print(f"  {param}: {old:.3f} → {new:.3f}")
+# 获取知识纠错器状态
+from mimicore.evolve.self_evolution import ProactiveKnowledgeCorrector
+corrector = ProactiveKnowledgeCorrector()
+c_stats = corrector.get_stats()
+print(f"总决策: {c_stats['total_decisions']}")
+print(f"探索率: {c_stats['current_exploration_rate']:.2%}")
 ```
 
 ## 实现代码模板
@@ -351,14 +329,17 @@ import time
 import asyncio
 from pathlib import Path
 
-# 添加项目路径
-PROJECT_ROOT = Path("~/.openclaw/projects/MimirAether").expanduser()
-sys.path.insert(0, str(PROJECT_ROOT))
+# 添加项目路径（运行时解析，支持 MIMIR_AETHER_HOME / HERMES_HOME 覆盖）
+from mimir_constants import get_mimir_home
+PROJECT_ROOT = get_mimir_home()
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from mimicore.evolve.three_ring_architecture import (
     ThreeRingClosedLoop, MonitorRing, DecisionRing, ExecutionRing
 )
-from mimicore.evolve.self_drive_engine import SelfDriveEngine
+from mimicore.evolve.self_evolution import ProactiveKnowledgeCorrector, AutonomousRepairExecutor
+from mimicore.evolve.diversity_executor import DiversityExecutor
 
 
 class SelfEvolutionSkill:
@@ -366,12 +347,9 @@ class SelfEvolutionSkill:
     
     def __init__(self):
         self.three_ring = ThreeRingClosedLoop()
-        self.self_drive = SelfDriveEngine(
-            learning_rate=0.1,
-            exploration_rate=0.1,
-            min_exploration=0.01,
-            decay_rate=0.995
-        )
+        self.corrector = ProactiveKnowledgeCorrector()
+        self.repair_executor = AutonomousRepairExecutor()
+        self.diversity = DiversityExecutor()
         self._initialized = True
     
     async def collect_metrics(self) -> dict:
@@ -410,8 +388,8 @@ class SelfEvolutionSkill:
         # 执行
         execution = await self.three_ring.execution.execute(decision, {})
         
-        # 记录到自驱动引擎
-        self.self_drive.record_outcome(
+        # 记录到知识纠错器
+        self.corrector.record_outcome(
             decision.strategy,
             execution.effectiveness_score
         )
@@ -459,10 +437,13 @@ class SelfEvolutionSkill:
 __all__ = ["SelfEvolutionSkill"]
 ```
 
-## 依赖
+## 依赖（真源）
 
-- `mimicore.evolve.three_ring_architecture`
-- `mimicore.evolve.self_drive_engine`
+- `mimicore.evolve.three_ring_architecture` — `MonitorRing`, `DecisionRing`, `ExecutionRing`, `ThreeRingClosedLoop`
+- `mimicore.evolve.self_evolution` — `ProactiveKnowledgeCorrector`, `AutonomousRepairExecutor`, `AutomatedRootCauseFixer`
+- `mimicore.evolve.diversity_executor` — `DiversityExecutor`
+- `mimicore.evolve.monitor_collector` — `MonitorCollector`
+- `mimir_constants` — `get_mimir_home()` 路径解析
 - Python 3.8+ with asyncio
 
 ## 验证方式

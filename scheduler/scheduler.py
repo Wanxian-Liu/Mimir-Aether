@@ -113,7 +113,7 @@ class Scheduler:
     def _save_job_result(self, job_id, result):
         """保存任务执行结果到output目录"""
         try:
-            output_dir = Path("/home/rayliu/.openclaw/projects/MimirAether") / "output"
+            output_dir = get_mimir_home() / "output"
             output_dir.mkdir(parents=True, exist_ok=True)
             
             # 生成文件名

@@ -1,3 +1,15 @@
+---
+name: "snippets"
+description: "快速保存、搜索和复用常用代码片段。支持标签分类和快速检索。"
+version: "1.0.0"
+category: "productivity"
+tags:
+  - snippets
+  - 代码片段
+  - 复用
+  - 搜索
+  - 保存
+---
 # 代码片段管理 (snippets)
 
 ## 用途

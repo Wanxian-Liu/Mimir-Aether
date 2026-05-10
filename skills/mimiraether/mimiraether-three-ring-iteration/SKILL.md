@@ -1,3 +1,19 @@
+---
+name: "mimiraether-three-ring-iteration"
+description: >
+  MimirAether三环闭环迭代 — 基于Hermes模式的Monitor→Decision→Execution三环自迭代计划。包含Phase 0-3的分阶段执行路线图和M1-M5成功标准。
+
+version: "1.0.0"
+category: "mimiraether"
+tags:
+  - 三环
+  - 迭代
+  - 闭环
+  - self-evolution
+  - Monitor
+  - Decision
+  - Execution
+---
 # MimirAether 三环闭环迭代技能
 
 ## 用途
