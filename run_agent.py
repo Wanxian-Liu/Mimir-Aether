@@ -92,22 +92,34 @@ class AIAgent:
     def run_conversation(
         self,
         user_message: str,
-        conversation_history: List[Dict[str, Any]],
-        task_id: str,
+        conversation_history: List[Dict[str, Any]] = None,
+        task_id: str = "",
+        **kwargs: Any,
     ) -> Dict[str, Any]:
-        """Run a conversation turn through the real MimirAetherAgent."""
+        """Run a conversation turn through the real MimirAetherAgent.
+        
+        Adapts between gateway interface (dict return) and MimirAetherAgent
+        interface (async, str return).
+        """
         try:
             agent = self._get_real_agent()
-            return agent.run_conversation(
-                user_message=user_message,
-                conversation_history=conversation_history,
-                task_id=task_id,
-            )
+            import asyncio
+            
+            # MimirAetherAgent.run_conversation is async, returns str
+            response = asyncio.run(agent.run_conversation(user_message))
+            
+            return {
+                "final_response": response,
+                "messages": conversation_history or [],
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+            }
         except Exception as exc:
             import traceback
             return {
                 "final_response": f"⚠️ Agent error: {exc}",
-                "messages": conversation_history,
+                "messages": conversation_history or [],
                 "prompt_tokens": 0,
                 "completion_tokens": 0,
                 "total_tokens": 0,
