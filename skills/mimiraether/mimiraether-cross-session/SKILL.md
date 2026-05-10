@@ -1,5 +1,6 @@
 ---
 auto_load: true
+auto_load_meta:
   triggers:
     - 会话启动
     - 跨会话

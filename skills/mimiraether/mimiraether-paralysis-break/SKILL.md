@@ -1,3 +1,9 @@
+---
+auto_load: true
+name: mimiraether-paralysis-break
+description: 打破分析瘫痪；时间盒与行动优先，避免过度分析不决策。
+---
+
 # MimirAether Paralysis Break — 打破分析瘫痪
 
 **分析瘫痪**：过度分析导致无法决策、无法行动的状态。智慧之泉不应枯竭于犹豫。

@@ -19,11 +19,17 @@ import logging
 import os
 import re
 import threading
+
+import yaml
 from collections import OrderedDict
 from pathlib import Path
 from typing import List, Optional, Set
 
 logger = logging.getLogger(__name__)
+
+# SKILL.md frontmatter (align with skills/skills_loader._parse_frontmatter)
+_SKILL_MD_FRONTMATTER = re.compile(r"^---\s*\n(.*?)\n---\s*\n(.*)", re.DOTALL)
+_AUTO_LOAD_BODY_FALLBACK_CHARS = 2000
 
 # ============================================================================
 # 威胁检测
@@ -895,7 +901,9 @@ def _build_cross_session_context() -> str:
                 entries = state.get("entries", [])
                 if entries:
                     last = entries[-1]
-                    parts.append(f"上次{key}: {last.get("content", {}).get("summary", str(last)[:200])}")
+                    parts.append(
+                        f"上次{key}: {last.get('content', {}).get('summary', str(last)[:200])}"
+                    )
             except: pass
     
     next_path = os.path.join(base, "NEXT_SESSION.md")
@@ -907,34 +915,56 @@ def _build_cross_session_context() -> str:
         return "<cross-session-context>\n" + "\n".join(parts) + "\n</cross-session-context>"
     return ""
 
+def _auto_load_inject_chunk(skill_name: str, frontmatter: dict, body: str) -> str:
+    """Prefer short description (top-level or auto_load_meta); else truncated body."""
+    short = ""
+    meta = frontmatter.get("auto_load_meta")
+    if isinstance(meta, dict):
+        d = meta.get("description")
+        if isinstance(d, str) and d.strip():
+            short = d.strip()
+    if not short:
+        d = frontmatter.get("description")
+        if isinstance(d, str) and d.strip():
+            short = d.strip()
+    if short:
+        return f"## Auto-loaded: {skill_name}\n\n{short}"
+    return f"## Auto-loaded: {skill_name}\n\n{body[:_AUTO_LOAD_BODY_FALLBACK_CHARS]}"
+
+
 def _build_auto_load_skills_prompt(skills_dirs: list = None) -> str:
-    """Scan skills dirs for frontmatter auto_load: true, inject into prompt"""
-    import os, re
+    """Scan skills dirs for frontmatter auto_load: true, inject into prompt."""
     if not skills_dirs:
         return ""
     sections = []
     for sd in skills_dirs:
         if not os.path.isdir(sd):
             continue
-        for root, dirs, files in os.walk(sd):
-            if 'SKILL.md' in files:
-                path = os.path.join(root, 'SKILL.md')
+        for root, _dirs, files in os.walk(sd):
+            if "SKILL.md" not in files:
+                continue
+            path = os.path.join(root, "SKILL.md")
+            try:
+                with open(path, encoding="utf-8") as f:
+                    text = f.read()
+                m = _SKILL_MD_FRONTMATTER.match(text)
+                if not m:
+                    continue
                 try:
-                    with open(path) as f:
-                        text = f.read()
-                    fm_match = re.match(r'^---\n(.*?)\n---', text, re.DOTALL)
-                    if fm_match:
-                        for line in fm_match.group(1).split('\n'):
-                            if 'auto_load' in line and 'true' in line:
-                                skill_name = os.path.basename(root)
-                                body = text.split('---\n', 2)[-1] if text.count('---') >= 2 else text
-                                sections.append(f'## Auto-loaded: {skill_name}\n\n{body[:2000]}')
-                                print(f'[AutoLoad] Found: {skill_name}')
-                except Exception:
-                    pass
+                    fm = yaml.safe_load(m.group(1)) or {}
+                except yaml.YAMLError:
+                    continue
+                if fm.get("auto_load") is not True:
+                    continue
+                skill_name = os.path.basename(root)
+                body = m.group(2)
+                sections.append(_auto_load_inject_chunk(skill_name, fm, body))
+                logger.debug("[AutoLoad] injected %s", skill_name)
+            except Exception:
+                pass
     if sections:
-        return '<auto-loaded-skills>\n' + '\n---\n'.join(sections) + '\n</auto-loaded-skills>'
-    return ''
+        return "<auto-loaded-skills>\n" + "\n---\n".join(sections) + "\n</auto-loaded-skills>"
+    return ""
 
 
 def build_system_prompt(
@@ -1003,13 +1033,11 @@ def build_system_prompt(
         skills_prompt = build_skills_system_prompt(available_tools, available_toolsets, skills_dirs=skills_dirs)
         if skills_prompt:
             sections.append(skills_prompt)
-    
 
-    # Auto-load skills
-        cross_ctx = _build_cross_session_context()
+    cross_ctx = _build_cross_session_context()
     if cross_ctx:
         sections.insert(0, cross_ctx)
-    
+
     auto_prompt = _build_auto_load_skills_prompt(skills_dirs=skills_dirs)
     if auto_prompt:
         sections.append(auto_prompt)
