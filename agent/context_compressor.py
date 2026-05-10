@@ -603,8 +603,13 @@ TURNS TO SUMMARIZE:
         self.compression_count = 0
         self._summary_failure_cooldown_until = 0.0
 
+    def reset_history(self) -> None:
+        """Alias for ``MimirAetherAgent.reset`` / gateway compatibility."""
+        self.on_session_reset()
+
     def on_session_reset(self) -> None:
         """重置所有per-session状态（与Hermès ContextCompressor API兼容）"""
+        super().on_session_reset()
         self.reset()
 
 

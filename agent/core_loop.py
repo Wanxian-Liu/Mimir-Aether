@@ -490,6 +490,18 @@ class MimirAetherAgent:
             api_key=self._get_api_key(),
         )
 
+        try:
+            self.compressor.update_model(
+                model=model,
+                context_length=int(self._context_length or 8000),
+                base_url=self._get_model_base_url(),
+                api_key=self._get_api_key(),
+                provider="",
+                api_mode="",
+            )
+        except Exception as _e:
+            logger.debug("compressor.update_model at init skipped: %s", _e)
+
         # 初始化prompt_builder构建系统提示
         if system_prompt:
             self.system_prompt = system_prompt
@@ -1127,6 +1139,7 @@ class MimirAetherAgent:
         content_parts = []
         tool_calls_acc = {}
         finish_reason = None
+        stream_usage: Optional[Dict[str, Any]] = None
 
         try:
             async with aiohttp.ClientSession() as session:
@@ -1164,6 +1177,10 @@ class MimirAetherAgent:
                             chunk = json.loads(data)
                         except json.JSONDecodeError:
                             continue
+
+                        _chunk_usage = chunk.get("usage")
+                        if isinstance(_chunk_usage, dict) and _chunk_usage:
+                            stream_usage = _chunk_usage
 
                         # 解析delta
                         choices = chunk.get('choices', [])
@@ -1208,7 +1225,8 @@ class MimirAetherAgent:
                     return {
                         'content': content,
                         'tool_calls': tool_calls,
-                        'finish_reason': finish_reason
+                        'finish_reason': finish_reason,
+                        'usage': stream_usage if isinstance(stream_usage, dict) else {},
                     }, latency_ms
 
         except Exception as e:
@@ -1253,6 +1271,36 @@ Small progress is good! Even one line changed is real progress.
 Do not just report - you must modify files to show progress.
 
 Do not be afraid of mistakes - they can be fixed. Report your changes."""
+
+    def _compressor_sync_usage_from_llm(
+        self, response: Dict[str, Any], messages: List[Dict[str, Any]]
+    ) -> None:
+        """Feed API usage (or rough estimate) into ``self.compressor`` for ``needs_compression``."""
+        usage = response.get("usage") if isinstance(response, dict) else None
+        if not isinstance(usage, dict):
+            usage = {}
+        pt = int(usage.get("prompt_tokens") or usage.get("input_tokens") or 0)
+        ct = int(usage.get("completion_tokens") or usage.get("output_tokens") or 0)
+        if pt <= 0:
+            try:
+                pt = int(model_metadata.estimate_messages_tokens_rough(messages))
+            except Exception:
+                pt = 0
+        if pt <= 0 and ct <= 0:
+            return
+        total = usage.get("total_tokens")
+        if total is None:
+            total = pt + ct
+        try:
+            self.compressor.update_from_response(
+                {
+                    "prompt_tokens": pt,
+                    "completion_tokens": ct,
+                    "total_tokens": int(total),
+                }
+            )
+        except Exception as _e:
+            logger.debug("compressor.update_from_response skipped: %s", _e)
 
     async def chat(self, message: str) -> str:
         """
@@ -1474,6 +1522,8 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                         continue
                     # 通用错误,不泄露内部细节
                     return "抱歉,模型调用失败,请稍后重试。"
+
+                self._compressor_sync_usage_from_llm(response, messages)
 
                 # 添加助手响应到历史(仅当有内容或tool_calls时)
                 response_content = response.get("content") or ""
@@ -1897,7 +1947,12 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                         metadata={"session_id": session_id, "platform": self.platform}
                     )
 
-                    return {"content": content, "tool_calls": tool_calls, "reasoning_content": assistant_message.get("reasoning_content")}, latency_ms
+                    return {
+                        "content": content,
+                        "tool_calls": tool_calls,
+                        "reasoning_content": assistant_message.get("reasoning_content"),
+                        "usage": usage,
+                    }, latency_ms
 
         except aiohttp.ClientResponseError as e:
             if e.status == 429:
@@ -2054,7 +2109,11 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
 
                     return {
                         "content": content,
-                        "tool_calls": tool_calls
+                        "tool_calls": tool_calls,
+                        "usage": {
+                            "prompt_tokens": input_tokens,
+                            "completion_tokens": output_tokens,
+                        },
                     }, latency_ms
 
         except aiohttp.ClientError as e:

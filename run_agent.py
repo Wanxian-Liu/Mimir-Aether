@@ -1,7 +1,7 @@
 """MimirAether AIAgent — wraps MimirAetherAgent for gateway compatibility."""
 
 import threading
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class AIAgent:
@@ -61,6 +61,32 @@ class AIAgent:
         
         # Internal real agent (lazy init)
         self._real_agent: Any = None
+
+    @property
+    def context_compressor(self) -> Any:
+        """Gateway / `/compress` compatibility: same object as ``MimirAetherAgent.compressor``."""
+        return self._get_real_agent().compressor
+
+    def _compress_context(
+        self,
+        messages: List[Dict[str, Any]],
+        cached_system_prompt: str = "",
+        approx_tokens: Optional[int] = None,
+        focus_topic: Optional[str] = None,
+        task_id: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Tuple[List[Dict[str, Any]], Any]:
+        """
+        Manual / hygiene compression entry (Gateway, ACP). Delegates to
+        ``HermesStyleCompressor.compress``; does not split SQLite sessions.
+        """
+        _ = cached_system_prompt, task_id, kwargs
+        comp = self._get_real_agent().compressor
+        return comp.compress(
+            messages,
+            current_tokens=approx_tokens,
+            focus_topic=focus_topic,
+        )
 
     def _get_real_agent(self) -> Any:
         """Lazy-initialize the real MimirAetherAgent."""
