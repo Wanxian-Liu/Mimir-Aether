@@ -5,11 +5,11 @@
 
 | 字段 | 值 |
 |------|-----|
-| **最近更新** | 2026-05-10 |
+| **最近更新** | 2026-05-11 |
 | **更新人** | 协作者（用户问进度时刷新） |
 | **仓库根（真源）** | `~/.openclaw/projects/MimirAether`（任意 clone 路径均可，以当前工作区 git 根为准） |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml)；里程碑 A 项需真环境手动/清单 |
-| **本轮摘要** | 维持计划落地：`path-contract` 合并门槛、`MIMIR_RUNTIME_CONTRACT` 部署清单与 smoke、`docs/CI_SUBMODULE.md`、可选 `pytest-wide` workflow |
+| **本轮摘要** | Phase B 完成：`auxiliary_client.py` 16→0 hermes_cli 导入；新增 3 个 Mimir 原生模块（provider_registry / runtime_provider / model_normalize）；全 Mimir 代码零 `from hermes_cli`；Ralph 3 轮连续全绿（162+2 passed）。 |
 
 ---
 
@@ -65,6 +65,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-11 | **Phase B 清零**：`auxiliary_client.py` 16→0 hermes_cli 导入；新增 `agent/provider_registry.py`、`runtime_provider.py`、`model_normalize.py`；`mimcore/auth.py`/`config.py` 翻转为 Mimir 原生路径；Ralph 3 轮连续全绿 (162+2)；M0 稳定性条更新。 |
 | 2026-05-05 | **里程碑 ∞ 绿（工程裁定）**：**[`mimir_phase_infinity_checklist.md`](mimir_phase_infinity_checklist.md)** §∞ 绿裁定记录 **#1** + 宪章对照 **#2**；MAINLINE **∞** **黄→绿**；**M6** 见 `evolution_log` **里程碑 ∞ 绿** 行。 |
 | 2026-05-07 | **织界宪章草案**：新增 **`docs/weave_charter.md`**（v0.1）；**[`mimir_phase_infinity_checklist.md`](mimir_phase_infinity_checklist.md)** §宪章对照审查记录 **#1**；**∞** 仍为 **黄**（∞1/∞2 门槛未齐）。 |
 | 2026-05-06 | **真源习惯 + ∞ 推进**：**[`docs/path-contract.md`](path-contract.md)** 增加 §协作习惯（Git 真源）；**[`docs/mimir_phase_infinity_checklist.md`](mimir_phase_infinity_checklist.md)** 增加 §当前推进与执行记录（∞ 仍为 **黄**）。 |
