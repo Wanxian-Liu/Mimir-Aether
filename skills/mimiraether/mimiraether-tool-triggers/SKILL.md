@@ -123,6 +123,8 @@ auto_load: true
 
 **触发自检问题：** "刚才那个任务，下次还会遇到吗？会→存为skill。"
 
+**完整固化流程（路径、命名、frontmatter、create/patch 步骤、质量清单）：** `skill_view('mimiraether-skill-solidify')`
+
 ---
 
 ### read_file

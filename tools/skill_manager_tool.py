@@ -3,9 +3,18 @@
 Skill Manager Tool -- MimirAether Port
 
 Allows the agent to create, update, and delete skills, turning successful
-approaches into reusable procedural knowledge. New skills are created in
-~/.openclaw/mimir-aether/skills/. Existing skills (bundled, hub-installed, or user-created)
-can be modified or deleted wherever they live.
+approaches into reusable procedural knowledge.
+
+**Agent path note:** The main MimirAether loop registers ``skill_manage`` from
+``skills/skills_loader.py``, which writes under the **repo** ``skills/`` tree
+(see skill ``mimiraether-skill-solidify``). This module still uses
+``~/.openclaw/mimir-aether/skills/`` for its own create/find helpers — if the
+two stories diverge, treat the skills_loader / in-repo layout as the runtime
+truth for the agent tool.
+
+New skills created **via this module** go to ~/.openclaw/mimir-aether/skills/.
+Existing skills (bundled, hub-installed, or user-created) can be modified or
+deleted wherever they live.
 
 Skills are the agent's procedural memory: they capture *how to do a specific
 type of task* based on proven experience. General memory (MEMORY.md, USER.md) is
