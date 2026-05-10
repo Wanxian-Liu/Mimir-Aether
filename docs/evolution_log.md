@@ -22,3 +22,4 @@ Append-only. Newest rows at the **bottom**. See **`docs/M6_EVOLUTION.md`** for r
 | 20260510T153154Z_103f69c-dirty | 2026-05-10T15:31:54Z | 103f69c-dirty | ./run_ralph_tier0.sh | 0 | docs(skills): mimiraether-skill-solidify + tool-triggers link; docstring: skill_manager_tool agent path vs module home. metrics: n/a |
 | 20260510T160411Z_8f003e5 | 2026-05-10T16:04:11Z | 8f003e5 | ./run_ralph_tier0.sh | 0 | compressor update_from_response + AIAgent context_compressor/_compress_context; SKILL aligned |
 | 20260510T160637Z_62c990b | 2026-05-10T16:06:37Z | 62c990b | ./run_ralph_tier0.sh | 0 | dedupe ContextCompressorV2.compress init block (no behavior change) |
+| 20260510T164018Z_7c7ac13 | 2026-05-10T16:40:18Z | 7c7ac13 | ./run_ralph_tier0.sh | 0 | standalone runtime: vendored hermes_cli, MIMIR_AETHER_HOME paths, gateway data/; tier0 green |
