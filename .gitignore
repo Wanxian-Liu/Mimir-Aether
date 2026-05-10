@@ -24,5 +24,14 @@ sessions/**/*.jsonl
 # 工具/安装残留
 .tirith-install-failed
 
+# 本地 CI venv（勿提交）
+.venv-ci/
+
+# 本机打包/下载的二进制（例如 tirith）
+/bin/
+
+# 会话遥测（体积大、含运行态；保留同目录 small markdown/json 可手动 add）
+/data/*.jsonl
+
 # 本地技能草稿 / 机要桥接（若需入库可删对应行后 git add -f）
 skills/mimiraether/mimiraether-feishu-config-bridge/
