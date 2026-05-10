@@ -1,5 +1,5 @@
 ---
-auto_load: true
+auto_load: false
 name: mimiraether-paralysis-break
 description: 打破分析瘫痪；时间盒与行动优先，避免过度分析不决策。
 ---

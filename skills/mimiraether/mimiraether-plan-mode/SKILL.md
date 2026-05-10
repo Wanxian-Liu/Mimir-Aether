@@ -9,7 +9,7 @@ metadata:
     tags: [planning, implementation, workflow, strategy]
     related_skills: [systematic-debugging, test-driven-development, subagent-driven-development, mimiraether-tool-triggers]
     learned_from: hermes-agent/plan
-auto_load: true
+auto_load: false
 ---
 
 # MimirAether Plan Mode

@@ -1,5 +1,5 @@
 ---
-auto_load: true
+auto_load: false
 description: MimirAether Tool Triggers — 工具触发规则
 ---
 

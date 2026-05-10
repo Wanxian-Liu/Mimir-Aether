@@ -1,5 +1,5 @@
 ---
-auto_load: true
+auto_load: false
 name: mimiraether-heartbeat
 description: 启动/唤醒时心跳三问：身份、上次停在哪、本轮基调；先于任务执行。
 ---

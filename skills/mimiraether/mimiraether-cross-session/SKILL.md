@@ -1,5 +1,5 @@
 ---
-auto_load: true
+auto_load: false
 auto_load_meta:
   triggers:
   - 会话启动

@@ -1,5 +1,5 @@
 ---
-auto_load: true
+auto_load: false
 name: mimiraether-context-compressor
 description: MimirAether 上下文压缩：本仓库 agent/context_compressor 行为、MimirAetherAgent 参数、Gateway 卫生压缩与配置键（与运行时对齐）。
 ---
