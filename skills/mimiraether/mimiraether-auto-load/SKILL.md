@@ -1,3 +1,9 @@
+---
+auto_load: true
+name: mimiraether-auto-load
+description: MimirAether Auto-Load — 智能上下文自动加载
+---
+
 # mimiraether-auto-load
 
 ## name

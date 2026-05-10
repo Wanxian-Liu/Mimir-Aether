@@ -165,10 +165,12 @@ def _parse_write_file_arguments_string(raw_args: str) -> Optional[Dict[str, Any]
         pass
 
     path_match = re.search(r'"path"\s*:\s*"([^"]*)"', raw_args)
-    content_match = re.search(r'"content"\s*:\s*"(.*)"', raw_args, re.DOTALL)
+    content_match = re.search(r'"content"\s*:\s*"(.*?)"(?:\s*[,}])', raw_args, re.DOTALL)
     if path_match:
         path_val = path_match.group(1)
         content_val = content_match.group(1) if content_match else ""
+        # Unescape any JSON-escaped quotes in content
+        content_val = content_val.replace('\\"', '"').replace('\\n', '\n').replace('\\t', '\t')
         return {"path": path_val, "content": content_val}
 
     if "|" in raw_args:
@@ -544,7 +546,45 @@ class MimirAetherAgent:
         logger.info(f"MimirAether initialized with model: {model}, context_length: {self._context_length}")
 
         # 尝试从SessionDB恢复最近的session
+        # 初始化跨会话记忆
+        self._cross_memory = None
+        self._cross_context = None
+        self._init_cross_session()
+
         self._restore_session()
+
+    def _init_cross_session(self):
+        """Initialize cross-session memory on session start"""
+        try:
+            from .cross_session_memory import CrossSessionMemory
+            self._cross_memory = CrossSessionMemory()
+            self._cross_memory.load()
+            self._cross_memory.begin_session()
+            if hasattr(self._cross_memory, 'summary'):
+                summary = self._cross_memory.summary()
+                if summary:
+                    self._cross_context = summary
+                    logger.info(f'[CrossSession] Loaded context: {len(summary)} items')
+        except Exception as e:
+            logger.warning(f'[CrossSession] Init failed: {e}')
+            self._cross_memory = None
+
+    def _save_cross_session(self):
+        """Save current session context to cross-session memory"""
+        if not hasattr(self, '_cross_memory') or self._cross_memory is None:
+            return
+        try:
+            import json
+            pending = getattr(self, '_pending_tasks', [])
+            decisions = getattr(self, '_key_decisions', [])
+            self._cross_memory.save_context({
+                'last_task': getattr(self, '_last_task', ''),
+                'key_decisions': decisions,
+                'pending_tasks': pending,
+            })
+            logger.info('[CrossSession] Context saved')
+        except Exception as e:
+            logger.warning(f'[CrossSession] Save failed: {e}')
 
     def _emit_status(self, message: str) -> None:
         """
@@ -2358,6 +2398,17 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 except Exception as e:
                     logger.warning(f"tool_complete_callback error: {e}")
 
+            # 软心跳记录
+            try:
+                import subprocess, os, time
+                _start = getattr(self, '_tool_start_time', {}).pop(func_name, time.time())
+                _dur = (time.time() - _start) * 1000
+                _hb_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'heartbeat', 'soft_beat.py')
+                subprocess.Popen([sys.executable, _hb_path, func_name, str(_dur), 'OK'], 
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception:
+                pass
+
             return ToolResult(
                 tool_call_id=tool_call_id,
                 content=str(result),
@@ -2380,6 +2431,17 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                     self.tool_complete_callback(func_name, f"Error: {e}")
                 except Exception:
                     pass
+
+            # 软心跳记录(错误)
+            try:
+                import subprocess, os, time
+                _start = getattr(self, '_tool_start_time', {}).pop(func_name, time.time())
+                _dur = (time.time() - _start) * 1000
+                _hb_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'heartbeat', 'soft_beat.py')
+                subprocess.Popen([sys.executable, _hb_path, func_name, str(_dur), 'FAIL', str(e)[:100]], 
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception:
+                pass
 
             return ToolResult(
                 tool_call_id=tool_call["id"],

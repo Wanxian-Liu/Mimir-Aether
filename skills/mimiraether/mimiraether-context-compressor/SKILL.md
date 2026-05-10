@@ -1,4 +1,6 @@
 ---
+auto_load: true
+name: mimiraether-context-compressor
 description: MimirAether上下文压缩器 - 基于Hermes设计的智能压缩系统，减少token消耗同时保留关键信息
 ---
 

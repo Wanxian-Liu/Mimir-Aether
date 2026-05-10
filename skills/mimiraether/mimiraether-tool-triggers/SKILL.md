@@ -1,3 +1,7 @@
+---
+auto_load: true
+---
+
 # MimirAether Tool Triggers — 工具触发规则
 
 ## 问题诊断
@@ -217,9 +221,34 @@ def github_search(query, endpoint="repositories"):
 
 ## 任务解析自检清单（每次收到任务时执行）
 
+**元规则（优先于所有其他规则）：**
+
+0. □ 收到任务后，在分析任何内容之前，先加载本技能（mimiraether-tool-triggers）→ skill_view("mimiraether-tool-triggers")
+   - 本技能是所有工具调用的总纲，必须先加载
+   - 加载后，逐条执行下面的清单
+   - 这是打破"技能沉默"的第一把钥匙
+   - **跨会话验证**：如果 memory-context 中有 `persistent.json` 或 `data/persistent.json` 的引用，立即读取它们恢复上次会话状态
+   - **会话恢复路径**：先读 data/persistent.json 获取 pending_tasks，再读 memory/persistent.json 获取历史决策
+   - **plan-mode联动**：完成上述检查后，评估任务复杂度。如果预计需要3+步工具调用：
+     a. 自动加载 mimiraether-plan-mode：skill_view("mimiraether-plan-mode")
+     b. 按 plan-mode 的 5 阶段流程（Context Analysis → Task Breakdown → Dependency Mapping → Risk Identification → Plan Document）输出计划
+     c. 等待用户批准后再执行
+     d. **注意**：如果用户明确要求"直接做"或"不需要计划"，跳过此联动
+
+0.5. □ 复杂度评估：当前任务预计需要几步工具调用？
+   - 1-2步 → 直接执行（跳过plan-mode）
+   - 3+步 → 进入plan-mode（加载 mimiraether-plan-mode 并按流程输出计划）
+   - 不确定 → 按3+步处理（宁可多计划，不可少规划）
+
 1. □ 这个任务涉及我不确定的知识吗？→ web_search
 2. □ 有相关的skill吗？→ skills_list → skill_view
 3. □ 需要写代码吗？写完后→ execute_code测试
 4. □ 需要读/写文件吗？→ read_file / write_file（不要用terminal替代）
 5. □ 任务复杂度≥5步吗？完成后→ 考虑skill_manage固化
 6. □ 产生了有价值的经验吗？→ produce_capsule
+7. □ 复杂任务（5+工具调用）完成后→ 用 produce_capsule 固化关键经验/解决方案/知识
+   - 这是"经验不流失"的最后一环：工具调用链完成了，但知识还没沉淀
+   - 固化时机：任务结果交给用户后，立即调用 produce_capsule
+   - 输入内容：刚刚解决的问题、关键决策、代码模式、踩过的坑
+   - capsule_type 选择：auto（一般经验）/ optimize（优化方案）/ repair（修复记录）/ innovate（新模式）
+   - 反模式：任务做完就结束，不固化经验

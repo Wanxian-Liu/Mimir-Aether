@@ -1,4 +1,76 @@
 {
-  "counter": 1,
-  "entries": []
+  "counter": 3,
+  "entries": [
+    {
+      "id": "session-end-20250418",
+      "type": "session_boundary",
+      "timestamp": "2025-04-18T18:00:00+08:00",
+      "content": {
+        "summary": "体检日 — 五条药方 + 元规则",
+        "key_decisions": [
+          "下次会话自主选择切入点",
+          "hard constraint: 下次会话第一件事验证tool-triggers元规则"
+        ],
+        "pending_tasks": [
+          "tool-triggers验证（硬约束）",
+          "cross-session打通",
+          "plan-mode实施",
+          "skill固化流程",
+          "context-compressor集成"
+        ],
+        "meta_rules": [
+          "收到任务后，在分析任何内容之前，先skill_view('mimiraether-tool-triggers')"
+        ]
+      }
+    },
+    {
+      "id": "session-end-2025-cross-session",
+      "type": "session_boundary",
+      "timestamp": "2025-04-19T00:00:00+08:00",
+      "content": {
+        "summary": "cross-session打通 + auto_load标准化 — 第2条药方完成",
+        "key_decisions": [
+          "cross-session机制从手动升级为自动注入",
+          "hermes-cat-write 注入 auto_load 标记",
+          "mimiraether-cross-session 注入 auto_load 标记",
+          "auto_load 标记格式标准化：triggers + priority + description"
+        ],
+        "pending_tasks": [
+          "plan-mode实施（第3条药方）",
+          "skill固化流程（第4条药方）",
+          "context-compressor集成（第5条药方）",
+          "扫描所有技能，补全缺少 auto_load 标记的"
+        ],
+        "meta_rules": [
+          "收到任务后，先skill_view('mimiraether-tool-triggers')",
+          "写文件任务自动加载 hermes-cat-write",
+          "会话启动自动加载 mimiraether-cross-session"
+        ]
+      }
+    },
+    {
+      "id": "session-end-2025-plan-mode",
+      "type": "session_boundary",
+      "timestamp": "2025-04-28T14:30:00+08:00",
+      "content": {
+        "summary": "plan-mode实施（第3条药方完成）— 5阶段流程固化到持久化",
+        "key_decisions": [
+          "mimiraether-plan-mode 升级为完整plan-mode：含5阶段流程 + 模板 + 验证清单",
+          "plan-mode的persistent.json固化：将plan-mode路径和状态写入持久化存储",
+          "下次会话自主选择切入点，但优先推进未完成的药方"
+        ],
+        "pending_tasks": [
+          "skill固化流程（第4条药方）— 待选择切入点",
+          "context-compressor集成（第5条药方）— 待选择切入点",
+          "扫描所有技能，补全缺少 auto_load 标记的"
+        ],
+        "meta_rules": [
+          "收到任务后，先skill_view('mimiraether-tool-triggers')",
+          "写文件任务自动加载 hermes-cat-write",
+          "会话启动自动加载 mimiraether-cross-session",
+          "复杂任务（3+步骤）先加载 mimiraether-plan-mode，做任务分解"
+        ]
+      }
+    }
+  ]
 }

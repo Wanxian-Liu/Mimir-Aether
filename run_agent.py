@@ -1,19 +1,14 @@
-"""MimirAether AIAgent compatibility stub.
-
-This module provides a minimal AIAgent stub for the ACP adapter.
-Full AIAgent implementation is tracked in MimirAether development.
-"""
+"""MimirAether AIAgent — wraps MimirAetherAgent for gateway compatibility."""
 
 import threading
 from typing import Any, Dict, List, Optional
 
 
 class AIAgent:
-    """Minimal stub for AIAgent interface required by ACP adapter.
+    """AIAgent wrapper for MimirAetherAgent, compatible with gateway interface.
 
-    This stub allows the ACP adapter to import and instantiate AIAgent
-    without errors. Full agent functionality (run_conversation, tool
-    callbacks, etc.) requires the complete AIAgent implementation.
+    Delegates all agent functionality to the real MimirAetherAgent
+    in agent.core_loop.
     """
 
     def __init__(
@@ -37,34 +32,58 @@ class AIAgent:
         self.enabled_toolsets = enabled_toolsets or []
         self.quiet_mode = quiet_mode
         self.session_id = session_id
-        self.model = model
+        self.model = model or "deepseek/deepseek-v4-pro"
         self.provider = provider
         self.api_mode = api_mode
         self.base_url = base_url
         self.api_key = api_key
         self.command = command
         self.args = args or []
+        self._max_iterations = max_iterations or 90
+        self.skip_memory = skip_memory
+        self._extra_kwargs = kwargs
 
-        # Callback hooks (set by ACP server)
+        # Callback hooks (set by gateway)
         self.tool_progress_callback: Optional[Any] = None
         self.thinking_callback: Optional[Any] = None
         self.step_callback: Optional[Any] = None
         self.message_callback: Optional[Any] = None
 
-        # Tool surface (set after MCP server registration)
+        # Tool surface
         self.tools: Optional[List[Dict[str, Any]]] = None
         self.valid_tool_names: Optional[set] = None
 
-        # Print function (set by ACP session manager)
+        # Print function
         self._print_fn: Any = lambda *a, **kw: None
 
         # Interrupt support
         self._interrupt_event: Optional[threading.Event] = None
+        
+        # Internal real agent (lazy init)
+        self._real_agent: Any = None
+
+    def _get_real_agent(self) -> Any:
+        """Lazy-initialize the real MimirAetherAgent."""
+        if self._real_agent is None:
+            from agent.core_loop import MimirAetherAgent
+            
+            self._real_agent = MimirAetherAgent(
+                model=self.model,
+                max_iterations=self._max_iterations,
+                platform=self.platform,
+                stream_callback=None,
+                step_callback=self.step_callback,
+                tool_progress_callback=self.tool_progress_callback,
+                thinking_callback=self.thinking_callback,
+            )
+        return self._real_agent
 
     def interrupt(self) -> None:
         """Request the agent to interrupt current execution."""
         if self._interrupt_event:
             self._interrupt_event.set()
+        if self._real_agent and hasattr(self._real_agent, 'interrupt'):
+            self._real_agent.interrupt()
 
     def _invalidate_system_prompt(self) -> None:
         """Invalidate cached system prompt (called after tool surface changes)."""
@@ -76,19 +95,25 @@ class AIAgent:
         conversation_history: List[Dict[str, Any]],
         task_id: str,
     ) -> Dict[str, Any]:
-        """Stub: return a basic error response.
-
-        Full implementation requires the complete AIAgent class.
-        """
-        return {
-            "final_response": "[AIAgent stub] Agent not yet implemented in MimirAether.",
-            "messages": conversation_history,
-            "prompt_tokens": 0,
-            "completion_tokens": 0,
-            "total_tokens": 0,
-        }
+        """Run a conversation turn through the real MimirAetherAgent."""
+        try:
+            agent = self._get_real_agent()
+            return agent.run_conversation(
+                user_message=user_message,
+                conversation_history=conversation_history,
+                task_id=task_id,
+            )
+        except Exception as exc:
+            import traceback
+            return {
+                "final_response": f"⚠️ Agent error: {exc}",
+                "messages": conversation_history,
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+            }
 
 
 def main() -> None:
-    """CLI entry point (stub)."""
-    print("MimirAether AIAgent stub — use 'python -m acp_adapter.entry' for ACP server")
+    """CLI entry point."""
+    print("MimirAether AIAgent — wraps MimirAetherAgent for gateway compatibility")

@@ -877,6 +877,66 @@ def _write_skills_snapshot(skills_dirs: list, skills_prompt: str, category_descr
 # 主Prompt构建
 # ============================================================================
 
+# Auto-Load Skills (frontmatter auto_load: true)
+
+
+def _build_cross_session_context() -> str:
+    """读取 persistent.json 和 NEXT_SESSION.md 生成恢复上下文"""
+    import json, os
+    parts = []
+    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    
+    for path, key in [(os.path.join(base, "data", "persistent.json"), "会话状态"),
+                       (os.path.join(base, "memory", "persistent.json"), "记忆状态")]:
+        if os.path.exists(path):
+            try:
+                with open(path) as f:
+                    state = json.load(f)
+                entries = state.get("entries", [])
+                if entries:
+                    last = entries[-1]
+                    parts.append(f"上次{key}: {last.get("content", {}).get("summary", str(last)[:200])}")
+            except: pass
+    
+    next_path = os.path.join(base, "NEXT_SESSION.md")
+    if os.path.exists(next_path):
+        with open(next_path) as f:
+            parts.append(f.read()[:500])
+    
+    if parts:
+        return "<cross-session-context>\n" + "\n".join(parts) + "\n</cross-session-context>"
+    return ""
+
+def _build_auto_load_skills_prompt(skills_dirs: list = None) -> str:
+    """Scan skills dirs for frontmatter auto_load: true, inject into prompt"""
+    import os, re
+    if not skills_dirs:
+        return ""
+    sections = []
+    for sd in skills_dirs:
+        if not os.path.isdir(sd):
+            continue
+        for root, dirs, files in os.walk(sd):
+            if 'SKILL.md' in files:
+                path = os.path.join(root, 'SKILL.md')
+                try:
+                    with open(path) as f:
+                        text = f.read()
+                    fm_match = re.match(r'^---\n(.*?)\n---', text, re.DOTALL)
+                    if fm_match:
+                        for line in fm_match.group(1).split('\n'):
+                            if 'auto_load' in line and 'true' in line:
+                                skill_name = os.path.basename(root)
+                                body = text.split('---\n', 2)[-1] if text.count('---') >= 2 else text
+                                sections.append(f'## Auto-loaded: {skill_name}\n\n{body[:2000]}')
+                                print(f'[AutoLoad] Found: {skill_name}')
+                except Exception:
+                    pass
+    if sections:
+        return '<auto-loaded-skills>\n' + '\n---\n'.join(sections) + '\n</auto-loaded-skills>'
+    return ''
+
+
 def build_system_prompt(
     model: str,
     cwd: Optional[str] = None,
@@ -943,6 +1003,16 @@ def build_system_prompt(
         skills_prompt = build_skills_system_prompt(available_tools, available_toolsets, skills_dirs=skills_dirs)
         if skills_prompt:
             sections.append(skills_prompt)
+    
+
+    # Auto-load skills
+        cross_ctx = _build_cross_session_context()
+    if cross_ctx:
+        sections.insert(0, cross_ctx)
+    
+    auto_prompt = _build_auto_load_skills_prompt(skills_dirs=skills_dirs)
+    if auto_prompt:
+        sections.append(auto_prompt)
     
     return "\n\n".join(sections)
 

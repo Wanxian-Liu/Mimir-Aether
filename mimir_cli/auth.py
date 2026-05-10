@@ -49,9 +49,11 @@ def format_auth_error(provider: str, message: str) -> str:
 
 # ─── Provider resolution (stub) ───────────────────────────────────────────────
 
-def resolve_provider(provider: str) -> Dict[str, Any]:
-    """Resolve provider configuration."""
-    return PROVIDER_REGISTRY.get(provider, {})
+def resolve_provider(provider: str, **kwargs) -> str:
+    """Resolve and normalize provider name. Accepts extra kwargs for caller compatibility."""
+    # Import here to avoid circular import
+    from mimir_cli.providers import normalize_provider
+    return normalize_provider(provider)
 
 # ─── Runtime credentials (stub - delegates to env/credential pool) ────────────
 

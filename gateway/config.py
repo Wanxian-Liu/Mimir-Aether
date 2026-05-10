@@ -662,6 +662,23 @@ def load_gateway_config() -> GatewayConfig:
                     os.environ["MATRIX_AUTO_THREAD"] = str(matrix_cfg["auto_thread"]).lower()
                 if "dm_mention_threads" in matrix_cfg and not os.getenv("MATRIX_DM_MENTION_THREADS"):
                     os.environ["MATRIX_DM_MENTION_THREADS"] = str(matrix_cfg["dm_mention_threads"]).lower()
+            # Feishu / Lark credentials → env vars (env vars take precedence)
+            feishu_cfg = yaml_cfg.get("feishu", {})
+            if isinstance(feishu_cfg, dict):
+                feishu_extra = feishu_cfg.get("extra", {}) or {}
+                if feishu_extra.get("app_id") and not os.getenv("FEISHU_APP_ID"):
+                    os.environ["FEISHU_APP_ID"] = str(feishu_extra["app_id"])
+                if feishu_extra.get("app_secret") and not os.getenv("FEISHU_APP_SECRET"):
+                    os.environ["FEISHU_APP_SECRET"] = str(feishu_extra["app_secret"])
+                if feishu_extra.get("domain") and not os.getenv("FEISHU_DOMAIN"):
+                    os.environ["FEISHU_DOMAIN"] = str(feishu_extra["domain"])
+                if feishu_extra.get("connection_mode") and not os.getenv("FEISHU_CONNECTION_MODE"):
+                    os.environ["FEISHU_CONNECTION_MODE"] = str(feishu_extra["connection_mode"])
+                if feishu_extra.get("encrypt_key") and not os.getenv("FEISHU_ENCRYPT_KEY"):
+                    os.environ["FEISHU_ENCRYPT_KEY"] = str(feishu_extra["encrypt_key"])
+                if feishu_extra.get("verification_token") and not os.getenv("FEISHU_VERIFICATION_TOKEN"):
+                    os.environ["FEISHU_VERIFICATION_TOKEN"] = str(feishu_extra["verification_token"])
+
 
     except Exception as e:
         logger.warning(
