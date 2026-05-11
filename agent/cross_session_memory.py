@@ -277,7 +277,65 @@ class CrossSessionMemory:
     def end_session(self):
         """会话结束时的记账"""
         self._data["last_session_end"] = datetime.now(timezone.utc).isoformat()
+        self.refresh_skill_curator_nudge()
+        self.run_curator_actions()
     
+    def refresh_skill_curator_nudge(self) -> str:
+        """
+        刷新技能策展轻推，写入 persistent.json 的 curator_nudge 字段。
+
+        Returns:
+            nudge 文本
+        """
+        try:
+            from agent.skill_curator import nudge_report
+            nudge = nudge_report()
+            self._data["curator_nudge"] = nudge
+            return nudge
+        except Exception:
+            return ""
+
+    def run_curator_actions(self) -> dict:
+        """
+        自动执行策展行动。
+
+        仅执行确定性动作（capsulize_now），不确定动作保留为轻推。
+
+        Returns:
+            {capsulized: [...], errors: [...]}
+        """
+        try:
+            from agent.skill_curator import curator_actions, capsulize_and_dormant, CuratorAction
+            ca = curator_actions()
+            capsulized: list = []
+            errors: list = []
+            for a in ca.get("actions", []):
+                if a.get("action") != CuratorAction.CAPSULIZE_NOW:
+                    continue
+                name = a["name"]
+                # 安全检查：不胶囊化自引用/基础设施技能
+                if name.startswith("mimiraether-curator") or name in (
+                    "mimiraether-tool-triggers",
+                    "mimiraether-cross-session",
+                    "mimiraether-heartbeat",
+                    "mimiraether-auto-load",
+                ):
+                    continue
+                try:
+                    r = capsulize_and_dormant(name)
+                    if r.get("success"):
+                        capsulized.append(name)
+                    else:
+                        errors.append(f"{name}: {r.get('error', 'unknown')}")
+                except Exception as e:
+                    errors.append(f"{name}: {e}")
+            if capsulized:
+                self._data.setdefault("curator_capsulized", [])
+                self._data["curator_capsulized"].extend(capsulized)
+            return {"capsulized": capsulized, "errors": errors}
+        except Exception as e:
+            return {"capsulized": [], "errors": [str(e)]}
+
     def summary(self) -> str:
         """生成可读的记忆摘要（给agent自己看）"""
         lines = []
@@ -305,6 +363,19 @@ class CrossSessionMemory:
         patterns = self._data["memory"]["learned_patterns"]
         if patterns:
             lines.append(f"学到的模式: {len(patterns)} 条")
+
+        # 技能策展轻推
+        nudge = self._data.get("curator_nudge", "")
+        if nudge:
+            lines.append(f"\n{'-' * 30}")
+            lines.append(f"📋 技能策展提醒:")
+            lines.append(nudge)
+
+        # 技能策展自动操作
+        capsulized = self._data.get("curator_capsulized", [])
+        if capsulized:
+            lines.append(f"\n{'─' * 30}")
+            lines.append(f"📦 已自动胶囊化({len(capsulized)}): {', '.join(capsulized)}")
         
         return "\n".join(lines)
 

@@ -6,10 +6,10 @@
 | 字段 | 值 |
 |------|-----|
 | **最近更新** | 2026-05-11 |
-| **更新人** | 协作者（用户问进度时刷新） |
+| **更新人** | MimirAether（Skill Curator 全线落地） |
 | **仓库根（真源）** | `~/.openclaw/projects/MimirAether`（任意 clone 路径均可，以当前工作区 git 根为准） |
-| **可选校验** | `./run_ralph_tier0.sh`（门禁）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml)；里程碑 A 项需真环境手动/清单 |
-| **本轮摘要** | Phase B 完成：`auxiliary_client.py` 16→0 hermes_cli 导入；新增 3 个 Mimir 原生模块（provider_registry / runtime_provider / model_normalize）；全 Mimir 代码零 `from hermes_cli`；Ralph 3 轮连续全绿（162+2 passed）。 |
+| **可选校验** | `./run_ralph_tier0.sh`（门禁）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml）；里程碑 A 项需真环境手动/清单 |
+| **本轮摘要** | **Curator 闭环**：core_loop finally块添加 `_cross_memory.end_session()` + `save()`，会话结束时自动触发 `capsulize_now`（dormant技能自动胶囊化）。新增 `agent/skill_curator.py`（~700行）含检测/报告/行动建议/胶囊化/复活；Ralph 连续 3 轮全绿（162+2 passed）。 |
 
 ---
 

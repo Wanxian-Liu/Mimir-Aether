@@ -23,3 +23,5 @@ Append-only. Newest rows at the **bottom**. See **`docs/M6_EVOLUTION.md`** for r
 | 20260510T160411Z_8f003e5 | 2026-05-10T16:04:11Z | 8f003e5 | ./run_ralph_tier0.sh | 0 | compressor update_from_response + AIAgent context_compressor/_compress_context; SKILL aligned |
 | 20260510T160637Z_62c990b | 2026-05-10T16:06:37Z | 62c990b | ./run_ralph_tier0.sh | 0 | dedupe ContextCompressorV2.compress init block (no behavior change) |
 | 20260510T164018Z_7c7ac13 | 2026-05-10T16:40:18Z | 7c7ac13 | ./run_ralph_tier0.sh | 0 | standalone runtime: vendored hermes_cli, MIMIR_AETHER_HOME paths, gateway data/; tier0 green |
+| 20260511T053029Z_c6726eb-dirty | 2026-05-11T05:30:29Z | c6726eb-dirty | ./run_ralph_tier0.sh | 0 | Skill Curator全线落地: skill_curator.py新增(420+行)含检测/报告/行动建议/胶囊化/复活/闭环; skill_funcs.py钩子自动复活; cross_session_memory.py end_session闭环; metrics: n/a |
+| 20260511T141700Z_c6726eb-dirty | 2026-05-11T14:17:00Z | c6726eb-dirty | ./run_ralph_tier0.sh | 0 | Curator闭环: core_loop finally块添加_cross_memory.end_session()+save()，会话结束时自动触发capsulize_now; 新增agent/skill_curator.py(~700行)含检测/报告/胶囊化/复活; MAINLINE + evolution_log已更新; metrics: n/a |

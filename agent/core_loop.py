@@ -1161,7 +1161,8 @@ class MimirAetherAgent:
 
                     if response.status != 200:
                         error_text = await response.text()
-                        raise RuntimeError(f"Stream API error {response.status}: {error_text[:200]}")
+                        _err_detail = error_text[:200] if error_text else "(empty body)"
+                        raise RuntimeError(f"Stream API error {response.status}: {_err_detail}")
 
                     # 迭代流式响应
                     async for line in response.content:
@@ -1379,6 +1380,9 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
         self._tool_errors = []
         self._reasoning_per_turn = []
         self._current_turn = 0
+        # 重置中断标志，防止上次会话残留
+        self._interrupt_requested = False
+        self._interrupt_message = None
         
         # 断点续传:检查是否存在未完成的检查点
         # ============================================================
@@ -1534,31 +1538,68 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                     # 自动恢复：检测 conversation_history 污染
                     # 症状：DeepSeek 400 "tool must be a response to preceding tool_calls"
                     # 原因：中断/错误导致 tool_calls 写了但是 tool result 没写
+                    # 强化检测：同时匹配外层异常（可能丢失原始错误详情）和原始错误
+                    err_lower = err_str.lower()
                     is_orphan_tool = (
                         "tool' must be a response" in err_str
-                        or "tool_calls" in err_str.lower() and "tool" in err_str.lower()
+                        or "tool must be a response" in err_str
+                        or ("tool_calls" in err_lower and "tool" in err_lower)
+                        # 400 错误 + conversation_history 中有 orphan tool_calls
+                        # 或 400 错误且无 body（API 未返回详情，但 400 本身说明请求有问题）
+                        or ("model api request failed: 400" in err_lower
+                            and ("tool" in err_lower or "(empty body)" in err_lower
+                                 or any(
+                                    m.role == MessageRole.ASSISTANT and m.tool_calls
+                                    for m in self.conversation_history[-3:]
+                                )))
                     )
                     if is_orphan_tool and self.conversation_history:
                         logger.warning(
                             "Detected orphan tool messages in conversation_history — "
-                            "cleaning up last corrupted turn to recover"
+                            "cleaning ALL corrupted turns to recover"
                         )
-                        # 删除最后一个 assistant(tool_calls) 及其后所有孤立的 tool 消息
-                        cut = len(self.conversation_history)
-                        while cut > 0:
-                            msg = self.conversation_history[cut - 1]
+                        # 遍历整个 history，删除所有 orphan tool_calls
+                        # 规则：assistant 消息如果有 tool_calls，后面必须有对应的 tool 消息
+                        # 如果没有，则删除该 assistant 及其后的所有孤立 tool 消息
+                        cleaned_count = 0
+                        i = 0
+                        while i < len(self.conversation_history):
+                            msg = self.conversation_history[i]
                             if msg.role == MessageRole.ASSISTANT and msg.tool_calls:
-                                # 找到最近一个有 tool_calls 的 assistant 消息
-                                # 把它改成纯文本（去掉 tool_calls），然后删除后面所有消息
-                                self.conversation_history = self.conversation_history[:cut - 1]
-                                logger.info(
-                                    "Conversation history cleaned: removed %d corrupted message(s) "
-                                    "after last tool_calls at position %d",
-                                    len(self.conversation_history) - (cut - 1),
-                                    cut - 1,
-                                )
-                                break
-                            cut -= 1
+                                # 检查后续消息是否有对应的 tool 消息
+                                has_tool_result = False
+                                j = i + 1
+                                while j < len(self.conversation_history):
+                                    next_msg = self.conversation_history[j]
+                                    if next_msg.role == MessageRole.ASSISTANT:
+                                        # 遇到下一个 assistant，停止检查
+                                        break
+                                    if next_msg.role == MessageRole.TOOL:
+                                        has_tool_result = True
+                                        break
+                                    j += 1
+                                if not has_tool_result:
+                                    # 没有对应的 tool 结果，删除这个 assistant 及其后的孤立 tool
+                                    end = i + 1
+                                    while end < len(self.conversation_history):
+                                        if self.conversation_history[end].role in (MessageRole.ASSISTANT, MessageRole.SYSTEM):
+                                            break
+                                        end += 1
+                                    removed = self.conversation_history[i:end]
+                                    self.conversation_history = self.conversation_history[:i] + self.conversation_history[end:]
+                                    cleaned_count += len(removed)
+                                    logger.info(
+                                        "Removed orphan tool_calls at position %d (%d messages)",
+                                        i, len(removed)
+                                    )
+                                    # 不要 i++，重新检查当前位置（因为删除了消息）
+                                    continue
+                            i += 1
+                        if cleaned_count > 0:
+                            logger.warning(
+                                "Conversation history cleaned: removed %d orphan message(s) total",
+                                cleaned_count
+                            )
                         # 重试
                         continue
                     
@@ -1776,6 +1817,15 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
             if self.save_trajectories:
                 self._save_trajectory(completed=True)
 
+            # 跨会话记忆结束：自动执行 curator 胶囊化
+            # ============================================================
+            if self._cross_memory is not None:
+                try:
+                    self._cross_memory.end_session()
+                    self._cross_memory.save()
+                except Exception as e:
+                    logger.warning(f'[CrossSession] End session failed: {e}')
+
     def _build_full_messages(self) -> List[Dict]:
         """构建完整消息列表(用于API调用)"""
         messages = []
@@ -1953,7 +2003,9 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                     if response.status != 200:
                         error_text = await response.text()
                         logger.warning(f"API call failed: {response.status}, response: {error_text[:500]}")
-                        raise RuntimeError(f"Model API request failed: {response.status}")
+                        # 确保异常消息包含原始错误详情；如果为空则附加状态码提示
+                        _err_detail = error_text[:300] if error_text else "(empty body)"
+                        raise RuntimeError(f"Model API request failed: {response.status}: {_err_detail}")
 
                     result = await response.json()
 
@@ -2093,7 +2145,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                     if response.status != 200:
                         error_text = await response.text()
                         logger.warning(f"Anthropic API call failed: {response.status}")
-                        raise RuntimeError(f"Anthropic API request failed: {response.status}")
+                        raise RuntimeError(f"Anthropic API request failed: {response.status}: {error_text[:300]}")
 
                     result = await response.json()
 
