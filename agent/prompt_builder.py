@@ -649,17 +649,20 @@ def _extra_skills_dirs_from_env() -> List[Path]:
 
 
 def _resolve_default_skills_dirs() -> List[Path]:
-    """Default skills roots: project ``skills/`` + mimiraether subtree + env extras."""
-    from mimir_constants import get_mimir_home, get_skills_dir
+    """Skills roots for prompt injection: MimirAether-specific only.
+
+    历史：之前扫描 ~/.openclaw/skills/ (156 skills) + mimiraether (28 skills)
+    → 多目录禁用快照 → 每次冷扫描 184 文件 → 30s+ 超时。
+    Hermes 做法：只扫自己的 skills 目录（89 skills），快照秒出。
+    MimirAether 对齐：只注入自己目录下的 28 个技能，共享池技能通过
+    skills_list 工具按需查找。
+    """
+    from mimir_constants import get_mimir_home
 
     dirs: List[Path] = [
-        get_skills_dir(),
         get_mimir_home() / "skills" / "mimiraether",
     ]
     dirs.extend(_extra_skills_dirs_from_env())
-    builtin = _find_openclaw_builtin_skills_dir()
-    if builtin:
-        dirs.append(builtin)
     return dirs
 
 
@@ -730,15 +733,11 @@ def build_skills_system_prompt(
             if not _skill_should_show(conditions, available_tools, available_toolsets):
                 continue
             
-            # 获取技能名称（目录名）
+            # 获取技能名称（SKILL.md的父目录名），对齐Hermes的parts[-2]逻辑
             rel_path = skill_file.relative_to(skills_dir)
             parts = rel_path.parts
-            if len(parts) >= 2:
-                category = parts[0] if parts[0] != "skills" else "general"
-                skill_name = parts[1]
-            else:
-                category = "general"
-                skill_name = skill_file.parent.name
+            skill_name = parts[-2] if len(parts) >= 2 else skill_file.parent.name
+            category = "mimiraether"
             
             # 去重：先到先得
             key = (category, skill_name)
