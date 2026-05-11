@@ -1600,6 +1600,35 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                                 "Conversation history cleaned: removed %d orphan message(s) total",
                                 cleaned_count
                             )
+
+                        # ============================================================
+                        # 第二轮清理：删除孤立的 TOOL 消息
+                        # 症状：TOOL 消息的 tool_call_id 找不到匹配的 tool_calls
+                        # ============================================================
+                        surviving_tc_ids = set()
+                        for msg in self.conversation_history:
+                            if msg.role == MessageRole.ASSISTANT and msg.tool_calls:
+                                for tc in msg.tool_calls:
+                                    cid = tc.get("id", "") if isinstance(tc, dict) else ""
+                                    if cid:
+                                        surviving_tc_ids.add(cid)
+
+                        pre_count = len(self.conversation_history)
+                        self.conversation_history = [
+                            msg for msg in self.conversation_history
+                            if not (
+                                msg.role == MessageRole.TOOL
+                                and msg.tool_call_id
+                                and msg.tool_call_id not in surviving_tc_ids
+                            )
+                        ]
+                        orphan_tool_count = pre_count - len(self.conversation_history)
+                        if orphan_tool_count > 0:
+                            logger.warning(
+                                "Removed %d orphan TOOL message(s) with unmatched tool_call_id",
+                                orphan_tool_count
+                            )
+
                         # 重试
                         continue
                     
