@@ -165,9 +165,13 @@ class CrossSessionMemory:
             mem["active_projects"] = fixed_ap
     
     def save(self) -> bool:
-        """保存持久化记忆"""
+        """保存持久化记忆（先从磁盘合并外部变更，防止覆盖 agent 的手动 patch）"""
         try:
             self._data["last_session_end"] = datetime.now(timezone.utc).isoformat()
+
+            # ── 磁盘合并：防止覆盖 agent 在会话中直接 patch 的字段 ──
+            self._merge_disk_changes()
+
             self.file_path.parent.mkdir(parents=True, exist_ok=True)
             # 原子写入
             temp_path = self.file_path.with_suffix('.tmp')
@@ -178,6 +182,86 @@ class CrossSessionMemory:
         except (IOError, OSError) as e:
             print(f"[CrossSessionMemory] 保存失败: {e}")
             return False
+
+    def _merge_disk_changes(self) -> None:
+        """读取磁盘 persistent.json，将 agent 手动 patch 的字段合并到内存。
+
+        合并策略（防止 end_session 覆盖 agent 的 patch）：
+        - progress.current_objective: 磁盘优先（agent 可 patch）
+        - progress.completed_milestones: 并集
+        - memory.active_projects: 按 name 匹配合并，磁盘 status 优先
+        - memory.learned_patterns: 并集（按 pattern 文本去重）
+        - memory.key_decisions: 并集（按 decision 文本去重）
+        - 其他字段: 内存优先（运行时管理）
+        """
+        try:
+            if not self.file_path.exists():
+                return
+            with open(self.file_path, 'r', encoding='utf-8') as f:
+                disk_data = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            return
+
+        # ── progress.current_objective: 磁盘优先 ──
+        disk_obj = disk_data.get("progress", {}).get("current_objective")
+        mem_obj = self._data.get("progress", {}).get("current_objective")
+        if disk_obj and disk_obj != mem_obj:
+            self._data.setdefault("progress", {})["current_objective"] = disk_obj
+
+        # ── progress.completed_milestones: 并集 ──
+        disk_ms = disk_data.get("progress", {}).get("completed_milestones", [])
+        if disk_ms:
+            mem_ms = self._data.setdefault("progress", {}).setdefault("completed_milestones", [])
+            existing = set(mem_ms)
+            for item in disk_ms:
+                if item not in existing:
+                    mem_ms.append(item)
+
+        # ── memory.active_projects: 按 name 匹配合并，磁盘 status/额外字段优先 ──
+        disk_ap = disk_data.get("memory", {}).get("active_projects", [])
+        if disk_ap:
+            mem_ap = self._data.setdefault("memory", {}).setdefault("active_projects", [])
+            mem_by_name = {p.get("name"): p for p in mem_ap if isinstance(p, dict)}
+            for dp in disk_ap:
+                if not isinstance(dp, dict):
+                    continue
+                name = dp.get("name")
+                if not name:
+                    continue
+                if name in mem_by_name:
+                    # 磁盘的 status 和额外字段优先
+                    for k, v in dp.items():
+                        mem_by_name[name][k] = v
+                else:
+                    mem_ap.append(dp)
+
+        # ── memory.learned_patterns: 并集（按 pattern 文本去重） ──
+        disk_lp = disk_data.get("memory", {}).get("learned_patterns", [])
+        if disk_lp:
+            mem_lp = self._data.setdefault("memory", {}).setdefault("learned_patterns", [])
+            seen_patterns = set()
+            for item in mem_lp:
+                if isinstance(item, dict) and item.get("pattern"):
+                    seen_patterns.add(item["pattern"])
+            for item in disk_lp:
+                if isinstance(item, dict) and item.get("pattern"):
+                    if item["pattern"] not in seen_patterns:
+                        mem_lp.append(item)
+                        seen_patterns.add(item["pattern"])
+
+        # ── memory.key_decisions: 并集（按 decision 文本去重） ──
+        disk_kd = disk_data.get("memory", {}).get("key_decisions", [])
+        if disk_kd:
+            mem_kd = self._data.setdefault("memory", {}).setdefault("key_decisions", [])
+            seen_decisions = set()
+            for item in mem_kd:
+                if isinstance(item, dict) and item.get("decision"):
+                    seen_decisions.add(item["decision"])
+            for item in disk_kd:
+                if isinstance(item, dict) and item.get("decision"):
+                    if item["decision"] not in seen_decisions:
+                        mem_kd.append(item)
+                        seen_decisions.add(item["decision"])
     
     def is_first_session(self) -> bool:
         """是否是首次会话（无历史记忆）"""

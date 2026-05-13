@@ -13,7 +13,7 @@ metadata:
   hermes:
     tags: [Google, Gmail, Calendar, Drive, Sheets, Docs, Contacts, Email, OAuth, gws]
     homepage: https://github.com/NousResearch/hermes-agent
-    related_skills: [himalaya]
+    related_skills: [google-workspace]
 ---
 
 # Google Workspace
@@ -63,11 +63,11 @@ on CLI, Telegram, Discord, or any platform.
 Define a shorthand first:
 
 ```bash
-HERMES_HOME="${HERMES_HOME:-$HOME/.openclaw/projects/MimirAether}"
-GWORKSPACE_SKILL_DIR="$HERMES_HOME/skills/productivity/google-workspace"
-PYTHON_BIN="${HERMES_PYTHON:-python3}"
-if [ -x "$HERMES_HOME/hermes-agent/venv/bin/python" ]; then
-  PYTHON_BIN="$HERMES_HOME/hermes-agent/venv/bin/python"
+MIMIR_AETHER_HOME="${MIMIR_AETHER_HOME:-$HOME/.openclaw/projects/MimirAether}"
+GWORKSPACE_SKILL_DIR="$MIMIR_AETHER_HOME/skills/productivity/google-workspace"
+PYTHON_BIN="${MIMIR_PYTHON:-python3}"
+if [ -x "$MIMIR_AETHER_HOME/.venv/bin/python" ]; then
+  PYTHON_BIN="$MIMIR_AETHER_HOME/.venv/bin/python"
 fi
 GSETUP="$PYTHON_BIN $GWORKSPACE_SKILL_DIR/scripts/setup.py"
 ```
@@ -137,11 +137,11 @@ Should print `AUTHENTICATED`. Token refreshes automatically from now on.
 All commands go through the API script:
 
 ```bash
-HERMES_HOME="${HERMES_HOME:-$HOME/.openclaw/projects/MimirAether}"
-GWORKSPACE_SKILL_DIR="$HERMES_HOME/skills/productivity/google-workspace"
-PYTHON_BIN="${HERMES_PYTHON:-python3}"
-if [ -x "$HERMES_HOME/hermes-agent/venv/bin/python" ]; then
-  PYTHON_BIN="$HERMES_HOME/hermes-agent/venv/bin/python"
+MIMIR_AETHER_HOME="${MIMIR_AETHER_HOME:-$HOME/.openclaw/projects/MimirAether}"
+GWORKSPACE_SKILL_DIR="$MIMIR_AETHER_HOME/skills/productivity/google-workspace"
+PYTHON_BIN="${MIMIR_PYTHON:-python3}"
+if [ -x "$MIMIR_AETHER_HOME/.venv/bin/python" ]; then
+  PYTHON_BIN="$MIMIR_AETHER_HOME/.venv/bin/python"
 fi
 GAPI="$PYTHON_BIN $GWORKSPACE_SKILL_DIR/scripts/google_api.py"
 ```

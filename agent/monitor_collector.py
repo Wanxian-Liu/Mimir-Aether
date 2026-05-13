@@ -1,1 +1,435 @@
-\"\"\"\nMimirAether Monitor Collector — 监控环核心模块\n\n学习自Hermes Agent监控设计，实现：\n1. MonitorCollector: 监控协调器，整合各模块\n2. MetricsCollector: 指标采集器，收集系统指标\n3. AnomalyDetector: 异常检测器，识别异常行为\n4. HealthChecker: 健康检查器，定期检查系统状态\n\n集成:\n- agent.insights: InsightsEngine (使用分析)\n- agent.rate_limit_tracker: RateLimitTracker (速率限制)\n- agent.session_tracker: SessionTracker (会话追踪)\n\"\"\"\n\nfrom __future__ import annotations\n\nimport logging\nimport time\nimport threading\nfrom collections import deque\nfrom dataclasses import dataclass, field\nfrom datetime import datetime, timezone\nfrom enum import Enum\nfrom typing import Any, Callable, Deque, Dict, List, Optional, Set\n\nlogger = logging.getLogger(__name__)\n\n\n# ============================================================================\n# 枚举和常量\n# ============================================================================\n\nclass HealthStatus(Enum):\n    \"\"\"健康状态枚举\"\"\"\n    HEALTHY = \"healthy\"\n    WARNING = \"warning\"\n    CRITICAL = \"critical\"\n    UNKNOWN = \"unknown\"\n\n\nclass AnomalyType(Enum):\n    \"\"\"异常类型枚举\"\"\"\n    TOKEN_SPIKE = \"token_spike\"           # Token使用异常飙升\n    ERROR_RATE_HIGH = \"error_rate_high\"     # 错误率过高\n    LATENCY_HIGH = \"latency_high\"          # 延迟过高\n    RATE_LIMIT_IMMINENT = \"rate_limit_imminent\"  # 即将触发限流\n    SESSION_LEAK = \"session_leak\"          # 会话泄漏\n    MEMORY_PRESSURE = \"memory_pressure\"    # 内存压力\n    BUDGET_EXHAUSTED = \"budget_exhausted\"  # 预算耗尽\n\n\n# ============================================================================\n# 数据类\n# ============================================================================\n\n@dataclass\nclass MetricPoint:\n    \"\"\"指标数据点\"\"\"\n    timestamp: float\n    metric_name: str\n    value: float\n    tags: Dict[str, str] = field(default_factory=dict)\n    metadata: Dict[str, Any] = field(default_factory=dict)\n\n\n@dataclass\nclass Anomaly:\n    \"\"\"异常记录\"\"\"\n    anomaly_type: AnomalyType\n    severity: str  # \"low\", \"medium\", \"high\", \"critical\"\n    message: str\n    timestamp: float\n    metric_name: str\n    current_value: float\n    threshold: float\n    recommendation: str = \"\"\n    metadata: Dict[str, Any] = field(default_factory=dict)\n\n\n@dataclass\nclass HealthReport:\n    \"\"\"健康报告\"\"\"\n    status: HealthStatus\n    timestamp: float\n    checks: Dict[str, Any] = field(default_factory=dict)\n    anomalies: List[Anomaly] = field(default_factory=list)\n    summary: str = \"\"\n\n\n@dataclass\nclass MonitorSnapshot:\n    \"\"\"监控快照\"\"\"\n    timestamp: float\n    health_status: HealthStatus\n    metrics_summary: Dict[str, Any]\n    anomalies: List[Anomaly]\n    rate_limit_summary: str = \"\"\n    insights_summary: Dict[str, Any] = field(default_factory=dict)\n\n\n# ============================================================================\n# 指标采集器 (MetricsCollector)\n# ============================================================================\n\nclass MetricsCollector:\n    \"\"\"\n    指标采集器\n    \n    收集和存储时序指标数据，支持滑动窗口聚合\n    \"\"\"\n    \n    # 默认保留最近1小时的指标（3600秒）\n    DEFAULT_TTL_SECONDS = 3600\n    \n    def __init__(self, ttl_seconds: int = DEFAULT_TTL_SECONDS):\n        self._ttl = ttl_seconds\n        self._metrics: Dict[str, Deque[MetricPoint]] = {}\n        self._counters: Dict[str, float] = {}\n        self._gauges: Dict[str, float] = {}\n        self._lock = threading.RLock()\n    \n    def record(\n        self,\n        metric_name: str,\n        value: float,\n        tags: Optional[Dict[str, str]] = None,\n        metadata: Optional[Dict[str, Any]] = None\n    ) -> None:\n        \"\"\"记录一个指标点\"\"\"\n        with self._lock:\n            if metric_name not in self._metrics:\n                self._metrics[metric_name] = deque()\n            \n            point = MetricPoint(\n                timestamp=time.time(),\n                metric_name=metric_name,\n                value=value,\n                tags=tags or {},\n                metadata=metadata or {}\n            )\n            self._metrics[metric_name].append(point)\n            \n            # 清理过期数据\n            self._cleanup_old(metric_name)\n    \n    def increment(self, metric_name: str, delta: float = 1.0) -> None:\n        \"\"\"递增计数器\"\"\"\n        with self._lock:\n            self._counters[metric_name] = self._counters.get(metric_name, 0) + delta\n    \n    def gauge(self, metric_name: str, value: float) -> None:\n        \"\"\"设置仪表值\"\"\"\n        with self._lock:\n            self._gauges[metric_name] = value\n    \n    def get_recent(\n        self,\n        metric_name: str,\n        seconds: int = 300\n    ) -> List[MetricPoint]:\n        \"\"\"获取最近N秒的指标数据\"\"\"\n        with self._lock:\n            cutoff = time.time() - seconds\n            if metric_name not in self._metrics:\n                return []\n            \n            return [\n                p for p in self._metrics[metric_name]\n                if p.timestamp >= cutoff\n            ]\n    \n    def get_avg(\n        self,\n        metric_name: str,\n        seconds: int = 300\n    ) -> float:\n        \"\"\"获取最近N秒的平均值\"\"\"\n        points = self.get_recent(metric_name, seconds)\n        if not points:\n            return 0.0\n        return sum(p.value for p in points) / len(points)\n    \n    def get_max(\n        self,\n        metric_name: str,\n        seconds: int = 300\n    ) -> float:\n        \"\"\"获取最近N秒的最大值\"\"\"\n        points = self.get_recent(metric_name, seconds)\n        if not points:\n            return 0.0\n        return max(p.value for p in points)\n    \n    def get_rate(\n        self,\n        metric_name: str,\n        seconds: int = 60\n    ) -> float:\n        \"\"\"获取最近N秒的速率（per second）\"\"\"\n        points = self.get_recent(metric_name, seconds)\n        if not points:\n            return 0.0\n        \n        time_span = points[-1].timestamp - points[0].timestamp\n        if time_span <= 0:\n            return 0.0\n        \n        return sum(p.value for p in points) / time_span\n    \n    def get_counter(self, metric_name: str) -> float:\n        \"\"\"获取计数器当前值\"\"\"\n        with self._lock:\n            return self._counters.get(metric_name, 0.0)\n    \n    def get_gauge(self, metric_name: str) -> float:\n        \"\"\"获取仪表当前值\"\"\"\n        with self._lock:\n            return self._gauges.get(metric_name, 0.0)\n    \n    def _cleanup_old(self, metric_name: str) -> None:\n        \"\"\"清理过期数据\"\"\"\n        cutoff = time.time() - self._ttl\n        queue = self._metrics[metric_name]\n        \n        while queue and queue[0].timestamp < cutoff:\n            queue.popleft()\n    \n    def get_all_metrics(self) -> Dict[str, Any]:\n        \"\"\"获取所有指标的摘要\"\"\"\n        with self._lock:\n            return {\n                \"metric_count\": sum(len(q) for q in self._metrics.values()),\n                \"unique_metrics\": list(self._metrics.keys()),\n                \"counters\": dict(self._counters),\n                \"gauges\": dict(self._gauges),\n            }\n    \n    def reset(self) -> None:\n        \"\"\"重置所有指标\"\"\"\n        with self._lock:\n            self._metrics.clear()\n            self._counters.clear()\n            self._gauges.clear()\n\n\n# ============================================================================\n# 异常检测器 (AnomalyDetector)\n# ============================================================================\n\n@dataclass\nclass AnomalyThreshold:\n    \"\"\"异常检测阈值配置\"\"\"\n    metric_name: str\n    threshold_type: str = \"value\"  # \"value\", \"rate\", \"percentile\"\n    threshold_value: float\n    comparison: str = \"gt\"  # \"gt\", \"lt\", \"gte\", \"lte\", \"eq\"\n    window_seconds: int = 300  # 滑动窗口大小\n    severity: str = \"medium\"  # \"low\", \"medium\", \"high\", \"critical\"\n    cooldown_seconds: int = 60  # 触发后的冷却期\n\n\nclass AnomalyDetector:\n    \"\"\"\n    异常检测器\n    \n    基于配置的阈值检测异常行为\n    \"\"\"\n    \n    # 默认阈值配置\n    DEFAULT_THRESHOLDS = [\n        AnomalyThreshold(\n            metric_name=\"tokens_per_minute\",\n            threshold_type=\"value\",\n            threshold_value=80000,\n            comparison=\"gt\",\n            window_seconds=60,\n            severity=\"high\",\n            cooldown_seconds=30\n        ),\n        AnomalyThreshold(\n            metric_name=\"error_rate\",\n            threshold_type=\"value\",\n            threshold_value=0.1,  # 10%\n            comparison=\"gt\",\n            window_seconds=300,\n            severity=\"critical\",\n            cooldown_seconds=60\n        ),\n        AnomalyThreshold(\n            metric_name=\"latency_ms\",\n            threshold_type=\"value\",\n            threshold_value=5000,  # 5秒\n            comparison=\"gt\",\n            window_seconds=60,\n            severity=\"medium\",\n            cooldown_seconds=30\n        ),\n        AnomalyThreshold(\n            metric_name=\"rate_limit_usage_pct\",\n            threshold_type=\"value\",\n            threshold_value=90,  # 90%\n            comparison=\"gte\",\n            window_seconds=60,\n            severity=\"high\",\n            cooldown_seconds=30\n        ),\n        AnomalyThreshold(\n            metric_name=\"session_memory_mb\",\n            threshold_type=\"value\",\n            threshold_value=500,  # 500MB\n            comparison=\"gt\",\n            window_seconds=300,\n            severity=\"medium\",\n            cooldown_seconds=120\n        ),\n        AnomalyThreshold(\n            metric_name=\"iteration_budget_usage_pct\",\n            threshold_type=\"value\",\n            threshold_value=90,\n            comparison=\"gte\",\n            window_seconds=60,\n            severity=\"critical\",\n            cooldown_seconds=60\n        ),\n    ]\n    \n    def __init__(\n        self,\n        thresholds: Optional[List[AnomalyThreshold]] = None,\n        custom_rules: Optional[List[Callable[[MetricsCollector], Optional[Anomaly]]]] = None\n    ):\n        self._thresholds = thresholds or self.DEFAULT_THRESHOLDS.copy()\n        self._custom_rules = custom_rules or []\n        self._cooldowns: Dict[str, float] = {}\n        self._lock = threading.RLock()\n    \n    def detect(\n        self,\n        metrics: MetricsCollector\n    ) -> List[Anomaly]:\n        \"\"\"\n        检测异常\n        \n        Returns:\n            List[Anomaly]: 检测到的异常列表\n        \"\"\"\n        anomalies = []\n        now = time.time()\n        \n        with self._lock:\n            # 检查阈值规则\n            for threshold in self._thresholds:\n                # 检查冷却期\n                cooldown_key = f\"{threshold.metric_name}:{threshold.severity}\"\n                last_triggered = self._cooldowns.get(cooldown_key, 0)\n                if now - last_triggered < threshold.cooldown_seconds:\n                    continue\n                \n                # 获取指标值\n                if threshold.threshold_type == \"value\":\n                    value = metrics.get_avg(\n                        threshold.metric_name,\n                        threshold.window_seconds\n                    )\n                elif threshold.threshold_type == \"rate\":\n                    value = metrics.get_rate(\n                        threshold.metric_name,\n                        threshold.window_seconds\n                    )\n                elif threshold.threshold_type == \"percentile\":\n                    # 简化的percentile实现\n                    value = metrics.get_max(\n                        threshold.metric_name,\n                        threshold.window_seconds\n                    )\n                else:\n                    continue\n                \n                # 比较\n                triggered = self._compare(value, threshold.comparison, threshold.threshold_value)\n                \n                if triggered:\n                    anomaly = self._create_anomaly(\n                        threshold=threshold,\n                        current_value=value,\n                        now=now\n                    )\n                    anomalies.append(anomaly)\n                    self._cooldowns[cooldown_key] = now\n            \n            # 检查自定义规则\n            for rule in self._custom_rules:\n                try:\n                    anomaly = rule(metrics)\n                    if anomaly:\n                        anomalies.append(anomaly)\n                except Exception as e:\n                    logger.warning(f\"Custom anomaly rule failed: {e}\")\n        \n        return anomalies\n    \n    def _compare(self, value: float, comparison: str, threshold: float) -> bool:\n        \"\"\"比较值和阈值\"\"\"\n        if comparison == \"gt\":\n            return value > threshold\n        elif comparison == \"lt\":\n            return value < threshold\n        elif comparison == \"gte\":\n            return value >= threshold\n        elif comparison == \"lte\":\n            return value <= threshold\n        elif comparison == \"eq\":\n            return abs(value - threshold) < 1e-6\n        return False\n    \n    def _create_anomaly(\n        self,\n        threshold: AnomalyThreshold,\n        current_value: float,\n        now: float\n    ) -> Anomaly:\n        \"\"\"创建异常记录\"\"\"\n        recommendation = self._get_recommendation(threshold.metric_name, threshold.severity)\n        \n        return Anomaly(\n            anomaly_type=self._get_anomaly_type(threshold.metric_name),\n            severity=threshold.severity,\n            message=f\"{threshold.metric_name} = {current_value:.2f} (threshold: {threshold.threshold_value})\",\n            timestamp=now,\n            metric_name=threshold.metric_name,\n            current_value=current_value,\n            threshold=threshold.threshold_value,\n            recommendation=recommendation\n        )\n    \n    def _get_anomaly_type(self, metric_name: str) -> AnomalyType:\n        \"\"\"获取异常类型\"\"\"\n        mapping = {\n            \"tokens_per_minute\": AnomalyType.TOKEN_SPIKE,\n            \"error_rate\": AnomalyType.ERROR_RATE_HIGH,\n            \"latency_ms\": AnomalyType.LATENCY_HIGH,\n            \"rate_limit_usage_pct\": AnomalyType.RATE_LIMIT_IMMINENT,\n            \"session_memory_mb\": AnomalyType.MEMORY_PRESSURE,\n            \"iteration_budget_usage_pct\": AnomalyType.BUDGET_EXHAUSTED,\n        }\n        return mapping.get(metric_name, AnomalyType.ERROR_RATE_HIGH)\n    \n    def _get_recommendation(self, metric_name: str, severity: str) -> str:\n        \"\"\"获取建议\"\"\"\n        recommendations = {\n            \"tokens_per_minute\": \"考虑启用上下文压缩或降低响应详细度\",\n            \"error_rate\": \"检查API连接状态和错误日志，考虑降级模型\",\n            \"latency_ms\": \"检查网络延迟，可能需要重试或降级\",\n            \"rate_limit_usage_pct\": \"降低请求频率，等待速率限制重置\",\n            \"session_memory_mb\": \"触发上下文压缩，减少会话历史\",\n            \"iteration_budget_usage_pct\": \"准备结束当前任务，评估是否需要新会话\",\n        }\n        \n        base = recommendations.get(metric_name, \"检查系统状态\")\n        \n        if severity == \"critical\":\n            return f\"[紧急] {base}\"\n        elif severity == \"high\":\n            return f\"[重要] {base}\"\n        else:\n            return base\n\n\n# ============================================================================\n# 健康检查器 (HealthChecker)\n# ============================================================================\n\n@dataclass\nclass HealthCheck:\n    \"\"\"健康检查项\"\"\"\n    name: str\n    check_fn: Callable[[], tuple[bool, str]]\n    required: bool = True\n\n\nclass HealthChecker:\n    \"\"\"\n    健康检查器\n    \n    执行定期健康检查\n    \"\"\"\n    \n    def __init__(self):\n        self._checks: List[HealthCheck] = []\n        self._last_results: Dict[str, tuple[bool, str]] = {}\n        self._lock = threading.RLock()\n    \n    def register(\n        self,\n        name: str,\n        check_fn: Callable[[], tuple[bool, str]],\n        required: bool = True\n    ) -> None:\n        \"\"\"注册健康检查项\"\"\"\n        with self._lock:\n            self._checks.append(HealthCheck(\n                name=name,\n                check_fn=check_fn,\n                required=required\n            ))\n    \n    def check_all(self) -> HealthReport:\n        \"\"\"执行所有健康检查\"\"\"\n        checks_results = {}\n        anomalies = []\n        now = time.time()\n        \n        with self._lock:\n            for check in self._checks:\n                try:\n                    is_healthy, message = check.check_fn()\n                    checks_results[check.name] = {\n                        \"healthy\": is_healthy,\n                        \"message\": message,\n                        \"required\": check.required\n                    }\n                    \n                    if not is_healthy and check.required:\n                        severity = \"critical\" if \"memory\" in check.name.lower() else \"high\"\n                        anomalies.append(Anomaly(\n                            anomaly_type=AnomalyType.MEMORY_PRESSURE if \"memory\" in check.name.lower() else AnomalyType.ERROR_RATE_HIGH,\n                            severity=severity,\n                            message=f\"健康检查失败: {check.name} - {message}\",\n                            timestamp=now,\n                            metric_name=check.name,\n                            current_value=0.0,\n                            threshold=0.0,\n                            recommendation=f\"检查 {check.name} 配置\"\n                        ))\n                    \n                    self._last_results[check.name] = (is_healthy, message)\n                except Exception as e:\n                    checks_results[check.name] = {\n                        \"healthy\": False,\n                        \"message\": f\"检查执行失败: {str(e)}\",\n                        \"required\": check.required\n                    }\n                    self._last_results[check.name] = (False, str(e))\n        \n        # 计算总体状态\n        overall_status = self._compute_status(checks_results)\n        \n        return HealthReport(\n            status=overall_status,\n            timestamp=now,\n            checks=checks_results,\n            anomalies=anomalies,\n            summary=self._generate_summary(overall_status, checks_results)\n        )\n    \n    def _compute_status(self, results: Dict[str, Any]) -> HealthStatus:\n        \"\"\"计算总体状态\"\"\"\n        if not results:\n            return HealthStatus.UNKNOWN\n        \n        required_unhealthy = 0\n        optional_unhealthy = 0\n        \n        for check_result in results.values():\n            if not check_result[\"healthy\"]:\n                if check_result[\"required\"]:\n                    required_unhealthy += 1\n                else:\n                    optional_unhealthy += 1\n        \n        if required_unhealthy > 0:\n            return HealthStatus.CRITICAL\n        elif optional_unhealthy > 0:\n            return HealthStatus.WARNING\n        else:\n            return HealthStatus.HEALTHY\n    \n    def _generate_summary(\n        self,\n        status: HealthStatus,\n        results: Dict[str, Any]\n    ) -> str:\n        \"\"\"生成摘要\"\"\
+
+"""
+MimirAether Monitor Collector - 监控环核心模块
+
+整合:
+- MetricsCollector: 指标采集器，收集系统指标
+- AnomalyDetector: 异常检测器，识别异常行为
+- HealthChecker: 健康检查器，定期检查系统状态
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+import threading
+from collections import deque
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Callable, Dict, Deque, List, Optional, Tuple, Union
+
+logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# 枚举和常量
+# ============================================================================
+
+class HealthStatus(Enum):
+    """健康状态枚举"""
+    HEALTHY = "healthy"
+    WARNING = "warning"
+    CRITICAL = "critical"
+    UNKNOWN = "unknown"
+
+
+class AnomalyType(Enum):
+    """异常类型枚举"""
+    TOKEN_SPIKE = "token_spike"
+    ERROR_RATE_HIGH = "error_rate_high"
+    LATENCY_HIGH = "latency_high"
+    RATE_LIMIT_IMMINENT = "rate_limit_imminent"
+    SESSION_LEAK = "session_leak"
+    MEMORY_PRESSURE = "memory_pressure"
+    BUDGET_EXHAUSTED = "budget_exhausted"
+
+
+# ============================================================================
+# 数据类
+# ============================================================================
+
+@dataclass
+class MetricPoint:
+    """指标数据点"""
+    timestamp: float
+    metric_name: str
+    value: float
+    tags: Dict[str, str] = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class Anomaly:
+    """异常记录"""
+    anomaly_type: AnomalyType
+    severity: str  # low, medium, high, critical
+    message: str
+    timestamp: float
+    metric_name: str
+    current_value: float
+    threshold: float
+    recommendation: str = ""
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class HealthReport:
+    """健康报告"""
+    status: HealthStatus
+    timestamp: float
+    checks: Dict[str, Any] = field(default_factory=dict)
+    anomalies: List[Anomaly] = field(default_factory=list)
+    summary: str = ""
+
+
+# ============================================================================
+# 指标采集器
+# ============================================================================
+
+class MetricsCollector:
+    """收集和存储时序指标数据，支持滑动窗口聚合"""
+
+    DEFAULT_TTL_SECONDS = 3600
+
+    def __init__(self, ttl_seconds: int = DEFAULT_TTL_SECONDS):
+        self._ttl = ttl_seconds
+        self._metrics: Dict[str, Deque[MetricPoint]] = {}
+        self._counters: Dict[str, float] = {}
+        self._gauges: Dict[str, float] = {}
+        self._lock = threading.RLock()
+
+    def record(
+        self,
+        metric_name: str,
+        value: float,
+        tags: Optional[Dict[str, str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """记录一个指标点"""
+        with self._lock:
+            if metric_name not in self._metrics:
+                self._metrics[metric_name] = deque()
+            point = MetricPoint(
+                timestamp=time.time(),
+                metric_name=metric_name,
+                value=value,
+                tags=tags or {},
+                metadata=metadata or {},
+            )
+            self._metrics[metric_name].append(point)
+            self._cleanup_old(metric_name)
+
+    def increment(self, metric_name: str, delta: float = 1.0) -> None:
+        """递增计数器"""
+        with self._lock:
+            self._counters[metric_name] = self._counters.get(metric_name, 0) + delta
+
+    def gauge(self, metric_name: str, value: float) -> None:
+        """设置仪表值"""
+        with self._lock:
+            self._gauges[metric_name] = value
+
+    def get_recent(self, metric_name: str, seconds: int = 300) -> List[MetricPoint]:
+        """获取最近N秒的指标数据"""
+        with self._lock:
+            cutoff = time.time() - seconds
+            if metric_name not in self._metrics:
+                return []
+            return [
+                p for p in self._metrics[metric_name]
+                if p.timestamp >= cutoff
+            ]
+
+    def get_avg(self, metric_name: str, seconds: int = 300) -> float:
+        """获取最近N秒的平均值"""
+        points = self.get_recent(metric_name, seconds)
+        if not points:
+            return 0.0
+        return sum(p.value for p in points) / len(points)
+
+    def get_max(self, metric_name: str, seconds: int = 300) -> float:
+        """获取最近N秒的最大值"""
+        points = self.get_recent(metric_name, seconds)
+        if not points:
+            return 0.0
+        return max(p.value for p in points)
+
+    def get_rate(self, metric_name: str, seconds: int = 60) -> float:
+        """获取最近N秒的速率"""
+        points = self.get_recent(metric_name, seconds)
+        if len(points) < 2:
+            return 0.0
+        time_span = points[-1].timestamp - points[0].timestamp
+        if time_span <= 0:
+            return 0.0
+        return sum(p.value for p in points) / time_span
+
+    def get_counter(self, metric_name: str) -> float:
+        """获取计数器当前值"""
+        with self._lock:
+            return self._counters.get(metric_name, 0.0)
+
+    def get_gauge(self, metric_name: str) -> float:
+        """获取仪表当前值"""
+        with self._lock:
+            return self._gauges.get(metric_name, 0.0)
+
+    def _cleanup_old(self, metric_name: str) -> None:
+        cutoff = time.time() - self._ttl
+        queue = self._metrics[metric_name]
+        while queue and queue[0].timestamp < cutoff:
+            queue.popleft()
+
+    def get_all_metrics(self) -> Dict[str, Any]:
+        """获取所有指标的摘要"""
+        with self._lock:
+            return {
+                "metric_count": sum(len(q) for q in self._metrics.values()),
+                "unique_metrics": list(self._metrics.keys()),
+                "counters": dict(self._counters),
+                "gauges": dict(self._gauges),
+            }
+
+    def reset(self) -> None:
+        """重置所有指标"""
+        with self._lock:
+            self._metrics.clear()
+            self._counters.clear()
+            self._gauges.clear()
+
+
+# ============================================================================
+# 异常检测器
+# ============================================================================
+
+@dataclass
+class AnomalyThreshold:
+    """异常检测阈值配置"""
+    metric_name: str
+    threshold_type: str = "value"
+    threshold_value: float = 0.0
+    comparison: str = "gt"
+    window_seconds: int = 300
+    severity: str = "medium"
+    cooldown_seconds: int = 60
+
+
+class AnomalyDetector:
+    """基于配置的阈值检测异常行为"""
+
+    DEFAULT_THRESHOLDS: List[AnomalyThreshold] = []
+
+    def __init__(
+        self,
+        thresholds: Optional[List[AnomalyThreshold]] = None,
+        custom_rules: Optional[List[Callable]] = None,
+    ):
+        self._thresholds = thresholds or self.DEFAULT_THRESHOLDS.copy()
+        self._custom_rules = custom_rules or []
+        self._cooldowns: Dict[str, float] = {}
+        self._lock = threading.RLock()
+
+    def detect(self, metrics: MetricsCollector) -> List[Anomaly]:
+        """检测异常"""
+        anomalies: List[Anomaly] = []
+        now = time.time()
+
+        with self._lock:
+            for threshold in self._thresholds:
+                cooldown_key = f"{threshold.metric_name}:{threshold.severity}"
+                last_triggered = self._cooldowns.get(cooldown_key, 0)
+                if now - last_triggered < threshold.cooldown_seconds:
+                    continue
+
+                value = metrics.get_avg(threshold.metric_name, threshold.window_seconds)
+                if self._compare(value, threshold.comparison, threshold.threshold_value):
+                    anomaly = self._create_anomaly(threshold, value, now)
+                    anomalies.append(anomaly)
+                    self._cooldowns[cooldown_key] = now
+
+            for rule in self._custom_rules:
+                try:
+                    anomaly = rule(metrics)
+                    if anomaly:
+                        anomalies.append(anomaly)
+                except Exception as e:
+                    logger.warning(f"Custom anomaly rule failed: {e}")
+
+        return anomalies
+
+    @staticmethod
+    def _compare(value: float, comparison: str, threshold: float) -> bool:
+        if comparison == "gt":
+            return value > threshold
+        elif comparison == "lt":
+            return value < threshold
+        elif comparison == "gte":
+            return value >= threshold
+        elif comparison == "lte":
+            return value <= threshold
+        elif comparison == "eq":
+            return abs(value - threshold) < 1e-6
+        return False
+
+    @staticmethod
+    def _create_anomaly(threshold: AnomalyThreshold, current_value: float, now: float) -> Anomaly:
+        return Anomaly(
+            anomaly_type=AnomalyType.ERROR_RATE_HIGH,
+            severity=threshold.severity,
+            message=f"{threshold.metric_name} = {current_value:.2f} (threshold: {threshold.threshold_value})",
+            timestamp=now,
+            metric_name=threshold.metric_name,
+            current_value=current_value,
+            threshold=threshold.threshold_value,
+        )
+
+
+# ============================================================================
+# 健康检查器
+# ============================================================================
+
+@dataclass
+class HealthCheck:
+    """健康检查项"""
+    name: str
+    check_fn: Callable[[None], Tuple[bool, str]]
+    required: bool = True
+
+
+class HealthChecker:
+    """执行定期健康检查"""
+
+    def __init__(self):
+        self._checks: List[HealthCheck] = []
+        self._last_results: Dict[str, Tuple[bool, str]] = {}
+        self._lock = threading.RLock()
+
+    def register(self, name: str, check_fn: Callable[[None], Tuple[bool, str]], required: bool = True) -> None:
+        """注册健康检查项"""
+        with self._lock:
+            self._checks.append(HealthCheck(name=name, check_fn=check_fn, required=required))
+
+    def check_all(self) -> HealthReport:
+        """执行所有健康检查"""
+        checks_results: Dict[str, Any] = {}
+        anomalies: List[Anomaly] = []
+        now = time.time()
+
+        with self._lock:
+            for check in self._checks:
+                try:
+                    is_healthy, message = check.check_fn()
+                    checks_results[check.name] = {
+                        "healthy": is_healthy,
+                        "message": message,
+                        "required": check.required,
+                    }
+                    if not is_healthy and check.required:
+                        anomalies.append(Anomaly(
+                            anomaly_type=AnomalyType.ERROR_RATE_HIGH,
+                            severity="high",
+                            message=f"Health check failed: {check.name} - {message}",
+                            timestamp=now,
+                            metric_name=check.name,
+                            current_value=0.0,
+                            threshold=0.0,
+                        ))
+                    self._last_results[check.name] = (is_healthy, message)
+                except Exception as e:
+                    checks_results[check.name] = {
+                        "healthy": False,
+                        "message": f"Check error: {str(e)}",
+                        "required": check.required,
+                    }
+                    self._last_results[check.name] = (False, str(e))
+
+        status = self._compute_status(checks_results)
+        return HealthReport(
+            status=status,
+            timestamp=now,
+            checks=checks_results,
+            anomalies=anomalies,
+            summary=f"Health: {status.value} | {len(anomalies)} anomalies | {len(checks_results)} checks",
+        )
+
+    @staticmethod
+    def _compute_status(results: Dict[str, Any]) -> HealthStatus:
+        if not results:
+            return HealthStatus.UNKNOWN
+        required_unhealthy = 0
+        for c in results.values():
+            if not c.get("healthy", True) and c.get("required", True):
+                required_unhealthy += 1
+        if required_unhealthy > 0:
+            return HealthStatus.CRITICAL
+        return HealthStatus.HEALTHY
+
+
+# ============================================================================
+# 监控环 - 整合所有组件
+# ============================================================================
+
+class MonitorCollector:
+    """监控环核心: 指标采集 + 异常检测 + 健康检查"""
+
+    def __init__(self, name: str = "default"):
+        self.name = name
+        self.metrics = MetricsCollector()
+        self.detector = AnomalyDetector()
+        self.health = HealthChecker()
+
+    def observe(self) -> Dict[str, Any]:
+        """采集当前快照"""
+        return {
+            "name": self.name,
+            "timestamp": time.time(),
+            "metrics": self.metrics.get_all_metrics(),
+            "status": self.status,
+        }
+
+    def detect_anomalies(self, snapshot: Optional[Dict[str, Any]] = None) -> List[Anomaly]:
+        """检测异常"""
+        return self.detector.detect(self.metrics)
+
+    @property
+    def status(self) -> str:
+        """当前状态"""
+        return "healthy"
+
+    def quick_check(self) -> HealthReport:
+        """快速健康检查（不需要注册额外的check）"""
+        anomalies = self.detect_anomalies()
+        now = time.time()
+        severity = "critical" if len(anomalies) > 0 else "healthy"
+        return HealthReport(
+            status=HealthStatus.CRITICAL if anomalies else HealthStatus.HEALTHY,
+            timestamp=now,
+            checks={"monitor_collector": {"healthy": len(anomalies) == 0, "message": f"{len(anomalies)} anomalies"}},
+            anomalies=anomalies,
+            summary=f"[{severity}] {len(anomalies)} anomalies detected",
+        )
+
+
+# ============================================================================
+# 全局单例
+# ============================================================================
+
+_global_collector: Optional[MonitorCollector] = None
+_lock = threading.RLock()
+
+
+def get_monitor() -> MonitorCollector:
+    """获取全局 MonitorCollector 单例"""
+    global _global_collector
+    if _global_collector is None:
+        with _lock:
+            if _global_collector is None:
+                _global_collector = MonitorCollector("mimir_aether")
+    return _global_collector
+
+
+def reset_monitor() -> None:
+    """重置全局监控器（用于测试）"""
+    global _global_collector
+    with _lock:
+        _global_collector = None

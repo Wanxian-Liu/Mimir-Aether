@@ -45,20 +45,44 @@ Step 1: 读取 data/persistent.json（会话状态）
   ├── progress.pending_tasks → 恢复未完成任务
   └── progress.completed_milestones → 确认已完成项
 
-Step 2: 读取 memory/persistent.json（记忆持久化）
-  ├── 检查 session_boundary 条目 → 恢复上次会话摘要
-  └── 检查 meta_rules → 恢复跨会话硬约束
-
-Step 3: 差异检测
-  ├── 对比 data/persistent.json 和 memory/persistent.json
-  ├── 检测版本号 → 如果版本不匹配，执行迁移
-  └── 检测 session_count → 确认无会话丢失
-
-Step 4: 自动注入到系统提示
+Step 2: 自动注入到系统提示
   ├── 将 key_decisions 注入为"已知决策"
   ├── 将 pending_tasks 注入为"待完成"
   └── 将 user_preferences 注入为"用户偏好"
 ```
+
+## ⚠️ 耐久真源机制（ground_truth.json）
+
+**已知陷阱**：`persistent.json` 会被运行时 `end_session()` 从内存覆盖磁盘，导致会话中直接 patch 的修改丢失。
+
+**解决方案**：`data/ground_truth.json` 是独立于运行时的耐久真源。运行时不会触碰此文件。
+
+### 启动时调和流程
+
+```
+Step 0: 读取 data/ground_truth.json（耐久真源，优先）
+  ├── current_objective → 当前目标（不被运行时覆盖）
+  ├── active_projects → 项目状态
+  ├── critical_patterns → 关键经验教训
+  └── next_actions → 下一步行动
+
+Step 1: 读取 data/persistent.json（运行时快照）
+  ├── 如果 ground_truth 存在且 persistent 的 current_objective 与它不一致
+  │   └── 以 ground_truth 为准，并尝试回写 persistent（patch 补救）
+  ├── 如果 ground_truth 不存在
+  │   └── 仅用 persistent（降级模式）
+  └── session_count / curator_nudge / dormant_skills 等运行时指标
+      仍以 persistent 为准（这些只有运行时能维护）
+```
+
+### 写入规则
+
+| 数据类型 | 写入目标 | 原因 |
+|----------|----------|------|
+| 运行时指标（session_count, curator_nudge） | persistent.json | 只有运行时能维护 |
+| 项目进度（objective, milestones） | **ground_truth.json（主）** + persistent.json（镜像） | 防止被覆盖 |
+| 关键决策、learned_patterns | persistent.json（已有） + ground_truth.json（新增模式） | 双写保险 |
+| 用户偏好 | persistent.json | 一次性写入，后续只读 |
 
 ## 核心功能列表
 
@@ -73,52 +97,8 @@ Step 4: 自动注入到系统提示
 
 ## 会话结束时的保存流程
 
-每轮会话结束时（或关键决策点），执行：
-
-```python
-import json, os
-
-def save_session_boundary(summary, key_decisions, pending_tasks, meta_rules=None):
-    """保存会话边界，供下个会话恢复"""
-    
-    # 1. 更新 data/persistent.json
-    data_path = "data/persistent.json"
-    data = json.load(open(data_path)) if os.path.exists(data_path) else {}
-    
-    data["last_session_end"] = "当前时间"
-    data["session_count"] = data.get("session_count", 0) + 1
-    if "memory" not in data:
-        data["memory"] = {}
-    data["memory"]["key_decisions"] = key_decisions
-    data["memory"]["learned_patterns"] = data["memory"].get("learned_patterns", [])
-    data["progress"]["pending_tasks"] = pending_tasks
-    data["progress"]["completed_milestones"] = data["progress"].get("completed_milestones", [])
-    
-    json.dump(data, open(data_path, "w"), indent=2, ensure_ascii=False)
-    
-    # 2. 更新 memory/persistent.json
-    memory_path = "memory/persistent.json"
-    memory = json.load(open(memory_path)) if os.path.exists(memory_path) else {"counter": 0, "entries": []}
-    
-    memory["counter"] += 1
-    memory["entries"].append({
-        "id": f"session-end-{memory['counter']}",
-        "type": "session_boundary",
-        "timestamp": "当前时间",
-        "content": {
-            "summary": summary,
-            "key_decisions": key_decisions,
-            "pending_tasks": pending_tasks,
-            "meta_rules": meta_rules or []
-        }
-    })
-    
-    # 3. 过期检查：只保留最近20条
-    if len(memory["entries"]) > 20:
-        memory["entries"] = memory["entries"][-20:]
-    
-    json.dump(memory, open(memory_path, "w"), indent=2, ensure_ascii=False)
-```
+每轮会话结束时（或关键决策点），由 `CrossSessionMemory.end_session()` + `save()` 自动执行。
+会话边界数据统一存储在 `data/persistent.json`（包括 curator_nudge、session_count、last_session_end 等）。
 
 ## 关键决策点（触发保存）
 

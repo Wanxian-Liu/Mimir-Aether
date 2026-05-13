@@ -101,6 +101,10 @@ MEMORY_GUIDANCE = (
     "User preferences and recurring corrections matter more than procedural task details.\n"
     "Do NOT save task progress, session outcomes, completed-work logs, or temporary TODO "
     "state to memory; use session_search to recall those from past transcripts. "
+    "Specifically: do not record PR numbers, issue numbers, commit SHAs, "
+    "'fixed bug X', 'submitted PR Y', 'Phase N done', file counts, "
+    "or any artifact that will be stale in 7 days. "
+    "If a fact will be stale in a week, it does not belong in memory. "
     "If you've discovered a new way to do something, solved a problem that could be "
     "necessary later, save it as a skill with the skill tool."
 )
@@ -628,17 +632,6 @@ def _iter_skill_files(skills_dir: Path) -> list:
     
     return skill_files
 
-def _find_openclaw_builtin_skills_dir() -> Optional[Path]:
-    """动态查找OpenClaw内置skills目录（pnpm全局安装）"""
-    pnpm_root = Path.home() / ".local/share/pnpm/global/5/.pnpm"
-    if pnpm_root.exists():
-        for candidate in sorted(pnpm_root.glob("openclaw@*"), reverse=True):
-            skills_path = candidate / "node_modules/openclaw/skills"
-            if skills_path.exists():
-                return skills_path
-    return None
-
-
 def _extra_skills_dirs_from_env() -> List[Path]:
     """Optional colon-separated extra roots (see docs/MIMIR_RUNTIME_CONTRACT.md)."""
     raw = os.environ.get("EXTRA_SKILLS_DIRS", "").strip()
@@ -902,24 +895,31 @@ def _write_skills_snapshot(skills_dirs: list, skills_prompt: str, category_descr
 
 
 def _build_cross_session_context() -> str:
-    """读取 persistent.json 和 NEXT_SESSION.md 生成恢复上下文"""
+    """读取 data/persistent.json 和 NEXT_SESSION.md 生成恢复上下文"""
     import json, os
     parts = []
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     
-    for path, key in [(os.path.join(base, "data", "persistent.json"), "会话状态"),
-                       (os.path.join(base, "memory", "persistent.json"), "记忆状态")]:
-        if os.path.exists(path):
-            try:
-                with open(path) as f:
-                    state = json.load(f)
-                entries = state.get("entries", [])
-                if entries:
-                    last = entries[-1]
-                    parts.append(
-                        f"上次{key}: {last.get('content', {}).get('summary', str(last)[:200])}"
-                    )
-            except: pass
+    # 仅读取 data/persistent.json（memory/persistent.json 已废弃，
+    # CrossSessionMemory.save() 只写 data/persistent.json）
+    path = os.path.join(base, "data", "persistent.json")
+    if os.path.exists(path):
+        try:
+            with open(path) as f:
+                state = json.load(f)
+            curator_nudge = state.get("curator_nudge", "")
+            last_end = state.get("last_session_end", "")
+            session_count = state.get("session_count", 0)
+            pending = state.get("pending_tasks", [])
+            if curator_nudge:
+                parts.append(f"技能策展: {curator_nudge}")
+            if last_end:
+                parts.append(f"上次会话结束: {last_end}")
+            if pending:
+                parts.append(f"待办任务: {len(pending)} 项")
+            parts.append(f"会话计数: {session_count}")
+        except Exception:
+            pass
     
     next_path = os.path.join(base, "NEXT_SESSION.md")
     if os.path.exists(next_path):
@@ -1058,6 +1058,87 @@ def build_system_prompt(
         sections.append(auto_prompt)
     
     return "\n\n".join(sections)
+
+
+def build_system_prompt_parts(
+    model: str,
+    cwd: Optional[str] = None,
+    available_tools: Optional[Set[str]] = None,
+    available_toolsets: Optional[Set[str]] = None,
+    platform: Optional[str] = None,
+    include_skills: bool = True,
+    include_context: bool = True,
+    skills_dirs: Optional[List[str]] = None,
+) -> dict:
+    """将系统提示拆分为三级以适应跨会话前缀缓存。
+    
+    返回 {"stable": str, "context": str, "volatile": str}
+    
+    stable: 跨会话字节不变 — identity, tool guidance, skills, platform hints
+    context: 会话内不变 — AGENTS.md等上下文文件
+    volatile: 每会话变化 — memory快照, cross-session-context, 时间戳
+    
+    当用于cross-session prefix cache时：
+    - stable → block[0] → 1h TTL → 跨会话命中
+    - context → block[1] → 5m rolling → 会话内命中
+    - volatile → block[2] → 不缓存
+    
+    stable和context的合并在不启用long-lived缓存时等效于
+    build_system_prompt()的输出（不含volatile中的cross-session部分）。
+    """
+    stable_sections = []
+    context_sections = []
+    volatile_sections = []
+    
+    model_lower = model.lower()
+    
+    # ── stable tier ──
+    stable_sections.append(DEFAULT_AGENT_IDENTITY)
+    stable_sections.append(MEMORY_GUIDANCE)
+    stable_sections.append(SESSION_SEARCH_GUIDANCE)
+    stable_sections.append(SKILLS_GUIDANCE)
+    
+    if any(m in model_lower for m in TOOL_USE_ENFORCEMENT_MODELS):
+        stable_sections.append(TOOL_USE_ENFORCEMENT_GUIDANCE)
+        if "gpt" in model_lower or "codex" in model_lower:
+            stable_sections.append(OPENAI_MODEL_EXECUTION_GUIDANCE)
+        if "gemini" in model_lower or "gemma" in model_lower:
+            stable_sections.append(GOOGLE_MODEL_OPERATIONAL_GUIDANCE)
+    
+    if platform and platform in PLATFORM_HINTS:
+        stable_sections.append(PLATFORM_HINTS[platform])
+    
+    env_hints = build_environment_hints()
+    if env_hints:
+        stable_sections.append(env_hints)
+    
+    if include_skills:
+        skills_prompt = build_skills_system_prompt(
+            available_tools, available_toolsets, skills_dirs=skills_dirs
+        )
+        if skills_prompt:
+            stable_sections.append(skills_prompt)
+    
+    auto_prompt = _build_auto_load_skills_prompt(skills_dirs=skills_dirs)
+    if auto_prompt:
+        stable_sections.append(auto_prompt)
+    
+    # ── context tier ──
+    if include_context:
+        context_prompt = build_context_files_prompt(cwd)
+        if context_prompt:
+            context_sections.append(context_prompt)
+    
+    # ── volatile tier ──
+    cross_ctx = _build_cross_session_context()
+    if cross_ctx:
+        volatile_sections.append(cross_ctx)
+    
+    return {
+        "stable": "\n\n".join(s for s in stable_sections if s),
+        "context": "\n\n".join(s for s in context_sections if s),
+        "volatile": "\n\n".join(s for s in volatile_sections if s),
+    }
 
 
 def get_developer_role_models() -> tuple:

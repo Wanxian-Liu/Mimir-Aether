@@ -1,13 +1,12 @@
 """
 MimirAether Prompt Caching
 
-学习自Hermes prompt_caching设计。
+两条策略：
+* ``system_and_3`` (默认): 4断点 — system + 最近3条非system，同TTL
+* ``prefix_and_2`` (Claude跨会话): 4断点分两档 — 稳定前缀块[0](1h) + 最后2条(5m)
+  + tools[-1](1h)。新session的stable层字节不变 → 0.1x费率命中。
 
-核心功能：
-- Anthropic Prompt Caching 支持
-- 缓存断点管理
-- 成本节省估算
-- 多轮对话优化
+设计源于对Anthropic Prompt Caching协议的理解，非复制Hermes实现。
 """
 
 import copy
@@ -81,9 +80,7 @@ def apply_anthropic_cache_control(
         return messages
     
     # 创建缓存标记
-    marker = {"type": "ephemeral"}
-    if cache_ttl == "1h":
-        marker["ttl"] = "1h"
+    marker = _build_marker(cache_ttl)
     
     breakpoints_used = 0
     
@@ -102,6 +99,121 @@ def apply_anthropic_cache_control(
         _apply_cache_marker(messages[idx], marker, native_anthropic=native_anthropic)
     
     return messages
+
+
+# ============================================================================
+# prefix_and_2 跨会话缓存策略
+# ============================================================================
+
+def _build_marker(ttl: str):
+    """构建 cache_control marker: {"type":"ephemeral"} + 可选ttl"""
+    marker = {"type": "ephemeral"}
+    if ttl == "1h":
+        marker["ttl"] = "1h"
+    return marker
+
+
+def _mark_system_stable_block(
+    messages: List[Dict[str, Any]],
+    long_marker: dict,
+) -> bool:
+    """标记system消息的第0块内容为跨会话稳定前缀（1h TTL）。
+    
+    调用方需先将system消息拆为多block列表：block[0]=稳定前缀，
+    后续block=每会话变化的上下文+易变内容。
+    
+    若system消息仍是字符串（未拆分），自动包裹为单block并标记，
+    此时缓存收益降低但行为正确。
+    
+    Returns: 是否成功放置了标记
+    """
+    if not messages or messages[0].get("role") != "system":
+        return False
+    
+    sys_msg = messages[0]
+    content = sys_msg.get("content")
+    
+    # 已是列表 → 标记第0个block
+    if isinstance(content, list) and content:
+        first = content[0]
+        if isinstance(first, dict):
+            first["cache_control"] = long_marker
+            return True
+        return False
+    
+    # 字符串 → 包裹为单block
+    if isinstance(content, str) and content:
+        sys_msg["content"] = [
+            {"type": "text", "text": content, "cache_control": long_marker}
+        ]
+        return True
+    
+    return False
+
+
+def apply_prefix_cache(
+    api_messages: List[Dict[str, Any]],
+    long_ttl: str = "1h",
+    rolling_ttl: str = "5m",
+    native_anthropic: bool = False,
+) -> List[Dict[str, Any]]:
+    """prefix_and_2 缓存策略：稳定前缀1h + 最后2条消息5m。
+    
+    4个断点预算分配：
+    - 1个：system消息block[0]（long_ttl，跨会话命中）
+    - 0-2个：最后N条非system消息（rolling_ttl，会话内滚动）
+    - 1个由调用方保留给 tools[-1]（见 mark_tools_for_prefix_cache）
+    
+    要求：调用方已将system消息按 stable/context/volatile 拆为多block列表。
+    
+    Args:
+        api_messages: 已组装的API消息列表
+        long_ttl: 稳定前缀TTL（默认1h）
+        rolling_ttl: 滚动窗口TTL（默认5m）
+        native_anthropic: 是否原生Anthropic API格式
+    
+    Returns:
+        注入cache_control断点后的消息深拷贝
+    """
+    messages = copy.deepcopy(api_messages)
+    if not messages:
+        return messages
+    
+    long_marker = _build_marker(long_ttl)
+    rolling_marker = _build_marker(rolling_ttl)
+    
+    placed_prefix = _mark_system_stable_block(messages, long_marker)
+    
+    # 滚动预算：稳定前缀占1个，留给tools[-1]1个 → 消息用剩余2个
+    rolling_budget = 2 if placed_prefix else 3
+    non_sys = [
+        i for i in range(len(messages))
+        if messages[i].get("role") != "system"
+    ]
+    for idx in non_sys[-rolling_budget:]:
+        _apply_cache_marker(messages[idx], rolling_marker, native_anthropic=native_anthropic)
+    
+    return messages
+
+
+def mark_tools_for_prefix_cache(
+    tools: Optional[List[Dict[str, Any]]],
+    long_ttl: str = "1h",
+) -> Optional[List[Dict[str, Any]]]:
+    """在tools列表的最后一项上放置cache_control（long_ttl）。
+    
+    Anthropic prefix-cache顺序: tools → system → messages。
+    标记最后一个tool即缓存整个tools数组，跨会话命中。
+    
+    Returns: 标记后的tools深拷贝，或None/空列表时返回原值
+    """
+    if not tools:
+        return tools
+    out = copy.deepcopy(tools)
+    last = out[-1]
+    if isinstance(last, dict):
+        last["cache_control"] = _build_marker(long_ttl)
+    return out
 
 
 # ============================================================================

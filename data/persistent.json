@@ -1,7 +1,7 @@
 {
   "version": "1.4",
-  "last_session_end": "2026-05-10T12:00:00+08:00",
-  "session_count": 6,
+  "last_session_end": "2026-05-13T12:52:01.929934+00:00",
+  "session_count": 64,
   "identity": {
     "name": "MimirAether",
     "soul": "智慧之泉",
@@ -9,37 +9,169 @@
   },
   "memory": {
     "key_decisions": [
-      "cross-session机制从手动升级为自动注入（含差异检测和过期机制）",
-      "hermes-cat-write 加了 auto_load 标记，写文件时自动加载",
-      "mimiraether-cross-session 加了 auto_load 标记，会话启动时自动加载",
-      "auto_load 标记格式标准化：triggers + priority + description",
-      "mimiraether-plan-mode 升级为完整plan-mode：含5阶段流程 + 模板 + 验证清单",
-      "plan-mode的persistent.json固化：将plan-mode路径和状态写入持久化存储",
-      "第4条药方（skill固化）标记完成——文档已就位，靠元规则驱动",
-      "第5条药方残余聚焦：扫描auto_load标记 + 更新persistent",
-      "mimiraether-self_evolution 修复：路径去硬编码 + 移除不存在的SelfDriveEngine引用",
-      "删除apple/和autonomous-ai-agents/技能经审计确认正确：自进化链路完好",
-      "Hermes独立路线分4阶段：依赖图谱→认证脱钩→模型脱钩→清理收尾",
-      "幽灵技能清理完成：删除3空壳 + 10补frontmatter + 3补description → 106→103零幽灵",
-      "skills_qa 新增 detect_ghost_skills() 和 print_ghost_report() 方法",
-      "mimiraether-skill_generator 新增空壳禁制：内容<500字/全待实现→拒绝生成"
+      {
+        "timestamp": "",
+        "decision": "cross-session机制从手动升级为自动注入（含差异检测和过期机制）",
+        "context": ""
+      },
+      {
+        "timestamp": "",
+        "decision": "hermes-cat-write 加了 auto_load 标记，写文件时自动加载",
+        "context": ""
+      },
+      {
+        "timestamp": "",
+        "decision": "mimiraether-cross-session 加了 auto_load 标记，会话启动时自动加载",
+        "context": ""
+      },
+      {
+        "timestamp": "",
+        "decision": "auto_load 标记格式标准化：triggers + priority + description",
+        "context": ""
+      },
+      {
+        "timestamp": "",
+        "decision": "mimiraether-plan-mode 升级为完整plan-mode：含5阶段流程 + 模板 + 验证清单",
+        "context": ""
+      },
+      {
+        "timestamp": "",
+        "decision": "plan-mode的persistent.json固化：将plan-mode路径和状态写入持久化存储",
+        "context": ""
+      },
+      {
+        "timestamp": "",
+        "decision": "第4条药方（skill固化）标记完成——文档已就位，靠元规则驱动",
+        "context": ""
+      },
+      {
+        "timestamp": "",
+        "decision": "第5条药方残余聚焦：扫描auto_load标记 + 更新persistent",
+        "context": ""
+      },
+      {
+        "timestamp": "",
+        "decision": "mimiraether-self_evolution 修复：路径去硬编码 + 移除不存在的SelfDriveEngine引用",
+        "context": ""
+      },
+      {
+        "timestamp": "",
+        "decision": "删除apple/和autonomous-ai-agents/技能经审计确认正确：自进化链路完好",
+        "context": ""
+      },
+      {
+        "timestamp": "",
+        "decision": "Hermes独立路线分4阶段：依赖图谱→认证脱钩→模型脱钩→清理收尾",
+        "context": ""
+      },
+      {
+        "timestamp": "",
+        "decision": "幽灵技能清理完成：删除3空壳 + 10补frontmatter + 3补description → 106→103零幽灵",
+        "context": ""
+      },
+      {
+        "timestamp": "",
+        "decision": "skills_qa 新增 detect_ghost_skills() 和 print_ghost_report() 方法",
+        "context": ""
+      },
+      {
+        "timestamp": "",
+        "decision": "mimiraether-skill_generator 新增空壳禁制：内容<500字/全待实现→拒绝生成",
+        "context": ""
+      },
+      {
+        "timestamp": "2026-05-11T05:31:45.175024+00:00",
+        "decision": "Skill Curator 全线落地: 检测/报告/行动建议/胶囊化/复活/闭环",
+        "context": ""
+      },
+      {
+        "timestamp": "2026-05-11T13:34:52.354072+00:00",
+        "decision": "Hermes独立路线全线闭合：Phase I-V完成。hermes_constants/logging/state已删除或重命名；hermes_cli/已删除；零代码级import依赖残留。仅余PTC桩模块内部命名(hermes_tools)和工具集前缀(hermes-*)为非核心命名残留",
+        "context": ""
+      }
     ],
     "learned_patterns": [
-      "技能沉默的根因之一是缺少 auto_load 标记",
-      "auto_load 标记需要标准化格式，统一注入到所有核心技能",
-      "persistent.json 的 version 字段用于检测是否需要迁移",
-      "plan-mode的核心价值在于：在动手前先做任务分解和依赖映射，减少返工",
-      "跨会话记忆的持久化需要同时更新 data/persistent.json 和 memory/persistent.json",
-      "技能模板代码可能与实际实现脱节——SelfDriveEngine不存在于mimicore/evolve/中",
-      "先验证真实API表面再修复技能代码，避免相信技能自称的类名",
-      "幽灵技能分三类：空壳(全待实现)、无头(缺frontmatter)、无描述(缺description字段)",
-      "空壳技能的来源不是代码生成器，而是LLM直接用write_file创建的骨架——防在技能层面加禁制",
-      "幽灵清理流水线：检测→分类→删除空壳/补frontmatter/补description→预防(生成器禁制+QA检测)"
+      {
+        "timestamp": "",
+        "pattern": "技能沉默的根因之一是缺少 auto_load 标记",
+        "evidence": ""
+      },
+      {
+        "timestamp": "",
+        "pattern": "auto_load 标记需要标准化格式，统一注入到所有核心技能",
+        "evidence": ""
+      },
+      {
+        "timestamp": "",
+        "pattern": "persistent.json 的 version 字段用于检测是否需要迁移",
+        "evidence": ""
+      },
+      {
+        "timestamp": "",
+        "pattern": "plan-mode的核心价值在于：在动手前先做任务分解和依赖映射，减少返工",
+        "evidence": ""
+      },
+      {
+        "timestamp": "",
+        "pattern": "跨会话记忆的持久化需要同时更新 data/persistent.json 和 memory/persistent.json",
+        "evidence": ""
+      },
+      {
+        "timestamp": "",
+        "pattern": "技能模板代码可能与实际实现脱节——SelfDriveEngine不存在于mimicore/evolve/中",
+        "evidence": ""
+      },
+      {
+        "timestamp": "",
+        "pattern": "先验证真实API表面再修复技能代码，避免相信技能自称的类名",
+        "evidence": ""
+      },
+      {
+        "timestamp": "",
+        "pattern": "幽灵技能分三类：空壳(全待实现)、无头(缺frontmatter)、无描述(缺description字段)",
+        "evidence": ""
+      },
+      {
+        "timestamp": "",
+        "pattern": "空壳技能的来源不是代码生成器，而是LLM直接用write_file创建的骨架——防在技能层面加禁制",
+        "evidence": ""
+      },
+      {
+        "timestamp": "",
+        "pattern": "幽灵清理流水线：检测→分类→删除空壳/补frontmatter/补description→预防(生成器禁制+QA检测)",
+        "evidence": ""
+      },
+      {
+        "timestamp": "2026-05-11T13:34:52.354072+00:00",
+        "pattern": "grep -r 'from hermes' 匹配到的可能都是字符串字面量而非真实导入——需二次确认是否为实际import语句",
+        "evidence": "4个文件被grep匹配但全部是字符串内的hermes_tools引用，零实际import"
+      }
     ],
     "active_projects": [
-      "五条药方实施 — 第2/3/4/5条完成，第1条为持续约束",
-      "幽灵技能清理 — 已完成 ✅",
-      "Hermes独立路线 — Phase I 依赖图谱待启动"
+      {
+        "name": "五条药方实施 — 第2/3/4/5条完成，第1条为持续约束",
+        "status": "active",
+        "created_at": "2026-05-11T04:57:38.845096+00:00",
+        "updated_at": "2026-05-11T04:57:38.845096+00:00"
+      },
+      {
+        "name": "幽灵技能清理 — 已完成 ✅",
+        "status": "completed",
+        "created_at": "2026-05-11T04:57:38.845096+00:00",
+        "updated_at": "2026-05-11T13:34:52.354072+00:00"
+      },
+      {
+        "name": "Hermes独立路线 — Phase I 依赖图谱待启动",
+        "status": "active",
+        "created_at": "2026-05-11T04:57:38.845096+00:00",
+        "updated_at": "2026-05-11T04:57:38.845096+00:00"
+      },
+      {
+        "name": "Hermes独立路线 — Phase I-V 全线闭合 ✅",
+        "status": "completed",
+        "created_at": "2026-05-11T04:57:38.845096+00:00",
+        "updated_at": "2026-05-11T13:34:52.354072+00:00"
+      }
     ],
     "user_preferences": {
       "name": "刘哥 / rayliu",
@@ -61,7 +193,7 @@
     ]
   },
   "progress": {
-    "current_objective": "Hermes独立路线 Phase I — 依赖图谱",
+    "current_objective": "B1✅ C2✅ B4✅ C1✅ D3✅ C3✅ B3✅ → 11方向计划全部完成 🎉",
     "completed_milestones": [
       "tool-triggers元规则验证通过 ✅",
       "hermes-cat-write auto_load ✅",
@@ -77,10 +209,39 @@
       "Hermes依赖全景分析完成 ✅",
       "幽灵技能清理完成：106→103，零幽灵 ✅",
       "skills_qa 幽灵检测能力上线 ✅",
-      "skill_generator 空壳禁制生效 ✅"
+      "skill_generator 空壳禁制生效 ✅",
+      "Skill Curator 检测: scan_skills/assess_staleness",
+      "Skill Curator 报告: nudge_report/detailed_report",
+      "Skill Curator 动作: capsulize_and_dormant/revive_skill",
+      "Skill Curator 行动建议: curator_actions/curator_actions_report",
+      "Skill Curator 闭环: end_session自动capsulize_now",
+      "skill_view自动复活dormant技能",
+      "Skill Curator 检测: scan_skills/assess_staleness ✅",
+      "Skill Curator 报告: nudge_report/detailed_report ✅",
+      "Skill Curator 动作: capsulize_and_dormant/revive_skill ✅",
+      "Skill Curator 行动建议: curator_actions/curator_actions_report ✅",
+      "Skill Curator 闭环: end_session自动capsulize_now ✅",
+      "skill_view自动复活dormant技能 ✅",
+      "Hermes Phase I: 依赖图谱 ✅",
+      "Hermes Phase II: 认证脱钩 ✅",
+      "Hermes Phase III: 模型脱钩 ✅",
+      "Hermes Phase IV: 清理收尾 ✅",
+      "Hermes Phase V: 深入脱钩(hermes_constants/logging/state) ✅",
+      "persistent.json对齐真实状态(本会话) ✅",
+      "D1 技能去重: 合并/删除5个薄壳+互补标注 ✅",
+      "D2 骨架充实: 3个骨架技能 +8.2KB ✅",
+      "D3 近重复清理: 合并1个+修复过期引用 ✅",
+      "D5 死链检查器v2增强: related_skills+skill_view()+mimicore验证 ✅",
+      "Hermes同步: himalaya/jupyter-live-kernel/dogfood/orchestration-patterns (+4技能) ✅"
     ],
-    "pending_tasks": [
-      "Hermes独立 Phase I：hermes_cli 依赖图谱"
-    ]
-  }
+    "pending_tasks": []
+  },
+  "skill_usage": {
+    "mimiraether-tool-triggers": "2026-05-11T04:54:06.477587+00:00",
+    "mimiraether-plan-mode": "2026-05-11T04:54:06.478074+00:00",
+    "my-skill": "2026-05-11T08:27:18.361110+00:00",
+    "mimiraether-skill_generator": "2026-05-11T05:08:00.769110+00:00"
+  },
+  "curator_nudge": "skill_curator: 75技能 | fresh=75 stale=0 dormant=0",
+  "dormant_skills": {}
 }

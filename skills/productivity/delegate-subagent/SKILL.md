@@ -1,7 +1,7 @@
 ---
 name: "delegate-subagent"
-description: "委托任务给AI子代理并收集结果。管理从任务创建到委托再到结果聚合的完整生命周期。"
-version: "1.0.0"
+description: "委托任务给AI子代理并收集结果。管理从任务创建到委托再到结果聚合的完整生命周期。**执行层**：提供子代理基础设施（Task创建/持久化/多代理类型/并行执行）。编排层见 subagent-driven-development。"
+version: "1.1.0"
 category: "productivity"
 tags:
   - delegation
@@ -9,18 +9,24 @@ tags:
   - 任务委托
   - 子代理
   - 并行
+  - execution-layer
+metadata:
+  related_skills: [subagent-driven-development]
 ---
 # delegate-subagent
 
 Delegate tasks to AI sub-agents and collect their results. Manages task lifecycle from creation through delegation to result aggregation.
 
+> **实现状态**: 规范/参考设计，对应 Python 模块待实现。编排层入口见 `subagent-driven-development`。
+
 **参考实现**: Hermes Agent delegation系统
 
-## Python Module
+## 目标模块 (待实现)
 
-**Source**: `~/.mimiraether/delegate_subagent.py`
+**目标路径**: `~/.mimiraether/delegate_subagent.py`
 
 ```python
+# 目标 API（实现后可用）
 from delegate_subagent import SubagentManager, TaskStatus
 
 manager = SubagentManager()  # Uses ~/.mimiraether/tasks/

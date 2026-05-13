@@ -27,12 +27,12 @@ class ToolEntry:
     __slots__ = (
         "name", "toolset", "schema", "handler", "check_fn",
         "requires_env", "is_async", "description", "emoji",
-        "max_result_size_chars",
+        "max_result_size_chars", "dynamic_schema_overrides",
     )
 
     def __init__(self, name, toolset, schema, handler, check_fn,
                  requires_env, is_async, description, emoji,
-                 max_result_size_chars=None):
+                 max_result_size_chars=None, dynamic_schema_overrides=None):
         self.name = name
         self.toolset = toolset
         self.schema = schema
@@ -43,6 +43,12 @@ class ToolEntry:
         self.description = description
         self.emoji = emoji
         self.max_result_size_chars = max_result_size_chars
+        # Optional zero-arg callable returning a dict of schema overrides
+        # applied at get_definitions() time. Use for fields that depend on
+        # runtime config (e.g. delegate_task description must reflect the
+        # user's current delegation.max_concurrent_children / max_spawn_depth
+        # so the model isn't told the wrong limits).
+        self.dynamic_schema_overrides = dynamic_schema_overrides
 
 
 class ToolRegistry:
@@ -68,6 +74,7 @@ class ToolRegistry:
         description: str = "",
         emoji: str = "",
         max_result_size_chars: int | float | None = None,
+        dynamic_schema_overrides: Callable = None,
     ):
         """Register a tool.  Called at module-import time by each tool file."""
         existing = self._tools.get(name)
@@ -88,6 +95,7 @@ class ToolRegistry:
             description=description or schema.get("description", ""),
             emoji=emoji,
             max_result_size_chars=max_result_size_chars,
+            dynamic_schema_overrides=dynamic_schema_overrides,
         )
         if check_fn and toolset not in self._toolset_checks:
             self._toolset_checks[toolset] = check_fn
@@ -139,6 +147,18 @@ class ToolRegistry:
                     continue
             # Ensure schema always has a "name" field — use entry.name as fallback
             schema_with_name = {**entry.schema, "name": entry.name}
+            # Apply runtime-dynamic overrides (e.g. delegate_task description)
+            if entry.dynamic_schema_overrides is not None:
+                try:
+                    overrides = entry.dynamic_schema_overrides()
+                    if isinstance(overrides, dict):
+                        schema_with_name.update(overrides)
+                except Exception as exc:
+                    logger.warning(
+                        "dynamic_schema_overrides for tool %s raised %s; "
+                        "using static schema",
+                        name, exc,
+                    )
             result.append({"type": "function", "function": schema_with_name})
         return result
 
@@ -196,6 +216,17 @@ class ToolRegistry:
         """Return the toolset a tool belongs to, or None."""
         entry = self._tools.get(name)
         return entry.toolset if entry else None
+
+    def get_tool_names_for_toolset(self, toolset: str) -> List[str]:
+        """Return sorted list of tool names belonging to *toolset*."""
+        return sorted(
+            name for name, e in self._tools.items()
+            if e.toolset == toolset
+        )
+
+    def get_registered_toolset_names(self) -> List[str]:
+        """Return sorted list of distinct toolset names in the registry."""
+        return sorted({e.toolset for e in self._tools.values()})
 
     def get_emoji(self, name: str, default: str = "⚡") -> str:
         """Return the emoji for a tool, or *default* if unset."""

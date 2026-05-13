@@ -161,7 +161,8 @@ print(f"验证结果: {result['valid']}")
 
 ## 依赖
 
-- 三环闭环代码: `mimicore/evolve/three_ring_architecture.py`
+- 决策环代码: `agent/decision_ring.py`
+- 监控环代码: `agent/monitor_collector.py`
 - 技能目录: `skills/mimiraether/`
 - OpenClaw skill格式规范
 

@@ -770,7 +770,7 @@ prerequisites:
 metadata:
   hermes:
     tags: [tag1, tag2]
-    related_skills: [other-skill]
+    related_skills: [mimiraether-hermes-code-study, mimiraether-hermes-integration]
     requires_toolsets: [web, terminal]
     requires_tools: [web_search]
 ---

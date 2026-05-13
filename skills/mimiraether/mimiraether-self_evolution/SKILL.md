@@ -1,13 +1,13 @@
 ---
 name: mimiraether-self_evolution
-description: MimirAether 自我进化技能 — 触发条件为用户明确要求自我进化/改进/优化。基于三环闭环架构（MonitorRing→DecisionRing→ExecutionRing）+ mimicore.evolve 实现知识纠错、根因修复与意图预测。
-version: 1.1.0
+description: MimirAether 自我进化技能 — 触发条件为用户明确要求自我进化/改进/优化。基于三环闭环架构（MonitorRing→DecisionRing→ExecutionRing），使用 agent 内建模块（monitor_collector / decision_ring / context_compressor）实现知识纠错、根因修复与意图预测。已吸收 three-ring-iteration 的路线图与里程碑。
+version: 1.2.0
 auto_load: false
 ---
 
 # Self Evolution Skill
 
-> MimirAether 自我进化技能 | 三环闭环 + mimicore.evolve 引擎
+> MimirAether 自我进化技能 | 三环闭环 + agent 内建模块
 
 ## 描述
 
@@ -222,19 +222,20 @@ async def verify_result(
 
 ### 知识纠错器 (ProactiveKnowledgeCorrector) 与修复执行器
 
-> 真源：`mimicore/evolve/self_evolution.py`。以下为技能摘要，具体 API 以代码为准。
+> 真源：`agent/monitor_collector.py`（监控环）及 `agent/decision_ring.py`（决策环）。以下为技能摘要，具体 API 以代码为准。
 
 ```python
-from mimicore.evolve.self_evolution import ProactiveKnowledgeCorrector, AutonomousRepairExecutor
+from agent.monitor_collector import MonitorCollector
+from agent.decision_ring import DecisionRing
 
-corrector = ProactiveKnowledgeCorrector()
-repair = AutonomousRepairExecutor()
+collector = MonitorCollector()
+ring = DecisionRing()
 
 # 纠错器：根据根因分析修正知识
-correction = corrector.correct(RootCauseAnalysis(...))
+correction = ring.decide(RootCauseAnalysis(...))
 
 # 修复执行器：执行修复并验证
-result = repair.execute_and_verify(fix_plan)
+result = await ring.execute_and_verify(fix_plan)
 ```
 
 **内置策略:**
@@ -291,13 +292,13 @@ async def run_self_evolution_cycle():
 ### 使用三环闭环引擎
 
 ```python
-from mimicore.evolve.three_ring_architecture import ThreeRingClosedLoop
+from agent.decision_ring import DecisionRing
 
 # 初始化
-three_ring = ThreeRingClosedLoop()
+ring = DecisionRing()
 
 # 运行闭环周期
-result = await three_ring.run_cycle(context={"task": "self_evolution"})
+result = await ring.run_cycle(context={"task": "self_evolution"})
 ```
 
 ### 查看引擎状态
@@ -309,11 +310,11 @@ print(f"周期数: {stats['cycle_count']}")
 print(f"成功率: {stats['success_rate']:.2%}")
 
 # 获取知识纠错器状态
-from mimicore.evolve.self_evolution import ProactiveKnowledgeCorrector
-corrector = ProactiveKnowledgeCorrector()
-c_stats = corrector.get_stats()
-print(f"总决策: {c_stats['total_decisions']}")
-print(f"探索率: {c_stats['current_exploration_rate']:.2%}")
+from agent.decision_ring import get_decision_ring
+ring = get_decision_ring()
+stats = ring.stats
+print(f"总决策: {stats['total_decisions']}")
+print(f"成功率: {stats['success_rate']:.2%}")
 ```
 
 ## 实现代码模板
@@ -335,40 +336,32 @@ PROJECT_ROOT = get_mimir_home()
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from mimicore.evolve.three_ring_architecture import (
-    ThreeRingClosedLoop, MonitorRing, DecisionRing, ExecutionRing
-)
-from mimicore.evolve.self_evolution import ProactiveKnowledgeCorrector, AutonomousRepairExecutor
-from mimicore.evolve.diversity_executor import DiversityExecutor
+from agent.monitor_collector import MonitorCollector
+from agent.decision_ring import DecisionRing
 
 
 class SelfEvolutionSkill:
     """MimirAether 自我进化技能"""
     
     def __init__(self):
-        self.three_ring = ThreeRingClosedLoop()
-        self.corrector = ProactiveKnowledgeCorrector()
-        self.repair_executor = AutonomousRepairExecutor()
-        self.diversity = DiversityExecutor()
+        self.collector = MonitorCollector()
+        self.ring = DecisionRing()
         self._initialized = True
     
     async def collect_metrics(self) -> dict:
         """收集系统指标"""
-        # 调用三环闭环的监控环观察
-        metrics = await self.three_ring.monitor.observe()
+        metrics = await self.collector.observe()
         return metrics
-    
+
     async def analyze_gaps(self, metrics: dict) -> dict:
         """分析差距"""
-        # 检测异常
-        anomalies = await self.three_ring.monitor.detect_anomalies(metrics)
-        
+        anomalies = await self.collector.detect_anomalies(metrics)
+
         if not anomalies:
             return {"gaps": [], "priority_gap": None}
-        
-        # 决策环分析根因
-        root_cause = await self.three_ring.decision.analyze_root_cause(anomalies)
-        strategies = await self.three_ring.decision.generate_strategies(root_cause)
+
+        root_cause = await self.ring.analyze_root_cause(anomalies)
+        strategies = await self.ring.generate_strategies(root_cause)
         
         return {
             "root_cause": root_cause,
@@ -383,13 +376,9 @@ class SelfEvolutionSkill:
             return {"status": "no_strategy"}
         
         # 选择最佳策略
-        decision = await self.three_ring.decision.select_best_strategy(strategies)
-        
-        # 执行
-        execution = await self.three_ring.execution.execute(decision, {})
-        
-        # 记录到知识纠错器
-        self.corrector.record_outcome(
+        decision = await self.ring.select_best_strategy(strategies)
+        execution = await self.ring.execute(decision, {})
+        self.ring.record_outcome(
             decision.strategy,
             execution.effectiveness_score
         )
@@ -401,7 +390,7 @@ class SelfEvolutionSkill:
     
     async def verify_result(self, before: dict, after: dict, execution) -> dict:
         """验证结果"""
-        verified = await self.three_ring.execution.verify(execution, {})
+        verified = await self.ring.verify(execution, {})
         return {
             "verification_passed": verified,
             "effectiveness": execution.effectiveness_score
@@ -439,11 +428,10 @@ __all__ = ["SelfEvolutionSkill"]
 
 ## 依赖（真源）
 
-- `mimicore.evolve.three_ring_architecture` — `MonitorRing`, `DecisionRing`, `ExecutionRing`, `ThreeRingClosedLoop`
-- `mimicore.evolve.self_evolution` — `ProactiveKnowledgeCorrector`, `AutonomousRepairExecutor`, `AutomatedRootCauseFixer`
-- `mimicore.evolve.diversity_executor` — `DiversityExecutor`
-- `mimicore.evolve.monitor_collector` — `MonitorCollector`
-- `mimir_constants` — `get_mimir_home()` 路径解析
+- `agent/monitor_collector.py` — `MonitorCollector` (监控环：指标采集 + 异常检测)
+- `agent/decision_ring.py` — `DecisionRing` (决策环：根因分析 + 策略匹配)
+- `agent/context_compressor.py` — 上下文压缩（执行环：状态清理）
+- `agent/mimir_constants.py` — `get_mimir_home()` 路径解析
 - Python 3.8+ with asyncio
 
 ## 验证方式
@@ -461,6 +449,32 @@ result = await skill.run_cycle()
 assert result["status"] in ["healthy", "completed", "retry_needed"]
 assert "metrics" in result or "before" in result
 ```
+
+## 差距分析（vs Hermes）
+
+| 环 | Hermes实现 | MimirAether状态 |
+|----|-----------|----------------|
+| Monitor | insights.py, rate_limit_tracker.py, agent_loop.py | ✅ MonitorCollector (`agent/monitor_collector.py`) |
+| Decision | error_classifier.py, smart_model_routing.py | ✅ DecisionRing (`agent/decision_ring.py`) |
+| Execution | model_tools.py, cron/scheduler.py | ✅ ExecutionRing (通过 agent/ 模块) |
+| Feedback | trajectory_compressor.py | ⚠️ 上下文压缩器 (`agent/context_compressor.py`) |
+
+## 进化里程碑
+
+| 里程碑 | 目标 | 状态 |
+|--------|------|------|
+| M1 | 三环可串联运行 | ✅ |
+| M2 | 自动处理5+种错误类型 | ✅ |
+| M3 | 修复成功率>85% | ⚠️ 进行中 |
+| M4 | 轨迹可用于RL | 📋 规划 |
+| M5 | 无人干预稳定运行 | 📋 规划 |
+
+## 关键文件
+
+- 决策环: `agent/decision_ring.py` — `DecisionRing.run_cycle()`
+- 监控收集: `agent/monitor_collector.py`
+- 上下文压缩: `agent/context_compressor.py`
+- 技能固化: `mimiraether-skill-solidify` — 成功经验固化入口
 
 ---
 *Self Evolution Skill for MimirAether | 三环闭环 + 自驱动引擎 | 2026-04-29*

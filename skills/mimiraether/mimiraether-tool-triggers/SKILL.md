@@ -231,8 +231,7 @@ def github_search(query, endpoint="repositories"):
    - 本技能是所有工具调用的总纲，必须先加载
    - 加载后，逐条执行下面的清单
    - 这是打破"技能沉默"的第一把钥匙
-   - **跨会话验证**：如果 memory-context 中有 `persistent.json` 或 `data/persistent.json` 的引用，立即读取它们恢复上次会话状态
-   - **会话恢复路径**：先读 data/persistent.json 获取 pending_tasks，再读 memory/persistent.json 获取历史决策
+   - **跨会话验证**：如果 memory-context 中有 `persistent.json` 的引用，立即读取 `data/persistent.json` 恢复上次会话状态（含 curator_nudge、session_count、pending_tasks、key_decisions）
    - **plan-mode联动**：完成上述检查后，评估任务复杂度。如果预计需要3+步工具调用：
      a. 自动加载 mimiraether-plan-mode：skill_view("mimiraether-plan-mode")
      b. 按 plan-mode 的 5 阶段流程（Context Analysis → Task Breakdown → Dependency Mapping → Risk Identification → Plan Document）输出计划

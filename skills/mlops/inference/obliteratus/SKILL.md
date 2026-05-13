@@ -8,7 +8,7 @@ dependencies: [obliteratus, torch, transformers, bitsandbytes, accelerate, safet
 metadata:
   hermes:
     tags: [Abliteration, Uncensoring, Refusal-Removal, LLM, Weight-Projection, SVD, Mechanistic-Interpretability, HuggingFace, Model-Surgery]
-    related_skills: [vllm, gguf, huggingface-tokenizers]
+    related_skills: [vllm, gguf, unsloth]
 ---
 
 # OBLITERATUS Skill

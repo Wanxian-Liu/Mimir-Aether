@@ -8,7 +8,7 @@ description: 基于任务特性的智能模型路由 - 根据任务复杂度自�
 
 基于任务特性的智能模型路由 - 根据任务复杂度自动选择合适的模型，降低成本同时保持质量。
 
-**设计来源**: `~/.openclaw/projects/hermes-agent/agent/smart_model_routing.py`
+**设计来源**: Hermes Agent smart_model_routing 概念，实现于 `agent/smart_model_routing.py`（本仓库）
 
 ## 核心设计原则
 

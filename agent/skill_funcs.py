@@ -23,11 +23,35 @@ def skill_view_func(name: str, file_path: str = None) -> str:
     from skills.skills_loader import skill_view as _skill_view, SkillLoadError
     try:
         result = _skill_view(name, file_path)
-        if file_path:
-            return f"文件: {file_path}\n\n{result['content']}"
-        return result['content']
-    except SkillLoadError as e:
-        return f"Error: {e}"
+    except SkillLoadError:
+        # Skill Curator: 未找到 → 尝试从 .dormant/ 复活
+        revived = False
+        try:
+            from agent.skill_curator import revive_skill
+            r = revive_skill(name)
+            if r.get("success"):
+                revived = True
+        except Exception:
+            pass
+
+        if revived:
+            try:
+                result = _skill_view(name, file_path)
+            except SkillLoadError as e2:
+                return f"Error: {e2}"
+        else:
+            return f"Error: Skill not found: {name}"
+
+    # Skill Curator: 记录触碰（静默失败不影响主流程）
+    try:
+        from agent.skill_curator import touch_skill
+        touch_skill(name)
+    except Exception:
+        pass
+
+    if file_path:
+        return f"文件: {file_path}\n\n{result['content']}"
+    return result['content']
 
 
 def skills_list_func(category: str = None) -> str:

@@ -57,7 +57,7 @@ ls $MIMIR_PATH/agent/prompt_builder.py
 ```
 
 ### 5. 记录学习结果
-保存到: `/home/rayliu/.openclaw/workspace/skills/mimiraether-100days-*.md`
+保存到: `skills/mimiraether/` (本仓库技能目录)
 
 ## 核心模块清单
 

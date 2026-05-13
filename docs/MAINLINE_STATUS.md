@@ -5,11 +5,11 @@
 
 | 字段 | 值 |
 |------|-----|
-| **最近更新** | 2026-05-11 |
-| **更新人** | MimirAether（Skill Curator 全线落地） |
+| **最近更新** | 2026-05-12 |
+| **更新人** | MimirAether（11方向计划全部完成 🎉：B3自进化闭环收尾） |
 | **仓库根（真源）** | `~/.openclaw/projects/MimirAether`（任意 clone 路径均可，以当前工作区 git 根为准） |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml）；里程碑 A 项需真环境手动/清单 |
-| **本轮摘要** | **Curator 闭环**：core_loop finally块添加 `_cross_memory.end_session()` + `save()`，会话结束时自动触发 `capsulize_now`（dormant技能自动胶囊化）。新增 `agent/skill_curator.py`（~700行）含检测/报告/行动建议/胶囊化/复活；Ralph 连续 3 轮全绿（162+2 passed）。 |
+| **本轮摘要** | **11方向计划全部完成** — B3自进化闭环: 修复monitor_collector.py(20KB单行损坏→490行合法Python)、core_loop.py end_session埋入健康快照、Ralph 3/3连续绿。C3多模态: feishu_adapter新增图片下载+PHOTO消息类型。10/11→11/11 闭环。 |
 
 ---
 
@@ -65,6 +65,8 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-11 | **Phase V 深入脱钩完成**：`hermes_constants.py` 已删除（导入→mimir_constants）；`hermes_logging.py` 已删除（导入→mimiraether_logging）；`hermes_state.py`→`mimir_state.py`（9处导入已更新）。Hermes独立路线 I-V 全线闭合。 |
+| 2026-05-11 | **Skill Curator 全线完成**：闭环验证通过（6/6 milestones），end_session 自动胶囊化 + skill_view 复活链路就绪；77 技能全 fresh, 0 dormant。 |
 | 2026-05-11 | **Phase B 清零**：`auxiliary_client.py` 16→0 hermes_cli 导入；新增 `agent/provider_registry.py`、`runtime_provider.py`、`model_normalize.py`；`mimcore/auth.py`/`config.py` 翻转为 Mimir 原生路径；Ralph 3 轮连续全绿 (162+2)；M0 稳定性条更新。 |
 | 2026-05-05 | **里程碑 ∞ 绿（工程裁定）**：**[`mimir_phase_infinity_checklist.md`](mimir_phase_infinity_checklist.md)** §∞ 绿裁定记录 **#1** + 宪章对照 **#2**；MAINLINE **∞** **黄→绿**；**M6** 见 `evolution_log` **里程碑 ∞ 绿** 行。 |
 | 2026-05-07 | **织界宪章草案**：新增 **`docs/weave_charter.md`**（v0.1）；**[`mimir_phase_infinity_checklist.md`](mimir_phase_infinity_checklist.md)** §宪章对照审查记录 **#1**；**∞** 仍为 **黄**（∞1/∞2 门槛未齐）。 |

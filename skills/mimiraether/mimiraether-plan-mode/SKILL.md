@@ -7,7 +7,7 @@ license: MIT
 metadata:
   hermes:
     tags: [planning, implementation, workflow, strategy]
-    related_skills: [systematic-debugging, test-driven-development, subagent-driven-development, mimiraether-tool-triggers]
+    related_skills: [mimiraether-root-cause-debugging, test-driven-development, subagent-driven-development, mimiraether-tool-triggers]
     learned_from: hermes-agent/plan
 auto_load: false
 ---

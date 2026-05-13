@@ -28,11 +28,9 @@ from mimir_constants import get_mimir_home
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# 路径常量（随 MIMIR_AETHER_HOME；模板目录优先历史 OpenClaw 侧车 skills）
+# 路径常量（随 MIMIR_AETHER_HOME）
 _MIMIR_HOME = get_mimir_home()
 SKILLS_DIR = _MIMIR_HOME / "skills" / "mimiraether"
-_LEGACY_OPENCLAW_SKILLS = Path.home() / ".openclaw" / "skills"
-TEMPLATE_DIR = _LEGACY_OPENCLAW_SKILLS if _LEGACY_OPENCLAW_SKILLS.is_dir() else (_MIMIR_HOME / "skills")
 MIMICORE_DIR = _MIMIR_HOME / "mimicore"
 
 # 必需的核心能力列表

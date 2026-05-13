@@ -52,7 +52,7 @@ Copy-paste examples in **`skills/**`** and **`optional-skills/**`** use the **de
 
 | 包 / 目录 | 谁在用 | 说明 |
 |-----------|--------|------|
-| [`mimcore/`](../mimcore/) | [`agent/core_loop.py`](../agent/core_loop.py)（`SessionDB`）等 | 薄 shim：自 `hermes_state` / `mimir_constants` / `hermes_cli.config` 再导出；**不**在此处新增 OpenClaw 硬编码路径。 |
+| [`mimcore/`](../mimcore/) | **已删除（2026-05-12）** — 薄 shim 已移除；`agent/core_loop.py` 和 `mcp_serve.py` 改为直接从 `mimir_state` 导入 `SessionDB` |
 | [`mimicore/`](../mimicore/) | [`cli.py`](../cli.py)、[`api_service.py`](../api_service.py)、技能 `mimiraether-self_evolution`、根目录若干 `run_capsule_*.py` 等 | 历史与测试根路径多；**仅**当某模块被上述主链路 import 且会在「无 `~/.openclaw`」环境执行时，才收敛其默认路径；其余 legacy（如旧项目名测试根）可延后。 |
 
 ## Intentionally lower priority

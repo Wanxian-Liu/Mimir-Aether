@@ -6,8 +6,8 @@ author: Hermes Agent (adapted from obra/superpowers)
 license: MIT
 metadata:
   hermes:
-    tags: [delegation, subagent, implementation, workflow, parallel]
-    related_skills: [writing-plans, requesting-code-review, test-driven-development]
+    tags: [delegation, subagent, implementation, workflow, parallel, orchestration-layer]
+    related_skills: [writing-plans, requesting-code-review, test-driven-development, delegate-subagent]
 ---
 
 # Subagent-Driven Development
@@ -273,10 +273,10 @@ Include TDD instructions in every implementer context.
 
 The two-stage review process IS the code review. For final integration review, use the requesting-code-review skill's review dimensions.
 
-### With systematic-debugging
+### With mimiraether-root-cause-debugging
 
 If a subagent encounters bugs during implementation:
-1. Follow systematic-debugging process
+1. Follow mimiraether-root-cause-debugging process
 2. Find root cause before fixing
 3. Write regression test
 4. Resume implementation

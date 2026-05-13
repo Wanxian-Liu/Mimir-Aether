@@ -1,6 +1,11 @@
 """
-MimirAether Tool Registry
-工具注册表 - 管理所有可用工具的元数据
+⚠️ DEPRECATED: MimirAether Tool Registry (SQLite)
+工具注册表 - 管理所有可用工具的元数据（SQLite 存储）
+
+此模块为工具**库存/分析**用途（enable/disable/search/stats/log_call），
+**不是**运行时工具执行路径。运行时使用 tools.registry.registry（Hermes 模式）。
+仅在 agent/test_tool_registry_api.py 和 agent/test_tool_registry_concurrency.py 
+的 Parity 测试中使用。
 """
 import json
 import os

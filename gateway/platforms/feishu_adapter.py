@@ -49,6 +49,84 @@ def _http_origin(domain: str) -> str:
     return "https://open.larksuite.com" if domain == "lark" else "https://open.feishu.cn"
 
 
+def _parse_message_content(raw_content: Any) -> dict:
+    """统一解析 content 为 dict（可能是 str JSON 或已是 dict）。"""
+    if isinstance(raw_content, dict):
+        return raw_content
+    if isinstance(raw_content, str):
+        try:
+            parsed = json.loads(raw_content)
+            return parsed if isinstance(parsed, dict) else {}
+        except json.JSONDecodeError:
+            return {"text": raw_content}  # 纯文本当 text 处理
+    return {}
+
+def _feishu_download_image(
+    adapter: "FeishuAdapter", image_key: str
+) -> Optional[str]:
+    """下载飞书图片到本地缓存，返回本地文件路径。
+
+    使用飞书 IM API: GET /open-apis/im/v1/images/{image_key}
+    需要 tenant_access_token 认证。
+    """
+    from gateway.platforms.base import get_image_cache_dir, _looks_like_image, cache_image_from_bytes
+
+    origin = adapter._origin()
+    url = f"{origin}/open-apis/im/v1/images/{image_key}"
+
+    # 同步下载（在 WS 处理线程中，不支持 async）
+    import time as _time
+    import requests
+
+    headers = {}
+    if adapter._tenant_token and _time.time() < adapter._token_expires_at:
+        headers["Authorization"] = f"Bearer {adapter._tenant_token}"
+
+    try:
+        resp = requests.get(url, headers=headers, timeout=30)
+        if resp.status_code != 200:
+            logger.error(
+                "[feishu] Image download failed: HTTP %s for key=%s…",
+                resp.status_code,
+                image_key[:20],
+            )
+            return None
+
+        data = resp.content
+        if not _looks_like_image(data):
+            logger.warning(
+                "[feishu] Downloaded data does not look like an image (key=%s…, %d bytes)",
+                image_key[:20],
+                len(data),
+            )
+            return None
+
+        # Detect extension from content-type or magic bytes
+        ct = resp.headers.get("Content-Type", "")
+        ext_map = {
+            "image/jpeg": ".jpg", "image/jpg": ".jpg",
+            "image/png": ".png",
+            "image/gif": ".gif",
+            "image/webp": ".webp",
+        }
+        ext = ext_map.get(ct, ".jpg")
+
+        path = cache_image_from_bytes(data, ext)
+        logger.info(
+            "[feishu] Image downloaded: %s (%d bytes, key=%s…)",
+            path, len(data), image_key[:20],
+        )
+        return path
+    except requests.Timeout:
+        logger.error("[feishu] Image download timeout for key=%s…", image_key[:20])
+        return None
+    except Exception as e:
+        logger.error(
+            "[feishu] Image download failed for key=%s…: %s",
+            image_key[:20], e,
+        )
+        return None
+
 def _event_dict_to_message_event(adapter: "FeishuAdapter", payload: dict) -> Optional[MessageEvent]:
     """Build MessageEvent from Lark im.message.receive_v1 JSON (v2 envelope)."""
     ev = payload.get("event")
@@ -57,20 +135,6 @@ def _event_dict_to_message_event(adapter: "FeishuAdapter", payload: dict) -> Opt
     msg = ev.get("message")
     if not isinstance(msg, dict):
         return None
-
-    raw_content = msg.get("content")
-    text = ""
-    if isinstance(raw_content, dict):
-        text = str(raw_content.get("text") or "").strip()
-    elif isinstance(raw_content, str):
-        try:
-            cj = json.loads(raw_content)
-            if isinstance(cj, dict):
-                text = str(cj.get("text") or "").strip()
-        except json.JSONDecodeError:
-            text = raw_content.strip()
-    if not text:
-        text = str(msg.get("text") or "").strip()
 
     message_id = str(msg.get("message_id") or "")
     chat_id = str(msg.get("chat_id") or ev.get("chat_id") or "").strip()
@@ -96,6 +160,53 @@ def _event_dict_to_message_event(adapter: "FeishuAdapter", payload: dict) -> Opt
     if not chat_id:
         logger.debug("[feishu] Inbound event missing chat_id; skip")
         return None
+
+    # 判断消息类型
+    msg_type = str(msg.get("message_type") or "text").strip().lower()
+    content_dict = _parse_message_content(msg.get("content"))
+
+    # --- 图片消息 ---
+    if msg_type == "image":
+        image_key = content_dict.get("image_key", "")
+        if not image_key:
+            logger.warning("[feishu] Image message missing image_key; skip")
+            return None
+
+        source = adapter.build_source(
+            chat_id=chat_id,
+            chat_type="group" if is_group else "dm",
+            user_id=sender_id or None,
+            user_name=sender_id or None,
+        )
+
+        # 同步下载图片（WS 线程中）
+        local_path = _feishu_download_image(adapter, image_key)
+        if not local_path:
+            # 下载失败：仍然返回事件，用 text 说明
+            return MessageEvent(
+                text="📷 [图片下载失败，请重试]",
+                message_type=MessageType.PHOTO,
+                source=source,
+                raw_message=payload,
+                message_id=message_id or None,
+                media_urls=[],
+                timestamp=datetime.now(tz=timezone.utc),
+            )
+
+        return MessageEvent(
+            text="",  # 图片消息无文本
+            message_type=MessageType.PHOTO,
+            source=source,
+            raw_message=payload,
+            message_id=message_id or None,
+            media_urls=[local_path],
+            timestamp=datetime.now(tz=timezone.utc),
+        )
+
+    # --- 文本消息 ---
+    text = str(content_dict.get("text") or "").strip()
+    if not text:
+        text = str(msg.get("text") or "").strip()
 
     if not text:
         logger.warning(
@@ -146,6 +257,7 @@ class FeishuAdapter(BasePlatformAdapter):
         self._token_expires_at: float = 0.0
         self._main_loop: Optional[asyncio.AbstractEventLoop] = None
         self._ws_task: Optional[asyncio.Task] = None
+        self._token_task: Optional[asyncio.Task] = None
 
     def _origin(self) -> str:
         return _http_origin(self._domain)
@@ -182,6 +294,8 @@ class FeishuAdapter(BasePlatformAdapter):
         # inside _blocking_lark_ws_main, after a dedicated event loop is installed.
         self._mark_connected()
         self._ws_task = asyncio.create_task(self._ws_runner(), name="feishu-lark-ws")
+        # 启动定时刷新token的后台任务（每60分钟刷新一次，防止过期死锁）
+        self._token_task = asyncio.create_task(self._token_refresher(), name="feishu-token-refresh")
         logger.info("[%s] Long connection task started (lark-oapi ws.Client)", self.name)
         return True
 
@@ -255,6 +369,21 @@ class FeishuAdapter(BasePlatformAdapter):
         """User entered bot DM — ignore for agent purposes."""
         logger.debug("[%s] Ignoring im.chat.access_event.bot_p2p_chat_entered_v1", self.name)
 
+    async def _token_refresher(self) -> None:
+        """后台任务：每60分钟刷新一次飞书 tenant_access_token，防止过期死锁。"""
+        while self._running:
+            try:
+                # 等58分钟（token有效期2小时，提前2小时+缓冲）
+                await asyncio.sleep(58 * 60)
+                if not self._running:
+                    break
+                logger.info("[%s] Token refresher: refreshing tenant_access_token", self.name)
+                await self._refresh_token()
+            except asyncio.CancelledError:
+                return
+            except Exception as e:
+                logger.warning("[%s] Token refresher error: %s", self.name, e)
+
     def _sync_p2_im_message_receive_v1(self, data: Any) -> None:
         import lark_oapi as lark
 
@@ -296,6 +425,13 @@ class FeishuAdapter(BasePlatformAdapter):
             except asyncio.CancelledError:
                 pass
             self._ws_task = None
+        if self._token_task:
+            self._token_task.cancel()
+            try:
+                await self._token_task
+            except asyncio.CancelledError:
+                pass
+            self._token_task = None
         await self._close_http()
         self._mark_disconnected()
         logger.info("[%s] Disconnected", self.name)

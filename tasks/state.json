@@ -1,14 +1,14 @@
 {
   "tasks": {
-    "af520e30": {
-      "id": "af520e30",
+    "b33ee318": {
+      "id": "b33ee318",
       "description": "will-timeout",
       "status": "failed",
-      "assigned_agent": "/tmp/pytest-of-rayliu/pytest-124/test_delegate_real_subprocess_1/slow_agent",
+      "assigned_agent": "/tmp/pytest-of-rayliu/pytest-340/test_delegate_real_subprocess_1/slow_agent",
       "result": null,
       "error": "Agent execution timed out after 1s",
-      "created_at": "2026-05-11T06:35:31.380591",
-      "completed_at": "2026-05-11T06:35:32.382120"
+      "created_at": "2026-05-13T20:48:46.932883",
+      "completed_at": "2026-05-13T20:48:47.934492"
     }
   }
 }

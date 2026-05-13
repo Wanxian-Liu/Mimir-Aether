@@ -152,6 +152,29 @@ class ContextCompressorV2(ContextEngine):
         """检查是否需要压缩（基于token）（ContextEngine接口）"""
         tokens = prompt_tokens if prompt_tokens is not None else 0
         return tokens >= self.threshold_tokens
+
+    def has_content_to_compress(self, messages: List[Dict[str, Any]]) -> bool:
+        """Quick check: is there anything in messages that can be compacted?
+
+        Returns False when messages are entirely within the protected zone
+        (head + tail), so callers can skip the LLM compression call entirely.
+        This mirrors the Hermes has_content_to_compress() preflight guard.
+        """
+        if not messages:
+            return False
+        protected = self.protect_first_n + self.protect_last_n
+        return len(messages) > protected
+
+    def should_compress_preflight(self, messages: List[Dict[str, Any]]) -> bool:
+        """API调用前的快速预检（廉价估算，无真实token计数）。
+
+        先检查是否有内容可压缩（has_content_to_compress），
+        再估算 token 数是否可能接近阈值。
+        """
+        if not self.has_content_to_compress(messages):
+            return False
+        estimated = self._estimate_tokens(messages)
+        return estimated >= self.threshold_tokens * 0.8  # 80% 放宽阈值
     
     def needs_compression(self, messages: List[Dict] = None) -> bool:
         """检查是否需要压缩（使用last_prompt_tokens，与Hermes一致）"""

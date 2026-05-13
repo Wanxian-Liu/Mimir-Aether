@@ -25,8 +25,14 @@ class AuthError(Exception):
 DEFAULT_CODEX_BASE_URL = "https://api.openai.com/v1"
 DEFAULT_QWEN_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
-# Provider registry - minimal stub
-PROVIDER_REGISTRY: Dict[str, Dict[str, Any]] = {}
+# Provider registry
+PROVIDER_REGISTRY: Dict[str, Dict[str, Any]] = {
+    "deepseek": {
+        "auth_type": "api_key",
+        "base_url_env_var": "DEEPSEEK_API_KEY",
+        "inference_base_url": "https://api.deepseek.com",
+    },
+}
 
 # ─── Credential checks ────────────────────────────────────────────────────────
 
@@ -47,13 +53,43 @@ def format_auth_error(provider: str, message: str) -> str:
     """Format an authentication error message."""
     return f"[{provider}] Auth error: {message}"
 
-# ─── Provider resolution (stub) ───────────────────────────────────────────────
+# ─── Provider resolution ───────────────────────────────────────────────
 
-def resolve_provider(provider: str, **kwargs) -> str:
-    """Resolve and normalize provider name. Accepts extra kwargs for caller compatibility."""
-    # Import here to avoid circular import
-    from mimir_cli.providers import normalize_provider
-    return normalize_provider(provider)
+def resolve_provider(
+    provider: str,
+    explicit_api_key: Optional[str] = None,
+    explicit_base_url: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Resolve provider configuration.
+
+    Args:
+        provider: Provider name (e.g., 'deepseek', 'openrouter')
+        explicit_api_key: Optional explicit API key for the provider
+        explicit_base_url: Optional explicit base URL for the provider
+
+    Returns:
+        Dict with provider configuration including api_key and base_url if provided
+    """
+    result = PROVIDER_REGISTRY.get(provider, {}).copy()
+
+    # If explicit credentials provided, use them
+    if explicit_api_key:
+        result["api_key"] = explicit_api_key
+    if explicit_base_url:
+        result["base_url"] = explicit_base_url
+
+    # Auto-detect from environment for common providers
+    if not result.get("api_key"):
+        env_key = os.getenv(f"{provider.upper()}_API_KEY") or os.getenv("DEEPSEEK_API_KEY")
+        if env_key and has_usable_secret(env_key):
+            result["api_key"] = env_key
+
+    # Set default base_url for known providers
+    if not result.get("base_url"):
+        if provider == "deepseek":
+            result["base_url"] = "https://api.deepseek.com"
+
+    return result
 
 # ─── Runtime credentials (stub - delegates to env/credential pool) ────────────
 

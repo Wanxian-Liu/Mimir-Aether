@@ -7,7 +7,7 @@ license: MIT
 metadata:
   hermes:
     tags: [debugging, hermes-agent, tui, slash-commands, typescript, python]
-    related_skills: [python-debugpy, node-inspect-debugger, systematic-debugging]
+    related_skills: [python-debugpy, node-inspect-debugger, mimiraether-root-cause-debugging]
 ---
 
 # Debugging Hermes TUI Slash Commands

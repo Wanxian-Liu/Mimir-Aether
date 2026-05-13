@@ -9,8 +9,8 @@
    - 检查元规则第0条是否被触发
    - 如果没触发，说明记忆断裂——需要修复跨会话机制
 
-2. **读取持久化状态**：读 `data/persistent.json` 和 `memory/persistent.json`
-   - 获取 pending_tasks 和 key_decisions
+2. **读取持久化状态**：读 `data/persistent.json`
+   - 获取 curator_nudge、pending_tasks、key_decisions、session_count
    - 确认上次会话的上下文是否恢复
 
 ## 五条药方（可选切入点）

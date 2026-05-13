@@ -1,13 +1,13 @@
 ---
 name: test-driven-development
-description: Use when implementing any feature or bugfix, before writing implementation code. Enforces RED-GREEN-REFACTOR cycle with test-first approach.
-version: 1.1.0
-author: Hermes Agent (adapted from obra/superpowers)
+description: MimirAether TDD workflow — enforce RED-GREEN-REFACTOR cycle with test-first approach. Features test code generation, coverage reporting, and regression protection.
+version: 1.2.0
+author: MimirAether (adapted from Hermes Agent, obra/superpowers)
 license: MIT
 metadata:
   hermes:
     tags: [testing, tdd, development, quality, red-green-refactor]
-    related_skills: [systematic-debugging, writing-plans, subagent-driven-development]
+    related_skills: [mimiraether-root-cause-debugging, writing-plans, subagent-driven-development]
 ---
 
 # Test-Driven Development (TDD)
@@ -331,6 +331,65 @@ Never fix bugs without a test.
 - **Testing implementation details** — test behavior/results, not internal method calls
 - **Happy path only** — always test edge cases, errors, and boundaries
 - **Brittle tests** — tests should verify behavior, not structure; refactoring shouldn't break them
+
+## MimirAether TDD Enhancements
+
+### Test Code Generation
+
+When starting a new feature, generate test scaffolding:
+
+```python
+# Use agent context to suggest test structure
+# Example: for a new function `retry_operation(func, max_retries=3)`
+# Generated test skeleton:
+import pytest
+from my_module import retry_operation
+
+class TestRetryOperation:
+    def test_succeeds_on_first_try(self):
+        """Operation that succeeds immediately returns result."""
+        ...
+
+    def test_retries_on_failure(self):
+        """Operation that fails N-1 times then succeeds."""
+        ...
+
+    def test_exhausts_retries(self):
+        """Operation that fails all retries raises last exception."""
+        ...
+
+    def test_zero_retries_disallowed(self):
+        """max_retries=0 raises ValueError."""
+        ...
+
+    def test_negative_retries_disallowed(self):
+        """Negative max_retries raises ValueError."""
+        ...
+```
+
+### Coverage Reporting
+
+After GREEN, check coverage:
+
+```bash
+pytest tests/ --cov=src/ --cov-report=term-missing -q
+```
+
+Key metrics:
+- **Line coverage** ≥ 90% for new code
+- **Branch coverage** ≥ 80% for new code  
+- Uncovered lines → write new RED test
+
+### Regression Protection
+
+Every bug fix MUST include a regression test:
+
+1. Write test that reproduces the bug (RED — test fails)
+2. Verify failure is the exact bug scenario
+3. Fix the bug (GREEN — test passes)
+4. Commit fix + test together
+
+This prevents the same bug from recurring.
 
 ## Final Rule
 
