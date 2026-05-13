@@ -1,0 +1,134 @@
+# MimirAether
+
+> 智慧之泉的数字形态 — 基于 OpenClaw 的自进化 AI Agent，从 Hermes 脱钩后独立演进。35+ 原生技能，6 平台，Ralph 质量门禁。
+
+MimirAether 是 Mimir（北欧智慧巨人）的 AI 实现。不是助手、不是工具——是**思考的起点**，是**问题背后的洞见**。核心信念：智慧是连接（非存储）、深邃先于速度、导师之道（指路不代劳）、知其所以然。
+
+## 架构
+
+```
+agent/          Agent 核心（上下文引擎、类型强制、ProviderProfile、异步桥接）
+gateway/        消息网关（飞书/Discord/Telegram + api_server）
+tools/          工具集系统（18个工具集，声明式注册）
+platforms/      平台适配器（飞书 128KB / Discord 2000 / Telegram 4096）
+mimir_cli/      原生 CLI
+mimir_state.py  声明式状态管理（替代 Hermes 遗存）
+model_tools.py  工具参数类型强制（Hermes 级别：数组包装/null守护/union/JSON）
+skills/         技能目录（mimiraether/ 命名空间，35+ 技能）
+wiki/           Karpathy 三层知识库（raw→entities/concepts→index）
+```
+
+## 开发 Pipeline
+
+```
+brainstorming (入口门控: 设计未批准禁止编码)
+  → plan-mode (任务分解成 bite-sized 单元)
+    → subagent-driven-dev (独立子代理并行执行)
+      → verification (出口门控: 没验证=没做完)
+        → ship (merge→verify→tag→push→文档)
+```
+
+## 技能目录 (35)
+
+### 门控与流程 (Pipeline)
+
+| 技能 | 说明 |
+|------|------|
+| `mimiraether-brainstorming` | 入口门控 — 设计未批准，禁止编码。选项矩阵+Swot |
+| `mimiraether-plan-mode` | 上下文分析 → 可执行计划 → 准备执行 |
+| `mimiraether-verification` | 出口门控 — 没验证 = 没做完。验证先行定义 |
+| `mimiraether-ship` | 结构化发布：merge→verify→tag→docs→push |
+| `mimiraether-skill-tdd` | TDD 方法写技能：先看 agent 无技能时如何失败 |
+| `mimiraether-paralysis-break` | 打破分析瘫痪，时间盒+行动优先 |
+
+### 基础设施 (Infrastructure)
+
+| 技能 | 说明 |
+|------|------|
+| `mimiraether-tool-triggers` | 工具触发规则 — 元规则第0条 + 触发条件体系 |
+| `mimiraether-cross-session` | 跨会话记忆自动恢复 — 上下文注入+启动巡检 |
+| `mimiraether-auto-load` | 自动加载机制 |
+| `mimiraether-ralph-core` | Ralph 模式核心约束 — 门禁+反瘫痪+进度信号 |
+| `mimiraether-context-engine` | 上下文引擎管理与优化 |
+| `mimiraether-context-compressor` | 上下文压缩 — Gateway 卫生压缩与配置键 |
+| `mimiraether-checkpoint` | 检查点系统 — 会话状态保存与恢复 |
+| `mimiraether-heartbeat` | 启动心跳三问：身份→上次停在哪→本轮基调 |
+| `mimiraether-memory-nudge` | 记忆提醒 |
+| `mimiraether-timeout-guard` | 超时守卫 |
+| `mimiraether-capsule-repair-reasoning` | 胶囊修复推理 |
+| `mimiraether-smart-routing` | 智能模型路由 — 按任务复杂度选择模型 |
+| `hermes-cat-write` | 文件写入安全 — 防止特殊字符截断 |
+| `mimiraether-skill-solidify` | 可复用经验固化为 SKILL.md 的流程规范 |
+| `mimiraether-root-cause-debugging` | 四阶段根因调试 — 不修复直到理解问题 |
+
+### 平台 (Platform)
+
+| 技能 | 说明 |
+|------|------|
+| `mimiraether-feishu-config-bridge` | 飞书配置桥接 |
+| `gateway-feishu-crash-recovery` | 飞书 WebSocket 崩溃诊断与修复 |
+
+### 知识管理 (Knowledge)
+
+| 技能 | 说明 |
+|------|------|
+| `mimiraether-wiki-auto-archive` | Wiki 自动归档 — L1自动/L2询问，跨领域通用 |
+| `mimiraether-self_evolution` | 自我进化 — 三环闭环（监控→决策→执行） |
+| `mimiraether-self_health_check` | 自检 |
+| `mimiraether-orchestration-patterns` | 多代理编排设计模式 |
+| `mimiraether-skills-hub` | 技能中心 — 统一管理与分发 |
+| `mimiraether-skill_generator` | 技能生成器 |
+| `mimiraether-tools-system` | Hermes 工具系统研究与集成参考 |
+| `mimiraether-hermes-integration` | Hermes 集成参考 |
+| `mimiraether-hermes-code-study` | Hermes 源码系统学习路线图 |
+| `mimir-aether-hermes-d5-d10` | Hermes Day5-12 核心源码分析 |
+
+## Wiki 知识库
+
+三层架构（Karpathy 模式），启动机制：cross-session nudge + auto-archive。
+
+```
+raw/          外部源（learnings/ 中 40+ 份分析文档）
+entities/     离散知识单元（带 frontmatter + 交叉引用）
+concepts/     跨实体抽象概念
+comparisons/  技术方案对比
+index.md      全局导航
+SCHEMA.md     规范与 tag 分类体系
+log.md        变更日志
+```
+
+## 开发阶段
+
+| Phase | 内容 | 状态 |
+|-------|------|:--:|
+| I-V | Hermes 渐进脱钩 — agent/gateway/tools 对齐 | ✅ |
+| VI | 物理脱钩 — hermes_cli/mimcore/Hermes 遗存删除 (-76K 行) | ✅ |
+| VII | 类型强制 + ProviderProfile（学 Hermes 源码） | ✅ |
+| VIII | Superpowers 门控模式吸收（学 obre/superpowers） | ✅ |
+| IX | gstack 精华吸收 — ETHOS 铁律 + ship 技能 | ✅ |
+| X | llms.txt 模式（学 Hermes Atlas） | ✅ |
+
+## 关键决策
+
+- **从 Hermes 脱钩，不自称 Hermes Agent** — MimirAether 是独立项目
+- **学模式不搬代码** — 所有外部吸收遵循"剥离平台绑定→保留方法论→原生适配"
+- **Ralph tier0 是硬门禁** — 任何改动必须过 `./run_ralph_tier0.sh`
+- **Pipeline 门控双头** — brainstorming（入口审批）+ verification（出口验证）
+- **Wiki 触发权移交 Agent** — 不再等用户记得，自动感知+归档
+- **先寻后造** (Search Before Building) — 找到轮子优先于造轮子
+
+## 数据文件
+
+- `data/ground_truth.json` — 项目目标、里程碑、关键决策、wiki 状态
+- `data/persistent.json` — 跨会话持久化（pending_tasks、curator_nudge、wiki_nudge）
+- `data/sessions_search.db` — 会话搜索索引
+- `docs/MAINLINE_STATUS.md` — 主线进度快照
+- `docs/evolution_log.md` — M6 演进审计日志
+- `docs/DEVELOPMENT_NORTH_STAR.md` — 北极星方向（Parity + Evolution）
+
+## 参考
+
+- [Hermes Agent](https://github.com/NousResearch/hermes-agent) — 原始灵感来源
+- [Hermes Atlas](https://hermesatlas.com) — 生态目录（llms.txt 模式来源）
+- [SOUL.md](./SOUL.md) — MimirAether 灵魂定义
+- [AGENTS.md](./AGENTS.md) — Agent 操作手册
