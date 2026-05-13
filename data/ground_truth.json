@@ -1,0 +1,39 @@
+{
+  "_constitution": "MimirAether 耐久真源。data/persistent.json 被运行时部分锁定，本文件为权威来源。v1.1 起 _merge_disk_changes() 已修复运行时覆盖问题。",
+  "version": "2.0",
+  "updated_at": "2026-05-11T11:30:00.000000+00:00",
+
+  "current_objective": "Phase VI 完成 — 工作区干净，无条件残留 🎉",
+  "objectives_history": [
+    {"name": "幽灵技能清理", "status": "completed"},
+    {"name": "五条药方实施 (#2-#5)", "status": "completed"},
+    {"name": "Skill Curator 全线落地", "status": "completed"},
+    {"name": "Hermes Phase I 依赖图谱", "status": "completed"},
+    {"name": "Hermes Phase II 认证脱钩", "status": "completed"},
+    {"name": "Hermes Phase III 模型脱钩", "status": "completed", "note": "模型调用已独立"},
+    {"name": "Hermes Phase IV 清理收尾", "status": "completed", "note": "hermes_cli/ 删除"},
+    {"name": "Hermes Phase V 深入脱钩", "status": "completed", "note": "hermes_constants/logging/state 全部删除或重命名"},
+    {"name": "Phase VI 物理脱钩", "status": "completed", "note": "hermes_cli/mimcore物理删除, mimcore→mimir_state迁移, tools/toolsets.py新增, 飞书MAX_MESSAGE_LENGTH, Gateway crash recovery固化"}
+  ],
+
+  "active_projects": [
+    {"name": "五条药方实施", "status": "ongoing", "note": "第1条为持续约束"}
+  ],
+
+  "hermes_decoupling_summary": {
+    "phase_i_dependency_graph": "docs/hermes_dependency_graph.md 已产出",
+    "phase_ii_auth": "mimcore/auth.py, config.py 原生",
+    "phase_iii_model": "provider_registry, runtime_provider, model_normalize 原生",
+    "phase_iv_cleanup": "hermes_cli/ (66文件) 已删除",
+    "phase_v_deep": "hermes_constants→mimir_constants, hermes_logging→mimiraether_logging, hermes_state→mimir_state",
+    "phase_vi_physical": "hermes_cli/ mimcore/ 物理删除, mimcore→mimir_state迁移完成, tools/toolsets.py Mimir原生, 飞书MAX_MESSAGE_LENGTH=131072, Gateway crash recovery技能固化",
+    "remaining_known": "hermes_tools 引用(测试文件+code_execution_tool) — 非核心依赖，后续处理"
+  },
+
+  "next_actions": [
+    "飞书实战验证: 工具集+类型强制在生产环境生效确认",
+    "后续: hermes_tools → mimir_tools 重命名"
+  ],
+
+  "session_note": "Session 67: Phase VI物理脱钩全部完成+提交+推送。飞书MAX_MESSAGE_LENGTH=131072。发现跨会话上下文循环污染根因——cross-session context注入过期快照(会话66)导致MAX_MESSAGE_LENGTH改动循环重放。已修复ground_truth.json和persistent.json。"
+}
