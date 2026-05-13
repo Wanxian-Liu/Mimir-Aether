@@ -95,10 +95,36 @@ Step 1: 读取 data/persistent.json（运行时快照）
 - **差异检测**：自动检测版本变化和会话丢失
 - **过期机制**：超过3次会话未引用的记忆自动归档
 
+## 🧠 Wiki 自动维护（Session 68+ 新增）
+
+**问题**：`~/wiki/` 目录结构于5月10日搭建完成，但从未使用——因为触发责任在用户身上。
+
+**解决方案**：触发权移交给 Agent。每次会话启动时自动巡检 wiki。
+
+### 启动时 wiki 巡检
+
+```
+Step W0: 读取 ground_truth.json → wiki 节 (status, last_check, pending_ingest)
+Step W1: 如果 wiki.status == "empty" 且 learnings/ 有内容
+  └── 主动提醒：wiki 空置，learnings 有 N 份笔记待归档
+Step W2: 如果 wiki.status == "active"
+  └── 读取 SCHEMA.md + index.md → 扫描新 learnings → 标记
+```
+
+### 会话中自动归档（rbac: Agent）
+
+当 Agent 从 `learnings/` 引用知识回答用户问题时：
+1. 回答完毕后自动判断是否值得 wiki 化
+2. 值得：在 `~/wiki/concepts/` 或 `entities/` 创建/更新页面
+3. 更新 `index.md` 和 `log.md`
+4. 完成后一行告知（不打断对话流）
+
+**归档标准**：明确被问的概念/模块 ✅ | 跨会话复用决策 ✅ | 一次性问答 ❌
+
 ## 会话结束时的保存流程
 
 每轮会话结束时（或关键决策点），由 `CrossSessionMemory.end_session()` + `save()` 自动执行。
-会话边界数据统一存储在 `data/persistent.json`（包括 curator_nudge、session_count、last_session_end 等）。
+会话边界数据统一存储在 `data/persistent.json`（包括 curator_nudge、session_count、last_session_end、wiki_nudge 等）。
 
 ## 关键决策点（触发保存）
 

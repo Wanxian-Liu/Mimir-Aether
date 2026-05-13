@@ -1,6 +1,6 @@
 {
   "version": "1.4",
-  "last_session_end": "2026-05-13T15:40:17.777687+00:00",
+  "last_session_end": "2026-05-13T16:40:13.315311+00:00",
   "session_count": 67,
   "identity": {
     "name": "MimirAether",
@@ -193,7 +193,7 @@
     ]
   },
   "progress": {
-    "current_objective": "Phase VI 全部闭合 🎉 → 下一步: 飞书实战验证",
+    "current_objective": "Phase IX 完成 (gstack) → wiki自动归档机制已激活",
     "completed_milestones": [
       "tool-triggers元规则验证通过 ✅",
       "hermes-cat-write auto_load ✅",
@@ -248,8 +248,10 @@
     "mimiraether-plan-mode": "2026-05-11T04:54:06.478074+00:00",
     "my-skill": "2026-05-11T08:27:18.361110+00:00",
     "mimiraether-skill_generator": "2026-05-11T05:08:00.769110+00:00",
-    "mimiraether-feishu-config-bridge": "2026-05-13T13:41:22.616911+00:00"
+    "mimiraether-feishu-config-bridge": "2026-05-13T13:41:22.616911+00:00",
+    "mimiraether-cross-session": "2026-05-13T16:42:30.413421+00:00"
   },
-  "curator_nudge": "skill_curator: 75技能 | fresh=75 stale=0 dormant=0",
+  "wiki_nudge": "wiki: ~/wiki 空置1月+ | learnings/ 40+笔记待归档 | 触发权在Agent: 每次learnings引用后自动归档 | 下次会话启动时巡检",
+  "curator_nudge": "skill_curator: 79技能 | fresh=79 stale=0 dormant=0",
   "dormant_skills": {}
 }

@@ -3,7 +3,7 @@
   "version": "2.0",
   "updated_at": "2026-05-11T11:30:00.000000+00:00",
 
-  "current_objective": "Phase VI 完成 — 工作区干净，无条件残留 🎉",
+  "current_objective": "Phase VIII 完成 — Superpowers 门控模式已吸收 🎉",
   "objectives_history": [
     {"name": "幽灵技能清理", "status": "completed"},
     {"name": "五条药方实施 (#2-#5)", "status": "completed"},
@@ -13,7 +13,9 @@
     {"name": "Hermes Phase III 模型脱钩", "status": "completed", "note": "模型调用已独立"},
     {"name": "Hermes Phase IV 清理收尾", "status": "completed", "note": "hermes_cli/ 删除"},
     {"name": "Hermes Phase V 深入脱钩", "status": "completed", "note": "hermes_constants/logging/state 全部删除或重命名"},
-    {"name": "Phase VI 物理脱钩", "status": "completed", "note": "hermes_cli/mimcore物理删除, mimcore→mimir_state迁移, tools/toolsets.py新增, 飞书MAX_MESSAGE_LENGTH, Gateway crash recovery固化"}
+    {"name": "Phase VI 物理脱钩", "status": "completed", "note": "hermes_cli/mimcore物理删除, mimcore→mimir_state迁移, tools/toolsets.py新增, 飞书MAX_MESSAGE_LENGTH, Gateway crash recovery固化"},
+    {"name": "Phase VII 工具强化", "status": "completed", "note": "P0类型强制(model_tools)+P1 ProviderProfile (P2/P3取消: Hermes无对应)"},
+    {"name": "Phase VIII Superpowers 学习", "status": "completed", "note": "obra/superpowers门控模式: brainstorming(入口门控)+verification(收尾门控)+skill-tdd(TDD方法写技能)。3个Mimir原生技能。"}
   ],
 
   "active_projects": [
@@ -35,5 +37,14 @@
     "后续: hermes_tools → mimir_tools 重命名"
   ],
 
-  "session_note": "Session 67: Phase VI物理脱钩全部完成+提交+推送。飞书MAX_MESSAGE_LENGTH=131072。发现跨会话上下文循环污染根因——cross-session context注入过期快照(会话66)导致MAX_MESSAGE_LENGTH改动循环重放。已修复ground_truth.json和persistent.json。"
+  "session_note": "Session 67+: Phase VIII完成。从 obra/superpowers 吸收门控模式创建3个Mimir原生技能。pipeline: brainstorming(入口)→plan→execute→verification(出口)。Session 68: gstack ETHOS+ship吸收完成(Phase IX)。",
+
+  "wiki": {
+    "path": "~/wiki",
+    "status": "active",
+    "last_check": "2026-05-13",
+    "total_pages": 3,
+    "pending_ingest": true,
+    "note": "SCHEMA+index+log 已创建。auto-archive 技能+ cross-session nudge 已激活。learnings/ 40+笔记待按需归档。"
+  }
 }
