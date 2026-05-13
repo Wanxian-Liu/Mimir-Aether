@@ -5,11 +5,11 @@
 
 | 字段 | 值 |
 |------|-----|
-| **最近更新** | 2026-05-12 |
-| **更新人** | MimirAether（11方向计划全部完成 🎉：B3自进化闭环收尾） |
+| **最近更新** | 2026-05-13 |
+| **更新人** | MimirAether（Phase VI 物理脱钩：hermes_cli/mimcore删除 + mimir_state迁移） |
 | **仓库根（真源）** | `~/.openclaw/projects/MimirAether`（任意 clone 路径均可，以当前工作区 git 根为准） |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml）；里程碑 A 项需真环境手动/清单 |
-| **本轮摘要** | **11方向计划全部完成** — B3自进化闭环: 修复monitor_collector.py(20KB单行损坏→490行合法Python)、core_loop.py end_session埋入健康快照、Ralph 3/3连续绿。C3多模态: feishu_adapter新增图片下载+PHOTO消息类型。10/11→11/11 闭环。 |
+| **本轮摘要** | **Phase VI 物理脱钩**: 删除hermes_cli/(60+文件,76K行)、hermes_constants/logging/state、mimcore/、memory/persistent.json。新增mimir_state.py(1019行)替代hermes_state。12个Hermes遗存技能清理。Ralph tier0全绿。3 commits: 删除→迁移→增强。 |
 
 ---
 
@@ -65,6 +65,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-13 | **Phase VI 物理删除**：`hermes_cli/` 60+文件(76K行)删除；`mimcore/` 删除；`memory/persistent.json`删除；新增`mimir_state.py`(1019行)；12个Hermes遗存技能清理；`web_server.py` 7处mimcore引用迁移。Ralph tier0 162+2全绿。3 commits。 |
 | 2026-05-11 | **Phase V 深入脱钩完成**：`hermes_constants.py` 已删除（导入→mimir_constants）；`hermes_logging.py` 已删除（导入→mimiraether_logging）；`hermes_state.py`→`mimir_state.py`（9处导入已更新）。Hermes独立路线 I-V 全线闭合。 |
 | 2026-05-11 | **Skill Curator 全线完成**：闭环验证通过（6/6 milestones），end_session 自动胶囊化 + skill_view 复活链路就绪；77 技能全 fresh, 0 dormant。 |
 | 2026-05-11 | **Phase B 清零**：`auxiliary_client.py` 16→0 hermes_cli 导入；新增 `agent/provider_registry.py`、`runtime_provider.py`、`model_normalize.py`；`mimcore/auth.py`/`config.py` 翻转为 Mimir 原生路径；Ralph 3 轮连续全绿 (162+2)；M0 稳定性条更新。 |
