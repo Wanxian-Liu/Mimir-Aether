@@ -33,6 +33,8 @@ class TelegramAdapter(PlatformAdapter):
     - Callback query handling
     """
 
+    MAX_MESSAGE_LENGTH = 4096  # Telegram Bot API limit (UTF-16 code units)
+
     API_BASE = "https://api.telegram.org"
 
     def __init__(

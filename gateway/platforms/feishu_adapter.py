@@ -236,6 +236,8 @@ def _event_dict_to_message_event(adapter: "FeishuAdapter", payload: dict) -> Opt
 class FeishuAdapter(BasePlatformAdapter):
     """Feishu / Lark adapter with optional WebSocket long connection for inbound events."""
 
+    MAX_MESSAGE_LENGTH = 131072  # 128KB, safe under 150KB Feishu text body limit
+
     def __init__(self, config: PlatformConfig):
         super().__init__(config, Platform.FEISHU)
         extra = config.extra or {}

@@ -31,6 +31,8 @@ class DiscordAdapter(PlatformAdapter):
     - Thread management
     """
 
+    MAX_MESSAGE_LENGTH = 2000  # Discord API limit
+
     GATEWAY_URL = "wss://gateway.discord.gg"
     API_URL = "https://discord.com/api/v10"
 
