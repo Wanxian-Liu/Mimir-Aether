@@ -148,6 +148,7 @@ brainstorming (设计门控)
 | 声称必须证明 | 说"已完成"必须能证明 |
 | 飞书改动必实战 | gateway 改动不跳过 Live 验证 |
 | 诚实自问 | 最后的防线是诚实 |
+| 非代码迭代 | 写作/分析任务在 verify 前先走 `mimiraether-evaluator-optimizer` 循环 |
 
 ---
 
