@@ -1,0 +1,219 @@
+"""
+Tool Guard — Structured Permissions + Poka-Yoke Validators.
+
+Phase XIV: Absorbed from Anthropic "Building Effective Agents" (Poka-Yoke)
+and deusyu Harness Engineering (熵管理 #6 → structured permissions).
+
+Architecture:
+  1. classify_risk() — maps every tool to a ToolRisk tier
+  2. poka_yoke_validate() — catches common LLM mistakes before dispatch
+  3. guard_tool_call() — orchestrator called by strategy.pre_validate_tool_call()
+
+Risk tiers (Anthropic "Beyond Permission Prompts"):
+  READ_ONLY   — zero side effects, auto-approved
+  FILE_WRITE  — filesystem mutation, warn on relative paths
+  NETWORK     — external requests, rate-limit consideration
+  SYSTEM      — shell / subprocess / delegation
+  DESTRUCTIVE — irreversible, should require confirmation
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Optional
+
+logger = logging.getLogger(__name__)
+
+
+# ── Risk Tiers ──────────────────────────────────────────────────────────────
+
+class ToolRisk(Enum):
+    """Tool risk classification for structured permissions."""
+    READ_ONLY = "read_only"       # 零副作用：读文件、搜索、查看
+    FILE_WRITE = "file_write"     # 文件系统写入
+    NETWORK = "network"           # 外部网络请求
+    SYSTEM = "system"             # shell / 子进程 / 委托
+    DESTRUCTIVE = "destructive"   # 不可逆操作（训练、删除等）
+
+
+# Map tool_name → ToolRisk.  Prefix patterns (ending in _) match families.
+_RISK_MAP: list[tuple[str, ToolRisk]] = [
+    # ── READ_ONLY ──
+    ("read_file",              ToolRisk.READ_ONLY),
+    ("search_files",           ToolRisk.READ_ONLY),
+    ("session_search",         ToolRisk.READ_ONLY),
+    ("skill_view",             ToolRisk.READ_ONLY),
+    ("skills_list",            ToolRisk.READ_ONLY),
+    ("list_capsules",          ToolRisk.READ_ONLY),
+    ("get_capsule_by_id",     ToolRisk.READ_ONLY),
+    ("get_env",                ToolRisk.READ_ONLY),
+    ("clarify",                ToolRisk.READ_ONLY),
+    ("todo",                   ToolRisk.READ_ONLY),
+    ("text_to_speech",         ToolRisk.READ_ONLY),
+    ("set_strategy",           ToolRisk.READ_ONLY),
+    # RL read-only
+    ("rl_check_status",        ToolRisk.READ_ONLY),
+    ("rl_get_current_config",  ToolRisk.READ_ONLY),
+    ("rl_get_results",         ToolRisk.READ_ONLY),
+    ("rl_list_environments",   ToolRisk.READ_ONLY),
+    ("rl_list_runs",           ToolRisk.READ_ONLY),
+    # OpenClaw native (prefix match)
+    ("browser_snapshot",       ToolRisk.READ_ONLY),
+    ("browser_console",        ToolRisk.READ_ONLY),
+    ("browser_get_images",     ToolRisk.READ_ONLY),
+
+    # ── FILE_WRITE ──
+    ("write_file",             ToolRisk.FILE_WRITE),
+    ("patch",                  ToolRisk.FILE_WRITE),
+    ("memory",                 ToolRisk.FILE_WRITE),
+    ("skill_manage",           ToolRisk.FILE_WRITE),
+    ("improve_capsule",        ToolRisk.FILE_WRITE),
+    ("produce_capsule",        ToolRisk.FILE_WRITE),
+
+    # ── NETWORK ──
+    ("web_search",             ToolRisk.NETWORK),
+    ("web_extract",            ToolRisk.NETWORK),
+    ("send_message",           ToolRisk.NETWORK),
+    ("ha_",                    ToolRisk.NETWORK),   # prefix: ha_call_service etc.
+    ("browser_navigate",       ToolRisk.NETWORK),
+    ("browser_click",          ToolRisk.NETWORK),
+    ("browser_type",           ToolRisk.NETWORK),
+    ("browser_back",           ToolRisk.NETWORK),
+    ("browser_scroll",         ToolRisk.NETWORK),
+    ("browser_press",          ToolRisk.NETWORK),
+    ("browser_vision",         ToolRisk.NETWORK),
+    ("vision_analyze",         ToolRisk.NETWORK),
+
+    # ── SYSTEM ──
+    ("terminal",               ToolRisk.SYSTEM),
+    ("execute_code",           ToolRisk.SYSTEM),
+    ("process",                ToolRisk.SYSTEM),
+    ("delegate_task",          ToolRisk.SYSTEM),
+    ("cronjob",                ToolRisk.SYSTEM),
+
+    # ── DESTRUCTIVE ──
+    ("rl_start_training",      ToolRisk.DESTRUCTIVE),
+    ("rl_stop_training",       ToolRisk.DESTRUCTIVE),
+    ("rl_edit_config",         ToolRisk.DESTRUCTIVE),
+    ("rl_select_environment",  ToolRisk.DESTRUCTIVE),
+    ("rl_test_inference",      ToolRisk.DESTRUCTIVE),
+]
+
+
+def classify_risk(tool_name: str) -> ToolRisk:
+    """Return the risk tier for a tool.  Default: SYSTEM (conservative)."""
+    for prefix, risk in _RISK_MAP:
+        if prefix.endswith("_"):
+            if tool_name.startswith(prefix):
+                return risk
+        elif tool_name == prefix:
+            return risk
+    return ToolRisk.SYSTEM  # unknown tools → conservative
+
+
+# ── Poka-Yoke Validators ────────────────────────────────────────────────────
+
+# File-path parameter names (for relative-path detection).
+_PATH_PARAM_NAMES: set[str] = {
+    "path", "file_path", "source", "destination", "target",
+    "workdir", "output", "input", "db_path",
+}
+
+# Shell-injection patterns that should never appear in a terminal command.
+_DANGEROUS_SHELL_PATTERNS: list[tuple[str, str]] = [
+    ("rm -rf /",       "recursive root deletion"),
+    ("sudo rm",        "privileged deletion"),
+    ("mkfs.",          "filesystem format"),
+    ("> /dev/sda",     "raw device overwrite"),
+    ("dd if=",         "raw device copy (may overwrite)"),
+    (":(){ :|:& };:",  "fork bomb"),
+    ("chmod 777 /",    "world-writable root"),
+    ("curl ... | sh",  "pipe-to-shell (supply-chain risk)"),
+    ("wget ... | sh",  "pipe-to-shell (supply-chain risk)"),
+]
+
+
+def _validate_relative_path(tool_name: str, args: dict) -> list[str]:
+    """Poka-yoke: warn when file-write tools receive relative paths.
+
+    LLMs frequently emit relative paths (``\"./foo\"``, ``\"bar/baz\"``) when
+    an absolute path would be safer.  This is a WARNING, not a block — MimirAether
+    resolves relative paths via _safe_path(), so it's not a security hole, but
+    it can cause writes to unexpected locations.
+    """
+    risk = classify_risk(tool_name)
+    if risk not in (ToolRisk.FILE_WRITE, ToolRisk.DESTRUCTIVE):
+        return []
+
+    warnings: list[str] = []
+    for key, value in (args or {}).items():
+        if key not in _PATH_PARAM_NAMES:
+            continue
+        if not isinstance(value, str) or not value.strip():
+            continue
+        if value.startswith(("/", "~", "$", "{")):
+            continue  # absolute, home, or env-var — fine
+        warnings.append(
+            f"Tool '{tool_name}' received relative path '{key}={value}'. "
+            f"Consider using an absolute path to avoid ambiguity."
+        )
+
+    return warnings
+
+
+def _validate_dangerous_shell(tool_name: str, args: dict) -> list[str]:
+    """Poka-yoke: detect obviously-dangerous shell patterns."""
+    if tool_name != "terminal":
+        return []
+
+    command = (args or {}).get("command", "")
+    if not isinstance(command, str) or not command.strip():
+        return []
+
+    warnings: list[str] = []
+    cmd_lower = command.lower()
+    for pattern, description in _DANGEROUS_SHELL_PATTERNS:
+        if pattern in cmd_lower:
+            warnings.append(
+                f"Tool 'terminal' command matches dangerous pattern "
+                f"'{pattern}' ({description}). "
+                f"Verify this is intentional before executing."
+            )
+
+    return warnings
+
+
+# ── Orchestrator ────────────────────────────────────────────────────────────
+
+@dataclass
+class GuardResult:
+    """Result of tool-guard validation."""
+    ok: bool
+    risk: ToolRisk = ToolRisk.SYSTEM
+    warnings: list[str] = field(default_factory=list)
+    block_reason: str = ""
+
+
+def guard_tool_call(tool_name: str, args: dict) -> GuardResult:
+    """Run all poka-yoke validators on a tool call.
+
+    Called by strategy.pre_validate_tool_call() before dispatch.
+    Returns GuardResult — ok=False means the call should be blocked.
+    """
+    risk = classify_risk(tool_name)
+    warnings: list[str] = []
+
+    # 1. Relative-path detection (FILE_WRITE tools)
+    warnings.extend(_validate_relative_path(tool_name, args))
+
+    # 2. Dangerous shell patterns (terminal tool)
+    warnings.extend(_validate_dangerous_shell(tool_name, args))
+
+    if warnings:
+        for w in warnings:
+            logger.warning("ToolGuard [%s] risk=%s: %s", tool_name, risk.value, w)
+
+    return GuardResult(ok=True, risk=risk, warnings=warnings)

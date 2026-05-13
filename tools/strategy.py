@@ -353,10 +353,11 @@ def pre_validate_tool_call(tool_name: str, args: dict) -> PreValidationResult:
     """Run all pre-validation checks on a tool call before dispatch.
 
     Checks (in order):
-      1. Parameter size Ã¢ÂÂ reject oversized string arguments
-      2. Path safety Ã¢ÂÂ reject traversal / injection in file paths
+      1. Parameter size — reject oversized string arguments
+      2. Path safety — reject traversal / injection in file paths
+      3. Tool guard — risk classification + poka-yoke warnings
 
-    Returns ``PreValidationResult`` Ã¢ÂÂ ``ok=True`` means all checks passed.
+    Returns ``PreValidationResult`` — ``ok=True`` means all checks passed.
     The caller should short-circuit dispatch when ``ok=False``.
     """
     checks_run: list[str] = []
@@ -374,6 +375,13 @@ def pre_validate_tool_call(tool_name: str, args: dict) -> PreValidationResult:
     if err:
         logger.warning("Pre-validation FAIL [path_safety] tool=%s: %s", tool_name, err)
         return PreValidationResult(ok=False, error_message=err, tool_name=tool_name, checks_run=checks_run)
+
+    # 3. Tool guard — risk classification + poka-yoke (Phase XIV)
+    checks_run.append("tool_guard")
+    from agent.tool_guard import guard_tool_call
+    guard_result = guard_tool_call(tool_name, args)
+    # Poka-yoke warnings are non-blocking (logged by guard_tool_call).
+    # Future: DESTRUCTIVE-tier tools could be gated here with user confirmation.
 
     return PreValidationResult(ok=True, tool_name=tool_name, checks_run=checks_run)
 

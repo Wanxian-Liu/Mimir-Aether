@@ -1,11 +1,11 @@
 {
   "version": "1.4",
-  "last_session_end": "2026-05-13T18:58:57.976467+00:00",
-  "session_count": 94,
+  "last_session_end": "2026-05-13T19:31:28.990000+00:00",
+  "session_count": 76,
   "identity": {
     "name": "MimirAether",
     "soul": "智慧之泉",
-    "last_known_mission": "Phase XII Harness Engineering 熵管理 — 101技能 curatorial triage 激活"
+    "last_known_mission": "幽灵技能清理完成 → Hermes独立路线Phase I"
   },
   "memory": {
     "key_decisions": [
@@ -267,11 +267,10 @@
   "skill_usage": {
     "mimiraether-tool-triggers": "2026-05-11T04:54:06.477587+00:00",
     "mimiraether-plan-mode": "2026-05-11T04:54:06.478074+00:00",
-    "my-skill": "2026-05-13T18:59:08.050104+00:00",
+    "my-skill": "2026-05-13T19:31:23.431449+00:00",
     "mimiraether-skill_generator": "2026-05-11T05:08:00.769110+00:00",
-    "mimiraether-feishu-config-bridge": "2026-05-13T13:41:22.616911+00:00",
-    "skills-qa": "2026-05-14T02:35:00.000000+00:00"
+    "mimiraether-feishu-config-bridge": "2026-05-13T13:41:22.616911+00:00"
   },
-  "curator_nudge": "skill_curator: 101技能 | fresh=97 stale=4 dormant=0 | entropy=4.0% | lowest=mimiraether-auto-load(C/55)",
+  "curator_nudge": "skill_curator: 80技能 | fresh=80 stale=0 dormant=0",
   "dormant_skills": {}
 }
