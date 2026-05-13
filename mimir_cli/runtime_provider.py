@@ -177,7 +177,7 @@ def _resolve_runtime_from_pool_entry(
         # Only override when the pool entry has no explicit base_url (i.e. it
         # fell back to the hardcoded default).  Env var overrides win (#6039).
         pconfig = PROVIDER_REGISTRY.get(provider)
-        pool_url_is_default = pconfig and base_url.rstrip("/") == pconfig.inference_base_url.rstrip("/")
+        pool_url_is_default = pconfig and base_url.rstrip("/") == pconfig.get("inference_base_url", "").rstrip("/")
         if configured_provider == provider and pool_url_is_default:
             cfg_base_url = str(model_cfg.get("base_url") or "").strip().rstrip("/")
             if cfg_base_url:
@@ -604,10 +604,10 @@ def _resolve_explicit_runtime(
         }
 
     pconfig = PROVIDER_REGISTRY.get(provider)
-    if pconfig and pconfig.auth_type == "api_key":
+    if pconfig and pconfig.get("auth_type") == "api_key":
         env_url = ""
-        if pconfig.base_url_env_var:
-            env_url = os.getenv(pconfig.base_url_env_var, "").strip().rstrip("/")
+        if pconfig.get("base_url_env_var"):
+            env_url = os.getenv(pconfig["base_url_env_var"], "").strip().rstrip("/")
 
         base_url = explicit_base_url
         if not base_url:
@@ -615,7 +615,7 @@ def _resolve_explicit_runtime(
                 creds = resolve_api_key_provider_credentials(provider)
                 base_url = creds.get("base_url", "").rstrip("/")
             else:
-                base_url = env_url or pconfig.inference_base_url
+                base_url = env_url or pconfig.get("inference_base_url", "")
 
         api_key = explicit_api_key
         if not api_key:
@@ -664,14 +664,16 @@ def resolve_runtime_provider(
         custom_runtime["requested_provider"] = requested_provider
         return custom_runtime
 
-    provider = resolve_provider(
+    # resolve_provider() returns a dict with provider config, stored in provider_info
+    # (we still use requested_provider as the provider name string for comparisons)
+    provider_info = resolve_provider(
         requested_provider,
         explicit_api_key=explicit_api_key,
         explicit_base_url=explicit_base_url,
     )
     model_cfg = _get_model_config()
     explicit_runtime = _resolve_explicit_runtime(
-        provider=provider,
+        provider=requested_provider,
         requested_provider=requested_provider,
         model_cfg=model_cfg,
         explicit_api_key=explicit_api_key,
@@ -680,6 +682,8 @@ def resolve_runtime_provider(
     if explicit_runtime:
         return explicit_runtime
 
+    # requested_provider is the canonical provider name string for this function
+    provider = requested_provider
     should_use_pool = provider != "openrouter"
     if provider == "openrouter":
         cfg_provider = str(model_cfg.get("provider") or "").strip().lower()
@@ -838,7 +842,7 @@ def resolve_runtime_provider(
 
     # API-key providers (z.ai/GLM, Kimi, MiniMax, MiniMax-CN)
     pconfig = PROVIDER_REGISTRY.get(provider)
-    if pconfig and pconfig.auth_type == "api_key":
+    if pconfig and pconfig.get("auth_type") == "api_key":
         creds = resolve_api_key_provider_credentials(provider)
         # Honour model.base_url from config.yaml when the configured provider
         # matches this provider — mirrors the Anthropic path above.  Without
