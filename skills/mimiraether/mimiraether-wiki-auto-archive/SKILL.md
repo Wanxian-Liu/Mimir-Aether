@@ -1,20 +1,41 @@
 ---
-description: 当 Agent 从 learnings/ 引用知识时自动归档到 wiki。触发权在 Agent，无需用户指令。
+description: 当对话浮现可复用知识时自动归档到 wiki。覆盖 learnings 引用 + 追问深层原理 + 技术决策。触发权在 Agent，无需用户指令。L1 自动 / L2 询问。
 ---
 
 # mimiraether-wiki-auto-archive
 
-## 触发条件
+## 触发体系（分级）
 
-当以下条件同时满足时自动触发：
-1. Agent 使用 `search_files` 或 `read_file` 从 `learnings/` 目录读取了内容
-2. 该内容被用于回答用户问题
-3. 该知识点值得跨会话复用
+### L1 — 自动触发（零确认，直接落）
+
+| 触发条件 | 示例 |
+|----------|------|
+| 从 `learnings/` 搜到知识回答用户 | "Hermes context engine 怎么设计的？" |
+| **追问深度 ≥ 2 轮** — 用户对同一话题连续追问，AI 解释了深层原理 | "为什么 WebSocket 卡死？" → "那怎么防止？" → 归档 |
+| 明确的技术决策或设计模式 | "类型强制层为什么这样设计？" |
+
+### L2 — 询问确认（一句征求，用户点头就落）
+
+| 触发条件 | 示例 |
+|----------|------|
+| 一次性参考资料有长期价值 | "这个 GitHub issue 要点要存吗？" |
+| 工具/平台 API 的 quirks 或坑 | "飞书 API 这个限制值得记吗？" |
+| 用户明确说"记住这个" | 直接升级到 L1 自动 |
+
+### 不触发
+
+| 条件 | 理由 |
+|------|------|
+| 一句话问答 | 无沉淀价值 |
+| 临时调试/日志 | 时效性短 |
+| 纯闲聊 | 不相关 |
+| 已有 wiki 页覆盖 | 去重 |
 
 ## 工作流
 
 ```
-learnings/ 引用 → 回答用户 → 判断归档 → 落 wiki → 一行告知
+L1: 引用/追问 → 回答 → 自动落 wiki → 一行告知
+L2: 引用 → 回答 → 问一句 → 落或跳过
 ```
 
 ## 归档目标
@@ -25,6 +46,9 @@ learnings/ 引用 → 回答用户 → 判断归档 → 落 wiki → 一行告�
 | 架构概念/设计模式 | `~/wiki/concepts/{name}.md` |
 | Mimir vs Hermes 对比 | `~/wiki/comparisons/{name}.md` |
 | 决策记录 | `~/wiki/concepts/decision-{name}.md` |
+| 深层技术原理 (L1追问) | `~/wiki/concepts/{name}.md` |
+| 工具/平台 quirks | `~/wiki/entities/{tool}-{quirk}.md` |
+| 故障诊断经验 | `~/wiki/concepts/troubleshooting-{name}.md` |
 
 ## 页面模板
 
@@ -34,7 +58,7 @@ title: {标题}
 created: {日期}
 updated: {日期}
 type: entity | concept | comparison
-tags: [hermes, mimiraether, {领域}]
+tags: [{领域}]
 sources: [learnings/{源文件名}]
 ---
 
@@ -42,34 +66,17 @@ sources: [learnings/{源文件名}]
 {一句话}
 
 ## 核心要点
-{从 learnings 提取的关键信息}
+{从 learnings 或对话提取的关键信息}
 
-## 与 MimirAether 的关系
-{关联说明}
-
-## 参考
-- learnings/{源文件名}
+## 关联
+{与 MimirAether/其他模块/相关概念的关系}
 ```
-
-## 判断标准
-
-**归档** ✅：
-- 用户明确问到的 Hermes 概念/模块
-- 需要跨会话复用的技术决策
-- 可能再次引用的对比分析
-- 架构设计模式
-
-**不归档** ❌：
-- 一次性问答
-- 临时调试信息
-- 已知信息的重复
-- 纯闲聊内容
 
 ## 完成后
 
 追加到 `~/wiki/log.md`：
 ```
-## [{日期}] auto-archive | {页面名} ← learnings/{源文件}
+## [{日期}] auto-archive | {页面名} ← {来源: learnings/xxx 或 对话追问}
 ```
 
 更新 `~/wiki/index.md` 对应节。
@@ -78,5 +85,5 @@ sources: [learnings/{源文件名}]
 
 归档完成后简单告知（一行）：
 ```
-📝 wiki: {页面名} ← learnings/{源文件}
+📝 wiki: {页面名} ← {来源}
 ```
