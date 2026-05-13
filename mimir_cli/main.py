@@ -146,7 +146,7 @@ load_hermes_dotenv(project_env=PROJECT_ROOT / '.env')
 # Initialize centralized file logging early — all `mimir` subcommands
 # (chat, setup, gateway, config, etc.) write to agent.log + errors.log.
 try:
-    from hermes_logging import setup_logging as _setup_logging
+    from mimiraether_logging import setup_logging as _setup_logging
     _setup_logging(mode="cli")
 except Exception:
     pass  # best-effort — don't crash the CLI if logging setup fails
@@ -534,7 +534,7 @@ def _session_browse_picker(sessions: list) -> Optional[str]:
 def _resolve_last_cli_session() -> Optional[str]:
     """Look up the most recent CLI session ID from SQLite. Returns None if unavailable."""
     try:
-        from hermes_state import SessionDB
+        from mimir_state import SessionDB
         db = SessionDB()
         sessions = db.search_sessions(source="cli", limit=1)
         db.close()
@@ -660,7 +660,7 @@ def _resolve_session_by_name_or_id(name_or_id: str) -> Optional[str]:
     - Falls back to the other method if the first doesn't match.
     """
     try:
-        from hermes_state import SessionDB
+        from mimir_state import SessionDB
         db = SessionDB()
 
         # Try as exact session ID first
@@ -5525,7 +5525,7 @@ Examples:
     def cmd_sessions(args):
         import json as _json
         try:
-            from hermes_state import SessionDB
+            from mimir_state import SessionDB
             db = SessionDB()
         except Exception as e:
             print(f"Error: Could not open session database: {e}")
@@ -5691,7 +5691,7 @@ Examples:
 
     def cmd_insights(args):
         try:
-            from hermes_state import SessionDB
+            from mimir_state import SessionDB
             from agent.insights import InsightsEngine
 
             db = SessionDB()

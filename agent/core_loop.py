@@ -17,6 +17,8 @@ MimirAether Agent Core Loop
 """
 
 import asyncio
+import copy
+import functools
 import json
 import logging
 import os
@@ -111,7 +113,7 @@ if _enable_legacy_hermes_path and _hermes_root.exists():
         sys.path.append(hermes_path)
 
 try:
-    from mimcore.gateway.session import SessionDB
+    from mimir_state import SessionDB
 except ImportError:
     SessionDB = None
 
@@ -123,6 +125,7 @@ from . import anthropic_adapter
 # 集成凭证池模块
 from . import credential_pool
 from .credential_pool import CredentialPool, PooledCredential, create_credential
+from .smart_model_routing import resolve_turn_route
 # Async bridge: persistent event loops for safe sync-tool dispatch.
 # Imported from agent/async_bridge.py (Hermes pattern).
 # _tool_executor, resize_tool_pool, get_tool_loop, get_worker_loop
@@ -206,17 +209,16 @@ from .iteration_budget import IterationBudget
 
 # ── 工具注册表已统一到 tools/registry.py（Hermes 模式） ──
 # 本地 ToolRegistry 兼容层：委托到真正的 tools.registry.registry
-# 新代码应直接使用 tools.registry.registry 而非此兼容层。
+# ⚠️ DEPRECATED: 新代码应直接使用 tools.registry.registry 而非此兼容层。
+# 保留仅用于 agent/server.py 和 agent/__init__.py 向后兼容导出。
 import tools.registry as _tool_registry_module
 
 
 class ToolRegistry:
     """
-    工具注册表（兼容层）
-
-    委托到 tools.registry.registry，提供与旧代码兼容的接口。
-    工具通过 tools/ 目录下的模块自动注册（builtin.py, mimircore_tool.py 等），
-    不再需要在 agent 中手动注册。
+    ⚠️ DEPRECATED: 工具注册表兼容层。
+    委托到 tools.registry.registry，仅保留用于向后兼容。
+    新代码应直接使用 tools.registry.registry。
     """
 
     def __init__(self):
@@ -372,6 +374,8 @@ class MimirAetherAgent:
         session_db_factory: Optional[SessionDbClientFactory] = None,
         checkpoint_backend: Optional[CheckpointPersistencePort] = None,
         kernel_overrides: Optional[AgentKernelOverrides] = None,
+        enabled_toolsets: list = None,
+        disabled_toolsets: list = None,
     ):
         """
         初始化MimirAether Agent
@@ -404,6 +408,8 @@ class MimirAetherAgent:
         self.model = model
         self.max_iterations = max_iterations
         self.platform = platform
+        self.enabled_toolsets = enabled_toolsets or []
+        self.disabled_toolsets = disabled_toolsets or []
         self.system_prompt = system_prompt or self._default_system_prompt()
         self.save_trajectories = save_trajectories
 
@@ -445,7 +451,8 @@ class MimirAetherAgent:
             warning_threshold=0.3,
             critical_threshold=0.1,
         )
-        self.tool_registry = ToolRegistry()
+        # 工具注册已统一到 tools.registry.registry（Hermes 模式）
+        # 不再需要本地兼容层；直接使用全局 registry
         
         # 多层次错误恢复器（学习自Hermes 4层恢复策略）
         self.recovery = MultiLevelRecovery(
@@ -809,15 +816,77 @@ class MimirAetherAgent:
         else:
             return "https://api.deepseek.com"
 
-    def _resolve_api_config(self, model_name: str = None) -> Dict[str, Any]:
+    def _guess_provider(self, model_name: str) -> str:
+        """Guess provider from model name for routing purposes."""
+        ml = model_name.lower()
+        if any(x in ml for x in ("deepseek", "kimi", "moonshot")):
+            return "deepseek"
+        if any(x in ml for x in ("anthropic", "claude")):
+            return "anthropic"
+        if any(x in ml for x in ("openai", "gpt")):
+            return "openai"
+        return "deepseek"
+
+    def _load_smart_routing_config(self) -> dict:
+        """Load smart routing config from config.yaml or env."""
+        try:
+            import yaml as _y
+            from pathlib import Path
+            cfg_path = Path(__file__).parent.parent / "config.yaml"
+            if cfg_path.exists():
+                with open(cfg_path, encoding="utf-8") as _f:
+                    cfg = _y.safe_load(_f) or {}
+                return cfg.get("smart_model_routing", {}) or {}
+        except Exception:
+            pass
+        return {}
+
+    def _resolve_api_config(self, model_name: str = None, user_message: str = None) -> Dict[str, Any]:
         """
         解析API配置(统一方法)
 
         Returns:
-            dict with keys: api_key, base_url, is_anthropic, model_name
+            dict with keys: api_key, base_url, is_anthropic, model_name, route_label (optional)
         """
         if model_name is None:
             model_name = self.model
+
+        # Smart routing: 检查是否可以使用便宜模型
+        route_label = None
+        if user_message:
+            try:
+                routing_cfg = getattr(self, '_smart_routing_config', None)
+                if routing_cfg is None:
+                    routing_cfg = self._load_smart_routing_config()
+                    self._smart_routing_config = routing_cfg
+
+                primary = {
+                    "model": model_name,
+                    "provider": self._guess_provider(model_name),
+                    "api_key": self._get_api_key(),
+                    "base_url": self._get_model_base_url(),
+                }
+                route = resolve_turn_route(user_message, routing_cfg, primary)
+                if route.get("is_cheap"):
+                    logger.info(
+                        "Smart route: %s → %s (%s)",
+                        model_name, route["model"], route.get("label", "")
+                    )
+                    route_label = route.get("label")
+                    model_name = route["model"]
+                    # Override provider-specific config for cheap model
+                    api_key = route["runtime"].get("api_key") or self._get_api_key()
+                    base_url = route["runtime"].get("base_url") or self._get_model_base_url()
+                    is_anthropic = any(x in model_name.lower() for x in ["anthropic", "claude"])
+                    return {
+                        "api_key": api_key,
+                        "base_url": base_url,
+                        "is_anthropic": is_anthropic,
+                        "model_name": model_name,
+                        "route_label": route_label,
+                    }
+            except Exception as e:
+                logger.debug("Smart routing skipped: %s", e)
 
         api_key = self._get_api_key()
         base_url = self._get_model_base_url()
@@ -829,14 +898,15 @@ class MimirAetherAgent:
             "api_key": api_key,
             "base_url": base_url,
             "is_anthropic": is_anthropic,
-            "model_name": model_name
+            "model_name": model_name,
+            "route_label": route_label,
         }
 
     def _build_system_prompt(self) -> str:
         """使用prompt_builder构建完整的系统提示"""
         try:
             # 获取可用工具列表
-            available_tools = set(self.tool_registry.list_tools())
+            available_tools = set(_tool_registry_module.registry.get_all_tool_names())
 
             # MimirAether的skills目录
             mimir_root = Path(__file__).parent.parent
@@ -857,6 +927,47 @@ class MimirAetherAgent:
         except Exception as e:
             logger.warning(f"Failed to build system prompt with prompt_builder: {e}")
             return self._default_system_prompt()
+
+    def _build_system_prompt_parts(self) -> dict:
+        """构建分层系统提示，用于跨会话前缀缓存。
+        
+        返回 {"stable": str, "context": str, "volatile": str}
+        仅当模型支持 Anthropic prefix cache 时有意义。
+        """
+        try:
+            available_tools = set(_tool_registry_module.registry.get_all_tool_names())
+            mimir_root = Path(__file__).parent.parent
+            skills_dir = str(mimir_root / "skills")
+
+            return prompt_builder.build_system_prompt_parts(
+                model=self.model,
+                cwd=os.getcwd(),
+                available_tools=available_tools,
+                platform=self.platform,
+                include_skills=True,
+                include_context=True,
+                skills_dirs=[skills_dir],
+            )
+        except Exception as e:
+            logger.warning(f"Failed to build system prompt parts: {e}")
+            # 回退：把整个system_prompt当stable
+            return {"stable": self.system_prompt, "context": "", "volatile": ""}
+
+    def _supports_prefix_cache(self, model_name: str = None, base_url: str = None, is_anthropic: bool = None) -> bool:
+        """判断当前配置是否支持跨会话 prefix cache。
+        
+        条件：Claude + (Anthropic原生API 或 OpenRouter/Nous)
+        """
+        m = (model_name or self.model or "").lower()
+        if "claude" not in m:
+            return False
+        
+        if is_anthropic is not None:
+            return is_anthropic
+        
+        # 从API配置推断
+        api_config = self._resolve_api_config(m)
+        return api_config.get("is_anthropic", False)
 
     def _register_builtin_tools(self):
         """注册内置工具（Hermes 模式：工具通过模块导入自注册）
@@ -896,9 +1007,25 @@ class MimirAetherAgent:
             from skills.skills_loader import skill_view as _skill_view_func, skills_list as _skills_list_func
             from skills.skills_loader import skill_manage as _skill_manage_func
 
-            self.tool_registry.register("skill_view", _skill_view_func, SKILL_TOOL_SCHEMAS.get("skill_view", {}))
-            self.tool_registry.register("skills_list", _skills_list_func, SKILL_TOOL_SCHEMAS.get("skills_list", {}))
-            self.tool_registry.register("skill_manage", _skill_manage_func, SKILL_MANAGE_SCHEMA)
+            # 直接注册到 tools.registry.registry（Hermes 模式，toolset="skills"）
+            _tool_registry_module.registry.register(
+                name="skill_view",
+                toolset="skills",
+                schema=SKILL_TOOL_SCHEMAS["skill_view"],
+                handler=lambda args, **kw: _skill_view_func(**args),
+            )
+            _tool_registry_module.registry.register(
+                name="skills_list",
+                toolset="skills",
+                schema=SKILL_TOOL_SCHEMAS["skills_list"],
+                handler=lambda args, **kw: _skills_list_func(**args),
+            )
+            _tool_registry_module.registry.register(
+                name="skill_manage",
+                toolset="skills",
+                schema=SKILL_MANAGE_SCHEMA,
+                handler=lambda args, **kw: _skill_manage_func(**args),
+            )
 
             logger.info("Registered skill tools: skill_view, skills_list, skill_manage")
         except ImportError as e:
@@ -1049,10 +1176,7 @@ class MimirAetherAgent:
         2. 尝试标准化(下划线替代连字符/空格)
         3. 尝试模糊匹配
         """
-        if not hasattr(self, 'tool_registry'):
-            return None
-
-        valid_names = set(self.tool_registry.list_tools())
+        valid_names = set(_tool_registry_module.registry.get_all_tool_names())
         if not valid_names:
             return None
 
@@ -1322,7 +1446,10 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
 
         return response
 
-    async def run_conversation(self, user_message: str) -> str:
+    async def run_conversation(
+        self, user_message: str,
+        conversation_history: List[Dict[str, Any]] = None,
+    ) -> str:
         """
         完整对话运行
 
@@ -1331,13 +1458,55 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
         - 调用模型API(带超时控制)
         - 处理工具调用
         - 管理迭代预算
+        
+        Args:
+            user_message: 当前用户消息
+            conversation_history: 前置对话历史（从gateway transcript加载）
+                gateway格式: [{"role": "user"|"assistant"|"tool", "content": ..., ...}, ...]
+                仅有 {"role", "content"} 键的消息（纯文本user/assistant）会被注入。
+                包含 tool_calls/tool_call_id 的复杂消息被跳过（Mimir本身不管理工具序列）。
         """
         # 生成会话ID(用于Insights追踪)
         session_id = str(uuid.uuid4())
-
+        
+        # 暴露 SESSION_ID 给工具层: execute_code/terminal/session_search
+        # 等工具可通过 os.environ 获知自己所属 session
+        # 同时设置 HERMES_SESSION_ID 以兼容继承的 Hermes 工具链
+        os.environ["MIMIR_SESSION_ID"] = session_id
+        os.environ["HERMES_SESSION_ID"] = session_id
+        
         # 开始轨迹记录
         if self.save_trajectories:
             self._start_trajectory()
+        
+        # ── 注入前置对话历史（C1 飞书对话体验） ──
+        # 从gateway transcript加载的历史消息，仅注入纯文本user/assistant轮次
+        # 含 tool_calls 或 tool 角色的消息被跳过（Mimir自行管理工具调用）
+        if conversation_history:
+            injected = 0
+            for hmsg in conversation_history:
+                role = hmsg.get("role", "")
+                if role not in ("user", "assistant"):
+                    continue
+                content = hmsg.get("content", "")
+                if not content:
+                    continue
+                if "tool_calls" in hmsg or "tool_call_id" in hmsg:
+                    continue
+                # 跳过系统提示类消息（gateway可能注入）
+                if role == "assistant" and content.startswith("["):
+                    if content.startswith("[System") or content.startswith("[Gateway"):
+                        continue
+                self.conversation_history.append(Message(
+                    role=MessageRole.USER if role == "user" else MessageRole.ASSISTANT,
+                    content=content
+                ))
+                injected += 1
+            if injected:
+                logger.info(
+                    f"[C1] Injected {injected} prior messages from conversation_history "
+                    f"(skipped {len(conversation_history) - injected} non-text)"
+                )
 
         # 用MemoryFencer隔离用户消息(防止注入)
         fenced_msg = self.fencer.fence(user_message)
@@ -1496,13 +1665,17 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
 
                 # 用ContextCompressor压缩长对话
                 if self.compressor.needs_compression(messages):
-                    compressed_messages, comp_result = self.compressor.compress(messages)
-                    logger.info(
-                        f"Compressed {comp_result.original_count} -> "
-                        f"{comp_result.compressed_count} messages "
-                        f"(ratio: {comp_result.compressed_tokens/comp_result.original_tokens:.2f})" if comp_result.original_tokens > 0 else "(no ratio)"
-                    )
-                    messages = compressed_messages
+                    # 预检：无内容可压缩时跳过 LLM 摘要调用（节省 token 成本）
+                    if not self.compressor.has_content_to_compress(messages):
+                        logger.debug("Preflight: nothing to compress (all in protected zone)")
+                    else:
+                        compressed_messages, comp_result = self.compressor.compress(messages)
+                        logger.info(
+                            f"Compressed {comp_result.original_count} -> "
+                            f"{comp_result.compressed_count} messages "
+                            f"(ratio: {comp_result.compressed_tokens/comp_result.original_tokens:.2f})" if comp_result.original_tokens > 0 else "(no ratio)"
+                        )
+                        messages = compressed_messages
 
                 # Plugin hook: pre_llm_call
                 # 在LLM调用前执行,允许插件注入上下文
@@ -1855,14 +2028,36 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 except Exception as e:
                     logger.warning(f'[CrossSession] End session failed: {e}')
 
+            # B3 自进化闭环：session 结束时的健康快照
+            # ============================================================
+            try:
+                from agent.monitor_collector import get_monitor
+                monitor = get_monitor()
+                # 记录 session 结束事件
+                monitor.metrics.increment("sessions_completed")
+                report = monitor.quick_check()
+                logger.info(
+                    "[B3闭环] Session health snapshot: status=%s anomalies=%d",
+                    report.status.value, len(report.anomalies),
+                )
+                if report.anomalies:
+                    for a in report.anomalies:
+                        logger.warning("[B3闭环] Anomaly: %s | %s", a.metric_name, a.message)
+            except Exception as e:
+                logger.debug("[B3闭环] Health check unavailable: %s", e)
+
     def _build_full_messages(self) -> List[Dict]:
-        """构建完整消息列表(用于API调用)"""
+        """构建完整消息列表(用于API调用)
+
+        注意：跨会话前缀缓存（multi-block system + cache_control）不在此处处理，
+        而是在 _builtin_call_model_with_tokens 的 Anthropic 路径中按需注入。
+        """
         messages = []
 
-        # 系统提示
+        # 系统提示（单字符串，非多block）
         messages.append({
             "role": "system",
-            "content": self.system_prompt
+            "content": self.system_prompt,
         })
 
         # 检测是否需要reasoning_content传播(DeepSeek V4 Pro等模型需要)
@@ -1944,7 +2139,15 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
 
         # 1. 解析API配置(只做一次)
         model_name = self.model if hasattr(self, 'model') and self.model else os.environ.get("LLM_MODEL", "deepseek-chat")
-        api_config = self._resolve_api_config(model_name)
+        # Extract last user message for smart routing
+        _user_msg = ""
+        for m in reversed(messages):
+            if m.get("role") == "user":
+                _user_msg = m.get("content", "") or ""
+                if isinstance(_user_msg, list):
+                    _user_msg = " ".join(p.get("text", "") for p in _user_msg if isinstance(p, dict) and p.get("type") == "text")
+                break
+        api_config = self._resolve_api_config(model_name, user_message=_user_msg)
         api_key = api_config["api_key"]
         base_url = api_config["base_url"]
         is_anthropic = api_config["is_anthropic"]
@@ -1962,14 +2165,38 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
         max_output_tokens = model_metadata.get_anthropic_max_output(model_name) if "claude" in model_name.lower() else 4096
         max_tokens = min(max_output_tokens, context_length // 4) if context_length else 4096
 
-        # 3. 构建工具schemas（使用统一 registry，Hermes 模式）
+        # 3. 构建工具schemas（使用 toolset 解析，支持 includes + 启用/禁用）
+        from tools.toolsets import resolve_enabled_tools
+        tool_names = resolve_enabled_tools(
+            self.enabled_toolsets or None,
+            disabled=self.disabled_toolsets or None,
+        )
         tool_schemas = _tool_registry_module.registry.get_definitions(
-            set(_tool_registry_module.registry.get_all_tool_names())
+            set(tool_names)
         )
 
         # 4. 分发到具体调用路径
         # 路径A: Anthropic API
         if is_anthropic:
+            # 应用跨会话前缀缓存（仅Claude + Anthropic/OpenRouter）
+            if self._supports_prefix_cache(model_name, base_url, is_anthropic=True):
+                # 重建system为多block结构 → 标记stable prefix 1h
+                parts = self._build_system_prompt_parts()
+                new_content = []
+                if parts.get("stable"):
+                    new_content.append({"type": "text", "text": parts["stable"]})
+                if parts.get("context"):
+                    new_content.append({"type": "text", "text": parts["context"]})
+                if parts.get("volatile"):
+                    new_content.append({"type": "text", "text": parts["volatile"]})
+                if new_content:
+                    messages = copy.deepcopy(messages)
+                    messages[0]["content"] = new_content
+                # 注入 cache_control 断点
+                from agent.prompt_caching import apply_prefix_cache
+                messages = apply_prefix_cache(
+                    messages, long_ttl="1h", rolling_ttl="5m",
+                )
             return await self._call_anthropic_api(
                 model_name=model_name,
                 messages=messages,
@@ -2263,6 +2490,15 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
             tool_calls: 工具调用列表
             turn: 当前轮次(用于错误记录)
         """
+        # Tool progress: notify user tools are running
+        _tool_labels = []
+        for tc in tool_calls:
+            fn_name = _get_tool_name(tc) or "unknown"
+            _tool_labels.append(fn_name)
+        _progress_msg = f"🔧 执行工具: {', '.join(_tool_labels[:4])}{'...' if len(_tool_labels) > 4 else ''}"
+        if _tool_labels:
+            self._fire_stream_delta(_progress_msg + "\n")
+
         # 检查是否被中断
         if self._interrupt_requested:
             logger.info("Tool execution skipped: interrupt requested — returning error placeholders for %d tool(s)", len(tool_calls))
@@ -2373,6 +2609,14 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 ))
             else:
                 processed_results.append(result)
+
+        # Tool completion summary
+        _ok_count = sum(1 for r in processed_results if not r.is_error)
+        _err_count = sum(1 for r in processed_results if r.is_error)
+        if _err_count > 0:
+            self._fire_stream_delta(f"⚠️ {_ok_count}成功 {_err_count}失败\n")
+        elif _ok_count > 0:
+            self._fire_stream_delta(f"✅ 已完成 ({_ok_count}个工具)\n")
 
         return processed_results
 
@@ -2561,20 +2805,28 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                     is_error=True,
                 )
 
+            # 类型强制：LLM常见类型不匹配 → 强制对齐JSON Schema
+            from model_tools import coerce_tool_args
+            arguments = coerce_tool_args(func_name, arguments)
+
             # ── 统一 dispatch：通过 tools.registry.registry.dispatch() ──
             # dispatch() 返回 JSON 字符串，统一处理错误格式。
             # Sync handler 在线程池中运行以避免阻塞 event loop。
+            # parent_agent=self 通过 partial 绑定，避免 run_in_executor 不支持 kwargs。
             entry = _tool_registry_module.registry._tools.get(func_name)
             if entry is not None and not entry.is_async:
+                _dispatch_bound = functools.partial(
+                    _tool_registry_module.registry.dispatch,
+                    func_name, arguments,
+                    parent_agent=self,
+                )
                 loop = asyncio.get_event_loop()
                 result = await loop.run_in_executor(
                     _tool_executor,
-                    _tool_registry_module.registry.dispatch,
-                    func_name,
-                    arguments,
+                    _dispatch_bound,
                 )
             else:
-                result = _tool_registry_module.registry.dispatch(func_name, arguments)
+                result = _tool_registry_module.registry.dispatch(func_name, arguments, parent_agent=self)
 
             # Plugin hook: post_tool_call
             # 在工具调用后执行

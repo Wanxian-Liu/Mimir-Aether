@@ -537,7 +537,7 @@ class SessionStore:
     Message transcripts default to legacy JSONL files per session.
 
     When ``transcript_session_db`` is set (typically the gateway runner's shared
-    ``hermes_state.SessionDB``), ``append_to_transcript`` also appends to SQLite
+    ``mimir_state.SessionDB``), ``append_to_transcript`` also appends to SQLite
     unless ``skip_db=True`` — aligning gateway JSONL with Hermes-compatible storage.
     ``rewrite_transcript`` overwrites JSONL and, when ``_db`` is set, calls
     ``clear_messages(session_id)`` then re-appends each message (same mapping as

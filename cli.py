@@ -233,7 +233,8 @@ def cmd_status(args):
     
     try:
         agent = MimirAetherAgent()
-        tools = agent.tool_registry.list_tools()
+        from tools.registry import registry
+        tools = registry.get_all_tool_names()
         print(f"  内置工具:   {len(tools)} 个")
         if args.verbose:
             for tool in tools[:15]:
@@ -2485,7 +2486,7 @@ def cmd_debug(args):
         
         elif test_name == 'import':
             print("\n🔄 测试模块导入...")
-            modules = ["mimiraether_logging", "hermes_logging", "cron"]
+            modules = ["mimiraether_logging", "cron"]
             for mod in modules:
                 try:
                     __import__(mod)

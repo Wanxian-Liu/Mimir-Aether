@@ -573,7 +573,7 @@ class GatewayRunner:
                 self._session_db = None
         else:
             try:
-                from hermes_state import SessionDB
+                from mimir_state import SessionDB
                 self._session_db = SessionDB()
             except Exception as e:
                 logger.debug("SQLite session store not available: %s", e)
@@ -6331,7 +6331,7 @@ class GatewayRunner:
                 own_db = False
                 db = self._session_db
                 if db is None:
-                    from hermes_state import SessionDB
+                    from mimir_state import SessionDB
 
                     db = SessionDB()
                     own_db = True
@@ -9115,7 +9115,7 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
     # Centralized logging — agent.log (INFO+), errors.log (WARNING+),
     # and gateway.log (INFO+, gateway-component records only).
     # Idempotent, so repeated calls from AIAgent.__init__ won't duplicate.
-    from hermes_logging import setup_logging
+    from mimiraether_logging import setup_logging
     setup_logging(hermes_home=_hermes_home, mode="gateway")
 
     # Optional stderr handler — level driven by -v/-q flags on the CLI.

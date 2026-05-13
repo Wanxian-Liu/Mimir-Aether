@@ -15,6 +15,7 @@ class AIAgent:
         self,
         platform: str = "acp",
         enabled_toolsets: Optional[List[str]] = None,
+        disabled_toolsets: Optional[List[str]] = None,
         quiet_mode: bool = True,
         session_id: str = "",
         model: str = "",
@@ -30,6 +31,7 @@ class AIAgent:
     ) -> None:
         self.platform = platform
         self.enabled_toolsets = enabled_toolsets or []
+        self.disabled_toolsets = disabled_toolsets or []
         self.quiet_mode = quiet_mode
         self.session_id = session_id
         self.model = model or "deepseek/deepseek-v4-pro"
@@ -101,6 +103,8 @@ class AIAgent:
                 step_callback=self.step_callback,
                 tool_progress_callback=self.tool_progress_callback,
                 thinking_callback=self.thinking_callback,
+                enabled_toolsets=self.enabled_toolsets or None,
+                disabled_toolsets=self.disabled_toolsets or None,
             )
         return self._real_agent
 
@@ -130,7 +134,11 @@ class AIAgent:
             import asyncio
             
             # MimirAetherAgent.run_conversation is async, returns str
-            response = asyncio.run(agent.run_conversation(user_message))
+            # C1: 传递前置对话历史以保持飞书多轮连续性
+            response = asyncio.run(agent.run_conversation(
+                user_message,
+                conversation_history=conversation_history,
+            ))
             
             return {
                 "final_response": response,

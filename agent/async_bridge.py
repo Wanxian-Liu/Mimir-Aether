@@ -99,13 +99,53 @@ def run_async(coro):
     except RuntimeError:
         running_loop = None
 
-    if running_loop is not None:
-        # Inside an async context — can't use run_until_complete() on a
-        # running loop. Run the coroutine in a separate thread via the
-        # global tool executor (reuses pool, unlike Hermes which creates
-        # a single-use ThreadPoolExecutor per call).
-        future = _tool_executor.submit(asyncio.run, coro)
-        return future.result(timeout=300)
+    if running_loop and running_loop.is_running():
+        # Inside a running event loop — can't use run_until_complete().
+        # Spawn a fresh thread with its own persistent event loop so:
+        #   - cached httpx/AsyncOpenAI clients stay bound to a live loop
+        #   - the loop lives for the coroutine's full lifetime
+        #   - on timeout we cancel the coroutine inside its own loop
+        #     so the worker thread can wind down instead of leaking.
+        worker_loop: asyncio.AbstractEventLoop | None = None
+        loop_ready = threading.Event()
+
+        def _run_in_worker():
+            nonlocal worker_loop
+            worker_loop = asyncio.new_event_loop()
+            loop_ready.set()
+            try:
+                asyncio.set_event_loop(worker_loop)
+                return worker_loop.run_until_complete(coro)
+            finally:
+                # Cancel pending tasks so the loop can close cleanly
+                try:
+                    pending = asyncio.all_tasks(worker_loop)
+                    for t in pending:
+                        t.cancel()
+                    if pending:
+                        worker_loop.run_until_complete(
+                            asyncio.gather(*pending, return_exceptions=True)
+                        )
+                except Exception:
+                    pass
+                worker_loop.close()
+
+        pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        future = pool.submit(_run_in_worker)
+        try:
+            return future.result(timeout=300)
+        except concurrent.futures.TimeoutError:
+            # Cancel the coroutine inside its own loop so the worker
+            # thread can wind down instead of running forever.
+            if loop_ready.wait(timeout=1.0) and worker_loop is not None:
+                try:
+                    for t in asyncio.all_tasks(worker_loop):
+                        worker_loop.call_soon_threadsafe(t.cancel)
+                except RuntimeError:
+                    pass
+            raise
+        finally:
+            pool.shutdown(wait=False)
     else:
         # Worker thread (non-main thread without running loop) — use a
         # per-thread persistent loop to avoid contention with the main
