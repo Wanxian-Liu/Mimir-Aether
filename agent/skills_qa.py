@@ -25,6 +25,13 @@ class IssueSeverity(Enum):
     INFO = "info"       # 参考信息
 
 
+class SkillHealth(Enum):
+    """技能健康状态（熵管理分类）"""
+    FRESH = "fresh"        # 活跃：<30天 且 质量≥70
+    STALE = "stale"        # 陈旧：30-90天 或 质量下降
+    DORMANT = "dormant"   # 休眠：>90天 或 质量<40
+
+
 @dataclass
 class SkillIssue:
     """技能问题记录"""
@@ -78,6 +85,47 @@ class SkillQAReport:
         )
 
 
+@dataclass
+class SkillQualityScore:
+    """技能质量评分（0-100）"""
+    skill_name: str
+    freshness: int = 0       # 0-25: 基于最后修改时间
+    completeness: int = 0    # 0-25: 必需字段+可选字段+正文
+    depth: int = 0           # 0-25: 内容长度
+    structure: int = 0       # 0-25: 章节/代码块/示例
+    total: int = 0           # 0-100
+
+    def grade(self) -> str:
+        if self.total >= 80:
+            return "A"
+        elif self.total >= 60:
+            return "B"
+        elif self.total >= 40:
+            return "C"
+        else:
+            return "D"
+
+
+@dataclass
+class CuratorReport:
+    """技能策展报告（熵管理输出）"""
+    skills_dir: str
+    total: int = 0
+    fresh: int = 0
+    stale: int = 0
+    dormant: int = 0
+    quality_scores: Dict[str, SkillQualityScore] = field(default_factory=dict)
+    drift_warnings: Dict[str, List[str]] = field(default_factory=dict)
+    curator_nudge: Optional[str] = None  # 主动提醒消息
+
+    @property
+    def entropy_ratio(self) -> float:
+        """熵比例：非 fresh 技能占比"""
+        if self.total == 0:
+            return 0.0
+        return (self.stale + self.dormant) / self.total
+
+
 class SkillsQA:
     """技能质量保障系统"""
     
@@ -120,21 +168,22 @@ class SkillsQA:
         return True, issues
     
     def discover_skills(self) -> List[str]:
-        """发现所有技能目录
-        
+        """发现所有技能目录（递归搜索 SKILL.md）
+
         技能目录特征：包含 SKILL.md 文件的目录
-        
+
         Returns:
-            List[str]: 技能名称列表
+            List[str]: 技能目录相对路径列表
         """
         skills = []
         if not self.skills_dir.exists():
             return skills
-        
-        for item in self.skills_dir.iterdir():
-            if item.is_dir() and (item / "SKILL.md").exists():
-                skills.append(item.name)
-        
+
+        for skill_md in self.skills_dir.rglob("SKILL.md"):
+            skill_dir = skill_md.parent
+            rel_path = str(skill_dir.relative_to(self.skills_dir))
+            skills.append(rel_path)
+
         return sorted(skills)
     
     def validate_skill_md(self, skill_name: str) -> Tuple[bool, Optional[Dict], List[SkillIssue]]:
@@ -561,6 +610,279 @@ class SkillsQA:
         except Exception:
             return False
 
+    # ─── Entropy Management ──────────────────────────────────────────
+
+    # 质量评分权重
+    FRESHNESS_WEIGHT = 25
+    COMPLETENESS_WEIGHT = 25
+    DEPTH_WEIGHT = 25
+    STRUCTURE_WEIGHT = 25
+
+    # 深度阈值（字符数）
+    DEPTH_TIERS = [
+        (5000, 25),   # 5000+ = 满分
+        (2000, 20),   # 2000+ = 20
+        (1000, 15),   # 1000+ = 15
+        (500, 10),    # 500+  = 10
+        (200, 5),     # 200+  = 5
+    ]
+
+    # 新鲜度阈值
+    FRESH_THRESHOLD_DAYS = 30    # 新鲜
+    STALE_THRESHOLD_DAYS = 90    # 陈旧上限
+    DORMANT_THRESHOLD_DAYS = 180 # 休眠
+
+    # 质量分类阈值
+    FRESH_QUALITY_MIN = 70
+    STALE_QUALITY_MIN = 40
+
+    def score_skill_quality(self, skill_name: str) -> SkillQualityScore:
+        """评分单个技能的质量（0-100）
+
+        四个维度各 25 分：新鲜度 / 完整度 / 深度 / 结构
+        """
+        score = SkillQualityScore(skill_name=skill_name)
+        skill_md = self.skills_dir / skill_name / "SKILL.md"
+
+        if not skill_md.exists():
+            return score
+
+        content = skill_md.read_text(encoding="utf-8")
+        try:
+            metadata, body = self._parse_yaml_frontmatter(content)
+        except Exception:
+            metadata, body = None, content
+
+        mtime = skill_md.stat().st_mtime
+        days_since = int((time.time() - mtime) / (24 * 3600))
+
+        # 1. Freshness (0-25)
+        if days_since <= self.FRESH_THRESHOLD_DAYS:
+            score.freshness = 25
+        elif days_since <= self.STALE_THRESHOLD_DAYS:
+            score.freshness = 15
+        elif days_since <= self.DORMANT_THRESHOLD_DAYS:
+            score.freshness = 5
+        else:
+            score.freshness = 0
+
+        # 2. Completeness (0-25)
+        if metadata:
+            has_required = all(f in metadata for f in self.REQUIRED_META_FIELDS)
+            has_optional = sum(1 for f in self.OPTIONAL_META_FIELDS if f in metadata)
+            has_body = bool(body and body.strip())
+
+            score.completeness = 10 if has_required else 0
+            score.completeness += min(has_optional * 3, 9)
+            score.completeness += 6 if has_body else 0
+        else:
+            score.completeness = 0
+
+        # 3. Depth (0-25)
+        body_len = len(body.strip()) if body else 0
+        for threshold, points in self.DEPTH_TIERS:
+            if body_len >= threshold:
+                score.depth = points
+                break
+        else:
+            score.depth = 0 if body_len == 0 else 2
+
+        # 4. Structure (0-25)
+        structure_score = 0
+        # 有章节标题（## 开头）
+        if body:
+            h2_count = body.count('\n## ')
+            h3_count = body.count('\n### ')
+            structure_score += min(h2_count, 3) * 3  # 最多9分
+            structure_score += min(h3_count, 4) * 2  # 最多8分
+            # 有代码块
+            if '```' in body:
+                structure_score += 5
+            # 有列表
+            if '\n- ' in body or '\n* ' in body:
+                structure_score += 3
+        score.structure = min(structure_score, 25)
+
+        score.total = score.freshness + score.completeness + score.depth + score.structure
+        return score
+
+    def detect_drift(self, skill_name: str) -> List[str]:
+        """检测技能漂移——内容是否偏离声明用途
+
+        Returns:
+            List[str]: 漂移警告列表（空=无漂移）
+        """
+        warnings = []
+        skill_md = self.skills_dir / skill_name / "SKILL.md"
+
+        if not skill_md.exists():
+            return warnings
+
+        content = skill_md.read_text(encoding="utf-8")
+        try:
+            metadata, body = self._parse_yaml_frontmatter(content)
+        except Exception:
+            return warnings
+
+        if not metadata or not body:
+            return warnings
+
+        description = metadata.get("description", "")
+        if not description:
+            warnings.append("No description to compare against — can't detect drift")
+            return warnings
+
+        body_lower = body.lower()
+        desc_lower = description.lower()
+
+        # 提取描述中的关键词
+        keywords = [w.strip('.,;:()[]{}"\'') for w in desc_lower.split()
+                    if len(w.strip('.,;:()[]{}"\'')) > 3]
+
+        # 计算关键词在正文中的出现率
+        if keywords:
+            found = sum(1 for kw in keywords if kw in body_lower)
+            hit_rate = found / len(keywords)
+
+            if hit_rate < 0.3:
+                warnings.append(
+                    f"Drift: only {found}/{len(keywords)} description keywords "
+                    f"({hit_rate:.0%}) found in body — content may have diverged"
+                )
+            elif hit_rate < 0.5:
+                warnings.append(
+                    f"Mild drift: {found}/{len(keywords)} description keywords "
+                    f"({hit_rate:.0%}) in body"
+                )
+
+        # 描述声称"详细"但正文很短
+        depth_indicators = ["detailed", "comprehensive", "complete", "in-depth", "full"]
+        if any(w in desc_lower for w in depth_indicators):
+            body_len = len(body.strip())
+            if body_len < 500:
+                warnings.append(
+                    f"Drift: description claims depth but body is only {body_len} chars"
+                )
+
+        return warnings
+
+    def classify_curator(
+        self,
+        skill_name: str,
+        quality_score: SkillQualityScore,
+        days_since_update: int,
+    ) -> SkillHealth:
+        """策展分类：fresh / stale / dormant"""
+        if days_since_update <= self.FRESH_THRESHOLD_DAYS and quality_score.total >= self.FRESH_QUALITY_MIN:
+            return SkillHealth.FRESH
+        elif days_since_update <= self.STALE_THRESHOLD_DAYS and quality_score.total >= self.STALE_QUALITY_MIN:
+            return SkillHealth.STALE
+        else:
+            return SkillHealth.DORMANT
+
+    def run_entropy_check(self) -> CuratorReport:
+        """执行完整熵管理审计
+
+        Returns:
+            CuratorReport: 包含质量评分、漂移检测、策展分类
+        """
+        report = CuratorReport(skills_dir=str(self.skills_dir))
+        skills = self.discover_skills()
+        report.total = len(skills)
+
+        for skill_name in skills:
+            skill_md = self.skills_dir / skill_name / "SKILL.md"
+
+            # 质量评分
+            qscore = self.score_skill_quality(skill_name)
+            report.quality_scores[skill_name] = qscore
+
+            # 漂移检测
+            drift_warnings = self.detect_drift(skill_name)
+            if drift_warnings:
+                report.drift_warnings[skill_name] = drift_warnings
+
+            # 策展分类
+            if skill_md.exists():
+                days_since = int((time.time() - skill_md.stat().st_mtime) / (24 * 3600))
+            else:
+                days_since = 999
+            health = self.classify_curator(skill_name, qscore, days_since)
+
+            if health == SkillHealth.FRESH:
+                report.fresh += 1
+            elif health == SkillHealth.STALE:
+                report.stale += 1
+            else:
+                report.dormant += 1
+
+        # 生成 curator_nudge
+        if report.stale + report.dormant > 0:
+            nudge_parts = []
+            if report.stale > 0:
+                nudge_parts.append(f"{report.stale} stale")
+            if report.dormant > 0:
+                nudge_parts.append(f"{report.dormant} dormant")
+
+            # 挑出最低分技能
+            if report.quality_scores:
+                worst = min(report.quality_scores.values(),
+                           key=lambda s: s.total)
+                nudge_parts.append(
+                    f"lowest: {worst.skill_name} ({worst.total}/100 grade {worst.grade()})"
+                )
+
+            report.curator_nudge = (
+                f"Entropy alert: {', '.join(nudge_parts)} | "
+                f"Run entropy_check() to triage"
+            )
+
+        return report
+
+    def print_curator_report(self, report: CuratorReport = None):
+        """打印策展报告"""
+        if report is None:
+            report = self.run_entropy_check()
+
+        print(f"\nSkills Curator Report (Entropy Audit)")
+        print("=" * 55)
+        print(f"Total: {report.total} | Fresh: {report.fresh} | "
+              f"Stale: {report.stale} | Dormant: {report.dormant}")
+        print(f"Entropy Ratio: {report.entropy_ratio:.1%}")
+        print("-" * 55)
+
+        # 质量分布
+        grades = {"A": 0, "B": 0, "C": 0, "D": 0}
+        for qs in report.quality_scores.values():
+            grades[qs.grade()] += 1
+        print(f"Quality: A={grades['A']} B={grades['B']} "
+              f"C={grades['C']} D={grades['D']}")
+
+        # 漂移警告
+        if report.drift_warnings:
+            print(f"\nDrift Warnings ({len(report.drift_warnings)} skills):")
+            for skill, warnings in report.drift_warnings.items():
+                for w in warnings:
+                    print(f"  ⚠ {skill}: {w}")
+
+        # 低分技能 Top 5
+        if report.quality_scores:
+            sorted_scores = sorted(
+                report.quality_scores.values(),
+                key=lambda s: s.total
+            )[:5]
+            print(f"\nLowest Quality (bottom 5):")
+            for qs in sorted_scores:
+                print(f"  {qs.grade()} {qs.skill_name}: {qs.total}/100 "
+                      f"(F{qs.freshness}/C{qs.completeness}/"
+                      f"D{qs.depth}/S{qs.structure})")
+
+        # 策展建议
+        if report.curator_nudge:
+            print(f"\n📋 {report.curator_nudge}")
+
+    # ─── End Entropy Management ──────────────────────────────────────
+
 
 # CLI 入口
 def main():
@@ -595,10 +917,37 @@ def main():
         action="store_true",
         help="Show only expired skills"
     )
+    parser.add_argument(
+        "--entropy", "-e",
+        action="store_true",
+        help="Run entropy audit (quality scores + drift detection + curator triage)"
+    )
+    parser.add_argument(
+        "--ghosts", "-g",
+        action="store_true",
+        help="Detect ghost skills (empty shells, no frontmatter, no description)"
+    )
     
     args = parser.parse_args()
     
     qa = SkillsQA(skills_dir=args.dir)
+
+    if args.entropy:
+        report = qa.run_entropy_check()
+        if args.quiet:
+            print(f"Fresh: {report.fresh} Stale: {report.stale} "
+                  f"Dormant: {report.dormant} | Entropy: {report.entropy_ratio:.1%}")
+        else:
+            qa.print_curator_report(report)
+        if args.json:
+            _export_entropy_json(qa, report, args.json)
+        return
+
+    if args.ghosts:
+        ghosts = qa.detect_ghost_skills()
+        qa.print_ghost_report(ghosts)
+        return
+
     report = qa.run_qa_check(check_expiry=not args.no_expiry)
     
     if args.expired_only:
@@ -631,6 +980,39 @@ if __name__ == "__main__":
 # Security Scanner - 危险模式检测
 DANGEROUS_PATTERNS = ['subprocess shell=True', 'eval(', 'exec(', 'os.system']
 SENSITIVE_PATTERNS = ['api_key', 'password', 'secret', 'token']
+
+
+def _export_entropy_json(qa, report, output_path):
+    """导出熵审计报告为 JSON"""
+    import json
+
+    data = {
+        "skills_dir": report.skills_dir,
+        "total": report.total,
+        "fresh": report.fresh,
+        "stale": report.stale,
+        "dormant": report.dormant,
+        "entropy_ratio": report.entropy_ratio,
+        "curator_nudge": report.curator_nudge,
+        "quality_scores": {
+            name: {
+                "total": qs.total,
+                "grade": qs.grade(),
+                "freshness": qs.freshness,
+                "completeness": qs.completeness,
+                "depth": qs.depth,
+                "structure": qs.structure,
+            }
+            for name, qs in report.quality_scores.items()
+        },
+        "drift_warnings": report.drift_warnings,
+    }
+    Path(output_path).write_text(
+        json.dumps(data, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    print(f"\nEntropy report exported to: {output_path}")
+
 
 def check_security_scan(file_path):
     """检测危险模式"""

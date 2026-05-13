@@ -1,9 +1,9 @@
 {
   "_constitution": "MimirAether 耐久真源。data/persistent.json 被运行时部分锁定，本文件为权威来源。v1.1 起 _merge_disk_changes() 已修复运行时覆盖问题。",
   "version": "2.1",
-  "updated_at": "2026-05-13T17:40:00.000000+00:00",
+  "updated_at": "2026-05-14T02:40:00.000000+00:00",
 
-  "current_objective": "Phase XI 完成 — Hermes Skill Factory 主动提案模式已吸收 → cross-session补丁",
+  "current_objective": "Phase XII Harness Engineering 熵管理 — skills_qa.py 扩展完成，101技能策展",
   "objectives_history": [
     {"name": "幽灵技能清理", "status": "completed"},
     {"name": "五条药方实施 (#2-#5)", "status": "completed"},
@@ -19,7 +19,9 @@
     {"name": "Phase IX gstack 学习", "status": "completed", "note": "gstack ETHOS+ship: SOUL.md铁律+发布技能, wiki自动归档机制激活"},
     {"name": "Phase X Hermes Atlas 学习", "status": "completed", "note": "llms.txt+llms-full.txt生成, 任何LLM读一个文件即可了解MimirAether全貌"},
     {"name": "Phase XI Control Interface", "status": "skipped", "note": "Go+React多Agent控制面板, 单Agent场景不匹配"},
-    {"name": "Phase XI Skill Factory 吸收", "status": "completed", "note": "被动观察→主动提案模式合并到cross-session, +37行补丁。不新建技能。"}
+    {"name": "Phase XI Skill Factory 吸收", "status": "completed", "note": "被动观察→主动提案模式合并到cross-session, +37行补丁。不新建技能。"},
+    {"name": "Phase XI OpenSpace 学习", "status": "completed", "note": "P0 session_tracker.py落盘(analyzer模式吸收,兑现旧承诺); P1质量追踪延期; P2 BM25跳过。"},
+    {"name": "Phase XII Harness Engineering 熵管理", "status": "completed", "note": "deusyu概念#6吸收: skills_qa.py +SkillHealth/SkillQualityScore/CuratorReport, 质量评分0-100四维, 漂移检测, curatorial triage(fresh/stale/dormant), discover_skills递归化"}
   ],
 
   "active_projects": [
@@ -37,11 +39,11 @@
   },
 
   "next_actions": [
-    "持续: 跨会话主动技能提案模式运行验证",
-    "后续: hermes_tools → mimir_tools 重命名"
+    "立即: Pipeline 飞书实战验证 (brainstorming→plan→verify→ship)",
+    "持续: 跨会话主动技能提案模式运行验证"
   ],
 
-  "session_note": "Session 68: Phase IX-XI连续完成。Hermes生态学习全周期: superpowers→gstack→Atlas→Control Interface(跳过)→Skill Factory(吸收)。cross-session +主动提案补丁。",
+  "session_note": "Session 68: Phase IX-XI连续完成 + Phase XII Pipeline验证启动。Hermes生态学习全周期: superpowers→gstack→Atlas→Control Interface(跳过)→Skill Factory(吸收)→OpenSpace P0(session_tracker)。data/ground_truth+persistent双文件同步。",
 
   "wiki": {
     "path": "~/wiki",

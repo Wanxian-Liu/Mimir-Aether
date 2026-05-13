@@ -10,16 +10,18 @@ version: "1.0.0"
 
 ## 概述
 
-基于Hermes skills_guard设计思路，为MimirAether skills提供质量保障功能。确保技能符合标准化结构，及时更新维护。
+基于Hermes skills_guard + Harness Engineering熵管理设计思路，为MimirAether skills提供质量保障功能。确保技能符合标准化结构，及时更新维护。
 
 ## 核心功能
 
 | 功能 | 说明 |
 |------|------|
-| 目录结构检查 | 验证技能目录是否存在及基本结构 |
+| 目录结构检查 | 验证技能目录是否存在及基本结构（递归搜索） |
 | SKILL.md验证 | 检查文件存在性、YAML frontmatter、必需字段 |
 | 过期检测 | 检测超过30天未更新的技能 |
 | 幽灵检测 | 检测空壳技能、无frontmatter技能、无description技能 |
+| **熵管理审计** | 质量评分(0-100) + 漂移检测 + 策展分类(fresh/stale/dormant) |
+| **策展报告** | CuratorReport：熵比例/质量分布/漂移警告/低分技能 |
 | 质量报告 | 生成结构化报告，支持JSON导出 |
 | CLI工具 | 命令行快速执行QA检查 |
 
