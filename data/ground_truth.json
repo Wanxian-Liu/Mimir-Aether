@@ -3,7 +3,7 @@
   "version": "2.1",
   "updated_at": "2026-05-14T03:00:00.000000+00:00",
 
-  "current_objective": "Phase XIII Anthropic Building Effective Agents — Evaluator-Optimizer循环完成",
+  "current_objective": "Phase XIV Tool Guard + NLAH/12Factor 对齐完成",
   "objectives_history": [
     {"name": "幽灵技能清理", "status": "completed"},
     {"name": "五条药方实施 (#2-#5)", "status": "completed"},
@@ -22,7 +22,8 @@
     {"name": "Phase XI Skill Factory 吸收", "status": "completed", "note": "被动观察→主动提案模式合并到cross-session, +37行补丁。不新建技能。"},
     {"name": "Phase XI OpenSpace 学习", "status": "completed", "note": "P0 session_tracker.py落盘(analyzer模式吸收,兑现旧承诺); P1质量追踪延期; P2 BM25跳过。"},
     {"name": "Phase XII Harness Engineering 熵管理", "status": "completed", "note": "deusyu概念#6吸收: skills_qa.py +SkillHealth/SkillQualityScore/CuratorReport, 质量评分0-100四维, 漂移检测, curatorial triage(fresh/stale/dormant), discover_skills递归化"},
-    {"name": "Phase XIII Anthropic Building Effective Agents", "status": "completed", "note": "Evaluator-Optimizer循环技能(mimiraether-evaluator-optimizer): 生成→评估→反馈→迭代改进, 最多3轮。Pipeline完整补齐。verification技能+1条原则引用。"}
+    {"name": "Phase XIII Anthropic Building Effective Agents", "status": "completed", "note": "Evaluator-Optimizer循环技能(mimiraether-evaluator-optimizer): 生成→评估→反馈→迭代改进, 最多3轮。Pipeline完整补齐。verification技能+1条原则引用。"},
+    {"name": "Phase XIV Tool Guard + NLAH + 12Factor", "status": "completed", "note": "P1: agent/tool_guard.py (ToolRisk五级分类+poka-yoke相对路径/危险shell检测,集成到strategy.py pre_validate). P2: docs/NLAH_ALIGNMENT.md. P3: docs/12_FACTOR_AGENTS.md (10/12对齐). 来源: Anthropic Building Effective Agents + Harness Engineering"}
   ],
 
   "active_projects": [
