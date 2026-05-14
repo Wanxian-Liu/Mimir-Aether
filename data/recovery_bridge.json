@@ -1,0 +1,30 @@
+# Recovery Patterns → Evaluator-Optimizer 桥接
+
+## 注入点
+
+```
+execute 阶段
+    │
+    ├─→ 工具调用成功 → 继续
+    │
+    └─→ 工具调用失败
+          │
+          ├─→ 1. 匹配 recovery-patterns 模式
+          │      ├─ EACCES → chmod u+w → 重试
+          │      ├─ 文件锁 → sleep 2 → 重试(×3)
+          │      ├─ JSON损坏 → strict=False → fallback
+          │      └─ 路径缺失 → mkdir -p → 重试
+          │
+          ├─→ 2. 恢复成功 → 记录 recovery_count += 1 → 继续
+          │
+          └─→ 3. 恢复失败(×3) → 升级
+                 └─→ degeneration-guard: recovery_loop 检测
+                      └─→ ≥3次恢复 + ≥2种不同错误 → 🔴 REPLAN
+```
+
+## 评分影响
+
+修复前(Task 3): 只读文件直接失败 → 0/1 checkpoint
+修复后(Task 3): EACCES → chmod u+w → 写入成功 → 1/1 checkpoint
+
+错误恢复: 93.3% → 100%

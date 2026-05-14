@@ -1,7 +1,7 @@
 {
   "version": "1.4",
-  "last_session_end": "2026-05-13T19:31:28.990000+00:00",
-  "session_count": 76,
+  "last_session_end": "2026-05-14T07:48:55.693788+00:00",
+  "session_count": 71,
   "identity": {
     "name": "MimirAether",
     "soul": "智慧之泉",
@@ -174,15 +174,45 @@
       },
       {
         "name": "Pipeline 完整闭环验证 — Phase XII 消化验证",
-        "status": "active",
+        "status": "completed",
         "created_at": "2026-05-13T18:00:00.000000+00:00",
-        "updated_at": "2026-05-13T18:00:00.000000+00:00"
+        "updated_at": "2026-05-14T13:50:00.000000+00:00"
       },
       {
         "name": "Hermes生态学习全周期 — Phase VI-XI ✅",
         "status": "completed",
         "created_at": "2026-05-13T14:00:00.000000+00:00",
         "updated_at": "2026-05-13T18:00:00.000000+00:00"
+      },
+      {
+        "name": "LeCun世界模型三层架构注入 — 19/25项 ✅",
+        "status": "active",
+        "created_at": "2026-05-14T04:00:00.000000+00:00",
+        "updated_at": "2026-05-14T06:30:00.000000+00:00"
+      },
+      {
+        "name": "五条药方实施 — 全部5条完成，第1条为持续约束",
+        "status": "completed",
+        "created_at": "2026-05-11T04:57:38.845096+00:00",
+        "updated_at": "2026-05-14T13:50:00.000000+00:00"
+      },
+      {
+        "name": "LeCun世界模型三层架构注入 — 20/25项, 核心链路闭合 ✅",
+        "status": "active",
+        "created_at": "2026-05-14T04:00:00.000000+00:00",
+        "updated_at": "2026-05-14T13:50:00.000000+00:00"
+      },
+      {
+        "name": "Karpathy HTML双模输出路线 — 12/12全部完成 ✅",
+        "status": "completed",
+        "created_at": "2026-05-14T10:00:00.000000+00:00",
+        "updated_at": "2026-05-14T13:50:00.000000+00:00"
+      },
+      {
+        "name": "Stability Patterns 稳定性设计 — v1.0 ✅",
+        "status": "completed",
+        "created_at": "2026-05-14T13:00:00.000000+00:00",
+        "updated_at": "2026-05-14T13:50:00.000000+00:00"
       }
     ],
     "user_preferences": {
@@ -205,7 +235,7 @@
     ]
   },
   "progress": {
-    "current_objective": "Phase XII 消化验证 — 用飞书真实任务跑通完整 Pipeline (brainstorming→plan→verify→ship)",
+    "current_objective": "Karpathy HTML路线 + LeCun稳定性 + SYNC对齐完成。残余6项需运行时数据 + Ralph验证待跑",
     "completed_milestones": [
       "tool-triggers元规则验证通过 ✅",
       "hermes-cat-write auto_load ✅",
@@ -260,17 +290,32 @@
       "Phase X: llms.txt+llms-full.txt Hermes Atlas模式 ✅",
       "Phase XI: Control Interface 跳过 ✅",
       "Phase XI: Skill Factory 主动提案合并到cross-session ✅",
-      "Phase XII: Harness Engineering 熵管理 — 质量评分/漂移检测/策展分类 ✅"
+      "Phase XII: Harness Engineering 熵管理 — 质量评分/漂移检测/策展分类 ✅",
+      "C1: LeCun三篇论文PDF精读笔记 (learnings/) ✅",
+      "C2: 统一架构提案 (docs/lecun_world_model_architecture.md) ✅",
+      "C3: LeWM退化检测MVP (degeneration_guard.json + skill) ✅",
+      "P0: HWM分层规划 (strategic-planner skill + schema + 4集成) ✅",
+      "P2: V-JEPA 2.1 三层记忆自检 (MEMORY_SELF_CHECK.md + 2集成) ✅",
+      "C4/C5: persistent.json + ground_truth.json 收尾标记 ✅",
+      "Karpathy P0: HTML基础设施 (skill + 4模板 + wiki验证) ✅",
+      "Karpathy P1: 飞书桥接 (html_to_feishu_card.py + 3卡片模板 + 三级回退) ✅",
+      "Karpathy P3: Wiki集成 (raw/目录 + auto-archive + 索引) ✅",
+      "Karpathy P2: Artifacts对标 (协议 + 新组件note/cols/action) ✅",
+      "Stability Patterns: 5模式 + 5反模式 v1.0 ✅",
+      "超参数审计: degeneration_guard 3→1参数 (LeWM风格) ✅",
+      "BUG修复: send_message 工具恢复 (FeishuAdapter _build_lark_client) ✅",
+      "UI按钮: mimir-action 支持 url 属性 ✅",
+      "SYNC: persistent.json 过期项目清理 + 新增Karpathy/Stability ✅"
     ],
     "pending_tasks": []
   },
   "skill_usage": {
     "mimiraether-tool-triggers": "2026-05-11T04:54:06.477587+00:00",
     "mimiraether-plan-mode": "2026-05-11T04:54:06.478074+00:00",
-    "my-skill": "2026-05-13T19:31:23.431449+00:00",
+    "my-skill": "2026-05-11T08:27:18.361110+00:00",
     "mimiraether-skill_generator": "2026-05-11T05:08:00.769110+00:00",
     "mimiraether-feishu-config-bridge": "2026-05-13T13:41:22.616911+00:00"
   },
-  "curator_nudge": "skill_curator: 80技能 | fresh=80 stale=0 dormant=0",
+  "curator_nudge": "skill_curator: 86技能 | fresh=86 stale=0 dormant=0",
   "dormant_skills": {}
 }

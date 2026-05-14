@@ -334,7 +334,7 @@ async def _send_to_platform(platform, pconfig, chat_id, message, thread_id=None,
 
     # Feishu adapter import is optional (requires lark-oapi)
     try:
-        from gateway.platforms.feishu import FeishuAdapter
+        from gateway.platforms.feishu_adapter import FeishuAdapter
         _feishu_available = True
     except ImportError:
         _feishu_available = False
@@ -976,10 +976,10 @@ async def _send_bluebubbles(extra, chat_id, message):
 async def _send_feishu(pconfig, chat_id, message, media_files=None, thread_id=None):
     """Send via Feishu/Lark using the adapter's send pipeline."""
     try:
-        from gateway.platforms.feishu import FeishuAdapter, FEISHU_AVAILABLE
+        from gateway.platforms.feishu_adapter import FeishuAdapter, FEISHU_AVAILABLE
         if not FEISHU_AVAILABLE:
             return {"error": "Feishu dependencies not installed. Run: pip install 'hermes-agent[feishu]'"}
-        from gateway.platforms.feishu import FEISHU_DOMAIN, LARK_DOMAIN
+        from gateway.platforms.feishu_adapter import FEISHU_DOMAIN, LARK_DOMAIN
     except ImportError:
         return {"error": "Feishu dependencies not installed. Run: pip install 'hermes-agent[feishu]'"}
 

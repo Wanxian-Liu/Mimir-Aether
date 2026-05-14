@@ -1,0 +1,33 @@
+{
+  "_description": "飞书卡片模板 — 多Agent/多方案对比",
+  "version": "1.0",
+  "card": {
+    "config": {"wide_screen_mode": true},
+    "header": {
+      "title": {"tag": "plain_text", "content": "{{TITLE}}"},
+      "template": "purple"
+    },
+    "elements": [
+      {
+        "tag": "markdown",
+        "content": "**{{SUBTITLE}}**"
+      },
+      {"tag": "hr"},
+      {
+        "tag": "markdown",
+        "content": "{{COMPARISON_TABLE}}"
+      },
+      {"tag": "hr"},
+      {
+        "tag": "markdown",
+        "content": "**⚡ 关键差异**\n\n{{KEY_DIFFS}}"
+      },
+      {
+        "tag": "note",
+        "elements": [
+          {"tag": "plain_text", "content": "MimirAether Comparison · {{TIMESTAMP}}"}
+        ]
+      }
+    ]
+  }
+}

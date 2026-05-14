@@ -1,0 +1,46 @@
+{
+  "_description": "飞书卡片模板 — 评测/基准测试结果",
+  "version": "1.0",
+  "card": {
+    "config": {"wide_screen_mode": true},
+    "header": {
+      "title": {"tag": "plain_text", "content": "{{TITLE}}"},
+      "template": "blue"
+    },
+    "elements": [
+      {
+        "tag": "div",
+        "text": {"tag": "lark_md", "content": "{{SUMMARY}}"}
+      },
+      {"tag": "hr"},
+      {
+        "tag": "div",
+        "text": {"tag": "lark_md", "content": "**📊 维度得分**"}
+      },
+      {
+        "tag": "table",
+        "header": [
+          {"content": "维度", "tag": "plain_text"},
+          {"content": "得分", "tag": "plain_text"},
+          {"content": "权重", "tag": "plain_text"}
+        ],
+        "columns": [
+          {"data": "{{DIMENSION_DATA_COL1}}"},
+          {"data": "{{DIMENSION_DATA_COL2}}"},
+          {"data": "{{DIMENSION_DATA_COL3}}"}
+        ]
+      },
+      {"tag": "hr"},
+      {
+        "tag": "div",
+        "text": {"tag": "lark_md", "content": "**总分: {{TOTAL_SCORE}}**"}
+      },
+      {
+        "tag": "note",
+        "elements": [
+          {"tag": "plain_text", "content": "MimirAether Benchmark · {{TIMESTAMP}}"}
+        ]
+      }
+    ]
+  }
+}

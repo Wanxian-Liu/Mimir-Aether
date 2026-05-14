@@ -1,0 +1,64 @@
+{
+  "_description": "LeWM 退化检测器配置 — 类比 SIGReg 正则化: 强制信息多样性, 防止对话坍塌",
+  "_source": "LeWorldModel (2603.19312) §3.1 Training Objective + §5.2 Violation-of-Expectation",
+  "version": "1.0.0",
+  "created_at": "2026-05-14",
+
+  "degeneration_signals": {
+    "loop_detection": {
+      "description": "连续重复相同工具调用 > N 次无进展 → 可能陷入循环",
+      "threshold": 3,
+      "window_turns": 5,
+      "action": "warn",
+      "message": "⚠️ 循环检测: 同一工具 {tool} 已连续调用 {count} 次无进展。建议: 1)检查目标是否明确 2)尝试不同方法 3)请求用户介入"
+    },
+
+    "information_density": {
+      "description": "连续 N 轮无新信息/新工具/新文件操作 → 信息密度过低",
+      "info_density_min": 0.4,
+      "_rationale": "合并了旧版 threshold_turns(4) + min_unique_tools(2)。单参数: 最近窗口中必须有 ≥40% 的轮次引入新信息。LeWM 风格: 从 2→1 参数。",
+      "window_turns": 5,
+      "action": "warn",
+      "message": "⚠️ 信息密度告警: 最近 {turns} 轮对话仅 {density:.0%} 含新信息（阈值 {min:.0%}）。可能正在空转——建议执行 MVA 或请求用户反馈。"
+    },
+
+    "context_quality": {
+      "description": "上下文压缩后关键信息保留率 < 阈值 → 表示质量下降",
+      "min_retention_rate": 0.50,
+      "check_interval_turns": 10,
+      "action": "compress_trigger",
+      "message": "⚠️ 上下文质量下降: 信息保留率 {rate:.0%} < 阈值 {threshold:.0%}。触发上下文重组。"
+    },
+
+    "surprise_gate": {
+      "description": "执行结果与预期偏差 > 阈值 → 触发重规划 (VoE 类比)",
+      "deviation_threshold": "high",
+      "surface_vs_semantic": {
+        "surface": "输出格式变化/行数差异 — 忽略",
+        "semantic": "语义矛盾/结果相反/关键断言错误 — 触发重规划"
+      },
+      "action": "replan",
+      "message": "🔴 Surprise 门控触发: 执行结果与预期存在语义偏差。正在重规划..."
+    }
+  },
+
+  "sigreg_analog": {
+    "principle": "SIGReg 强制潜表示匹配各向同性高斯分布 → 防止所有嵌入坍塌到同一点",
+    "mimir_mapping": "强制每 N 轮对话引入至少一个新信息维度(新工具/新文件/新概念) → 防止对话坍塌到无意义循环",
+    "enforcement": "不是'建议', 是'如果信息密度连续低于阈值, 强制触发上下文重组或用户中断'"
+  },
+
+    "recovery_loop": {
+      "description": "同一任务中恢复模式触发 ≥N 次 → 系统性问题，非单点故障",
+      "threshold": 3,
+      "different_errors_min": 2,
+      "action": "replan",
+      "message": "🔴 恢复循环告警: 同一任务中已触发 {count} 次恢复。这是系统性问题——建议重规划，非继续修补。"
+    },
+
+    "voe_analog": {
+    "principle": "VoE 检测模型对物理不可行事件的 surprise 显著高于视觉变化",
+    "mimir_mapping": "区分'表面意外'(输出格式变化)和'语义意外'(结果与预期矛盾)。只有语义意外触发重规划。",
+    "enforcement": "evaluator-optimizer 的 evaluate 步骤加入 surprise 维度: 不只看'对不对', 还看'是否与预期根本矛盾'"
+  }
+}

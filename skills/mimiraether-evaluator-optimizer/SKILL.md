@@ -95,14 +95,25 @@ auto_load: false
 
 ### 阶段 3：评估（同轮自评或独立评估）
 
+**评估前: 退化门控预检** ← LeWM SIGReg+VoE (Session 75+)
+
+加载 `mimiraether-degeneration-guard` 配置 (`data/degeneration_guard.json`)：
+1. **循环检测**: 最近5轮同一工具≥3次无进展 → ⚠️ LOOP_DETECTED
+2. **信息密度**: 最近4轮无新工具/文件/概念 → ⚠️ LOW_INFORMATION_DENSITY
+3. **Surprise门控**: 执行结果语义矛盾 → 🔴 SURPRISE (跳过正常评估, 直接重规划)
+
+预检结果作为评估报告的额外维度。
+
 逐维度打分：
 
 ```
 评估模板:
   1. [维度] ✅/⚠️/❌ — [一句话判定 + 具体引用]
   2. [维度] ✅/⚠️/❌ — [一句话判定 + 具体引用]
+  ...
+  N. 退化信号: ✅ CLEAN / ⚠️ [具体告警] / 🔴 SURPRISE
 
-总体: PASS / NEEDS_WORK
+总体: PASS / NEEDS_WORK / REPLAN (仅 surprise 触发)
 ```
 
 ### 阶段 4：反馈 + 迭代（最多 3 轮）
@@ -145,11 +156,18 @@ brainstorming → plan → execute ──→ verify → ship
                              非代码任务的迭代改进
 ```
 
+**HWM 分层规划集成** (Session 75+): 如果 `data/active_task.json` 存在:
+- 每次 optimize 后检查当前阶段验收标准
+- 阶段完成 → 标记 completed，写入 active_task.json，触发阶段间门控检查
+- 阶段未完成但步数超 max_steps → ⚠️ 触发重规划
+
 | 技能 | 关系 |
 |------|------|
 | `mimiraether-test-driven-development` | TDD = 代码的 evaluate-optimize（测试驱动），本技能 = 通用的 evaluate-optimize |
 | `mimiraether-verification` | verify = 最终收尾判断，本技能 = 中间的迭代改进 |
 | `mimiraether-brainstorming` | brainstorming 的评估标准可直接喂入本技能 |
+| `mimiraether-strategic-planner` | 战略层定义阶段 → 本技能在阶段内执行 + 阶段完成检查 |
+| `mimiraether-degeneration-guard` | evaluate 前预检退化信号 |
 
 ---
 

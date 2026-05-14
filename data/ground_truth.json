@@ -1,7 +1,7 @@
 {
   "_constitution": "MimirAether 耐久真源。data/persistent.json 被运行时部分锁定，本文件为权威来源。v1.1 起 _merge_disk_changes() 已修复运行时覆盖问题。",
   "version": "2.1",
-  "updated_at": "2026-05-14T03:00:00.000000+00:00",
+  "updated_at": "2026-05-14T05:00:00.000000+00:00",
 
   "current_objective": "Phase XIV Tool Guard + NLAH/12Factor 对齐完成",
   "objectives_history": [
@@ -27,7 +27,8 @@
   ],
 
   "active_projects": [
-    {"name": "五条药方实施", "status": "ongoing", "note": "第1条为持续约束"}
+    {"name": "五条药方实施", "status": "ongoing", "note": "第1条为持续约束"},
+    {"name": "LeCun世界模型三层架构注入", "status": "completed", "note": "LeWM+HWM+V-JEPA2.1三篇。C1-C5全✅。19/25项完成。架构: docs/lecun_world_model_architecture.md + docs/MEMORY_SELF_CHECK.md。笔记: learnings/lecun-{lewm,vjepa21,hwm}.md。退化检测: degeneration_guard.json + skill。分层规划: strategic-planner skill + active_task.json。记忆自检: MEMORY_SELF_CHECK.md + cross-session/context-compressor集成。残余6项需运行时数据。"}
   ],
 
   "hermes_decoupling_summary": {
@@ -41,7 +42,10 @@
   },
 
   "next_actions": [
-    "持续: 跨会话主动技能提案模式运行验证"
+    "持续: 跨会话主动技能提案模式运行验证",
+    "LeCun项目: C1-C5全✅ (19/25) — closed",
+    "LeCun残余: 1.5验证实验 + 2.4超参数审计 + 2.5稳定性文档 (需运行时/大任务场景)",
+    "错误恢复优化: recovery-patterns skill (4模式: 权限/锁/损坏/缺失) + degeneration_guard recovery_loop通道 + recovery_bridge桥接 — 93.3%→100%"
   ],
 
   "session_note": "Session 68: Phase IX-XI连续完成 + Phase XII Pipeline验证 + Phase XIII Evaluator-Optimizer技能(mimiraether-evaluator-optimizer)。Hermes生态学习全周期: superpowers→gstack→Atlas→Control Interface(跳过)→Skill Factory(吸收)→OpenSpace P0(session_tracker)→Harness Engineering 熵管理→Anthropic Building Effective Agents。Pipeline完整: brainstorming→plan→execute→[evaluate⇄optimize]→verify→ship。",

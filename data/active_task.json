@@ -1,0 +1,39 @@
+{
+  "_description": "HWM 共享任务表示 — 战略层和战术层之间的接口 (类比 HWM 共享潜空间)",
+  "_source": "HWM (2604.03208) §2.3",
+  "version": "1.0.0",
+
+  "task_id": null,
+  "overall_goal": null,
+  "created_at": null,
+  "updated_at": null,
+
+  "phases": [
+    {
+      "id": 1,
+      "name": "Phase名称",
+      "goal": "阶段子目标（一句话）",
+      "accept_criteria": "可验证的验收条件",
+      "status": "pending",
+      "max_steps": 8,
+      "completed_steps": 0,
+      "started_at": null,
+      "completed_at": null
+    }
+  ],
+
+  "current_phase": null,
+  "global_constraints": [
+    "全局约束1",
+    "全局约束2"
+  ],
+
+  "phase_gate_rules": {
+    "complete_phase": "验收标准全部满足 → 标记 completed → 进入下一阶段",
+    "block_phase": "验收标准未满足 → 不推进。修复或重规划。",
+    "surprise_trigger": "Surprise门控触发 → 重规划（可能调整阶段序列）",
+    "max_steps_exceeded": "单阶段超过 max_steps → 触发重规划"
+  },
+
+  "history": []
+}

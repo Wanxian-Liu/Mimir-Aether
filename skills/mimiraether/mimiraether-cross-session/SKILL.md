@@ -121,6 +121,41 @@ Step W2: 如果 wiki.status == "active"
 
 **归档标准**：明确被问的概念/模块 ✅ | 跨会话复用决策 ✅ | 一次性问答 ❌
 
+## 🧠 V-JEPA 2.1 记忆自检（Session 75+）
+
+**来源**: V-JEPA 2.1 (2603.14482) 深层自监督 — 每层记忆加独立质检
+**协议**: `docs/MEMORY_SELF_CHECK.md`
+
+### Layer 2 Cross-Session 自检
+
+每次 `save()` 后自动执行:
+
+```
+1. 决策追溯性: key_decisions 能否回溯到源会话?
+   ├── 检查 sessions_search.db 中对应会话是否存在
+   ├── 存在 → ✅ 可追溯
+   └── 不存在 → 标记 orphaned, 降级到日志
+
+2. 记忆新鲜度: 最近3会话引用的记忆占比 ≥30%?
+   ├── 检查 key_decisions 的 last_referenced 字段
+   ├── ≥30% → ✅ 记忆活跃
+   └── <30% → ⚠️ 触发 curator_nudge (归档休眠记忆)
+
+3. 文件完整性: ground_truth ↔ persistent 一致性
+   ├── 比较 current_objective / active_projects 关键字段
+   └── 不一致 → 以 ground_truth 为准, 回写 persistent
+```
+
+**论文**: LeWM(2603.19312) + V-JEPA 2.1(2603.14482) + HWM(2604.03208)
+**状态**: 已激活 (Session 75+)。三层架构注入推进中。
+**架构**: `docs/lecun_world_model_architecture.md` | 自检协议: `docs/MEMORY_SELF_CHECK.md`
+
+| P0 | HWM 分层规划 | ✅ 已完成: strategic-planner skill + active_task.json + Pipeline集成 |
+| P1 | LeWM 防坍塌 | ✅ 退化检测MVP: degeneration_guard.json + evaluator-optimizer集成 |
+| P2 | V-JEPA 2.1 深层自监督 | 🔄 进行中: 记忆自检协议 + cross-session集成 |
+
+⚠️ **下次会话自动触发此 pending task。**
+
 ## 🔍 会话结束时的主动技能提案（Session 68+ 新增）
 
 **来源**：Hermes Skill Factory 的被动观察 → 主动提案模式。MimirAether 已有 `skill-solidify`（被动），缺的是**主动检测时机**。

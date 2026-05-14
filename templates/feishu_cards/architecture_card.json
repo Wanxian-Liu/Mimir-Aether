@@ -1,0 +1,33 @@
+{
+  "_description": "飞书卡片模板 — 架构图/流程图",
+  "version": "1.0",
+  "card": {
+    "config": {"wide_screen_mode": true},
+    "header": {
+      "title": {"tag": "plain_text", "content": "{{TITLE}}"},
+      "template": "green"
+    },
+    "elements": [
+      {
+        "tag": "div",
+        "text": {"tag": "lark_md", "content": "{{DESCRIPTION}}"}
+      },
+      {"tag": "hr"},
+      {
+        "tag": "div",
+        "text": {"tag": "lark_md", "content": "**📡 架构分层**\n\n{{LAYERS}}"}
+      },
+      {"tag": "hr"},
+      {
+        "tag": "div",
+        "text": {"tag": "lark_md", "content": "**📖 图例**\n\n{{LEGEND}}"}
+      },
+      {
+        "tag": "note",
+        "elements": [
+          {"tag": "plain_text", "content": "MimirAether · {{TIMESTAMP}} · 完整 HTML 见 wiki/raw/"}
+        ]
+      }
+    ]
+  }
+}

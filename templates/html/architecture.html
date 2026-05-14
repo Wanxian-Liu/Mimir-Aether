@@ -1,0 +1,79 @@
+<!-- MIMIR:HTML_OUTPUT template=architecture -->
+<div class="mimir-architecture" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 720px; margin: 0 auto; padding: 16px;">
+
+  <!-- Header -->
+  <div style="border-bottom: 3px solid #4CAF50; padding-bottom: 12px; margin-bottom: 16px;">
+    <h1 style="margin: 0; font-size: 1.4em; color: #1a1a2e;">{{TITLE}}</h1>
+    <p style="margin: 4px 0 0 0; color: #666; font-size: 0.85em;">{{SUBTITLE}} · {{DATE}}</p>
+  </div>
+
+  <!-- Architecture Diagram (CSS Grid layers) -->
+  <div style="margin-bottom: 20px;">
+    {{#EACH layers}}
+    <div style="margin-bottom: 8px;">
+      <!-- Layer label -->
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div style="background: {{COLOR}}; color: #fff; padding: 6px 14px; border-radius: 4px; font-size: 0.8em; font-weight: 600; white-space: nowrap; min-width: 70px; text-align: center;">
+          {{NAME}}
+        </div>
+        <div style="flex: 1; height: 2px; background: {{COLOR}}; opacity: 0.3;"></div>
+      </div>
+      <!-- Boxes in this layer -->
+      <div style="display: flex; gap: 8px; padding: 8px 0 8px 84px; flex-wrap: wrap;">
+        {{#EACH boxes}}
+        <div style="background: #fff; border: 2px solid {{COLOR}}; border-radius: 6px; padding: 8px 14px; font-size: 0.8em;
+                    cursor: pointer; transition: box-shadow 0.2s; min-width: 80px; text-align: center;"
+             title="{{TOOLTIP}}">
+          <div style="font-weight: 600;">{{LABEL}}</div>
+          {{#IF sub}}
+          <div style="font-size: 0.75em; color: #888; margin-top: 2px;">{{SUB}}</div>
+          {{/IF}}
+        </div>
+        {{/EACH}}
+      </div>
+      <!-- Down arrow -->
+      {{#IF_NOT_LAST}}
+      <div style="text-align: center; padding: 2px 0; color: {{COLOR}}; font-size: 0.7em; opacity: 0.5;">▼</div>
+      {{/IF_NOT_LAST}}
+    </div>
+    {{/EACH}}
+  </div>
+
+  <!-- Data Flow (optional) -->
+  {{#IF flows}}
+  <div style="margin-bottom: 16px;">
+    <h2 style="font-size: 1em; color: #333; margin: 0 0 10px 0;">📡 数据流</h2>
+    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 0.8em;">
+      {{#EACH flows}}
+      <span style="background: #fff; border: 1px solid #ddd; padding: 5px 10px; border-radius: 4px; font-weight: 500;">{{FROM}}</span>
+      <span style="color: #4CAF50; font-weight: 700;">→</span>
+      <span style="background: #e8f5e9; padding: 2px 7px; border-radius: 10px; font-size: 0.85em; color: #2e7d32;">{{VIA}}</span>
+      <span style="color: #4CAF50; font-weight: 700;">→</span>
+      <span style="background: #fff; border: 1px solid #ddd; padding: 5px 10px; border-radius: 4px; font-weight: 500;">{{TO}}</span>
+      {{#IF_NOT_LAST}}
+      <span style="color: #ccc; margin: 0 4px;">│</span>
+      {{/IF_NOT_LAST}}
+      {{/EACH}}
+    </div>
+  </div>
+  {{/IF}}
+
+  <!-- Legend -->
+  <div style="margin-bottom: 12px; padding: 10px 14px; background: #f8f9fa; border-radius: 6px;">
+    <h2 style="font-size: 0.85em; color: #333; margin: 0 0 6px 0;">📖 图例</h2>
+    <div style="display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.8em;">
+      {{#EACH legend}}
+      <div style="display: flex; align-items: center; gap: 5px;">
+        <span style="display: inline-block; width: 12px; height: 12px; border-radius: 2px; background: {{COLOR}};"></span>
+        <span>{{LABEL}}</span>
+      </div>
+      {{/EACH}}
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div style="background: #f8f9fa; padding: 10px 16px; border-radius: 6px; font-size: 0.7em; color: #999; text-align: center;">
+    MimirAether Architecture · {{TIMESTAMP}}
+  </div>
+</div>
+<!-- /MIMIR:HTML_OUTPUT -->

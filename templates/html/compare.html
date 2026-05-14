@@ -1,0 +1,82 @@
+<!-- MIMIR:HTML_OUTPUT template=compare -->
+<div class="mimir-compare" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 720px; margin: 0 auto; padding: 16px;">
+
+  <!-- Header -->
+  <div style="border-bottom: 3px solid #9C27B0; padding-bottom: 12px; margin-bottom: 16px;">
+    <h1 style="margin: 0; font-size: 1.4em; color: #1a1a2e;">{{TITLE}}</h1>
+    <p style="margin: 4px 0 0 0; color: #666; font-size: 0.85em;">{{SUBTITLE}} · {{DATE}}</p>
+  </div>
+
+  <!-- Score Summary Cards -->
+  <div style="display: grid; grid-template-columns: repeat({{NUM_TARGETS}}, 1fr); gap: 12px; margin-bottom: 16px;">
+    {{#EACH targets}}
+    <div style="background: {{COLOR}}; color: #fff; border-radius: 8px; padding: 16px; text-align: center;">
+      <div style="font-size: 0.8em; opacity: 0.85; margin-bottom: 4px;">{{NAME}}</div>
+      <div style="font-size: 2.2em; font-weight: 700;">{{SCORE}}</div>
+      <div style="font-size: 0.7em; opacity: 0.75;">/ 100</div>
+    </div>
+    {{/EACH}}
+  </div>
+
+  <!-- Multi-dimension Comparison Table -->
+  <div style="overflow-x: auto; margin-bottom: 16px;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.85em;">
+      <thead>
+        <tr style="background: #f3e5f5; border-bottom: 2px solid #9C27B0;">
+          <th style="padding: 10px 12px; text-align: left; font-weight: 600;">维度</th>
+          <th style="padding: 10px 12px; text-align: center; font-weight: 600; width: 60px;">权重</th>
+          {{#EACH targets}}
+          <th style="padding: 10px 12px; text-align: center; font-weight: 600; min-width: 80px;">{{NAME}}</th>
+          {{/EACH}}
+        </tr>
+      </thead>
+      <tbody>
+        {{#EACH dimensions}}
+        <tr style="border-bottom: 1px solid #eee; {{#IF highlight}}background: #fce4ec;{{/IF}}">
+          <td style="padding: 10px 12px; font-weight: 500;">{{LABEL}}</td>
+          <td style="padding: 10px 12px; text-align: center; color: #666;">{{WEIGHT}}%</td>
+          {{#EACH scores}}
+          <td style="padding: 10px 12px; text-align: center;">
+            <span style="display: inline-block; padding: 2px 10px; border-radius: 12px; font-weight: 600;
+              background: {{#IF_GT . 90}}#e8f5e9; color: #2e7d32{{/IF_GT}}
+              {{#IF_BETWEEN . 70 90}}#fff3e0; color: #e65100{{/IF_BETWEEN}}
+              {{#IF_LT . 70}}#ffebee; color: #c62828{{/IF_LT}}">
+              {{.}}%
+            </span>
+          </td>
+          {{/EACH}}
+        </tr>
+        {{/EACH}}
+      </tbody>
+      <tfoot>
+        <tr style="background: #f3e5f5; font-weight: 700;">
+          <td style="padding: 10px 12px;">加权总分</td>
+          <td style="padding: 10px 12px; text-align: center;">100%</td>
+          {{#EACH totals}}
+          <td style="padding: 10px 12px; text-align: center; font-size: 1.1em;">{{.}}</td>
+          {{/EACH}}
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <!-- Diff Highlights -->
+  <div style="margin-bottom: 16px;">
+    <h2 style="font-size: 1em; color: #333; margin: 0 0 8px 0;">⚡ 关键差异</h2>
+    {{#EACH diffs}}
+    <div style="display: flex; gap: 10px; padding: 8px 12px; margin-bottom: 6px; background: #fff; border-radius: 6px; border: 1px solid #eee; align-items: flex-start;">
+      <span style="font-size: 0.9em; flex-shrink: 0;">{{#IF lead}}{{LEAD}}{{/IF}}</span>
+      <div style="flex: 1; min-width: 0;">
+        <div style="font-weight: 600; font-size: 0.85em;">{{DIMENSION}}</div>
+        <div style="font-size: 0.8em; color: #666;">{{DETAIL}}</div>
+      </div>
+    </div>
+    {{/EACH}}
+  </div>
+
+  <!-- Footer -->
+  <div style="background: #f8f9fa; padding: 10px 16px; border-radius: 6px; font-size: 0.7em; color: #999; text-align: center;">
+    MimirAether Comparison · {{TIMESTAMP}}
+  </div>
+</div>
+<!-- /MIMIR:HTML_OUTPUT -->

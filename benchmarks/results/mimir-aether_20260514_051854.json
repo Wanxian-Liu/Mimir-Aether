@@ -1,0 +1,91 @@
+[
+  {
+    "task_id": "01_tool_orch",
+    "agent": "mimir-aether",
+    "score": 3.0,
+    "max": 25.0,
+    "percentage": 12.0,
+    "details": [
+      "❌ 目录 project-orch 存在",
+      "❌ README.md 不存在",
+      "❌ git init 完成",
+      "❌ .gitignore 不存在",
+      "❌ git commit 检查失败: [Errno 2] No such file or directory: '/tmp/benchmark-sandbox/project-orch'",
+      "✅ TODO 搜索已执行 (工具链完整性推断)",
+      "❌ config.json 不存在"
+    ],
+    "evidence": {
+      "目录 project-orch 存在": "FAILED",
+      "git init 完成": "FAILED"
+    }
+  },
+  {
+    "task_id": "02_codegen",
+    "agent": "mimir-aether",
+    "score": 0.0,
+    "max": 20.0,
+    "percentage": 0.0,
+    "details": [
+      "❌ safe_divide(1,0) → None (期望 inf)",
+      "❌ utils.py 无 type hints",
+      "❌ test_utils.py 不存在"
+    ],
+    "evidence": {
+      "safe_divide(1,0)": "None",
+      "type_hints": "partial or missing"
+    }
+  },
+  {
+    "task_id": "03_error_recovery",
+    "agent": "mimir-aether",
+    "score": 3.0,
+    "max": 15.0,
+    "percentage": 20.0,
+    "details": [
+      "❌ A: broken.json 仍然无效 (Agent 未处理)",
+      "✅ B: readonly.txt 原始内容未被破坏",
+      "❌ B: 只读文件处理不足 (2/5)",
+      "❌ C: 目录未变化，Agent 似乎未处理此错误"
+    ],
+    "evidence": {
+      "broken_fixed": false,
+      "readonly_preserved": true,
+      "readonly_perms": "preserved 444",
+      "data_dir_contents": [
+        "note.txt"
+      ]
+    }
+  },
+  {
+    "task_id": "04_memory",
+    "agent": "mimir-aether",
+    "score": 0.0,
+    "max": 15.0,
+    "percentage": 0.0,
+    "details": [
+      "❌ session_memory.json 不存在"
+    ],
+    "evidence": {
+      "file_exists": false
+    }
+  },
+  {
+    "task_id": "05_planning",
+    "agent": "mimir-aether",
+    "score": 5.0,
+    "max": 20.0,
+    "percentage": 25.0,
+    "details": [
+      "❌ 阶段1: audit.json 不存在",
+      "❌ 阶段2: output/ 无 markdown 文件",
+      "❌ 阶段3: 无 ref 链接，0 个旧格式残留",
+      "✅ 阶段4: 无残留 YAML frontmatter"
+    ],
+    "evidence": {
+      "output_files": [],
+      "ref_count": 0,
+      "old_links": 0,
+      "yaml_remains": 0
+    }
+  }
+]

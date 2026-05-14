@@ -29,6 +29,8 @@ Use when:
 - Uncertainty exists about approach or requirements
 - User wants to review and approve before action
 
+**If task has phases** (from `mimiraether-strategic-planner`): load `data/active_task.json`, break down tasks WITHIN each phase, maintaining phase dependencies.
+
 **Plan mode is NOT execution mode.** You are analyzing and planning only.
 
 ## The Process

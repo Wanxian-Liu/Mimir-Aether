@@ -49,6 +49,26 @@ L2: 引用 → 回答 → 问一句 → 落或跳过
 | 深层技术原理 (L1追问) | `~/wiki/concepts/{name}.md` |
 | 工具/平台 quirks | `~/wiki/entities/{tool}-{quirk}.md` |
 | 故障诊断经验 | `~/wiki/concepts/troubleshooting-{name}.md` |
+| **HTML 报告/仪表盘** | `~/wiki/raw/{name}-{date}.html` |
+| **HTML 模板** | `~/wiki/templates/html/{name}.html` |
+
+### HTML 归档规则 (new)
+
+```
+触发条件（L1 自动）:
+  - Agent 输出含 <!-- MIMIR:HTML_OUTPUT --> 标记
+  - 评测/基准测试/架构图/对比报告
+
+落盘:
+  1. HTML 源文件 → ~/wiki/raw/{type}-{date}.html
+  2. Markdown 摘要页 → ~/wiki/raw/{type}-{date}.md (可选)
+  3. 更新 ~/wiki/index.md HTML Reports 节
+
+命名规范:
+  benchmark-2026-05-14.html
+  architecture-hwm-pipeline.html
+  compare-mimir-vs-hermes.html
+```
 
 ## 页面模板
 

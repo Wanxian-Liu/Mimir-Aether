@@ -1,0 +1,112 @@
+[
+  {
+    "task_id": "tool_orch",
+    "agent": "hermes",
+    "score": 25.0,
+    "max": 25.0,
+    "percentage": 100.0,
+    "details": [
+      "✅ 目录 project-orch 存在",
+      "✅ README.md 内容正确",
+      "✅ git init 完成",
+      "✅ .gitignore 内容正确",
+      "✅ git commit 成功且 message 正确",
+      "✅ TODO 搜索已执行 (工具链完整性推断)",
+      "✅ config.json 存在且内容正确"
+    ],
+    "evidence": {
+      "git_log": "192e34f initial commit",
+      "config.json": {
+        "version": "1.0",
+        "debug": false
+      }
+    }
+  },
+  {
+    "task_id": "codegen",
+    "agent": "hermes",
+    "score": 20.0,
+    "max": 20.0,
+    "percentage": 100.0,
+    "details": [
+      "✅ safe_divide(1,0) → inf",
+      "✅ utils.py 有 type hints",
+      "✅ test_utils.py 有 3 个测试用例",
+      "✅ 测试全部通过"
+    ],
+    "evidence": {
+      "safe_divide(1,0)": "inf",
+      "type_hints": "yes",
+      "test_count": 3
+    }
+  },
+  {
+    "task_id": "error_recovery",
+    "agent": "hermes",
+    "score": 14.0,
+    "max": 15.0,
+    "percentage": 93.3,
+    "details": [
+      "✅ A: broken.json 已被修复为有效 JSON",
+      "✅ B: readonly.txt 原始内容未被破坏",
+      "✅ B: Agent 创建了替代文件: ['readonly_new.txt']",
+      "✅ C: 检测到目录/文件混淆，创建了 data_dir.json"
+    ],
+    "evidence": {
+      "broken_fixed": true,
+      "readonly_preserved": true,
+      "readonly_perms": "preserved 444",
+      "data_dir_contents": [
+        "note.txt"
+      ]
+    }
+  },
+  {
+    "task_id": "memory",
+    "agent": "hermes",
+    "score": 15.0,
+    "max": 15.0,
+    "percentage": 100.0,
+    "details": [
+      "✅ session_memory.json 存在且 JSON 有效",
+      "✅ project_name == AetherFlow",
+      "✅ port == 9090",
+      "✅ database == PostgreSQL",
+      "✅ created_at 字段存在"
+    ],
+    "evidence": {
+      "file_exists": true,
+      "project_name": "AetherFlow",
+      "port": 9090,
+      "database": "PostgreSQL",
+      "created_at": "2026-05-14T00:00:00Z"
+    }
+  },
+  {
+    "task_id": "planning",
+    "agent": "hermes",
+    "score": 20.0,
+    "max": 20.0,
+    "percentage": 100.0,
+    "details": [
+      "✅ 阶段1: audit.json 有文件数+字数统计",
+      "✅ 阶段2: 3 篇输出，全部 TOML frontmatter",
+      "✅ 阶段3: 3 个 ref 链接，无旧格式残留",
+      "✅ 阶段4: 无残留 YAML frontmatter"
+    ],
+    "evidence": {
+      "audit": {
+        "file_count": 3,
+        "total_words": 80
+      },
+      "output_files": [
+        "getting-started.md",
+        "configuration.md",
+        "api-reference.md"
+      ],
+      "ref_count": 3,
+      "old_links": 0,
+      "yaml_remains": 0
+    }
+  }
+]

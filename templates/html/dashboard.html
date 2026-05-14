@@ -1,0 +1,63 @@
+<!-- MIMIR:HTML_OUTPUT template=dashboard -->
+<div class="mimir-dashboard" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 720px; margin: 0 auto; padding: 16px;">
+
+  <!-- Header -->
+  <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #fff; padding: 20px 24px; border-radius: 8px 8px 0 0;">
+    <h1 style="margin: 0 0 4px 0; font-size: 1.4em;">{{TITLE}}</h1>
+    <p style="margin: 0; opacity: 0.75; font-size: 0.85em;">{{SUBTITLE}} · {{DATE}}</p>
+  </div>
+
+  <!-- Score Cards -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; padding: 16px; background: #f8f9fa;">
+    {{#EACH metrics}}
+    <div style="background: #fff; border-radius: 6px; padding: 14px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+      <div style="font-size: 0.75em; color: #666; text-transform: uppercase; letter-spacing: 0.5px;">{{LABEL}}</div>
+      <div style="font-size: 2em; font-weight: 700; color: {{COLOR}}; margin: 4px 0;">{{VALUE}}</div>
+      <div style="font-size: 0.7em; color: #999;">{{UNIT}}</div>
+    </div>
+    {{/EACH}}
+  </div>
+
+  <!-- Progress Bars -->
+  <div style="padding: 8px 16px 16px 16px; background: #fff;">
+    {{#EACH bars}}
+    <div style="margin-bottom: 12px;">
+      <div style="display: flex; justify-content: space-between; font-size: 0.85em; margin-bottom: 3px;">
+        <span style="font-weight: 500;">{{LABEL}}</span>
+        <span style="color: #666;">{{VALUE}}%</span>
+      </div>
+      <div style="background: #e9ecef; border-radius: 4px; height: 8px; overflow: hidden;">
+        <div style="background: {{COLOR}}; height: 100%; width: {{VALUE}}%; border-radius: 4px; transition: width 0.4s ease;"></div>
+      </div>
+    </div>
+    {{/EACH}}
+  </div>
+
+  <!-- Detail Table -->
+  <div style="padding: 0 16px 16px 16px; background: #fff;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.85em;">
+      <thead>
+        <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+          {{#EACH columns}}
+          <th style="padding: 8px 10px; text-align: left; font-weight: 600;">{{.}}</th>
+          {{/EACH}}
+        </tr>
+      </thead>
+      <tbody>
+        {{#EACH rows}}
+        <tr style="border-bottom: 1px solid #eee;">
+          {{#EACH .}}
+          <td style="padding: 8px 10px;">{{.}}</td>
+          {{/EACH}}
+        </tr>
+        {{/EACH}}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Footer -->
+  <div style="background: #f8f9fa; padding: 10px 24px; border-radius: 0 0 8px 8px; font-size: 0.7em; color: #999; text-align: center;">
+    MimirAether · {{TIMESTAMP}}
+  </div>
+</div>
+<!-- /MIMIR:HTML_OUTPUT -->

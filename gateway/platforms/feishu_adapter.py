@@ -28,10 +28,25 @@ from gateway.platforms.base import (
     MessageType,
     SendResult,
 )
+from gateway.html_to_feishu_card import (
+    convert_or_fallback,
+    USE_HTML_OUTPUT,
+)
 
 logger = logging.getLogger(__name__)
 
 RECONNECT_DELAYS = (2, 5, 10, 30, 60)
+
+# ── Module-level lark SDK availability ────────────────────────
+try:
+    import lark_oapi as lark  # noqa: F401
+    from lark_oapi.core.const import FEISHU_DOMAIN, LARK_DOMAIN  # type: ignore[import-untyped]
+
+    FEISHU_AVAILABLE = True
+except ImportError:
+    FEISHU_AVAILABLE = False
+    FEISHU_DOMAIN = None  # type: ignore[assignment]
+    LARK_DOMAIN = None  # type: ignore[assignment]
 
 
 def _feishu_receive_id_type(chat_id: str) -> str:
@@ -261,8 +276,31 @@ class FeishuAdapter(BasePlatformAdapter):
         self._ws_task: Optional[asyncio.Task] = None
         self._token_task: Optional[asyncio.Task] = None
 
+        # Exposed for send_message_tool compatibility
+        self._domain_name: str = self._domain
+        self._client: Any = None  # set by _build_lark_client() when needed
+
     def _origin(self) -> str:
         return _http_origin(self._domain)
+
+    def _build_lark_client(self, domain: Any) -> Any:
+        """Build a lark SDK client for out-of-band API calls (send_message_tool compat).
+
+        Our adapter sends via aiohttp HTTP directly; this client is for
+        callers that need the lark SDK object (e.g., listing targets).
+        """
+        if not FEISHU_AVAILABLE:
+            raise RuntimeError(
+                "lark-oapi not installed. Run: pip install lark-oapi"
+            )
+        return (
+            lark.Client.builder()
+            .app_id(self._app_id)
+            .app_secret(self._app_secret)
+            .domain(domain)
+            .log_level(lark.LogLevel.WARNING)
+            .build()
+        )
 
     def _headers(self) -> dict[str, str]:
         h = {"Content-Type": "application/json"}
@@ -479,10 +517,38 @@ class FeishuAdapter(BasePlatformAdapter):
 
         url = f"{self._origin()}/open-apis/im/v1/messages"
         rid_type = metadata.get("feishu_receive_id_type") or _feishu_receive_id_type(chat_id)
+
+        # ── HTML → Feishu Card 检测 ──────────────────────────────
+        # 当 USE_HTML_OUTPUT=True 且消息包含 MIMIR:HTML_OUTPUT 标记时，
+        # 将 HTML 转换为飞书 interactive 卡片；转换失败自动回退纯文本。
+        msg_type = "text"
+        msg_content = content
+        is_html_card = False
+        if USE_HTML_OUTPUT and "<!-- MIMIR:HTML_OUTPUT" in content:
+            result = convert_or_fallback(content)
+            if result["mode"] == "card":
+                payload = result["payload"]
+                msg_type = payload.get("msg_type", "interactive")
+                msg_content = payload.get("content", "")
+                is_html_card = True
+                logger.info(
+                    "[%s] HTML→Card conversion succeeded, sending as interactive",
+                    self.name,
+                )
+            else:
+                # 回退到纯文本
+                msg_content = result.get("payload", content)
+                logger.info(
+                    "[%s] HTML→Card fallback: %s",
+                    self.name,
+                    result.get("fallback_reason", "unknown"),
+                )
+        # ─────────────────────────────────────────────────────────
+
         body: Dict[str, Any] = {
             "receive_id": chat_id,
-            "msg_type": "text",
-            "content": json.dumps({"text": content}),
+            "msg_type": msg_type,
+            "content": msg_content if is_html_card else json.dumps({"text": msg_content}),
         }
         if reply_to:
             body["reply_to_message_id"] = reply_to

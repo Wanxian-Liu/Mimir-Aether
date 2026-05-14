@@ -9,7 +9,7 @@
 | **更新人** | MimirAether（Phase VI 物理脱钩：hermes_cli/mimcore删除 + mimir_state迁移） |
 | **仓库根（真源）** | `~/.openclaw/projects/MimirAether`（任意 clone 路径均可，以当前工作区 git 根为准） |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml）；里程碑 A 项需真环境手动/清单 |
-| **本轮摘要** | **Phase VI 物理脱钩**: 删除hermes_cli/(60+文件,76K行)、hermes_constants/logging/state、mimcore/、memory/persistent.json。新增mimir_state.py(1019行)替代hermes_state。12个Hermes遗存技能清理。Ralph tier0全绿。3 commits: 删除→迁移→增强。 |
+| **本轮摘要** | **LeCun世界模型**: 三篇精读笔记(lewm/vjepa/hwm) + 统一架构提案 + 三层注入(HWM分层规划/LeWM退化检测/V-JEPA记忆自检)。**Karpathy HTML路线**: 12/12完成(HTML双模输出/飞书Card桥接/Artifacts对标/Wiki归档)。**评测**: 横向对比框架+基线98.7→100(错误恢复修复)。**基础设施**: 退化检测(degeneration_guard)、恢复模式(recovery-patterns)、超参数审计(3→1参数)。产出25+文件。Ralph tier0 162+2全绿。 |
 
 ---
 

@@ -166,6 +166,22 @@ HermesStyleCompressor(
 - 无 API `usage` 且粗估失败时，`last_prompt_tokens` 可能仍为 0，自动触发仍可能偏保守。
 - Gateway 卫生压缩仍使用独立配置与 85% 常量阈值，与 Agent 内 `threshold_percent` 等**不一定**数值一致。
 
+## 🧠 V-JEPA 2.1 Layer 1 自检 (Session 75+)
+
+**来源**: `docs/MEMORY_SELF_CHECK.md` — 压缩后实体保留率自检
+
+每次 `compress()` 后检查:
+```
+1. 实体保留率: 压缩摘要中是否保留了原始 HEAD 中的关键实体?
+   - 关键实体: 文件名 / 工具名 / 决策关键词 / 约束条件
+   - 阈值: ≥80% 实体可回溯 → 压缩质量 OK
+   - <80% → 增加 HEAD 保留或提高 tail_token_budget
+
+2. 压缩频率: 是否过频压缩?
+   - 阈值: ≤1次/3轮
+   - 过频 → 提高 threshold_percent (当前 0.85)
+```
+
 ---
 
 _概念溯源: Hermes Agent context compressor；实现真源: 本仓库 `agent/context_compressor.py` v2.3 / `HermesStyleCompressor`_

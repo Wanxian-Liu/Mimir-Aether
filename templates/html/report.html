@@ -1,0 +1,51 @@
+<!-- MIMIR:HTML_OUTPUT template=report -->
+<div class="mimir-report" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 720px; margin: 0 auto; padding: 16px;">
+
+  <!-- Header -->
+  <div style="border-bottom: 3px solid #2196F3; padding-bottom: 12px; margin-bottom: 16px;">
+    <h1 style="margin: 0; font-size: 1.4em; color: #1a1a2e;">{{TITLE}}</h1>
+    <p style="margin: 4px 0 0 0; color: #666; font-size: 0.85em;">{{SUBTITLE}} · {{DATE}}</p>
+  </div>
+
+  <!-- Summary -->
+  <div style="background: #e3f2fd; border-left: 4px solid #2196F3; padding: 12px 16px; border-radius: 0 6px 6px 0; margin-bottom: 16px;">
+    <strong>📋 摘要</strong>
+    <p style="margin: 6px 0 0 0; font-size: 0.9em;">{{SUMMARY}}</p>
+  </div>
+
+  <!-- Sections -->
+  {{#EACH sections}}
+  <div style="margin-bottom: 16px;">
+    <h2 style="font-size: 1.1em; color: #333; margin: 0 0 8px 0; padding-bottom: 4px; border-bottom: 1px solid #eee;">{{HEADING}}</h2>
+    <div style="font-size: 0.9em; line-height: 1.6;">{{CONTENT}}</div>
+  </div>
+  {{/EACH}}
+
+  <!-- Code Diff (optional) -->
+  {{#IF diff}}
+  <div style="margin-bottom: 16px;">
+    <h2 style="font-size: 1.1em; color: #333; margin: 0 0 8px 0;">🔍 Diff</h2>
+    <details style="background: #f8f9fa; border-radius: 6px; padding: 8px 12px;">
+      <summary style="cursor: pointer; font-weight: 600; font-size: 0.9em;">展开 diff ({{DIFF_FILES}} 文件)</summary>
+      <pre style="background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 4px; overflow-x: auto; font-size: 0.8em; margin-top: 8px;"><code>{{DIFF_CONTENT}}</code></pre>
+    </details>
+  </div>
+  {{/IF}}
+
+  <!-- Findings List -->
+  <div style="margin-bottom: 16px;">
+    <h2 style="font-size: 1.1em; color: #333; margin: 0 0 8px 0;">🔎 发现</h2>
+    {{#EACH findings}}
+    <div style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 0; border-bottom: 1px solid #f0f0f0;">
+      <span style="font-size: 1.2em; flex-shrink: 0;">{{ICON}}</span>
+      <span style="font-size: 0.9em;">{{TEXT}}</span>
+    </div>
+    {{/EACH}}
+  </div>
+
+  <!-- Footer -->
+  <div style="background: #f8f9fa; padding: 10px 16px; border-radius: 6px; font-size: 0.7em; color: #999; text-align: center; margin-top: 16px;">
+    MimirAether Report · {{TIMESTAMP}}
+  </div>
+</div>
+<!-- /MIMIR:HTML_OUTPUT -->
