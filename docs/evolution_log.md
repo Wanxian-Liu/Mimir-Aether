@@ -46,3 +46,4 @@ Append-only. Newest rows at the **bottom**. See **`docs/M6_EVOLUTION.md`** for r
 | 20260515T193726Z_f7580be-dirty | 2026-05-15T19:37:26Z | f7580be-dirty | ./run_ralph_tier0.sh | 0 | Enterprise path hygiene: path-contract exemptions §历史路径与豁免目录 + AGENTS pointer; test_cron_parser uses scheduler.JOBS_FILE cleanup; fix_usage repo-relative path; legacy literals commented (file_sync, credential_files, gateway, paths); cron __init__ docstring aligned. |
 | 20260515T195159Z_b6a9d9e-dirty | 2026-05-15T19:51:59Z | b6a9d9e-dirty | ./run_ralph_tier0.sh | 0 | Docs: submodule init expectation for mimicore |
 | 20260515T200058Z_22dd832-dirty | 2026-05-15T20:00:58Z | 22dd832-dirty | ./run_ralph_tier0.sh | 0 | Docs: OPERATIONS_GATEWAY checklist + links |
+| 20260515T201946Z_4a6bb7d-dirty | 2026-05-15T20:19:46Z | 4a6bb7d-dirty | ./run_ralph_tier0.sh | 0 | Docs+tools: SECURITY.md + AGENTS security pointers + skills_guard mimiraether .env patterns |

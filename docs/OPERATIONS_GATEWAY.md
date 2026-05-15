@@ -1,6 +1,6 @@
 # Gateway 运维速查（清单）
 
-面向**人类部署/运维**：约定环境与路径、如何启动、如何验收与看日志。本文**不**包含密钥真值、不代替你在生产机上执行命令。
+面向**人类部署/运维**：约定环境与路径、如何启动、如何验收与看日志。本文**不**包含密钥真值、不代替你在生产机上执行命令。安全模型与 API/技能策略见 **[`SECURITY.md`](./SECURITY.md)**。
 
 **Clone / 子模块**：见 [`MIMIR_ACTIVATE.md`](./MIMIR_ACTIVATE.md) 小节 **「Clone 后必做」**（`git submodule update --init mimicore`），此处不重复。
 
@@ -69,3 +69,4 @@
 | [`gateway-cli-health.md`](./gateway-cli-health.md) | `/health` 与 CLI 健康检查 |
 | [`mimir_prod_smoke.md`](./mimir_prod_smoke.md) | 真环境 smoke 清单 |
 | [`GATEWAY_SYSTEMD_ENV.md`](./GATEWAY_SYSTEMD_ENV.md) | systemd / `.env` 迁移注意事项 |
+| [`SECURITY.md`](./SECURITY.md) | 自托管安全总览（与运维清单互补） |

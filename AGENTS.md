@@ -36,6 +36,13 @@ For **standalone / de-platformed** runs, set **`MIMIR_AETHER_HOME`** (and align 
 
 Gateway ops checklist (start, logs, human smoke, systemd notes — no secrets): **`docs/OPERATIONS_GATEWAY.md`**.
 
+## Security (self-hosted)
+
+- **Overview** (threat boundary, `api_server` bind/key rules, adapters, skills install / `--force`, secrets): **`docs/SECURITY.md`**.
+- **API server**: default loopback; non-loopback requires strong **`API_SERVER_KEY`**; loopback without key = no auth for local HTTP — see SECURITY §2 and [`gateway/platforms/api_server.py`](../gateway/platforms/api_server.py).
+- **Skills**: `mimir skills install` uses quarantine + **`tools/skills_guard`** + **`INSTALL_POLICY`**; treat **`--force`** as human-gated only.
+- **Secrets**: keep **`$MIMIR_AETHER_HOME/.env`** out of git; align env with [`MIMIR_RUNTIME_CONTRACT.md`](./MIMIR_RUNTIME_CONTRACT.md) / [`MIMIR_ACTIVATE.md`](./MIMIR_ACTIVATE.md).
+
 ## Ralph mode (strict iteration)
 
 When **Ralph 模式** is requested: follow **`docs/RALPH_MODE.md`** — iterate in the sandbox with **`./run_ralph_tier0.sh`**, log each round (问题 → 修复 → 验证), and require **3 consecutive** full passes with zero failures before calling the task done.
