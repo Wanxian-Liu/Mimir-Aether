@@ -35,7 +35,7 @@ def _default_agent_home_str() -> str:
 
         return str(get_mimir_home())
     except ImportError:
-        return str(Path.home() / ".openclaw" / "projects" / "MimirAether")
+        return str(Path.home() / ".mimiraether")
 DEFAULT_USER_CHAR_LIMIT = 1375
 SKILL_CATEGORY_DIRNAME = "openclaw-imports"
 SKILL_CATEGORY_DESCRIPTION = (

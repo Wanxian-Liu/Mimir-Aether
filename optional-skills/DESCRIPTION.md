@@ -2,14 +2,13 @@
 
 Official skills maintained by Nous Research that are **not activated by default**.
 
-These skills ship with the hermes-agent repository but are not copied to
-`~/.openclaw/projects/MimirAether/skills/` during setup. They are discoverable via the Skills Hub:
+These skills live in this repository under `optional-skills/` and are not copied into the default agent runtime tree during setup. They are discoverable via the Skills Hub:
 
 ```bash
 hermes skills browse               # browse all skills, official shown first
 hermes skills browse --source official  # browse only official optional skills
 hermes skills search <query>       # finds optional skills labeled "official"
-hermes skills install <identifier> # copies to ~/.openclaw/projects/MimirAether/skills/ and activates
+hermes skills install <identifier> # copies into the agent skills directory (under $MIMIR_AETHER_HOME; default ~/.mimiraether) and activates
 ```
 
 ## Why optional?
