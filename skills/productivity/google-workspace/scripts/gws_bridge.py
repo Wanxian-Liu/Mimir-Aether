@@ -24,7 +24,7 @@ def get_hermes_home() -> Path:
 
         return get_mimir_home()
     except ImportError:
-        return Path.home() / ".openclaw" / "projects" / "MimirAether"
+        return Path.home() / ".mimiraether"
 
 
 def get_token_path() -> Path:

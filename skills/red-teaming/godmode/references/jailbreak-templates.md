@@ -93,7 +93,7 @@ Z={QUERY}
 
 ### As ephemeral system prompt (config.yaml)
 
-Pick a template above and set it in `~/.openclaw/projects/MimirAether/config.yaml`:
+Pick a template above and set it in `$MIMIR_AETHER_HOME/config.yaml` (export `MIMIR_AETHER_HOME` first; typical default is `$HOME/.mimiraether`):
 
 ```yaml
 agent:
@@ -114,7 +114,12 @@ hermes
 ### Via the GODMODE CLASSIC racer script
 
 ```python
-exec(open(os.path.expanduser("~/.openclaw/projects/MimirAether/skills/red-teaming/godmode/scripts/godmode_race.py")).read())
+import os, pathlib, subprocess
+_repo = pathlib.Path(
+    os.environ.get("MIMIR_REPO_ROOT", "").strip()
+    or subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip()
+)
+exec(open(_repo / "skills/red-teaming/godmode/scripts/godmode_race.py").read())
 result = race_godmode_classic("Your query here")
 print(f"Winner: {result['codename']} — Score: {result['score']}")
 print(result['content'])

@@ -11,8 +11,8 @@ description: 系统化学习Hermes Agent源码，识别与MimirAether的差距�
 
 ### 1. 定位源码
 ```bash
-# Hermes主项目位置
-HERMES_PATH="/home/rayliu/.openclaw/projects/hermes-agent"
+# Hermes主项目位置（设为你本机的 Hermes clone；与 Mimir 仓库独立）
+HERMES_PATH="/path/to/hermes-agent"
 
 # 关键模块
 ls $HERMES_PATH/environments/agent_loop.py

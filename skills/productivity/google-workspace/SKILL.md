@@ -63,8 +63,9 @@ on CLI, Telegram, Discord, or any platform.
 Define a shorthand first:
 
 ```bash
-MIMIR_AETHER_HOME="${MIMIR_AETHER_HOME:-$HOME/.openclaw/projects/MimirAether}"
-GWORKSPACE_SKILL_DIR="$MIMIR_AETHER_HOME/skills/productivity/google-workspace"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+MIMIR_AETHER_HOME="${MIMIR_AETHER_HOME:-$HOME/.mimiraether}"
+GWORKSPACE_SKILL_DIR="$REPO_ROOT/skills/productivity/google-workspace"
 PYTHON_BIN="${MIMIR_PYTHON:-python3}"
 if [ -x "$MIMIR_AETHER_HOME/.venv/bin/python" ]; then
   PYTHON_BIN="$MIMIR_AETHER_HOME/.venv/bin/python"
@@ -137,8 +138,9 @@ Should print `AUTHENTICATED`. Token refreshes automatically from now on.
 All commands go through the API script:
 
 ```bash
-MIMIR_AETHER_HOME="${MIMIR_AETHER_HOME:-$HOME/.openclaw/projects/MimirAether}"
-GWORKSPACE_SKILL_DIR="$MIMIR_AETHER_HOME/skills/productivity/google-workspace"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+MIMIR_AETHER_HOME="${MIMIR_AETHER_HOME:-$HOME/.mimiraether}"
+GWORKSPACE_SKILL_DIR="$REPO_ROOT/skills/productivity/google-workspace"
 PYTHON_BIN="${MIMIR_PYTHON:-python3}"
 if [ -x "$MIMIR_AETHER_HOME/.venv/bin/python" ]; then
   PYTHON_BIN="$MIMIR_AETHER_HOME/.venv/bin/python"

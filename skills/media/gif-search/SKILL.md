@@ -18,7 +18,7 @@ Search and download GIFs directly via the Tenor API using curl. No extra tools n
 
 ## Setup
 
-Set your Tenor API key in your environment (add to `~/.openclaw/projects/MimirAether/.env`):
+Set your Tenor API key in your environment (add to `${MIMIR_AETHER_HOME:-$HOME/.mimiraether}/.env`):
 
 ```bash
 TENOR_API_KEY=your_key_here

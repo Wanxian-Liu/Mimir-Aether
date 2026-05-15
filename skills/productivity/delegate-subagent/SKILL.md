@@ -318,7 +318,7 @@ python delegate_subagent.py aggregate --compare abc123
 ## Hermes Delegation Configuration
 
 ```yaml
-# ~/.openclaw/projects/MimirAether/config.yaml
+# $MIMIR_AETHER_HOME/config.yaml
 delegation:
   model: anthropic/claude-sonnet-4
   provider: anthropic

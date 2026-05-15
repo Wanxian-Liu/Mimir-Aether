@@ -73,7 +73,7 @@ CR = 1 - (compressed_tokens / original_tokens)
 
 | 类别 | 提取规则 | 示例 |
 |------|---------|------|
-| FILE | 文件路径引用 | `/home/rayliu/.openclaw/...` |
+| FILE | 文件路径引用 | `$MIMIR_AETHER_HOME/...` 形态示例（常用默认 `$HOME/.mimiraether`）；勿硬编码本机 home |
 | DECISION | 用户明确的选择/决定 | "用 PostgreSQL" |
 | ERROR | 错误消息 | traceback, error code |
 | CONFIG | 配置参数值 | `threshold_percent: 0.50` |

@@ -35,7 +35,7 @@ def _agent_home() -> Path:
 
         return get_mimir_home()
     except ImportError:
-        return Path.home() / ".openclaw" / "projects" / "MimirAether"
+        return Path.home() / ".mimiraether"
 
 
 try:

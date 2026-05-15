@@ -129,7 +129,12 @@ These don't auto-reject but reduce the response score:
 ## Using in Python
 
 ```python
-exec(open(os.path.expanduser("~/.openclaw/projects/MimirAether/skills/red-teaming/godmode/scripts/godmode_race.py")).read())
+import os, pathlib, subprocess
+_repo = pathlib.Path(
+    os.environ.get("MIMIR_REPO_ROOT", "").strip()
+    or subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip()
+)
+exec(open(_repo / "skills/red-teaming/godmode/scripts/godmode_race.py").read())
 
 # Check if a response is a refusal
 text = "I'm sorry, but I can't assist with that request."
