@@ -28,7 +28,7 @@ Commits, pushes, and `./run_ralph_tier0.sh` run from **your active clone** (the 
 
 ## Paths and config
 
-Follow **`docs/path-contract.md`**: agent home vs profile roots, `.openclaw` literal rules under `agent|gateway|tools`, and the tier0 advisory script (`OPENCLAW_STRING_WARN_THRESHOLD`, default 60 — loose on purpose; tighten via env only if you want stricter drift detection). Avoid ad-hoc home-dir logic in new code.
+Follow **`docs/path-contract.md`**: agent home vs profile roots, `.openclaw` literal rules under `agent|gateway|tools`, and the tier0 advisory script (`OPENCLAW_STRING_WARN_THRESHOLD`, default 60 — loose on purpose; tighten via env only if you want stricter drift detection). **历史路径豁免**见 `docs/path-contract.md` 小节「**历史路径与豁免目录**」；新代码勿从 `learnings/`、`llms-full.txt`、`archive/` 等豁免区抄部署路径当作默认真源。Avoid ad-hoc home-dir logic in new code.
 
 For **standalone / de-platformed** runs, set **`MIMIR_AETHER_HOME`** (and align **`HERMES_HOME`**) per **`docs/MIMIR_RUNTIME_CONTRACT.md`**.
 

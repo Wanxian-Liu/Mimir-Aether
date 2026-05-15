@@ -29,5 +29,9 @@ def openclaw_migration_source_default() -> Path:
 
 
 def openclaw_style_project_root_for_user(home: Path) -> Path:
-    """Historical clone path ``<home>/.openclaw/projects/MimirAether`` (sudo remapping, docs)."""
+    """Historical clone path ``<home>/.openclaw/projects/MimirAether`` (sudo remapping, docs only).
+
+    Not the default runtime data root for unset ``MIMIR_AETHER_HOME``; see
+    ``docs/path-contract.md`` §历史路径与豁免目录.
+    """
     return home / ".openclaw" / "projects" / "MimirAether"

@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
-import sys, asyncio
-sys.path.insert(0, '.')
+import asyncio
+import sys
+from pathlib import Path
+
+sys.path.insert(0, ".")
 from agent.core_loop import MimirAetherAgent
+
+REPO_ROOT = Path(__file__).resolve().parent
+
 
 async def main():
     agent = MimirAetherAgent()
-    task = """请修改文件 ~/.openclaw/projects/MimirAether/mimicore/gdi_scorer.py
+    target = REPO_ROOT / "mimicore" / "gdi_scorer.py"
+    task = f"""请修改文件 {target}
 
 找到第208-212行的代码：
 ```python

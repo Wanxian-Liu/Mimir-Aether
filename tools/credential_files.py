@@ -33,7 +33,9 @@ def _resolve_container_base(container_base: str | None) -> str:
     """Path inside remote sandboxes where the project tree is mounted.
 
     Override with ``MIMIR_CONTAINER_PROJECT_BASE`` for images that use a
-    legacy layout (e.g. ``/root/.openclaw/projects/MimirAether``).
+    **historical** container layout (e.g. ``/root/.openclaw/projects/MimirAether``)
+    — migration/remap examples only, not the default runtime root; see
+    ``docs/path-contract.md`` §历史路径与豁免目录.
     """
     if container_base is not None:
         return container_base

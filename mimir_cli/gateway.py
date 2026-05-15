@@ -791,7 +791,11 @@ def _hermes_home_for_target_user(target_home_dir: str) -> str:
     """Remap the current agent home to the equivalent under a target user's home.
 
     When installing a system service via sudo, get_hermes_home() resolves to
-    root's tree.  This translates it to the target user's equivalent path:
+    root's tree.  This translates it to the target user's equivalent path.
+    Example arrows below are **Historical/legacy OpenClaw-style clone layout only**
+    (sudo remapping, not the default deploy root when env is unset); see
+    ``docs/path-contract.md`` §历史路径与豁免目录.
+
       /root/.openclaw/projects/MimirAether → /home/alice/.openclaw/projects/MimirAether
       (subdir under that root) → same relative path under alice's default root
       /root/.hermes (legacy) → /home/alice/.hermes (+ relative suffix if any)

@@ -7,7 +7,13 @@ import time
 # 添加mimicore到Python路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from mimicore.scheduler.jobs import parse_cron_next_run, HAS_CRONITER
+from scheduler.jobs import (
+    HAS_CRONITER,
+    JOBS_FILE,
+    get_due_jobs,
+    parse_cron_next_run,
+    save_jobs,
+)
 
 def test_cron_parsing():
     """测试cron表达式解析"""
@@ -77,8 +83,7 @@ def test_cron_parsing():
         }
     ]
     
-    # 保存测试任务
-    from mimicore.scheduler.jobs import save_jobs, get_due_jobs
+    # 保存测试任务（与 scheduler.jobs.save_jobs 写入路径一致）
     save_jobs(test_jobs)
     
     # 获取到期任务
@@ -87,11 +92,10 @@ def test_cron_parsing():
     for job in due_jobs:
         print(f"  - {job['name']} (ID: {job['id']})")
     
-    # 清理测试文件
-    jobs_file = os.path.expanduser("~/.openclaw/projects/MimirAether/cron/jobs.json")
-    if os.path.exists(jobs_file):
-        os.remove(jobs_file)
-        print(f"\n清理测试文件: {jobs_file}")
+    # 仅删除本脚本刚写入的 jobs 文件（JOBS_FILE == get_mimir_home()/cron/jobs.json）
+    if JOBS_FILE.exists():
+        JOBS_FILE.unlink()
+        print(f"\n清理测试文件: {JOBS_FILE}")
 
 if __name__ == "__main__":
     test_cron_parsing()

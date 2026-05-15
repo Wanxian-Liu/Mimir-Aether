@@ -7,7 +7,8 @@ Provides:
 - parse_schedule for interval/cron/once schedules
 - tick() for scheduler execution
 
-Jobs stored in ~/.openclaw/MimirAether/cron/jobs.json
+Jobs persisted at ``JOBS_FILE`` (``<repo>/cron/jobs.json``). Legacy flat-list
+scheduler under ``MIMIR_AETHER_HOME``: ``scheduler.jobs.JOBS_FILE``.
 """
 
 from cron.jobs import (
