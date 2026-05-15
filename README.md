@@ -13,6 +13,7 @@
 | [docs/DEVELOPMENT_NORTH_STAR.md](./docs/DEVELOPMENT_NORTH_STAR.md) | 方向真源、验收与防偏离 |
 | [docs/path-contract.md](./docs/path-contract.md) | 仓库根 vs 运行时数据根、profile、平台配置 |
 | [docs/MIMIR_ACTIVATE.md](./docs/MIMIR_ACTIVATE.md) | Shell 里设置 `MIMIR_REPO_ROOT` / `MIMIR_AETHER_HOME` 的示例 |
+| [docs/OPERATIONS_GATEWAY.md](./docs/OPERATIONS_GATEWAY.md) | 网关运维清单（启动、日志、验收、systemd 注意；无密钥） |
 | [docs/ralph_parity_contract_v1.md](./docs/ralph_parity_contract_v1.md) | Parity 行为契约 |
 | [docs/ralph_roadmap_milestones.md](./docs/ralph_roadmap_milestones.md) | M0–M6 里程碑与 M6 进化可审计 |
 | [docs/m3_cli_quick_task_slice.md](./docs/m3_cli_quick_task_slice.md) | M3 垂直切片：CLI `-q` / `run_task` |
