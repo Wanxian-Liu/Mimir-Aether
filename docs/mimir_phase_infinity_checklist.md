@@ -10,7 +10,7 @@
 |------|------|
 | 日期 | **2026-05-05**（阶段 4 工程入口批次） |
 | 执行人 | 协作者 / 代理（真源维护） |
-| 仓库根 | 默认 `~/.openclaw/projects/MimirAether`（见 [`docs/path-contract.md`](path-contract.md)） |
+| 仓库根 | 当前用于 `git push` 的 **clone 根**（任意路径；见 [`docs/path-contract.md`](path-contract.md)、[`docs/MIMIR_ACTIVATE.md`](MIMIR_ACTIVATE.md)） |
 | **宪章 / 价值观真源** | **[`docs/weave_charter.md`](weave_charter.md)**（织界宪章 **草案 v0.1**）。人际与长期价值观仍由负责人验收；工程侧以本文 + §宪章对照审查记录 为据。 |
 | 备注 | 勿提交 token；**高风险自改**（密钥、生产配置、不可逆数据）须 **人类显式批准**，不凭本清单自动放行。 |
 
@@ -20,7 +20,7 @@
 
 与 **[`docs/MAINLINE_STATUS.md`](MAINLINE_STATUS.md)** 一致：里程碑 **∞** 已 **绿**（工程裁定，见 **§∞ 绿裁定记录 #1**）。以下习惯**仍须维持**：
 
-1. **真源**：开发与合入始终以 **`~/.openclaw/projects/MimirAether`** 为 git 根（见 [`path-contract.md`](path-contract.md) §协作习惯）；镜像目录改动须 reconcile 后再推。
+1. **Git 根**：开发与合入在**当前用于推送的 clone 根**执行（勿写死 `~/.openclaw/...`；见 [`path-contract.md`](path-contract.md)、[`AGENTS.md`](../AGENTS.md)）；镜像目录改动须 reconcile 后再推。
 2. **每轮自主进化周期**（自提议题 → PR/合并 → 回归）：在 **§执行记录** 追加一行；触及 agent/gateway/tools/契约测时 **`./scripts/record_m6_evolution.sh`**（见 [`M6_EVOLUTION.md`](M6_EVOLUTION.md)）。
 3. **宪章**：重大 PR 继续对照 **`weave_charter.md`** §2–§3，并在 **§宪章对照审查记录** 追加可指认行。
 
@@ -83,7 +83,7 @@
 ## 如何委托 MimirAether 代理执行
 
 ```
-请阅读 docs/mimir_phase_infinity_checklist.md。在 git 根 ~/.openclaw/projects/MimirAether 协助整理「里程碑 ∞」证据：
+请阅读 docs/mimir_phase_infinity_checklist.md。在 **本仓库 git 根**（`git rev-parse --show-toplevel` 或当前工作区根）协助整理「里程碑 ∞」证据：
 
 - ∞1：最近有哪些「自提议题 → 合入」周期？每次 tier0/M6 证据何在？
 - ∞2：是否有「新类任务」交付？路径与验收？

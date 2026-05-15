@@ -1,6 +1,9 @@
 """诊断脚本：检查 capsule_generator.py 状态"""
-import sys, os
-os.chdir('/home/rayliu/.openclaw/projects/MimirAether')
+import sys
+import os
+from pathlib import Path
+
+os.chdir(Path(__file__).resolve().parent.parent)
 sys.path.insert(0, '.')
 
 print('=== 1. 语法检查 ===')

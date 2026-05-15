@@ -2,8 +2,8 @@
   "_meta": {
     "script": "scripts/diff_tool_names_hermes_mimir.py --json",
     "captured_utc": "2026-05-05",
-    "hermes_root": "/home/rayliu/.openclaw/projects/hermes-agent",
-    "mimir_root": "/home/rayliu/.openclaw/projects/MimirAether",
+    "hermes_root": "/path/to/hermes-agent-clone",
+    "mimir_root": "/path/to/MimirAether-clone",
     "note": "Hermes REF 以 docs/hermes_mimir_behavior_matrix.md §0 HERMES_REF 为准；本快照为一次本地跑数，合入前请复跑。"
   },
   "hermes_only": [

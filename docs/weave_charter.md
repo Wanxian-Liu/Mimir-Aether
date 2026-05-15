@@ -36,7 +36,7 @@
 | 改 **仅文档 / 技能文案**（无运行时语义） | [M6_EVOLUTION.md](./M6_EVOLUTION.md) §豁免；仍建议 PR 说明「对照宪章 §2」 |
 | 宣称 **里程碑 ∞** 进展 | 更新 **`docs/mimir_phase_infinity_checklist.md`** §执行记录；达标路径见该文档 §建议的 ∞「绿」门槛 |
 
-**Git 真源**：开发与推送根须为 **`~/.openclaw/projects/MimirAether`**（见 [path-contract.md](./path-contract.md) §协作习惯）。
+**Git 根**：开发与推送在**当前用于 `git push` 的 clone 根**进行（任意路径；勿将 `~/.openclaw/projects/...` 当作唯一真源；见 [path-contract.md](./path-contract.md)、[MIMIR_ACTIVATE.md](./MIMIR_ACTIVATE.md)）。
 
 ---
 

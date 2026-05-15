@@ -10,8 +10,9 @@ Pipeline inside:
 
 import hashlib
 import time
+from pathlib import Path
 
-CAPSULE_GENERATOR_PATH = "/home/rayliu/.openclaw/projects/MimirAether/mimicore/capsule_generator.py"
+CAPSULE_GENERATOR_PATH = str(Path(__file__).resolve().parent.parent / "mimicore" / "capsule_generator.py")
 
 METHOD_SOURCE = """
     # ============ generate_and_evaluate (公共入口) ============

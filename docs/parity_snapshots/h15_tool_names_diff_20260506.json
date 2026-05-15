@@ -3,8 +3,8 @@
     "script": "scripts/diff_tool_names_hermes_mimir.py --json",
     "captured_utc": "2026-05-06",
     "note": "After browser_camofox _load_config fix; session_search + skill_view + skills_list registry.",
-    "hermes_root": "/home/rayliu/.openclaw/projects/hermes-agent",
-    "mimir_root": "/home/rayliu/.openclaw/projects/MimirAether"
+    "hermes_root": "/path/to/hermes-agent-clone",
+    "mimir_root": "/path/to/MimirAether-clone"
   },
   "hermes_only": [
     "feishu_doc_read",

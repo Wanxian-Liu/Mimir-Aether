@@ -5,11 +5,11 @@
 
 | 字段 | 值 |
 |------|-----|
-| **最近更新** | 2026-05-13 |
-| **更新人** | MimirAether（Phase VI 物理脱钩：hermes_cli/mimcore删除 + mimir_state迁移） |
-| **仓库根（真源）** | `~/.openclaw/projects/MimirAether`（任意 clone 路径均可，以当前工作区 git 根为准） |
+| **最近更新** | 2026-05-16 |
+| **更新人** | 路径叙事：仓库根 vs `MIMIR_AETHER_HOME`；默认数据根 `~/.mimiraether` |
+| **仓库根（真源）** | 以当前用于 `git push` 的 clone 为准（例如 `~/src/MimirAether`）；勿写死 `~/.openclaw/projects/...` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml）；里程碑 A 项需真环境手动/清单 |
-| **本轮摘要** | **LeCun世界模型**: 三篇精读笔记(lewm/vjepa/hwm) + 统一架构提案 + 三层注入(HWM分层规划/LeWM退化检测/V-JEPA记忆自检)。**Karpathy HTML路线**: 12/12完成(HTML双模输出/飞书Card桥接/Artifacts对标/Wiki归档)。**评测**: 横向对比框架+基线98.7→100(错误恢复修复)。**基础设施**: 退化检测(degeneration_guard)、恢复模式(recovery-patterns)、超参数审计(3→1参数)。产出25+文件。Ralph tier0 162+2全绿。 |
+| **本轮摘要** | **路径契约（阶段 A）**：`get_mimir_home()` 默认 `~/.mimiraether`；`AGENTS`/`path-contract`/`README`/`MIMIR_ACTIVATE`/`gateway-cli-health`/`MIMIR_RUNTIME` 区分 git 根与数据根；`watchdog.sh`/`run_task.sh`/`run_mimicore.sh`/`run_self_iteration.sh` 用 `MIMIR_REPO_ROOT` 或 `git rev-parse`。tier0 绿。 |
 
 ---
 
@@ -51,7 +51,7 @@
 
 ## 4. 近期焦点（可改）
 
-0. **真源树**：提交与推送仅在 **`~/.openclaw/projects/MimirAether`**；备份/镜像 checkout 的改动须 **reconcile** 到该根再推（**[`docs/path-contract.md`](path-contract.md)** §协作习惯、**[`AGENTS.md`](../AGENTS.md)**）。
+0. **真源树**：提交与推送在**当前用于远端的 git clone 根**（勿写死 `~/.openclaw/...`）；备份/镜像 checkout 的改动须 **reconcile** 后再推（**[`docs/path-contract.md`](path-contract.md)**、**[`AGENTS.md`](../AGENTS.md)**）。
 1. **执行 M6**：合并前对「agent / gateway / tools / 契约测试」类 PR 运行 `./scripts/record_m6_evolution.sh "…"` 或等价手工行（纯文档豁免见 **`docs/M6_EVOLUTION.md`**）。
 2. 保持 `run_ralph_tier0.sh` 全绿；合入用 Ralph 模式三轮（若启用严格迭代）。
 3. **维持 M6 绿**：受保护路径合入不长期漏记；新 clone 记得 `git config core.hooksPath .githooks`。
@@ -65,6 +65,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-16 | **路径叙事（阶段 A）**：文档与根脚本对齐「clone 根 vs `MIMIR_AETHER_HOME`」；默认数据根 `~/.mimiraether`；tier0 绿。 |
 | 2026-05-13 | **Phase VI 物理删除**：`hermes_cli/` 60+文件(76K行)删除；`mimcore/` 删除；`memory/persistent.json`删除；新增`mimir_state.py`(1019行)；12个Hermes遗存技能清理；`web_server.py` 7处mimcore引用迁移。Ralph tier0 162+2全绿。3 commits。 |
 | 2026-05-11 | **Phase V 深入脱钩完成**：`hermes_constants.py` 已删除（导入→mimir_constants）；`hermes_logging.py` 已删除（导入→mimiraether_logging）；`hermes_state.py`→`mimir_state.py`（9处导入已更新）。Hermes独立路线 I-V 全线闭合。 |
 | 2026-05-11 | **Skill Curator 全线完成**：闭环验证通过（6/6 milestones），end_session 自动胶囊化 + skill_view 复活链路就绪；77 技能全 fresh, 0 dormant。 |

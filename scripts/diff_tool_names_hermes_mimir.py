@@ -24,6 +24,7 @@ import json
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 
 def _names_via_subprocess(repo_root: str, kind: str) -> list[str]:
@@ -70,8 +71,11 @@ def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
         "--hermes-root",
-        default=os.environ.get("HERMES_ROOT", "/home/rayliu/.openclaw/projects/hermes-agent"),
-        help="Hermes checkout at docs/hermes_mimir_behavior_matrix.md HERMES_REF",
+        default=os.environ.get(
+            "HERMES_ROOT",
+            str(Path(__file__).resolve().parents[2] / "hermes-agent"),
+        ),
+        help="Hermes checkout at docs/hermes_mimir_behavior_matrix.md HERMES_REF (default: sibling ../hermes-agent or set HERMES_ROOT)",
     )
     p.add_argument(
         "--mimir-root",

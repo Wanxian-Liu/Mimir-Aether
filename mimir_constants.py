@@ -3,8 +3,8 @@
 import os
 from pathlib import Path
 
-# Default when no env override (clone layout)
-_DEFAULT_MIMIR_HOME = Path.home() / ".openclaw" / "projects" / "MimirAether"
+# Default when no env override (runtime data root; separate from git clone)
+_DEFAULT_MIMIR_HOME = Path.home() / ".mimiraether"
 
 
 def get_mimir_home() -> Path:
@@ -16,7 +16,7 @@ def get_mimir_home() -> Path:
     1. ``MIMIR_AETHER_HOME``
     2. ``MIMIRAETHER_HOME``
     3. ``HERMES_HOME`` (systemd / legacy deploys often set only this)
-    4. Default clone layout ``~/.openclaw/projects/MimirAether``
+    4. Default runtime data layout ``~/.mimiraether`` (not the git checkout)
     """
     for key in ("MIMIR_AETHER_HOME", "MIMIRAETHER_HOME"):
         v = os.getenv(key, "").strip()

@@ -12,13 +12,13 @@
 MimirAether 的 `rl_training_tool.py` 存在**引用路径错误**，导致整个 RL 训练工具链不可用：
 
 ```
-文件位置: /home/rayliu/.openclaw/projects/MimirAether/tools/rl_training_tool.py
+文件位置: `<MimirAether-repo-root>`/tools/rl_training_tool.py
 
 问题代码:
   HERMES_ROOT = Path(__file__).parent.parent
   TINKER_ATROPOS_ROOT = HERMES_ROOT / "tinker-atropos"
   
-  实际指向: /home/rayliu/.openclaw/projects/MimirAether/tinker-atropos/
+  实际指向: `<MimirAether-repo-root>`/tinker-atropos/
   但该目录不存在
 ```
 
@@ -50,7 +50,7 @@ Hermes 的 `.gitmodules` 配置：
 ### 2.1 MimirAether rl/ 模块
 
 ```
-路径: /home/rayliu/.openclaw/projects/MimirAether/rl/
+路径: `<MimirAether-repo-root>`/rl/
 ```
 
 | 文件 | 功能 | 状态 |
@@ -68,7 +68,7 @@ Hermes 的 `.gitmodules` 配置：
 ### 2.2 MimirAether grpo-rl-training 技能
 
 ```
-路径: /home/rayliu/.openclaw/projects/MimirAether/skills/mlops/training/grpo-rl-training/SKILL.md
+路径: `<MimirAether-repo-root>`/skills/mlops/training/grpo-rl-training/SKILL.md
 ```
 
 基于 TRL 库的 GRPO 训练指导，包含：
@@ -370,9 +370,9 @@ registry.register(
 
 | 文件 | 路径 |
 |------|------|
-| MimirAether rl_training_tool.py | `/home/rayliu/.openclaw/projects/MimirAether/tools/rl_training_tool.py` |
-| MimirAether rl/ 模块 | `/home/rayliu/.openclaw/projects/MimirAether/rl/` |
-| grpo-rl-training 技能 | `/home/rayliu/.openclaw/projects/MimirAether/skills/mlops/training/grpo-rl-training/SKILL.md` |
+| MimirAether rl_training_tool.py | ``<MimirAether-repo-root>`/tools/rl_training_tool.py` |
+| MimirAether rl/ 模块 | ``<MimirAether-repo-root>`/rl/` |
+| grpo-rl-training 技能 | ``<MimirAether-repo-root>`/skills/mlops/training/grpo-rl-training/SKILL.md` |
 | Hermes rl_training_tool.py | `/home/rayliu/.openclaw/projects/hermes-agent/tools/rl_training_tool.py` |
 | Hermes tinker-atropos | `/home/rayliu/.openclaw/projects/hermes-agent/tinker-atropos/` |
 | Hermes environments | `/home/rayliu/.openclaw/projects/hermes-agent/environments/` |

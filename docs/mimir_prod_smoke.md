@@ -8,7 +8,7 @@
 |------|------|
 | 日期 | 2026-05-02（最近一轮见 §执行记录） |
 | 执行人 | 负责人 / 代理（真机） |
-| 仓库根 | 默认 `~/.openclaw/projects/MimirAether`（见 `docs/path-contract.md`） |
+| 仓库根 | 当前 **git clone 根**（任意路径）；运行时数据默认 **`~/.mimiraether`** 或由 `MIMIR_AETHER_HOME` 指定（见 `docs/path-contract.md`） |
 | 备注 | CLI v0.1.0；**飞书** Bot「wan」已跑通发送；**勿**在仓库提交 token |
 
 ---
@@ -30,7 +30,7 @@
 你可以把下面整段复制给 **MimirAether 代理**（在已打开本仓库、且能执行终端的前提下）。代理会代跑命令并整理证据；**密钥与首次平台绑定**仍可能需要你本人操作。
 
 ```
-请阅读 docs/mimir_prod_smoke.md。在 git 根 ~/.openclaw/projects/MimirAether（或当前打开的 MimirAether 根目录）执行里程碑 A 的 A1–A4：
+请阅读 docs/mimir_prod_smoke.md。在 **当前 MimirAether git 根目录**（`git rev-parse --show-toplevel` 或 Cursor 已打开的工作区根；勿假设固定 `~/.openclaw/...`）执行里程碑 A 的 A1–A4：
 
 - A1：依次运行文档中列出的 cli 子命令，记录每条通过/失败（命令、退出码、关键输出摘要）。
 - A2：检查 gateway 与 gateway health；若依赖 api_server，对照 docs/gateway-cli-health.md。若我尚未配置某平台或缺少凭证，明确写「阻塞：缺 XXX」。
@@ -63,7 +63,7 @@
 
 - [x] Gateway 进程按你环境启动（如 `python3 cli.py gateway start` 或 systemd，与文档一致）。（✅ 例：PID 48920）
 - [x] 至少一个已配置 **platform** 上收到并回复一条**真实消息**（Telegram/Discord/飞书/其他）。（✅ **飞书**：Bot「wan」发送测试消息成功，`code:0`；**勿**将 token 写入本仓库）
-- [x] `python3 cli.py gateway health` 或 **`/health`**：若依赖 `api_server`，已按 **`docs/gateway-cli-health.md`** 配置 `~/.openclaw/config.yaml` 中 `api_server` 与端口。（✅ `{"status":"ok"}`，api_server **18999**）
+- [x] `python3 cli.py gateway health` 或 **`/health`**：若依赖 `api_server`，已按 **`docs/gateway-cli-health.md`** 在 **`$MIMIR_AETHER_HOME/config.yaml`**（或 `get_mimir_home()` 对应路径）中配置 `api_server` 与端口。（✅ `{"status":"ok"}`，api_server **18999**）
 
 **失败时先看**：`logs/`、`gateway` 子命令输出、`path-contract` 三层路径是否混用。
 

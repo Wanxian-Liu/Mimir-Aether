@@ -54,7 +54,9 @@ methods = '''
 '''
 
 import os
-os.chdir('/home/rayliu/.openclaw/projects/MimirAether')
+from pathlib import Path
+
+os.chdir(Path(__file__).resolve().parent.parent)
 
 with open('mimicore/capsule_generator.py') as f:
     content = f.read()

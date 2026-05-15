@@ -20,7 +20,7 @@
 
 ### 2.1 数据来源
 
-从 `sessions.db`（`~/.openclaw/projects/MimirAether/sessions/sessions.db`）选取：
+从 `sessions.db`（**`$MIMIR_AETHER_HOME/data/sessions/...`** 或你配置的会话 DB 路径；勿写死机器路径）选取：
 
 | 会话 ID | Token 总数 | 输入 Token | 用途 |
 |----------|-----------|-----------|------|
@@ -127,7 +127,7 @@ Latency = 压缩函数执行时间（毫秒）
 ```bash
 # 运行数据提取脚本
 python tests/benchmarks/prepare_test_data.py \
-  --db-path ~/.openclaw/projects/MimirAether/sessions/sessions.db \
+  --db-path "$MIMIR_AETHER_HOME/data/sessions/sessions.db" \
   --session-id demo_session \
   --output-dir tests/benchmarks/data/
 ```

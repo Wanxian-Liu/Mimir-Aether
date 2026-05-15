@@ -13,11 +13,18 @@ When the user asks for **进度 / 主线 / 完成度** (or similar):
 
 Read **`docs/DEVELOPMENT_NORTH_STAR.md`** before large changes: **Parity** (Hermes-aligned behavior with evidence) and **Evolution** (measurable gain + regression). It scopes this repo vs isolated clones and links the Ralph contract, migration lossy points, and the three gates.
 
-## Authoritative workspace
+## Repository vs runtime data
 
-Use **`~/.openclaw/projects/MimirAether`** as the **only** git root for commits, pushes, and local verification. Other directories (e.g. backups or duplicate checkouts) are not the source of truth unless you explicitly reconcile them.
+Do **not** conflate the **git checkout** (code) with **`MIMIR_AETHER_HOME`** (persistent config, `.env`, `data/`, logs).
 
-**Cursor:** Open this path as the **workspace root** so the agent sandbox may write under the repo (including `docs/evolution_log.md` from `./scripts/record_m6_evolution.sh`). If a command must modify paths **outside** the current workspace root, run it **without** the sandbox (e.g. tool permission `all`) for that step only.
+| Concept | Typical resolution |
+|--------|---------------------|
+| **Git / repo root** | Whatever directory holds this repository (e.g. `~/src/MimirAether`). Use `git rev-parse --show-toplevel` or set **`MIMIR_REPO_ROOT`** for scripts that must `cd` before running `cli.py`. |
+| **Runtime / data home** | **`MIMIR_AETHER_HOME`** (or `MIMIRAETHER_HOME` / `HERMES_HOME` per `mimir_constants`). Default when unset: **`~/.mimiraether`** — see `mimir_constants.get_mimir_home()` and `docs/path-contract.md`. |
+
+Commits, pushes, and `./run_ralph_tier0.sh` run from **your active clone** (the repo root Cursor opened). Older checkouts under `~/.openclaw/projects/` may still exist as copies; reconcile or push from there **before** treating them as obsolete.
+
+**Cursor:** Open the **clone root** as the workspace so the sandbox may write under the repo (including `docs/evolution_log.md` from `./scripts/record_m6_evolution.sh`). If a command must modify paths **outside** the workspace (e.g. under `$MIMIR_AETHER_HOME`), run it **without** the sandbox (e.g. tool permission `all`) for that step only.
 
 ## Paths and config
 

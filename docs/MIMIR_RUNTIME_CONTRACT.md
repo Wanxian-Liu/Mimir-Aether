@@ -6,16 +6,18 @@
 
 | 变量 | 说明 |
 |------|------|
-| `MIMIR_AETHER_HOME` | 本仓库根目录（含 `config.yaml`、`.env`、`skills/`）。**生产环境推荐始终设置。** 与旧名 `MIMIRAETHER_HOME` 同时存在时，**以本变量为准**。 |
+| `MIMIR_AETHER_HOME` | **运行时数据根**（`.env`、`config.yaml`、`data/`、日志等）。**生产环境推荐始终设置。** 与旧名 `MIMIRAETHER_HOME` 同时存在时，**以本变量为准**。未设置时，代码默认 **`~/.mimiraether`**（与 `mimir_constants.get_mimir_home()` 一致）。 |
 | `HERMES_HOME` | 与 `MIMIR_AETHER_HOME` **设为同一路径**，直到所有 `hermes_cli` / `hermes_constants` 调用路径完全收敛。`scripts/start.sh` 会自动对齐。 |
 
-未设置 `MIMIR_AETHER_HOME` 时，代码默认回退到 `~/.openclaw/projects/MimirAether`（与历史布局兼容）。
+**与 git 根分离**：代码仓库可位于任意路径（例如 `~/src/MimirAether`）。`MIMIR_AETHER_HOME` **不必**等于仓库根；本地开发若把 `.env` 放在 clone 内，可将两者设为同一路径（见 [`MIMIR_ACTIVATE.md`](./MIMIR_ACTIVATE.md)）。
+
+未设置 `MIMIR_AETHER_HOME` / `MIMIRAETHER_HOME` / `HERMES_HOME` 时，默认数据根为 **`~/.mimiraether`**（不再是固定的 `~/.openclaw/projects/MimirAether` 布局）。
 
 ## 独立部署检查清单（习惯）
 
 部署到**无**历史 `~/.openclaw` 环境前，建议逐项确认：
 
-1. 已设置 **`MIMIR_AETHER_HOME`** 指向本仓库根（含 `config.yaml`、`skills/`）。
+1. 已设置 **`MIMIR_AETHER_HOME`** 指向**运行时数据根**（含 `config.yaml`、`data/`；可与 clone 相同或分离）。
 2. 已设置 **`HERMES_HOME`** 与上一步**同一路径**（或使用 [`scripts/start.sh`](../scripts/start.sh) 自动对齐）。
 3. 密钥在 **`$MIMIR_AETHER_HOME/.env`**，主配置在 **`$MIMIR_AETHER_HOME/config.yaml`**。
 4. 不把「机器上必须已有 OpenClaw 目录」当作前提。

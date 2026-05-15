@@ -10,7 +10,7 @@
 |------|------|
 | 日期 | **2026-05-04**（阶段 3：C 黄 → C 绿同批） |
 | 执行人 | 协作者 / 代理（真源维护） |
-| 仓库根 | 默认 `~/.openclaw/projects/MimirAether`（见 [`docs/path-contract.md`](path-contract.md)） |
+| 仓库根 | 当前用于 `git push` 的 **clone 根**（任意路径；见 [`docs/path-contract.md`](path-contract.md)、[`docs/MIMIR_ACTIVATE.md`](MIMIR_ACTIVATE.md)） |
 | **当前学习目标（已闭合 3 主题）** | 见 **`docs/phase_c_studies/README.md`**：`20260504_agent_loop_tool_chain.md`、`20260504_gateway_session_transcript.md`、`20260504_parity_matrix_workflow.md`。 |
 | 备注 | 勿在仓库提交 token；可选 Hermes 上游路径仅写本机说明（**不**提交密钥）。上游锚点见行为矩阵 §0 **HERMES_REF**。 |
 
@@ -73,7 +73,7 @@
 将下面整段复制给 **MimirAether 代理**（已打开本仓库、可执行终端）。
 
 ```
-请阅读 docs/mimir_phase_c_checklist.md。在 git 根 ~/.openclaw/projects/MimirAether 协助推进「里程碑 C」：
+请阅读 docs/mimir_phase_c_checklist.md。在 **本仓库 git 根**（`git rev-parse --show-toplevel` 或当前工作区根）协助推进「里程碑 C」：
 
 - C1：当前学习目标是什么（Hermes 域 / Mimir 模块边界）？对照 behavior_matrix 哪几行？
 - C2：报告路径（docs/phase_c_studies/…）是否包含：范围与非目标、代码路径、矩阵/契约引用、架构要点、差距与改进（≥2 条）？

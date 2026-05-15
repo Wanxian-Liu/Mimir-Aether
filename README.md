@@ -1,6 +1,6 @@
 # MimirAether
 
-自主 Agent 运行时与技能库：**主开发树**默认位于 `~/.openclaw/projects/MimirAether`（见 `docs/path-contract.md`）。
+自主 Agent 运行时与技能库：**代码**在任意 git clone 根目录；**运行时数据**（`.env`、`config.yaml`、`data/` 等）默认在 **`~/.mimiraether`**，或由 **`MIMIR_AETHER_HOME`** 显式指定（见 `docs/path-contract.md`、`docs/MIMIR_ACTIVATE.md`）。
 
 ## 开发方向（防偏离）
 
@@ -11,7 +11,8 @@
 | 文档 | 用途 |
 |------|------|
 | [docs/DEVELOPMENT_NORTH_STAR.md](./docs/DEVELOPMENT_NORTH_STAR.md) | 方向真源、验收与防偏离 |
-| [docs/path-contract.md](./docs/path-contract.md) | Agent home / profile / 平台配置三层路径 |
+| [docs/path-contract.md](./docs/path-contract.md) | 仓库根 vs 运行时数据根、profile、平台配置 |
+| [docs/MIMIR_ACTIVATE.md](./docs/MIMIR_ACTIVATE.md) | Shell 里设置 `MIMIR_REPO_ROOT` / `MIMIR_AETHER_HOME` 的示例 |
 | [docs/ralph_parity_contract_v1.md](./docs/ralph_parity_contract_v1.md) | Parity 行为契约 |
 | [docs/ralph_roadmap_milestones.md](./docs/ralph_roadmap_milestones.md) | M0–M6 里程碑与 M6 进化可审计 |
 | [docs/m3_cli_quick_task_slice.md](./docs/m3_cli_quick_task_slice.md) | M3 垂直切片：CLI `-q` / `run_task` |

@@ -84,7 +84,7 @@ capsules = query_mimir_knowledge("async programming patterns", top_k=5)
 
 **模式1: Fire-and-Forget**
 ```python
-delegate_task(goal="Run tier0 tests", context="cd ~/.openclaw/projects/MimirAether && ./run_ralph_tier0.sh")
+delegate_task(goal="Run tier0 tests", context="cd \"$(git rev-parse --show-toplevel)\" && ./run_ralph_tier0.sh")
 ```
 
 **模式2: Two-Stage Review** (SDD)

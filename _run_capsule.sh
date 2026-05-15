@@ -1,3 +1,9 @@
-#!/bin/bash
-cd ~/.openclaw/projects/MimirAether
-python run_capsule_script.py
+#!/usr/bin/env bash
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+REPO_ROOT="${MIMIR_REPO_ROOT:-}"
+if [[ -z "$REPO_ROOT" ]]; then
+    REPO_ROOT="$(cd "$SCRIPT_DIR" && git rev-parse --show-toplevel 2>/dev/null || echo "$SCRIPT_DIR")"
+fi
+cd "$REPO_ROOT"
+python3 run_capsule_script.py

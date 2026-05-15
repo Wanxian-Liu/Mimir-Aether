@@ -1,8 +1,8 @@
 """
 Configuration management for Hermes Agent.
 
-Config and secrets live under **MimirAether home** (``MIMIR_AETHER_HOME`` when set;
-default clone layout ``~/.openclaw/projects/MimirAether`` — see ``mimir_constants`` and
+Config and secrets live under **Mimir runtime home** (``MIMIR_AETHER_HOME`` when set;
+default ``~/.mimiraether`` — see ``mimir_constants`` and
 ``docs/MIMIR_RUNTIME_CONTRACT.md``):
 
 - ``<MIMIR_HOME>/config.yaml`` — settings (model, toolsets, terminal, etc.)

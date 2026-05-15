@@ -268,7 +268,7 @@ def check_telegram_requirements():
 ## 配置示例
 
 ```yaml
-# ~/.openclaw/projects/MimirAether/config.yaml
+# $MIMIR_AETHER_HOME/config.yaml（或仓库根 `config.yaml` 用于开发）
 agent:
   max_turns: 100
   gateway_timeout: 1800

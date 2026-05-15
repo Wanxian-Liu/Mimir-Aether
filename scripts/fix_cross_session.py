@@ -1,7 +1,10 @@
 """P1-1: 跨会话上下文恢复 - 注入到system prompt"""
-import subprocess, os, json
+import json
+import os
+import subprocess
+from pathlib import Path
 
-os.chdir('/home/rayliu/.openclaw/projects/MimirAether')
+os.chdir(Path(__file__).resolve().parent.parent)
 
 # 读 prompt_builder.py
 with open('agent/prompt_builder.py') as f:

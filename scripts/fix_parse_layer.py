@@ -1,7 +1,9 @@
 """修复1: 恢复capsule_generator.py + 修复2: 修改core_loop.py的非贪婪正则"""
-import subprocess, os
+import os
+import subprocess
+from pathlib import Path
 
-os.chdir('/home/rayliu/.openclaw/projects/MimirAether')
+os.chdir(Path(__file__).resolve().parent.parent)
 
 # === 修复1: 恢复 capsule_generator.py ===
 src = 'mimicore/capsule_generator_fixed.py'

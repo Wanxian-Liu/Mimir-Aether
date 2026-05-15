@@ -10,7 +10,7 @@
 |------|------|
 | 日期 | **2026-05-04**（B 绿批次） |
 | 执行人 | 协作者 / 代理（真源维护） |
-| 仓库根 | 默认 `~/.openclaw/projects/MimirAether`（见 [`docs/path-contract.md`](path-contract.md)） |
+| 仓库根 | 当前用于 `git push` 的 **clone 根**（任意路径；见 [`docs/path-contract.md`](path-contract.md)、[`docs/MIMIR_ACTIVATE.md`](MIMIR_ACTIVATE.md)） |
 | 备注 | 勿在仓库提交 token；本批次证据以 **git commit、`docs/evolution_log.md`、`MAINLINE` §5** 为主 |
 
 ---
@@ -82,7 +82,7 @@
 将下面整段复制给 **MimirAether 代理**（已打开本仓库、可执行终端）。**密钥与人机步骤**仍可能需你本人完成。
 
 ```
-请阅读 docs/mimir_phase_b_checklist.md。在 git 根 ~/.openclaw/projects/MimirAether（或当前 MimirAether 根）协助整理「里程碑 B」证据：
+请阅读 docs/mimir_phase_b_checklist.md。在 **本仓库 git 根**（`git rev-parse --show-toplevel` 或 Cursor 已打开的工作区根；勿假设固定 `~/.openclaw/...`）协助整理「里程碑 B」证据：
 
 - B1：最近一个「从需求到交付」的完整任务：交付物是什么（PR 链接 / 文件路径 / 对话结论）、验收方式、是否达到用户可接受状态。
 - B2：同一任务中是否出现「先澄清目标/成功标准」的记录（引用对话或 PR 描述中的原句）；若没有，标 [ ] 并写改进点。

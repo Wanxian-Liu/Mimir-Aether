@@ -20,7 +20,7 @@
 ## 验证命令（默认）
 
 ```bash
-cd ~/.openclaw/projects/MimirAether   # 或本仓库根
+cd "$(git rev-parse --show-toplevel)"   # 本仓库根；或: cd "$MIMIR_REPO_ROOT"
 ./run_ralph_tier0.sh
 ```
 

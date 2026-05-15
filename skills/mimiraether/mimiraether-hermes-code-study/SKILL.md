@@ -30,7 +30,7 @@ ls $HERMES_PATH/agent/prompt_builder.py
 ### 3. MimirAether对比
 ```python
 # MimirAether位置
-MIMIR_PATH="/home/rayliu/.openclaw/projects/MimirAether"
+MIMIR_PATH="$(git rev-parse --show-toplevel)"   # 或 export MIMIR_REPO_ROOT
 
 # 检查对应文件
 ls $MIMIR_PATH/agent/core_loop.py      # vs agent_loop.py
@@ -111,7 +111,7 @@ ls $MIMIR_PATH/agent/prompt_builder.py
 - 安全扫描（prompt_builder）
 - 错误分类、凭证池、洞察引擎、内存管理等
 
-完整分析见: `/home/rayliu/.openclaw/projects/MimirAether/learnings/hermes_agent_loop_gap_analysis.md`
+完整分析见: **`<repo-root>/learnings/hermes_agent_loop_gap_analysis.md`**（将 `<repo-root>` 换为你的 clone 路径）
 
 ## 下一步
 - 完成100天计划Phase 1剩余24天

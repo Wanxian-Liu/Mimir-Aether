@@ -134,7 +134,7 @@ print(f"验证结果: {result['valid']}")
 ## 输出路径
 
 ```
-~/.openclaw/projects/MimirAether/skills/mimiraether/mimiraether-{skill_name}/
+`$(git rev-parse --show-toplevel)/skills/mimiraether/mimiraether-{skill_name}/`
     └── SKILL.md
 ```
 

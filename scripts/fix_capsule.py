@@ -1,7 +1,8 @@
 """补全 capsule_generator.py 缺失的方法"""
 import os
+from pathlib import Path
 
-os.chdir('/home/rayliu/.openclaw/projects/MimirAether')
+os.chdir(Path(__file__).resolve().parent.parent)
 
 # 读当前文件
 with open('mimicore/capsule_generator.py') as f:

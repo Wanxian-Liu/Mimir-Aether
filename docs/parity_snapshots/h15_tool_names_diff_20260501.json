@@ -3,8 +3,8 @@
     "script": "scripts/diff_tool_names_hermes_mimir.py --json",
     "captured_utc": "2026-05-01",
     "note": "After search_web removed from registry; legacy name remapped to web_search (model_tools + core_loop route_tool_call). mimir_only count 25.",
-    "hermes_root": "/home/rayliu/.openclaw/projects/hermes-agent",
-    "mimir_root": "/home/rayliu/.openclaw/projects/MimirAether"
+    "hermes_root": "/path/to/hermes-agent-clone",
+    "mimir_root": "/path/to/MimirAether-clone"
   },
   "hermes_only": [
     "feishu_doc_read",
