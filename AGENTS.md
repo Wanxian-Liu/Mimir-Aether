@@ -22,6 +22,8 @@ Do **not** conflate the **git checkout** (code) with **`MIMIR_AETHER_HOME`** (pe
 | **Git / repo root** | Whatever directory holds this repository (e.g. `~/src/MimirAether`). Use `git rev-parse --show-toplevel` or set **`MIMIR_REPO_ROOT`** for scripts that must `cd` before running `cli.py`. |
 | **Runtime / data home** | **`MIMIR_AETHER_HOME`** (or `MIMIRAETHER_HOME` / `HERMES_HOME` per `mimir_constants`). Default when unset: **`~/.mimiraether`** — see `mimir_constants.get_mimir_home()` and `docs/path-contract.md`. |
 
+After a fresh clone, run **`git submodule update --init mimicore`** from the repo root (see **`docs/MIMIR_ACTIVATE.md`** section **「Clone 后必做」**); do not bump the submodule pointer unless you intend to ship a submodule change.
+
 Commits, pushes, and `./run_ralph_tier0.sh` run from **your active clone** (the repo root Cursor opened). Older checkouts under `~/.openclaw/projects/` may still exist as copies; reconcile or push from there **before** treating them as obsolete.
 
 **Cursor:** Open the **clone root** as the workspace so the sandbox may write under the repo (including `docs/evolution_log.md` from `./scripts/record_m6_evolution.sh`). If a command must modify paths **outside** the workspace (e.g. under `$MIMIR_AETHER_HOME`), run it **without** the sandbox (e.g. tool permission `all`) for that step only.

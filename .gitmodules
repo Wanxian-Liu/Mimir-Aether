@@ -1,3 +1,4 @@
+# After clone: `git submodule update --init mimicore` (see docs/MIMIR_ACTIVATE.md §Clone 后必做). Bump submodule commits only with intent.
 [submodule "mimicore"]
 	path = mimicore
 	url = git@github.com:Wanxian-Liu/memory-hall.git

@@ -2,6 +2,16 @@
 
 Use this when you want a repeatable shell session: **code** lives in the git clone; **config, secrets, and `data/`** resolve under **`MIMIR_AETHER_HOME`** (default `~/.mimiraether` when unset).
 
+## Clone 后必做
+
+从远端 **clone** 或 **浅 clone** 后，在仓库根执行一次（拉取 [`mimicore`](../.gitmodules) 子模块内容；**不**改子模块指针，仅检出当前 superproject 已记录的 commit）：
+
+```bash
+git submodule update --init mimicore
+```
+
+若未执行，常见现象包括：Python **`ModuleNotFoundError: No module named 'mimicore'`**（或无法从 `mimicore/` 导入），以及 git 报错类似 **`fatal: clone of '…' into submodule path 'mimicore' failed`**（网络 / SSH 权限 / 未配置 host key）或 **`fatal: not a git repository: mimicore/.git`**（目录存在但未完成子模块初始化）。CI 子模块拉取失败时另见 [`CI_SUBMODULE.md`](./CI_SUBMODULE.md)。
+
 ## Variables
 
 | Variable | Purpose |

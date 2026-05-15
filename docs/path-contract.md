@@ -67,6 +67,7 @@ Avoid confusing **where the code lives** with **where state lives**.
 | **运行时** | 生产/常驻进程应设置 **`MIMIR_AETHER_HOME`**（及通常 **`HERMES_HOME`** 与之相同），指向你希望存放配置与 `data/` 的目录；默认 **`~/.mimiraether`**。 |
 | **其他目录** | 备份或镜像 clone 仅作只读或中转；若有改动，合并回你用于推送的 clone 再推远端。 |
 | **问进度时** | 以 [`MAINLINE_STATUS.md`](./MAINLINE_STATUS.md) 为准；阶段 4 勾选见 [`mimir_phase_infinity_checklist.md`](mimir_phase_infinity_checklist.md)；进化价值对照见 [`weave_charter.md`](weave_charter.md)。 |
+| **子模块 `mimicore`** | Clone 后须在仓库根执行 `git submodule update --init mimicore`；典型报错与说明见 [`MIMIR_ACTIVATE.md`](./MIMIR_ACTIVATE.md) 小节 **「Clone 后必做」**。 |
 
 ## `.openclaw` 字面量（`agent/` · `gateway/` · `tools/`）
 
