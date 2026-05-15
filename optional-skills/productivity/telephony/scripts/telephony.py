@@ -60,12 +60,16 @@ def _agent_home() -> Path:
     raw = os.environ.get("HERMES_HOME", "").strip()
     if raw:
         return Path(raw).expanduser()
+    for key in ("MIMIR_AETHER_HOME", "MIMIRAETHER_HOME"):
+        v = os.environ.get(key, "").strip()
+        if v:
+            return Path(v).expanduser()
     try:
         from mimir_constants import get_mimir_home
 
         return get_mimir_home()
     except ImportError:
-        return Path.home() / ".openclaw" / "projects" / "MimirAether"
+        return Path.home() / ".mimiraether"
 
 
 def _agent_home_display() -> str:
