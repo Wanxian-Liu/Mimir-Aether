@@ -11,7 +11,7 @@ training server.
 ### Step 1: Run 1 trajectory
 
 ```bash
-cd ~/.openclaw/projects/MimirAether/hermes-agent
+cd /path/to/hermes-agent   # your Hermes checkout (not the MimirAether git root)
 source venv/bin/activate
 
 python environments/your_env.py process \

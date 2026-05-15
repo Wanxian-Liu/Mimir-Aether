@@ -226,7 +226,7 @@ without needing to load this skill.
 
 ### Option A: Stdio Mode (Simple)
 
-Add to `~/.openclaw/projects/MimirAether/config.yaml`:
+Add to `$MIMIR_AETHER_HOME/config.yaml`:
 
 ```yaml
 mcp_servers:
