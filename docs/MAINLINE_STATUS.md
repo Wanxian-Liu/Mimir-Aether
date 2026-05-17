@@ -5,11 +5,11 @@
 
 | 字段 | 值 |
 |------|-----|
-| **最近更新** | 2026-05-16 |
-| **更新人** | 路径叙事：仓库根 vs `MIMIR_AETHER_HOME`；默认数据根 `~/.mimiraether` |
+| **最近更新** | 2026-05-17 |
+| **更新人** | MimirAether Session 73 (session_count=72) |
 | **仓库根（真源）** | 以当前用于 `git push` 的 clone 为准（例如 `~/src/MimirAether`）；勿写死 `~/.openclaw/projects/...` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml）；里程碑 A 项需真环境手动/清单 |
-| **本轮摘要** | **路径契约（阶段 A）**：`get_mimir_home()` 默认 `~/.mimiraether`；`AGENTS`/`path-contract`/`README`/`MIMIR_ACTIVATE`/`gateway-cli-health`/`MIMIR_RUNTIME` 区分 git 根与数据根；`watchdog.sh`/`run_task.sh`/`run_mimicore.sh`/`run_self_iteration.sh` 用 `MIMIR_REPO_ROOT` 或 `git rev-parse`。tier0 绿。 |
+| **本轮摘要** | Session 72→73：`skill_curator.py` persistent.json 截断根因修复（3层防护）；`memory_tool.py` MemoryStore 单例；131个 `.md`→`.html` 胶囊迁移至 `memory/capsules/`；B2 Gateway 10项诊断（3项可修/7项归属openclaw）；GitHub Issue #3 MimirAether 身份混淆根因分析；M6 evolution_log 补录5条；`run_ralph_tier0.sh` 162+2 全绿。 |
 
 ---
 

@@ -47,3 +47,8 @@ Append-only. Newest rows at the **bottom**. See **`docs/M6_EVOLUTION.md`** for r
 | 20260515T195159Z_b6a9d9e-dirty | 2026-05-15T19:51:59Z | b6a9d9e-dirty | ./run_ralph_tier0.sh | 0 | Docs: submodule init expectation for mimicore |
 | 20260515T200058Z_22dd832-dirty | 2026-05-15T20:00:58Z | 22dd832-dirty | ./run_ralph_tier0.sh | 0 | Docs: OPERATIONS_GATEWAY checklist + links |
 | 20260515T201946Z_4a6bb7d-dirty | 2026-05-15T20:19:46Z | 4a6bb7d-dirty | ./run_ralph_tier0.sh | 0 | Docs+tools: SECURITY.md + AGENTS security pointers + skills_guard mimiraether .env patterns |
+| 20260517T143000Z_3879208_a | 2026-05-17T14:30:00Z | 3879208 | ./run_ralph_tier0.sh | 0 | Session 72→73: skill_curator.py 截断根因修复 — _load_persistent() 3层防护 (结构校验→.bak回退→拒绝空覆写) |
+| 20260517T143001Z_3879208_b | 2026-05-17T14:30:01Z | 3879208 | ./run_ralph_tier0.sh | 0 | memory_tool.py MemoryStore 单例 (get_memory_store) + Backlog #1 冒烟验证通过 |
+| 20260517T143002Z_3879208_c | 2026-05-17T14:30:02Z | 3879208 | ./run_ralph_tier0.sh | 0 | Backlog #3: 131个 .md 胶囊迁移至 memory/capsules/ .html (migrate_capsules_batch.py) |
+| 20260517T143003Z_3879208_d | 2026-05-17T14:30:03Z | 3879208 | ./run_ralph_tier0.sh | 0 | B2 Gateway 10项诊断: 3项可修(MimirAether) + 7项归属openclaw运行时 |
+| 20260517T143004Z_3879208_e | 2026-05-17T14:30:04Z | 3879208 | ./run_ralph_tier0.sh | 0 | GitHub Issue #3: MimirAether身份混淆根因分析 (mimir_constants, gateway/status, gateway/config) + mimircore_tool.py 仓库根解析 |
