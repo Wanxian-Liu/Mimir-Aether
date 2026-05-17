@@ -1,11 +1,11 @@
 {
   "version": "1.4",
-  "last_session_end": "2026-05-14T07:48:55.693788+00:00",
-  "session_count": 71,
+  "last_session_end": "2026-05-16T07:04:41.219651+00:00",
+  "session_count": 72,
   "identity": {
     "name": "MimirAether",
     "soul": "智慧之泉",
-    "last_known_mission": "幽灵技能清理完成 → Hermes独立路线Phase I"
+    "last_known_mission": "SOUL.md固化刘哥身份 + persistent.json对齐真实技能数106"
   },
   "memory": {
     "key_decisions": [
@@ -88,6 +88,11 @@
         "timestamp": "2026-05-11T13:34:52.354072+00:00",
         "decision": "Hermes独立路线全线闭合：Phase I-V完成。hermes_constants/logging/state已删除或重命名；hermes_cli/已删除；零代码级import依赖残留。仅余PTC桩模块内部命名(hermes_tools)和工具集前缀(hermes-*)为非核心命名残留",
         "context": ""
+      },
+      {
+        "timestamp": "2026-05-16T07:04:41.219651+00:00",
+        "decision": "SOUL.md 固化刘哥/rayliu 创造者身份；persistent.json 技能数 86→106 对齐磁盘实际",
+        "context": ""
       }
     ],
     "learned_patterns": [
@@ -145,51 +150,14 @@
         "timestamp": "2026-05-11T13:34:52.354072+00:00",
         "pattern": "grep -r 'from hermes' 匹配到的可能都是字符串字面量而非真实导入——需二次确认是否为实际import语句",
         "evidence": "4个文件被grep匹配但全部是字符串内的hermes_tools引用，零实际import"
+      },
+      {
+        "timestamp": "2026-05-16T07:04:41.219651+00:00",
+        "pattern": "persistent.json 可能被外部进程（end_session/curator）截断覆写——需在patch前验证文件未变，或持有完整副本再写回",
+        "evidence": "324行→5行，仅剩skill_usage字段"
       }
     ],
     "active_projects": [
-      {
-        "name": "五条药方实施 — 第2/3/4/5条完成，第1条为持续约束",
-        "status": "active",
-        "created_at": "2026-05-11T04:57:38.845096+00:00",
-        "updated_at": "2026-05-11T04:57:38.845096+00:00"
-      },
-      {
-        "name": "幽灵技能清理 — 已完成 ✅",
-        "status": "completed",
-        "created_at": "2026-05-11T04:57:38.845096+00:00",
-        "updated_at": "2026-05-11T13:34:52.354072+00:00"
-      },
-      {
-        "name": "Hermes独立路线 — Phase I 依赖图谱待启动",
-        "status": "active",
-        "created_at": "2026-05-11T04:57:38.845096+00:00",
-        "updated_at": "2026-05-11T04:57:38.845096+00:00"
-      },
-      {
-        "name": "Hermes独立路线 — Phase I-V 全线闭合 ✅",
-        "status": "completed",
-        "created_at": "2026-05-11T04:57:38.845096+00:00",
-        "updated_at": "2026-05-11T13:34:52.354072+00:00"
-      },
-      {
-        "name": "Pipeline 完整闭环验证 — Phase XII 消化验证",
-        "status": "completed",
-        "created_at": "2026-05-13T18:00:00.000000+00:00",
-        "updated_at": "2026-05-14T13:50:00.000000+00:00"
-      },
-      {
-        "name": "Hermes生态学习全周期 — Phase VI-XI ✅",
-        "status": "completed",
-        "created_at": "2026-05-13T14:00:00.000000+00:00",
-        "updated_at": "2026-05-13T18:00:00.000000+00:00"
-      },
-      {
-        "name": "LeCun世界模型三层架构注入 — 19/25项 ✅",
-        "status": "active",
-        "created_at": "2026-05-14T04:00:00.000000+00:00",
-        "updated_at": "2026-05-14T06:30:00.000000+00:00"
-      },
       {
         "name": "五条药方实施 — 全部5条完成，第1条为持续约束",
         "status": "completed",
@@ -197,10 +165,22 @@
         "updated_at": "2026-05-14T13:50:00.000000+00:00"
       },
       {
-        "name": "LeCun世界模型三层架构注入 — 20/25项, 核心链路闭合 ✅",
-        "status": "active",
-        "created_at": "2026-05-14T04:00:00.000000+00:00",
+        "name": "幽灵技能清理 — 已完成 ✅",
+        "status": "completed",
+        "created_at": "2026-05-11T04:57:38.845096+00:00",
         "updated_at": "2026-05-14T13:50:00.000000+00:00"
+      },
+      {
+        "name": "Hermes独立路线 — Phase I-V 全线闭合 ✅",
+        "status": "completed",
+        "created_at": "2026-05-11T04:57:38.845096+00:00",
+        "updated_at": "2026-05-14T13:50:00.000000+00:00"
+      },
+      {
+        "name": "Hermes生态学习全周期 — Phase VI-XI ✅",
+        "status": "completed",
+        "created_at": "2026-05-13T14:00:00.000000+00:00",
+        "updated_at": "2026-05-13T18:00:00.000000+00:00"
       },
       {
         "name": "Karpathy HTML双模输出路线 — 12/12全部完成 ✅",
@@ -212,6 +192,12 @@
         "name": "Stability Patterns 稳定性设计 — v1.0 ✅",
         "status": "completed",
         "created_at": "2026-05-14T13:00:00.000000+00:00",
+        "updated_at": "2026-05-14T13:50:00.000000+00:00"
+      },
+      {
+        "name": "LeCun世界模型三层架构注入 — 20/25项, 核心链路闭合 ✅",
+        "status": "active",
+        "created_at": "2026-05-14T04:00:00.000000+00:00",
         "updated_at": "2026-05-14T13:50:00.000000+00:00"
       }
     ],
@@ -235,7 +221,7 @@
     ]
   },
   "progress": {
-    "current_objective": "Karpathy HTML路线 + LeCun稳定性 + SYNC对齐完成。残余6项需运行时数据 + Ralph验证待跑",
+    "current_objective": "Phase XIV Tool Guard + NLAH/12Factor 对齐完成",
     "completed_milestones": [
       "tool-triggers元规则验证通过 ✅",
       "hermes-cat-write auto_load ✅",
@@ -252,70 +238,38 @@
       "幽灵技能清理完成：106→103，零幽灵 ✅",
       "skills_qa 幽灵检测能力上线 ✅",
       "skill_generator 空壳禁制生效 ✅",
-      "Skill Curator 检测: scan_skills/assess_staleness",
-      "Skill Curator 报告: nudge_report/detailed_report",
-      "Skill Curator 动作: capsulize_and_dormant/revive_skill",
-      "Skill Curator 行动建议: curator_actions/curator_actions_report",
-      "Skill Curator 闭环: end_session自动capsulize_now",
-      "skill_view自动复活dormant技能",
-      "Skill Curator 检测: scan_skills/assess_staleness ✅",
-      "Skill Curator 报告: nudge_report/detailed_report ✅",
-      "Skill Curator 动作: capsulize_and_dormant/revive_skill ✅",
-      "Skill Curator 行动建议: curator_actions/curator_actions_report ✅",
-      "Skill Curator 闭环: end_session自动capsulize_now ✅",
+      "Skill Curator 全线落地 ✅",
       "skill_view自动复活dormant技能 ✅",
-      "Hermes Phase I: 依赖图谱 ✅",
-      "Hermes Phase II: 认证脱钩 ✅",
-      "Hermes Phase III: 模型脱钩 ✅",
-      "Hermes Phase IV: 清理收尾 ✅",
-      "Hermes Phase V: 深入脱钩(hermes_constants/logging/state) ✅",
-      "persistent.json对齐真实状态(本会话) ✅",
-      "D1 技能去重: 合并/删除5个薄壳+互补标注 ✅",
-      "D2 骨架充实: 3个骨架技能 +8.2KB ✅",
-      "D3 近重复清理: 合并1个+修复过期引用 ✅",
-      "D5 死链检查器v2增强: related_skills+skill_view()+mimicore验证 ✅",
-      "Hermes同步: himalaya/jupyter-live-kernel/dogfood/orchestration-patterns (+4技能) ✅",
-      "Phase VI: hermes_cli/ mimcore/ 物理删除 (-75752行) ✅",
-      "Phase VI: mimcore→mimir_state 迁移 (0残留) ✅",
-      "Phase VI: tools/toolsets.py Mimir原生工具集 ✅",
+      "Hermes Phase I-V: 独立路线全线闭合 ✅",
+      "D1-D5 技能去重+充实 ✅",
+      "Hermes同步: himalaya/jupyter-live-kernel/dogfood/orchestration-patterns ✅",
+      "Phase VI: hermes_cli/mimcore/ 物理删除 + mimir_state迁移 ✅",
       "Phase VI: 飞书MAX_MESSAGE_LENGTH=131072 ✅",
-      "Phase VI: Gateway crash recovery技能固化 ✅",
-      "Phase VI: 工作区干净 + push 全部完成 ✅",
-      "跨会话循环污染根因诊断 + 修复 (ground_truth + persistent对齐) ✅",
-      "Phase XI P0: session_tracker.py 落盘 + OpenSpace analyzer 模式吸收 ✅",
-      "Phase VII P0: 工具参数类型强制(model_tools) ✅",
-      "Phase VII P1: ProviderProfile档案 ✅",
-      "Phase VIII: Superpowers门控 brainstorming+verification+skill-tdd (3新技能) ✅",
-      "Phase IX: gstack ETHOS铁律+ship技能 ✅",
-      "Phase X: llms.txt+llms-full.txt Hermes Atlas模式 ✅",
-      "Phase XI: Control Interface 跳过 ✅",
-      "Phase XI: Skill Factory 主动提案合并到cross-session ✅",
-      "Phase XII: Harness Engineering 熵管理 — 质量评分/漂移检测/策展分类 ✅",
-      "C1: LeCun三篇论文PDF精读笔记 (learnings/) ✅",
-      "C2: 统一架构提案 (docs/lecun_world_model_architecture.md) ✅",
-      "C3: LeWM退化检测MVP (degeneration_guard.json + skill) ✅",
-      "P0: HWM分层规划 (strategic-planner skill + schema + 4集成) ✅",
-      "P2: V-JEPA 2.1 三层记忆自检 (MEMORY_SELF_CHECK.md + 2集成) ✅",
-      "C4/C5: persistent.json + ground_truth.json 收尾标记 ✅",
-      "Karpathy P0: HTML基础设施 (skill + 4模板 + wiki验证) ✅",
-      "Karpathy P1: 飞书桥接 (html_to_feishu_card.py + 3卡片模板 + 三级回退) ✅",
-      "Karpathy P3: Wiki集成 (raw/目录 + auto-archive + 索引) ✅",
-      "Karpathy P2: Artifacts对标 (协议 + 新组件note/cols/action) ✅",
-      "Stability Patterns: 5模式 + 5反模式 v1.0 ✅",
-      "超参数审计: degeneration_guard 3→1参数 (LeWM风格) ✅",
-      "BUG修复: send_message 工具恢复 (FeishuAdapter _build_lark_client) ✅",
-      "UI按钮: mimir-action 支持 url 属性 ✅",
-      "SYNC: persistent.json 过期项目清理 + 新增Karpathy/Stability ✅"
+      "跨会话循环污染根因诊断 + 修复 ✅",
+      "Phase VII-XI: P0工具类型强制 + ProviderProfile + Superpowers + gstack + llms.txt ✅",
+      "Phase XII: Harness Engineering 熵管理 ✅",
+      "C1-C5: LeCun三层架构 20/25项 ✅",
+      "Karpathy P0-P3: HTML双模输出 12/12 ✅",
+      "Stability Patterns v1.0 ✅",
+      "SOUL.md 创造者身份固化 ✅",
+      "persistent.json 截断恢复 + 技能数106对齐 ✅"
     ],
-    "pending_tasks": []
+    "pending_tasks": [
+      "persistent.json截断根因定位: end_session vs SkillCurator vs 并发写 [✅ Session 73根因定位+修复: skill_curator.py _load_persistent() 在JSON异常时返回{}导致覆写]",
+      "Gateway 10项问题修复 (Session 78报告): #5 API Server无密钥(高), #10 Agent偶发崩溃(高), #1 Watchdog超时(中), #2 Token失败(中), #3 Reaction未处理(低), #4 Event loop closed(低), #6 fal_client缺失(低), #7 孤儿tool message(低), #8 ToolGuard相对路径(低), #9 飞书卡片渲染失败(低)",
+      "MimirAether 身份混淆解耦 (GitHub #3): mimir_constants.py L107 → .openclaw默认路径; gateway/status.py L134 → openclaw进程匹配; gateway/config.py L27 → 注释承认移植未解耦 [架构级,需系统审计]"
+    ]
   },
   "skill_usage": {
-    "mimiraether-tool-triggers": "2026-05-11T04:54:06.477587+00:00",
-    "mimiraether-plan-mode": "2026-05-11T04:54:06.478074+00:00",
-    "my-skill": "2026-05-11T08:27:18.361110+00:00",
-    "mimiraether-skill_generator": "2026-05-11T05:08:00.769110+00:00",
-    "mimiraether-feishu-config-bridge": "2026-05-13T13:41:22.616911+00:00"
+    "mimiraether-heartbeat": "2026-05-16T07:04:41.219651+00:00",
+    "skills-qa": "2026-05-16T07:08:13.044008+00:00",
+    "mimiraether-tool-triggers": "2026-05-17T02:44:32.965915+00:00",
+    "my-skill": "2026-05-17T07:34:21.376235+00:00",
+    "mimiraether-html-output": "2026-05-16T18:29:59.539351+00:00",
+    "mimiraether-cross-session": "2026-05-17T06:29:28.253243+00:00",
+    "github-issues": "2026-05-17T04:01:54.093019+00:00",
+    "mimiraether-root-cause-debugging": "2026-05-17T05:15:41.305182+00:00"
   },
-  "curator_nudge": "skill_curator: 86技能 | fresh=86 stale=0 dormant=0",
+  "curator_nudge": "skill_curator: 106技能 | fresh=106 stale=0 dormant=0",
   "dormant_skills": {}
 }

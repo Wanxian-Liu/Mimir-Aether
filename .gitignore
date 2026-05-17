@@ -43,3 +43,6 @@ sessions/**/*.jsonl
 
 # 本地技能草稿 / 机要桥接（若需入库可删对应行后 git add -f）
 skills/mimiraether/mimiraether-feishu-config-bridge/
+
+# 运行时备份（勿提交）
+data/persistent.json.bak

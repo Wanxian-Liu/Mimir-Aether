@@ -16,6 +16,7 @@ HTML → Feishu Card JSON 转换器
     3. 原始 Markdown（任何失败时）← 跟现在一模一样
 """
 
+from html import unescape as _unescape_html
 import re
 import json
 from datetime import datetime
@@ -93,6 +94,14 @@ def _html_table_to_card(html: str) -> Optional[dict]:
     if len(headers) > 4:
         headers = headers[:4]
         rows = [row[:4] for row in rows]
+
+    # 过滤空列名（飞书不允许列名为空）
+    # decode HTML entities + strip 零宽字符
+    valid_indices = [i for i, h in enumerate(headers) if _unescape_html(h).strip().strip('\u200b\u200c\u200d\u2060\ufeff')]
+    if not valid_indices:
+        return None
+    headers = [headers[i] for i in valid_indices]
+    rows = [[row[i] if i < len(row) else "" for i in valid_indices] for row in rows]
 
     # 构建
     header_row = [{"content": h, "tag": "plain_text"} for h in headers]
@@ -248,14 +257,14 @@ def _html_to_card_elements(html: str, is_feishu: bool = True) -> list[dict]:
     body = re.sub(r'<div[^>]*class="[^"]*mimir-note[^"]*"[^>]*>.*?</div>',
                   '', body, flags=re.DOTALL)
 
-    # 0.5 提取 column_set
-    columns = _extract_columns(body)
-    body = re.sub(r'<div[^>]*class="[^"]*mimir-columns[^"]*"[^>]*>.*?</div>\s*(?=<div|</div|$)',
-                  '', body, flags=re.DOTALL)
-
-    # 0.6 提取 action 按钮
+    # 0.5 提取 action 按钮（必须在 column_set 之前，按钮通常在 columns 内部）
     actions = _extract_actions(body)
     body = re.sub(r'<button[^>]*class="[^"]*mimir-action[^"]*"[^>]*>.*?</button>',
+                  '', body, flags=re.DOTALL)
+
+    # 0.6 提取 column_set
+    columns = _extract_columns(body)
+    body = re.sub(r'<div[^>]*class="[^"]*mimir-columns[^"]*"[^>]*>.*?</div>\s*(?=<div|</div|$)',
                   '', body, flags=re.DOTALL)
 
     # 1. 尝试表格转换

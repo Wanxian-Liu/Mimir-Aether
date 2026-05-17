@@ -176,6 +176,11 @@ class ToolRegistry:
         entry = self._tools.get(name)
         if not entry:
             return json.dumps({"error": f"Unknown tool: {name}"})
+        if name == "memory" and kwargs.get("store") is None:
+            from tools.memory_tool import get_memory_store
+
+            kwargs = dict(kwargs)
+            kwargs["store"] = get_memory_store()
         try:
             if entry.is_async:
                 from model_tools import _run_async

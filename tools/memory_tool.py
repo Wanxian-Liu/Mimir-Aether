@@ -69,6 +69,24 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+_default_memory_store: Optional["MemoryStore"] = None
+
+
+def get_memory_store() -> "MemoryStore":
+    """Return the shared MemoryStore, loading MEMORY.md / USER.md on first use."""
+    global _default_memory_store
+    if _default_memory_store is None:
+        _default_memory_store = MemoryStore()
+        _default_memory_store.load_from_disk()
+    return _default_memory_store
+
+
+def reset_memory_store_for_test() -> None:
+    """Clear the process-wide store singleton (tests only)."""
+    global _default_memory_store
+    _default_memory_store = None
+
+
 # Where memory files live — resolved dynamically so profile overrides
 # (MIMIRAETHER_HOME env var changes) are always respected.  The old module-level
 # constant was cached at import time and could go stale if a profile switch
@@ -100,7 +118,7 @@ _MEMORY_THREAT_PATTERNS = [
     # Persistence via shell rc
     (r'authorized_keys', "ssh_backdoor"),
     (r'\$HOME/\.ssh|\~/\.ssh', "ssh_access"),
-    (r'\$HOME/\projects/MimirAether/\.env|\~/\projects/MimirAether/\.env', "mimiraether_env"),
+    (r'\$HOME/projects/MimirAether/\.env|~/projects/MimirAether/\.env', "mimiraether_env"),
 ]
 
 # Subset of invisible chars for injection detection
@@ -635,7 +653,7 @@ def memory_tool(
     Returns JSON string with results.
     """
     if store is None:
-        return tool_error("Memory is not available. It may be disabled in config or this environment.", success=False)
+        store = get_memory_store()
 
     if target not in ("memory", "user"):
         return tool_error(f"Invalid target '{target}'. Use 'memory' or 'user'.", success=False)
@@ -755,7 +773,7 @@ registry.register(
         target=args.get("target", "memory"),
         content=args.get("content"),
         old_text=args.get("old_text"),
-        store=kw.get("store"),
+        store=kw.get("store") or get_memory_store(),
         texts=args.get("texts"),
         memory_md_goals=args.get("memory_md_goals"),
         current_task=args.get("current_task", "")),

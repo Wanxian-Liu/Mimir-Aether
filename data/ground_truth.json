@@ -45,7 +45,8 @@
     "持续: 跨会话主动技能提案模式运行验证",
     "LeCun项目: C1-C5全✅ (19/25) — closed",
     "LeCun残余: 1.5验证实验 + 2.4超参数审计 + 2.5稳定性文档 (需运行时/大任务场景)",
-    "错误恢复优化: recovery-patterns skill (4模式: 权限/锁/损坏/缺失) + degeneration_guard recovery_loop通道 + recovery_bridge桥接 — 93.3%→100%"
+    "错误恢复优化: recovery-patterns skill (4模式: 权限/锁/损坏/缺失) + degeneration_guard recovery_loop通道 + recovery_bridge桥接 — 93.3%→100%",
+    "Session 73 完成: persistent.json 截断根因修复 (skill_curator.py) — _load_persistent() JSON异常返回{}→全量覆写"
   ],
 
   "session_note": "Session 68: Phase IX-XI连续完成 + Phase XII Pipeline验证 + Phase XIII Evaluator-Optimizer技能(mimiraether-evaluator-optimizer)。Hermes生态学习全周期: superpowers→gstack→Atlas→Control Interface(跳过)→Skill Factory(吸收)→OpenSpace P0(session_tracker)→Harness Engineering 熵管理→Anthropic Building Effective Agents。Pipeline完整: brainstorming→plan→execute→[evaluate⇄optimize]→verify→ship。",
