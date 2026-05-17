@@ -1,36 +1,112 @@
 {
   "_constitution": "MimirAether 耐久真源。data/persistent.json 被运行时部分锁定，本文件为权威来源。v1.1 起 _merge_disk_changes() 已修复运行时覆盖问题。",
   "version": "2.1",
-  "updated_at": "2026-05-14T05:00:00.000000+00:00",
-
-  "current_objective": "Phase XIV Tool Guard + NLAH/12Factor 对齐完成",
+  "updated_at": "2026-05-17T07:56:27.000000+00:00",
+  "current_objective": "B2/B3 搁置，LeCun 核心链路闭合，系统全绿待新方向",
   "objectives_history": [
-    {"name": "幽灵技能清理", "status": "completed"},
-    {"name": "五条药方实施 (#2-#5)", "status": "completed"},
-    {"name": "Skill Curator 全线落地", "status": "completed"},
-    {"name": "Hermes Phase I 依赖图谱", "status": "completed"},
-    {"name": "Hermes Phase II 认证脱钩", "status": "completed"},
-    {"name": "Hermes Phase III 模型脱钩", "status": "completed", "note": "模型调用已独立"},
-    {"name": "Hermes Phase IV 清理收尾", "status": "completed", "note": "hermes_cli/ 删除"},
-    {"name": "Hermes Phase V 深入脱钩", "status": "completed", "note": "hermes_constants/logging/state 全部删除或重命名"},
-    {"name": "Phase VI 物理脱钩", "status": "completed", "note": "hermes_cli/mimcore物理删除, mimcore→mimir_state迁移, tools/toolsets.py新增, 飞书MAX_MESSAGE_LENGTH, Gateway crash recovery固化"},
-    {"name": "Phase VII 工具强化", "status": "completed", "note": "P0类型强制(model_tools)+P1 ProviderProfile (P2/P3取消: Hermes无对应)"},
-    {"name": "Phase VIII Superpowers 学习", "status": "completed", "note": "obra/superpowers门控模式: brainstorming(入口门控)+verification(收尾门控)+skill-tdd(TDD方法写技能)。3个Mimir原生技能。"},
-    {"name": "Phase IX gstack 学习", "status": "completed", "note": "gstack ETHOS+ship: SOUL.md铁律+发布技能, wiki自动归档机制激活"},
-    {"name": "Phase X Hermes Atlas 学习", "status": "completed", "note": "llms.txt+llms-full.txt生成, 任何LLM读一个文件即可了解MimirAether全貌"},
-    {"name": "Phase XI Control Interface", "status": "skipped", "note": "Go+React多Agent控制面板, 单Agent场景不匹配"},
-    {"name": "Phase XI Skill Factory 吸收", "status": "completed", "note": "被动观察→主动提案模式合并到cross-session, +37行补丁。不新建技能。"},
-    {"name": "Phase XI OpenSpace 学习", "status": "completed", "note": "P0 session_tracker.py落盘(analyzer模式吸收,兑现旧承诺); P1质量追踪延期; P2 BM25跳过。"},
-    {"name": "Phase XII Harness Engineering 熵管理", "status": "completed", "note": "deusyu概念#6吸收: skills_qa.py +SkillHealth/SkillQualityScore/CuratorReport, 质量评分0-100四维, 漂移检测, curatorial triage(fresh/stale/dormant), discover_skills递归化"},
-    {"name": "Phase XIII Anthropic Building Effective Agents", "status": "completed", "note": "Evaluator-Optimizer循环技能(mimiraether-evaluator-optimizer): 生成→评估→反馈→迭代改进, 最多3轮。Pipeline完整补齐。verification技能+1条原则引用。"},
-    {"name": "Phase XIV Tool Guard + NLAH + 12Factor", "status": "completed", "note": "P1: agent/tool_guard.py (ToolRisk五级分类+poka-yoke相对路径/危险shell检测,集成到strategy.py pre_validate). P2: docs/NLAH_ALIGNMENT.md. P3: docs/12_FACTOR_AGENTS.md (10/12对齐). 来源: Anthropic Building Effective Agents + Harness Engineering"}
+    {
+      "name": "幽灵技能清理",
+      "status": "completed"
+    },
+    {
+      "name": "五条药方实施 (#2-#5)",
+      "status": "completed"
+    },
+    {
+      "name": "Skill Curator 全线落地",
+      "status": "completed"
+    },
+    {
+      "name": "Hermes Phase I 依赖图谱",
+      "status": "completed"
+    },
+    {
+      "name": "Hermes Phase II 认证脱钩",
+      "status": "completed"
+    },
+    {
+      "name": "Hermes Phase III 模型脱钩",
+      "status": "completed",
+      "note": "模型调用已独立"
+    },
+    {
+      "name": "Hermes Phase IV 清理收尾",
+      "status": "completed",
+      "note": "hermes_cli/ 删除"
+    },
+    {
+      "name": "Hermes Phase V 深入脱钩",
+      "status": "completed",
+      "note": "hermes_constants/logging/state 全部删除或重命名"
+    },
+    {
+      "name": "Phase VI 物理脱钩",
+      "status": "completed",
+      "note": "hermes_cli/mimcore物理删除, mimcore→mimir_state迁移, tools/toolsets.py新增, 飞书MAX_MESSAGE_LENGTH, Gateway crash recovery固化"
+    },
+    {
+      "name": "Phase VII 工具强化",
+      "status": "completed",
+      "note": "P0类型强制(model_tools)+P1 ProviderProfile (P2/P3取消: Hermes无对应)"
+    },
+    {
+      "name": "Phase VIII Superpowers 学习",
+      "status": "completed",
+      "note": "obra/superpowers门控模式: brainstorming(入口门控)+verification(收尾门控)+skill-tdd(TDD方法写技能)。3个Mimir原生技能。"
+    },
+    {
+      "name": "Phase IX gstack 学习",
+      "status": "completed",
+      "note": "gstack ETHOS+ship: SOUL.md铁律+发布技能, wiki自动归档机制激活"
+    },
+    {
+      "name": "Phase X Hermes Atlas 学习",
+      "status": "completed",
+      "note": "llms.txt+llms-full.txt生成, 任何LLM读一个文件即可了解MimirAether全貌"
+    },
+    {
+      "name": "Phase XI Control Interface",
+      "status": "skipped",
+      "note": "Go+React多Agent控制面板, 单Agent场景不匹配"
+    },
+    {
+      "name": "Phase XI Skill Factory 吸收",
+      "status": "completed",
+      "note": "被动观察→主动提案模式合并到cross-session, +37行补丁。不新建技能。"
+    },
+    {
+      "name": "Phase XI OpenSpace 学习",
+      "status": "completed",
+      "note": "P0 session_tracker.py落盘(analyzer模式吸收,兑现旧承诺); P1质量追踪延期; P2 BM25跳过。"
+    },
+    {
+      "name": "Phase XII Harness Engineering 熵管理",
+      "status": "completed",
+      "note": "deusyu概念#6吸收: skills_qa.py +SkillHealth/SkillQualityScore/CuratorReport, 质量评分0-100四维, 漂移检测, curatorial triage(fresh/stale/dormant), discover_skills递归化"
+    },
+    {
+      "name": "Phase XIII Anthropic Building Effective Agents",
+      "status": "completed",
+      "note": "Evaluator-Optimizer循环技能(mimiraether-evaluator-optimizer): 生成→评估→反馈→迭代改进, 最多3轮。Pipeline完整补齐。verification技能+1条原则引用。"
+    },
+    {
+      "name": "Phase XIV Tool Guard + NLAH + 12Factor",
+      "status": "completed",
+      "note": "P1: agent/tool_guard.py (ToolRisk五级分类+poka-yoke相对路径/危险shell检测,集成到strategy.py pre_validate). P2: docs/NLAH_ALIGNMENT.md. P3: docs/12_FACTOR_AGENTS.md (10/12对齐). 来源: Anthropic Building Effective Agents + Harness Engineering"
+    }
   ],
-
   "active_projects": [
-    {"name": "五条药方实施", "status": "ongoing", "note": "第1条为持续约束"},
-    {"name": "LeCun世界模型三层架构注入", "status": "completed", "note": "LeWM+HWM+V-JEPA2.1三篇。C1-C5全✅。19/25项完成。架构: docs/lecun_world_model_architecture.md + docs/MEMORY_SELF_CHECK.md。笔记: learnings/lecun-{lewm,vjepa21,hwm}.md。退化检测: degeneration_guard.json + skill。分层规划: strategic-planner skill + active_task.json。记忆自检: MEMORY_SELF_CHECK.md + cross-session/context-compressor集成。残余6项需运行时数据。"}
+    {
+      "name": "五条药方实施",
+      "status": "ongoing",
+      "note": "第1条为持续约束"
+    },
+    {
+      "name": "LeCun世界模型三层架构注入",
+      "status": "completed",
+      "note": "LeWM+HWM+V-JEPA2.1三篇。C1-C5全✅。19/25项完成。架构: docs/lecun_world_model_architecture.md + docs/MEMORY_SELF_CHECK.md。笔记: learnings/lecun-{lewm,vjepa21,hwm}.md。退化检测: degeneration_guard.json + skill。分层规划: strategic-planner skill + active_task.json。记忆自检: MEMORY_SELF_CHECK.md + cross-session/context-compressor集成。残余6项需运行时数据。"
+    }
   ],
-
   "hermes_decoupling_summary": {
     "phase_i_dependency_graph": "docs/hermes_dependency_graph.md 已产出",
     "phase_ii_auth": "mimcore/auth.py, config.py 原生",
@@ -40,17 +116,12 @@
     "phase_vi_physical": "hermes_cli/ mimcore/ 物理删除, mimcore→mimir_state迁移完成, tools/toolsets.py Mimir原生, 飞书MAX_MESSAGE_LENGTH=131072, Gateway crash recovery技能固化",
     "remaining_known": "hermes_tools 引用(测试文件+code_execution_tool) — 非核心依赖，后续处理"
   },
-
   "next_actions": [
-    "持续: 跨会话主动技能提案模式运行验证",
-    "LeCun项目: C1-C5全✅ (19/25) — closed",
-    "LeCun残余: 1.5验证实验 + 2.4超参数审计 + 2.5稳定性文档 (需运行时/大任务场景)",
-    "错误恢复优化: recovery-patterns skill (4模式: 权限/锁/损坏/缺失) + degeneration_guard recovery_loop通道 + recovery_bridge桥接 — 93.3%→100%",
-    "Session 73 完成: persistent.json 截断根因修复 (skill_curator.py) — _load_persistent() JSON异常返回{}→全量覆写"
+    "错误恢复优化: recovery-patterns skill (4模式: 权限/锁/损坏/缺失) + degeneration_guard recovery_loop通道 + recovery_bridge桥接",
+    "B2: Gateway 10项问题修复（搁置，待用户指令）",
+    "B3: MimirAether 身份混淆解耦 GitHub #3（架构级，待用户设计）"
   ],
-
-  "session_note": "Session 68: Phase IX-XI连续完成 + Phase XII Pipeline验证 + Phase XIII Evaluator-Optimizer技能(mimiraether-evaluator-optimizer)。Hermes生态学习全周期: superpowers→gstack→Atlas→Control Interface(跳过)→Skill Factory(吸收)→OpenSpace P0(session_tracker)→Harness Engineering 熵管理→Anthropic Building Effective Agents。Pipeline完整: brainstorming→plan→execute→[evaluate⇄optimize]→verify→ship。",
-
+  "session_note": "Session 73: persistent.json截断根因修复(skill_curator.py 3层防护) + B2 Gateway 10项诊断 + B3 身份混淆根因入 GitHub #3。Backlog #1-#3 全清。131 .md to .html 胶囊迁移完成。run_ralph_tier0 162+2全绿。",
   "wiki": {
     "path": "~/wiki",
     "status": "active",

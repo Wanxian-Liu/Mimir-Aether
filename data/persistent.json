@@ -255,7 +255,7 @@
       "persistent.json 截断恢复 + 技能数106对齐 ✅"
     ],
     "pending_tasks": [
-      "persistent.json截断根因定位: end_session vs SkillCurator vs 并发写 [✅ Session 73根因定位+修复: skill_curator.py _load_persistent() 在JSON异常时返回{}导致覆写]",
+      "✅ persistent.json截断根因修复: _load_persistent() JSON异常→{}→全量覆写",
       "Gateway 10项问题修复 (Session 78报告): #5 API Server无密钥(高), #10 Agent偶发崩溃(高), #1 Watchdog超时(中), #2 Token失败(中), #3 Reaction未处理(低), #4 Event loop closed(低), #6 fal_client缺失(低), #7 孤儿tool message(低), #8 ToolGuard相对路径(低), #9 飞书卡片渲染失败(低)",
       "MimirAether 身份混淆解耦 (GitHub #3): mimir_constants.py L107 → .openclaw默认路径; gateway/status.py L134 → openclaw进程匹配; gateway/config.py L27 → 注释承认移植未解耦 [架构级,需系统审计]"
     ]
@@ -268,7 +268,9 @@
     "mimiraether-html-output": "2026-05-16T18:29:59.539351+00:00",
     "mimiraether-cross-session": "2026-05-17T06:29:28.253243+00:00",
     "github-issues": "2026-05-17T04:01:54.093019+00:00",
-    "mimiraether-root-cause-debugging": "2026-05-17T05:15:41.305182+00:00"
+    "mimiraether-root-cause-debugging": "2026-05-17T05:15:41.305182+00:00",
+    "mimiraether-context-engine": "2026-05-17T08:03:54.309680+00:00",
+    "mimiraether-brainstorming": "2026-05-17T08:03:54.311447+00:00"
   },
   "curator_nudge": "skill_curator: 106技能 | fresh=106 stale=0 dormant=0",
   "dormant_skills": {}
