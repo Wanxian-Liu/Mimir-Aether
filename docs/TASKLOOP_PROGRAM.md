@@ -115,3 +115,22 @@ round | commit_hash | score | delta | pass/fail | duration_s | description
 === 最佳方向 ===
 [最后 3 轮有效提升的策略总结]
 ```
+
+---
+
+## 创意枯竭恢复 (对照 Karpathy 原版)
+
+> 原版 program.md: "If you run out of ideas, think harder — read papers
+> referenced in the code, re-read the in-scope files for new angles, try
+> combining previous near-misses, try more radical architectural changes."
+
+当连续 5 轮无 Δ 提升时，触发恢复模式：
+
+1. **重读基础**: 重新打开目标代码文件（如 train.py / capsule_generator.py），
+   不靠摘要，读全量——找到之前没注意的变量
+2. **组合近失**: 回顾 Buffer 中标记"无效"的条目，组合两个无效方向
+   可能产出有效方向（"单独 A 不行、单独 B 不行，但 A+B 可能行"）
+3. **激进架构改动**: 不是改参数数值，而是改变**优化什么**。如果一直
+   改 metadata → 试试改映射表；如果一直改映射表 → 试试改生成逻辑
+4. **方向翻转**: 如果一直往上加（增加细节）→ 试试往下减（简化=更好）
+5. 以上四步仍无方向 → **不是停，是自动结束循环**，记录"创意枯竭"

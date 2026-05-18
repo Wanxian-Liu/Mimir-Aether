@@ -37,6 +37,8 @@ class TaskLoopConfig:
     no_go: list[str] = field(default_factory=list)  # 禁区
     workdir: str = "."            # 工作目录
     min_delta: float = 0.001      # 有效提升的最小Δ（防浮点噪声）
+    regression_cmd: str = ""      # #2 回归保护：gate通过后必须跑的命令
+    belief_callback: object = None  # #1 LLM驱动信念归因: fn(round, hyp, pred_Δ, real_Δ, beliefs) → new_beliefs
 
 
 @dataclass
@@ -74,3 +76,99 @@ class TaskLoopResult:
     total_rounds: int
     total_time_s: float
     commits: list[str] = field(default_factory=list)
+
+
+# ============================================================
+# Causal AR Buffer — TASKLOOP_ARCH.md §8.8
+# Paper: "Efficient Autoregressive Inference for Transformer
+#  Probabilistic Models" (Conor et al., 2025, arXiv:2510.09477v2)
+# ============================================================
+
+@dataclass
+class ContextCache:
+    """R1: 上下文固化，一次编码不可变。
+    
+    对应论文 r_C(C) — 上下文编码后缓存为只读。
+    TaskLoop 中 = program.md + config 的压缩摘要。
+    """
+    summary: str                          # 压缩版任务描述 (~100 tokens)
+    no_go: list[str] = field(default_factory=list)
+    created_at: float = 0.0
+
+
+@dataclass
+class BeliefEntry:
+    """R2: Buffer 条目，严格因果。
+    
+    第 k 轮只能看到 < k 的条目。
+    每个条目 = 假设 + 分数变化 + 一句话教训。
+    """
+    round: int
+    hypothesis: str                       # 1行: "扩展 OOM 的 cause 条目"
+    score_delta: float                    # 度量: +0.015
+    lesson: str                           # 1行信仰: "丰富 cause 比加 code 有效"
+
+
+class BeliefsBuffer:
+    """R2/R4: 信念缓冲区。
+    
+    R2: 严格因果 — visible_prefix(k) 只返回 < k 的条目。
+    R4: 目标间不自注意 — 各自看缓存+buffer前缀。
+    MAX_SIZE: 20 条（与社区实践一致）。
+    """
+    MAX_SIZE = 20
+
+    def __init__(self):
+        self.entries: list[BeliefEntry] = []
+
+    def append(self, entry: BeliefEntry):
+        """追加信念，超出上限时移除最旧条目（FIFO）。"""
+        self.entries.append(entry)
+        if len(self.entries) > self.MAX_SIZE:
+            self.entries = self.entries[-self.MAX_SIZE:]
+
+    def visible_prefix(self, k: int) -> list[BeliefEntry]:
+        """第 k 轮只能看到 < k 的条目（R2 因果约束）。"""
+        return [e for e in self.entries if e.round < k]
+
+    def format_for_llm(self, k: int) -> str:
+        """将可见 prefix 格式化为 LLM 可读文本。"""
+        visible = self.visible_prefix(k)
+        if not visible:
+            return ""
+        lines = ["## 信念缓冲区 (已学教训)", ""]
+        for e in visible:
+            sign = "+" if e.score_delta >= 0 else ""
+            lines.append(
+                f"- R{e.round}: {e.hypothesis} "
+                f"(Δ{sign}{e.score_delta:.4f}) — {e.lesson}"
+            )
+        return "\n".join(lines)
+
+    def rewrite_from_text(self, beliefs_text: str, round_num: int = 0):
+        """#1: LLM驱动的信念重写 — 不追加，完全替换。
+        
+        对应 Discussion #340: Agent 每轮重写 beliefs.md，不追加。
+        输入: LLM 生成的信仰文本（每行一条 "- xxx"）。
+        """
+        self.entries = []
+        for line in beliefs_text.strip().split("\n"):
+            line = line.strip()
+            if not line or not line.startswith("- "):
+                continue
+            content = line[2:]  # 去掉 "- "
+            entry = BeliefEntry(
+                round=round_num,
+                hypothesis="",
+                score_delta=0.0,
+                lesson=content,
+            )
+            self.entries.append(entry)
+        if len(self.entries) > self.MAX_SIZE:
+            self.entries = self.entries[-self.MAX_SIZE:]
+
+    def __len__(self):
+        return len(self.entries)
+
+    def __bool__(self):
+        return len(self.entries) > 0
