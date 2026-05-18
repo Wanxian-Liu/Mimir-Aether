@@ -8,3 +8,4 @@ round	hypothesis	score	delta	passed	duration_s	lines_changed	error
 11	跳跃: beta 0.178→0.544	93.0166	-1.1163	False	0.0	5	Δ=-1.1163<0 → discard
 1	confidence: 0.8→0.9	0.7194	0.0000	False	0.1	38	Δ=0 且 +38行 → 不值得
 1	设置 penalty = 1.26	0.7485	0.1234	True	0.0	1	
+2	设置 chunk_size = 1024	0.9394	0.1909	True	0.0	1	
