@@ -5,3 +5,4 @@ round	hypothesis	score	delta	passed	duration_s	lines_changed	error
 3	跳跃: alpha 0.2→0.296	80.4196	2.1696	True	0.0	5	
 6	调整 gamma: 0.1 → 0.116	87.6775	0.0000	False	0.0	5	Δ=0 且 +5行 → 不值得
 8	跳跃: gamma 0.1→0.026	91.9385	-1.6169	False	0.0	5	Δ=-1.6169<0 → discard
+11	跳跃: beta 0.178→0.544	93.0166	-1.1163	False	0.0	5	Δ=-1.1163<0 → discard
