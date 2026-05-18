@@ -140,7 +140,7 @@ TOOL_USE_ENFORCEMENT_GUIDANCE = (
 )
 
 # 触发工具使用强制的模型名称
-TOOL_USE_ENFORCEMENT_MODELS = ("gpt", "codex", "gemini", "gemma", "grok")
+TOOL_USE_ENFORCEMENT_MODELS = ("gpt", "codex", "gemini", "gemma", "grok", "deepseek")
 
 # OpenAI模型执行指导
 # 解决已知GPT模型行为模式：过早停止、跳过查找、臆造而非使用工具
@@ -225,6 +225,33 @@ GOOGLE_MODEL_OPERATIONAL_GUIDANCE = (
     "to prevent CLI tools from hanging on prompts.\n"
     "- **Keep going:** Work autonomously until the task is fully resolved. "
     "Don't stop with a plan — execute it.\n"
+)
+
+# DeepSeek模型执行指导
+# 解决已知DeepSeek模型行为模式：reasoning_content传播、孤儿工具消息敏感、
+# thinking模式下的特殊响应格式。
+# 来源: MimirAether DeepSeek集成经验 + DeepSeek API文档
+DEEPSEEK_MODEL_EXECUTION_GUIDANCE = (
+    "# DeepSeek operational directives\n"
+    "Follow these rules strictly when communicating with the DeepSeek API:\n"
+    "- **Reasoning propagation:** When using thinking-enabled models (deepseek-r1, "
+    "deepseek-v3), assistant messages with reasoning_content MUST be followed by "
+    "assistant messages that also carry reasoning_content. Never mix reasoning and "
+    "non-reasoning assistant messages in the same conversation.\n"
+    "- **Orphan tool sensitivity:** DeepSeek is sensitive to malformed tool call "
+    "sequences. Ensure every assistant message with tool_calls is followed by "
+    "matching tool result messages before the next assistant message. If you "
+    "encounter a 400 error about 'tool must be a response to tool_calls', the "
+    "history has orphan tool_calls that need cleanup.\n"
+    "- **Tool call format:** Use standard OpenAI function calling format: "
+    "`{\"id\": \"call_xxx\", \"type\": \"function\", \"function\": {\"name\": \"...\", "
+    "\"arguments\": \"...\"}}`. Do NOT use alternative formats.\n"
+    "- **Content + tool_calls:** DeepSeek supports returning both content text and "
+    "tool_calls in the same response. When you have analysis to share AND tools to "
+    "call, include both — the tools will execute and the loop will continue.\n"
+    "- **Thinking blocks:** DeepSeek-R1 and V3.1 may wrap internal reasoning in "
+    "`<think>...</think>` tags. These are stripped from the displayed response but "
+    "may appear in raw content. Parse responses accordingly.\n"
 )
 
 # 使用developer角色的模型
@@ -1023,6 +1050,8 @@ def build_system_prompt(
     model_lower = model.lower()
     if any(m in model_lower for m in TOOL_USE_ENFORCEMENT_MODELS):
         sections.append(TOOL_USE_ENFORCEMENT_GUIDANCE)
+        if "deepseek" in model_lower:
+            sections.append(DEEPSEEK_MODEL_EXECUTION_GUIDANCE)
         if "gpt" in model_lower or "codex" in model_lower:
             sections.append(OPENAI_MODEL_EXECUTION_GUIDANCE)
         if "gemini" in model_lower or "gemma" in model_lower:
@@ -1100,6 +1129,8 @@ def build_system_prompt_parts(
     
     if any(m in model_lower for m in TOOL_USE_ENFORCEMENT_MODELS):
         stable_sections.append(TOOL_USE_ENFORCEMENT_GUIDANCE)
+        if "deepseek" in model_lower:
+            stable_sections.append(DEEPSEEK_MODEL_EXECUTION_GUIDANCE)
         if "gpt" in model_lower or "codex" in model_lower:
             stable_sections.append(OPENAI_MODEL_EXECUTION_GUIDANCE)
         if "gemini" in model_lower or "gemma" in model_lower:
