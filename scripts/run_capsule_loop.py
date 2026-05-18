@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""V3 runner"""
 import sys, os, json
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
@@ -7,6 +6,7 @@ from scripts.task_loop_config import TaskLoopConfig
 from scripts.task_loop import run as taskloop_run
 from scripts.strategy_capsule import capsule_strategy
 CONFIG_PATH = os.path.join(REPO_ROOT, "mimicore", "generator_config.json")
+
 def main():
     import argparse
     p = argparse.ArgumentParser()
@@ -24,8 +24,9 @@ def main():
     result = taskloop_run(config, strategy_fn=capsule_strategy)
     with open(CONFIG_PATH, "w") as f:
         f.write(initial)
-    print("
-best={:.4f} R{{}} stop={{}}".format(result.best_score, result.best_round, result.stop_reason))
+    print("\nbest={:.4f} R{} stop={}".format(
+        result.best_score, result.best_round, result.stop_reason))
     return 0
+
 if __name__ == "__main__":
     sys.exit(main())
