@@ -5,11 +5,11 @@
 
 | 字段 | 值 |
 |------|-----|
-| **最近更新** | 2026-05-18 |
-| **更新人** | MimirAether Session 199 (session_count=199) |
+| **最近更新** | 2026-05-19 |
+| **更新人** | MimirAether Session 72 |
 | **仓库根（真源）** | 以当前用于 `git push` 的 clone 为准（例如 `~/src/MimirAether`）；勿写死 `~/.openclaw/projects/...` |
-| **可选校验** | `./run_ralph_tier0.sh`（门禁）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml）；里程碑 A 项需真环境手动/清单 |
-| **本轮摘要** | Session 73→199：TaskLoop v2.x 系列（Belief callback + Causal AR Buffer + 创意枯竭恢复 + 20-round proof）；R1–R12 参数调优（penalty/chunk/top_p/alpha/beta/gamma/threshold）；strategy V5 combo；gen_and_score metadata bridge；`run_ralph_tier0.sh` 162+2 全绿。 |
+| **可选校验** | `./run_ralph_tier0.sh`（门禁）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml)；里程碑 A 项需真环境手动/清单 |
+| **本轮摘要** | Hermes 8模块学习 (M1-M4 代码交付 + M5-M8 验证) + 身份混淆解耦 OpenClaw→MimirAether + DeepSeek 模型指导注入。Tier0 7/7 ✅。 |
 
 ---
 
