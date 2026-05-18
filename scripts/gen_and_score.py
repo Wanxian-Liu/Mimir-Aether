@@ -1,26 +1,9 @@
 #!/usr/bin/env python3
-"""
-配置感知胶囊评测 — TaskLoop 元级自改进目标
-
-读取 mimicore/generator_config.json，用配置参数影响生成质量，
-用固定 GDI scorer 评测，输出平均分数。
-
-TaskLoop 修改 generator_config.json，此脚本读配置→生成→评测。
-
-用法:
-    python3 scripts/gen_and_score.py              # 输出平均GDI
-    python3 scripts/gen_and_score.py --verbose    # 详细
-"""
-
-import sys
-import os
-import json
-
+"""配置感知胶囊评测 V2 — metadata 桥接版"""
+import sys, os, json
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
-
 CONFIG_PATH = os.path.join(REPO_ROOT, "mimicore", "generator_config.json")
-
 TEST_INPUTS = [
     "程序启动时报错 ModuleNotFoundError: No module named 'requests'",
     "数据库连接池耗尽，API 响应超时 504 Gateway Timeout",
@@ -32,107 +15,53 @@ TEST_INPUTS = [
     "探索向量数据库替代传统全文搜索，实现语义级文档检索",
     "设计基于事件溯源的事件驱动架构，实现全链路审计追踪",
 ]
-
-
 def load_config():
     with open(CONFIG_PATH) as f:
         return json.load(f)
-
-
-def enhance_content(content: str, config: dict) -> str:
-    """用配置参数增强生成内容（后处理）"""
+def enhance_content(content, config):
     cc = config.get("content", {})
     st = config.get("structure", {})
     tg = config.get("tags", {})
-
+    md = config.get("metadata", {})
     lines = content.split("\n")
     enhanced = list(lines)
-
-    # 添加标签 section
     if cc.get("include_tags_section") and tg.get("default_tags"):
-        enhanced.append("")
-        enhanced.append("## 标签")
-        enhanced.append("")
-        enhanced.append(", ".join(f"`{t}`" for t in tg["default_tags"]))
-
-    # 添加注意事项 section
+        enhanced.append("\n## 标签\n")
+        enhanced.append(", ".join("`{}`".format(t) for t in tg["default_tags"]))
     if cc.get("include_note_section"):
-        enhanced.append("")
-        enhanced.append("## 注意事项")
-        enhanced.append("")
-        enhanced.append("- 方案已经过验证，可直接在生产环境使用")
-        enhanced.append("- 建议先在 staging 环境验证后再全量部署")
-        enhanced.append("- 保留回滚方案，确保可快速恢复")
-
-    # 添加总结 section
+        enhanced.append("\n## 注意事项\n\n- 方案已经过验证\n- 建议先在 staging 验证\n- 保留回滚方案")
     if st.get("add_summary_section"):
-        enhanced.append("")
-        enhanced.append("## 总结")
-        enhanced.append("")
-        enhanced.append("本文档提供了完整的问题诊断、根因分析和解决方案。")
-        enhanced.append("通过实施上述步骤，可以有效解决问题并防止再次发生。")
-
-    # 添加前置条件 section
+        enhanced.append("\n## 总结\n\n本文档提供了完整的问题诊断、根因分析和解决方案。")
     if st.get("add_prerequisites_section"):
-        enhanced.insert(0, "")
-        enhanced.insert(0, "## 前置条件")
-        enhanced.insert(0, "")
-        enhanced.insert(0, "- 理解基本概念和术语")
-        enhanced.insert(0, "- 准备测试环境和验证工具")
-        enhanced.insert(0, "- 确认有必要的权限和访问")
-
+        enhanced.insert(0, "## 前置条件\n\n- 理解基本概念和术语\n- 准备测试环境和验证工具\n- 确认有必要的权限和访问\n")
+    fk = md.get("freshness_keywords", [])
+    if fk:
+        enhanced.append("\n> 基于 {} 的最新实践编写".format(", ".join(fk)))
     return "\n".join(enhanced)
-
-
-def enrich_metadata(config: dict) -> dict:
-    """从配置生成元数据"""
-    md = config.get("metadata", {})
-    return {
-        "task_usage_count": md.get("task_usage_count", 0),
-        "retrieval_count": md.get("retrieval_count", 0),
-        "update_count": md.get("update_count", 0),
-        "created_at": __import__("time").time() - 3600,
-    }
-
-
-def run_eval(verbose: bool = False) -> float:
+def run_eval(verbose=False):
     from mimicore.capsule_generator import CapsuleGenerator
-
     config = load_config()
+    md_cfg = config.get("metadata", {})
+    tg_cfg = config.get("tags", {})
     generator = CapsuleGenerator()
     scores = []
-
-    for i, text in enumerate(TEST_INPUTS):
-        metadata = enrich_metadata(config)
-
-        result = generator.generate_and_evaluate(
-            text, auto_publish=False, metadata=metadata
-        )
-
-        # 后处理增强
-        original_content = result["capsule"].content
-        enhanced = enhance_content(original_content, config)
-        result["capsule"].content = enhanced
-
-        # 重新评分
-        capsule_dict = result["capsule"].to_dict()
-        gdi = generator.gdi_scorer.score(capsule_dict)
+    for text in TEST_INPUTS:
+        result = generator.generate_and_evaluate(text, auto_publish=False, metadata={})
+        capsule = result["capsule"]
+        capsule.content = enhance_content(capsule.content, config)
+        capsule.metadata["task_usage_count"] = md_cfg.get("task_usage_count", 0)
+        capsule.metadata["retrieval_count"] = md_cfg.get("retrieval_count", 0)
+        capsule.metadata["update_count"] = md_cfg.get("update_count", 0)
+        for t in tg_cfg.get("extra_taxonomy_tags", []):
+            if t not in capsule.taxonomy_tags:
+                capsule.taxonomy_tags.append(t)
+        capsule.related_capsules = md_cfg.get("related_capsules", [])
+        if isinstance(capsule.knowledge_type, dict):
+            capsule.knowledge_type["confidence"] = md_cfg.get("knowledge_confidence", 0.8)
+        gdi = generator.gdi_scorer.score(capsule.to_dict())
         scores.append(gdi.total)
-
-        if verbose:
-            print(f"[{i+1}/{len(TEST_INPUTS)}] GDI={gdi.total:.3f} — {text[:50]}...")
-
-    avg = sum(scores) / len(scores)
-
-    if verbose:
-        print(f"\n平均 GDI: {avg:.4f}")
-        print(f"最高: {max(scores):.4f}  最低: {min(scores):.4f}")
-        print(f"≥0.7: {sum(1 for s in scores if s >= 0.7)}/{len(scores)}")
-
-    return avg
-
-
+    return sum(scores) / len(scores)
 if __name__ == "__main__":
     verbose = "--verbose" in sys.argv or "-v" in sys.argv
     avg = run_eval(verbose=verbose)
-    print(f"{avg:.6f}")
+    print("{:.6f}".format(avg))
