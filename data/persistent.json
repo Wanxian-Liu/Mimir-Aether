@@ -263,14 +263,15 @@
   "skill_usage": {
     "mimiraether-heartbeat": "2026-05-16T07:04:41.219651+00:00",
     "skills-qa": "2026-05-16T07:08:13.044008+00:00",
-    "mimiraether-tool-triggers": "2026-05-17T02:44:32.965915+00:00",
-    "my-skill": "2026-05-17T07:34:21.376235+00:00",
+    "mimiraether-tool-triggers": "2026-05-18T20:46:28.006007+00:00",
+    "my-skill": "2026-05-18T21:26:50.148032+00:00",
     "mimiraether-html-output": "2026-05-16T18:29:59.539351+00:00",
     "mimiraether-cross-session": "2026-05-17T06:29:28.253243+00:00",
     "github-issues": "2026-05-17T04:01:54.093019+00:00",
     "mimiraether-root-cause-debugging": "2026-05-17T05:15:41.305182+00:00",
     "mimiraether-context-engine": "2026-05-17T12:44:08.133626+00:00",
-    "mimiraether-brainstorming": "2026-05-17T12:16:48.950260+00:00"
+    "mimiraether-brainstorming": "2026-05-17T12:16:48.950260+00:00",
+    "mimiraether-hermes-code-study": "2026-05-18T20:53:47.487607+00:00"
   },
   "curator_nudge": "skill_curator: 106技能 | fresh=106 stale=0 dormant=0",
   "dormant_skills": {}

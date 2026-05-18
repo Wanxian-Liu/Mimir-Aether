@@ -5,11 +5,11 @@
 
 | 字段 | 值 |
 |------|-----|
-| **最近更新** | 2026-05-17 |
-| **更新人** | MimirAether Session 73 (session_count=72) |
+| **最近更新** | 2026-05-18 |
+| **更新人** | MimirAether Session 199 (session_count=199) |
 | **仓库根（真源）** | 以当前用于 `git push` 的 clone 为准（例如 `~/src/MimirAether`）；勿写死 `~/.openclaw/projects/...` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml）；里程碑 A 项需真环境手动/清单 |
-| **本轮摘要** | Session 72→73：`skill_curator.py` persistent.json 截断根因修复（3层防护）；`memory_tool.py` MemoryStore 单例；131个 `.md`→`.html` 胶囊迁移至 `memory/capsules/`；B2 Gateway 10项诊断（3项可修/7项归属openclaw）；GitHub Issue #3 MimirAether 身份混淆根因分析；M6 evolution_log 补录5条；`run_ralph_tier0.sh` 162+2 全绿。 |
+| **本轮摘要** | Session 73→199：TaskLoop v2.x 系列（Belief callback + Causal AR Buffer + 创意枯竭恢复 + 20-round proof）；R1–R12 参数调优（penalty/chunk/top_p/alpha/beta/gamma/threshold）；strategy V5 combo；gen_and_score metadata bridge；`run_ralph_tier0.sh` 162+2 全绿。 |
 
 ---
 
@@ -65,6 +65,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-18 | **状态刷新**：Session 199；TaskLoop v2.x 多轮迭代；R1–R12 参数调优；tier0 162+2 全绿。 |
 | 2026-05-16 | **路径叙事（阶段 A）**：文档与根脚本对齐「clone 根 vs `MIMIR_AETHER_HOME`」；默认数据根 `~/.mimiraether`；tier0 绿。 |
 | 2026-05-13 | **Phase VI 物理删除**：`hermes_cli/` 60+文件(76K行)删除；`mimcore/` 删除；`memory/persistent.json`删除；新增`mimir_state.py`(1019行)；12个Hermes遗存技能清理；`web_server.py` 7处mimcore引用迁移。Ralph tier0 162+2全绿。3 commits。 |
 | 2026-05-11 | **Phase V 深入脱钩完成**：`hermes_constants.py` 已删除（导入→mimir_constants）；`hermes_logging.py` 已删除（导入→mimiraether_logging）；`hermes_state.py`→`mimir_state.py`（9处导入已更新）。Hermes独立路线 I-V 全线闭合。 |

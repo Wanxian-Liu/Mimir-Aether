@@ -186,19 +186,26 @@ class MimirAgentLoop:
                     tool_errors=tool_errors,
                 )
 
-            # --- Extract response parts (dict or object) ---
+            # --- Extract response parts (dict, MimirAether-flat, or object) ---
             if isinstance(response, dict):
                 choices = response.get("choices", [])
-                if not choices:
+                if choices:
+                    # Standard OpenAI format: {"choices": [{"message": {...}}]}
+                    msg = choices[0].get("message", {})
+                    content = msg.get("content", "") if isinstance(msg, dict) else getattr(msg, "content", "")
+                    _tool_calls = msg.get("tool_calls") if isinstance(msg, dict) else getattr(msg, "tool_calls", None)
+                    _reasoning = msg.get("reasoning_content") if isinstance(msg, dict) else _extract_reasoning(msg)
+                elif "content" in response or "tool_calls" in response:
+                    # MimirAether flat format: {"content": ..., "tool_calls": ...}
+                    content = response.get("content", "") or ""
+                    _tool_calls = response.get("tool_calls")
+                    _reasoning = response.get("reasoning_content")
+                else:
                     return AgentResult(
                         messages=messages, turns_used=turn + 1,
                         finished_naturally=False, reasoning_per_turn=reasoning_per_turn,
                         tool_errors=tool_errors,
                     )
-                msg = choices[0].get("message", {})
-                content = msg.get("content", "") if isinstance(msg, dict) else getattr(msg, "content", "")
-                _tool_calls = msg.get("tool_calls") if isinstance(msg, dict) else getattr(msg, "tool_calls", None)
-                _reasoning = msg.get("reasoning_content") if isinstance(msg, dict) else _extract_reasoning(msg)
             else:
                 if not getattr(response, "choices", None):
                     return AgentResult(

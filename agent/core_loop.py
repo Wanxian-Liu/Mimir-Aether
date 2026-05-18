@@ -1076,6 +1076,70 @@ class MimirAetherAgent:
         """检查是否被中断"""
         return self._interrupt_requested
 
+    def _clean_orphan_tools(self) -> int:
+        """清理 conversation_history 中的孤立 tool_calls / tool 消息。
+        
+        症状：assistant 消息有 tool_calls 但后面没有对应的 tool 消息，
+        或 tool 消息的 tool_call_id 找不到匹配的 tool_calls。
+        
+        Returns: 清理的消息数量。
+        """
+        if not self.conversation_history:
+            return 0
+        cleaned = 0
+        
+        # 第一轮：删除有 tool_calls 但无对应 tool 结果的 assistant 消息
+        i = 0
+        while i < len(self.conversation_history):
+            msg = self.conversation_history[i]
+            if msg.role == MessageRole.ASSISTANT and msg.tool_calls:
+                has_tool_result = False
+                j = i + 1
+                while j < len(self.conversation_history):
+                    nxt = self.conversation_history[j]
+                    if nxt.role == MessageRole.ASSISTANT:
+                        break
+                    if nxt.role == MessageRole.TOOL:
+                        has_tool_result = True
+                        break
+                    j += 1
+                if not has_tool_result:
+                    end = i + 1
+                    while end < len(self.conversation_history):
+                        if self.conversation_history[end].role in (MessageRole.ASSISTANT, MessageRole.SYSTEM):
+                            break
+                        end += 1
+                    removed = self.conversation_history[i:end]
+                    self.conversation_history = self.conversation_history[:i] + self.conversation_history[end:]
+                    cleaned += len(removed)
+                    logger.info("Removed orphan tool_calls at pos %d (%d msgs)", i, len(removed))
+                    continue
+            i += 1
+        
+        # 第二轮：删除 tool_call_id 找不到匹配的 TOOL 消息
+        surviving_tc_ids = set()
+        for msg in self.conversation_history:
+            if msg.role == MessageRole.ASSISTANT and msg.tool_calls:
+                for tc in msg.tool_calls:
+                    cid = tc.get("id", "") if isinstance(tc, dict) else ""
+                    if cid:
+                        surviving_tc_ids.add(cid)
+        
+        pre = len(self.conversation_history)
+        self.conversation_history = [
+            msg for msg in self.conversation_history
+            if not (
+                msg.role == MessageRole.TOOL
+                and msg.tool_call_id
+                and msg.tool_call_id not in surviving_tc_ids
+            )
+        ]
+        cleaned += pre - len(self.conversation_history)
+        
+        if cleaned:
+            logger.warning("Cleaned %d orphaned message(s) from conversation_history", cleaned)
+        return cleaned
+
     def _has_stream_consumers(self) -> bool:
         """检查是否有流式输出的消费者"""
         return self.stream_callback is not None
@@ -1482,9 +1546,29 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
         # ── 注入前置对话历史（C1 飞书对话体验） ──
         # 从gateway transcript加载的历史消息，仅注入纯文本user/assistant轮次
         # 含 tool_calls 或 tool 角色的消息被跳过（Mimir自行管理工具调用）
+        # 受 context.max_recent_messages 限制，只取最近 N 条（默认25）
         if conversation_history:
+            # 加载配置中的 max_recent_messages（默认25）
+            _max_recent = 25
+            try:
+                import yaml as _yaml
+                _cfg_path = get_mimir_home() / "config.yaml"
+                if _cfg_path.exists():
+                    with open(_cfg_path, encoding="utf-8") as _f:
+                        _cfg = _yaml.safe_load(_f) or {}
+                    _max_recent = int(
+                        (_cfg.get("context") or {}).get("max_recent_messages", 25)
+                    )
+            except Exception:
+                pass
+
+            # 截断到最近 N 条（在过滤前截断以保留最近的有效消息）
+            _history_slice = conversation_history
+            if len(conversation_history) > _max_recent:
+                _history_slice = conversation_history[-_max_recent:]
+
             injected = 0
-            for hmsg in conversation_history:
+            for hmsg in _history_slice:
                 role = hmsg.get("role", "")
                 if role not in ("user", "assistant"):
                     continue
@@ -1503,9 +1587,11 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 ))
                 injected += 1
             if injected:
+                _total = len(conversation_history)
+                _limit_info = f" (limit={_max_recent})" if _total > _max_recent else ""
                 logger.info(
                     f"[C1] Injected {injected} prior messages from conversation_history "
-                    f"(skipped {len(conversation_history) - injected} non-text)"
+                    f"(total={_total}, skipped={_total - injected} non-text){_limit_info}"
                 )
 
         # 用MemoryFencer隔离用户消息(防止注入)
@@ -1610,44 +1696,114 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
             # 恢复主运行时(Fallback后)
             self._restore_primary_runtime()
 
-            # 主循环
-            while True:
-                # 检查是否被中断
-                if self._interrupt_requested:
-                    logger.info("Conversation interrupted by user")
-                    # 保存断点(中断时保留进度)
-                    checkpoint_mgr.save_checkpoint(
-                        task_id=task_id,
-                        state={
-                            "conversation_history": [{"role": m.role.value, "content": m.content, "name": m.name, "tool_calls": m.tool_calls, "tool_call_id": m.tool_call_id} for m in self.conversation_history[1:]],
-                            "iteration_used": self.budget._used,
-                            "session_id": session_id,
-                            "user_message": effective_user_message,
-                        },
-                        current_step=_current_step,
-                        next_action="等待用户继续或重新开始",
+            # ── 委托给 MimirAgentLoop (Hermes 微内核模式) ──
+            # 构建消息列表
+            _loop_messages = self._build_full_messages()
+            
+            # 预压缩一次（MimirAgentLoop 内部不做压缩）
+            if self.compressor.needs_compression(_loop_messages):
+                if self.compressor.has_content_to_compress(_loop_messages):
+                    _loop_messages, _ = self.compressor.compress(_loop_messages)
+            
+            # 构建 tool schemas + valid names
+            from tools.toolsets import resolve_enabled_tools
+            _tool_names = resolve_enabled_tools(
+                self.enabled_toolsets or None,
+                disabled=self.disabled_toolsets or None,
+            )
+            import tools.registry as _tool_registry_module
+            _tool_schemas = _tool_registry_module.registry.get_definitions(set(_tool_names))
+            _valid_names = set(_tool_names)
+            
+            # ── model_call 适配器 ──
+            async def _model_call_adapter(msgs):
+                try:
+                    _resp, _lat = await asyncio.wait_for(
+                        self._call_model_with_tokens(msgs, session_id),
+                        timeout=3600.0,
                     )
-                    return f"对话已被中断。" + (f" 您的输入: {self._interrupt_message}" if self._interrupt_message else "")
-
-                # 检查预算
-                if not await self.budget.consume():
-                    logger.warning("Iteration budget exhausted")
-                    return "抱歉,任务迭代次数已达上限。"
-                
-                # Hermes风格:每轮递增(学习自Hermes)
-                self._current_turn += 1
-
-                # 触发step_callback(每步执行后)
-                if self.step_callback:
-                    try:
-                        self.step_callback()
-                    except Exception as e:
-                        logger.warning(f"step_callback error: {e}")
-
-                # ============================================================
-                # 断点续传:每个迭代开始时保存检查点
-                # ============================================================
-                _current_step += 1
+                except asyncio.TimeoutError:
+                    return None
+                except Exception as _e:
+                    _err_str = str(_e)
+                    _err_lower = _err_str.lower()
+                    is_orphan = (
+                        "tool' must be a response" in _err_str
+                        or "tool must be a response" in _err_str
+                        or ("tool_calls" in _err_lower and "tool" in _err_lower)
+                        or ("model api request failed: 400" in _err_lower
+                            and ("tool" in _err_lower or "(empty body)" in _err_lower))
+                    )
+                    if is_orphan:
+                        logger.warning("Orphan tool cleanup triggered in adapter")
+                        # Orphan cleanup logic preserved
+                        self._clean_orphan_tools()
+                        return None
+                    if self._try_activate_fallback():
+                        return None
+                    return None
+                self._compressor_sync_usage_from_llm(_resp, msgs)
+                if _resp.get("tool_calls"):
+                    _resp["tool_calls"] = self._deduplicate_tool_calls(_resp["tool_calls"])
+                return _resp
+            
+            # ── tool_dispatcher 适配器 ──
+            def _tool_dispatcher_adapter(name, args, task_id):
+                import json as _json
+                tc = {
+                    "id": f"call_{uuid.uuid4().hex[:8]}",
+                    "type": "function",
+                    "function": {"name": name, "arguments": _json.dumps(args, ensure_ascii=False) if isinstance(args, dict) else str(args)},
+                }
+                result = asyncio.run(self._execute_single_tool(tc, turn=self._current_turn))
+                return result.content
+            
+            # ── 创建并运行 MimirAgentLoop ──
+            _loop = MimirAgentLoop(
+                model_call=_model_call_adapter,
+                tool_schemas=_tool_schemas,
+                valid_tool_names=_valid_names,
+                tool_dispatcher=_tool_dispatcher_adapter,
+                max_turns=self.max_iterations,
+                task_id=task_id,
+                interrupt_check=lambda: self._interrupt_requested,
+            )
+            _result = await _loop.run(_loop_messages)
+            
+            # ── 从 AgentResult 提取结果 ──
+            self._tool_errors = [ToolError(
+                turn=e.turn, tool_name=e.tool_name,
+                arguments=e.arguments, error=e.error, tool_result=e.tool_result,
+            ) for e in _result.tool_errors]
+            self._reasoning_per_turn = _result.reasoning_per_turn
+            
+            # 同步 conversation_history（MimirAgentLoop 修改的是 messages，需要回写）
+            if _result.messages and len(_result.messages) > 0:
+                _new_history = []
+                for _md in _result.messages:
+                    _role_str = _md.get("role", "")
+                    if _role_str == "system":
+                        continue
+                    _mrole = MessageRole(_role_str) if _role_str in ("user","assistant","tool") else None
+                    if _mrole is None:
+                        continue
+                    _new_history.append(Message(
+                        role=_mrole,
+                        content=_md.get("content", ""),
+                        tool_calls=_md.get("tool_calls"),
+                        tool_call_id=_md.get("tool_call_id"),
+                        reasoning_content=_md.get("reasoning_content"),
+                    ))
+                self.conversation_history = [self.conversation_history[0]] + _new_history
+            
+            # 提取最终文本响应
+            _final_content = ""
+            for _md in reversed(_result.messages):
+                if _md.get("role") == "assistant" and _md.get("content"):
+                    _final_content = _md.get("content", "")
+                    break
+            
+            if _result.interrupted:
                 checkpoint_mgr.save_checkpoint(
                     task_id=task_id,
                     state={
@@ -1657,362 +1813,22 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                         "user_message": effective_user_message,
                     },
                     current_step=_current_step,
-                    next_action="执行下一步迭代",
+                    next_action="等待用户继续或重新开始",
                 )
-
-                # 每次迭代都重建消息列表(使用当前全部历史)
-                messages = self._build_full_messages()
-
-                # 用ContextCompressor压缩长对话
-                if self.compressor.needs_compression(messages):
-                    # 预检：无内容可压缩时跳过 LLM 摘要调用（节省 token 成本）
-                    if not self.compressor.has_content_to_compress(messages):
-                        logger.debug("Preflight: nothing to compress (all in protected zone)")
-                    else:
-                        compressed_messages, comp_result = self.compressor.compress(messages)
-                        logger.info(
-                            f"Compressed {comp_result.original_count} -> "
-                            f"{comp_result.compressed_count} messages "
-                            f"(ratio: {comp_result.compressed_tokens/comp_result.original_tokens:.2f})" if comp_result.original_tokens > 0 else "(no ratio)"
-                        )
-                        messages = compressed_messages
-
-                # Plugin hook: pre_llm_call
-                # 在LLM调用前执行,允许插件注入上下文
-                try:
-                    pre_results = self._invoke_hook(
-                        "pre_llm_call",
-                        user_message=effective_user_message,
-                        conversation_history=list(messages),
-                        model=self.model,
-                    )
-                    # 如果有hook返回结果,注入到用户消息
-                    for result in pre_results:
-                        if isinstance(result, dict) and result.get("context"):
-                            context_text = str(result["context"])
-                            if messages and messages[0].get("role") == "system":
-                                messages[0] = {"role": "system", "content": messages[0].get("content", "") + "\n\n" + context_text}
-                except Exception as e:
-                    logger.warning(f"pre_llm_call hook failed: {e}")
-
-                # 调用模型(带超时控制)
-                try:
-                    response, latency_ms = await asyncio.wait_for(
-                        self._call_model_with_tokens(messages, session_id),
-                        timeout=3600.0  # 1小时超时
-                    )
-                except asyncio.TimeoutError:
-                    logger.error("Model call timed out")
-                    return "抱歉,模型响应超时,请重试。"
-                except Exception as e:
-                    err_str = str(e)
-                    logger.error(f"Model call failed: {e}")
-                    
-                    # 自动恢复：检测 conversation_history 污染
-                    # 症状：DeepSeek 400 "tool must be a response to preceding tool_calls"
-                    # 原因：中断/错误导致 tool_calls 写了但是 tool result 没写
-                    # 强化检测：同时匹配外层异常（可能丢失原始错误详情）和原始错误
-                    err_lower = err_str.lower()
-                    is_orphan_tool = (
-                        "tool' must be a response" in err_str
-                        or "tool must be a response" in err_str
-                        or ("tool_calls" in err_lower and "tool" in err_lower)
-                        # 400 错误 + conversation_history 中有 orphan tool_calls
-                        # 或 400 错误且无 body（API 未返回详情，但 400 本身说明请求有问题）
-                        or ("model api request failed: 400" in err_lower
-                            and ("tool" in err_lower or "(empty body)" in err_lower
-                                 or any(
-                                    m.role == MessageRole.ASSISTANT and m.tool_calls
-                                    for m in self.conversation_history[-3:]
-                                )))
-                    )
-                    if is_orphan_tool and self.conversation_history:
-                        logger.warning(
-                            "Detected orphan tool messages in conversation_history — "
-                            "cleaning ALL corrupted turns to recover"
-                        )
-                        # 遍历整个 history，删除所有 orphan tool_calls
-                        # 规则：assistant 消息如果有 tool_calls，后面必须有对应的 tool 消息
-                        # 如果没有，则删除该 assistant 及其后的所有孤立 tool 消息
-                        cleaned_count = 0
-                        i = 0
-                        while i < len(self.conversation_history):
-                            msg = self.conversation_history[i]
-                            if msg.role == MessageRole.ASSISTANT and msg.tool_calls:
-                                # 检查后续消息是否有对应的 tool 消息
-                                has_tool_result = False
-                                j = i + 1
-                                while j < len(self.conversation_history):
-                                    next_msg = self.conversation_history[j]
-                                    if next_msg.role == MessageRole.ASSISTANT:
-                                        # 遇到下一个 assistant，停止检查
-                                        break
-                                    if next_msg.role == MessageRole.TOOL:
-                                        has_tool_result = True
-                                        break
-                                    j += 1
-                                if not has_tool_result:
-                                    # 没有对应的 tool 结果，删除这个 assistant 及其后的孤立 tool
-                                    end = i + 1
-                                    while end < len(self.conversation_history):
-                                        if self.conversation_history[end].role in (MessageRole.ASSISTANT, MessageRole.SYSTEM):
-                                            break
-                                        end += 1
-                                    removed = self.conversation_history[i:end]
-                                    self.conversation_history = self.conversation_history[:i] + self.conversation_history[end:]
-                                    cleaned_count += len(removed)
-                                    logger.info(
-                                        "Removed orphan tool_calls at position %d (%d messages)",
-                                        i, len(removed)
-                                    )
-                                    # 不要 i++，重新检查当前位置（因为删除了消息）
-                                    continue
-                            i += 1
-                        if cleaned_count > 0:
-                            logger.warning(
-                                "Conversation history cleaned: removed %d orphan message(s) total",
-                                cleaned_count
-                            )
-
-                        # ============================================================
-                        # 第二轮清理：删除孤立的 TOOL 消息
-                        # 症状：TOOL 消息的 tool_call_id 找不到匹配的 tool_calls
-                        # ============================================================
-                        surviving_tc_ids = set()
-                        for msg in self.conversation_history:
-                            if msg.role == MessageRole.ASSISTANT and msg.tool_calls:
-                                for tc in msg.tool_calls:
-                                    cid = tc.get("id", "") if isinstance(tc, dict) else ""
-                                    if cid:
-                                        surviving_tc_ids.add(cid)
-
-                        pre_count = len(self.conversation_history)
-                        self.conversation_history = [
-                            msg for msg in self.conversation_history
-                            if not (
-                                msg.role == MessageRole.TOOL
-                                and msg.tool_call_id
-                                and msg.tool_call_id not in surviving_tc_ids
-                            )
-                        ]
-                        orphan_tool_count = pre_count - len(self.conversation_history)
-                        if orphan_tool_count > 0:
-                            logger.warning(
-                                "Removed %d orphan TOOL message(s) with unmatched tool_call_id",
-                                orphan_tool_count
-                            )
-
-                        # 重试
-                        continue
-                    
-                    # 尝试激活Fallback模型
-                    if self._try_activate_fallback():
-                        # Fallback激活成功,重试当前迭代
-                        continue
-                    # 通用错误,不泄露内部细节
-                    return "抱歉,模型调用失败,请稍后重试。"
-
-                self._compressor_sync_usage_from_llm(response, messages)
-
-                # 添加助手响应到历史(仅当有内容或tool_calls时)
-                response_content = response.get("content") or ""
-                response_tool_calls = response.get("tool_calls")
-                response_reasoning = response.get("reasoning_content")  # DeepSeek V4 Pro
-                if response_content or response_tool_calls:
-                    self.conversation_history.append(Message(
-                        role=MessageRole.ASSISTANT,
-                        content=response_content,
-                        tool_calls=response_tool_calls,
-                        reasoning_content=response_reasoning
-                    ))
-                
-                # Hermes风格:提取reasoning内容(学习自Hermes)
-                reasoning = self._extract_reasoning_from_response(response)
-                self._reasoning_per_turn.append(reasoning)
-                if reasoning:
-                    logger.debug(f"Turn {self._current_turn}: extracted reasoning ({len(reasoning)} chars)")
-
-                # Plugin hook: post_llm_call
-                # 在LLM调用后执行,允许插件处理响应
-                try:
-                    self._invoke_hook(
-                        "post_llm_call",
-                        response=response,
-                        latency_ms=latency_ms,
-                    )
-                except Exception as e:
-                    logger.warning(f"post_llm_call hook failed: {e}")
-
-                # Fallback tool call parser: if the API didn't return
-                # structured tool_calls but content contains <tool_call>
-                # tags, parse them client-side. This handles edge cases
-                # where servers cannot parse tool calls natively.
-                _raw_tool_calls = response.get("tool_calls")
-                if not _raw_tool_calls and response_content and "<tool_call>" in response_content:
-                    import re as _re
-                    import uuid as _uuid
-                    _pattern = _re.compile(
-                        r"<tool_call>\s*(.*?)\s*</tool_call>|<tool_call>\s*(.*)",
-                        _re.DOTALL,
-                    )
-                    _matches = _pattern.findall(response_content)
-                    if _matches:
-                        _parsed_calls = []
-                        for _m in _matches:
-                            _raw = _m[0] or _m[1]
-                            if not _raw.strip():
-                                continue
-                            try:
-                                import json as _json
-                                _data = _json.loads(_raw)
-                                if "name" in _data:
-                                    _parsed_calls.append({
-                                        "id": f"call_{_uuid.uuid4().hex[:8]}",
-                                        "type": "function",
-                                        "function": {
-                                            "name": _data["name"],
-                                            "arguments": _json.dumps(
-                                                _data.get("arguments", {}),
-                                                ensure_ascii=False,
-                                            ),
-                                        },
-                                    })
-                            except Exception:
-                                pass
-                        if _parsed_calls:
-                            _tag_idx = response_content.find("<tool_call>")
-                            _clean_content = response_content[:_tag_idx].strip()
-                            response["tool_calls"] = _parsed_calls
-                            response["content"] = _clean_content or ""
-                            logger.debug(
-                                "Fallback parser extracted %d tool calls from raw content",
-                                len(_parsed_calls),
-                            )
-
-                # 检查是否有工具调用
-                if response.get("tool_calls") and response_content:
-                    # 同时有文本和工具调用:先执行工具,再继续生成响应
-                    # 去重工具调用
-                    unique_tool_calls = self._deduplicate_tool_calls(response["tool_calls"])
-                    tool_results = await self._execute_tools(unique_tool_calls, turn=self._current_turn)
-
-                    # Budget control: persist large tool results
-                    # to prevent context window overflow (3-layer defense).
-                    try:
-                        from tools.tool_result_storage import (
-                            maybe_persist_tool_result,
-                            enforce_turn_budget,
-                        )
-                        from tools.budget_config import DEFAULT_BUDGET
-                        from tools.terminal_tool import get_active_env
-
-                        _env = get_active_env(None)
-                        for _tr in tool_results:
-                            _tr.content = maybe_persist_tool_result(
-                                content=_tr.content,
-                                tool_name="unknown",
-                                tool_use_id=_tr.tool_call_id,
-                                env=_env,
-                                config=DEFAULT_BUDGET,
-                            )
-                        _tool_msgs = [
-                            {"role": "tool", "tool_call_id": r.tool_call_id, "content": r.content}
-                            for r in tool_results
-                        ]
-                        enforce_turn_budget(_tool_msgs, env=_env, config=DEFAULT_BUDGET)
-                        for i, r in enumerate(tool_results):
-                            r.content = _tool_msgs[i]["content"]
-                    except Exception as _e:
-                        logger.debug("Budget control skipped: %s", _e)
-
-                    # 添加工具结果到历史
-                    for result in tool_results:
-                        self.conversation_history.append(Message(
-                            role=MessageRole.TOOL,
-                            content=result.content,
-                            tool_call_id=result.tool_call_id
-                        ))
-
-                    # 工具调用后 refund(只refund一次,无论多少工具)
-                    await self.budget.refund()
-
-                    # 继续循环,让模型基于工具结果生成最终响应
-                    continue
-
-                if response.get("tool_calls"):
-                    # 只有工具调用,没有文本:执行工具
-                    # 去重工具调用
-                    unique_tool_calls = self._deduplicate_tool_calls(response["tool_calls"])
-                    tool_results = await self._execute_tools(unique_tool_calls, turn=self._current_turn)
-
-                    # Budget control: persist large tool results
-                    # to prevent context window overflow (3-layer defense).
-                    try:
-                        from tools.tool_result_storage import (
-                            maybe_persist_tool_result,
-                            enforce_turn_budget,
-                        )
-                        from tools.budget_config import DEFAULT_BUDGET
-                        from tools.terminal_tool import get_active_env
-
-                        _env = get_active_env(None)
-                        for _tr in tool_results:
-                            _tr.content = maybe_persist_tool_result(
-                                content=_tr.content,
-                                tool_name="unknown",
-                                tool_use_id=_tr.tool_call_id,
-                                env=_env,
-                                config=DEFAULT_BUDGET,
-                            )
-                        _tool_msgs = [
-                            {"role": "tool", "tool_call_id": r.tool_call_id, "content": r.content}
-                            for r in tool_results
-                        ]
-                        enforce_turn_budget(_tool_msgs, env=_env, config=DEFAULT_BUDGET)
-                        for i, r in enumerate(tool_results):
-                            r.content = _tool_msgs[i]["content"]
-                    except Exception as _e:
-                        logger.debug("Budget control skipped: %s", _e)
-
-                    # 添加工具结果到历史
-                    for result in tool_results:
-                        self.conversation_history.append(Message(
-                            role=MessageRole.TOOL,
-                            content=result.content,
-                            tool_call_id=result.tool_call_id
-                        ))
-
-                    # 工具调用后 refund(只refund一次,无论多少工具)
-                    await self.budget.refund()
-
-                    # 继续循环(下次迭代会重建messages)
-                    continue
-
-                # 文本响应,结束
-                # 去除Think Block
-                response_content = self._strip_think_blocks(response_content)
-
-                # ============================================================
-                # 断点续传:任务成功完成,清除检查点
-                # ============================================================
-                checkpoint_mgr.clear_checkpoint(task_id)
-
-                # Plugin hook: on_session_end
-                # 会话结束时执行
-                try:
-                    self._invoke_hook(
-                        "on_session_end",
-                        session_id=session_id,
-                        response=response_content,
-                    )
-                except Exception as e:
-                    logger.warning(f"on_session_end hook failed: {e}")
-
-                return response_content
+                return f"对话已被中断。" + (f" 您的输入: {self._interrupt_message}" if self._interrupt_message else "")
+            
+            try:
+                self._invoke_hook(
+                    "on_session_end",
+                    session_id=session_id,
+                    response=_final_content,
+                )
+            except Exception as e:
+                logger.warning(f"on_session_end hook failed: {e}")
+            
+            _final_content = self._strip_think_blocks(_final_content)
+            return _final_content
         finally:
-            # ============================================================
-            # 断点续传:finally中确保检查点被清除
-            # ============================================================
             checkpoint_mgr.clear_checkpoint(task_id)
 
             # 保存轨迹
