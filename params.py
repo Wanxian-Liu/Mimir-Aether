@@ -1,1 +1,1 @@
-CHUNK_SIZE = 512
+TOP_P = 0.81
