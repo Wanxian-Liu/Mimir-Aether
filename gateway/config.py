@@ -2,10 +2,10 @@
 # Gateway配置管理模块 (已自研)
 # 来源: mimir-aether/gateway/config.py
 # 改造点:
-#   1. 移除 mimir_cli.config 依赖 → 适配 OpenClaw 配置结构
-#   2. 移除 mimir_constants 依赖 → 使用 OpenClaw 常量
-#   3. Platform 枚举中移除 Hermite 特定平台（如有）
-#   4. sessions_dir 路径改为 ~/.openclaw/...
+#   1. 移除 mimir_cli.config 依赖 → 适配 MimirAether 配置结构
+#   2. 移除 mimir_constants 硬编码依赖 → 使用 MimirAether 常量
+#   3. Platform 枚举中移除 Hermes 特定平台（如有）
+#   4. sessions_dir 路径改为 ~/.mimiraether/data/sessions
 """
 
 import logging
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 def _get_gateway_home() -> Path:
-    """Historically ~/.openclaw; now the Mimir project home."""
+    """MimirAether project home (~/.mimiraether or env override)."""
     return get_mimir_home()
 
 
@@ -737,7 +737,7 @@ def _validate_gateway_config(config: "GatewayConfig") -> None:
             )
 
     # Reject known-weak placeholder tokens.
-    # Ported from openclaw/openclaw#64586: users who copy .env.example
+    # Ported from upstream PR#64586: users who copy .env.example
     # without changing placeholder values get a clear startup error instead
     # of a confusing "auth failed" from the platform API.
     # mimir_cli.auth依赖已移除
