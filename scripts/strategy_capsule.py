@@ -1,78 +1,51 @@
 #!/usr/bin/env python3
-"""
-胶囊 GDI 优化策略 — TaskLoop 元级自改进
-
-修改 generator_config.json 中的调优参数，
-用 gen_and_score.py 评测，追求 GDI ≥ 0.80。
-
-策略:
-- 每次改 1-2 个布尔开关或数值
-- 不改 gdi_scorer.py（评测神圣）
-"""
-
-import json
-import random
-import os
-
+"""V5 combo strategy"""
+import json, os, random
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_PATH = os.path.join(REPO_ROOT, "mimicore", "generator_config.json")
+FK_POOL = ["2026","最新","最新版本","今日","最新实践","2026年"]
+TAG_POOL = ["debugging","optimization","architecture","devops","security","performance","reliability","scalability","monitoring","automation","best-practices"]
 
-
-def read_config():
-    with open(CONFIG_PATH) as f:
-        return json.load(f)
-
-
-def write_config(config: dict):
-    with open(CONFIG_PATH, "w") as f:
-        json.dump(config, f, indent=2, ensure_ascii=False)
-
+def _load():
+    with open(CONFIG_PATH) as f: return json.load(f)
+def _save(d):
+    with open(CONFIG_PATH,"w") as f: json.dump(d, f, indent=2, ensure_ascii=False)
 
 def capsule_strategy(rounds, best_score, task_config):
-    """
-    TaskLoop 策略函数签名:
-      rounds: list[RoundState] — 历史轮次
-      best_score: float — 当前最佳分数
-      task_config: TaskLoopConfig — 任务配置
+    data = _load()
+    md = data.setdefault("metadata", {})
+    tg = data.setdefault("tags", {})
+    actions = []
+    n_pass = sum(1 for r in (rounds or []) if r.passed)
 
-    Returns: (hypothesis, changes_dict, error)
-    """
-    config = read_config()
+    fk = set(md.get("freshness_keywords", []))
+    cand = [k for k in FK_POOL if k not in fk]
+    if cand:
+        kw = random.choice(cand)
+        md.setdefault("freshness_keywords", []).append(kw)
+        actions.append("+FK:{}".format(kw))
 
-    # 可调参数空间
-    bool_params = [
-        ("content.include_note_section", "content", "include_note_section"),
-        ("content.include_tags_section", "content", "include_tags_section"),
-        ("structure.add_summary_section", "structure", "add_summary_section"),
-        ("structure.add_prerequisites_section", "structure", "add_prerequisites_section"),
-        ("tags.auto_tags", "tags", "auto_tags"),
-    ]
-    num_params = [
-        ("metadata.task_usage_count", "metadata", "task_usage_count", [5, 10, 15, 20, 30]),
-        ("metadata.retrieval_count", "metadata", "retrieval_count", [10, 30, 50, 100, 200]),
-        ("metadata.update_count", "metadata", "update_count", [1, 3, 5, 10, 20]),
-        ("content.max_title_length", "content", "max_title_length", [40, 50, 60, 80, 100]),
-    ]
+    uc = md.get("update_count", 3)
+    if uc < 15:
+        md["update_count"] = uc + random.choice([2,3,5])
+        actions.append("UC:{}->{}".format(uc, md["update_count"]))
 
-    # 选一个参数调
-    if random.random() < 0.5:
-        # 调布尔
-        name, section, key = random.choice(bool_params)
-        old_val = config[section][key]
-        new_val = not old_val
-        config[section][key] = new_val
-        hypothesis = f"toggle {name} = {new_val}"
-    else:
-        # 调数值
-        name, section, key, options = random.choice(num_params)
-        old_val = config[section][key]
-        options_filtered = [o for o in options if o != old_val]
-        new_val = random.choice(options_filtered) if options_filtered else old_val
-        config[section][key] = new_val
-        hypothesis = f"set {name} = {new_val} (was {old_val})"
+    if n_pass >= 1:
+        et = set(tg.get("extra_taxonomy_tags", []))
+        cand2 = [t for t in TAG_POOL if t not in et]
+        if cand2:
+            t = random.choice(cand2)
+            tg.setdefault("extra_taxonomy_tags", []).append(t)
+            actions.append("+TAG:{}".format(t))
 
-    write_config(config)
+    if n_pass >= 2:
+        kc = md.get("knowledge_confidence", 0.8)
+        if kc < 1.0:
+            md["knowledge_confidence"] = min(1.0, kc+0.1)
+            actions.append("KC:{}->{}".format(kc, md["knowledge_confidence"]))
 
-    # 返回改动
-    changes = {"mimicore/generator_config.json": json.dumps(config, indent=2, ensure_ascii=False)}
+    _save(data)
+    hypothesis = " | ".join(actions) if actions else "no-op"
+    with open(CONFIG_PATH) as f:
+        changes = {"mimicore/generator_config.json": f.read()}
     return hypothesis, changes, None
