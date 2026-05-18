@@ -72,11 +72,17 @@ class ContextEngine(ABC):
         self,
         messages: List[Dict[str, Any]],
         current_tokens: int = None,
+        focus_topic: str = None,
     ) -> List[Dict[str, Any]]:
         """
         压缩消息列表并返回新的消息列表
 
         引擎接收完整消息列表，返回（可能更短的）列表
+
+        Args:
+            focus_topic: 可选主题字符串，来自手动 ``/compress <focus>``。
+                支持定向压缩的引擎应优先保留与此主题相关的信息。
+                不支持的引擎可忽略此参数。
         """
 
     # -- 可选：预检 ----------------------------------------------------
@@ -88,6 +94,18 @@ class ContextEngine(ABC):
         默认返回False，子类可覆盖实现廉价估算
         """
         return False
+
+    def has_content_to_compress(self, messages: List[Dict[str, Any]]) -> bool:
+        """
+        快速检查：messages 中是否有可以压缩的内容？
+
+        用于 gateway ``/compress`` 命令的预检哨兵 —
+        返回 False 让 gateway 可以报告"尚无内容可压缩"而不调用 LLM。
+
+        默认返回 True（始终尝试）。有能力廉价内省自己的 head/tail
+        边界的引擎应覆盖此方法，在 transcript 仍完全受保护时返回 False。
+        """
+        return True
 
     # -- 可选：会话生命周期 -------------------------------------------
 
