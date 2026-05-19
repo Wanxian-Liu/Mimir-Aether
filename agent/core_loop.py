@@ -1140,6 +1140,66 @@ class MimirAetherAgent:
             logger.warning("Cleaned %d orphaned message(s) from conversation_history", cleaned)
         return cleaned
 
+    def _sanitize_tool_messages(self, messages: List[Dict]) -> List[Dict]:
+        """修复孤立的 tool_call / tool 消息配对。
+
+        任何路径（截断、压缩、中断恢复）都可能产生孤儿消息：
+        - assistant 有 tool_calls 但后面缺对应的 tool 结果
+        - tool 消息的 tool_call_id 找不到匹配的 tool_calls
+
+        此方法在 API 调用前统一修复：
+        1. 删除找不到配对的 tool 结果消息
+        2. 为缺 tool 结果的 tool_calls 补占位 tool 消息
+        """
+        if not messages:
+            return messages
+
+        # 收集所有有效的 tool_call id
+        surviving_ids: set = set()
+        for msg in messages:
+            if msg.get("role") == "assistant":
+                for tc in msg.get("tool_calls") or []:
+                    cid = tc.get("id") or ""
+                    if cid:
+                        surviving_ids.add(cid)
+
+        # 收集所有 tool 结果的 id
+        result_ids: set = set()
+        for msg in messages:
+            if msg.get("role") == "tool":
+                cid = msg.get("tool_call_id")
+                if cid:
+                    result_ids.add(cid)
+
+        # 1. 删除无配对 call 的 tool 结果
+        orphaned_results = result_ids - surviving_ids
+        if orphaned_results:
+            messages = [
+                m for m in messages
+                if not (m.get("role") == "tool" and m.get("tool_call_id") in orphaned_results)
+            ]
+            logger.info("Sanitized %d orphaned tool results before API call", len(orphaned_results))
+
+        # 2. 为无配对结果的 tool_calls 补占位消息
+        missing_results = surviving_ids - result_ids
+        if missing_results:
+            patched = []
+            for msg in messages:
+                patched.append(msg)
+                if msg.get("role") == "assistant":
+                    for tc in msg.get("tool_calls") or []:
+                        cid = tc.get("id") or ""
+                        if cid in missing_results:
+                            patched.append({
+                                "role": "tool",
+                                "content": "[Result from earlier conversation]",
+                                "tool_call_id": cid,
+                            })
+            messages = patched
+            logger.info("Patched %d missing tool results before API call", len(missing_results))
+
+        return messages
+
     def _has_stream_consumers(self) -> bool:
         """检查是否有流式输出的消费者"""
         return self.stream_callback is not None
@@ -1688,6 +1748,8 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
             system_msgs = [m for m in self.conversation_history if m.role == MessageRole.SYSTEM]
             other_msgs = [m for m in self.conversation_history if m.role != MessageRole.SYSTEM]
             self.conversation_history = system_msgs + other_msgs[-self.max_history_length:]
+            # 截断后清理孤儿 tool 对，防止 400 错误
+            self._clean_orphan_tools()
 
         # 断点续传:用于跟踪当前步骤
         _current_step = checkpoint.current_step if checkpoint else 0
@@ -1769,7 +1831,12 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 interrupt_check=lambda: self._interrupt_requested,
             )
             _result = await _loop.run(_loop_messages)
-            
+
+            # MimirAgentLoop owns turn iteration; sync legacy budget for TurnManager/checkpoints.
+            for _ in range(int(_result.turns_used or 0)):
+                if not await self.budget.consume():
+                    break
+
             # ── 从 AgentResult 提取结果 ──
             self._tool_errors = [ToolError(
                 turn=e.turn, tool_name=e.tool_name,
@@ -1911,6 +1978,9 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 msg_dict["reasoning_content"] = msg.reasoning_content
 
             messages.append(msg_dict)
+
+        # 统一出口防护：修复所有路径可能产生的孤儿 tool 消息
+        messages = self._sanitize_tool_messages(messages)
 
         return messages
 
