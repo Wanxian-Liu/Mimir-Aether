@@ -1,6 +1,6 @@
 {
   "version": "1.4",
-  "last_session_end": "2026-05-16T07:04:41.219651+00:00",
+  "last_session_end": "2026-05-19T00:00:00.000000+00:00",
   "session_count": 72,
   "identity": {
     "name": "MimirAether",
@@ -257,20 +257,21 @@
     "pending_tasks": [
       "✅ persistent.json截断根因修复: _load_persistent() JSON异常→{}→全量覆写",
       "Gateway 10项问题修复 (Session 78报告): #5 API Server无密钥(高), #10 Agent偶发崩溃(高), #1 Watchdog超时(中), #2 Token失败(中), #3 Reaction未处理(低), #4 Event loop closed(低), #6 fal_client缺失(低), #7 孤儿tool message(低), #8 ToolGuard相对路径(低), #9 飞书卡片渲染失败(低)",
-      "MimirAether 身份混淆解耦 (GitHub #3): mimir_constants.py L107 → .openclaw默认路径; gateway/status.py L134 → openclaw进程匹配; gateway/config.py L27 → 注释承认移植未解耦 [架构级,需系统审计]"
+      "✅ MimirAether 身份混淆解耦: mimir_constants .openclaw→.mimiraether + MIMIR_AETHER_HOME env; gateway/status 去除 openclaw 进程匹配 + OPENCLAW_GATEWAY_LOCK_DIR→MIMIR_GATEWAY_LOCK_DIR; gateway/config 注释去 OpenClaw 残留. Session 199, 3 files, 24 line changes."
     ]
   },
   "skill_usage": {
     "mimiraether-heartbeat": "2026-05-16T07:04:41.219651+00:00",
     "skills-qa": "2026-05-16T07:08:13.044008+00:00",
-    "mimiraether-tool-triggers": "2026-05-17T02:44:32.965915+00:00",
-    "my-skill": "2026-05-17T07:34:21.376235+00:00",
+    "mimiraether-tool-triggers": "2026-05-19T00:58:05.842759+00:00",
+    "my-skill": "2026-05-18T21:26:50.148032+00:00",
     "mimiraether-html-output": "2026-05-16T18:29:59.539351+00:00",
     "mimiraether-cross-session": "2026-05-17T06:29:28.253243+00:00",
     "github-issues": "2026-05-17T04:01:54.093019+00:00",
     "mimiraether-root-cause-debugging": "2026-05-17T05:15:41.305182+00:00",
     "mimiraether-context-engine": "2026-05-17T12:44:08.133626+00:00",
-    "mimiraether-brainstorming": "2026-05-17T12:16:48.950260+00:00"
+    "mimiraether-brainstorming": "2026-05-17T12:16:48.950260+00:00",
+    "mimiraether-hermes-code-study": "2026-05-18T20:53:47.487607+00:00"
   },
   "curator_nudge": "skill_curator: 106技能 | fresh=106 stale=0 dormant=0",
   "dormant_skills": {}

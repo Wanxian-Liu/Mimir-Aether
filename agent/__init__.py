@@ -16,7 +16,6 @@ from . import error_classifier
 from . import rate_limit_tracker
 from . import prompt_caching
 from . import retry_utils
-from . import context_engine
 from . import context_compressor
 from . import memory_manager
 from . import context_references
@@ -64,16 +63,10 @@ from .retry_utils import (
     get_retry_delay,
     with_retry,
 )
-from .context_engine import (
-    ContextEngine,
-    ContextEngineRegistry,
-    get_engine_registry,
-    register_engine,
-    create_context_engine,
-)
 from .context_compressor import (
     ContextCompressorV2,
     ContextCompressor,
+    MimirContextCompressor,
     CompressionResult,
     compress_conversation,
     SUMMARY_PREFIX,
@@ -194,13 +187,8 @@ __all__ = [
     "is_retryable_error",
     "get_retry_delay",
     "with_retry",
-    # Context Engine
-    "ContextEngine",
-    "ContextEngineRegistry",
-    "get_engine_registry",
-    "register_engine",
-    "create_context_engine",
     # Context Compressor
+    "MimirContextCompressor",
     "ContextCompressorV2",
     "ContextCompressor",
     "CompressionResult",
@@ -260,7 +248,6 @@ __all__ = [
     "rate_limit_tracker",
     "prompt_caching",
     "retry_utils",
-    "context_engine",
     "context_compressor",
     "memory_manager",
     "context_references",

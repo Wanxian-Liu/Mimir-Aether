@@ -9,7 +9,7 @@
 | 日期 | 2026-05-02（最近一轮见 §执行记录） |
 | 执行人 | 负责人 / 代理（真机） |
 | 仓库根 | 当前 **git clone 根**（任意路径）；运行时数据默认 **`~/.mimiraether`** 或由 `MIMIR_AETHER_HOME` 指定（见 `docs/path-contract.md`） |
-| 备注 | CLI v0.1.0；**飞书** Bot「wan」已跑通发送；**勿**在仓库提交 token |
+| 备注 | CLI v0.1.0；**飞书** 应用 **mimiraether**（`cli_aa82adc1…`）已跑通发送；**勿**在仓库提交 token |
 
 ---
 
@@ -62,7 +62,7 @@
 ## A2 — Gateway：能启动并处理**真实对话**
 
 - [x] Gateway 进程按你环境启动（如 `python3 cli.py gateway start` 或 systemd，与文档一致）。（✅ 例：PID 48920）
-- [x] 至少一个已配置 **platform** 上收到并回复一条**真实消息**（Telegram/Discord/飞书/其他）。（✅ **飞书**：Bot「wan」发送测试消息成功，`code:0`；**勿**将 token 写入本仓库）
+- [x] 至少一个已配置 **platform** 上收到并回复一条**真实消息**（Telegram/Discord/飞书/其他）。（✅ **飞书**：应用 **mimiraether** 发送测试消息成功，`code:0`；**勿**将 token 写入本仓库）
 - [x] `python3 cli.py gateway health` 或 **`/health`**：若依赖 `api_server`，已按 **`docs/gateway-cli-health.md`** 在 **`$MIMIR_AETHER_HOME/config.yaml`**（或 `get_mimir_home()` 对应路径）中配置 `api_server` 与端口。（✅ `{"status":"ok"}`，api_server **18999**）
 
 **失败时先看**：`logs/`、`gateway` 子命令输出、`path-contract` 三层路径是否混用。
@@ -152,7 +152,7 @@
 | 项目 | 结果 |
 |------|------|
 | Token / 应用侧 | ✅ 已获取（**仅存本机配置，勿提交仓库**） |
-| Bot 名称 | **wan** |
+| 飞书应用名称 | **mimiraether**（App ID `cli_aa82adc1…`；勿与旧称「wan」或其它 Bot 混淆） |
 | 发送消息 | ✅ 成功（飞书 API `code:0`） |
 | 说明 | 用户侧飞书可查收测试消息；Open ID / 消息 ID **不写入**本文档 |
 
@@ -171,7 +171,7 @@
 
 | 日期 | 说明 |
 |------|------|
-| 2026-05-02 | 飞书 Bot「wan」发送成功；A2 真实消息项已闭合；**勿**提交 token。 |
+| 2026-05-02 | 飞书应用 **mimiraether** 发送成功；A2 真实消息项已闭合；**勿**提交 token。 |
 | 2026-05-01 | 写入首轮真环境执行记录（A1/A3/A4 通过；A2 缺跨平台真实消息）。 |
 | 2026-05-01 | 增加「何时需要跑」「如何委托代理」与可复制指令。 |
 | 2026-05-01 | 初版：A1–A4 勾选表，与里程碑 A 四条对齐。 |

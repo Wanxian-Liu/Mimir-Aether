@@ -129,6 +129,8 @@ class MimirAgentLoop:
         self.extra_body = extra_body
         self.budget_config = budget_config
         self.interrupt_check = interrupt_check or (lambda: False)
+        # Optional execution pipeline (recording + quality tracking)
+        self._recorder = None
 
     async def run(self, messages: List[Dict[str, Any]]) -> AgentResult:
         """Execute the full agent loop.
@@ -186,19 +188,26 @@ class MimirAgentLoop:
                     tool_errors=tool_errors,
                 )
 
-            # --- Extract response parts (dict or object) ---
+            # --- Extract response parts (dict, MimirAether-flat, or object) ---
             if isinstance(response, dict):
                 choices = response.get("choices", [])
-                if not choices:
+                if choices:
+                    # Standard OpenAI format: {"choices": [{"message": {...}}]}
+                    msg = choices[0].get("message", {})
+                    content = msg.get("content", "") if isinstance(msg, dict) else getattr(msg, "content", "")
+                    _tool_calls = msg.get("tool_calls") if isinstance(msg, dict) else getattr(msg, "tool_calls", None)
+                    _reasoning = msg.get("reasoning_content") if isinstance(msg, dict) else _extract_reasoning(msg)
+                elif "content" in response or "tool_calls" in response:
+                    # MimirAether flat format: {"content": ..., "tool_calls": ...}
+                    content = response.get("content", "") or ""
+                    _tool_calls = response.get("tool_calls")
+                    _reasoning = response.get("reasoning_content")
+                else:
                     return AgentResult(
                         messages=messages, turns_used=turn + 1,
                         finished_naturally=False, reasoning_per_turn=reasoning_per_turn,
                         tool_errors=tool_errors,
                     )
-                msg = choices[0].get("message", {})
-                content = msg.get("content", "") if isinstance(msg, dict) else getattr(msg, "content", "")
-                _tool_calls = msg.get("tool_calls") if isinstance(msg, dict) else getattr(msg, "tool_calls", None)
-                _reasoning = msg.get("reasoning_content") if isinstance(msg, dict) else _extract_reasoning(msg)
             else:
                 if not getattr(response, "choices", None):
                     return AgentResult(
@@ -276,7 +285,11 @@ class MimirAgentLoop:
                                 "[%s] turn %d: %s took %.1fs (pool q=%d)",
                                 self.task_id[:8], turn + 1, tname, telapsed, pool_q,
                             )
+                        self._record_tool(tname, args, success=True,
+                                          duration_ms=telapsed * 1000,
+                                          result_summary=str(tool_result)[:200])
                     except Exception as e:
+                        telapsed = _time.monotonic() - t0
                         tool_result = json.dumps({
                             "error": f"{type(e).__name__}: {str(e)}"
                         })
@@ -286,6 +299,10 @@ class MimirAgentLoop:
                             error=f"{type(e).__name__}: {str(e)}",
                             tool_result=tool_result,
                         ))
+                        self._record_tool(tname, args, success=False,
+                                          error_message=str(e)[:500],
+                                          duration_ms=telapsed * 1000,
+                                          result_summary=str(tool_result)[:200])
 
                     # Budget control
                     try:
@@ -332,6 +349,34 @@ class MimirAgentLoop:
             finished_naturally=False, reasoning_per_turn=reasoning_per_turn,
             tool_errors=tool_errors,
         )
+
+    def _record_tool(
+        self,
+        tool_name: str,
+        arguments: dict,
+        *,
+        success: bool,
+        error_message: str = "",
+        duration_ms: float = 0.0,
+        result_summary: str = "",
+    ) -> None:
+        """Record tool execution to the active pipeline (if any).
+
+        No-op when execution recording is not active.  Always succeeds —
+        a recording failure must never break the agent loop.
+        """
+        try:
+            from agent.execution_pipeline import record_tool_call
+            record_tool_call(
+                tool_name=tool_name,
+                arguments=arguments,
+                success=success,
+                error_message=error_message,
+                duration_ms=duration_ms,
+                result_summary=result_summary,
+            )
+        except Exception:
+            pass  # Recording is best-effort
 
 
 def _fallback_parse_tool_calls(content: str) -> Optional[List[dict]]:

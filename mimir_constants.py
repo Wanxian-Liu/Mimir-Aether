@@ -89,29 +89,31 @@ AI_GATEWAY_BASE_URL = "https://ai-gateway.vercel.sh/v1"
 # ── Hermes backward-compatible functions ──────────────────────────────────
 
 def get_default_hermes_root() -> Path:
-    """Return the root Hermes directory for profile-level operations.
+    """Return the root MimirAether directory for profile-level operations.
 
-    In standard deployments this is ``~/.openclaw``.
+    In standard deployments this is ``~/.mimiraether`` (default home).
 
-    In Docker or custom deployments where ``HERMES_HOME`` points outside
-    ``~/.openclaw`` (e.g. ``/opt/data``), returns ``HERMES_HOME`` directly
-    — that IS the root.
+    In Docker or custom deployments where ``MIMIR_AETHER_HOME`` / ``HERMES_HOME``
+    points outside ``~/.mimiraether`` (e.g. ``/opt/data``), returns that path
+    directly — that IS the root.
 
-    In profile mode where ``HERMES_HOME`` is ``<root>/profiles/<name>``,
+    In profile mode where the home is ``<root>/profiles/<name>``,
     returns ``<root>`` so that ``profile list`` can see all profiles.
-    Works both for standard (``~/.openclaw/profiles/coder``) and Docker
+    Works both for standard (``~/.mimiraether/profiles/coder``) and Docker
     (``/opt/data/profiles/coder``) layouts.
 
     Import-safe — no dependencies beyond stdlib.
     """
-    native_home = Path.home() / ".openclaw"
+    native_home = _DEFAULT_MIMIR_HOME
     env_home = os.environ.get("HERMES_HOME", "")
     if not env_home:
+        env_home = os.environ.get("MIMIR_AETHER_HOME", "")
+    if not env_home:
         return native_home
-    env_path = Path(env_home)
+    env_path = Path(env_home).expanduser()
     try:
         env_path.resolve().relative_to(native_home.resolve())
-        # HERMES_HOME is under ~/.openclaw (normal or profile mode)
+        # Home is under default mimiraether root (normal or profile mode)
         return native_home
     except ValueError:
         pass

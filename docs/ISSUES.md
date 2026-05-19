@@ -13,7 +13,7 @@
 | 错误码 | HTTP 400（2 次，image_key: `img_v3_0211o_361eb7c…` / `img_v3_0211p_bbcd518…`） |
 | 根因 | `feishu_adapter.py:101` — `_feishu_download_image()` 用 `requests.get()` 同步下载，依赖 `adapter._tenant_token` 做认证。token 过期或未初始化时，请求不带 Authorization header → 飞书返回 400 |
 | 修复方向 | 给 `_feishu_download_image` 加 token 刷新逻辑，或改用 aiohttp 异步 |
-| 状态 | `open` |
+| 状态 | `fixed-pending-verify`（P2-1：下载前 `_ensure_tenant_token_sync` + 一次重试；见 `docs/phase2/P2-1-feishu-image.md`） |
 
 ## #2 — HTML 表格空列名导致消息回退纯文本（Bug B）
 

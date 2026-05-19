@@ -5,11 +5,11 @@
 
 | 字段 | 值 |
 |------|-----|
-| **最近更新** | 2026-05-17 |
-| **更新人** | MimirAether Session 73 (session_count=72) |
+| **最近更新** | 2026-05-19 |
+| **更新人** | MimirAether Session 72 |
 | **仓库根（真源）** | 以当前用于 `git push` 的 clone 为准（例如 `~/src/MimirAether`）；勿写死 `~/.openclaw/projects/...` |
-| **可选校验** | `./run_ralph_tier0.sh`（门禁）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml）；里程碑 A 项需真环境手动/清单 |
-| **本轮摘要** | Session 72→73：`skill_curator.py` persistent.json 截断根因修复（3层防护）；`memory_tool.py` MemoryStore 单例；131个 `.md`→`.html` 胶囊迁移至 `memory/capsules/`；B2 Gateway 10项诊断（3项可修/7项归属openclaw）；GitHub Issue #3 MimirAether 身份混淆根因分析；M6 evolution_log 补录5条；`run_ralph_tier0.sh` 162+2 全绿。 |
+| **可选校验** | `./run_ralph_tier0.sh`（门禁）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml)；里程碑 A 项需真环境手动/清单 |
+| **本轮摘要** | Hermes 8模块 + OpenSpace 8模块 双战役完成。新交付: agent_loop DI, ContextEngine ABC, DeepSeek指导, 身份解耦, 执行录制/质量追踪/分析器/进化引擎(5文件972行)。独有能力: TaskLoop/Capsules/CausalAR/Beliefs/M0-M6。Tier0 7/7 ✅。 |
 
 ---
 
@@ -33,7 +33,7 @@
 
 | 阶段 | 里程碑 | 状态 | 说明 |
 |------|--------|------|------|
-| 1 Hermes 影子期 | **A**：CLI + gateway + 工具链 + 基础 RL | **绿** | Smoke：A1–A4 已验；**飞书** Bot「wan」真实消息已通（`mimir_prod_smoke.md`） |
+| 1 Hermes 影子期 | **A**：CLI + gateway + 工具链 + 基础 RL | **绿** | Smoke：A1–A4 已验；**飞书** 应用 **mimiraether** 真实消息已通（`mimir_prod_smoke.md`） |
 | 2 专项伙伴期 | B | **绿** | 证据见 **`docs/mimir_phase_b_checklist.md`**（§B 绿裁定记录、§执行记录）；依赖 **A** 已绿。**范围**：工程可审计的伙伴交付链（git + M6 日志 + MAINLINE）；路线图人际条款仍由负责人日常验收。**维持**：新任务继续往 §执行记录 追加 |
 | 3 独立学习期 | C | **绿** | 证据见 **`docs/mimir_phase_c_checklist.md`**（§C 绿裁定记录、§执行记录）；**≥3** 主题报告见 **`docs/phase_c_studies/`**；对照 **`docs/hermes_mimir_behavior_matrix.md`**（§4 目标 D）。**范围**：工程可审计的独立学习链；路线图「自动记忆殿堂」未接管道时以仓库报告+清单为准。**维持**：新主题继续 §执行记录 |
 | 4 自主进化期 | ∞ | **绿** | 证据见 **`docs/mimir_phase_infinity_checklist.md`**（**§∞ 绿裁定记录 #1**、§∞1 索引、§∞2 样本 **#1–#2**、§宪章对照审查 **#1–#2**）；宪章 **`docs/weave_charter.md`**（v0.1 草案）。**范围**：工程可审计的自主进化周期已满足清单 §建议的 ∞「绿」门槛（`as-of` 见清单 §∞1）；**价值观**人际验收仍由负责人承担。**维持**：新周期继续 §执行记录 + M6 + tier0 |
@@ -65,6 +65,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-18 | **状态刷新**：Session 199；TaskLoop v2.x 多轮迭代；R1–R12 参数调优；tier0 162+2 全绿。 |
 | 2026-05-16 | **路径叙事（阶段 A）**：文档与根脚本对齐「clone 根 vs `MIMIR_AETHER_HOME`」；默认数据根 `~/.mimiraether`；tier0 绿。 |
 | 2026-05-13 | **Phase VI 物理删除**：`hermes_cli/` 60+文件(76K行)删除；`mimcore/` 删除；`memory/persistent.json`删除；新增`mimir_state.py`(1019行)；12个Hermes遗存技能清理；`web_server.py` 7处mimcore引用迁移。Ralph tier0 162+2全绿。3 commits。 |
 | 2026-05-11 | **Phase V 深入脱钩完成**：`hermes_constants.py` 已删除（导入→mimir_constants）；`hermes_logging.py` 已删除（导入→mimiraether_logging）；`hermes_state.py`→`mimir_state.py`（9处导入已更新）。Hermes独立路线 I-V 全线闭合。 |
@@ -87,7 +88,7 @@
 | 2026-05-01 | **M4 黄**：`agent/test_m4_auxiliary_http_slice.py` + `docs/m4_auxiliary_http_slice.md`，纳入 `run_ralph_tier0.sh`；分类层离线断言（401 / 429 语义 / 超时形状）。 |
 | 2026-05-02 | **M6 黄**：新增 `docs/M6_EVOLUTION.md`、`docs/evolution_log.md`、`scripts/record_m6_evolution.sh`，`AGENTS.md` 合并指引；tier0 当次全绿。 |
 | 2026-05-02 | M3 **第二条**：`agent/test_m3_api_chat_slice.py` + `docs/m3_api_chat_slice.md`，纳入 `run_ralph_tier0.sh`；M3 标 **绿**。 |
-| 2026-05-02 | 飞书连接成功（Bot「wan」）；里程碑 **A** 标 **绿**。 |
+| 2026-05-02 | 飞书连接成功（应用 **mimiraether**）；里程碑 **A** 标 **绿**。 |
 | 2026-05-01 | 里程碑 A smoke 首轮：代理回报写入 `mimir_prod_smoke.md`；A2 真实消息仍缺，阶段 1 保持黄。 |
 | 2026-05-01 | 新增 `docs/mimir_prod_smoke.md`：里程碑 A（A1–A4）真环境勾选表。 |
 | 2026-05-01 | M3：落地 `agent/test_m3_cli_quick_task_slice.py` + `docs/m3_cli_quick_task_slice.md`，纳入 `run_ralph_tier0.sh`。 |

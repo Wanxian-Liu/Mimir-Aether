@@ -132,8 +132,14 @@ flowchart LR
 | 现象 | 说明 |
 |------|------|
 | `MIMIR_CORE_PATH` 默认 `~/.mimiraether/mimicore` **不存在** | 本机 import 仍落到 `{repo}/mimicore`（`sys.path`） |
-| `list_capsules` 扫 `MIMIR_CORE_PATH/public` → **total: 0** | 子模块 `public/*.md` 有内容；与 HTML 契约不一致 |
-| `mimircore_tool` 发布仍为 **`*.md`** 到 `public/` | T06 改为 `memory/capsules/*.html` |
+| ~~`list_capsules` 扫 `MIMIR_CORE_PATH/public` → **total: 0**~~ | **Phase 1 已闭合**（2026-05-19）：`mimircore_tool` 扫描 `$MIMIR_AETHER_HOME/memory/capsules/*.html`，本机 **total=230**；见 [`phase1/P1-1-audit-summary.md`](./phase1/P1-1-audit-summary.md) |
+| ~~`mimircore_tool` 发布仍为 **`*.md`** 到 `public/`~~ | **已改为 HTML** 写入 `memory/capsules/`（`produce_capsule` / 迁移脚本） |
+
+**归档声明（Phase 1，与 HTML 契约 §5.3 一致）**
+
+- **`{repo}/mimicore/public/*.md`**：**只读归档**；禁止作为新胶囊 publish 源。
+- **`$MIMIR_AETHER_HOME/memory/capsules/*.html`**：**canonical 真源**；`list_capsules` / `get_capsule_by_id` 仅扫描此目录。
+- 131 枚 md 已全部有对应 html（P1-1）；额外 96 枚 html 为会话 `produce_capsule` 等产生，非迁移遗漏。
 
 ---
 
@@ -161,7 +167,7 @@ flowchart LR
 
 - 发布本文档；与 T02 HTML 契约、T03 OpenClaw 边界交叉引用。
 - [`OPERATIONS_GATEWAY.md`](./OPERATIONS_GATEWAY.md) / [`AGENTS.md`](../AGENTS.md)：**禁止**将 `mimicore/gateway`、`mimicore/cli`、`python mimicore/run.py` 列为 MA 生产启动步骤。
-- 接受 T01 状态：`list_capsules` 为空为**已知差距**，直至 T06。
+- **Phase 1（2026-05-19）**：存量 md→html 迁移审计完成；`list_capsules` 对本机数据根 **total≥1**；子模块 `public/` **只读归档**（见 §4.3）。
 - 子模块 `public/` 视为**只读归档**；默认脚本不新增对该目录的写入。
 - §4 登记 `delegate_tool`、`cli.py` 对子模块 `config/` 的依赖，列为**迁出**项。
 

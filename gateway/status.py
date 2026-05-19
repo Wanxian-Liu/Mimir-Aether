@@ -2,9 +2,9 @@
 # Gateway运行时状态管理 (已自研)
 # 来源: hermes-agent/gateway/status.py
 # 改造点:
-#   1. 移除 mimir_constants 依赖 → 适配 OpenClaw 常量
-#   2. PID文件路径改为 ~/.openclaw/gateway.pid
-#   3. 状态文件路径改为 ~/.openclaw/gateway_state.json
+#   1. 移除 mimir_constants 硬编码依赖 → 适配 MimirAether 常量
+#   2. PID文件路径改为 ~/.mimiraether/data/gateway.pid
+#   3. 状态文件路径改为 ~/.mimiraether/data/gateway_state.json
 #   4. _GATEWAY_KIND 改为 "MimirAether-gateway"
 """
 
@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 # mimir_constants依赖已移除
-# Path.home()/.openclaw 已完成
+# Path.home()/.mimiraether/data 已完成
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ def _get_runtime_status_path() -> Path:
 
 def _get_lock_dir() -> Path:
     """Return the machine-local directory for token-scoped gateway locks."""
-    override = os.getenv("OPENCLAW_GATEWAY_LOCK_DIR")
+    override = os.getenv("MIMIR_GATEWAY_LOCK_DIR") or os.getenv("OPENCLAW_GATEWAY_LOCK_DIR")
     if override:
         return Path(override)
     from mimir_constants import get_mimir_data_dir
@@ -131,8 +131,6 @@ def _looks_like_gateway_process(pid: int) -> bool:
     patterns = (
         "MimirAether",
         "mimir_aether",
-        "openclaw gateway",
-        "openclaw-gateway",
         "gateway/run.py",
     )
     return any(pattern in cmdline for pattern in patterns)
@@ -291,7 +289,7 @@ def acquire_scoped_lock(scope: str, identity: str, metadata: Optional[dict[str, 
     """Acquire a machine-local lock keyed by scope + identity.
 
     Used to prevent multiple local gateways from using the same external identity
-    at once (e.g. the same Telegram bot token across different OpenClaw home dirs).
+    at once (e.g. the same Telegram bot token across different MimirAether home dirs).
     """
     lock_path = _get_scope_lock_path(scope, identity)
     lock_path.parent.mkdir(parents=True, exist_ok=True)
