@@ -27,6 +27,47 @@
 
 > **说明**：本仓库**未**提供名为 `scripts/gateway_nohup.sh` 的脚本。若你需要 `nohup … &` 长期驻留，请在自有运维层包装上述命令，并将标准输出/错误重定向到下文 **`$MIMIR_AETHER_HOME/logs/`** 下自管文件（勿写死他人 home 路径）。
 
+### 2.1 硬重启（推荐：旧进程杀不干净时）
+
+当 `python3 cli.py gateway restart` 仍提示 **Gateway already running** 或 PID 文件与真进程不一致时，用 **`scripts/restart_gateway_hard.sh`**（与刘哥现用手动流程等价，并固定 `MIMIR_AETHER_HOME`）。
+
+**一键（仓库根）：**
+
+```bash
+MIMIR_REPO_ROOT=~/src/MimirAether \
+MIMIR_AETHER_HOME=~/.mimiraether \
+./scripts/restart_gateway_hard.sh
+```
+
+**等价手写备份（与脚本相同逻辑）：**
+
+```bash
+export MIMIR_AETHER_HOME=~/.mimiraether
+export HERMES_HOME="$MIMIR_AETHER_HOME"
+
+# 先 TERM，仍存活再 -9
+pids=$(pgrep -f 'gateway/run\.py' || true)
+[[ -n "$pids" ]] && kill -TERM $pids 2>/dev/null; sleep 2
+pids=$(pgrep -f 'gateway/run\.py' || true)
+[[ -n "$pids" ]] && kill -9 $pids 2>/dev/null; sleep 1
+
+rm -f ~/.mimiraether/data/gateway.pid
+
+cd ~/src/MimirAether
+# 业务日志在 ~/.mimiraether/logs/agent.log；此处仅丢 run.py 自己的 stdout
+python3 gateway/run.py > /dev/null 2>&1 &
+
+sleep 2
+pgrep -af 'gateway/run.py'
+tail -3 ~/.mimiraether/logs/agent.log
+```
+
+| 项 | 说明 |
+|----|------|
+| 为何不用 `cli.py restart` | 偶发杀不掉旧 PID / 陈旧 `gateway.pid` |
+| 日志去哪 | **飞书/agent** → `$MIMIR_AETHER_HOME/logs/agent.log`；`> /dev/null` 只影响 `run.py` 控制台输出 |
+| 可选保留控制台日志 | `LOG_TO=~/.mimiraether/logs/gateway-stdout.log ./scripts/restart_gateway_hard.sh` |
+
 ---
 
 ## 3. 验收（人工）

@@ -30,7 +30,7 @@
 
 | # | 任务 | 成功标准 |
 |---|------|----------|
-| M1 | 重启 gateway（`main` 含 `43cbd3a` + `b50c71c`） | `feishu connected`；PID 与 `~/.mimiraether/data/gateway.pid` 一致 |
+| M1 | 重启 gateway（`main` 含 `43cbd3a` + `b50c71c`） | `./scripts/restart_gateway_hard.sh` 或 `docs/OPERATIONS_GATEWAY.md` §2.1；`feishu connected` |
 | M2 | 飞书 mimiraether **发图** | `Image downloaded` + URL 含 `resources/`；vision 无 `image_url` 400；能描述图片 |
 | M3 | 飞书 **空表头** HTML 表 | 列名 `—`，非纯文本回退 |
 | M4 | 飞书 **触发 tool** 一句 | 无 `tool must be a response` |
