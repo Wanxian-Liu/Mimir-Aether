@@ -13,7 +13,7 @@
 | 错误码 | HTTP 400（2 次，image_key: `img_v3_0211o_361eb7c…` / `img_v3_0211p_bbcd518…`） |
 | 根因 | ① 用户图须 `GET /im/v1/messages/{message_id}/resources/{key}?type=image`；误用 `/im/v1/images/{key}`（仅机器人上传图）→ 400。② token 过期时无 Bearer 也会 400 |
 | 修复 | P2-1 token 刷新 + 重试；P2-1b 入站图走 message-resource（`message_id` + `image_key`） |
-| 状态 | `fixed-pending-verify`（合并后 **重启 gateway**，飞书 mimiraether 再发图；日志应有 `Image downloaded` 且 URL 含 `/messages/.../resources/`） |
+| 状态 | 下载 `resolved`（2026-05-19 `Image downloaded` + message-resource）；识图 `fixed-pending-verify`（主模型 DeepSeek 时 vision 须走 OpenRouter，见 `auxiliary_client` 回退 + 重启 gateway） |
 
 ## #2 — HTML 表格空列名导致消息回退纯文本（Bug B）
 

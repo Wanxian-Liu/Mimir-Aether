@@ -1600,6 +1600,20 @@ _VISION_AUTO_PROVIDER_ORDER = (
     "nous",
 )
 
+# chat.completions models that reject content[] with type image_url (text-only).
+_TEXT_ONLY_VISION_MODELS = frozenset({
+    "deepseek-chat",
+    "deepseek-reasoner",
+})
+
+
+def _supports_openai_chat_vision_model(model: Optional[str]) -> bool:
+    """True if model likely accepts OpenAI-style image_url content blocks."""
+    if not model:
+        return False
+    name = str(model).split("/")[-1].lower()
+    return name not in _TEXT_ONLY_VISION_MODELS
+
 
 def _normalize_vision_provider(provider: Optional[str]) -> str:
     return _normalize_aux_provider(provider)
@@ -1713,12 +1727,17 @@ def resolve_vision_provider_client(
                     main_provider, vision_model,
                     api_mode=resolved_api_mode)
                 if rpc_client is not None:
+                    chosen = rpc_model or vision_model
+                    if _supports_openai_chat_vision_model(chosen):
+                        logger.info(
+                            "Vision auto-detect: using active provider %s (%s)",
+                            main_provider, chosen,
+                        )
+                        return _finalize(main_provider, rpc_client, chosen)
                     logger.info(
-                        "Vision auto-detect: using active provider %s (%s)",
-                        main_provider, rpc_model or vision_model,
+                        "Vision auto-detect: %s (%s) is text-only; falling back to aggregators",
+                        main_provider, chosen,
                     )
-                    return _finalize(
-                        main_provider, rpc_client, rpc_model or vision_model)
 
         # Fall back through aggregators.
         for candidate in _VISION_AUTO_PROVIDER_ORDER:
