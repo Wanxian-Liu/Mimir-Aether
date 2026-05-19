@@ -31,6 +31,8 @@ from .post_analysis import (
     build_analysis_prompt,
     parse_analysis_result,
 )
+from .skill_evolution import build_confirmation_prompt, parse_confirmation
+from .conversation_formatter import format_trajectory_for_analysis
 
 # ── Global state (optional, per-session) ────────────────────────────────────
 
@@ -148,17 +150,15 @@ def build_analysis_from_pipeline(
 ) -> Optional[str]:
     """Build an analysis prompt from pipeline results.
 
+    Uses priority-based conversation formatter for compact analysis prompts.
     Returns the prompt string to send to the LLM, or None if insufficient data.
     """
     trajectory_path = pipeline_result.get("trajectory_path", "")
     if not trajectory_path or not Path(trajectory_path).exists():
         return None
 
-    # Read trajectory
-    try:
-        trace_text = Path(trajectory_path).read_text(encoding="utf-8")
-    except Exception:
-        return None
+    # Format trajectory using priority-based truncation
+    trace_text = format_trajectory_for_analysis(str(trajectory_path))
 
     quality_data = pipeline_result.get("quality_report", {})
 
