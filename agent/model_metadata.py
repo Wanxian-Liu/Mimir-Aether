@@ -82,8 +82,8 @@ DEFAULT_CONTEXT_LENGTHS = {
     "gemma-4-26b": 256000,
     "gemma-3": 131072,
     "gemma": 8192,
-    # DeepSeek
-    "deepseek": 128000,
+    # DeepSeek — V4 Pro native 1M context window
+    "deepseek": 1048576,
     # Meta Llama
     "llama": 131072,
     # Qwen

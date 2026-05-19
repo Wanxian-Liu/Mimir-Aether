@@ -1,6 +1,9 @@
 """
 Skill Evolution Engine — FIX/DERIVED/CAPTURED evolution with apply-retry.
 
+Opt-in: set env MIMIR_AUTO_ANALYSIS=1 to enable automated skill evolution.
+Without it, build_confirmation_prompt/parse_confirmation are no-ops.
+
 Learned from OpenSpace skill_engine/evolver.py:
   - LLM confirmation gate: cheap LLM call decides whether to run expensive evolution
   - Apply-retry cycle: apply → validate → retry with error feedback (up to N)

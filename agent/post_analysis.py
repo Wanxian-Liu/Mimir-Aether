@@ -1,6 +1,10 @@
 """
 Post-Execution Analyzer — LLM-based analysis of execution traces for evolution.
 
+Opt-in: set env MIMIR_AUTO_ANALYSIS=1 to enable automated post-task LLM analysis.
+Without it, functions are available but the trigger (maybe_trigger_post_analysis
+in execution_pipeline.py) is never called automatically.
+
 Learned from OpenSpace skill_engine/analyzer.py:
   - Build structured prompt from execution recording + tool quality data
   - Generate SkillJudgment per tool (keep / fix / deprecate)

@@ -159,6 +159,7 @@ class MimirAgentLoop:
         for turn in range(self.max_turns):
             if self.interrupt_check():
                 logger.info("Loop interrupted at turn %d", turn + 1)
+                self._close_pipeline(user_task)
                 return AgentResult(
                     messages=messages, turns_used=turn + 1,
                     finished_naturally=False, reasoning_per_turn=reasoning_per_turn,
@@ -174,6 +175,7 @@ class MimirAgentLoop:
             except Exception as e:
                 api_elapsed = _time.monotonic() - api_start
                 logger.error("API call failed on turn %d (%.1fs): %s", turn + 1, api_elapsed, e)
+                self._close_pipeline(user_task)
                 return AgentResult(
                     messages=messages, turns_used=turn + 1,
                     finished_naturally=False, reasoning_per_turn=reasoning_per_turn,
@@ -182,6 +184,7 @@ class MimirAgentLoop:
             api_elapsed = _time.monotonic() - api_start
 
             if not response:
+                self._close_pipeline(user_task)
                 return AgentResult(
                     messages=messages, turns_used=turn + 1,
                     finished_naturally=False, reasoning_per_turn=reasoning_per_turn,
@@ -203,6 +206,7 @@ class MimirAgentLoop:
                     _tool_calls = response.get("tool_calls")
                     _reasoning = response.get("reasoning_content")
                 else:
+                    self._close_pipeline(user_task)
                     return AgentResult(
                         messages=messages, turns_used=turn + 1,
                         finished_naturally=False, reasoning_per_turn=reasoning_per_turn,
@@ -210,6 +214,7 @@ class MimirAgentLoop:
                     )
             else:
                 if not getattr(response, "choices", None):
+                    self._close_pipeline(user_task)
                     return AgentResult(
                         messages=messages, turns_used=turn + 1,
                         finished_naturally=False, reasoning_per_turn=reasoning_per_turn,
@@ -336,6 +341,7 @@ class MimirAgentLoop:
                     "[%s] turn %d: api=%.1fs, no tools (finished)",
                     self.task_id[:8], turn + 1, api_elapsed,
                 )
+                self._close_pipeline(user_task)
                 return AgentResult(
                     messages=messages, turns_used=turn + 1,
                     finished_naturally=True, reasoning_per_turn=reasoning_per_turn,
@@ -344,11 +350,20 @@ class MimirAgentLoop:
 
         # Hit max turns
         logger.info("Agent hit max_turns (%d)", self.max_turns)
+        self._close_pipeline(user_task)
         return AgentResult(
             messages=messages, turns_used=self.max_turns,
             finished_naturally=False, reasoning_per_turn=reasoning_per_turn,
             tool_errors=tool_errors,
         )
+
+    def _close_pipeline(self, task_name: str = "") -> None:
+        """Defensive close of execution pipeline (best-effort, never raises)."""
+        try:
+            from agent.execution_pipeline import close_execution_pipeline
+            close_execution_pipeline(task_name=task_name or self.task_id)
+        except Exception:
+            pass
 
     def _record_tool(
         self,

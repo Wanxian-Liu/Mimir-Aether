@@ -465,7 +465,7 @@ class MimirAetherAgent:
         )
         
         self.conversation_history: List[Message] = []
-        self.max_history_length = 100  # 对话历史最大长度,防止内存耗尽
+        self.max_history_length = 200  # 对齐 1M 上下文 (200条×~5K=~1M tokens)
 
         # 新模块初始化
         # Hermes风格压缩器
