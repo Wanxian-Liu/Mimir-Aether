@@ -39,6 +39,26 @@ logger = logging.getLogger(__name__)
 RECONNECT_DELAYS = (2, 5, 10, 30, 60)
 
 
+def _tracked_task(name: str, coro):
+    """P0-1: 包装 asyncio Task，确保静默异常被记录。
+
+    asyncio.create_task() 创建的 Task 如果抛出未被捕获的异常，
+    默认只在 Task 被 GC 时打印一条难以追踪的警告。
+    此包装器将异常提升为 logger.error，包含完整的 traceback。
+    """
+
+    async def _runner():
+        try:
+            await coro
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("[feishu] TrackedTask %s crashed", name)
+            raise
+
+    return asyncio.create_task(_runner(), name=name)
+
+
 class CircuitBreaker:
     """P0-2: 三态断路器，WS 重连保底。
 
@@ -612,9 +632,9 @@ class FeishuAdapter(BasePlatformAdapter):
         # later in the worker thread. All lark_oapi imports happen exclusively
         # inside _blocking_lark_ws_main, after a dedicated event loop is installed.
         self._mark_connected()
-        self._ws_task = asyncio.create_task(self._ws_runner(), name="feishu-lark-ws")
+        self._ws_task = _tracked_task("feishu-lark-ws", self._ws_runner())
         # 启动定时刷新token的后台任务（每60分钟刷新一次，防止过期死锁）
-        self._token_task = asyncio.create_task(self._token_refresher(), name="feishu-token-refresh")
+        self._token_task = _tracked_task("feishu-token-refresh", self._token_refresher())
         logger.info("[%s] Long connection task started (lark-oapi ws.Client)", self.name)
         return True
 

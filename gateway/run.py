@@ -24,6 +24,7 @@ import signal
 import tempfile
 import threading
 import time
+from collections import OrderedDict
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Optional, Any, List
@@ -526,10 +527,12 @@ class GatewayRunner:
     _draining: bool = False
     _restart_requested: bool = False
     _restart_task_started: bool = False
+    _AGENT_CACHE_MAXSIZE: int = 50
     _restart_detached: bool = False
     _restart_via_service: bool = False
     _stop_task: Optional[asyncio.Task] = None
     _session_model_overrides: Dict[str, Dict[str, str]] = {}
+    _tracked_tasks: Dict[str, asyncio.Task] = {}
     
     def __init__(
         self,
@@ -569,14 +572,14 @@ class GatewayRunner:
             try:
                 self._session_db = session_db_factory.create_session_db()
             except Exception as e:
-                logger.debug("session_db_factory failed: %s", e)
+                logger.warning("session_db_factory failed (session persistence disabled): %s", e)
                 self._session_db = None
         else:
             try:
                 from mimir_state import SessionDB
                 self._session_db = SessionDB()
             except Exception as e:
-                logger.debug("SQLite session store not available: %s", e)
+                logger.warning("SQLite session store not available (session persistence disabled): %s", e)
 
         # Wire process registry into session store for reset protection
         from tools.process_registry import process_registry
@@ -610,8 +613,9 @@ class GatewayRunner:
         # system prompt (including memory) every turn — breaking prefix cache
         # and costing ~10x more on providers with prompt caching (Anthropic).
         # Key: session_key, Value: (AIAgent, config_signature_str)
+        # LRU-ordered with max size limit to prevent unbounded memory growth.
         import threading as _threading
-        self._agent_cache: Dict[str, tuple] = {}
+        self._agent_cache: "OrderedDict[str, tuple]" = OrderedDict()
         self._agent_cache_lock = _threading.Lock()
 
         # Per-session model overrides from /model command.
@@ -1066,7 +1070,7 @@ class GatewayRunner:
                 active_agents=self._running_agent_count(),
             )
         except Exception:
-            pass
+            logger.debug("write_runtime_status failed (non-critical)", exc_info=True)
 
     def _update_platform_runtime_status(
         self,
@@ -1085,7 +1089,7 @@ class GatewayRunner:
                 error_message=error_message,
             )
         except Exception:
-            pass
+            logger.debug("write_runtime_status failed (non-critical)", exc_info=True)
     
     @staticmethod
     def _load_prefill_messages() -> List[Dict[str, Any]]:
@@ -1749,13 +1753,16 @@ class GatewayRunner:
             from tools.process_registry import process_registry
             while process_registry.pending_watchers:
                 watcher = process_registry.pending_watchers.pop(0)
-                asyncio.create_task(self._run_process_watcher(watcher))
+                self._tracked_task(
+                    self._run_process_watcher(watcher),
+                    f"proc-watcher-{watcher.get('session_id', 'unknown')}"
+                )
                 logger.info("Resumed watcher for recovered process %s", watcher.get("session_id"))
         except Exception as e:
             logger.error("Recovered watcher setup error: %s", e)
 
         # Start background session expiry watcher for proactive memory flushing
-        asyncio.create_task(self._session_expiry_watcher())
+        self._tracked_task(self._session_expiry_watcher(), "session-expiry-watcher")
 
         # Start background reconnection watcher for platforms that failed at startup
         if self._failed_platforms:
@@ -1764,11 +1771,33 @@ class GatewayRunner:
                 len(self._failed_platforms),
                 ", ".join(p.value for p in self._failed_platforms),
             )
-        asyncio.create_task(self._platform_reconnect_watcher())
+        self._tracked_task(self._platform_reconnect_watcher(), "platform-reconnect-watcher")
 
         logger.info("Press Ctrl+C to stop")
         
         return True
+    
+    def _tracked_task(self, coro, name: str) -> asyncio.Task:
+        """Create a tracked asyncio Task with lifecycle monitoring.
+        
+        The task is stored in ``_tracked_tasks`` and automatically removed
+        on completion.  If the task crashes, the exception is logged (rather
+        than silently swallowed).  Outstanding tracked tasks are surfaced
+        during gateway shutdown.
+        """
+        async def _wrapper():
+            try:
+                await coro
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                logger.exception("[tracked-task] %s crashed", name)
+            finally:
+                self._tracked_tasks.pop(name, None)
+        
+        task = asyncio.create_task(_wrapper())
+        self._tracked_tasks[name] = task
+        return task
     
     async def _session_expiry_watcher(self, interval: int = 300):
         """Background task that proactively flushes memories for expired sessions.
@@ -7934,6 +7963,7 @@ class GatewayRunner:
                     cached = _cache.get(session_key)
                     if cached and cached[1] == _sig:
                         agent = cached[0]
+                        _cache.move_to_end(session_key)  # LRU: mark as recently used
                         logger.debug("Reusing cached agent for session %s", session_key)
 
             if agent is None:
@@ -7964,7 +7994,13 @@ class GatewayRunner:
                 )
                 if _cache_lock and _cache is not None:
                     with _cache_lock:
+                        # LRU eviction: if at capacity, remove oldest entry
+                        if len(_cache) >= self._AGENT_CACHE_MAXSIZE:
+                            oldest_key, _ = _cache.popitem(last=False)
+                            logger.debug("Agent cache LRU evicted session=%s (cache=%d/%d)",
+                                         oldest_key, len(_cache), self._AGENT_CACHE_MAXSIZE)
                         _cache[session_key] = (agent, _sig)
+                        _cache.move_to_end(session_key)
                 logger.debug("Created new agent for session %s (sig=%s)", session_key, _sig)
 
             # Per-message state — callbacks and reasoning config change every
