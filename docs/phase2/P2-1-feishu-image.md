@@ -50,3 +50,4 @@ python3 -m pytest tests/test_feishu_image_token.py -q
 |------|------|
 | 2026-05-19 | 初版：P2-1 token 刷新 + 重试 |
 | 2026-05-19 | 真机仍 400：改 message-resource API + message_id |
+| 2026-05-19 | 下载 OK 后识图失败：`deepseek-chat` 不支持 `image_url` → `auxiliary_client` 回退 OpenRouter（`b50c71c`） |

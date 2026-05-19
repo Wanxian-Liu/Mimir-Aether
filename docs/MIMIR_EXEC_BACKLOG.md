@@ -20,6 +20,49 @@
 7. [ ] P3-0 persistent 单写者 — ADR 仅文档（ISSUES #4）
 8. [ ] P4-1 memory/index.html + wiki 路径（ISSUES #3 一部分）
 
+---
+
+## Mimir 可执行（无架构 — 按顺序）
+
+> 计划全文：`docs/plans/2026-05-19_stability_sprint.md`  
+> Gateway 十条：`docs/GATEWAY_STABILITY_BACKLOG.md`  
+> **禁止**：删光 `role=tool` 消息；勿提交 `data/persistent.json`。
+
+| # | 任务 | 成功标准 |
+|---|------|----------|
+| M1 | 重启 gateway（`main` 含 `43cbd3a` + `b50c71c`） | `feishu connected`；PID 与 `~/.mimiraether/data/gateway.pid` 一致 |
+| M2 | 飞书 mimiraether **发图** | `Image downloaded` + URL 含 `resources/`；vision 无 `image_url` 400；能描述图片 |
+| M3 | 飞书 **空表头** HTML 表 | 列名 `—`，非纯文本回退 |
+| M4 | 飞书 **触发 tool** 一句 | 无 `tool must be a response` |
+| M5 | 确认 vision 回退凭证 | `OPENROUTER_API_KEY` 或 `config.yaml` → `auxiliary.vision.provider` |
+| M6 | `ISSUES.md` #1/#2 改 `resolved`（M2/M3 通过后） | 文档 only |
+| M7 | Gateway 十条：逐条在 `GATEWAY_STABILITY_BACKLOG.md` 标状态 | 仅复现/配置/记 ISSUES，不改大逻辑 |
+| M8 | （可选）`git push origin main` | 刘哥授权后 |
+
+### 回报模板（贴给 Cursor / 刘哥）
+
+```text
+Mimir 冒烟回报
+- gateway PID / 启动时间:
+- M2 发图: 通过/失败 + grep 最后 5 行
+- M3 表头: 通过/失败
+- M4 tool: 通过/失败
+- M5 OPENROUTER: 有/无
+- 未完成项:
+```
+
+---
+
+## 需工程 / Cursor（勿交给 Mimir 改架构）
+
+| 项 | 说明 |
+|----|------|
+| WebSocket 推理阻塞心跳 | gstack P0#2 |
+| 监控与告警 | gstack P0#3 |
+| 自修回滚护栏 | gstack P0#4 |
+| P3-0 / P4-1 | ADR + memory 三入口 |
+| Gateway #5/#10 等 | 见 GATEWAY_STABILITY_BACKLOG「工程」列 |
+
 ## 已完成
 
 1. [x] 修 list_capsules 路径 — 验证结论：无须修；代码路径正确，`memory/capsules/` HTML契约目录与 `mimicore/public/` 旧格式分离是设计意图。存量 .md 需迁移。

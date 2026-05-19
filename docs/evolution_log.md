@@ -53,3 +53,4 @@ Append-only. Newest rows at the **bottom**. See **`docs/M6_EVOLUTION.md`** for r
 | 20260517T143003Z_3879208_d | 2026-05-17T14:30:03Z | 3879208 | ./run_ralph_tier0.sh | 0 | B2 Gateway 10项诊断: 3项可修(MimirAether) + 7项归属openclaw运行时 |
 | 20260517T143004Z_3879208_e | 2026-05-17T14:30:04Z | 3879208 | ./run_ralph_tier0.sh | 0 | GitHub Issue #3: MimirAether身份混淆根因分析 (mimir_constants, gateway/status, gateway/config) + mimircore_tool.py 仓库根解析 |
 | 20260519T050132Z_e209744-dirty | 2026-05-19T05:01:32Z | e209744-dirty | ./run_ralph_tier0.sh | 0 | Phase1 capsule + context refactor + Feishu image token; tier0 162+2 |
+| 20260519T060313Z_b50c71c-dirty | 2026-05-19T06:03:13Z | b50c71c-dirty | ./run_ralph_tier0.sh | 0 | P2-1b message-resource + vision text-only fallback; plan docs; tier0 green |
