@@ -15,17 +15,17 @@
 
 ## 2. 根因
 
-`_feishu_download_image()` 用同步 `requests.get` 拉取  
-`GET /open-apis/im/v1/images/{image_key}`，仅在 `_tenant_token` 存在且未过期时附加 `Authorization`。
-
-入站图片在 `_async_dispatch_p2` → `_event_dict_to_message_event` 路径触发下载。若 token 尚未刷新、已过期，或与 `send()` 的异步刷新不同步，请求无 Bearer → 飞书返回 **400**。
+1. **API 用错（主因）**：用户发来的图必须用  
+   `GET /im/v1/messages/{message_id}/resources/{image_key}?type=image`。  
+   `GET /im/v1/images/{image_key}` 仅适用于**本应用上传**的图片，对用户图常返回 **400**（如 234008）。
+2. **Token（次因）**：入站同步下载路径若 token 过期且无 Bearer，也会 400/401；见 §3 刷新与重试。
 
 ## 3. 改点（最小修复）
 
 1. `_tenant_token_valid()` — 与 `send()` 一致，到期前 **60s** 缓冲。
 2. `FeishuAdapter._refresh_token_sync()` — 用 `requests.post` 同步刷新 `tenant_access_token`（避免在运行中的 event loop 上 `run_until_complete` 死锁）。
 3. `_ensure_tenant_token_sync()` — 下载前确保 token 有效。
-4. `_feishu_download_image()` — 下载前 `ensure`；若首次 GET 为 400/401/403，刷新后重试一次。
+4. `_feishu_download_image()` — 有 `message_id` 时优先 message-resource URL，再 fallback `im/v1/images`；下载前 `ensure`；400/401/403 刷新 token 重试一次。
 
 ## 4. 测试
 
@@ -49,3 +49,4 @@ python3 -m pytest tests/test_feishu_image_token.py -q
 | 日期 | 变更 |
 |------|------|
 | 2026-05-19 | 初版：P2-1 token 刷新 + 重试 |
+| 2026-05-19 | 真机仍 400：改 message-resource API + message_id |

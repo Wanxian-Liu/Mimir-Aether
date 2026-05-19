@@ -150,8 +150,7 @@ def _record_looks_like_gateway(record: dict[str, Any]) -> bool:
     patterns = (
         "MimirAether",
         "mimir_aether",
-        "openclaw gateway",
-        "openclaw-gateway",
+        "mimiraether",
         "gateway/run.py",
     )
     return any(pattern in cmdline for pattern in patterns)

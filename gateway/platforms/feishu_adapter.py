@@ -86,19 +86,27 @@ def _tenant_token_valid(adapter: "FeishuAdapter", *, buffer_seconds: int = 60) -
 
 
 def _feishu_download_image(
-    adapter: "FeishuAdapter", image_key: str
+    adapter: "FeishuAdapter",
+    image_key: str,
+    *,
+    message_id: str = "",
 ) -> Optional[str]:
     """下载飞书图片到本地缓存，返回本地文件路径。
 
-    使用飞书 IM API: GET /open-apis/im/v1/images/{image_key}
-    需要 tenant_access_token 认证。
+  入站用户图片：GET /im/v1/messages/{message_id}/resources/{file_key}?type=image
+  机器人上传图：GET /im/v1/images/{image_key}（仅上传方可拉取，对用户图会 400）
     """
-    from gateway.platforms.base import get_image_cache_dir, _looks_like_image, cache_image_from_bytes
+    from gateway.platforms.base import _looks_like_image, cache_image_from_bytes
 
     origin = adapter._origin()
-    url = f"{origin}/open-apis/im/v1/images/{image_key}"
+    urls: list[str] = []
+    mid = (message_id or "").strip()
+    if mid:
+        urls.append(
+            f"{origin}/open-apis/im/v1/messages/{mid}/resources/{image_key}?type=image"
+        )
+    urls.append(f"{origin}/open-apis/im/v1/images/{image_key}")
 
-    # 同步下载（inbound 路径在 asyncio 线程内调用 sync requests）
     import requests
 
     if not adapter._ensure_tenant_token_sync():
@@ -110,26 +118,43 @@ def _feishu_download_image(
 
     try:
         resp = None
-        for attempt in range(2):
-            headers = {}
-            if adapter._tenant_token:
-                headers["Authorization"] = f"Bearer {adapter._tenant_token}"
+        for url_idx, url in enumerate(urls):
+            ok = False
+            for attempt in range(2):
+                headers = {}
+                if adapter._tenant_token:
+                    headers["Authorization"] = f"Bearer {adapter._tenant_token}"
 
-            resp = requests.get(url, headers=headers, timeout=30)
-            if resp.status_code == 200:
-                break
-            if attempt == 0 and resp.status_code in (400, 401, 403):
-                logger.info(
-                    "[feishu] Image download HTTP %s; refreshing tenant token and retrying",
+                resp = requests.get(url, headers=headers, timeout=30)
+                if resp.status_code == 200:
+                    ok = True
+                    break
+                if attempt == 0 and resp.status_code in (400, 401, 403):
+                    logger.info(
+                        "[feishu] Image download HTTP %s (url #%d); refreshing tenant token and retrying",
+                        resp.status_code,
+                        url_idx + 1,
+                    )
+                    if adapter._refresh_token_sync():
+                        continue
+                logger.warning(
+                    "[feishu] Image download HTTP %s for key=%s… (url #%d)",
                     resp.status_code,
+                    image_key[:20],
+                    url_idx + 1,
                 )
-                if adapter._refresh_token_sync():
-                    continue
+                break
+            if ok:
+                break
+        else:
             logger.error(
-                "[feishu] Image download failed: HTTP %s for key=%s…",
-                resp.status_code,
+                "[feishu] Image download failed for key=%s… (tried %d URL(s))",
                 image_key[:20],
+                len(urls),
             )
+            return None
+
+        if resp is None or resp.status_code != 200:
             return None
 
         data = resp.content
@@ -220,7 +245,7 @@ def _event_dict_to_message_event(adapter: "FeishuAdapter", payload: dict) -> Opt
         )
 
         # 同步下载图片（WS 线程中）
-        local_path = _feishu_download_image(adapter, image_key)
+        local_path = _feishu_download_image(adapter, image_key, message_id=message_id)
         if not local_path:
             # 下载失败：仍然返回事件，用 text 说明
             return MessageEvent(

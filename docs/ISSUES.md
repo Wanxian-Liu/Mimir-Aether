@@ -11,9 +11,9 @@
 | 优先级 | 🔴 高 |
 | 症状 | 刘哥在飞书发图片，我看不到。飞书适配器报 "图片下载失败，请重试" |
 | 错误码 | HTTP 400（2 次，image_key: `img_v3_0211o_361eb7c…` / `img_v3_0211p_bbcd518…`） |
-| 根因 | `feishu_adapter.py:101` — `_feishu_download_image()` 用 `requests.get()` 同步下载，依赖 `adapter._tenant_token` 做认证。token 过期或未初始化时，请求不带 Authorization header → 飞书返回 400 |
-| 修复方向 | 给 `_feishu_download_image` 加 token 刷新逻辑，或改用 aiohttp 异步 |
-| 状态 | `fixed-pending-verify`（P2-1：下载前 `_ensure_tenant_token_sync` + 一次重试；见 `docs/phase2/P2-1-feishu-image.md`） |
+| 根因 | ① 用户图须 `GET /im/v1/messages/{message_id}/resources/{key}?type=image`；误用 `/im/v1/images/{key}`（仅机器人上传图）→ 400。② token 过期时无 Bearer 也会 400 |
+| 修复 | P2-1 token 刷新 + 重试；P2-1b 入站图走 message-resource（`message_id` + `image_key`） |
+| 状态 | `fixed-pending-verify`（合并后 **重启 gateway**，飞书 mimiraether 再发图；日志应有 `Image downloaded` 且 URL 含 `/messages/.../resources/`） |
 
 ## #2 — HTML 表格空列名导致消息回退纯文本（Bug B）
 
@@ -23,7 +23,7 @@
 | 症状 | 刘哥看到部分 HTML 消息变成纯文本。飞书错误码 `230099` / `200907` — "table column name is empty" |
 | 根因 | `html_to_feishu_card.py` — `_html_table_to_card()` 曾丢弃空列名列，但部分场景仍向飞书传入空字符串列名 → `230099` / `200907` |
 | 修复 | `_normalize_table_column_name()`：空/空白/`&nbsp;` 列名 → `"—"`，保留列数与行对齐 |
-| 状态 | `fixed-pending-verify` |
+| 状态 | `fixed-pending-verify`（PR #5 已合；飞书发含空 `<th>` 表，列名应显示 `—`） |
 
 ## #3 — HTML 按钮只显示一个（Bug C）
 
