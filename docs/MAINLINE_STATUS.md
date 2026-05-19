@@ -9,7 +9,7 @@
 | **更新人** | MimirAether Session 72 |
 | **仓库根（真源）** | 以当前用于 `git push` 的 clone 为准（例如 `~/src/MimirAether`）；勿写死 `~/.openclaw/projects/...` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml)；里程碑 A 项需真环境手动/清单 |
-| **本轮摘要** | Hermes 8模块学习 (M1-M4 代码交付 + M5-M8 验证) + 身份混淆解耦 OpenClaw→MimirAether + DeepSeek 模型指导注入。Tier0 7/7 ✅。 |
+| **本轮摘要** | Hermes 8模块 + OpenSpace 8模块 双战役完成。新交付: agent_loop DI, ContextEngine ABC, DeepSeek指导, 身份解耦, 执行录制/质量追踪/分析器/进化引擎(5文件972行)。独有能力: TaskLoop/Capsules/CausalAR/Beliefs/M0-M6。Tier0 7/7 ✅。 |
 
 ---
 
