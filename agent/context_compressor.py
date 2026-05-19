@@ -1,9 +1,9 @@
 """
 MimirAether Context Compressor V2.3
 
-重构为继承ContextEngine抽象基类：
-- V2.2: 初始实现
-- V2.3: 继承ContextEngine，支持插件化架构
+MimirAether native context compressor — standalone, no ABC inheritance.
+- V2.2: Initial implementation
+- V3.0: Removed ContextEngine ABC; self-designed interface
 """
 
 import re
@@ -13,12 +13,6 @@ import os
 from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
-
-# 导入ContextEngine基类（支持包导入和直接运行）
-try:
-    from .context_engine import ContextEngine
-except ImportError:
-    from context_engine import ContextEngine
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +25,7 @@ LEGACY_PREFIX = "[CONTEXT SUMMARY]:"
 
 _MIN_SUMMARY_TOKENS = 500
 _SUMMARY_RATIO = 0.20
-# Hermes 1:1学习：最小上下文长度限制
+# Minimum context length guard
 _MINIMUM_CONTEXT_LENGTH = 2000
 _SUMMARY_TOKENS_CEILING = 8000
 _CHARS_PER_TOKEN = 4
@@ -53,11 +47,11 @@ class CompressionResult:
     summary_mode: str = "none"
 
 
-class ContextCompressorV2(ContextEngine):
+class ContextCompressorV2:
     """
     上下文压缩器 V2.3
     
-    继承自ContextEngine，支持插件化架构
+    Standalone compressor with plugin support via duck-typing
     """
     
     @property
@@ -67,19 +61,17 @@ class ContextCompressorV2(ContextEngine):
     def __init__(
         self,
         model: str = "deepseek-chat",
-        threshold_percent: float = 0.50,  # Hermes 1:1学习：从0.85改为0.50
+        threshold_percent: float = 0.50,  # Tuned for DeepSeek context window
         protect_first_n: int = 3,
         protect_last_n: int = 6,
-        tail_token_budget: int = None,  # Hermes 1:1学习：动态计算
+        tail_token_budget: int = None,
         summary_target_ratio: float = 0.20,
         summary_model: str = None,
         base_url: str = "https://api.deepseek.com",
         api_key: str = "",
         quiet_mode: bool = False,
     ):
-        # 调用父类初始化
-        super().__init__()
-        
+        # Initialize token state
         self.model = model
         self.base_url = base_url
         self.api_key = api_key
@@ -94,7 +86,7 @@ class ContextCompressorV2(ContextEngine):
         self.threshold_percent = threshold_percent
         self.threshold_tokens = int(self.context_length * threshold_percent)
         
-        # Hermes 1:1学习：动态计算tail_token_budget
+        # Dynamic tail token budget
         # tail_budget = threshold_tokens * summary_target_ratio
         if tail_token_budget is None:
             self.tail_token_budget = int(self.threshold_tokens * summary_target_ratio)
@@ -109,7 +101,7 @@ class ContextCompressorV2(ContextEngine):
         # 内部状态
         self._previous_summary: Optional[str] = None
         self._summary_failure_cooldown_until: float = 0.0
-        # compression_count继承自ContextEngine
+        # compression_count tracks cumulative compressions per session
         
         if not quiet_mode:
             logger.info(
@@ -117,8 +109,8 @@ class ContextCompressorV2(ContextEngine):
                 f"tail={self.tail_token_budget} (dynamic)"
             )
     
-    def update_from_response(self, usage: Dict[str, Any]) -> None:
-        """从API响应更新token使用情况（ContextEngine接口）"""
+    def ingest_usage(self, usage: Dict[str, Any]) -> None:
+        """Ingest token usage from LLM API response."""
         self.last_prompt_tokens = usage.get("prompt_tokens", 0)
         self.last_completion_tokens = usage.get("completion_tokens", 0)
         self.last_total_tokens = usage.get("total_tokens", 0)
@@ -132,7 +124,7 @@ class ContextCompressorV2(ContextEngine):
         provider: str = "",
         api_mode: str = "",
     ) -> None:
-        """更新模型信息（Hermes 1:1学习）"""
+        """Update model configuration and recalculate thresholds."""
         self.model = model
         self.base_url = base_url or self.base_url
         self.api_key = api_key or self.api_key
@@ -149,7 +141,7 @@ class ContextCompressorV2(ContextEngine):
         )
     
     def should_compress(self, prompt_tokens: int = None) -> bool:
-        """检查是否需要压缩（基于token）（ContextEngine接口）"""
+        """Check if compression is needed (token-based)."""
         tokens = prompt_tokens if prompt_tokens is not None else 0
         return tokens >= self.threshold_tokens
 
@@ -158,7 +150,7 @@ class ContextCompressorV2(ContextEngine):
 
         Returns False when messages are entirely within the protected zone
         (head + tail), so callers can skip the LLM compression call entirely.
-        This mirrors the Hermes has_content_to_compress() preflight guard.
+        Preflight guard — returns False if messages are within protected zone.
         """
         if not messages:
             return False
@@ -177,7 +169,7 @@ class ContextCompressorV2(ContextEngine):
         return estimated >= self.threshold_tokens * 0.8  # 80% 放宽阈值
     
     def needs_compression(self, messages: List[Dict] = None) -> bool:
-        """检查是否需要压缩（使用last_prompt_tokens，与Hermes一致）"""
+        """Check if compression is needed (uses last_prompt_tokens)."""
         tokens = getattr(self, 'last_prompt_tokens', 0) or 0
         return tokens >= self.threshold_tokens
     
@@ -495,14 +487,14 @@ TURNS TO SUMMARIZE:
         return idx
     
     def _align_boundary_backward(self, messages: List[Dict], idx: int) -> int:
-        """向后对齐到非tool消息（Hermes 1:1学习）"""
+        """Align backward to non-tool message boundary."""
         while idx > 0 and messages[idx - 1].get("role") == "tool":
             idx -= 1
         return max(idx, 0)
     
     @staticmethod
     def _get_tool_call_id(msg: Dict) -> Optional[str]:
-        """获取tool call ID（Hermes 1:1学习）"""
+        """Extract tool call ID from a message dict."""
         if msg.get("role") != "tool":
             return None
         # 优先从tool_call_id获取
@@ -624,16 +616,19 @@ TURNS TO SUMMARIZE:
 
     def reset_history(self) -> None:
         """Alias for ``MimirAetherAgent.reset`` / gateway compatibility."""
-        self.on_session_reset()
+        self.reset_step()
 
-    def on_session_reset(self) -> None:
-        """重置所有per-session状态（与Hermès ContextCompressor API兼容）"""
-        super().on_session_reset()
+    def reset_step(self) -> None:
+        """Reset per-step state (turn-level, not session-level)."""
+        self.last_prompt_tokens = 0
+        self.last_completion_tokens = 0
+        self.last_total_tokens = 0
+        self.compression_count = 0
         self.reset()
 
 
 # ============================================================================
-# Hermès兼容standalone函数
+# Standalone helper functions
 # ============================================================================
 
 def _with_summary_prefix(summary: str) -> str:
@@ -733,14 +728,14 @@ if __name__ == "__main__":
     print("=" * 60)
 
 # ============================================================================
-# Hermes-Style Advanced Compressor (新增)
+# Full-Featured Compressor with Probing Support
 # ============================================================================
 
-class HermesStyleCompressor(ContextCompressorV2):
+class MimirContextCompressor(ContextCompressorV2):
     """
-    Hermes风格压缩器
+    Full-featured context compressor with probing support.
     
-    对齐Hermes ContextCompressor的策略:
+    Compression strategy:
     1. 工具结果修剪（无LLM调用）
     2. 保护头部消息（system + first exchange）
     3. 保护尾部消息（按token预算）
@@ -749,15 +744,15 @@ class HermesStyleCompressor(ContextCompressorV2):
     """
     
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Hermes风格的额外配置
+        super().__init__(*args, **kwargs)  # calls ContextCompressorV2.__init__
+        # Extra configuration
         self._iterative_summary = True  # 迭代摘要
         self._tool_pruning_enabled = True
         self._context_probed = False
     
-    def on_session_reset(self) -> None:
-        """重置会话状态（学习自Hermes）"""
-        super().on_session_reset()
+    def reset_step(self) -> None:
+        """Reset per-step state."""
+        super().reset_step()
         self._context_probed = False
         self._previous_summary = None
     
@@ -777,7 +772,7 @@ class HermesStyleCompressor(ContextCompressorV2):
         """
         激进工具结果修剪
         
-        学习自Hermes: 清除旧工具输出以节省上下文空间
+        : 清除旧工具输出以节省上下文空间
         """
         if not messages:
             return messages
@@ -808,7 +803,7 @@ class HermesStyleCompressor(ContextCompressorV2):
         """
         按token预算保护尾部消息
         
-        学习自Hermes: 使用token预算而不是固定消息数
+        : 使用token预算而不是固定消息数
         """
         if not messages or token_budget <= 0:
             return [], messages
@@ -869,3 +864,7 @@ class HermesStyleCompressor(ContextCompressorV2):
             return True, "Context already probed, re-compression allowed"
         
         return False, "Within safe bounds"
+
+
+# Backward compatibility alias
+HermesStyleCompressor = MimirContextCompressor

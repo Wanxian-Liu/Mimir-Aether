@@ -221,7 +221,7 @@ class PluginContext:
         Only one context engine plugin is allowed. If a second plugin tries
         to register one, it is rejected with a warning.
 
-        The engine must be an instance of ``agent.context_engine.ContextEngine``.
+        The engine must provide compress, ingest_usage, and needs_compression methods.
         """
         if self._manager._context_engine is not None:
             logger.warning(
@@ -230,13 +230,13 @@ class PluginContext:
                 self.manifest.name,
             )
             return
-        # Defer the import to avoid circular deps at module level
-        from agent.context_engine import ContextEngine
-        if not isinstance(engine, ContextEngine):
+        # Duck-typing: engine must have compress, ingest_usage, needs_compression
+        required = ('compress', 'ingest_usage', 'needs_compression')
+        if not all(hasattr(engine, attr) for attr in required):
             logger.warning(
-                "Plugin '%s' tried to register a context engine that does not "
-                "inherit from ContextEngine. Ignoring.",
-                self.manifest.name,
+                "Plugin '%s' tried to register a context engine that lacks "
+                "required methods %s. Ignoring.",
+                self.manifest.name, required,
             )
             return
         self._manager._context_engine = engine

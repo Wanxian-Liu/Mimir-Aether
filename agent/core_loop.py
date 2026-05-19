@@ -71,7 +71,7 @@ from .skill_funcs import (
 )
 
 # 新模块导入
-from .context_compressor import ContextCompressor, CompressionResult, HermesStyleCompressor
+from .context_compressor import ContextCompressor, CompressionResult, MimirContextCompressor
 from .insights import InsightsEngine, MetricType
 from memory.fencing import MemoryFencer
 from skills.skill_manager import SkillManager, SkillStatus
@@ -469,7 +469,7 @@ class MimirAetherAgent:
 
         # 新模块初始化
         # Hermes风格压缩器
-        self.compressor = HermesStyleCompressor(
+        self.compressor = MimirContextCompressor(
             model=model,
             threshold_percent=0.85,
             protect_first_n=3,
@@ -1549,7 +1549,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
         if total is None:
             total = pt + ct
         try:
-            self.compressor.update_from_response(
+            self.compressor.ingest_usage(
                 {
                     "prompt_tokens": pt,
                     "completion_tokens": ct,
@@ -1557,7 +1557,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 }
             )
         except Exception as _e:
-            logger.debug("compressor.update_from_response skipped: %s", _e)
+            logger.debug("compressor.ingest_usage skipped: %s", _e)
 
     async def chat(self, message: str) -> str:
         """

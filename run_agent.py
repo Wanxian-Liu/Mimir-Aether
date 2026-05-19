@@ -80,7 +80,7 @@ class AIAgent:
     ) -> Tuple[List[Dict[str, Any]], Any]:
         """
         Manual / hygiene compression entry (Gateway, ACP). Delegates to
-        ``HermesStyleCompressor.compress``; does not split SQLite sessions.
+        ``MimirContextCompressor.compress``; does not split SQLite sessions.
         """
         _ = cached_system_prompt, task_id, kwargs
         comp = self._get_real_agent().compressor
