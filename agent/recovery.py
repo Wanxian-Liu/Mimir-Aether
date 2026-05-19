@@ -82,10 +82,12 @@ class MultiLevelRecovery:
         self.enable_truncate = enable_truncate
         self.stats = RecoveryStats()
         
-        # 降级配置
+        # 降级配置 — 从环境变量或默认
+        import os as _os
+        _fb_model = _os.environ.get("MIMIR_FALLBACK_MODEL", "deepseek-chat")
         self._degrade_configs = [
-            {"model": "deepseek-chat", "temperature": 0.3},
-            {"model": "deepseek-chat", "temperature": 0.1},
+            {"model": _fb_model, "temperature": 0.3},
+            {"model": _fb_model, "temperature": 0.1},
         ]
         self._current_degrade_level = 0
     

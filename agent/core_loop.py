@@ -702,32 +702,60 @@ class MimirAetherAgent:
         context: dict = None
     ) -> bool:
         """
-        使用多层次恢复处理错误
+        使用多层次恢复处理错误（P0-2 接线：_model_call_adapter error path）
+        
+        层次:
+          1. RETRY - 由外层 _model_call_adapter 重试（本方法不处理）
+          2. COMPRESS - 触发上下文压缩
+          3. TRUNCATE - 强制截断旧消息 + 清理孤儿工具
+          4. DEGRADE - 切换到备用模型
         
         Args:
             error: 发生的错误
             context: 错误上下文
             
         Returns:
-            是否恢复成功
+            是否恢复成功（True = 已采取措施，外部可重试）
         """
-        error_ctx = RecoveryContext(
-            error=error,
-            error_type=type(error).__name__,
-            metadata=context or {}
-        )
+        _err_str = str(error)
+        _err_lower = _err_str.lower()
         
-        try:
-            # 使用恢复器的with_recovery
-            await self.recovery.with_recovery(
-                lambda: None,  # 恢复操作在error_handler中处理
-                error_handler=self._recovery_error_handler,
-                context=error_ctx
-            )
-            return True
-        except Exception as e:
-            logger.error(f"Unrecoverable error: {e}")
-            return False
+        # 判断错误类型
+        is_context_error = any(kw in _err_lower for kw in (
+            "context length", "token", "too long", "maximum context",
+            "reduce", "truncat", "4103", "400"
+        ))
+        is_rate_limit = any(kw in _err_lower for kw in (
+            "rate limit", "429", "too many requests", "quota"
+        ))
+        
+        recovered = False
+        
+        # Level 2: COMPRESS — 上下文超长 / token 超限
+        if is_context_error and self.compressor:
+            logger.info("[Recovery] Level 2 COMPRESS triggered: %s", _err_str[:100])
+            self.budget.stats.compression_triggered += 1
+            self.compressor.mark_context_probed()
+            # 强制截断以释放上下文空间
+            await self._truncate_history()
+            self._clean_orphan_tools()
+            recovered = True
+        
+        # Level 3: TRUNCATE — 通用截断（降级）
+        if not recovered:
+            logger.info("[Recovery] Level 3 TRUNCATE triggered: %s", _err_str[:100])
+            await self._truncate_history()
+            self._clean_orphan_tools()
+            recovered = True
+        
+        # Level 4: DEGRADE — 切换到备用模型
+        if is_rate_limit or not recovered:
+            if self._try_activate_fallback():
+                logger.info("[Recovery] Level 4 DEGRADE: switched to fallback model")
+            else:
+                logger.warning("[Recovery] No fallback available")
+        
+        return recovered
     
     async def _recovery_error_handler(
         self, 
@@ -750,12 +778,60 @@ class MimirAetherAgent:
             await self._emit_status("✂️ Truncating history...")
     
     async def _truncate_history(self, keep_recent: int = 10) -> None:
-        """截断对话历史"""
-        if len(self.conversation_history) > keep_recent:
-            truncated = self.conversation_history[-keep_recent:]
-            removed = len(self.conversation_history) - len(truncated)
-            self.conversation_history = truncated
-            logger.info(f"Truncated {removed} messages from history")
+        """截断对话历史（保完整 tool pair，不切中间）"""
+        if len(self.conversation_history) <= keep_recent:
+            return
+        boundary = self._find_safe_truncation_boundary(keep_recent)
+        truncated = self.conversation_history[boundary:]
+        removed = len(self.conversation_history) - len(truncated)
+        self.conversation_history = truncated
+        logger.info(
+            f"Truncated {removed} messages (safe boundary at idx {boundary}, "
+            f"kept {len(truncated)} messages)"
+        )
+
+    def _find_safe_truncation_boundary(self, max_keep: int) -> int:
+        """找到安全的截断边界，不切断 tool pair。
+        
+        从尾部 max_keep 条的位置向前扫描，找到第一个安全的切点：
+        - tool 消息需要 paired assistant（含 tool_calls）也在保留范围内
+        - assistant（含 tool_calls）需要所有配对的 tool 结果也在保留范围内
+        
+        返回：应保留的消息起始索引（从该位置开始的消息全部保留）。
+        """
+        n = len(self.conversation_history)
+        if n <= max_keep:
+            return 0
+        
+        # 从 max_keep 位置开始，向前找到安全边界
+        # 收集保留范围内所有 assistant 的 tool_call IDs
+        tail_start = n - max_keep
+        pending_tool_ids: set = set()
+        
+        for idx in range(tail_start, n):
+            msg = self.conversation_history[idx]
+            if msg.tool_calls:
+                for tc in msg.tool_calls:
+                    if isinstance(tc, dict) and "id" in tc:
+                        pending_tool_ids.add(tc["id"])
+            if msg.tool_call_id:
+                pending_tool_ids.discard(msg.tool_call_id)
+        
+        # 向前扩展直到所有 tool pair 都闭合
+        boundary = tail_start
+        for idx in range(tail_start - 1, -1, -1):
+            if not pending_tool_ids:
+                break
+            msg = self.conversation_history[idx]
+            if msg.tool_call_id:
+                pending_tool_ids.add(msg.tool_call_id)
+            if msg.tool_calls:
+                for tc in msg.tool_calls:
+                    if isinstance(tc, dict) and "id" in tc:
+                        pending_tool_ids.discard(tc["id"])
+            boundary = idx
+        
+        return boundary
 
     def _get_api_key(self) -> str:
         """获取当前模型的API key"""
@@ -1065,128 +1141,51 @@ class MimirAetherAgent:
         return self._interrupt_requested
 
     def _clean_orphan_tools(self) -> int:
-        """清理 conversation_history 中的孤立 tool_calls / tool 消息。
+        """统一委托给 compressor._sanitize_tool_pairs — 唯一 canonical 实现。
         
-        症状：assistant 消息有 tool_calls 但后面没有对应的 tool 消息，
-        或 tool 消息的 tool_call_id 找不到匹配的 tool_calls。
+        （P0-1 统一入口：core_loop._sanitize_tool_messages + core_loop._clean_orphan_tools
+         + compressor._sanitize_tool_pairs 三合一）
         
-        Returns: 清理的消息数量。
+        旧逻辑删除缺 tool 结果的 assistant 消息（丢失文本内容）；
+        新逻辑保留 assistant 消息，为缺失的 tool 结果补占位符。
         """
         if not self.conversation_history:
             return 0
-        cleaned = 0
-        
-        # 第一轮：删除有 tool_calls 但无对应 tool 结果的 assistant 消息
-        i = 0
-        while i < len(self.conversation_history):
-            msg = self.conversation_history[i]
-            if msg.role == MessageRole.ASSISTANT and msg.tool_calls:
-                has_tool_result = False
-                j = i + 1
-                while j < len(self.conversation_history):
-                    nxt = self.conversation_history[j]
-                    if nxt.role == MessageRole.ASSISTANT:
-                        break
-                    if nxt.role == MessageRole.TOOL:
-                        has_tool_result = True
-                        break
-                    j += 1
-                if not has_tool_result:
-                    end = i + 1
-                    while end < len(self.conversation_history):
-                        if self.conversation_history[end].role in (MessageRole.ASSISTANT, MessageRole.SYSTEM):
-                            break
-                        end += 1
-                    removed = self.conversation_history[i:end]
-                    self.conversation_history = self.conversation_history[:i] + self.conversation_history[end:]
-                    cleaned += len(removed)
-                    logger.info("Removed orphan tool_calls at pos %d (%d msgs)", i, len(removed))
-                    continue
-            i += 1
-        
-        # 第二轮：删除 tool_call_id 找不到匹配的 TOOL 消息
-        surviving_tc_ids = set()
-        for msg in self.conversation_history:
-            if msg.role == MessageRole.ASSISTANT and msg.tool_calls:
-                for tc in msg.tool_calls:
-                    cid = tc.get("id", "") if isinstance(tc, dict) else ""
-                    if cid:
-                        surviving_tc_ids.add(cid)
-        
         pre = len(self.conversation_history)
-        self.conversation_history = [
-            msg for msg in self.conversation_history
-            if not (
-                msg.role == MessageRole.TOOL
-                and msg.tool_call_id
-                and msg.tool_call_id not in surviving_tc_ids
-            )
+        # 转为 dict 列表 → 调用 canonical 清理 → 转回 Message 对象
+        msg_dicts = [
+            {
+                "role": m.role.value,
+                "content": m.content,
+                "name": m.name,
+                "tool_calls": m.tool_calls,
+                "tool_call_id": m.tool_call_id,
+            }
+            for m in self.conversation_history
         ]
-        cleaned += pre - len(self.conversation_history)
-        
+        cleaned_dicts = self.compressor._sanitize_tool_pairs(msg_dicts)
+        self.conversation_history = [
+            Message(
+                role=MessageRole(d["role"]),
+                content=d.get("content", ""),
+                name=d.get("name"),
+                tool_calls=d.get("tool_calls"),
+                tool_call_id=d.get("tool_call_id"),
+            )
+            for d in cleaned_dicts
+        ]
+        cleaned = pre - len(self.conversation_history)
         if cleaned:
             logger.warning("Cleaned %d orphaned message(s) from conversation_history", cleaned)
         return cleaned
 
     def _sanitize_tool_messages(self, messages: List[Dict]) -> List[Dict]:
-        """修复孤立的 tool_call / tool 消息配对。
+        """统一委托给 compressor._sanitize_tool_pairs — 唯一 canonical 实现。
 
-        任何路径（截断、压缩、中断恢复）都可能产生孤儿消息：
-        - assistant 有 tool_calls 但后面缺对应的 tool 结果
-        - tool 消息的 tool_call_id 找不到匹配的 tool_calls
-
-        此方法在 API 调用前统一修复：
-        1. 删除找不到配对的 tool 结果消息
-        2. 为缺 tool 结果的 tool_calls 补占位 tool 消息
+        （P0-1 统一入口：core_loop._sanitize_tool_messages + core_loop._clean_orphan_tools
+         + compressor._sanitize_tool_pairs 三合一）
         """
-        if not messages:
-            return messages
-
-        # 收集所有有效的 tool_call id
-        surviving_ids: set = set()
-        for msg in messages:
-            if msg.get("role") == "assistant":
-                for tc in msg.get("tool_calls") or []:
-                    cid = tc.get("id") or ""
-                    if cid:
-                        surviving_ids.add(cid)
-
-        # 收集所有 tool 结果的 id
-        result_ids: set = set()
-        for msg in messages:
-            if msg.get("role") == "tool":
-                cid = msg.get("tool_call_id")
-                if cid:
-                    result_ids.add(cid)
-
-        # 1. 删除无配对 call 的 tool 结果
-        orphaned_results = result_ids - surviving_ids
-        if orphaned_results:
-            messages = [
-                m for m in messages
-                if not (m.get("role") == "tool" and m.get("tool_call_id") in orphaned_results)
-            ]
-            logger.info("Sanitized %d orphaned tool results before API call", len(orphaned_results))
-
-        # 2. 为无配对结果的 tool_calls 补占位消息
-        missing_results = surviving_ids - result_ids
-        if missing_results:
-            patched = []
-            for msg in messages:
-                patched.append(msg)
-                if msg.get("role") == "assistant":
-                    for tc in msg.get("tool_calls") or []:
-                        cid = tc.get("id") or ""
-                        if cid in missing_results:
-                            patched.append({
-                                "role": "tool",
-                                "content": "[Result from earlier conversation]",
-                                "tool_call_id": cid,
-                            })
-            messages = patched
-            logger.info("Patched %d missing tool results before API call", len(missing_results))
-
-        return messages
+        return self.compressor._sanitize_tool_pairs(messages)
 
     def _has_stream_consumers(self) -> bool:
         """检查是否有流式输出的消费者"""
@@ -1624,15 +1623,23 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 if not content:
                     continue
                 if "tool_calls" in hmsg or "tool_call_id" in hmsg:
+                    # P0-3 设计权衡：C1 跳过 tool 消息是有意设计。
+                    # 原因：保留过时的 tool_calls/tool_results 会误导模型使用错误的
+                    # tool_call_id 调用工具。Mimir 自行管理工具调用链路，
+                    # 不依赖历史 tool 状态作为决策依据。
+                    # 边界条件：如果用户明确引用历史工具输出（如"上次那个结果"），
+                    # 模型当前无法访问该上下文——这是已知局限性，非 bug。
                     continue
                 # 跳过系统提示类消息（gateway可能注入）
                 if role == "assistant" and content.startswith("["):
                     if content.startswith("[System") or content.startswith("[Gateway"):
                         continue
-                self.conversation_history.append(Message(
+                msg = Message(
                     role=MessageRole.USER if role == "user" else MessageRole.ASSISTANT,
                     content=content
-                ))
+                )
+                msg._c1_injected = True  # P0-4: 标记C1注入，compressor跳过计数
+                self.conversation_history.append(msg)
                 injected += 1
             if injected:
                 _total = len(conversation_history)
@@ -1730,12 +1737,20 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
         except Exception as e:
             logger.warning(f"on_session_start hook failed: {e}")
 
-        # 限制历史长度,防止内存耗尽
+        # 限制历史长度,防止内存耗尽（保完整 tool pair）
         if len(self.conversation_history) > self.max_history_length:
-            # 保留系统消息和最新的对话
             system_msgs = [m for m in self.conversation_history if m.role == MessageRole.SYSTEM]
             other_msgs = [m for m in self.conversation_history if m.role != MessageRole.SYSTEM]
-            self.conversation_history = system_msgs + other_msgs[-self.max_history_length:]
+            # 在 other_msgs 中找到安全的 tool pair 边界
+            temp_history = self.conversation_history
+            self.conversation_history = other_msgs  # 临时替换以复用 _find_safe_truncation_boundary
+            boundary = self._find_safe_truncation_boundary(self.max_history_length)
+            self.conversation_history = temp_history  # 恢复
+            self.conversation_history = system_msgs + other_msgs[boundary:]
+            logger.debug(
+                f"History trimmed: kept {len(self.conversation_history)} "
+                f"(safe boundary at other_msgs[{boundary}])"
+            )
             # 截断后清理孤儿 tool 对，防止 400 错误
             self._clean_orphan_tools()
 
@@ -1753,7 +1768,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
             # 预压缩一次（MimirAgentLoop 内部不做压缩）
             if self.compressor.needs_compression(_loop_messages):
                 if self.compressor.has_content_to_compress(_loop_messages):
-                    _loop_messages, _ = self.compressor.compress(_loop_messages)
+                    _loop_messages, _ = await self.compressor.compress(_loop_messages)
             
             # 构建 tool schemas + valid names
             from tools.toolsets import resolve_enabled_tools
@@ -1789,8 +1804,8 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                         # Orphan cleanup logic preserved
                         self._clean_orphan_tools()
                         return None
-                    if self._try_activate_fallback():
-                        return None
+                    # P0-2: 接线 MultiLevelRecovery — 压缩→截断→降级
+                    await self.handle_error_with_recovery(_e)
                     return None
                 self._compressor_sync_usage_from_llm(_resp, msgs)
                 if _resp.get("tool_calls"):
@@ -1947,6 +1962,9 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 msg_dict["tool_call_id"] = msg.tool_call_id
             if msg.tool_calls:
                 msg_dict["tool_calls"] = msg.tool_calls
+            # P0-4: 传播 C1 注入标记到 dict，compressor 跳过计数
+            if getattr(msg, '_c1_injected', False):
+                msg_dict["_c1_injected"] = True
 
             # reasoning_content传播: DeepSeek V4 Pro要求所有assistant消息必须包含该字段
             if msg.role == MessageRole.ASSISTANT:

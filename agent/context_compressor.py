@@ -10,6 +10,7 @@ import re
 import time
 import logging
 import os
+import aiohttp
 from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -178,6 +179,9 @@ class ContextCompressorV2:
     def _estimate_tokens(self, messages: List[Dict]) -> int:
         total = 0
         for msg in messages:
+            # P0-4: 跳过 C1 注入的消息（避免压缩机误判上下文膨胀）
+            if msg.get("_c1_injected"):
+                continue
             content = msg.get("content", "") or ""
             total += len(content) // _CHARS_PER_TOKEN + 20
             if "tool_calls" in msg:
@@ -311,7 +315,7 @@ class ContextCompressorV2:
         
         return "\n".join(lines)
     
-    def _generate_summary(self, turns_to_summarize: List[Dict]) -> Tuple[Optional[str], str]:
+    async def _generate_summary(self, turns_to_summarize: List[Dict]) -> Tuple[Optional[str], str]:
         now = time.monotonic()
         if now < self._summary_failure_cooldown_until:
             return None, "none"
@@ -320,7 +324,7 @@ class ContextCompressorV2:
         summary_budget = self._compute_summary_budget(turns_to_summarize)
         
         try:
-            summary = self._call_summary_llm(content, summary_budget)
+            summary = await self._call_summary_llm(content, summary_budget)
             if summary:
                 self._previous_summary = summary
                 self._summary_failure_cooldown_until = 0.0
@@ -335,8 +339,7 @@ class ContextCompressorV2:
         self._previous_summary = template_summary
         return self._with_prefix(template_summary), "template"
     
-    def _call_summary_llm(self, content: str, max_tokens: int) -> Optional[str]:
-        import urllib.request
+    async def _call_summary_llm(self, content: str, max_tokens: int) -> Optional[str]:
         import json
         
         api_key = self.api_key or os.environ.get("DEEPSEEK_API_KEY", "")
@@ -391,17 +394,19 @@ TURNS TO SUMMARIZE:
         }
         
         try:
-            data = json.dumps(payload).encode("utf-8")
-            req = urllib.request.Request(
-                f"{self.base_url}/v1/chat/completions",
-                data=data,
-                headers=headers,
-                method="POST"
-            )
-            
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                result = json.loads(resp.read().decode("utf-8"))
-                return result["choices"][0]["message"]["content"]
+            async with aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=30)
+            ) as session:
+                async with session.post(
+                    f"{self.base_url}/v1/chat/completions",
+                    json=payload,
+                    headers=headers,
+                ) as resp:
+                    if resp.status != 200:
+                        logger.debug(f"Summary LLM HTTP {resp.status}")
+                        return None
+                    result = await resp.json()
+                    return result["choices"][0]["message"]["content"]
         except Exception as e:
             logger.debug(f"LLM call error: {e}")
             return None
@@ -509,7 +514,7 @@ TURNS TO SUMMARIZE:
             return tool_calls[0].get("id")
         return None
     
-    def compress(
+    async def compress(
         self, 
         messages: List[Dict], 
         current_tokens: int = None,
@@ -551,7 +556,7 @@ TURNS TO SUMMARIZE:
         turns_to_summarize = messages[compress_start:compress_end]
         
         # Phase 3: 摘要
-        summary, summary_mode = self._generate_summary(turns_to_summarize)
+        summary, summary_mode = await self._generate_summary(turns_to_summarize)
         
         # Phase 4: 组装
         compressed = []
