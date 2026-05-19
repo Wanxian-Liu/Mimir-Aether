@@ -9,7 +9,8 @@
    done: 2026-05-17, 仅文档/验证 — 写入→读回→删除全链路正常
 2. [x] 追 persistent.json 截断根因 — 谁在 end_session 时覆盖全文件
    done: 2026-05-17, Session 73 已定位+修复: skill_curator.py _load_persistent() JSON异常→{}→覆写。3层防护已加。
-3. [ ] 存量胶囊迁移（120 .md → .html） — mimicore/public/ 旧格式 → memory/capsules/
+3. [x] 存量胶囊迁移（120 .md → .html） — mimicore/public/ 旧格式 → memory/capsules/
+   done: 2026-05-19, P1-1 审计 131/131 已覆盖、0 缺失；P1-3 抽检 10/10；P1-4 tier0 绿；见 docs/phase1/
 
 ## 已完成
 
