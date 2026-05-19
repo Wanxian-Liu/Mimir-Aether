@@ -36,6 +36,7 @@ class RecoveryStats:
     total_errors: int = 0
     retry_success: int = 0
     degrade_success: int = 0
+    degrade_failure: int = 0
     compress_success: int = 0
     truncate_success: int = 0
     unrecoverable: int = 0
@@ -171,9 +172,11 @@ class MultiLevelRecovery:
                 logger.info(f"Attempting degradation: {degrade_config}")
                 kwargs.update(degrade_config)
                 try:
-                    return await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
-                except Exception as e:
+                    result = await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
                     self.stats.degrade_success += 1
+                    return result
+                except Exception as e:
+                    self.stats.degrade_failure += 1
                     raise
         
         # Level 3: 压缩

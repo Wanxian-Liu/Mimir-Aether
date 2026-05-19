@@ -81,6 +81,7 @@ from .recovery import (
     MultiLevelRecovery, RecoveryContext, RecoveryStats, RecoveryLevel,
     get_recovery, set_recovery
 )
+from .decision_ring import DecisionRing, DecisionRingConfig, DecisionResult
 from .iteration_budget import (
     EnhancedIterationBudget, BudgetWarning, BudgetStats, IterationRecord,
     get_global_budget, set_global_budget, IterationBudget  # 保留向后兼容
@@ -150,59 +151,20 @@ from .kernel_overrides import AgentKernelOverrides
 logger = logging.getLogger(__name__)
 
 
+# ── DEPRECATED since d4 P0-1: migrated to agent/tools/repair.repair_write_file_args ──
+# Redirecting for backward compatibility with any external callers.
+# Remove after 2026Q3 if unused.
 def _parse_write_file_arguments_string(raw_args: str) -> Optional[Dict[str, Any]]:
-    """Best-effort parse of write_file arguments from a raw string.
-
-    Used when ``json.loads(raw_args)`` fails. Order: strict JSON (again after
-    ``\\\"`` unescape), regex path/content extraction, ``path|content`` split,
-    legacy truncated-JSON suffix heuristic.
-    """
-    import re
-
-    if not isinstance(raw_args, str) or not raw_args.strip():
-        return None
-
-    try:
-        d = json.loads(raw_args)
-        return d if isinstance(d, dict) else None
-    except json.JSONDecodeError:
-        pass
-
-    try:
-        d = json.loads(raw_args.replace('\\"', '"'))
-        return d if isinstance(d, dict) else None
-    except json.JSONDecodeError:
-        pass
-
-    path_match = re.search(r'"path"\s*:\s*"([^"]*)"', raw_args)
-    content_match = re.search(r'"content"\s*:\s*"(.*?)"(?:\s*[,}])', raw_args, re.DOTALL)
-    if path_match:
-        path_val = path_match.group(1)
-        content_val = content_match.group(1) if content_match else ""
-        # Unescape any JSON-escaped quotes in content
-        content_val = content_val.replace('\\"', '"').replace('\\n', '\n').replace('\\t', '\t')
-        return {"path": path_val, "content": content_val}
-
-    if "|" in raw_args:
-        parts = raw_args.split("|", 1)
-        return {"path": parts[0], "content": parts[1] if len(parts) > 1 else ""}
-
-    try:
-        fixed = raw_args.rstrip()
-        if not fixed.endswith("}"):
-            fixed = fixed + '"}}'
-        d = json.loads(fixed)
-        return d if isinstance(d, dict) else None
-    except json.JSONDecodeError:
-        pass
-
-    return None
+    """[DEPRECATED] → agent.tools.repair.repair_write_file_args"""
+    from .tools.repair import repair_write_file_args
+    return repair_write_file_args(raw_args)
 
 
-# IterationBudget已移动到iteration_budget.py模块
-# 保留此注释以保持向后兼容
-# 新代码请使用: from .iteration_budget import EnhancedIterationBudget, get_global_budget
-from .iteration_budget import IterationBudget
+# ── DEPRECATED P1-4: IterationBudget = alias(EnhancedIterationBudget) ──
+# Provided at line 87 via iteration_budget module import; this redundant
+# module-level import kept for legacy scripts that import from core_loop directly.
+# New code: from .iteration_budget import EnhancedIterationBudget
+from .iteration_budget import IterationBudget as _IterationBudget_Compat  # noqa: F401
 
 
 
@@ -464,6 +426,14 @@ class MimirAetherAgent:
             enable_truncate=True,
         )
         
+        # P0-2: 错误决策环 — 结构化错误分类→策略匹配→决策执行
+        self.decision_ring = DecisionRing(
+            DecisionRingConfig(
+                max_retries=3,
+                max_context_size=self._context_length or 1048576,
+            )
+        )
+        
         self.conversation_history: List[Message] = []
         self.max_history_length = 200  # 对齐 1M 上下文 (200条×~5K=~1M tokens)
 
@@ -702,13 +672,16 @@ class MimirAetherAgent:
         context: dict = None
     ) -> bool:
         """
-        使用多层次恢复处理错误（P0-2 接线：_model_call_adapter error path）
+        使用多层次恢复处理错误（P0-2: DecisionRing 驱动恢复策略）
+        
+        不再使用 ad-hoc 字符串匹配；改为 DecisionRing 结构化分类 →
+        14 FailoverReason × 16 StrategyAction 的完整决策矩阵。
         
         层次:
           1. RETRY - 由外层 _model_call_adapter 重试（本方法不处理）
-          2. COMPRESS - 触发上下文压缩
-          3. TRUNCATE - 强制截断旧消息 + 清理孤儿工具
-          4. DEGRADE - 切换到备用模型
+          2. COMPRESS - context_overflow / payload_too_large → 压缩+截断
+          3. TRUNCATE - 通用恢复 → 截断+清理孤儿
+          4. DEGRADE - rate_limit / billing / overloaded / server_error → 备用模型
         
         Args:
             error: 发生的错误
@@ -717,52 +690,83 @@ class MimirAetherAgent:
         Returns:
             是否恢复成功（True = 已采取措施，外部可重试）
         """
-        _err_str = str(error)
-        _err_lower = _err_str.lower()
+        from .error_classifier import FailoverReason
+        from .strategy_matcher import StrategyAction
         
-        # 判断错误类型
-        is_context_error = any(kw in _err_lower for kw in (
-            "context length", "token", "too long", "maximum context",
-            "reduce", "truncat", "4103", "400"
-        ))
-        is_rate_limit = any(kw in _err_lower for kw in (
-            "rate limit", "429", "too many requests", "quota"
-        ))
+        _err_str = str(error)
+        
+        # P0-2c: DecisionRing 结构化分类替代 ad-hoc 字符串匹配
+        _provider = self.model.split("/")[0] if "/" in self.model else ""
+        _decision = self.decision_ring.decide(
+            error, provider=_provider, model=self.model,
+        )
+        _reason = _decision.classified_error.reason
+        _actions = set(_decision.suggested_actions)
         
         recovered = False
         
-        # Level 2: COMPRESS — 上下文超长 / token 超限
-        if is_context_error and self.compressor:
-            logger.info("[Recovery] Level 2 COMPRESS triggered: %s", _err_str[:100])
+        # Level 2: COMPRESS — context_overflow / payload_too_large
+        _needs_compress = (
+            _reason in (FailoverReason.context_overflow, FailoverReason.payload_too_large)
+            or StrategyAction.COMPRESS_CONTEXT in _actions
+        )
+        if _needs_compress and self.compressor:
+            logger.info("[Recovery] Level 2 COMPRESS (DecisionRing: %s): %s",
+                       _reason.value if _reason else "unknown", _err_str[:100])
             self.budget.stats.compression_triggered += 1
             self.compressor.mark_context_probed()
-            # 强制截断以释放上下文空间
             await self._truncate_history()
             self._clean_orphan_tools()
             recovered = True
         
         # Level 3: TRUNCATE — 通用截断（降级）
-        if not recovered:
-            logger.info("[Recovery] Level 3 TRUNCATE triggered: %s", _err_str[:100])
+        _needs_truncate = (
+            not recovered
+            or StrategyAction.TRUNCATE_CONTEXT in _actions
+            or StrategyAction.REDUCE_PAYLOAD in _actions
+        )
+        if _needs_truncate:
+            logger.info("[Recovery] Level 3 TRUNCATE (DecisionRing: %s): %s",
+                       _reason.value if _reason else "unknown", _err_str[:100])
             await self._truncate_history()
             self._clean_orphan_tools()
             recovered = True
         
-        # Level 4: DEGRADE — 切换到备用模型
-        if is_rate_limit or not recovered:
+        # Level 4: DEGRADE — rate_limit / billing / overloaded / server_error
+        _needs_fallback = (
+            _reason in (
+                FailoverReason.rate_limit, FailoverReason.billing,
+                FailoverReason.overloaded, FailoverReason.server_error,
+                FailoverReason.auth, FailoverReason.timeout,
+                FailoverReason.model_not_found,
+            )
+            or StrategyAction.FALLBACK_PROVIDER in _actions
+            or StrategyAction.DOWNGRADE_MODEL in _actions
+            or not recovered  # 兜底：前三层都没恢复就切模型
+        )
+        if _needs_fallback:
             if self._try_activate_fallback():
-                logger.info("[Recovery] Level 4 DEGRADE: switched to fallback model")
+                logger.info("[Recovery] Level 4 DEGRADE (DecisionRing: %s): switched to fallback",
+                           _reason.value if _reason else "unknown")
             else:
-                logger.warning("[Recovery] No fallback available")
+                logger.warning("[Recovery] No fallback available (DecisionRing: %s)",
+                              _reason.value if _reason else "unknown")
         
         return recovered
     
+    # ── DEPRECATED since d4 — superseded by handle_error_with_recovery + DecisionRing ──
+    # Kept for reference; zero callers as of d4. Remove after 2026Q3 if unused.
     async def _recovery_error_handler(
         self, 
         error: Exception, 
         context: RecoveryContext
     ) -> None:
-        """恢复错误处理器"""
+        """[DEPRECATED] 恢复错误处理器 — 已由 handle_error_with_recovery 替代"""
+        logger.warning("[DEPRECATED] _recovery_error_handler called — redirecting to handle_error_with_recovery")
+        await self.handle_error_with_recovery(error)
+        return
+        
+        # Dead code below preserved for historical reference
         level = context.current_level
         logger.warning(f"Recovery at level {level.value}: {error}")
         
@@ -1804,7 +1808,18 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                         # Orphan cleanup logic preserved
                         self._clean_orphan_tools()
                         return None
-                    # P0-2: 接线 MultiLevelRecovery — 压缩→截断→降级
+                    # P0-2: DecisionRing → MultiLevelRecovery 双轨错误处理
+                    _decision = self.decision_ring.decide(
+                        _e, provider=self.model.split("/")[0] if "/" in self.model else "",
+                        model=self.model,
+                    )
+                    logger.debug(
+                        "DecisionRing: %s retryable=%s fallback=%s backoff=%.1fs",
+                        _decision.classified_error.reason.value if _decision.classified_error.reason else "unknown",
+                        _decision.should_retry,
+                        _decision.should_fallback,
+                        _decision.backoff_seconds,
+                    )
                     await self.handle_error_with_recovery(_e)
                     return None
                 self._compressor_sync_usage_from_llm(_resp, msgs)
@@ -2111,10 +2126,23 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                 temperature=0.7,
             )
 
-        # 路径C: 标准非流式调用(OpenAI兼容)
+        # 路径C: 标准非流式调用(OpenAI兼容) → P1-5 提取为独立方法
+        return await self._call_openai_compatible_nonstreaming(
+            base_url=base_url, api_key=api_key, model_name=model_name,
+            messages=messages, tool_schemas=tool_schemas,
+            max_tokens=max_tokens, session_id=session_id, start=start,
+        )
+
+    async def _call_openai_compatible_nonstreaming(
+        self, *, base_url: str, api_key: str, model_name: str,
+        messages: List[Dict], tool_schemas: List[Dict],
+        max_tokens: int, session_id: str, start: float,
+    ) -> tuple[Dict, float]:
+        """OpenAI-compatible non-streaming API call (P1-5: 从 _builtin_call_model 提取)."""
+        import aiohttp
+        
         # 转换model名为API接受的格式
         # 注意: OpenRouter的model格式是"provider/model-name"，而官方API通常只需要"model-name"
-        # 根据base_url判断: openrouter保持原名，官方API需要转换
         api_model_name = model_name
         base_url_lower = base_url.lower()
         is_openrouter = "openrouter" in base_url_lower
@@ -2146,12 +2174,12 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
                     json=payload,
                     timeout=aiohttp.ClientTimeout(total=3600)
                 ) as response:
+                    import time
                     latency_ms = (time.monotonic() - start) * 1000
 
                     if response.status != 200:
                         error_text = await response.text()
                         logger.warning(f"API call failed: {response.status}, response: {error_text[:500]}")
-                        # 确保异常消息包含原始错误详情；如果为空则附加状态码提示
                         _err_detail = error_text[:300] if error_text else "(empty body)"
                         raise RuntimeError(f"Model API request failed: {response.status}: {_err_detail}")
 
@@ -2579,74 +2607,25 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
             )
 
         try:
-            # 防御性处理 arguments 类型
-            arguments = raw_args if isinstance(raw_args, dict) else {}
-            if isinstance(raw_args, str):
-                # 如果是字符串,尝试解析为 dict
-                try:
-                    arguments = json.loads(raw_args)
-                except json.JSONDecodeError as e:
-                    logger.warning(f"SINDRI_DEBUG: JSONDecodeError for {func_name}, raw_args type={type(raw_args)}, len={len(str(raw_args))}, chars={repr(str(raw_args)[:200])}")
-                    # sindri: 为 execute_code 工具尝试修复
-                    if func_name == "execute_code" and isinstance(raw_args, str):
-                        logger.info(f"execute_code: sindri fix - wrapping raw code string as {{code: ...}}")
-                        arguments = {"code": raw_args}
-                    elif func_name == "write_file" and isinstance(raw_args, str):
-                        rep = _parse_write_file_arguments_string(raw_args)
-                        if rep is not None:
-                            arguments = rep
-                            logger.info(
-                                "write_file: repaired arguments path_len=%d content_len=%d",
-                                len(str(rep.get("path", ""))),
-                                len(str(rep.get("content", ""))),
-                            )
-                        else:
-                            self._tool_errors.append(ToolError(
-                                turn=turn,
-                                tool_name=func_name,
-                                arguments=str(raw_args)[:200],
-                                error=f"write_file needs path and content",
-                                tool_result="Error: write_file requires path and content in JSON format",
-                            ))
-                            return ToolResult(
-                                tool_call_id=tool_call_id,
-                                content="Error: write_file requires path and content in JSON format",
-                                is_error=True
-                            )
-                    else:
-                        # 其他工具，尝试将raw_args作为纯字符串处理
-                        logger.info(f"Unknown tool {func_name}: treating raw_args as string")
-                        arguments = {"raw": raw_args}
-            # sindri: 深度修复 execute_code 参数
-            if func_name == "execute_code" and isinstance(arguments, dict):
-                if "code" not in arguments:
-                    # arguments可能是 {"type": "function", ...} 格式或缺少code字段
-                    if len(arguments) == 1 and "type" in arguments:
-                        # OpenAI嵌套格式，跳过
-                        pass
-                    else:
-                        logger.warning(f"execute_code: no 'code' field in arguments, attempting修复")
-                        # 尝试从其他字段提取code或使用整个arguments作为code
-                        for k, v in arguments.items():
-                            if k != "type" and isinstance(v, str):
-                                arguments = {"code": v}
-                                logger.info(f"execute_code: 使用字段 '{k}' 作为code")
-                                break
-                        else:
-                            # 如果没有找到合适的字符串字段，尝试用str(arguments)
-                            arguments = {"code": str(arguments)}
-            # sindri: 深度修复 write_file 参数
-            if func_name == "write_file" and isinstance(arguments, dict):
-                if "content" not in arguments and "path" not in arguments:
-                    # 尝试从其他字段提取path和content
-                    logger.warning(f"write_file: no 'path' or 'content' field, attempting修复")
-                    for k, v in arguments.items():
-                        if k == "path" or k == "file_path" or k == "filename":
-                            arguments["path"] = v
-                        elif k == "content" or k == "text" or k == "data":
-                            arguments["content"] = v
-                    if "content" not in arguments:
-                        arguments["content"] = str(arguments)
+            # P0-1: 统一参数修复 → agent/tools/repair.py
+            from .tools.repair import repair_tool_arguments
+            arguments = repair_tool_arguments(func_name, raw_args)
+            
+            # write_file 修复失败 → 返回错误
+            if func_name == "write_file" and isinstance(arguments, dict) and "path" not in arguments:
+                self._tool_errors.append(ToolError(
+                    turn=turn,
+                    tool_name=func_name,
+                    arguments=str(raw_args)[:200],
+                    error="write_file needs path and content",
+                    tool_result="Error: write_file requires path and content in JSON format",
+                ))
+                return ToolResult(
+                    tool_call_id=tool_call_id,
+                    content="Error: write_file requires path and content in JSON format",
+                    is_error=True
+                )
+            # P0-1: arguments 已在 repair_tool_arguments 中标准化为 dict
             if not isinstance(arguments, dict):
                 logger.warning(f"Arguments is not a dict for tool {func_name}: {type(arguments)}")
                 # Hermes风格:收集ToolError
@@ -2971,7 +2950,7 @@ Do not be afraid of mistakes - they can be fixed. Report your changes."""
     async def reset(self):
         """重置Agent状态"""
         self.conversation_history = []
-        self.budget = IterationBudget(self.max_iterations)
+        self.budget = EnhancedIterationBudget(self.max_iterations)  # P1-4: 使用增强类
         self._trajectory = []
         self.compressor.reset_history()
         logger.info("Agent reset")
