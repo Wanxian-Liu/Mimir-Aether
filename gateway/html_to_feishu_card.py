@@ -46,6 +46,12 @@ def _extract_first(html: str, tag: str) -> Optional[str]:
     return None
 
 
+def _normalize_table_column_name(header: str) -> str:
+    """Feishu rejects empty table column names (230099 / 200907)."""
+    text = _unescape_html(header).strip().strip("\u200b\u200c\u200d\u2060\ufeff")
+    return text if text else "—"
+
+
 def _extract_sections(html: str) -> list[dict]:
     """从 HTML 中提取所有 section 标题和内容 (跳过 h1——已用作卡片标题)"""
     sections = []
@@ -95,13 +101,8 @@ def _html_table_to_card(html: str) -> Optional[dict]:
         headers = headers[:4]
         rows = [row[:4] for row in rows]
 
-    # 过滤空列名（飞书不允许列名为空）
-    # decode HTML entities + strip 零宽字符
-    valid_indices = [i for i, h in enumerate(headers) if _unescape_html(h).strip().strip('\u200b\u200c\u200d\u2060\ufeff')]
-    if not valid_indices:
-        return None
-    headers = [headers[i] for i in valid_indices]
-    rows = [[row[i] if i < len(row) else "" for i in valid_indices] for row in rows]
+    # 空列名 → "—"（飞书不允许列名为空；保留列数以对齐行数据）
+    headers = [_normalize_table_column_name(h) for h in headers]
 
     # 构建
     header_row = [{"content": h, "tag": "plain_text"} for h in headers]

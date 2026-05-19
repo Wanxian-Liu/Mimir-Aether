@@ -21,9 +21,9 @@
 |------|------|
 | 优先级 | 🟡 中 |
 | 症状 | 刘哥看到部分 HTML 消息变成纯文本。飞书错误码 `230099` / `200907` — "table column name is empty" |
-| 根因 | `html_to_feishu_card.py:98` — `_html_table_to_card()` 过滤空列名时只检查全部为空才跳过。部分列名为空时，空字符串传给飞书卡片 API → 渲染失败 → adapter 回退 plain text |
-| 修复方向 | 空列名替换为 "—"，或限制仅过滤空列 |
-| 状态 | `open` |
+| 根因 | `html_to_feishu_card.py` — `_html_table_to_card()` 曾丢弃空列名列，但部分场景仍向飞书传入空字符串列名 → `230099` / `200907` |
+| 修复 | `_normalize_table_column_name()`：空/空白/`&nbsp;` 列名 → `"—"`，保留列数与行对齐 |
+| 状态 | `fixed-pending-verify` |
 
 ## #3 — HTML 按钮只显示一个（Bug C）
 
