@@ -192,3 +192,73 @@ def apply_analysis_to_pipeline(
                 _active_quality_mgr.flag_llm_issue(suggestion.target)
 
     return analysis
+
+
+# ── Post-task analysis trigger ──────────────────────────────────────────
+
+def maybe_trigger_post_analysis(
+    pipeline_result: Dict[str, Any],
+    task_name: str = "",
+    *,
+    min_errors: int = 1,
+) -> Optional[str]:
+    """Check if post-task analysis should run, and format the prompt if so.
+
+    Self-designed for MimirAether — learned the trigger-point pattern from
+    OpenSpace (tool_layer._maybe_analyze_execution) but implemented natively
+    on our execution_pipeline + conversation_formatter.
+
+    Trigger conditions (MimirAether-specific):
+      - At least *min_errors* tool errors in the pipeline result
+      - A trajectory file exists and is readable
+
+    Returns:
+        Analysis prompt string ready for LLM consumption, or None if
+        conditions not met.  Caller decides whether to call the LLM —
+        this function is provider-agnostic.
+
+    Usage in agent caller (after loop completes)::
+
+        pipeline_result = close_execution_pipeline(task_name)
+        prompt = maybe_trigger_post_analysis(pipeline_result, task_name)
+        if prompt:
+            artifact_path = save_analysis_artifact(prompt, task_name)
+    """
+    errors = pipeline_result.get("errors", [])
+    if not errors or len(errors) < min_errors:
+        return None
+
+    return build_analysis_from_pipeline(pipeline_result, task_name)
+
+
+def save_analysis_artifact(
+    prompt: str,
+    task_name: str = "",
+) -> Optional[str]:
+    """Persist an analysis prompt as a JSON artifact for next-session injection.
+
+    Artifacts are stored under ``<MIMIR_AETHER_HOME>/data/analysis_artifacts/``
+    and can be injected into the system prompt of future sessions so the agent
+    learns from past mistakes without burning tokens mid-task.
+    """
+    from .mimir_constants import get_mimir_home
+
+    home = get_mimir_home()
+    artifacts_dir = Path(home) / "data" / "analysis_artifacts"
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+    import datetime as _dt
+    ts = _dt.datetime.now().strftime("%Y%m%dT%H%M%S")
+    safe_name = task_name.replace("/", "_").replace(" ", "_")[:60] if task_name else "unnamed"
+    filename = f"{ts}_{safe_name}.json"
+
+    artifact = {
+        "task_name": task_name,
+        "timestamp": _dt.datetime.now().isoformat(),
+        "prompt": prompt,
+        "type": "post_task_analysis",
+    }
+
+    path = artifacts_dir / filename
+    path.write_text(json.dumps(artifact, ensure_ascii=False, indent=2), encoding="utf-8")
+    return str(path)
