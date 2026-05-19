@@ -11,6 +11,13 @@
    done: 2026-05-17, Session 73 已定位+修复: skill_curator.py _load_persistent() JSON异常→{}→覆写。3层防护已加。
 3. [x] 存量胶囊迁移（120 .md → .html） — mimicore/public/ 旧格式 → memory/capsules/
    done: 2026-05-19, P1-1 审计 131/131 已覆盖、0 缺失；P1-3 抽检 10/10；P1-4 tier0 绿；见 docs/phase1/
+4. [x] Context 压缩链 — 删 ContextEngine；MimirContextCompressor + plugins 鸭子类型
+   done: 2026-05-19, cd6b71d；tier0 绿；与 d00347d（budget/tool）成对
+5. [x] P2-1 飞书收图 — feishu_adapter 下载前 token（ISSUES #1）
+   done: 2026-05-19, `_ensure_tenant_token_sync` + `_refresh_token_sync`; `tests/test_feishu_image_token.py`; `docs/phase2/P2-1-feishu-image.md`
+6. [ ] P2-2 飞书表格空列名 — html_to_feishu_card（ISSUES #2，可选）
+7. [ ] P3-0 persistent 单写者 — ADR 仅文档（ISSUES #4）
+8. [ ] P4-1 memory/index.html + wiki 路径（ISSUES #3 一部分）
 
 ## 已完成
 

@@ -76,6 +76,15 @@ def _parse_message_content(raw_content: Any) -> dict:
             return {"text": raw_content}  # 纯文本当 text 处理
     return {}
 
+
+def _tenant_token_valid(adapter: "FeishuAdapter", *, buffer_seconds: int = 60) -> bool:
+    """True when tenant_access_token is present and not within expiry buffer."""
+    token = adapter._tenant_token
+    if not token:
+        return False
+    return time.time() < adapter._token_expires_at - buffer_seconds
+
+
 def _feishu_download_image(
     adapter: "FeishuAdapter", image_key: str
 ) -> Optional[str]:
@@ -89,17 +98,33 @@ def _feishu_download_image(
     origin = adapter._origin()
     url = f"{origin}/open-apis/im/v1/images/{image_key}"
 
-    # 同步下载（在 WS 处理线程中，不支持 async）
-    import time as _time
+    # 同步下载（inbound 路径在 asyncio 线程内调用 sync requests）
     import requests
 
-    headers = {}
-    if adapter._tenant_token and _time.time() < adapter._token_expires_at:
-        headers["Authorization"] = f"Bearer {adapter._tenant_token}"
+    if not adapter._ensure_tenant_token_sync():
+        logger.error(
+            "[feishu] Image download aborted: tenant_access_token unavailable (key=%s…)",
+            image_key[:20],
+        )
+        return None
 
     try:
-        resp = requests.get(url, headers=headers, timeout=30)
-        if resp.status_code != 200:
+        resp = None
+        for attempt in range(2):
+            headers = {}
+            if adapter._tenant_token:
+                headers["Authorization"] = f"Bearer {adapter._tenant_token}"
+
+            resp = requests.get(url, headers=headers, timeout=30)
+            if resp.status_code == 200:
+                break
+            if attempt == 0 and resp.status_code in (400, 401, 403):
+                logger.info(
+                    "[feishu] Image download HTTP %s; refreshing tenant token and retrying",
+                    resp.status_code,
+                )
+                if adapter._refresh_token_sync():
+                    continue
             logger.error(
                 "[feishu] Image download failed: HTTP %s for key=%s…",
                 resp.status_code,
@@ -304,9 +329,47 @@ class FeishuAdapter(BasePlatformAdapter):
 
     def _headers(self) -> dict[str, str]:
         h = {"Content-Type": "application/json"}
-        if self._tenant_token and time.time() < self._token_expires_at:
+        if _tenant_token_valid(self):
             h["Authorization"] = f"Bearer {self._tenant_token}"
         return h
+
+    def _ensure_tenant_token_sync(self) -> bool:
+        """Ensure tenant_access_token for sync paths (image download)."""
+        if _tenant_token_valid(self):
+            return True
+        return self._refresh_token_sync()
+
+    def _refresh_token_sync(self) -> bool:
+        """Refresh tenant_access_token without aiohttp (safe from sync inbound handlers)."""
+        import requests
+
+        if not self._app_id or not self._app_secret:
+            logger.error("[%s] Cannot refresh token: missing app_id/app_secret", self.name)
+            return False
+
+        url = f"{self._origin()}/open-apis/auth/v3/tenant_access_token/internal"
+        try:
+            resp = requests.post(
+                url,
+                json={"app_id": self._app_id, "app_secret": self._app_secret},
+                timeout=15,
+            )
+            if resp.status_code != 200:
+                logger.error("[%s] Token HTTP %s (sync)", self.name, resp.status_code)
+                return False
+            result = resp.json()
+            if result.get("code") == 0:
+                self._tenant_token = result.get("tenant_access_token")
+                self._token_expires_at = time.time() + 7000
+                return bool(self._tenant_token)
+            logger.error("[%s] Token error (sync): %s", self.name, result)
+            return False
+        except requests.Timeout:
+            logger.error("[%s] Token refresh timeout (sync)", self.name)
+            return False
+        except Exception as e:
+            logger.error("[%s] Token refresh failed (sync): %s", self.name, e)
+            return False
 
     async def connect(self) -> bool:
         if not self._app_id or not self._app_secret:
@@ -510,7 +573,7 @@ class FeishuAdapter(BasePlatformAdapter):
         metadata = metadata or {}
         if not self._session:
             return SendResult(success=False, error="Not connected")
-        if time.time() >= self._token_expires_at - 60:
+        if not _tenant_token_valid(self):
             await self._refresh_token()
         if not self._tenant_token:
             return SendResult(success=False, error="No tenant token")
