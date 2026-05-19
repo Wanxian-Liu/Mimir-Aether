@@ -15,7 +15,8 @@
    done: 2026-05-19, cd6b71d；tier0 绿；与 d00347d（budget/tool）成对
 5. [x] P2-1 飞书收图 — feishu_adapter 下载前 token（ISSUES #1）
    done: 2026-05-19, `_ensure_tenant_token_sync` + `_refresh_token_sync`; `tests/test_feishu_image_token.py`; `docs/phase2/P2-1-feishu-image.md`
-6. [ ] P2-2 飞书表格空列名 — html_to_feishu_card（ISSUES #2，可选）
+6. [x] P2-2 飞书表格空列名 — html_to_feishu_card（ISSUES #2）— 空 `<th>` → `"—"`，避免飞书 `230099`/`200907` 卡片失败回退纯文本
+   done: 2026-05-19, `tests/test_html_to_feishu_table.py` + tier0 PASS
 7. [ ] P3-0 persistent 单写者 — ADR 仅文档（ISSUES #4）
 8. [ ] P4-1 memory/index.html + wiki 路径（ISSUES #3 一部分）
 
