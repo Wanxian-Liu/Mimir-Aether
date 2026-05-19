@@ -53,12 +53,61 @@ Mimir 冒烟回报
 
 ---
 
+## 外部检测（刘哥实施 / Mimir 更新状态）
+
+> 按 MimirAether 四大架构模块拆分。检测脚本统一放 `scripts/detection/`。
+> 刘哥每完成一个模块告诉我，我更新状态 + 验证。
+
+| # | 模块 | 检测范围 | 包含 | 状态 |
+|---|------|---------|------|------|
+| A | **Gateway 运行时** | 进程 + 连接 + 凭证 | D1进程存活 / D2 WebSocket / D3 Token刷新 | ⚠️ (已知_trefresher断档) |
+| B | **飞书通道** | 消息收发 + 端到端 | D4心跳ping / 收图 / 卡片渲染 / tool触发 | ✅ 23:00后连续6次send success |
+| C | **Agent 引擎** | 推理 + 工具 + 错误 | 崩溃检测 / tool孤儿 / 错误率 / 响应延迟 | ✅ 零孤儿tool, 零崩溃, 6/6通过 |
+| D | **数据与存储** | 持久化 + 日志 + 胶囊 | persistent.json完整性 / 日志轮转 / 胶囊可读 / 磁盘 | ✅ 5/6通过, index.html缺失 |
+
+### 依赖关系
+
+```
+A(Gateway运行时) → B(飞书通道) → C(Agent引擎)
+                                  ↓
+                               D(数据存储)
+```
+
+- **A 失败**（进程挂了/WS僵死/Token过期）→ 必须重启Gateway（二次重启规则）
+- **B 失败**（心跳不通/收图失败/卡片回退）→ 检查代码版本 + 飞书API状态
+- **C 失败**（崩溃/孤儿tool/错误飙升）→ 收agent.log栈 + 根因修复
+- **D 失败**（数据损坏/日志爆盘）→ 修复脚本或清理
+
+### 每模块检测要点
+
+**A — Gateway 运行时**
+- `pgrep -f gateway/run.py` 有 PID
+- 日志 `Long connection task started` 无紧随 `closed`
+- 最后 token 刷新 < 2h 前，无 400/401
+
+**B — 飞书通道**
+- 端到端 ping：发消息 → `send success` 在 5s 内
+- 收图链路：发图 → `Image downloaded` 含字节数
+- 卡片渲染：发空表头表格 → 无 `230099`/`200907`
+
+**C — Agent 引擎**
+- agent.log 最近5分钟无 Traceback/Crash
+- gateway.log 无 `tool must be a response`
+- ERROR 增量 < 3/5min
+
+**D — 数据与存储**
+- `data/persistent.json` JSON 可解析
+- `logs/` 目录大小 < 500MB
+- `memory/capsules/` 文件数 ≥ 100
+
+---
+
 ## 需工程 / Cursor（勿交给 Mimir 改架构）
 
 | 项 | 说明 |
 |----|------|
 | WebSocket 推理阻塞心跳 | gstack P0#2 |
-| 监控与告警 | gstack P0#3 |
+| ~~监控与告警~~ | → 迁移至「外部检测」上方 |
 | 自修回滚护栏 | gstack P0#4 |
 | P3-0 / P4-1 | ADR + memory 三入口 |
 | Gateway #5/#10 等 | 见 GATEWAY_STABILITY_BACKLOG「工程」列 |

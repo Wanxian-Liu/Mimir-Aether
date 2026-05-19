@@ -61,6 +61,7 @@ class ContextCompressorV2:
     def __init__(
         self,
         model: str = "deepseek-chat",
+        context_length: int = 1048576,  # DeepSeek V4 Pro 1M; overridden at init
         threshold_percent: float = 0.50,  # Tuned for DeepSeek context window
         protect_first_n: int = 3,
         protect_last_n: int = 6,
@@ -82,7 +83,7 @@ class ContextCompressorV2:
         self.summary_model = summary_model or model
         self.quiet_mode = quiet_mode
         
-        self.context_length = 8000
+        self.context_length = context_length
         self.threshold_percent = threshold_percent
         self.threshold_tokens = int(self.context_length * threshold_percent)
         
@@ -105,7 +106,8 @@ class ContextCompressorV2:
         
         if not quiet_mode:
             logger.info(
-                f"V2.3 initialized: threshold={self.threshold_tokens}, "
+                f"V2.3 initialized: context_length={self.context_length}, "
+                f"threshold={self.threshold_tokens}, "
                 f"tail={self.tail_token_budget} (dynamic)"
             )
     

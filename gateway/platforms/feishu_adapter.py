@@ -15,6 +15,7 @@ import hashlib
 import hmac
 import json
 import logging
+import threading
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
@@ -36,6 +37,81 @@ from gateway.html_to_feishu_card import (
 logger = logging.getLogger(__name__)
 
 RECONNECT_DELAYS = (2, 5, 10, 30, 60)
+
+
+class CircuitBreaker:
+    """P0-2: 三态断路器，WS 重连保底。
+
+    CLOSED  → 正常请求，失败累积
+    OPEN    → 熔断中，拒绝所有请求
+    HALF_OPEN → 试探窗口，允许一个请求通过测试
+    """
+
+    STATE_CLOSED = "CLOSED"
+    STATE_OPEN = "OPEN"
+    STATE_HALF_OPEN = "HALF_OPEN"
+
+    def __init__(self, max_failures: int = 5, reset_timeout: float = 60.0):
+        self.max_failures = max_failures
+        self.reset_timeout = reset_timeout
+        self._state = self.STATE_CLOSED
+        self._failure_count = 0
+        self._last_failure_time: float = 0.0
+        self._tripped_at: float = 0.0
+
+    def allow_request(self) -> bool:
+        """是否可以发起请求。OPEN→HALF_OPEN 自动转换。"""
+        import time as _time
+        now = _time.time()
+        if self._state == self.STATE_CLOSED:
+            return True
+        if self._state == self.STATE_OPEN:
+            if now - self._tripped_at >= self.reset_timeout:
+                self._state = self.STATE_HALF_OPEN
+                return True
+            return False
+        # HALF_OPEN: allow one probe
+        return True
+
+    def on_success(self):
+        """请求成功：重置到 CLOSED。"""
+        self._state = self.STATE_CLOSED
+        self._failure_count = 0
+
+    def on_failure(self):
+        """请求失败：记录并判断是否熔断。"""
+        import time as _time
+        now = _time.time()
+        self._failure_count += 1
+        self._last_failure_time = now
+        if self._state == self.STATE_HALF_OPEN:
+            # 试探失败 → 立即重新熔断
+            self._state = self.STATE_OPEN
+            self._tripped_at = now
+        elif self._failure_count >= self.max_failures:
+            self._state = self.STATE_OPEN
+            self._tripped_at = now
+
+    def time_until_reset(self) -> float:
+        """距离 HALF_OPEN 还有多少秒；不在 OPEN 状态返回 0。"""
+        import time as _time
+        if self._state != self.STATE_OPEN:
+            return 0.0
+        elapsed = _time.time() - self._tripped_at
+        return max(0.0, self.reset_timeout - elapsed)
+
+    @property
+    def state(self) -> str:
+        return self._state
+
+# ── Token refresh 护栏 ─────────────────────────────────────
+# tenant_access_token 有效期 ~2h；API 返回 expire 约 6000-7200s。
+# 后台 _token_refresher 每 30 分钟刷新一次（防御：asyncio 任务静默停止）。
+# 发送路径 (send) 额外检查：距离上次成功刷新 > 90 分钟则强制刷新，
+# 防止 _token_expires_at 硬编码 7000s 与 API 实际 expire 不一致导致的过期漏检。
+TOKEN_REFRESH_INTERVAL = 30 * 60      # 30 min
+TOKEN_STALE_THRESHOLD = 90 * 60       # 90 min — send() emergency refresh
+TOKEN_EXPIRE_FALLBACK = 7000          # 2h-ish fallback if API omits expire
 
 # ── Module-level lark SDK availability ────────────────────────
 try:
@@ -79,10 +155,12 @@ def _parse_message_content(raw_content: Any) -> dict:
 
 def _tenant_token_valid(adapter: "FeishuAdapter", *, buffer_seconds: int = 60) -> bool:
     """True when tenant_access_token is present and not within expiry buffer."""
-    token = adapter._tenant_token
+    with adapter._token_lock:
+        token = adapter._tenant_token
+        expires_at = adapter._token_expires_at
     if not token:
         return False
-    return time.time() < adapter._token_expires_at - buffer_seconds
+    return time.time() < expires_at - buffer_seconds
 
 
 def _feishu_download_image(
@@ -122,8 +200,10 @@ def _feishu_download_image(
             ok = False
             for attempt in range(2):
                 headers = {}
-                if adapter._tenant_token:
-                    headers["Authorization"] = f"Bearer {adapter._tenant_token}"
+                with adapter._token_lock:
+                    local_token = adapter._tenant_token
+                if local_token:
+                    headers["Authorization"] = f"Bearer {local_token}"
 
                 resp = requests.get(url, headers=headers, timeout=30)
                 if resp.status_code == 200:
@@ -192,7 +272,101 @@ def _feishu_download_image(
         )
         return None
 
-def _event_dict_to_message_event(adapter: "FeishuAdapter", payload: dict) -> Optional[MessageEvent]:
+
+async def _feishu_download_image_async(
+    adapter: "FeishuAdapter",
+    image_key: str,
+    *,
+    message_id: str = "",
+) -> Optional[str]:
+    """Async variant of _feishu_download_image — uses aiohttp, does NOT block event loop."""
+    from gateway.platforms.base import _looks_like_image, cache_image_from_bytes
+
+    origin = adapter._origin()
+    urls: list[str] = []
+    mid = (message_id or "").strip()
+    if mid:
+        urls.append(
+            f"{origin}/open-apis/im/v1/messages/{mid}/resources/{image_key}?type=image"
+        )
+    urls.append(f"{origin}/open-apis/im/v1/images/{image_key}")
+
+    session = adapter._session
+    if not session:
+        logger.error("[feishu] Async image download aborted: no aiohttp session (key=%s…)", image_key[:20])
+        return None
+
+    with adapter._token_lock:
+        local_token = adapter._tenant_token
+    if not local_token:
+        if not adapter._ensure_tenant_token_sync():
+            logger.error("[feishu] Async image download aborted: no tenant token (key=%s…)", image_key[:20])
+            return None
+        with adapter._token_lock:
+            local_token = adapter._tenant_token
+
+    resp = None
+    for url_idx, url in enumerate(urls):
+        ok = False
+        for attempt in range(2):
+            headers = {}
+            with adapter._token_lock:
+                t = adapter._tenant_token
+            if t:
+                headers["Authorization"] = f"Bearer {t}"
+            try:
+                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as r:
+                    if r.status == 200:
+                        data = await r.read()
+                        resp = type('Resp', (), {'status_code': 200, 'content': data, 'headers': dict(r.headers)})()
+                        ok = True
+                        break
+                    if attempt == 0 and r.status in (400, 401, 403):
+                        logger.info(
+                            "[feishu] Async image download HTTP %s (url #%d); refreshing token and retrying",
+                            r.status, url_idx + 1,
+                        )
+                        await adapter._refresh_token()
+                        continue
+                    logger.warning("[feishu] Async image download HTTP %s for key=%s… (url #%d)", r.status, image_key[:20], url_idx + 1)
+                    break
+            except asyncio.TimeoutError:
+                logger.error("[feishu] Async image download timeout for key=%s… (url #%d)", image_key[:20], url_idx + 1)
+                break
+        if ok:
+            break
+    else:
+        logger.error("[feishu] Async image download failed for key=%s…", image_key[:20])
+        return None
+
+    if resp is None or resp.status_code != 200:
+        return None
+    data = resp.content
+    if not _looks_like_image(data):
+        logger.warning("[feishu] Async downloaded data does not look like an image (key=%s…, %d bytes)", image_key[:20], len(data))
+        return None
+
+    ct = resp.headers.get("Content-Type", "")
+    ext_map = {
+        "image/png": "png", "image/jpeg": "jpg", "image/jpg": "jpg",
+        "image/gif": "gif", "image/webp": "webp", "image/bmp": "bmp",
+    }
+    ext = "jpg"
+    for mime, e in ext_map.items():
+        if mime in ct:
+            ext = e
+            break
+    path = cache_image_from_bytes(data, image_key, ext=ext)
+    logger.info("[feishu] Image downloaded (async): %s (%d bytes, key=%s…)", path, len(data), image_key[:20])
+    return path
+
+
+def _event_dict_to_message_event(
+    adapter: "FeishuAdapter",
+    payload: dict,
+    *,
+    pre_downloaded_path: Optional[str] = None,
+) -> Optional[MessageEvent]:
     """Build MessageEvent from Lark im.message.receive_v1 JSON (v2 envelope)."""
     ev = payload.get("event")
     if not isinstance(ev, dict):
@@ -244,8 +418,11 @@ def _event_dict_to_message_event(adapter: "FeishuAdapter", payload: dict) -> Opt
             user_name=sender_id or None,
         )
 
-        # 同步下载图片（WS 线程中）
-        local_path = _feishu_download_image(adapter, image_key, message_id=message_id)
+        # 下载图片（优先使用预下载路径，避免阻塞事件循环）
+        if pre_downloaded_path is not None:
+            local_path = pre_downloaded_path if pre_downloaded_path else None
+        else:
+            local_path = _feishu_download_image(adapter, image_key, message_id=message_id)
         if not local_path:
             # 下载失败：仍然返回事件，用 text 说明
             return MessageEvent(
@@ -320,8 +497,13 @@ class FeishuAdapter(BasePlatformAdapter):
         self._verification_token = str(extra.get("verification_token") or "").strip()
 
         self._session: Optional[aiohttp.ClientSession] = None
+        self._token_lock = threading.Lock()  # P0-1: 保护 _tenant_token 三字段并发读写
+        self._ws_shutdown = threading.Event()  # P0-3: WS 线程退出信号
+        self._ws_thread: Optional[threading.Thread] = None  # P0-3: WS 线程引用，用于 disconnect() 等待退出
+        self._ws_breaker = CircuitBreaker(max_failures=5, reset_timeout=60.0)  # P0-2: WS 重连断路器
         self._tenant_token: Optional[str] = None
         self._token_expires_at: float = 0.0
+        self._last_token_refresh_at: float = 0.0  # 上次成功刷新时间戳（send() 护栏用）
         self._main_loop: Optional[asyncio.AbstractEventLoop] = None
         self._ws_task: Optional[asyncio.Task] = None
         self._token_task: Optional[asyncio.Task] = None
@@ -354,8 +536,11 @@ class FeishuAdapter(BasePlatformAdapter):
 
     def _headers(self) -> dict[str, str]:
         h = {"Content-Type": "application/json"}
-        if _tenant_token_valid(self):
-            h["Authorization"] = f"Bearer {self._tenant_token}"
+        with self._token_lock:
+            token = self._tenant_token
+            expired = time.time() >= self._token_expires_at - 60
+        if token and not expired:
+            h["Authorization"] = f"Bearer {token}"
         return h
 
     def _ensure_tenant_token_sync(self) -> bool:
@@ -384,9 +569,13 @@ class FeishuAdapter(BasePlatformAdapter):
                 return False
             result = resp.json()
             if result.get("code") == 0:
-                self._tenant_token = result.get("tenant_access_token")
-                self._token_expires_at = time.time() + 7000
-                return bool(self._tenant_token)
+                with self._token_lock:
+                    self._tenant_token = result.get("tenant_access_token")
+                    api_expire = result.get("expire", 0)
+                    self._token_expires_at = time.time() + (api_expire if api_expire > 0 else TOKEN_EXPIRE_FALLBACK)
+                    self._last_token_refresh_at = time.time()
+                    ok = bool(self._tenant_token)
+                return ok
             logger.error("[%s] Token error (sync): %s", self.name, result)
             return False
         except requests.Timeout:
@@ -404,7 +593,9 @@ class FeishuAdapter(BasePlatformAdapter):
         self._main_loop = asyncio.get_running_loop()
         self._session = aiohttp.ClientSession()
         await self._refresh_token()
-        if not self._tenant_token:
+        with self._token_lock:
+            has_token = bool(self._tenant_token)
+        if not has_token:
             logger.error("[%s] tenant_access_token failed", self.name)
             await self._close_http()
             return False
@@ -430,14 +621,28 @@ class FeishuAdapter(BasePlatformAdapter):
     async def _ws_runner(self) -> None:
         """Run blocking lark ws Client in a thread pool; reconnect with backoff."""
         attempt = 0
-        while self._running:
+        breaker = self._ws_breaker
+        while self._running and not self._ws_shutdown.is_set():
+            # P0-2: 断路器——连续失败 5 次则熔断 60s，防止资源泄漏
+            if not breaker.allow_request():
+                wait = breaker.time_until_reset()
+                logger.warning(
+                    "[%s] Circuit breaker %s; sleeping %.0fs for HALF_OPEN",
+                    self.name, breaker.state, wait,
+                )
+                await asyncio.sleep(wait)
+                continue
             try:
+                self._ws_shutdown.clear()
                 await asyncio.to_thread(self._blocking_lark_ws_main)
+                breaker.on_success()
+                attempt = 0
             except asyncio.CancelledError:
                 return
             except Exception as e:
                 logger.warning("[%s] WebSocket client exited: %s", self.name, e)
-            if not self._running:
+                breaker.on_failure()
+            if not self._running or self._ws_shutdown.is_set():
                 return
             delay = RECONNECT_DELAYS[min(attempt, len(RECONNECT_DELAYS) - 1)]
             attempt += 1
@@ -449,9 +654,12 @@ class FeishuAdapter(BasePlatformAdapter):
         # ``asyncio.get_event_loop()``. If that import happened on the gateway's
         # asyncio thread, ``loop`` points at the *running* main loop and
         # ``Client.start()`` → ``run_until_complete`` raises
-        # "This event loop is already running". Install a dedicated loop in this
+        # \"This event loop is already running\". Install a dedicated loop in this
         # worker thread *before* importing the client module (first connect), and
         # always overwrite ``lark_ws_client.loop`` (cached import from main thread).
+        self._ws_thread = threading.current_thread()
+        if self._ws_shutdown.is_set():
+            return
         ws_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(ws_loop)
         import lark_oapi.ws.client as lark_ws_client
@@ -498,15 +706,27 @@ class FeishuAdapter(BasePlatformAdapter):
         logger.debug("[%s] Ignoring im.chat.access_event.bot_p2p_chat_entered_v1", self.name)
 
     async def _token_refresher(self) -> None:
-        """后台任务：每60分钟刷新一次飞书 tenant_access_token，防止过期死锁。"""
+        """后台任务：每30分钟刷新一次飞书 tenant_access_token，带心跳日志防静默停止。"""
+        _heartbeat_interval = 10 * 60  # 每10分钟打一次心跳
+        _next_heartbeat = time.time() + _heartbeat_interval
         while self._running:
             try:
-                # 等58分钟（token有效期2小时，提前2小时+缓冲）
-                await asyncio.sleep(58 * 60)
+                await asyncio.sleep(min(TOKEN_REFRESH_INTERVAL, _heartbeat_interval))
                 if not self._running:
                     break
-                logger.info("[%s] Token refresher: refreshing tenant_access_token", self.name)
-                await self._refresh_token()
+                now = time.time()
+                # 心跳：证明 refresher 没死
+                refresh_due = (
+                    self._last_token_refresh_at == 0.0
+                    or (now - self._last_token_refresh_at) >= TOKEN_REFRESH_INTERVAL
+                )
+                if refresh_due:
+                    logger.info("[%s] Token refresher: refreshing tenant_access_token", self.name)
+                    await self._refresh_token()
+                    _next_heartbeat = now + _heartbeat_interval
+                elif now >= _next_heartbeat:
+                    logger.debug("[%s] Token refresher: alive (token age=%.0fs)", self.name, now - self._last_token_refresh_at)
+                    _next_heartbeat = now + _heartbeat_interval
             except asyncio.CancelledError:
                 return
             except Exception as e:
@@ -533,7 +753,22 @@ class FeishuAdapter(BasePlatformAdapter):
             logger.error("[%s] Inbound dispatch failed: %s", self.name, e)
 
     async def _async_dispatch_p2(self, payload: dict) -> None:
-        event = _event_dict_to_message_event(self, payload)
+        # P0-4: 图片消息在主事件循环中处理──先用 aiohttp 异步下载，避免阻塞
+        pre_downloaded = None
+        ev = payload.get("event", {}) if isinstance(payload, dict) else {}
+        msg = ev.get("message", {}) if isinstance(ev, dict) else {}
+        if isinstance(msg, dict) and str(msg.get("message_type", "")).strip().lower() == "image":
+            content_dict = _parse_message_content(msg.get("content"))
+            image_key = content_dict.get("image_key", "")
+            if image_key:
+                pre_downloaded = await _feishu_download_image_async(
+                    self, image_key, message_id=str(msg.get("message_id", ""))
+                )
+                if not pre_downloaded:
+                    # 下载失败时传空字符串，让 _event_dict_to_message_event 用 fallback text
+                    pre_downloaded = ""
+
+        event = _event_dict_to_message_event(self, payload, pre_downloaded_path=pre_downloaded)
         if event is None:
             return
         await self.handle_message(event)
@@ -542,10 +777,12 @@ class FeishuAdapter(BasePlatformAdapter):
         if self._session:
             await self._session.close()
             self._session = None
-        self._tenant_token = None
+        with self._token_lock:
+            self._tenant_token = None
 
     async def disconnect(self) -> None:
         self._running = False
+        self._ws_shutdown.set()  # P0-3: 通知 WS 线程退出
         if self._ws_task:
             self._ws_task.cancel()
             try:
@@ -553,6 +790,12 @@ class FeishuAdapter(BasePlatformAdapter):
             except asyncio.CancelledError:
                 pass
             self._ws_task = None
+        # P0-3: 等待底层 OS 线程实际退出，防止线程泄漏累积
+        ws_thread = self._ws_thread
+        if ws_thread is not None and ws_thread.is_alive():
+            ws_thread.join(timeout=5)
+            if ws_thread.is_alive():
+                logger.warning("[%s] WS thread did not exit within 5s timeout", self.name)
         if self._token_task:
             self._token_task.cancel()
             try:
@@ -579,8 +822,11 @@ class FeishuAdapter(BasePlatformAdapter):
                     return
                 result = await resp.json()
                 if result.get("code") == 0:
-                    self._tenant_token = result.get("tenant_access_token")
-                    self._token_expires_at = time.time() + 7000
+                    with self._token_lock:
+                        self._tenant_token = result.get("tenant_access_token")
+                        api_expire = result.get("expire", 0)
+                        self._token_expires_at = time.time() + (api_expire if api_expire > 0 else TOKEN_EXPIRE_FALLBACK)
+                        self._last_token_refresh_at = time.time()
                 else:
                     logger.error("[%s] Token error: %s", self.name, result)
         except asyncio.TimeoutError:
@@ -598,9 +844,22 @@ class FeishuAdapter(BasePlatformAdapter):
         metadata = metadata or {}
         if not self._session:
             return SendResult(success=False, error="Not connected")
-        if not _tenant_token_valid(self):
+        # 双保险：token 过期 OR 上次刷新超过阈值 → 强制刷新
+        token_expired = not _tenant_token_valid(self)
+        token_stale = (
+            self._last_token_refresh_at > 0.0
+            and (time.time() - self._last_token_refresh_at) > TOKEN_STALE_THRESHOLD
+        )
+        if token_expired or token_stale:
+            if token_stale:
+                logger.warning(
+                    "[%s] Token stale (last refresh %.0fs ago), emergency refresh",
+                    self.name, time.time() - self._last_token_refresh_at,
+                )
             await self._refresh_token()
-        if not self._tenant_token:
+        with self._token_lock:
+            has_token = bool(self._tenant_token)
+        if not has_token:
             return SendResult(success=False, error="No tenant token")
 
         url = f"{self._origin()}/open-apis/im/v1/messages"

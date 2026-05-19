@@ -467,11 +467,22 @@ class MimirAetherAgent:
         self.conversation_history: List[Message] = []
         self.max_history_length = 200  # 对齐 1M 上下文 (200条×~5K=~1M tokens)
 
-        # 新模块初始化
-        # Hermes风格压缩器
+        # 初始化凭证池(先于compressor — 获取context_length需要API key/base_url)
+        self._credential_pool: Optional[CredentialPool] = None
+        self._init_credential_pool()
+
+        # 获取模型真实context_length (DeepSeek V4 Pro = 1M)
+        self._context_length = model_metadata.get_model_context_length(
+            model=model,
+            base_url=self._get_model_base_url(),
+            api_key=self._get_api_key(),
+        )
+
+        # MimirAether 自研上下文压缩器（context_length 构造即正确，不依赖事后修正）
         self.compressor = MimirContextCompressor(
             model=model,
-            threshold_percent=0.85,
+            context_length=int(self._context_length or 1048576),
+            threshold_percent=0.50,  # 500K主动压缩, 1M硬天花板
             protect_first_n=3,
             protect_last_n=6,
             tail_token_budget=4000,
@@ -493,29 +504,6 @@ class MimirAetherAgent:
 
         self.fencer = MemoryFencer()
         self.fencer.enable_tag_wrapping = False  # Disable XML wrapping - breaks API message format
-
-        # 初始化凭证池(在使用_get_api_key之前)
-        self._credential_pool: Optional[CredentialPool] = None
-        self._init_credential_pool()
-
-        # 初始化model_metadata获取context_length
-        self._context_length = model_metadata.get_model_context_length(
-            model=model,
-            base_url=self._get_model_base_url(),
-            api_key=self._get_api_key(),
-        )
-
-        try:
-            self.compressor.update_model(
-                model=model,
-                context_length=int(self._context_length or 8000),
-                base_url=self._get_model_base_url(),
-                api_key=self._get_api_key(),
-                provider="",
-                api_mode="",
-            )
-        except Exception as _e:
-            logger.debug("compressor.update_model at init skipped: %s", _e)
 
         # 初始化prompt_builder构建系统提示
         if system_prompt:

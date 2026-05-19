@@ -263,17 +263,20 @@
   "skill_usage": {
     "mimiraether-heartbeat": "2026-05-16T07:04:41.219651+00:00",
     "skills-qa": "2026-05-16T07:08:13.044008+00:00",
-    "mimiraether-tool-triggers": "2026-05-19T00:58:05.842759+00:00",
-    "my-skill": "2026-05-19T09:42:33.405852+00:00",
+    "mimiraether-tool-triggers": "2026-05-19T14:04:35.879607+00:00",
+    "my-skill": "2026-05-19T16:22:10.779957+00:00",
     "mimiraether-html-output": "2026-05-16T18:29:59.539351+00:00",
-    "mimiraether-cross-session": "2026-05-17T06:29:28.253243+00:00",
+    "mimiraether-cross-session": "2026-05-19T15:14:36.466959+00:00",
     "github-issues": "2026-05-17T04:01:54.093019+00:00",
     "mimiraether-root-cause-debugging": "2026-05-17T05:15:41.305182+00:00",
     "mimiraether-context-engine": "2026-05-19T07:17:39.211600+00:00",
     "mimiraether-brainstorming": "2026-05-17T12:16:48.950260+00:00",
     "mimiraether-hermes-code-study": "2026-05-18T20:53:47.487607+00:00",
-    "gateway-feishu-crash-recovery": "2026-05-19T06:01:33.203267+00:00",
-    "mimiraether-context-compressor": "2026-05-19T07:17:39.224038+00:00"
+    "gateway-feishu-crash-recovery": "2026-05-19T14:04:35.891801+00:00",
+    "mimiraether-context-compressor": "2026-05-19T07:17:39.224038+00:00",
+    "mimiraether-checkpoint": "2026-05-19T15:14:36.470845+00:00",
+    "debugging-hermes-tui-commands": "2026-05-19T15:14:41.724104+00:00",
+    "mimiraether-ralph-core": "2026-05-19T15:44:28.755032+00:00"
   },
   "curator_nudge": "skill_curator: 106技能 | fresh=106 stale=0 dormant=0",
   "dormant_skills": {}
