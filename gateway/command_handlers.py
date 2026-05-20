@@ -15,13 +15,13 @@ from pathlib import Path
 from typing import Optional, Dict, Any, Union, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from gateway.platforms.base import MessageEvent, Platform
+    from gateway.platforms.base import Platform
 
 logger = logging.getLogger(__name__)
 
 # Re-imported for handler use
 from gateway.home_paths import _hermes_home
-from gateway.platforms.base import MessageType, ImageAttachment, DocumentAttachment, ModelAliasTarget
+from gateway.platforms.base import MessageEvent, MessageType
 
 
 class CommandHandlerMixin:

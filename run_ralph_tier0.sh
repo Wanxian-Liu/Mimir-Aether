@@ -46,6 +46,12 @@ mods = [
     "agent.session_port",
     "agent.checkpoint_port",
     "agent.kernel_overrides",
+    "agent.config_mixin",
+    "agent.callers_mixin",
+    "agent.exec_mixin",
+    "agent.recovery_mixin",
+    "gateway._shared",
+    "gateway.run",
     "tools.code_execution_tool",
 ]
 for m in mods:
@@ -84,7 +90,9 @@ python3 -m pytest -q \
   agent/test_m5_entry_checkpoint_injection_slice.py \
   agent/test_m5_kernel_bundle_slice.py \
   agent/test_m5_gateway_session_db_slice.py \
-  agent/test_mimir_paths_resolution.py
+  agent/test_mimir_paths_resolution.py \
+  agent/test_recovery_mixin_code_errors.py \
+  agent/test_gateway_mixin_import_smoke.py
 
 echo "=== Ralph Tier-1: Gate3 Core E2E (mocked LLM) ==="
 python3 -m pytest -q agent/test_tier1_e2e_agent.py

@@ -25,3 +25,11 @@
 6. agent_mixin → 验证Agent生命周期
 
 每段后: run_ralph_tier0.sh 确保 162 passed
+
+## 拆分完成定义（IR-20260520 起）
+
+一次 mixin 拆分视为**完成**当且仅当：
+
+1. `./run_ralph_tier0.sh` 全绿（含 Gate1 `gateway.run` + mixin import smoke）
+2. `agent/test_gateway_mixin_import_smoke.py` 与 `agent/test_recovery_mixin_code_errors.py` 通过
+3. 硬重启 gateway 后：飞书一条普通消息 + 一次 tool 调用无 NameError；`agent.log` 不因代码错误新增 `Level 3 TRUNCATE`
