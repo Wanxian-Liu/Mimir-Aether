@@ -804,6 +804,27 @@ class SessionStore:
         #     except Exception as e:
         #         print(f"[gateway] Warning: Failed to create SQLite session: {e}")
 
+        # -----------------------------------------------------------------
+        # Transcript preservation: when an existing session is auto-reset
+        # (e.g. after gateway restart -> suspend_recently_active), copy the
+        # old JSONL transcript to the new session_id so conversation history
+        # survives process restarts.  Without this, kill -9 loses all
+        # in-flight conversation context because the new session_id has no
+        # JSONL file.
+        # -----------------------------------------------------------------
+        if db_end_session_id:
+            old_path = self.get_transcript_path(db_end_session_id)
+            if old_path.exists():
+                import shutil
+                new_path = self.get_transcript_path(session_id)
+                try:
+                    shutil.copy2(old_path, new_path)
+                except OSError as e:
+                    logger.debug(
+                        "Failed to copy transcript %s → %s: %s",
+                        db_end_session_id, session_id, e,
+                    )
+
         return entry
 
     def update_session(
@@ -993,6 +1014,8 @@ class SessionStore:
         transcript_path = self.get_transcript_path(session_id)
         with open(transcript_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(message, ensure_ascii=False) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
 
         if self._db and not skip_db:
             try:

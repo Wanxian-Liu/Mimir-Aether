@@ -1,6 +1,7 @@
 # MimirAether - Agent Core
 
-from .core_loop import MimirAetherAgent, Message, MessageRole, ToolResult, ToolRegistry, IterationBudget
+from .core_loop import MimirAetherAgent, Message, MessageRole, ToolResult, IterationBudget
+from .exec_mixin import ToolRegistry  # d4 split: compat layer moved out of core_loop
 from .turn_loop import TurnManager, Turn, TurnStatus
 from .subagent import SubAgentPool, SubAgentTask, SubAgentStatus, TaskDecomposer, TaskDecomposition
 from .context_compressor import ContextCompressor, CompressionResult, compress_conversation, SUMMARY_PREFIX

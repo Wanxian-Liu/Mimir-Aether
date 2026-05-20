@@ -1,45 +1,91 @@
-# MimirAether 执行待办
+# MimirAether 执行待办（统一 backlog）
 
-> 规则：按顺序做下一条未勾选项；做完勾上 `[x]`，简短回报 + tier0/CI。
-> 卡住时在 `MIMIR_ISSUES.md` 记一条，停手等确认。
+> **最近更新**：2026-05-20（**E-002/E-003 committed**；Mimir 训练包 `docs/MIMIR_D17_AUDIT_AND_TASKS.md` post-commit 版）  
+> **规则**：从下表「统一队列」取**第一条**未勾选项；做完勾 `[x]` + 简短回报 + `./run_ralph_tier0.sh`（触达代码时）。  
+> **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
+> **勿提交**：`data/persistent.json`（runtime 镜像）。
 
-## Backlog
-
-1. [x] memory 工具冒烟 — 验证单例懒加载实例化后可正常读写
-   done: 2026-05-17, 仅文档/验证 — 写入→读回→删除全链路正常
-2. [x] 追 persistent.json 截断根因 — 谁在 end_session 时覆盖全文件
-   done: 2026-05-17, Session 73 已定位+修复: skill_curator.py _load_persistent() JSON异常→{}→覆写。3层防护已加。
-3. [x] 存量胶囊迁移（120 .md → .html） — mimicore/public/ 旧格式 → memory/capsules/
-   done: 2026-05-19, P1-1 审计 131/131 已覆盖、0 缺失；P1-3 抽检 10/10；P1-4 tier0 绿；见 docs/phase1/
-4. [x] Context 压缩链 — 删 ContextEngine；MimirContextCompressor + plugins 鸭子类型
-   done: 2026-05-19, cd6b71d；tier0 绿；与 d00347d（budget/tool）成对
-5. [x] P2-1 飞书收图 — feishu_adapter 下载前 token（ISSUES #1）
-   done: 2026-05-19, `_ensure_tenant_token_sync` + `_refresh_token_sync`; `tests/test_feishu_image_token.py`; `docs/phase2/P2-1-feishu-image.md`
-6. [x] P2-2 飞书表格空列名 — html_to_feishu_card（ISSUES #2）— 空 `<th>` → `"—"`，避免飞书 `230099`/`200907` 卡片失败回退纯文本
-   done: 2026-05-19, `tests/test_html_to_feishu_table.py` + tier0 PASS
-7. [ ] P3-0 persistent 单写者 — ADR 仅文档（ISSUES #4）
-8. [ ] P4-1 memory/index.html + wiki 路径（ISSUES #3 一部分）
+**Wiki 审计原文**（只读归档）：`~/.openclaw/wiki/main/iterations/d{1..7}-audit-report.html`
 
 ---
 
-## Mimir 可执行（无架构 — 按顺序）
+## 1. 角色分工（避免 d4 / D4心跳 混淆）
 
-> 计划全文：`docs/plans/2026-05-19_stability_sprint.md`  
-> Gateway 十条：`docs/GATEWAY_STABILITY_BACKLOG.md`  
-> **禁止**：删光 `role=tool` 消息；勿提交 `data/persistent.json`。
+| 角色 | 做什么 | 不做什么 |
+|------|--------|----------|
+| **Mimir** | 冒烟、复现、飞书端到端、grep 日志、更新 ISSUES / 本表状态、外部检测四模块状态 | 改 `agent/`/`gateway/`/`mimir_cli/` 架构；删 `role=tool` 伪修复；填进化 19 存根 |
+| **Cursor / 工程** | d1–d7 **代码**、拆分、合 `main`、tier0、evolution_log | 代刘哥配密钥、代发飞书 |
+| **刘哥** | `OPENROUTER_API_KEY`、飞书复验、授权 `git push` | — |
 
-| # | 任务 | 成功标准 |
-|---|------|----------|
-| M1 | 重启 gateway（`main` 含 `43cbd3a` + `b50c71c`） | `./scripts/restart_gateway_hard.sh` 或 `docs/OPERATIONS_GATEWAY.md` §2.1；`feishu connected` |
-| M2 | 飞书 mimiraether **发图** | `Image downloaded` + URL 含 `resources/`；vision 无 `image_url` 400；能描述图片 |
-| M3 | 飞书 **空表头** HTML 表 | 列名 `—`，非纯文本回退 |
-| M4 | 飞书 **触发 tool** 一句 | 无 `tool must be a response` |
-| M5 | 确认 vision 回退凭证 | `OPENROUTER_API_KEY` 或 `config.yaml` → `auxiliary.vision.provider` |
-| M6 | `ISSUES.md` #1/#2 改 `resolved`（M2/M3 通过后） | 文档 only |
-| M7 | Gateway 十条：逐条在 `GATEWAY_STABILITY_BACKLOG.md` 标状态 | 仅复现/配置/记 ISSUES，不改大逻辑 |
-| M8 | （可选）`git push origin main` | 刘哥授权后 |
+**刘哥离线习惯**：Cursor 更新 **`docs/MIMIR_D17_AUDIT_AND_TASKS.md`**（d1–d7 审计分 + **T-01～T-11** 任务/方案/提示词）→ Mimir 新窗用 §5 总提示词执行 → 自证后改本表 §4 与 `MIMIR_ISSUES.md`。
 
-### 回报模板（贴给 Cursor / 刘哥）
+**历史事实（刘哥口径）**：**d1–d3** 阶段 Mimir 已承担大部分 **验证与收口**（飞书收图/token、上下文链、Gateway P0 冒烟、十条里多项）；**代码合入**在 `main`（如 `341c1fd`、`2b414d3`、`393214e`、P2 PR）。**d4 起**以 Cursor 工程为主，Mimir 只做 §2 中 **M-*** 项。
+
+---
+
+## 2. 统一执行队列（按第一条未勾选项执行）
+
+> 状态：`[ ]` 待做 · `[~]` 部分/阻塞 · `[x]` 完成  
+> **基线 commit**：E-002/E-003 已本地 commit（见 `git log -1`）；**未 push**（M-008）
+
+| ID | 负责 | 任务 | 成功标准 | 状态 |
+|----|------|------|----------|------|
+| **E-001** | Cursor | **Gateway WIP 常驻** — mixin 拆分遗漏 `@property` | `pgrep` 稳定；`wait_for_shutdown` 正常 | [x] 见下「E-001 结案」 |
+| **E-002** | Cursor | **D3-SPLIT 收尾** — 6 mixin + `home_paths.py` + commit | tier0 绿；gateway 硬重启后 PID 常驻 | [x] 2026-05-20 |
+| **E-003** | Cursor | **D4-P0-4** — agent 四 mixin（同 commit） | tier0 绿 | [x] 2026-05-20 |
+| **M-002** | Mimir+刘哥 | **M2 飞书发图 + 识图** | `Image downloaded` + 能描述图 | [~] 下载 OK；识图 blocked 无 OPENROUTER |
+| **M-003** | Mimir+刘哥 | **M3 空表头表** | 列名 `—`；无 230099 | [~] 代码已合；待飞书复验 |
+| **M-005** | 刘哥 | **M5 OPENROUTER** | `~/.mimiraether/.env` 或 config vision | [ ] |
+| **M-007** | Mimir | **M7 Gateway 十条** | `GATEWAY_STABILITY_BACKLOG.md` 逐条标状态 | [x] 2026-05-20 状态列已更新 |
+| **E-004** | Cursor | **D7-0a** `CLI_CONFIG` 默认值 | clarify/approval 不 ImportError | [ ] |
+| **E-005** | Cursor | **D7-0b + D7-1** chat 解耦 + 单入口文档 | `cmd_chat` 不 `import cli.main` | [ ] |
+| **E-006** | Cursor | **D6-0a–0d** 可观测 Day-1 | insights SQL + monitor 阈值 + health 接线 | [ ] |
+| **E-007** | Cursor | **D5-0 / 0b** 进化安全基线 | recorder 隔离 + skill 路径白名单 | [ ] |
+| **E-008** | Cursor | **D7-2 / D7-3** 删旧 cli + CLI 冒烟测 | grep 无悬挂引用 + 少量 pytest | [ ] |
+| **E-009** | Cursor | **D5-2** 单通路 FIX 真写 SKILL | 一条 e2e + tier0 | [ ] |
+| **M-008** | 刘哥 | **M8 push** | 授权后 `git push origin main` | [ ] |
+
+**E-001 结案（2026-05-20）**  
+- **根因**：`gateway/health_mixin.py` 拆分时 `should_exit_cleanly` 未成 `@property`，`start_gateway()` 里 `if runner.should_exit_cleanly:` 恒真 → 跳过 `wait_for_shutdown()`，约 2–3s exit 0（非 aiohttp 主因）。  
+- **修复**：`health_mixin` 补 `@property`；`session_mixin` 补 `display_hermes_home` 导入。  
+- **验证**：tier0 PASS；PID **155486** 常驻；日志 Cron ticker + Lark wss；硬重启后无即退。`Unclosed client session` 为即退连带，稳定后不再现。
+
+**并行允许**：E-004（D7-0a）单独 PR；**禁止** mixin commit + D6 + 删 `cli.py` 同 PR。
+
+**下一条（默认）**：**E-004** `CLI_CONFIG`（单独 PR）；**Mimir** 跑 `MIMIR_D17` T-01～T-11（post-commit 回归）。
+
+---
+
+## 3. gstack 审计阶段总览（d1–d7）
+
+| 阶段 | 范围 | 报告分 | 债务类型 | Mimir 历史 | 工程状态 |
+|------|------|--------|----------|------------|----------|
+| **d1** | 飞书适配器 | ~6/10 | 通道/token | ✅ 验证+ISSUES；P2-1/1b 已合 | P0 在 `341c1fd`/`2b414d3` |
+| **d2** | 上下文/C1/压缩 | ~6/10 | 上下文链 | ✅ 压缩链 cd6b71d；孤儿 tool PR#4 | Agent P0 `2b414d3` |
+| **d3** | Gateway 框架 | ~5–6/10 | GOD class | ✅ 十条多项验证 | P0 ✅；SPLIT 常驻已绿，**待 commit E-002** |
+| **d4** | Agent 核心循环 | 6/10 | 质量债 | 仅冒烟 M4；**不写代码** | P0-0~3 ✅ `1bb652b`；**P0-4 [~]** |
+| **d5** | 自修/进化 | 4.5/10 | 空壳债 | 只读 | 未启动 |
+| **d6** | 可观测性 | 5.5/10 | 集成债 | 只读 | 未启动 |
+| **d7** | CLI 双轨 | 4/10 | 双轨债 | 只读 | 未启动；**d7 窗进行中** |
+
+---
+
+## 4. Mimir 可执行（轨道 A — 与统一队列 M-* 对齐）
+
+> 计划：`docs/plans/2026-05-19_stability_sprint.md` · 十条：`docs/GATEWAY_STABILITY_BACKLOG.md`
+
+| # | 统一 ID | 任务 | 状态（2026-05-20） |
+|---|---------|------|-------------------|
+| M1 | — | 重启 gateway | [~] 续跑窗 **160123** 常驻已验；Mimir 跑 **T-01** 签字后改 [x] |
+| M2 | M-002 | 飞书发图+识图 | [~] |
+| M3 | M-003 | 空表头表 | [~] |
+| M4 | — | 触发 tool | [x] |
+| M5 | M-005 | OPENROUTER | [ ] |
+| M6 | — | ISSUES #1/#2 | [x] |
+| M7 | M-007 | Gateway 十条文档 | [x] |
+| M8 | M-008 | push | [ ] |
+
+### Mimir 回报模板
 
 ```text
 Mimir 冒烟回报
@@ -53,65 +99,197 @@ Mimir 冒烟回报
 
 ---
 
-## 外部检测（刘哥实施 / Mimir 更新状态）
+## 5. 外部检测（刘哥跑脚本 · Mimir 更新状态）
 
-> 按 MimirAether 四大架构模块拆分。检测脚本统一放 `scripts/detection/`。
-> 刘哥每完成一个模块告诉我，我更新状态 + 验证。
+| 模块 | 检测项 | 状态 |
+|------|--------|------|
+| A Gateway | 进程/WS/Token | [~] WIP 常驻已修（155486）；待 Mimir 硬重启复验 |
+| B 飞书 | 心跳/收图/卡片/tool | ✅ 23:00 后多次 send success |
+| C Agent | 崩溃/孤儿/错误率 | ✅ |
+| D 数据 | persistent/日志/胶囊 | ✅（index 已补 P4-1） |
 
-| # | 模块 | 检测范围 | 包含 | 状态 |
-|---|------|---------|------|------|
-| A | **Gateway 运行时** | 进程 + 连接 + 凭证 | D1进程存活 / D2 WebSocket / D3 Token刷新 | ⚠️ (已知_trefresher断档) |
-| B | **飞书通道** | 消息收发 + 端到端 | D4心跳ping / 收图 / 卡片渲染 / tool触发 | ✅ 23:00后连续6次send success |
-| C | **Agent 引擎** | 推理 + 工具 + 错误 | 崩溃检测 / tool孤儿 / 错误率 / 响应延迟 | ✅ 零孤儿tool, 零崩溃, 6/6通过 |
-| D | **数据与存储** | 持久化 + 日志 + 胶囊 | persistent.json完整性 / 日志轮转 / 胶囊可读 / 磁盘 | ✅ 5/6通过, index.html缺失 |
-
-### 依赖关系
-
-```
-A(Gateway运行时) → B(飞书通道) → C(Agent引擎)
-                                  ↓
-                               D(数据存储)
-```
-
-- **A 失败**（进程挂了/WS僵死/Token过期）→ 必须重启Gateway（二次重启规则）
-- **B 失败**（心跳不通/收图失败/卡片回退）→ 检查代码版本 + 飞书API状态
-- **C 失败**（崩溃/孤儿tool/错误飙升）→ 收agent.log栈 + 根因修复
-- **D 失败**（数据损坏/日志爆盘）→ 修复脚本或清理
-
-### 每模块检测要点
-
-**A — Gateway 运行时**
-- `pgrep -f gateway/run.py` 有 PID
-- 日志 `Long connection task started` 无紧随 `closed`
-- 最后 token 刷新 < 2h 前，无 400/401
-
-**B — 飞书通道**
-- 端到端 ping：发消息 → `send success` 在 5s 内
-- 收图链路：发图 → `Image downloaded` 含字节数
-- 卡片渲染：发空表头表格 → 无 `230099`/`200907`
-
-**C — Agent 引擎**
-- agent.log 最近5分钟无 Traceback/Crash
-- gateway.log 无 `tool must be a response`
-- ERROR 增量 < 3/5min
-
-**D — 数据与存储**
-- `data/persistent.json` JSON 可解析
-- `logs/` 目录大小 < 500MB
-- `memory/capsules/` 文件数 ≥ 100
+脚本目录：`scripts/detection/`（待建则记 ISSUES）
 
 ---
 
-## 需工程 / Cursor（勿交给 Mimir 改架构）
+## 6. 工程明细（Cursor — 按审计阶段）
+
+### d1 — 飞书 · [x] P0 合 main
+
+- 报告：`d1-audit-report.html`
+- 代码：`341c1fd`、`2b414d3`、P2-1 / P2-1b（`43cbd3a` 等）
+
+### d2 — 上下文 · [x] P0 合 main
+
+- 报告：`d2-audit-report.html`
+- 代码：Context 压缩 `cd6b71d`；孤儿 tool PR#4；`2b414d3`
+
+### d3 — Gateway
+
+- 报告：`d3-audit-report.html`
+- P0 Sprint1–2：**[x]**（`393214e` 等）
+- **D3-SPLIT**：E-001 ✅；**E-002** ✅ committed
+
+### d4 — Agent 核心循环
+
+- 报告：`d4-audit-report.html`
+- P0-0~3：**[x]** `1bb652b`
+- **P0-4 mixin**：**[x]** → **E-003** committed
+- P1/P2：见 wiki，未排进统一队列（按需单独立项）
+
+### d5 — 自修/进化 · 未启动
+
+| ID | 任务 | 状态 |
+|----|------|------|
+| D5-0 | Recorder 按 session 隔离 | [ ] → E-007 |
+| D5-0b | skill 路径白名单 | [ ] → E-007 |
+| D5-1 | `simulated: true` | [ ] |
+| D5-2 | 单通路 FIX 写 SKILL | [ ] → E-009 |
+| D5-3 | 测试 | [ ] |
+| D5-ADR | 双架构决策（仅 ADR） | [ ] |
+
+### d6 — 可观测性 · 未启动
+
+| ID | 任务 | 状态 |
+|----|------|------|
+| D6-0a | insights SQL `TOOL_CALL` | [ ] → E-006 |
+| D6-0b | monitor 阈值 + status | [ ] → E-006 |
+| D6-0c | health.register | [ ] → E-006 |
+| D6-0d | RateLimitTracker Lock | [ ] → E-006 |
+| D6-1 | trajectory/recorder SoT ADR | [ ] |
+| D6-2 | ObservabilityBus（可选） | [ ] |
+| D6-3 | 测试 | [ ] |
+
+### d7 — CLI 双轨 · d7 窗进行中
+
+| ID | 任务 | 状态 |
+|----|------|------|
+| D7-0a | `CLI_CONFIG` | [ ] → E-004 |
+| D7-0b | chat 解耦 | [ ] → E-005 |
+| D7-1 | 单入口文档 | [ ] → E-005 |
+| D7-2 | 删 cli.py 等 | [ ] → E-008 |
+| D7-3 | gateway/config/chat 测试 | [ ] → E-008 |
+
+**核实摘要**：`CLI_CONFIG` ImportError 已复现；`cmd_chat`→`cli.main`（~763 行）；mimir_cli 零 pytest — **可信**。
+
+---
+
+## 7. 主线历史待办（#1–#8，已基本收口）
+
+1. [x] memory 工具冒烟 — 2026-05-17  
+2. [x] persistent.json 截断 — Session 73 + skill_curator 防护  
+3. [x] 胶囊迁移 120 .md→.html — 2026-05-19  
+4. [x] Context 压缩链 — cd6b71d  
+5. [x] P2-1 飞书收图 token — 2026-05-19  
+6. [x] P2-2 空表头 `—` — PR#5  
+7. [x] P3-0 persistent ADR — `docs/adr/001-persistent-single-writer.md`  
+8. [x] P4-1 memory index + wiki symlink — 2026-05-20  
+
+---
+
+## 8. 工程 backlog（非 d 序号 · 勿交给 Mimir）
 
 | 项 | 说明 |
 |----|------|
-| WebSocket 推理阻塞心跳 | gstack P0#2 |
-| ~~监控与告警~~ | → 迁移至「外部检测」上方 |
-| 自修回滚护栏 | gstack P0#4 |
-| P3-0 / P4-1 | ADR + memory 三入口 |
-| Gateway #5/#10 等 | 见 GATEWAY_STABILITY_BACKLOG「工程」列 |
+| WebSocket 推理阻塞心跳 | gstack P0 |
+| 自修回滚护栏 | gstack P0 |
+| P3-0 单写者 **实现** | ADR 已有，代码未做 |
+| Gateway #1/#4/#5/#10 等 | `GATEWAY_STABILITY_BACKLOG.md` |
 
-## 已完成
+---
 
-1. [x] 修 list_capsules 路径 — 验证结论：无须修；代码路径正确，`memory/capsules/` HTML契约目录与 `mimicore/public/` 旧格式分离是设计意图。存量 .md 需迁移。
+## 9. 续跑提示词（复制到新 Cursor / Mimir 窗）
+
+> 真源：`docs/MIMIR_EXEC_BACKLOG.md` §2。本段随队列更新；**2026-05-20** 已含 E-001 结案。
+
+```markdown
+# MimirAether 续跑 — 统一 backlog
+
+工作区：`/home/rayliu/src/MimirAether`  
+运行时：`MIMIR_AETHER_HOME=~/.mimiraether`  
+必读：`docs/MIMIR_EXEC_BACKLOG.md` §1–§2  
+
+合并/宣称完成前：`./run_ralph_tier0.sh` 绿。勿提交 `data/persistent.json`。无刘哥授权勿 `git push`。
+
+---
+
+## 已完成（勿重做）
+
+| 项 | 说明 |
+|----|------|
+| d1–d3 验证 | Mimir 已做大部分冒烟/ISSUES；代码在 main（`341c1fd`…`393214e`、P2 PR） |
+| E-001 | Gateway 启动即退已修：`health_mixin.should_exit_cleanly` 补 `@property`（非 aiohttp）；tier0 PASS；WIP 上 PID 常驻 |
+| ToolRegistry | `agent/__init__.py` ← `exec_mixin` |
+| 轨道 A 部分 | M4/M6 [x]；M2/M3/M5/M7/M8 仍欠 |
+
+---
+
+## 当前队列头（按 §2 第一条 `[ ]` / `[~]`）
+
+1. **E-002**（Cursor）— D3-SPLIT 小 commit：gateway 6 mixin + `home_paths.py` + E-001 修复 + agent mixin（刘哥说一声再 commit）  
+2. **E-003** — D4 agent 四 mixin（可同 commit 或下一 commit）  
+3. **M-002 / M-003 / M-005**（Mimir+刘哥）— 飞书发图/空表/OPENROUTER  
+4. **M-007** — 更新 `GATEWAY_STABILITY_BACKLOG.md` 十条  
+5. **E-004～E-009** — d7→d6→d5（分 PR）  
+6. **M-008** — push（授权后）
+
+---
+
+## Mimir 专用（只做这些）
+
+**一键入口**：`docs/MIMIR_D17_AUDIT_AND_TASKS.md` §5（含 T-01～T-11 方案与分任务提示词）
+
+| ID | 任务 | 训练包 |
+|----|------|--------|
+| M1 | 硬重启 + pgrep | **T-01** |
+| M-002 | 飞书发图+识图 | **T-02** + **T-05** |
+| M-003 | 空表头表 | **T-03** |
+| M-005 | OPENROUTER 有/无 | **T-05** |
+| — | 工具/孤儿 tool | **T-04** |
+| — | API 清单 / reaction / agent 栈 | **T-06** **T-07** **T-08** |
+| — | d5/d6/d7 只读/复现 | **T-09** **T-10** **T-11** |
+| M-007 | 十条文档 | [x]；T-06/07/08 可再细化状态 |
+| M-008 | 不 push | — |
+
+**禁止**：改 agent/gateway/cli 架构；删光 `role=tool`；填 d5 进化 19 存根；**代做 E-004+ 工程**。
+
+### Mimir 回报模板
+
+Mimir 冒烟回报
+- gateway PID / 启动时间:
+- M1 WIP 硬重启: 通过/失败
+- M2 发图:
+- M3 表头:
+- M5 OPENROUTER: 有/无
+- 未完成项:
+
+---
+
+## Cursor 工程专用
+
+- **默认下一刀**：E-002 小 commit（`gateway/health_mixin.py`、`session_mixin.py`、`home_paths.py`、gateway/agent mixins、`agent/__init__.py` ToolRegistry）  
+- **可并行另一 PR**：E-004 `CLI_CONFIG`（`mimir_cli/config.py`）  
+- **禁止同 PR**：E-002/003 + D6 Day-1 + 删 `cli.py`
+
+d7 窗若已做 E-004/E-005：回报后更新 §2 对应行。
+
+---
+
+## 冒烟命令
+
+cd ~/src/MimirAether
+./run_ralph_tier0.sh
+MIMIR_AETHER_HOME=~/.mimiraether ./scripts/restart_gateway_hard.sh
+pgrep -af 'gateway/run.py'
+grep -E 'feishu connected|Lark connected|Unclosed|Gateway stopped' ~/.mimiraether/logs/gateway.log | tail -15
+```
+
+---
+
+## 10. WIP 快照（2026-05-20 末）
+
+- **E-001/E-002/E-003** ✅ committed；tier0 PASS（162+2）  
+- **无 push**（M-008）  
+- **工程下一刀**：E-004 `CLI_CONFIG`  
+- **Mimir 训练包**：`docs/MIMIR_D17_AUDIT_AND_TASKS.md` **post-commit**（T-01～T-11）  
+- **Mimir 待办**：commit 后硬重启回归 + 飞书 M2/M3/M5
