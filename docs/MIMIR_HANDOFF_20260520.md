@@ -24,10 +24,10 @@
 
 ## 2. Mimir 下一刀（按 backlog 第一条 `[ ]`）
 
-1. **T-02** — 飞书发图 + 识图（M-002）；识图仍可能 blocked 无 `OPENROUTER_API_KEY`（M-005）  
-2. **T-03** — 空表头表飞书复验（M-003）  
-3. **T-05～T-11** — 见 `docs/MIMIR_D17_AUDIT_AND_TASKS.md` §2–§3  
-4. 每轮更新：`docs/MIMIR_EXEC_BACKLOG.md` §4、`docs/MIMIR_ISSUES.md`（若有 blocked）
+1. **§2b EV-M*** — 小颗粒离线进化（`docs/MIMIR_EXEC_BACKLOG.md` §2b）；**每次一颗粒**  
+2. **识图** — **搁置**（`EV-VISION-DEFER`）；刘哥 **DeepSeek-only**，不配 OpenRouter  
+3. **T-03 / T-06～T-12** — 映射到 EV-M02～EV-M12，见 §2b 表  
+4. 每轮更新：`docs/MIMIR_EXEC_BACKLOG.md` §4 + §2b 勾选；完结发 **EV-M13** 飞书离线包
 
 **一键提示词**：`docs/MIMIR_D17_AUDIT_AND_TASKS.md` **§5**（已更新 post-IR 基线）。
 
