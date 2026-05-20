@@ -45,7 +45,7 @@
 | **E-007** | Cursor | **D5-0 / 0b** 进化安全基线 | recorder 隔离 + skill 路径白名单 | [ ] |
 | **E-008** | Cursor | **D7-2 / D7-3** 删旧 cli + CLI 冒烟测 | grep 无悬挂引用 + 少量 pytest | [ ] |
 | **E-009** | Cursor | **D5-2** 单通路 FIX 真写 SKILL | 一条 e2e + tier0 | [ ] |
-| **M-008** | 刘哥 | **M8 push** | 授权后 `git push origin main` | [ ] |
+| **M-008** | 刘哥 | **M8 push** | 授权后 `git push origin main` | [x] 2026-05-20 → `599ecb3` |
 
 **E-001 结案（2026-05-20）**  
 - **根因**：`gateway/health_mixin.py` 拆分时 `should_exit_cleanly` 未成 `@property`，`start_gateway()` 里 `if runner.should_exit_cleanly:` 恒真 → 跳过 `wait_for_shutdown()`，约 2–3s exit 0（非 aiohttp 主因）。  
@@ -87,7 +87,7 @@
 | M5 | M-005 | OPENROUTER | [ ] |
 | M6 | — | ISSUES #1/#2 | [x] |
 | M7 | M-007 | Gateway 十条文档 | [x] |
-| M8 | M-008 | push | [ ] |
+| M8 | M-008 | push | [x] 2026-05-20 |
 
 ### Mimir 回报模板
 
@@ -272,7 +272,7 @@ grep -c 'Level 3 TRUNCATE' ~/.mimiraether/logs/agent.log
 
 - **E-001/E-002/E-003/E-IR** ✅ committed；tier0 **181+2 PASS**  
 - **TRUNCATE** 冻结 **19**  
-- **push**：M-008（刘哥授权；本地领先 origin ~10 commit）  
+- **push**：M-008 ✅ `origin/main` @ `599ecb3`  
 - **Mimir**：**T-02** 起；勿重做 T-01/工程  
 - **Cursor**：**E-004**  
 - **微信**：OpenClaw `mimir-handoff-weixin` skill；DM 已配对  
