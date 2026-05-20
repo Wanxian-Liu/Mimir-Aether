@@ -7,10 +7,15 @@ Extracted from MimirAetherAgent (agent/core_loop.py) as part of d4 split.
 from __future__ import annotations
 
 import asyncio
+import functools
 import json
 import time
-from agent.types import ToolResult, _get_tool_arguments, _get_tool_id, _get_tool_name
-from tools.registry import registry as _tool_registry_module
+
+from agent.async_bridge import get_tool_executor
+from agent.types import ToolError, ToolResult, _get_tool_arguments, _get_tool_id, _get_tool_name
+import tools.registry as _tool_registry_module
+
+_tool_executor = get_tool_executor()
 
 from typing import List, Dict, Optional, Any, TYPE_CHECKING
 
