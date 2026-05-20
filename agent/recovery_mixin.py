@@ -9,6 +9,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+from . import decision_ring, recovery
+from .recovery import RecoveryContext, RecoveryLevel
+
 from .types import Message, MessageRole
 
 if TYPE_CHECKING:
@@ -54,6 +57,18 @@ class RecoveryMixin:
         from .strategy_matcher import StrategyAction
         
         _err_str = str(error)
+
+        # IR-20260520: code/import bugs must not truncate in-memory history (NameError spiral).
+        if isinstance(
+            error,
+            (NameError, ImportError, AttributeError, ModuleNotFoundError),
+        ):
+            logger.error(
+                "[Recovery] Skipping TRUNCATE/COMPRESS for code error: %s: %s",
+                type(error).__name__,
+                _err_str[:200],
+            )
+            return False
         
         # P0-2c: DecisionRing 结构化分类替代 ad-hoc 字符串匹配
         _provider = self.model.split("/")[0] if "/" in self.model else ""
@@ -79,11 +94,18 @@ class RecoveryMixin:
             self._clean_orphan_tools()
             recovered = True
         
-        # Level 3: TRUNCATE — 通用截断（降级）
+        # Level 3: TRUNCATE — 仅上下文类错误；勿因 not recovered 单独截断（曾放大 NameError 事故）
         _needs_truncate = (
-            not recovered
-            or StrategyAction.TRUNCATE_CONTEXT in _actions
+            StrategyAction.TRUNCATE_CONTEXT in _actions
             or StrategyAction.REDUCE_PAYLOAD in _actions
+            or (
+                not recovered
+                and _reason
+                in (
+                    FailoverReason.context_overflow,
+                    FailoverReason.payload_too_large,
+                )
+            )
         )
         if _needs_truncate:
             logger.info("[Recovery] Level 3 TRUNCATE (DecisionRing: %s): %s",

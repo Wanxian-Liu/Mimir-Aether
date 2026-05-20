@@ -5,6 +5,11 @@ Extracted from GatewayRunner (gateway/run.py) as part of d3 GOD class split.
 """
 
 from __future__ import annotations
+from gateway.restart import (
+    GATEWAY_SERVICE_RESTART_EXIT_CODE,
+    _AGENT_PENDING_SENTINEL,
+    parse_restart_drain_timeout,
+)
 
 import asyncio
 import json
@@ -21,7 +26,6 @@ from gateway.home_paths import _hermes_home
 from mimir_constants import display_hermes_home
 from gateway.platforms.base import MessageEvent, Platform
 from gateway.session import SessionSource
-from gateway.restart import parse_restart_drain_timeout
 
 if TYPE_CHECKING:
     from gateway.run import GatewayRunner
@@ -47,6 +51,8 @@ class SessionMixin:
             except Exception:
                 pass
         config = getattr(self, "config", None)
+        from gateway._shared import build_session_key
+
         return build_session_key(
             source,
             group_sessions_per_user=getattr(config, "group_sessions_per_user", True),
@@ -72,6 +78,8 @@ class SessionMixin:
                 resolved_session_key = self._session_key_for_source(source)
             except Exception:
                 resolved_session_key = None
+
+        from gateway._shared import _resolve_gateway_model
 
         model = _resolve_gateway_model(user_config)
         override = self._session_model_overrides.get(resolved_session_key) if resolved_session_key else None
@@ -103,6 +111,7 @@ class SessionMixin:
                 list(self._session_model_overrides.keys())[:5] if self._session_model_overrides else "[]",
             )
 
+        from gateway._shared import _resolve_runtime_agent_kwargs
         runtime_kwargs = _resolve_runtime_agent_kwargs()
         if override and resolved_session_key:
             model, runtime_kwargs = self._apply_session_model_override(
@@ -417,6 +426,8 @@ class SessionMixin:
         adapter = self.adapters.get(event.source.platform)
         if not adapter:
             return
+        from gateway._shared import merge_pending_message_event
+
         merge_pending_message_event(adapter._pending_messages, session_key, event)
 
     async def _handle_active_session_busy_message(self, event: MessageEvent, session_key: str) -> bool:
@@ -510,6 +521,8 @@ class SessionMixin:
     async def _launch_detached_restart_command(self) -> None:
         import shutil
         import subprocess
+
+        from gateway._shared import _resolve_hermes_bin
 
         hermes_cmd = _resolve_hermes_bin()
         if not hermes_cmd:

@@ -5,8 +5,11 @@ Extracted from GatewayRunner (gateway/run.py) as part of d3 GOD class split.
 """
 
 from __future__ import annotations
+from gateway.restart import _AGENT_PENDING_SENTINEL
+from gateway.session import build_session_context, build_session_context_prompt
 
 import asyncio
+from datetime import datetime
 import json
 import logging
 import os
@@ -16,7 +19,8 @@ import tempfile
 import uuid as _uuid
 from typing import Dict, Any, Optional, TYPE_CHECKING
 
-from gateway.home_paths import _hermes_home
+from gateway.config import Platform
+from gateway.home_paths import _hermes_home, get_hermes_home
 from gateway.platforms.base import MessageEvent, MessageType
 
 if TYPE_CHECKING:
@@ -76,7 +80,7 @@ class CronMixin:
         _thread_metadata = {"thread_id": source.thread_id} if source.thread_id else None
 
         try:
-            user_config = _load_gateway_config()
+            from gateway.run import _load_gateway_config, _platform_config_key; user_config = _load_gateway_config()
             model, runtime_kwargs = self._resolve_session_agent_runtime(
                 source=source,
                 user_config=user_config,
@@ -248,7 +252,7 @@ class CronMixin:
         _thread_meta = {"thread_id": source.thread_id} if source.thread_id else None
 
         try:
-            user_config = _load_gateway_config()
+            from gateway.run import _load_gateway_config, _platform_config_key; user_config = _load_gateway_config()
             model, runtime_kwargs = self._resolve_session_agent_runtime(
                 source=source,
                 session_key=session_key,

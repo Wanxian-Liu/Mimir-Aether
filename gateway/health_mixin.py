@@ -57,6 +57,8 @@ class HealthMixin:
             except Exception:
                 pass
         config = getattr(self, "config", None)
+        from gateway._shared import build_session_key
+
         return build_session_key(
             source,
             group_sessions_per_user=getattr(config, "group_sessions_per_user", True),
@@ -82,6 +84,8 @@ class HealthMixin:
                 resolved_session_key = self._session_key_for_source(source)
             except Exception:
                 resolved_session_key = None
+
+        from gateway._shared import _resolve_gateway_model
 
         model = _resolve_gateway_model(user_config)
         override = self._session_model_overrides.get(resolved_session_key) if resolved_session_key else None
@@ -112,6 +116,8 @@ class HealthMixin:
                 (resolved_session_key or "")[:30], model,
                 list(self._session_model_overrides.keys())[:5] if self._session_model_overrides else "[]",
             )
+
+        from gateway._shared import _resolve_runtime_agent_kwargs
 
         runtime_kwargs = _resolve_runtime_agent_kwargs()
         if override and resolved_session_key:

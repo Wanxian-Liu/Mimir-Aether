@@ -7,10 +7,16 @@ Extracted from MimirAetherAgent (agent/core_loop.py) as part of d4 split.
 from __future__ import annotations
 
 import asyncio
+import copy
 import json
 import time
 
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+import tools.registry as _tool_registry_module
+
+from . import anthropic_adapter, insights, llm_port, model_metadata, tool_port
+from .insights import MetricType
 
 from .types import MessageRole
 

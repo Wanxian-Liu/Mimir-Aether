@@ -27,7 +27,7 @@ from gateway.platforms.base import MessageType, ImageAttachment, DocumentAttachm
 class CommandHandlerMixin:
     """Mixin providing all slash-command handler methods."""
 
-        async def _handle_reset_command(self, event: MessageEvent) -> str:
+    async def _handle_reset_command(self, event: MessageEvent) -> str:
         """Handle /new or /reset command."""
         source = event.source
         
@@ -137,7 +137,7 @@ class CommandHandlerMixin:
             return f"{header}\n\n{session_info}{_tip_line}"
         return f"{header}{_tip_line}"
 
-        async def _handle_profile_command(self, event: MessageEvent) -> str:
+    async def _handle_profile_command(self, event: MessageEvent) -> str:
         """Handle /profile — show active profile name and home directory."""
         import os
         from pathlib import Path
@@ -177,7 +177,7 @@ class CommandHandlerMixin:
 
         return "\n".join(lines)
 
-        async def _handle_status_command(self, event: MessageEvent) -> str:
+    async def _handle_status_command(self, event: MessageEvent) -> str:
         """Handle /status command."""
         source = event.source
         session_entry = self.session_store.get_or_create_session(source)
@@ -213,7 +213,7 @@ class CommandHandlerMixin:
 
         return "\n".join(lines)
 
-        async def _handle_stop_command(self, event: MessageEvent) -> str:
+    async def _handle_stop_command(self, event: MessageEvent) -> str:
         """Handle /stop command - interrupt a running agent.
 
         When an agent is truly hung (blocked thread that never checks
@@ -245,7 +245,7 @@ class CommandHandlerMixin:
         else:
             return "No active task to stop."
 
-        async def _handle_restart_command(self, event: MessageEvent) -> str:
+    async def _handle_restart_command(self, event: MessageEvent) -> str:
         """Handle /restart command - drain active work, then restart the gateway."""
         if self._restart_requested or self._draining:
             count = self._running_agent_count()
@@ -284,7 +284,7 @@ class CommandHandlerMixin:
             return f"⏳ Draining {active_agents} active agent(s) before restart..."
         return "♻ Restarting gateway. If you aren't notified within 60 seconds, restart from the console with `hermes gateway restart`."
 
-        async def _handle_help_command(self, event: MessageEvent) -> str:
+    async def _handle_help_command(self, event: MessageEvent) -> str:
         """Handle /help command - list available commands."""
         from mimir_cli.commands import gateway_help_lines
         lines = [
@@ -306,7 +306,7 @@ class CommandHandlerMixin:
             pass
         return "\n".join(lines)
 
-        async def _handle_commands_command(self, event: MessageEvent) -> str:
+    async def _handle_commands_command(self, event: MessageEvent) -> str:
         """Handle /commands [page] - paginated list of all commands and skills."""
         from mimir_cli.commands import gateway_help_lines
 
@@ -359,7 +359,7 @@ class CommandHandlerMixin:
             lines.append(f"_(Requested page {requested_page} was out of range, showing page {page}.)_")
         return "\n".join(lines)
 
-        async def _handle_model_command(self, event: MessageEvent) -> Optional[str]:
+    async def _handle_model_command(self, event: MessageEvent) -> Optional[str]:
         """Handle /model command — switch model for this session.
 
         Supports:
@@ -686,7 +686,7 @@ class CommandHandlerMixin:
 
         return "\n".join(lines)
 
-        async def _handle_provider_command(self, event: MessageEvent) -> str:
+    async def _handle_provider_command(self, event: MessageEvent) -> str:
         """Handle /provider command - show available providers."""
         import yaml
         from mimir_cli.models import (
@@ -743,7 +743,7 @@ class CommandHandlerMixin:
         lines.append("Setup: `hermes setup`")
         return "\n".join(lines)
 
-        async def _handle_personality_command(self, event: MessageEvent) -> str:
+    async def _handle_personality_command(self, event: MessageEvent) -> str:
         """Handle /personality command - list or set a personality."""
         import yaml
 
@@ -819,7 +819,7 @@ class CommandHandlerMixin:
         available = "`none`, " + ", ".join(f"`{n}`" for n in personalities)
         return f"Unknown personality: `{args}`\n\nAvailable: {available}"
 
-        async def _handle_retry_command(self, event: MessageEvent) -> str:
+    async def _handle_retry_command(self, event: MessageEvent) -> str:
         """Handle /retry command - re-send the last user message."""
         source = event.source
         session_entry = self.session_store.get_or_create_session(source)
@@ -854,7 +854,7 @@ class CommandHandlerMixin:
         # Let the normal message handler process it
         return await self._handle_message(retry_event)
 
-        async def _handle_undo_command(self, event: MessageEvent) -> str:
+    async def _handle_undo_command(self, event: MessageEvent) -> str:
         """Handle /undo command - remove the last user/assistant exchange."""
         source = event.source
         session_entry = self.session_store.get_or_create_session(source)
@@ -879,7 +879,7 @@ class CommandHandlerMixin:
         preview = removed_msg[:40] + "..." if len(removed_msg) > 40 else removed_msg
         return f"↩️ Undid {removed_count} message(s).\nRemoved: \"{preview}\""
 
-        async def _handle_set_home_command(self, event: MessageEvent) -> str:
+    async def _handle_set_home_command(self, event: MessageEvent) -> str:
         """Handle /sethome command -- set the current chat as the platform's home channel."""
         source = event.source
         platform_name = source.platform.value if source.platform else "unknown"
@@ -908,7 +908,7 @@ class CommandHandlerMixin:
             f"Cron jobs and cross-platform messages will be delivered here."
         )
 
-        async def _handle_voice_command(self, event: MessageEvent) -> str:
+    async def _handle_voice_command(self, event: MessageEvent) -> str:
         """Handle /voice [on|off|tts|channel|leave|status] command."""
         args = event.get_command_args().strip().lower()
         chat_id = event.source.chat_id
@@ -983,7 +983,7 @@ class CommandHandlerMixin:
                     self._set_adapter_auto_tts_disabled(adapter, chat_id, disabled=True)
                 return "Voice mode disabled."
 
-        async def _handle_rollback_command(self, event: MessageEvent) -> str:
+    async def _handle_rollback_command(self, event: MessageEvent) -> str:
         """Handle /rollback command — list or restore filesystem checkpoints."""
         from tools.checkpoint_manager import CheckpointManager, format_checkpoint_list
 
@@ -1042,7 +1042,7 @@ class CommandHandlerMixin:
             )
         return f"❌ {result['error']}"
 
-        async def _handle_background_command(self, event: MessageEvent) -> str:
+    async def _handle_background_command(self, event: MessageEvent) -> str:
         """Handle /background <prompt> — run a prompt in a separate background session.
 
         Spawns a new AIAgent in a background thread with its own session.
@@ -1071,7 +1071,7 @@ class CommandHandlerMixin:
         preview = prompt[:60] + ("..." if len(prompt) > 60 else "")
         return f'🔄 Background task started: "{preview}"\nTask ID: {task_id}\nYou can keep chatting — results will appear when done.'
 
-        async def _handle_btw_command(self, event: MessageEvent) -> str:
+    async def _handle_btw_command(self, event: MessageEvent) -> str:
         """Handle /btw <question> — ephemeral side question in the same chat."""
         question = event.get_command_args().strip()
         if not question:
@@ -1108,7 +1108,7 @@ class CommandHandlerMixin:
         preview = question[:60] + ("..." if len(question) > 60 else "")
         return f'💬 /btw: "{preview}"\nReply will appear here shortly.'
 
-        async def _handle_reasoning_command(self, event: MessageEvent) -> str:
+    async def _handle_reasoning_command(self, event: MessageEvent) -> str:
         """Handle /reasoning command — manage reasoning effort and display toggle.
 
         Usage:
@@ -1195,7 +1195,7 @@ class CommandHandlerMixin:
         else:
             return f"🧠 ✓ Reasoning effort set to `{effort}` (this session only)"
 
-        async def _handle_fast_command(self, event: MessageEvent) -> str:
+    async def _handle_fast_command(self, event: MessageEvent) -> str:
         """Handle /fast — mirror the CLI Priority Processing toggle in gateway chats."""
         import yaml
         from mimir_cli.models import model_supports_fast_mode
@@ -1255,7 +1255,7 @@ class CommandHandlerMixin:
             return f"⚡ ✓ Priority Processing: **{label}** (saved to config)\n_(takes effect on next message)_"
         return f"⚡ ✓ Priority Processing: **{label}** (this session only)"
 
-        async def _handle_yolo_command(self, event: MessageEvent) -> str:
+    async def _handle_yolo_command(self, event: MessageEvent) -> str:
         """Handle /yolo — toggle dangerous command approval bypass for this session only."""
         from tools.approval import (
             disable_session_yolo,
@@ -1272,7 +1272,7 @@ class CommandHandlerMixin:
             enable_session_yolo(session_key)
             return "⚡ YOLO mode **ON** for this session — all commands auto-approved. Use with caution."
 
-        async def _handle_verbose_command(self, event: MessageEvent) -> str:
+    async def _handle_verbose_command(self, event: MessageEvent) -> str:
         """Handle /verbose command — cycle tool progress display mode.
 
         Gated by ``display.tool_progress_command`` in config.yaml (default off).
@@ -1339,7 +1339,7 @@ class CommandHandlerMixin:
             logger.warning("Failed to save tool_progress mode: %s", e)
             return f"{descriptions[new_mode]}\n_(could not save to config: {e})_"
 
-        async def _handle_compress_command(self, event: MessageEvent) -> str:
+    async def _handle_compress_command(self, event: MessageEvent) -> str:
         """Handle /compress command -- manually compress conversation context.
 
         Accepts an optional focus topic: ``/compress <focus>`` guides the
@@ -1432,7 +1432,7 @@ class CommandHandlerMixin:
             logger.warning("Manual compress failed: %s", e)
             return f"Compression failed: {e}"
 
-        async def _handle_title_command(self, event: MessageEvent) -> str:
+    async def _handle_title_command(self, event: MessageEvent) -> str:
         """Handle /title command — set or show the current session's title."""
         source = event.source
         session_entry = self.session_store.get_or_create_session(source)
@@ -1480,7 +1480,7 @@ class CommandHandlerMixin:
             else:
                 return f"📌 Session: `{session_id}`\nNo title set. Usage: `/title My Session Name`"
 
-        async def _handle_resume_command(self, event: MessageEvent) -> str:
+    async def _handle_resume_command(self, event: MessageEvent) -> str:
         """Handle /resume command — switch to a previously-named session."""
         if not self._session_db:
             return "Session database not available."
@@ -1557,7 +1557,7 @@ class CommandHandlerMixin:
 
         return f"↻ Resumed session **{title}**{msg_part}. Conversation restored."
 
-        async def _handle_branch_command(self, event: MessageEvent) -> str:
+    async def _handle_branch_command(self, event: MessageEvent) -> str:
         """Handle /branch [name] — fork the current session into a new independent copy.
 
         Copies conversation history to a new session so the user can explore
@@ -1647,7 +1647,7 @@ class CommandHandlerMixin:
             f"Use `/resume` to switch back to the original."
         )
 
-        async def _handle_usage_command(self, event: MessageEvent) -> str:
+    async def _handle_usage_command(self, event: MessageEvent) -> str:
         """Handle /usage command -- show token usage for the current session.
 
         Checks both _running_agents (mid-turn) and _agent_cache (between turns)
@@ -1742,7 +1742,7 @@ class CommandHandlerMixin:
             )
         return "No usage data available for this session."
 
-        async def _handle_insights_command(self, event: MessageEvent) -> str:
+    async def _handle_insights_command(self, event: MessageEvent) -> str:
         """Handle /insights command -- show usage insights and analytics."""
         import asyncio as _asyncio
 
@@ -1796,7 +1796,7 @@ class CommandHandlerMixin:
             logger.error("Insights command error: %s", e, exc_info=True)
             return f"Error generating insights: {e}"
 
-        async def _handle_reload_mcp_command(self, event: MessageEvent) -> str:
+    async def _handle_reload_mcp_command(self, event: MessageEvent) -> str:
         """Handle /reload-mcp command -- disconnect and reconnect all MCP servers."""
         loop = asyncio.get_event_loop()
         try:
@@ -1863,7 +1863,7 @@ class CommandHandlerMixin:
             logger.warning("MCP reload failed: %s", e)
             return f"❌ MCP reload failed: {e}"
 
-        async def _handle_approve_command(self, event: MessageEvent) -> Optional[str]:
+    async def _handle_approve_command(self, event: MessageEvent) -> Optional[str]:
         """Handle /approve command — unblock waiting agent thread(s).
 
         The agent thread(s) are blocked inside tools/approval.py waiting for
@@ -1924,7 +1924,7 @@ class CommandHandlerMixin:
         logger.info("User approved %d dangerous command(s) via /approve%s", count, scope_msg)
         return f"✅ Command{'s' if count > 1 else ''} approved{scope_msg}{count_msg}. The agent is resuming..."
 
-        async def _handle_deny_command(self, event: MessageEvent) -> str:
+    async def _handle_deny_command(self, event: MessageEvent) -> str:
         """Handle /deny command — reject pending dangerous command(s).
 
         Signals blocked agent thread(s) with a 'deny' result so they receive
@@ -1961,7 +1961,7 @@ class CommandHandlerMixin:
         logger.info("User denied %d dangerous command(s) via /deny", count)
         return f"❌ Command{'s' if count > 1 else ''} denied{count_msg}."
 
-        async def _handle_debug_command(self, event: MessageEvent) -> str:
+    async def _handle_debug_command(self, event: MessageEvent) -> str:
         """Handle /debug — upload debug report + logs and return paste URLs."""
         import asyncio
         from mimir_cli.debug import (
@@ -2016,7 +2016,7 @@ class CommandHandlerMixin:
 
         return await loop.run_in_executor(None, _collect_and_upload)
 
-        async def _handle_update_command(self, event: MessageEvent) -> str:
+    async def _handle_update_command(self, event: MessageEvent) -> str:
         """Handle /update command — update Hermes Agent to the latest version.
 
         Spawns ``hermes update`` in a detached session (via ``setsid``) so it

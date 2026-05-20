@@ -476,7 +476,7 @@ class ExecMixin:
                 is_error=False
             )
         except Exception as e:
-            logger.error(f"Tool execution failed: {tool_call['name']}, error: {e}")
+            logger.error("Tool execution failed: %s, error: %s", func_name or "unknown", e)
             # Hermes风格:收集ToolError
             self._tool_errors.append(ToolError(
                 turn=turn,

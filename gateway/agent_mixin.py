@@ -18,11 +18,17 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, Any, List, Tuple, TYPE_CHECKING
 
+from gateway.home_paths import _hermes_home
 from gateway.platforms.base import MessageEvent, Platform
 from gateway.session import SessionSource, SessionContext
+from utils import is_truthy_value
+from dotenv import load_dotenv
+
+_env_path = _hermes_home / ".env"
 
 if TYPE_CHECKING:
     from gateway.run import GatewayRunner
+from gateway._shared import _build_media_placeholder, _dequeue_pending_event
 
 logger = logging.getLogger(__name__)
 
@@ -487,7 +493,8 @@ class AgentMixin:
         """
         from run_agent import AIAgent
         import queue
-        
+        from gateway.run import _load_gateway_config, _platform_config_key, _resolve_gateway_model
+
         user_config = _load_gateway_config()
         platform_key = _platform_config_key(source.platform)
 
@@ -839,6 +846,8 @@ class AgentMixin:
                     model, runtime_kwargs.get("provider"), (session_key or "")[:30],
                 )
             except Exception as exc:
+                import traceback
+                logger.exception("Provider auth exn traceback")
                 return {
                     "final_response": f"⚠️ Provider authentication failed: {exc}",
                     "messages": [],
