@@ -27,7 +27,8 @@
 1. **§2b EV-M*** — 小颗粒离线进化（`docs/MIMIR_EXEC_BACKLOG.md` §2b）；**每次一颗粒**  
 2. **识图** — **搁置**（`EV-VISION-DEFER`）；刘哥 **DeepSeek-only**，不配 OpenRouter  
 3. **T-03 / T-06～T-12** — 映射到 EV-M02～EV-M12，见 §2b 表  
-4. 每轮更新：`docs/MIMIR_EXEC_BACKLOG.md` §4 + §2b 勾选；完结发 **EV-M13** 飞书离线包
+4. 每轮更新：`docs/MIMIR_EXEC_BACKLOG.md` §4 + §2b 勾选；冒烟完结后发 **EV-M13** 包  
+5. **自学习轨**：`docs/MIMIR_EXEC_BACKLOG.md` **§2c EV-L01～L14** → 写入 `docs/MIMIR_EV_L_INDUSTRIAL_LEARNING.md`（工业级防再发，只写文档）
 
 **一键提示词**：`docs/MIMIR_D17_AUDIT_AND_TASKS.md` **§5**（已更新 post-IR 基线）。
 

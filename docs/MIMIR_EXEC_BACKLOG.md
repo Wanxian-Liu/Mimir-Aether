@@ -1,6 +1,6 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-05-20 夜（**识图搁置**；刘哥 **DeepSeek-only**；Mimir 走 **§2b EV-M*** 微迭代；等飞书回报后刘哥离线）  
+> **最近更新**：2026-05-20 夜（**§2b EV-M** 基本完成；新增 **§2c EV-L** 工业级自学习轨 → `docs/MIMIR_EV_L_INDUSTRIAL_LEARNING.md`）  
 > **规则**：从下表「统一队列」取**第一条**未勾选项；做完勾 `[x]` + 简短回报 + `./run_ralph_tier0.sh`（触达代码时）。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
 > **勿提交**：`data/persistent.json`（runtime 镜像）。
@@ -54,7 +54,7 @@
 
 **并行允许**：E-004（D7-0a）单独 PR；**禁止** mixin commit + D6 + 删 `cli.py` 同 PR。
 
-**下一条（默认）**：**Mimir → §2b 第一条 `[ ]` 的 EV-M***（刘哥离线可慢速做多轮）；**Cursor → E-004**（刘哥在线时）。勿重做 T-01 / IR 工程。
+**下一条（默认）**：**Mimir → §2c 第一条 `[ ]` 的 EV-L***（自学习/playbook）；§2b 仅剩 EV-M02 飞书复验 / EV-M12 可选。 **Cursor → E-004**（刘哥在线）。勿重做 IR 工程。
 
 **交接文档**：`docs/MIMIR_HANDOFF_20260520.md` · **微信简报**：OpenClaw skill `mimir-handoff-weixin`（`~/.openclaw/workspace/skills/`）
 
@@ -68,19 +68,19 @@
 
 | ID | 颗粒 | 做什么（仅文档/日志/grep） | 验证 / 完成标准 | 状态 |
 |----|------|---------------------------|-----------------|------|
-| **EV-M01** | T-02 -lite | 飞书发图或查历史 log：`Image downloaded` | `grep Image downloaded agent.log` 有命中；识图 **不测** | [ ] |
-| **EV-M02** | T-03 | 飞书要一张 **空列表头** 表或复现 #9 | 无 `230099`；列名 `—`；更新 M-003 | [ ] |
-| **EV-M03** | T-05 | 记 `OPENROUTER:absent` + DeepSeek-only 策略一行 | `MIMIR_ISSUES.md` 或 §4 注明 N/A，不索要 key | [ ] |
-| **EV-M04** | T-06 | API/路由清单：只读 `docs/` + `gateway/platforms/` 文件名列表 | 回报 ≤15 行清单，无改码 | [ ] |
-| **EV-M05** | T-07 | reaction/表情路径：grep `gateway` + 最近 `gateway.log` | 1 条 pass/fail + log 行号 | [ ] |
-| **EV-M06** | T-08 | agent 栈：grep `Provider`/`deepseek`/`model` 配置线索（不打印 key） | 回报主 provider=deepseek 证据 1～3 行 | [ ] |
-| **EV-M07** | T-09 | d5 只读：`evolution_log.md` 末 5 行 + `grep simulated` agent/ | 列 1 条「空壳/真进化」观察，**不填** 19 存根 | [ ] |
-| **EV-M08** | T-10 | d6 只读：`insights`/`monitor`/`health` 文件存在性 + 1 缺口 | 1 条缺口写入 ISSUES（供 E-006） | [ ] |
-| **EV-M09** | T-11 | d7 只读：复现 `CLI_CONFIG` ImportError 线索（grep/python -c） | ISSUES 一条指向 **E-004**，Mimir 不修 | [ ] |
-| **EV-M10** | 稳定性 | `GATEWAY_STABILITY_BACKLOG.md` #2 #9 对今日 log 再 grep | 两条状态 [x]/[~] 有 log 行 | [ ] |
-| **EV-M11** | IR 看守 | `grep -c 'Level 3 TRUNCATE' agent.log` 必须 **≤19** | 若 >19：ISSUES P0 + 停手 | [ ] |
-| **EV-M12** | T-12 可选 | `MIMIR_D17_WIKI_AUDIT_COMMENTARY.md` 任选一节 vs 仓库一句 | 1 条一致/漂移 | [ ] |
-| **EV-M13** | 汇总 | 飞书发 **刘哥离线包**（见下模板） | 含 EV-M01～12 勾选表 + 需刘哥 3 条以内 | [ ] |
+| **EV-M01** | T-02 -lite | 飞书发图或查历史 log：`Image downloaded` | `grep Image downloaded agent.log` 有命中；识图 **不测** | [x] 2026-05-20 agent.log 命中；vision blocked (deepseek 无 image_url) |
+| **EV-M02** | T-03 | 飞书要一张 **空列表头** 表或复现 #9 | 无 `230099`；列名 `—`；更新 M-003 | [~] log 有历史 230099 (05-17)；需飞书复验代码修复 |
+| **EV-M03** | T-05 | 记 `OPENROUTER:absent` + DeepSeek-only 策略一行 | `MIMIR_ISSUES.md` 或 §4 注明 N/A，不索要 key | [x] OPENROUTER:absent 确认；DeepSeek-only |
+| **EV-M04** | T-06 | API/路由清单：只读 `docs/` + `gateway/platforms/` 文件名列表 | 回报 ≤15 行清单，无改码 | [x] 清单完成：loopback/无api_server段/符合SECURITY |
+| **EV-M05** | T-07 | reaction/表情路径：grep `gateway` + 最近 `gateway.log` | 1 条 pass/fail + log 行号 | [x] 未复现 — gateway.log 无 reaction 记录 |
+| **EV-M06** | T-08 | agent 栈：grep `Provider`/`deepseek`/`model` 配置线索（不打印 key） | 回报主 provider=deepseek 证据 1～3 行 | [x] provider=deepseek 确认；21 次 Agent error；TRUNCATE=19 |
+| **EV-M07** | T-09 | d5 只读：`evolution_log.md` 末 5 行 + `grep simulated` agent/ | 列 1 条「空壳/真进化」观察，**不填** 19 存根 | [x] evolution_log 活跃(5条 May19-20)；self_evolution 仅 SKILL.md |
+| **EV-M08** | T-10 | d6 只读：`insights`/`monitor`/`health` 文件存在性 + 1 缺口 | 1 条缺口写入 ISSUES（供 E-006） | [x] ~15 ERROR；top: is_truthy_value(7)/_load_gateway_config(3)/_dequeue_pending_event(3) |
+| **EV-M09** | T-11 | d7 只读：复现 `CLI_CONFIG` ImportError 线索（grep/python -c） | ISSUES 一条指向 **E-004**，Mimir 不修 | [x] ImportError 复现：cannot import CLI_CONFIG |
+| **EV-M10** | 稳定性 | `GATEWAY_STABILITY_BACKLOG.md` #2 #9 对今日 log 再 grep | 两条状态 [x]/[~] 有 log 行 | [x] #9 历史230099已记录；#2 token正常 |
+| **EV-M11** | IR 看守 | `grep -c 'Level 3 TRUNCATE' agent.log` 必须 **≤19** | 若 >19：ISSUES P0 + 停手 | [x] TRUNCATE=19 基线保持 |
+| **EV-M12** | T-12 可选 | `MIMIR_D17_WIKI_AUDIT_COMMENTARY.md` 任选一节 vs 仓库一句 | 1 条一致/漂移 | [ ] 跳过（可选） |
+| **EV-M13** | 汇总 | 飞书发 **刘哥离线包**（见下模板） | 含 EV-M01～12 勾选表 + 需刘哥 3 条以内 | [x] 本回报即为汇总 |
 | **EV-VISION-DEFER** | 搁置 | 自动识图 / OPENROUTER / `vision_analyze` 端到端 | 刘哥明确「恢复识图」前 **不做** | [~] 搁置 |
 
 **刘哥离线 · Mimir 飞书回报模板（EV-M13）**
@@ -98,6 +98,43 @@ EV-M01..12: (列表勾选)
 
 ```text
 按 docs/MIMIR_EXEC_BACKLOG.md §2b 从第一条 [ ] 的 EV-M 开始，每次只做一颗粒；识图搁置；DeepSeek-only；勿改代码勿 push。
+```
+
+---
+
+## 2c. Mimir 工业级自学习轨（EV-L* · 防再发 · 积累经验）
+
+> **目的**：对标工业级框架（CI 门禁、就绪探针、fail-closed、postmortem、契约测试、SRE runbook），让 Mimir 在**只写文档**的迭代里沉淀可复习经验，降低「再拆 mixin → NameError → TRUNCATE」类事故。  
+> **沉淀真源**：`docs/MIMIR_EV_L_INDUSTRIAL_LEARNING.md`（每颗粒填对应 §，用文内模板）。  
+> **与 §2b 关系**：§2b **冒烟验真**；§2c **总结、门禁、runbook**。可并行：**每完成 2 个 EV-M → 做 1 个 EV-L**；§2b 已基本完成时 **直接从 EV-L01 连续做**。
+
+| ID | 对标 | 做什么 | 完成标准 | 状态 |
+|----|------|--------|----------|------|
+| **EV-L01** | 三道门 | 读 `DEVELOPMENT_NORTH_STAR.md` §2–§5 | Playbook **§1** 有 5 条守门员自检 | [ ] |
+| **EV-L02** | Postmortem | 读 `MIMIR_INCIDENT_IR-20260520.md` | Playbook **§2** 教训+防再发各 ≥2 条 | [ ] |
+| **EV-L03** | CI 门禁 | tier0 / Ralph 3 连跑策略 | Playbook **§3** 写清触发条件 | [ ] |
+| **EV-L04** | 契约烟测 | mixin import 测试与 Gate1 | Playbook **§4** 列 3 个测试名+何时跑 | [ ] |
+| **EV-L05** | Fail-closed | `recovery_mixin` 护栏 | Playbook **§5** 区分代码错误 vs 溢出 | [ ] |
+| **EV-L06** | 告警信号 | IR 日志签名 | Playbook **§6** ≥3 条红警 `grep -E` | [ ] |
+| **EV-L07** | Parity | `ralph_parity_contract_v1` 摘 3 面 | Playbook **§7** 行为句+验证方式 | [ ] |
+| **EV-L08** | 单写者 ADR | `adr/001-persistent-single-writer` | Playbook **§8** Mimir 禁提交 persistent 理由 | [ ] |
+| **EV-L09** | Runbook | `OPERATIONS_GATEWAY` + 硬重启脚本 | Playbook **§9** 五步 SOP 卡片 | [ ] |
+| **EV-L10** | Readiness | 对标 K8s 就绪探针 | Playbook **§10** ≥8 条重构后 checkbox | [ ] |
+| **EV-L11** | 升级矩阵 | Mimir vs Cursor 分工 | Playbook **§11** 表格 ≥5 行 | [ ] |
+| **EV-L12** | 真进化 | evolution / simulated | Playbook **§12** 真/伪进化各 1 例 | [ ] |
+| **EV-L13** | 可观测债 | 结合 EV-M08 | Playbook **§13** + ISSUES ≤1 条（E-006） | [ ] |
+| **EV-L14** | 索引 | 汇总 §1–§13 | Playbook **§14** 目录+复习节奏；飞书 **学习轨完成包** | [ ] |
+
+**执行约束**
+
+- 每轮 **只做一个 EV-L**；只编辑 `MIMIR_EV_L_INDUSTRIAL_LEARNING.md` 对应节 + 本表勾 `[x]`。  
+- **禁止**：为「学习」去改 agent/gateway；禁止填 d5 假进化存根。  
+- **鼓励**：引用本次 EV-M01～11 的 grep 数字（TRUNCATE=19、deepseek、CLI_CONFIG 等）写入 Playbook，形成**你自己的**证据库。
+
+**Mimir 切换一句（§2b 收尾后）**
+
+```text
+§2b 冒烟已基本完成。请按 docs/MIMIR_EXEC_BACKLOG.md §2c 从 EV-L01 开始，每次一颗粒，把学到的东西写入 docs/MIMIR_EV_L_INDUSTRIAL_LEARNING.md 对应章节；识图仍搁置；勿改代码勿 push。
 ```
 
 ---
@@ -315,7 +352,7 @@ grep -c 'Level 3 TRUNCATE' ~/.mimiraether/logs/agent.log
 - **E-001/E-002/E-003/E-IR** ✅ committed；tier0 **181+2 PASS**  
 - **TRUNCATE** 冻结 **19**  
 - **push**：M-008 ✅ `origin/main` @ `599ecb3`  
-- **Mimir**：**§2b EV-M*** 微迭代；识图 **EV-VISION-DEFER**  
+- **Mimir**：**§2c EV-L*** 自学习轨（Playbook）；§2b 收尾 EV-M02 复验；识图 **EV-VISION-DEFER**  
 - **Cursor**：**E-004**  
 - **微信**：OpenClaw `mimir-handoff-weixin` skill；DM 已配对  
 - **详**：`docs/MIMIR_HANDOFF_20260520.md`
