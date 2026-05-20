@@ -48,14 +48,11 @@
 
 ---
 
-## 4. OpenClaw 微信联络（刘哥 ↔ 琬弦 main）
+## 4. 离线沟通（Mimir backlog 与 OpenClaw / 微信无关）
 
-- **通道**：`openclaw-weixin` 已在 `~/.openclaw/openclaw.json` **enabled**；你与 main agent 的 DM session 已存在（`agent:main:openclaw-weixin:direct:…@im.wechat`）。  
-- **技能**：`~/.openclaw/workspace/skills/mimir-handoff-weixin/SKILL.md` — 琬弦在 IR/冒烟/ tier0 里程碑时用**微信**发简短状态（勿泄露密钥）。  
-- **Cron 多通道**：若定时任务报 `Channel is required when multiple channels: feishu, openclaw-weixin`，在 job 的 delivery 显式设 **`openclaw-weixin`** 或 **`origin`**（当前微信会话）。  
-- **Mimir 网关**：仍在 **飞书**；微信侧是 **OpenClaw 主 agent** 协调进度，不是 Mimir gateway 直连。
-
-**Cursor 不能代你完成**：微信 pairing/扫码、企业微信机器人密钥 — 需本机 OpenClaw 已配对状态。
+- **Mimir**：飞书 + 仓库 `docs/MIMIR_EXEC_BACKLOG.md` + `docs/MIMIR_LIU_CURSOR_BRIDGE.md`（留言、授权、签收）。  
+- **微信**：仅 OpenClaw **琬弦** 可选用，**不**承担 Mimir 队列同步。  
+- **Cursor**：你回电脑后读 bridge 即可。
 
 ---
 

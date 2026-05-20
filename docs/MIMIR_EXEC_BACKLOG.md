@@ -1,6 +1,7 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-05-20 夜（**§2b EV-M** 基本完成；新增 **§2c EV-L** 工业级自学习轨 → `docs/MIMIR_EV_L_INDUSTRIAL_LEARNING.md`）  
+> **最近更新**：2026-05-20 夜（**桥接** `docs/MIMIR_LIU_CURSOR_BRIDGE.md` · §2c EV-L；**与 OpenClaw 无关**）  
+> **离线沟通**：刘哥在 bridge §1/§2 留言授权；**Mimir 飞书每轮直接 Read** bridge + 本表  
 > **规则**：从下表「统一队列」取**第一条**未勾选项；做完勾 `[x]` + 简短回报 + `./run_ralph_tier0.sh`（触达代码时）。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
 > **勿提交**：`data/persistent.json`（runtime 镜像）。
@@ -131,10 +132,13 @@ EV-M01..12: (列表勾选)
 - **禁止**：为「学习」去改 agent/gateway；禁止填 d5 假进化存根。  
 - **鼓励**：引用本次 EV-M01～11 的 grep 数字（TRUNCATE=19、deepseek、CLI_CONFIG 等）写入 Playbook，形成**你自己的**证据库。
 
+**Mimir 每轮必读**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` + 本表 §2b/§2c（飞书直接读仓库，不经 OpenClaw）
+
 **Mimir 切换一句（§2b 收尾后）**
 
 ```text
-§2b 冒烟已基本完成。请按 docs/MIMIR_EXEC_BACKLOG.md §2c 从 EV-L01 开始，每次一颗粒，把学到的东西写入 docs/MIMIR_EV_L_INDUSTRIAL_LEARNING.md 对应章节；识图仍搁置；勿改代码勿 push。
+先 Read docs/MIMIR_LIU_CURSOR_BRIDGE.md，在 §4 签收表追加一行。
+§2c 从 EV-L01 起，每次一颗粒写入 docs/MIMIR_EV_L_INDUSTRIAL_LEARNING.md；识图搁置；勿改代码勿 push。
 ```
 
 ---
