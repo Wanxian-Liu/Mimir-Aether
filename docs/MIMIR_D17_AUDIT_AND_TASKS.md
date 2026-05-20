@@ -2,8 +2,9 @@
 
 > **用途**：刘哥不在电脑旁时，由 **Cursor 工程** 产出本文件 → **Mimir** 按任务自我验证、迭代、记 ISSUES/文档（**不改** `agent/`/`gateway/`/`mimir_cli/` 架构）。  
 > **真源队列**：`docs/MIMIR_EXEC_BACKLOG.md` §2（工程 E-* 与 M-* 仍在那里排期）。  
-> **Wiki 审计原文**（只读）：`~/.openclaw/wiki/main/iterations/d{1..7}-audit-report.html`  
-> **本包版本**：2026-05-20 **post E-002/E-003 commit**（工程已落库；Mimir 跑 **T-01～T-11** 自证；勿 push 除非 M-008）
+> **Wiki 审计原文**（只读、**勿改 HTML**）：`~/.openclaw/wiki/main/iterations/d{1..7}-audit-report.html`  
+> **评注与经验（必读）**：`docs/MIMIR_D17_WIKI_AUDIT_COMMENTARY.md` — 对照真源逐阶段评价与建议  
+> **本包版本**：2026-05-20 **post E-002/E-003 commit**（Mimir 跑 **T-01～T-11** + 可选读评注练审计思维）
 
 ---
 
@@ -52,8 +53,10 @@
 | **T-09** | d5 | 进化只读观察 | 读 `evolution_log` 末 5 行 + ISSUES 一条观察 |
 | **T-10** | d6 | 可观测 Day-0（日志） | 统计 24h 内 ERROR 条数 +  top 3 模式 |
 | **T-11** | d7 | CLI_CONFIG 复现 | 复现 ImportError 路径写入 ISSUES |
+| **T-12** | 知识 | **Wiki 评注核对**（可选） | 任选 d1–d7 各 1 条 P0 → `grep`/日志验证 → 与 `MIMIR_D17_WIKI_AUDIT_COMMENTARY.md` 对照 |
 
-完成每条后：更新 `docs/GATEWAY_STABILITY_BACKLOG.md` 对应行（若适用）+ `docs/MIMIR_EXEC_BACKLOG.md` §4 状态 + 回报 §6 模板。
+完成每条后：更新 `docs/GATEWAY_STABILITY_BACKLOG.md` 对应行（若适用）+ `docs/MIMIR_EXEC_BACKLOG.md` §4 状态 + 回报 §6 模板。  
+**T-12**：在回报加「wiki 仍真 / 已过时」各至少 1 条（见评注文档末「审计思维」）。
 
 ---
 
@@ -315,8 +318,8 @@ python3 cli.py chat --help 2>&1 | head -5
 
 工作区：~/src/MimirAether  
 运行时：MIMIR_AETHER_HOME=~/.mimiraether  
-必读：docs/MIMIR_D17_AUDIT_AND_TASKS.md（全文）  
-队列：docs/MIMIR_EXEC_BACKLOG.md §2（勿与工程 E-002 commit 混做）
+必读：docs/MIMIR_D17_AUDIT_AND_TASKS.md + docs/MIMIR_D17_WIKI_AUDIT_COMMENTARY.md（评注，勿改 wiki HTML）  
+队列：docs/MIMIR_EXEC_BACKLOG.md §2
 
 你是 **Mimir**：冒烟、证据、文档、ISSUES。禁止改 agent/gateway/mimir_cli 架构；禁止提交 persistent.json；禁止 push。
 

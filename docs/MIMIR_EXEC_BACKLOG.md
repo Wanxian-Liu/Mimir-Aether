@@ -5,7 +5,8 @@
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
 > **勿提交**：`data/persistent.json`（runtime 镜像）。
 
-**Wiki 审计原文**（只读归档）：`~/.openclaw/wiki/main/iterations/d{1..7}-audit-report.html`
+**Wiki 审计原文**（只读、勿改 HTML）：`~/.openclaw/wiki/main/iterations/d{1..7}-audit-report.html`  
+**Wiki 评注（经验层）**：`docs/MIMIR_D17_WIKI_AUDIT_COMMENTARY.md` — 对照真源逐阶段评价，2026-05-20
 
 ---
 
@@ -62,8 +63,8 @@
 |------|------|--------|----------|------------|----------|
 | **d1** | 飞书适配器 | ~6/10 | 通道/token | ✅ 验证+ISSUES；P2-1/1b 已合 | P0 在 `341c1fd`/`2b414d3` |
 | **d2** | 上下文/C1/压缩 | ~6/10 | 上下文链 | ✅ 压缩链 cd6b71d；孤儿 tool PR#4 | Agent P0 `2b414d3` |
-| **d3** | Gateway 框架 | ~5–6/10 | GOD class | ✅ 十条多项验证 | P0 ✅；SPLIT 常驻已绿，**待 commit E-002** |
-| **d4** | Agent 核心循环 | 6/10 | 质量债 | 仅冒烟 M4；**不写代码** | P0-0~3 ✅ `1bb652b`；**P0-4 [~]** |
+| **d3** | Gateway 框架 | ~5–6/10 | GOD class | ✅ 十条多项验证 | P0 ✅；**E-002/E-003 committed** |
+| **d4** | Agent 核心循环 | 6/10 | 质量债 | 仅冒烟 M4；**不写代码** | P0-0~3 ✅；**E-003 committed** |
 | **d5** | 自修/进化 | 4.5/10 | 空壳债 | 只读 | 未启动 |
 | **d6** | 可观测性 | 5.5/10 | 集成债 | 只读 | 未启动 |
 | **d7** | CLI 双轨 | 4/10 | 双轨债 | 只读 | 未启动；**d7 窗进行中** |
@@ -291,5 +292,6 @@ grep -E 'feishu connected|Lark connected|Unclosed|Gateway stopped' ~/.mimiraethe
 - **E-001/E-002/E-003** ✅ committed；tier0 PASS（162+2）  
 - **无 push**（M-008）  
 - **工程下一刀**：E-004 `CLI_CONFIG`  
-- **Mimir 训练包**：`docs/MIMIR_D17_AUDIT_AND_TASKS.md` **post-commit**（T-01～T-11）  
-- **Mimir 待办**：commit 后硬重启回归 + 飞书 M2/M3/M5
+- **Mimir 训练包**：`docs/MIMIR_D17_AUDIT_AND_TASKS.md`（T-01～T-12）  
+- **Wiki 评注（知识）**：`docs/MIMIR_D17_WIKI_AUDIT_COMMENTARY.md`（勿改 wiki HTML）  
+- **Mimir 待办**：T-01～T-11 冒烟；可选 T-12 核对 wiki vs 真源
