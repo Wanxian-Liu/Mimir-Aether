@@ -1,7 +1,7 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-05-20 夜（**桥接** `docs/MIMIR_LIU_CURSOR_BRIDGE.md` · §2c EV-L；**与 OpenClaw 无关**）  
-> **离线沟通**：刘哥在 bridge §1/§2 留言授权；**Mimir 飞书每轮直接 Read** bridge + 本表  
+> **最近更新**：2026-05-20 夜（Mimir §2b **d1–d7 回报已收** → 下一颗粒 **EV-L01**；T-03 飞书复验待刘哥）  
+> **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5；Mimir 飞书每轮 Read bridge + 本表  
 > **规则**：从下表「统一队列」取**第一条**未勾选项；做完勾 `[x]` + 简短回报 + `./run_ralph_tier0.sh`（触达代码时）。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
 > **勿提交**：`data/persistent.json`（runtime 镜像）。
