@@ -5,11 +5,11 @@
 
 | 字段 | 值 |
 |------|-----|
-| **最近更新** | 2026-05-19 |
-| **更新人** | MimirAether（收尾：G5/Git/MAINLINE/Gateway#2） |
+| **最近更新** | 2026-05-20 |
+| **更新人** | Cursor（IR-20260520 工程结案 + backlog 交接） |
 | **仓库根（真源）** | `~/src/MimirAether` |
-| **可选校验** | `./run_ralph_tier0.sh`（门禁）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
-| **本轮摘要** | PR #4/#5 已合 main；飞书收图 message-resource（43cbd3a）；vision 纯文本回退 OpenRouter（b50c71c）；Hermes 8模块学习 + OpenSpace 8模块学习 双战役闭合；ContextEngine 去 Hermes 化（独立 MimirContextCompressor）；fuzzy_match 复制代码删除；孤儿 tool sanitize 双重防护；上下文 128K→1M；Gateway 重启（PID 69532）；ISSUES #1 blocked #2 resolved；Git 工作区收尾。session_count: 341。 |
+| **可选校验** | `./run_ralph_tier0.sh`（门禁 **181+2**）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
+| **本轮摘要** | **IR-20260520**：mixin 分裂缺 import → NameError → recovery TRUNCATE×19 已止血（`recovery_mixin` + `exec_mixin` + gateway 冒烟）；tier0 **181+2** 绿；飞书 tool Phase 3c Go。交接：`docs/MIMIR_HANDOFF_20260520.md`；Mimir 从 **T-02** 续跑；工程下一刀 **E-004**。本地 main 领先 origin（M-008 push 待授权）。 |
 
 ---
 
@@ -17,7 +17,7 @@
 
 | ID | 名称 | 状态 | 说明 |
 |----|------|------|------|
-| M0 | 基线可回归 | **绿** | `run_ralph_tier0.sh` 日常可通过。Gate2 **160**、Gate3 **2**。发版前建议复跑：`for n in 1 2 3; do ./run_ralph_tier0.sh || exit 1; done` |
+| M0 | 基线可回归 | **绿** | `run_ralph_tier0.sh` 日常可通过。Gate2 **181**、Gate3 **2**（含 IR mixin 冒烟测）。发版前建议复跑：`for n in 1 2 3; do ./run_ralph_tier0.sh || exit 1; done` |
 | M1 | 契约可执行 | **绿** | `docs/ralph_parity_testmap.md` 已映射 |
 | M2 | Tier-0 矩阵闭合 | **绿** | `ralph_tier0_case_matrix.md`：无阻塞 P0 |
 | M3 | 垂直切片 | **绿** | CLI + API `POST /v1/chat/completions` |
@@ -51,10 +51,11 @@
 
 ## 4. 近期焦点（可改）
 
-0. **稳定性冲刺（2026-05-19）**：Mimir 按 `MIMIR_EXEC_BACKLOG` M1–M8 冒烟；工程项见 `GATEWAY_STABILITY_BACKLOG.md`。
-1. **真源树**：提交与推送在 `~/src/MimirAether`；勿与 `MIMIR_AETHER_HOME` 混淆。
-2. **维持 M6 绿**：受保护路径合入不长期漏记。
-3. **维持 B/C/∞ 绿**：各阶段 checklist §执行记录续更。
+0. **IR-20260520 结案（2026-05-20）**：工程已合入本地 main；Mimir **T-02～T-11**；Cursor **E-004**；见 `MIMIR_HANDOFF_20260520.md`。
+1. **稳定性冲刺（2026-05-19）**：Mimir 按 `MIMIR_EXEC_BACKLOG` M1–M8 冒烟；工程项见 `GATEWAY_STABILITY_BACKLOG.md`。
+2. **真源树**：提交与推送在 `~/src/MimirAether`；勿与 `MIMIR_AETHER_HOME` 混淆。
+3. **维持 M6 绿**：受保护路径合入不长期漏记。
+4. **维持 B/C/∞ 绿**：各阶段 checklist §执行记录续更。
 
 ---
 
@@ -62,6 +63,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-20 | **IR-20260520 工程结案**：recovery/exec/gateway 修复；tier0 181+2；TRUNCATE 基线 19；`MIMIR_HANDOFF_20260520.md` + backlog/D17 §5 更新；OpenClaw skill `mimir-handoff-weixin`。 |
 | 2026-05-19 | **收尾**：G5 API Server loopback 确认安全；Git 工作区清理；MAINLINE 刷新；Gateway #2 Token 日志无异常。#1 孤儿 tool 已合 #4 / #9 空表头已合 #5。session_count: 341。 |
 | 2026-05-19 | **双战役闭合**：Hermes 8模块(agent_loop/ContextEngine/Platform/Model/Tool/Cron/Session/Cache) + OpenSpace 8模块(recording/quality/analysis/grounding/host/skill/analyzer/base) 学习完成。ContextEngine 去 Hermes 化（独立 MimirContextCompressor）；fuzzy_match 复制删除；孤儿 tool 双重防护(sanitize+clean)。上下文 25→200 条(128K→1M)。Gateway 重启 PID 69532。 |
 | 2026-05-19 | **稳定性**：PR4/5 合并；P2-1b message-resource + P2-1c vision 回退；计划 `docs/plans/2026-05-19_stability_sprint.md`；Mimir 执行清单入 BACKLOG。 |

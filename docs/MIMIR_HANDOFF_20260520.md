@@ -1,0 +1,81 @@
+# MimirAether 离线交接 — IR-20260520 结案后（2026-05-20）
+
+> **给刘哥**：Cursor 工程收尾已完成；**Mimir 续跑**见下文与 `docs/MIMIR_EXEC_BACKLOG.md` §2。  
+> **给 Mimir**：禁止再改 mixin 架构；从 **T-02** 起冒烟（T-01 / 工具链已在 IR 中 Go）。
+
+---
+
+## 1. 本轮工程已交付（Cursor）
+
+| 项 | 状态 | 证据 |
+|----|------|------|
+| IR-20260520 mixin 缺 import → NameError → TRUNCATE | **已修** | `44061e2`…`a612217`；`docs/MIMIR_INCIDENT_IR-20260520.md` |
+| recovery 不对代码错误 TRUNCATE | **已修** | `agent/recovery_mixin.py` + `test_recovery_mixin_code_errors.py` |
+| exec_mixin 分裂后 import（ToolError/registry/functools） | **已修** | `4ff3e91` + `test_exec_mixin_imports.py` |
+| gateway mixin import 冒烟 | **已修** | `test_gateway_mixin_import_smoke.py` |
+| tier0 | **绿** | `./run_ralph_tier0.sh` → **181 + 2 PASS** |
+| TRUNCATE 基线 | **冻结 19** | `grep -c 'Level 3 TRUNCATE' ~/.mimiraether/logs/agent.log` |
+| 飞书工具冒烟（read_file AGENTS.md） | **Go** | Phase 3c，见 incident 文档 |
+| git push | **待刘哥** 或已授权后由 Cursor 执行 | `main` 领先 `origin/main` 约 10 commit |
+
+**勿提交**：`data/persistent.json`、`data/cross-session-context.md`（runtime）。
+
+---
+
+## 2. Mimir 下一刀（按 backlog 第一条 `[ ]`）
+
+1. **T-02** — 飞书发图 + 识图（M-002）；识图仍可能 blocked 无 `OPENROUTER_API_KEY`（M-005）  
+2. **T-03** — 空表头表飞书复验（M-003）  
+3. **T-05～T-11** — 见 `docs/MIMIR_D17_AUDIT_AND_TASKS.md` §2–§3  
+4. 每轮更新：`docs/MIMIR_EXEC_BACKLOG.md` §4、`docs/MIMIR_ISSUES.md`（若有 blocked）
+
+**一键提示词**：`docs/MIMIR_D17_AUDIT_AND_TASKS.md` **§5**（已更新 post-IR 基线）。
+
+**禁止**：E-004+ 工程代码；删 `role=tool`；填 d5 进化 19 存根；未经授权 `git push`。
+
+---
+
+## 3. 工程队列头（Cursor，刘哥在线时）
+
+| 顺序 | ID | 说明 |
+|------|-----|------|
+| 1 | **E-004** | `CLI_CONFIG` 默认值，单独 PR |
+| 2 | E-005～E-009 | d7→d6→d5，分 PR |
+| 3 | **M-008** | `git push origin main`（授权后） |
+
+**延后（勿与 IR 混 PR）**：Phase 4–5 session_count/jsonl 叙事恢复；d7 大删 `cli.py`。
+
+---
+
+## 4. OpenClaw 微信联络（刘哥 ↔ 琬弦 main）
+
+- **通道**：`openclaw-weixin` 已在 `~/.openclaw/openclaw.json` **enabled**；你与 main agent 的 DM session 已存在（`agent:main:openclaw-weixin:direct:…@im.wechat`）。  
+- **技能**：`~/.openclaw/workspace/skills/mimir-handoff-weixin/SKILL.md` — 琬弦在 IR/冒烟/ tier0 里程碑时用**微信**发简短状态（勿泄露密钥）。  
+- **Cron 多通道**：若定时任务报 `Channel is required when multiple channels: feishu, openclaw-weixin`，在 job 的 delivery 显式设 **`openclaw-weixin`** 或 **`origin`**（当前微信会话）。  
+- **Mimir 网关**：仍在 **飞书**；微信侧是 **OpenClaw 主 agent** 协调进度，不是 Mimir gateway 直连。
+
+**Cursor 不能代你完成**：微信 pairing/扫码、企业微信机器人密钥 — 需本机 OpenClaw 已配对状态。
+
+---
+
+## 5. 常用命令
+
+```bash
+cd ~/src/MimirAether
+./run_ralph_tier0.sh
+MIMIR_AETHER_HOME=~/.mimiraether ./scripts/restart_gateway_hard.sh
+pgrep -af 'gateway/run.py'
+grep -c 'Level 3 TRUNCATE' ~/.mimiraether/logs/agent.log
+```
+
+---
+
+## 6. 文档索引
+
+| 文档 | 用途 |
+|------|------|
+| `docs/MIMIR_EXEC_BACKLOG.md` | 统一队列真源 |
+| `docs/MIMIR_D17_AUDIT_AND_TASKS.md` | T-01～T-11 + §5 总提示词 |
+| `docs/MIMIR_INCIDENT_IR-20260520.md` | 事故全记录 |
+| `docs/MAINLINE_STATUS.md` | 主线快照 |
+| `docs/GATEWAY_STABILITY_BACKLOG.md` | 十条稳定性 |

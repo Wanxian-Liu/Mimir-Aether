@@ -323,13 +323,14 @@ python3 cli.py chat --help 2>&1 | head -5
 
 你是 **Mimir**：冒烟、证据、文档、ISSUES。禁止改 agent/gateway/mimir_cli 架构；禁止提交 persistent.json；禁止 push。
 
-## 已知基线（2026-05-20 post-commit，勿重做工程）
-- E-001/E-002/E-003 已在 **main 工作区 commit**（gateway 6 mixin + agent 4 mixin + `@property` 修复）
-- 你的任务：**只冒烟与文档**，不要改 mixin 架构、不要 push
-- M-007 十条状态列已有；T-06/07/08 可细化
+## 已知基线（2026-05-20 post IR-20260520，勿重做工程）
+- E-001/E-002/E-003 + **E-IR** 已 commit：`recovery` 禁代码错误 TRUNCATE；`exec_mixin` import 修复；tier0 **181+2**
+- **T-01 / 工具链**：IR Phase 3c 已 Go（飞书 read_file）；你从 **T-02** 开始
+- TRUNCATE 基线 **19**（`grep -c 'Level 3 TRUNCATE' ~/.mimiraether/logs/agent.log`）— 上涨即记 ISSUES
+- 交接：`docs/MIMIR_HANDOFF_20260520.md` · 禁止 push（除非刘哥本条授权）
 
 ## 今日顺序
-按 docs/MIMIR_D17_AUDIT_AND_TASKS.md §2 执行 T-01 → T-11，每条用 §3 的验证命令自证。
+**T-02 → T-11**（跳过 T-01 工程项）。每条用 §3 验证命令自证；完成后更新 `MIMIR_EXEC_BACKLOG.md` §4。
 
 ## 回报格式（全部完成后一次发）
 ### 分项
@@ -344,7 +345,7 @@ python3 cli.py chat --help 2>&1 | head -5
 - OPENROUTER / 飞书代发 / push 授权
 
 ### 建议 Cursor 下一刀
-E-002 commit / E-004 / …
+E-004 `CLI_CONFIG`（单独 PR）；勿再动 mixin
 ```
 
 ---
@@ -381,8 +382,9 @@ Mimir d1–d7 训练回报 — 2026-__-__
 | 项 | 状态 | 说明 |
 |----|------|------|
 | E-001 | [x] | `@property` 常驻 |
-| E-002/003 | [x] | 2026-05-20 commit；tier0 162+2 |
+| E-002/003/E-IR | [x] | 2026-05-20；tier0 **181+2**；见 `MIMIR_INCIDENT_IR-20260520.md` |
 | **下一刀工程** | [ ] | **E-004** `CLI_CONFIG`（可用 Mimir T-11 的 ISSUES 作输入） |
-| M-008 | [ ] | push 需刘哥授权 |
+| M-008 | [ ] | push 需刘哥授权（本地领先 origin） |
+| **Mimir 续跑** | [ ] | **T-02** 起；`MIMIR_HANDOFF_20260520.md` |
 
 **Mimir 窗勿**改 E-004 代码；复现交给 T-11 即可。

@@ -1,6 +1,6 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-05-20（**E-002/E-003 committed**；Mimir 训练包 `docs/MIMIR_D17_AUDIT_AND_TASKS.md` post-commit 版）  
+> **最近更新**：2026-05-20 末（**IR-20260520 工程结案**；tier0 **181+2**；Mimir 从 **T-02** 续跑；交接 `docs/MIMIR_HANDOFF_20260520.md`）  
 > **规则**：从下表「统一队列」取**第一条**未勾选项；做完勾 `[x]` + 简短回报 + `./run_ralph_tier0.sh`（触达代码时）。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
 > **勿提交**：`data/persistent.json`（runtime 镜像）。
@@ -27,13 +27,14 @@
 ## 2. 统一执行队列（按第一条未勾选项执行）
 
 > 状态：`[ ]` 待做 · `[~]` 部分/阻塞 · `[x]` 完成  
-> **基线 commit**：E-002/E-003 已本地 commit（见 `git log -1`）；**未 push**（M-008）
+> **基线**：IR + E-001～003 + exec/recovery 修复已 commit（`44061e2`…`a612217`）；**push** 见 M-008 / 刘哥授权
 
 | ID | 负责 | 任务 | 成功标准 | 状态 |
 |----|------|------|----------|------|
 | **E-001** | Cursor | **Gateway WIP 常驻** — mixin 拆分遗漏 `@property` | `pgrep` 稳定；`wait_for_shutdown` 正常 | [x] 见下「E-001 结案」 |
 | **E-002** | Cursor | **D3-SPLIT 收尾** — 6 mixin + `home_paths.py` + commit | tier0 绿；gateway 硬重启后 PID 常驻 | [x] 2026-05-20 |
 | **E-003** | Cursor | **D4-P0-4** — agent 四 mixin（同 commit） | tier0 绿 | [x] 2026-05-20 |
+| **E-IR** | Cursor | **IR-20260520** — recovery 禁 TRUNCATE on 代码错误；exec_mixin import；gateway 冒烟测 | tier0 **181+2**；TRUNCATE 基线 **19** 冻结；飞书 tool Go | [x] 2026-05-20 |
 | **M-002** | Mimir+刘哥 | **M2 飞书发图 + 识图** | `Image downloaded` + 能描述图 | [~] 下载 OK；识图 blocked 无 OPENROUTER |
 | **M-003** | Mimir+刘哥 | **M3 空表头表** | 列名 `—`；无 230099 | [~] 代码已合；待飞书复验 |
 | **M-005** | 刘哥 | **M5 OPENROUTER** | `~/.mimiraether/.env` 或 config vision | [ ] |
@@ -53,7 +54,9 @@
 
 **并行允许**：E-004（D7-0a）单独 PR；**禁止** mixin commit + D6 + 删 `cli.py` 同 PR。
 
-**下一条（默认）**：**E-004** `CLI_CONFIG`（单独 PR）；**Mimir** 跑 `MIMIR_D17` T-01～T-11（post-commit 回归）。
+**下一条（默认）**：**Mimir → T-02**（飞书发图+识图）；**Cursor → E-004** `CLI_CONFIG`（单独 PR）。T-01 / 工具链已在 IR Phase 3c Go，勿重做工程。
+
+**交接文档**：`docs/MIMIR_HANDOFF_20260520.md` · **微信简报**：OpenClaw skill `mimir-handoff-weixin`（`~/.openclaw/workspace/skills/`）
 
 ---
 
@@ -77,7 +80,7 @@
 
 | # | 统一 ID | 任务 | 状态（2026-05-20） |
 |---|---------|------|-------------------|
-| M1 | — | 重启 gateway | [~] 续跑窗 **160123** 常驻已验；Mimir 跑 **T-01** 签字后改 [x] |
+| M1 | — | 重启 gateway | [x] IR Phase 3：硬重启 + pgrep + 飞书 tool；Mimir 续跑从 T-02 |
 | M2 | M-002 | 飞书发图+识图 | [~] |
 | M3 | M-003 | 空表头表 | [~] |
 | M4 | — | 触发 tool | [x] |
@@ -104,7 +107,7 @@ Mimir 冒烟回报
 
 | 模块 | 检测项 | 状态 |
 |------|--------|------|
-| A Gateway | 进程/WS/Token | [~] WIP 常驻已修（155486）；待 Mimir 硬重启复验 |
+| A Gateway | 进程/WS/Token | [x] IR 后硬重启 + tier0；Mimir T-02 可再签字 |
 | B 飞书 | 心跳/收图/卡片/tool | ✅ 23:00 后多次 send success |
 | C Agent | 崩溃/孤儿/错误率 | ✅ |
 | D 数据 | persistent/日志/胶囊 | ✅（index 已补 P4-1） |
@@ -201,16 +204,16 @@ Mimir 冒烟回报
 
 ## 9. 续跑提示词（复制到新 Cursor / Mimir 窗）
 
-> 真源：`docs/MIMIR_EXEC_BACKLOG.md` §2。本段随队列更新；**2026-05-20** 已含 E-001 结案。
+> 真源：`docs/MIMIR_EXEC_BACKLOG.md` §2 + `docs/MIMIR_HANDOFF_20260520.md`。IR-20260520 工程已结案。
 
 ```markdown
-# MimirAether 续跑 — 统一 backlog
+# MimirAether 续跑 — 统一 backlog（post IR-20260520）
 
 工作区：`/home/rayliu/src/MimirAether`  
 运行时：`MIMIR_AETHER_HOME=~/.mimiraether`  
-必读：`docs/MIMIR_EXEC_BACKLOG.md` §1–§2  
+必读：`docs/MIMIR_HANDOFF_20260520.md` · `docs/MIMIR_EXEC_BACKLOG.md` §2 · `docs/MIMIR_D17_AUDIT_AND_TASKS.md` §5  
 
-合并/宣称完成前：`./run_ralph_tier0.sh` 绿。勿提交 `data/persistent.json`。无刘哥授权勿 `git push`。
+合并/宣称完成前：`./run_ralph_tier0.sh` 绿（当前 **181+2**）。勿提交 `data/persistent.json`。无刘哥授权勿 `git push`。
 
 ---
 
@@ -218,80 +221,59 @@ Mimir 冒烟回报
 
 | 项 | 说明 |
 |----|------|
-| d1–d3 验证 | Mimir 已做大部分冒烟/ISSUES；代码在 main（`341c1fd`…`393214e`、P2 PR） |
-| E-001 | Gateway 启动即退已修：`health_mixin.should_exit_cleanly` 补 `@property`（非 aiohttp）；tier0 PASS；WIP 上 PID 常驻 |
-| ToolRegistry | `agent/__init__.py` ← `exec_mixin` |
-| 轨道 A 部分 | M4/M6 [x]；M2/M3/M5/M7/M8 仍欠 |
+| E-001～E-003 + **E-IR** | mixin 拆分收尾 + recovery/exec 修复；见 `docs/MIMIR_INCIDENT_IR-20260520.md` |
+| T-01 / 工具链 | IR Phase 3c 飞书 read_file Go；tier0 含 mixin 冒烟测 |
+| M1 / M4 / M6 / M7 | gateway 重启、tool、ISSUES、十条文档 |
+| TRUNCATE | 基线 **19** — 勿再因 NameError 上涨 |
 
 ---
 
-## 当前队列头（按 §2 第一条 `[ ]` / `[~]`）
+## 当前队列头
 
-1. **E-002**（Cursor）— D3-SPLIT 小 commit：gateway 6 mixin + `home_paths.py` + E-001 修复 + agent mixin（刘哥说一声再 commit）  
-2. **E-003** — D4 agent 四 mixin（可同 commit 或下一 commit）  
-3. **M-002 / M-003 / M-005**（Mimir+刘哥）— 飞书发图/空表/OPENROUTER  
-4. **M-007** — 更新 `GATEWAY_STABILITY_BACKLOG.md` 十条  
-5. **E-004～E-009** — d7→d6→d5（分 PR）  
-6. **M-008** — push（授权后）
+1. **Mimir：T-02** → T-03 → T-05～T-11（§5 总提示词）  
+2. **M-002 / M-003 / M-005** — 飞书发图/表头/OPENROUTER  
+3. **Cursor：E-004** `CLI_CONFIG`（单独 PR）  
+4. **M-008** — `git push`（刘哥授权后）
 
 ---
 
-## Mimir 专用（只做这些）
+## Mimir 专用
 
-**一键入口**：`docs/MIMIR_D17_AUDIT_AND_TASKS.md` §5（含 T-01～T-11 方案与分任务提示词）
+**入口**：`docs/MIMIR_D17_AUDIT_AND_TASKS.md` §5（post-IR 基线）
 
-| ID | 任务 | 训练包 |
-|----|------|--------|
-| M1 | 硬重启 + pgrep | **T-01** |
-| M-002 | 飞书发图+识图 | **T-02** + **T-05** |
-| M-003 | 空表头表 | **T-03** |
-| M-005 | OPENROUTER 有/无 | **T-05** |
-| — | 工具/孤儿 tool | **T-04** |
-| — | API 清单 / reaction / agent 栈 | **T-06** **T-07** **T-08** |
-| — | d5/d6/d7 只读/复现 | **T-09** **T-10** **T-11** |
-| M-007 | 十条文档 | [x]；T-06/07/08 可再细化状态 |
-| M-008 | 不 push | — |
+| 从 | 任务 |
+|----|------|
+| **T-02** | 飞书发图+识图（M-002） |
+| T-03 | 空表头（M-003） |
+| T-05 | OPENROUTER（M-005） |
+| T-06～11 | API / reaction / agent 栈 / d5–d7 只读 |
 
-**禁止**：改 agent/gateway/cli 架构；删光 `role=tool`；填 d5 进化 19 存根；**代做 E-004+ 工程**。
-
-### Mimir 回报模板
-
-Mimir 冒烟回报
-- gateway PID / 启动时间:
-- M1 WIP 硬重启: 通过/失败
-- M2 发图:
-- M3 表头:
-- M5 OPENROUTER: 有/无
-- 未完成项:
+**禁止**：改 mixin；代做 E-004+；删 `role=tool`；未授权 push。
 
 ---
 
-## Cursor 工程专用
+## Cursor 工程
 
-- **默认下一刀**：E-002 小 commit（`gateway/health_mixin.py`、`session_mixin.py`、`home_paths.py`、gateway/agent mixins、`agent/__init__.py` ToolRegistry）  
-- **可并行另一 PR**：E-004 `CLI_CONFIG`（`mimir_cli/config.py`）  
-- **禁止同 PR**：E-002/003 + D6 Day-1 + 删 `cli.py`
-
-d7 窗若已做 E-004/E-005：回报后更新 §2 对应行。
+- **下一刀**：E-004 only（`mimir_cli/config.py`）  
+- **禁止同 PR**：IR 修复 + D6 + 删 `cli.py`
 
 ---
 
 ## 冒烟命令
 
-cd ~/src/MimirAether
-./run_ralph_tier0.sh
+cd ~/src/MimirAether && ./run_ralph_tier0.sh
 MIMIR_AETHER_HOME=~/.mimiraether ./scripts/restart_gateway_hard.sh
-pgrep -af 'gateway/run.py'
-grep -E 'feishu connected|Lark connected|Unclosed|Gateway stopped' ~/.mimiraether/logs/gateway.log | tail -15
+grep -c 'Level 3 TRUNCATE' ~/.mimiraether/logs/agent.log
 ```
 
 ---
 
-## 10. WIP 快照（2026-05-20 末）
+## 10. WIP 快照（2026-05-20 末 · 交接）
 
-- **E-001/E-002/E-003** ✅ committed；tier0 PASS（162+2）  
-- **无 push**（M-008）  
-- **工程下一刀**：E-004 `CLI_CONFIG`  
-- **Mimir 训练包**：`docs/MIMIR_D17_AUDIT_AND_TASKS.md`（T-01～T-12）  
-- **Wiki 评注（知识）**：`docs/MIMIR_D17_WIKI_AUDIT_COMMENTARY.md`（勿改 wiki HTML）  
-- **Mimir 待办**：T-01～T-11 冒烟；可选 T-12 核对 wiki vs 真源
+- **E-001/E-002/E-003/E-IR** ✅ committed；tier0 **181+2 PASS**  
+- **TRUNCATE** 冻结 **19**  
+- **push**：M-008（刘哥授权；本地领先 origin ~10 commit）  
+- **Mimir**：**T-02** 起；勿重做 T-01/工程  
+- **Cursor**：**E-004**  
+- **微信**：OpenClaw `mimir-handoff-weixin` skill；DM 已配对  
+- **详**：`docs/MIMIR_HANDOFF_20260520.md`
