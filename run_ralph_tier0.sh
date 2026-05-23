@@ -96,7 +96,8 @@ python3 -m pytest -q \
   agent/test_gateway_mixin_import_smoke.py \
   agent/test_exec_mixin_imports.py \
   tests/agent/test_agent_loop_integration.py \
-  tests/agent/test_agent_loop_edge.py
+  tests/agent/test_agent_loop_edge.py \
+  tests/agent/test_skill_evolution_smoke.py
 
 echo "=== Ralph Tier-1: Gate3 Core E2E (mocked LLM) ==="
 python3 -m pytest -q agent/test_tier1_e2e_agent.py
