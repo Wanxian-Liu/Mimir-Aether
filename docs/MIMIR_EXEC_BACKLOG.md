@@ -55,7 +55,7 @@
 
 **并行允许**：E-004（D7-0a）单独 PR；**禁止** mixin commit + D6 + 删 `cli.py` 同 PR。
 
-**下一条（默认）**：**Cursor → EP-C04**（self_evolution 烟测 ×3）；**Mimir → §2c EV-L*** / EV-M02 飞书复验。
+**下一条（默认）**：**Cursor → E-007**（进化安全基线）或 **viewer 入库**；**Mimir → §2c EV-L*** / EV-M02 飞书复验。
 
 ---
 
@@ -68,7 +68,7 @@
 | **EP-C01** | agent_loop 集成测 ×3 | `tests/agent/test_agent_loop_integration.py` + tier0 | [x] 2026-05-23 |
 | **EP-C02** | agent_loop 边界 ×3 | JSON/多工具/max_turns · `test_agent_loop_edge.py` | [x] 2026-05-23 |
 | **EP-C03** | skill_evolution 烟测 ×3 | gate/FIX/DERIVED · `test_skill_evolution_smoke.py` | [x] 2026-05-23 |
-| **EP-C04** | self_evolution 烟测 ×3 | `agent/self_evolution` 路径 | [ ] |
+| **EP-C04** | self_evolution 烟测 ×3 | IC/analyze/memory · `test_self_evolution_smoke.py` | [x] 2026-05-23 |
 
 ---
 
