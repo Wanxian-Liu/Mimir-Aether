@@ -44,4 +44,14 @@ export HERMES_HOME="$MIMIR_AETHER_HOME"
 
 Production-style installs usually keep **`MIMIR_AETHER_HOME`** on a user data path (e.g. `~/.mimiraether`) so the clone can be deleted or replaced without losing state.
 
+## CLI entry points (D7-1)
+
+| Entry | Role | Notes |
+|-------|------|--------|
+| **`mimir …`** | **Preferred** | Installed/console script → `mimir_cli.main`; `mimir chat` uses `mimir_cli.chat_runner` (not `cli.main`). |
+| **`python cli.py …`** | Legacy | Monolithic router in repo root; still used for some subcommands. **Do not** add new features here — extend `mimir_cli` instead. |
+| **`python -m mimir_cli.main`** | Dev | Same as `mimir` when run from repo root with `PYTHONPATH` / editable install. |
+
+Chat one-shot: `mimir -q "task"` or `mimir chat -q "task"`. Interactive: `mimir` or `mimir chat`.
+
 See also: [`path-contract.md`](./path-contract.md), [`MIMIR_RUNTIME_CONTRACT.md`](./MIMIR_RUNTIME_CONTRACT.md).

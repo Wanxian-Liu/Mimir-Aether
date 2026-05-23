@@ -985,11 +985,12 @@ def _resolve_delegation_credentials(cfg: dict, parent_agent) -> dict:
 def _load_config() -> dict:
     """Load delegation config from CLI_CONFIG or yaml config file.
 
-    Checks the runtime config (cli.py CLI_CONFIG) first, then falls back
-    to yaml config (self-hosted mode, replacing hermes_cli.config.load_config).
+    Checks ``mimir_cli.config.CLI_CONFIG`` first, then falls back to yaml config
+    (self-hosted mode).
     """
     try:
-        from cli import CLI_CONFIG
+        from mimir_cli.config import CLI_CONFIG
+
         cfg = CLI_CONFIG.get("delegation", {})
         if cfg:
             return cfg
