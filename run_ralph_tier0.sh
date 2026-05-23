@@ -94,7 +94,8 @@ python3 -m pytest -q \
   agent/test_mimir_paths_resolution.py \
   agent/test_recovery_mixin_code_errors.py \
   agent/test_gateway_mixin_import_smoke.py \
-  agent/test_exec_mixin_imports.py
+  agent/test_exec_mixin_imports.py \
+  tests/agent/test_agent_loop_integration.py
 
 echo "=== Ralph Tier-1: Gate3 Core E2E (mocked LLM) ==="
 python3 -m pytest -q agent/test_tier1_e2e_agent.py

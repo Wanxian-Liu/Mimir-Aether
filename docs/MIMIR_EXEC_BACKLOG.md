@@ -55,6 +55,21 @@
 
 **并行允许**：E-004（D7-0a）单独 PR；**禁止** mixin commit + D6 + 删 `cli.py` 同 PR。
 
+**下一条（默认）**：**Cursor → EP-C02**（agent_loop 边界 ×3）；**Mimir → §2c EV-L*** / EV-M02 飞书复验。
+
+---
+
+## 2j-2. 琬弦工程第二期 · 测试轨（EP-C* · Cursor）
+
+> 每 PR **3 条** pytest；目录 **`tests/agent/`**；mock LLM、无网。仍禁改 `core_loop` / gateway mixin。
+
+| ID | 任务 | 成功标准 | 状态 |
+|----|------|----------|------|
+| **EP-C01** | agent_loop 集成测 ×3 | `tests/agent/test_agent_loop_integration.py` + tier0 | [x] 2026-05-23 |
+| **EP-C02** | agent_loop 边界 ×3 | 未知/JSON/多工具（待选） | [ ] |
+| **EP-C03** | skill_evolution 烟测 ×3 | `agent/skill_evolution` 路径 | [ ] |
+| **EP-C04** | self_evolution 烟测 ×3 | `agent/self_evolution` 路径 | [ ] |
+
 **下一条（默认）**：**Mimir → §2c 第一条 `[ ]` 的 EV-L***（自学习/playbook）；§2b 仅剩 EV-M02 飞书复验 / EV-M12 可选。 **Cursor → E-004**（刘哥在线）。勿重做 IR 工程。
 
 **交接文档**：`docs/MIMIR_HANDOFF_20260520.md` · **微信简报**：OpenClaw skill `mimir-handoff-weixin`（`~/.openclaw/workspace/skills/`）
