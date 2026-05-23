@@ -3,6 +3,8 @@
 **日期**：2026-05-21  
 **来源**：EV-A01（琬弦架构方案方向一 — Agent Core 职责重划 P0）
 
+> **Agent Core 真源（2026-05-24）** → [`docs/phase0/agent-core-responsibility-map.md`](./phase0/agent-core-responsibility-map.md)。下文为 2026-05-21 历史快照。
+
 ## 6 文件职责矩阵
 
 | # | 文件 | 行数 | 主职责 | 次要职责 | 重叠度 |

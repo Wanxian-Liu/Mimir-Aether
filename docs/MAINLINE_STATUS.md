@@ -6,10 +6,10 @@
 | 字段 | 值 |
 |------|-----|
 | **最近更新** | 2026-05-24 |
-| **更新人** | Cursor（Prompt 6 — EV-P05 Compressor 审计） |
+| **更新人** | Cursor（Prompt 8 — EV-Q01–Q04 智商四连） |
 | **仓库根（真源）** | `~/src/MimirAether` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁 **237+2**）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
-| **本轮摘要** | **EV-P05** [x]（Compressor 重叠 → `docs/phase0/compressor-overlap-audit.md`）。执行源：**`MIMIR_PHASE0_QUEUE.md`**，下一条 **EV-A01**。Phase 1.5 已结案；tier0 **237+2**。 |
+| **本轮摘要** | **EV-Q01–Q04** [x]（智商四连 phase0 文档）。执行源：**`MIMIR_PHASE0_QUEUE.md`**，下一条 **EV-A02**。Phase 1.5 已结案；tier0 **237+2**。 |
 
 ---
 
@@ -63,6 +63,8 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-24 | **EV-Q01–Q04** [x]：硬编码 23 项、ToolQuality DB 快照、IntentPredictor 仍无、IQ **~3.8/10**。下一条 **EV-A02**。 |
+| 2026-05-24 | **EV-A01** [x]：Agent Core 职责映射（重叠 ~32%，core→MimirAgentLoop 委托）→ `docs/phase0/agent-core-responsibility-map.md`。下一条 **EV-A02**。 |
 | 2026-05-24 | **EV-P05** [x]：Compressor 重叠审计（~30%，前缀已分叉）→ `docs/phase0/compressor-overlap-audit.md`。下一条 **EV-A01**。 |
 | 2026-05-24 | **EV-P04** [x]：GOD 清单刷新（24×≥1500，`cli.py` 退出）→ `docs/phase0/god-file-inventory.md`。下一条 **EV-P05**。 |
 | 2026-05-24 | **EV-P03** [x]：废弃代码审计 → `docs/phase0/dead-code-audit.md`；`GOD_FILE_INVENTORY.md` 链 phase0 真源。下一条 **EV-P04**。 |

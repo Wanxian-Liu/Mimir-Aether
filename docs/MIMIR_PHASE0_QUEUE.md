@@ -13,12 +13,12 @@
 | EV-P03 | 废弃代码审计 | [docs/phase0/dead-code-audit.md](./phase0/dead-code-audit.md) | 20min | [x] 2026-05-24 |
 | EV-P04 | GOD 文件清单 | [docs/phase0/god-file-inventory.md](./phase0/god-file-inventory.md) | 15min | [x] 2026-05-24 |
 | EV-P05 | Compressor 重叠审计 | [docs/phase0/compressor-overlap-audit.md](./phase0/compressor-overlap-audit.md) | 20min | [x] 2026-05-24 |
-| EV-A01 | Agent Core 职责映射 | [docs/phase0/agent-core-responsibility-map.md](./phase0/agent-core-responsibility-map.md) | 40min | [ ] |
+| EV-A01 | Agent Core 职责映射 | [docs/phase0/agent-core-responsibility-map.md](./phase0/agent-core-responsibility-map.md) | 40min | [x] 2026-05-24 |
 | EV-A02 | Mimicore 依赖摸底 | [docs/phase0/mimicore-import-audit.md](./phase0/mimicore-import-audit.md) | 15min | [ ] |
 | EV-A03 | Memory 检索基准 | [docs/phase0/memory-retrieval-baseline.md](./phase0/memory-retrieval-baseline.md) | 30min | [ ] |
 | EV-A04 | 架构评分方法论 | [docs/phase0/architecture-scoring-rubric.md](./phase0/architecture-scoring-rubric.md) | 15min | [ ] |
 | EV-A05 | prompt_builder 安全审计 | [docs/phase0/prompt-builder-security-audit.md](./phase0/prompt-builder-security-audit.md) | 15min | [ ] |
-| EV-Q01 | 硬编码阈值清单 | [docs/phase0/hardcoded-thresholds.md](./phase0/hardcoded-thresholds.md) | 15min | [ ] |
-| EV-Q02 | ToolQuality 基线 | [docs/phase0/tool-quality-baseline.md](./phase0/tool-quality-baseline.md) | 15min | [ ] |
-| EV-Q03 | IntentPredictor 审计 | [docs/phase0/intent-predictor-audit.md](./phase0/intent-predictor-audit.md) | 15min | [ ] |
-| EV-Q04 | 智商评分 rubric | [docs/phase0/iq-scoring-rubric.md](./phase0/iq-scoring-rubric.md) | 15min | [ ] |
+| EV-Q01 | 硬编码阈值清单 | [docs/phase0/hardcoded-thresholds.md](./phase0/hardcoded-thresholds.md) | 15min | [x] 2026-05-24 |
+| EV-Q02 | ToolQuality 基线 | [docs/phase0/tool-quality-baseline.md](./phase0/tool-quality-baseline.md) | 15min | [x] 2026-05-24 |
+| EV-Q03 | IntentPredictor 审计 | [docs/phase0/intent-predictor-audit.md](./phase0/intent-predictor-audit.md) | 15min | [x] 2026-05-24 |
+| EV-Q04 | 智商评分 rubric | [docs/phase0/iq-scoring-rubric.md](./phase0/iq-scoring-rubric.md) | 15min | [x] 2026-05-24 |

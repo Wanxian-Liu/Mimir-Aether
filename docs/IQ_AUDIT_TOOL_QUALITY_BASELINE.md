@@ -3,6 +3,8 @@
 **日期**：2026-05-21  
 **来源**：EV-Q02（琬弦智商方案方向四 — 工具智能 P1）
 
+> **ToolQuality 真源（2026-05-24）** → [`docs/phase0/tool-quality-baseline.md`](./phase0/tool-quality-baseline.md)（含 DB 快照 TOP10）。下文为历史框架。
+
 ## 实际状态
 
 | 维度 | 内容 |

@@ -3,6 +3,8 @@
 **日期**：2026-05-21  
 **来源**：EV-Q03（琬弦智商方案方向六 — 意图预测 P2）
 
+> **Intent 真源（2026-05-24）** → [`docs/phase0/intent-predictor-audit.md`](./phase0/intent-predictor-audit.md)（Predictor 仍无；`intent_action_guard` 已存在）。下文为历史快照。
+
 ## 实际状态
 
 | 维度 | 内容 |

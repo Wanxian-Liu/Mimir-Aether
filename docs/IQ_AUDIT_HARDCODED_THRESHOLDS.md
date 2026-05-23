@@ -3,6 +3,8 @@
 **日期**：2026-05-21  
 **来源**：EV-Q01（琬弦智商方案方向一 — 规则→学习引擎 P0）
 
+> **阈值真源（2026-05-24）** → [`docs/phase0/hardcoded-thresholds.md`](./phase0/hardcoded-thresholds.md)（23 项，含 degeneration_guard + decision_ring）。下文为历史快照。
+
 ## context_compressor.py 常量（模块级）
 
 | 常量 | 行号 | 当前值 | 作用 | 自适应策略 |
