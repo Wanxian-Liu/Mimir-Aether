@@ -70,7 +70,7 @@
 | **EP-C03** | skill_evolution 烟测 ×3 | `agent/skill_evolution` 路径 | [ ] |
 | **EP-C04** | self_evolution 烟测 ×3 | `agent/self_evolution` 路径 | [ ] |
 
-**下一条（默认）**：**Mimir → §2c 第一条 `[ ]` 的 EV-L***（自学习/playbook）；§2b 仅剩 EV-M02 飞书复验 / EV-M12 可选。 **Cursor → E-004**（刘哥在线）。勿重做 IR 工程。
+---
 
 **交接文档**：`docs/MIMIR_HANDOFF_20260520.md` · **微信简报**：OpenClaw skill `mimir-handoff-weixin`（`~/.openclaw/workspace/skills/`）
 
