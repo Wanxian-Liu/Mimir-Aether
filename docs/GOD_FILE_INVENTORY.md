@@ -3,6 +3,8 @@
 **日期**：2026-05-21  
 **来源**：EV-P03a + EV-P03b + EV-P04（琬弦工程方案第一期）
 
+> **废弃代码真源（2026-05-24）**：以 [`docs/phase0/dead-code-audit.md`](./phase0/dead-code-audit.md) 为准；下文 EV-P03a/b 为历史快照，勿照抄。
+
 ---
 
 ## EV-P03a：tool_registry.py 引用确认
@@ -28,6 +30,8 @@
 ---
 
 ## EV-P04：GOD 文件清单（≥1500 行 · TOP25）
+
+> **GOD 真源（2026-05-24）** → [`docs/phase0/god-file-inventory.md`](./phase0/god-file-inventory.md)（24 文件；`cli.py` 已退出）。下表为 2026-05-21 历史快照。
 
 | # | 文件 | 行数 | 职责 | GOD 拆分优先级 |
 |---|------|------|------|:--:|

@@ -1,24 +1,25 @@
 # tests/fixtures — 共享测试夹具
 
 > 对标 pytest fixtures convention  
-> 创建日期：2026-05-21（EV-P01）
+> 创建日期：2026-05-21（EV-P01）· 审计：2026-05-24（[docs/phase0/fixtures-readme.md](../../docs/phase0/fixtures-readme.md)）
 
-## 目录结构
+## 目录结构（实际）
 
 ```
 tests/fixtures/
 ├── README.md            ← 本文件
-├── conftest.py          ← 共享 fixtures（会话/tempdir/mock LLM）
-└── example_fixture.py   ← 示例 fixture：临时技能目录
+└── example_fixture.py   ← 示例 fixture（样板；当前无测试引用）
 ```
+
+`conftest.py` — **待建**（Phase 1 前按需；agent 类测试现用 `tests/agent/conftest.py`）
 
 ## 命名规范
 
 | 模式 | 用途 |
 |------|------|
-| `conftest.py` | pytest 自动发现 fixture，作用于当前目录及子目录 |
+| `conftest.py` | pytest 自动发现 fixture（作用于**本目录及子目录**） |
 | `test_*.py` | 测试文件 |
-| `*_fixture.py` | 独立夹具模块（从 conftest.py 导入） |
+| `*_fixture.py` | 独立夹具模块（经 `pytest_plugins` 或 conftest 导入） |
 
 ## Mock 策略
 

@@ -6,10 +6,10 @@
 | 字段 | 值 |
 |------|-----|
 | **最近更新** | 2026-05-24 |
-| **更新人** | Cursor（E-012 JEPA hook + intent-action guard） |
+| **更新人** | Cursor（Prompt 5 — EV-P04 GOD 清单） |
 | **仓库根（真源）** | `~/src/MimirAether` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁 **237+2**）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
-| **本轮摘要** | **E-012**：`MIMIR_JEPA_CYCLE=1` 时在 pipeline close 触发 JEPA `run_cycle`（ISSUES #7 resolved）。**Intent-action guard**：Playbook/读文件类任务禁止纯文本「先读后做」交差；Playbook 路径别名进 prompt。tier0 **237+2** 绿。 |
+| **本轮摘要** | **EV-P04** [x]（GOD ≥1500 → `docs/phase0/god-file-inventory.md`，24 文件）。执行源：**`MIMIR_PHASE0_QUEUE.md`**，下一条 **EV-P05**。Phase 1.5 已结案；tier0 **237+2**。 |
 
 ---
 
@@ -63,6 +63,11 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-24 | **EV-P04** [x]：GOD 清单刷新（24×≥1500，`cli.py` 退出）→ `docs/phase0/god-file-inventory.md`。下一条 **EV-P05**。 |
+| 2026-05-24 | **EV-P03** [x]：废弃代码审计 → `docs/phase0/dead-code-audit.md`；`GOD_FILE_INVENTORY.md` 链 phase0 真源。下一条 **EV-P04**。 |
+| 2026-05-24 | **EV-P02** [x]：测试命名审计 → `docs/phase0/test-naming-convention.md`；`TEST_NAMING_CONVENTION.md` 补双轨/E-012/intent-action 示例。下一条 **EV-P03**。 |
+| 2026-05-24 | **Phase 0 启动**：新建 `MIMIR_PHASE0_QUEUE.md`（14 粒）；**EV-P01** fixtures 审计完成；BACKLOG §9 指向 Phase 0 队列。 |
+| 2026-05-24 | **Prompt 1**：ISSUES Active≤3、Backlog §2d 关账、§9 续跑、ADR-002 stub。 |
 | 2026-05-23 | **E-011 Phase 1.5**：Duration P50/P95/P99 → `/health`；MemoryFencer 用户入站保留 Markdown 表格；import/hygiene 回归测；tier0 **225+2** 绿。ISSUES #11 resolved。 |
 | 2026-05-20 | **IR-20260520 工程结案**：recovery/exec/gateway 修复；tier0 181+2；TRUNCATE 基线 19；`MIMIR_HANDOFF_20260520.md` + backlog/D17 §5 更新；OpenClaw skill `mimir-handoff-weixin`。 |
 | 2026-05-19 | **收尾**：G5 API Server loopback 确认安全；Git 工作区清理；MAINLINE 刷新；Gateway #2 Token 日志无异常。#1 孤儿 tool 已合 #4 / #9 空表头已合 #5。session_count: 341。 |

@@ -1,6 +1,6 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-05-20 夜（Mimir §2b **d1–d7 回报已收** → 下一颗粒 **EV-L01**；T-03 飞书复验待刘哥）  
+> **最近更新**：2026-05-24（**Prompt 1** — ISSUES/Backlog 文档收口；Phase 1.5 工程队列只读）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5；Mimir 飞书每轮 Read bridge + 本表  
 > **规则**：从下表「统一队列」取**第一条**未勾选项；做完勾 `[x]` + 简短回报 + `./run_ralph_tier0.sh`（触达代码时）。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
@@ -25,10 +25,11 @@
 
 ---
 
-## 2. 统一执行队列（按第一条未勾选项执行）
+## 2. 统一执行队列（Phase 1.5 已完成 · 只读归档）
 
+> **Phase 1.5（E-001～E-012 + intent-action guard）已全部 `[x]`** — 新窗勿从此表取「下一条工程项」；执行源见 **§9 续跑（2026-05-24）** 与 Prompt 2 将建的 Phase 0 队列。  
 > 状态：`[ ]` 待做 · `[~]` 部分/阻塞 · `[x]` 完成  
-> **基线**：IR + E-001～003 + exec/recovery 修复已 commit（`44061e2`…`a612217`）；**push** 见 M-008 / 刘哥授权
+> **基线**：tier0 **237+2**；IR + E-001～E-012 已合 main
 
 | ID | 负责 | 任务 | 成功标准 | 状态 |
 |----|------|------|----------|------|
@@ -36,8 +37,8 @@
 | **E-002** | Cursor | **D3-SPLIT 收尾** — 6 mixin + `home_paths.py` + commit | tier0 绿；gateway 硬重启后 PID 常驻 | [x] 2026-05-20 |
 | **E-003** | Cursor | **D4-P0-4** — agent 四 mixin（同 commit） | tier0 绿 | [x] 2026-05-20 |
 | **E-IR** | Cursor | **IR-20260520** — recovery 禁 TRUNCATE on 代码错误；exec_mixin import；gateway 冒烟测 | tier0 **181+2**；TRUNCATE 基线 **19** 冻结；飞书 tool Go | [x] 2026-05-20 |
-| **M-002** | Mimir+刘哥 | **M2 飞书发图**（识图 **搁置**） | `Image downloaded`；**不要求**描述图 | [~] 见 **§2b EV-M01**；识图 → **EV-VISION-DEFER** |
-| **M-003** | Mimir+刘哥 | **M3 空表头表** | 列名 `—`；无 230099 | [~] 代码已合；**§2b EV-M02** |
+| **M-002** | Mimir+刘哥 | **M2 飞书发图**（识图 **搁置**） | `Image downloaded`；**不要求**描述图 | [x] deferred — 识图 **EV-VISION-DEFER**；发图路径已验（EV-M01） |
+| **M-003** | Mimir+刘哥 | **M3 空表头表** | 列名 `—`；无 230099 | [x] deferred — 代码已合；刘哥暂不飞书复验（CLOSE-3） |
 | **M-005** | 刘哥 | **M5 OPENROUTER** | — | [x] **N/A** — 刘哥 **仅用 DeepSeek**，不配 OpenRouter |
 | **M-007** | Mimir | **M7 Gateway 十条** | `GATEWAY_STABILITY_BACKLOG.md` 逐条标状态 | [x] 2026-05-20 状态列已更新 |
 | **E-004** | Cursor | **D7-0a** `CLI_CONFIG` 默认值 | clarify/approval 不 ImportError | [x] 2026-05-23 WIN-1 · tier0 181+2 |
@@ -58,7 +59,19 @@
 
 **并行允许**：E-004（D7-0a）单独 PR；**禁止** mixin commit + D6 + 删 `cli.py` 同 PR。
 
-**下一条（默认）**：**Cursor → EP-C 已收口 / 新工程项待排**；**Mimir → §2c EV-L*** / EV-M02 飞书复验。
+**下一条（默认）**：**勿用本 §2** — 见 **§9 续跑（2026-05-24）**；工程 backlog 由 Prompt 2 建 Phase 0。
+
+---
+
+## 2d. 关账队列（Prompt 1 · 2026-05-24 · 文档收口）
+
+| ID | 任务 | 状态 |
+|----|------|------|
+| **CLOSE-1** | ISSUES 归档 Active≤3 | [x] |
+| **CLOSE-2** | 替换 §9 过时续跑 | [x] |
+| **CLOSE-3** | M-003 空表头 → deferred（刘哥暂不飞书复验） | [x] |
+| **CLOSE-4** | M-002 识图 → EV-VISION-DEFER | [x] |
+| **CLOSE-5** | EV-M12 可选 → skipped | [x] |
 
 ---
 
@@ -88,7 +101,7 @@
 | ID | 颗粒 | 做什么（仅文档/日志/grep） | 验证 / 完成标准 | 状态 |
 |----|------|---------------------------|-----------------|------|
 | **EV-M01** | T-02 -lite | 飞书发图或查历史 log：`Image downloaded` | `grep Image downloaded agent.log` 有命中；识图 **不测** | [x] 2026-05-20 agent.log 命中；vision blocked (deepseek 无 image_url) |
-| **EV-M02** | T-03 | 飞书要一张 **空列表头** 表或复现 #9 | 无 `230099`；列名 `—`；更新 M-003 | [~] log 有历史 230099 (05-17)；需飞书复验代码修复 |
+| **EV-M02** | T-03 | 飞书要一张 **空列表头** 表或复现 #9 | 无 `230099`；列名 `—`；更新 M-003 | [x] deferred — 代码已合；CLOSE-3 暂不飞书复验 |
 | **EV-M03** | T-05 | 记 `OPENROUTER:absent` + DeepSeek-only 策略一行 | `MIMIR_ISSUES.md` 或 §4 注明 N/A，不索要 key | [x] OPENROUTER:absent 确认；DeepSeek-only |
 | **EV-M04** | T-06 | API/路由清单：只读 `docs/` + `gateway/platforms/` 文件名列表 | 回报 ≤15 行清单，无改码 | [x] 清单完成：loopback/无api_server段/符合SECURITY |
 | **EV-M05** | T-07 | reaction/表情路径：grep `gateway` + 最近 `gateway.log` | 1 条 pass/fail + log 行号 | [x] 未复现 — gateway.log 无 reaction 记录 |
@@ -98,7 +111,7 @@
 | **EV-M09** | T-11 | d7 只读：复现 `CLI_CONFIG` ImportError 线索（grep/python -c） | ISSUES 一条指向 **E-004**，Mimir 不修 | [x] ImportError 复现：cannot import CLI_CONFIG |
 | **EV-M10** | 稳定性 | `GATEWAY_STABILITY_BACKLOG.md` #2 #9 对今日 log 再 grep | 两条状态 [x]/[~] 有 log 行 | [x] #9 历史230099已记录；#2 token正常 |
 | **EV-M11** | IR 看守 | `grep -c 'Level 3 TRUNCATE' agent.log` 必须 **≤19** | 若 >19：ISSUES P0 + 停手 | [x] TRUNCATE=19 基线保持 |
-| **EV-M12** | T-12 可选 | `MIMIR_D17_WIKI_AUDIT_COMMENTARY.md` 任选一节 vs 仓库一句 | 1 条一致/漂移 | [ ] 跳过（可选） |
+| **EV-M12** | T-12 可选 | `MIMIR_D17_WIKI_AUDIT_COMMENTARY.md` 任选一节 vs 仓库一句 | 1 条一致/漂移 | [x] skipped — CLOSE-5 可选颗粒不阻塞 |
 | **EV-M13** | 汇总 | 飞书发 **刘哥离线包**（见下模板） | 含 EV-M01～12 勾选表 + 需刘哥 3 条以内 | [x] 本回报即为汇总 |
 | **EV-VISION-DEFER** | 搁置 | 自动识图 / OPENROUTER / `vision_analyze` 端到端 | 刘哥明确「恢复识图」前 **不做** | [~] 搁置 |
 
@@ -182,8 +195,8 @@ EV-M01..12: (列表勾选)
 | # | 统一 ID | 任务 | 状态（2026-05-20） |
 |---|---------|------|-------------------|
 | M1 | — | 重启 gateway | [x] IR Phase 3：硬重启 + pgrep + 飞书 tool；Mimir 续跑从 T-02 |
-| M2 | M-002 | 飞书发图（识图搁置） | [~] §2b EV-M01 |
-| M3 | M-003 | 空表头表 | [~] §2b EV-M02 |
+| M2 | M-002 | 飞书发图（识图搁置） | [x] deferred — EV-VISION-DEFER |
+| M3 | M-003 | 空表头表 | [x] deferred — CLOSE-3 |
 | M4 | — | 触发 tool | [x] |
 | M5 | M-005 | OPENROUTER | [x] N/A DeepSeek-only |
 | M6 | — | ISSUES #1/#2 | [x] |
@@ -218,6 +231,8 @@ Mimir 冒烟回报
 ---
 
 ## 6. 工程明细（Cursor — 按审计阶段）
+
+> **首行约定**：§6 内 **d5 / d6 未勾项**（如 D5-1、D5-3、D6-1～3）= **Phase 2 候选**，非 Phase 1.5 Active；勿与新窗 §2 混读。
 
 ### d1 — 飞书 · [x] P0 合 main
 
@@ -303,78 +318,20 @@ Mimir 冒烟回报
 
 ---
 
-## 9. 续跑提示词（复制到新 Cursor / Mimir 窗）
+## 9. 续跑（2026-05-24）
 
-> 真源：`docs/MIMIR_EXEC_BACKLOG.md` §2 + `docs/MIMIR_HANDOFF_20260520.md`。IR-20260520 工程已结案。
-
-```markdown
-# MimirAether 续跑 — 统一 backlog（post IR-20260520）
-
-工作区：`/home/rayliu/src/MimirAether`  
-运行时：`MIMIR_AETHER_HOME=~/.mimiraether`  
-必读：`docs/MIMIR_HANDOFF_20260520.md` · `docs/MIMIR_EXEC_BACKLOG.md` §2 · `docs/MIMIR_D17_AUDIT_AND_TASKS.md` §5  
-
-合并/宣称完成前：`./run_ralph_tier0.sh` 绿（当前 **181+2**）。勿提交 `data/persistent.json`。无刘哥授权勿 `git push`。
+- **Phase 1.5** ✅：E-001～E-012 + intent-action guard；**tier0 237+2**；飞书正常；识图 **EV-VISION-DEFER**。
+- **真源**：`~/src/MimirAether` · `MIMIR_AETHER_HOME=~/.mimiraether` · 必读 `MAINLINE_STATUS.md` / `MIMIR_ISSUES.md`（Active≤3）/ `AGENTS.md`。
+- **§2 工程队列**：只读，勿再取「E-004 / T-02 / 181+2」。
+- **唯一执行源**：[`docs/MIMIR_PHASE0_QUEUE.md`](./MIMIR_PHASE0_QUEUE.md) 第一条 `[ ]`（**EV-P01** 已完成 → 下一条 **EV-P02**）。
+- **勿**：提交 `data/persistent.json`；`git push`（除非刘哥授权）；重做 E-001～E-012。
 
 ---
 
-## 已完成（勿重做）
+## 10. WIP 快照（2026-05-24 · Prompt 1 后）
 
-| 项 | 说明 |
-|----|------|
-| E-001～E-003 + **E-IR** | mixin 拆分收尾 + recovery/exec 修复；见 `docs/MIMIR_INCIDENT_IR-20260520.md` |
-| T-01 / 工具链 | IR Phase 3c 飞书 read_file Go；tier0 含 mixin 冒烟测 |
-| M1 / M4 / M6 / M7 | gateway 重启、tool、ISSUES、十条文档 |
-| TRUNCATE | 基线 **19** — 勿再因 NameError 上涨 |
-
----
-
-## 当前队列头
-
-1. **Mimir：T-02** → T-03 → T-05～T-11（§5 总提示词）  
-2. **M-002 / M-003 / M-005** — 飞书发图/表头/OPENROUTER  
-3. **Cursor：E-004** `CLI_CONFIG`（单独 PR）  
-4. **M-008** — `git push`（刘哥授权后）
-
----
-
-## Mimir 专用
-
-**入口**：`docs/MIMIR_D17_AUDIT_AND_TASKS.md` §5（post-IR 基线）
-
-| 从 | 任务 |
-|----|------|
-| **T-02** | 飞书发图+识图（M-002） |
-| T-03 | 空表头（M-003） |
-| T-05 | OPENROUTER（M-005） |
-| T-06～11 | API / reaction / agent 栈 / d5–d7 只读 |
-
-**禁止**：改 mixin；代做 E-004+；删 `role=tool`；未授权 push。
-
----
-
-## Cursor 工程
-
-- **下一刀**：E-004 only（`mimir_cli/config.py`）  
-- **禁止同 PR**：IR 修复 + D6 + 删 `cli.py`
-
----
-
-## 冒烟命令
-
-cd ~/src/MimirAether && ./run_ralph_tier0.sh
-MIMIR_AETHER_HOME=~/.mimiraether ./scripts/restart_gateway_hard.sh
-grep -c 'Level 3 TRUNCATE' ~/.mimiraether/logs/agent.log
-```
-
----
-
-## 10. WIP 快照（2026-05-20 末 · 交接）
-
-- **E-001/E-002/E-003/E-IR** ✅ committed；tier0 **181+2 PASS**  
-- **TRUNCATE** 冻结 **19**  
-- **push**：M-008 ✅ `origin/main` @ `599ecb3`  
-- **Mimir**：**§2c EV-L*** 自学习轨（Playbook）；§2b 收尾 EV-M02 复验；识图 **EV-VISION-DEFER**  
-- **Cursor**：**E-004**  
-- **微信**：OpenClaw `mimir-handoff-weixin` skill；DM 已配对  
-- **详**：`docs/MIMIR_HANDOFF_20260520.md`
+- **Phase 1.5** ✅ E-001～E-012 + intent-action guard；tier0 **237+2**  
+- **文档收口** ✅ CLOSE-1～5 · ISSUES Active≤3 · §9 已替换  
+- **TRUNCATE** 基线 **19**（仅 >19 时 reopen ISSUES #10）  
+- **下一窗**：Prompt 2 → Phase 0 执行队列（待建）  
+- **历史交接**：`docs/MIMIR_HANDOFF_20260520.md`

@@ -11,6 +11,18 @@
 | `test_<module>.py` | `test_skill_evolution.py` | 单元测试 |
 | `test_<module>_integration.py` | `test_agent_loop_integration.py` | 集成测试（含 mock LLM） |
 | `test_<module>_edge.py` | `test_agent_loop_edge.py` | 边界/异常用例 |
+| `test_e<ticket>_<slug>.py` | `test_e012_jepa_session_hook.py` | 工程债 / EP 回归（`tests/agent/` 或 `tests/gateway/`） |
+| `test_intent_action_guard.py` | `tests/agent/test_intent_action_guard.py` | 行为守卫（intent-action guard） |
+
+## 目录双轨（tier0 实际）
+
+| 目录 | 何时用 |
+|------|--------|
+| `agent/test_*.py` | 既有 parity、M3–M5 `test_m5_*_slice.py`、模块 import 烟测（Gate2 **多数**仍在此） |
+| `tests/agent/test_*.py` | 新 EP/E-0xx 集成测、smoke、gateway 绑定测（E-006～E-012、intent-action guard） |
+| `tests/gateway/test_*.py` | gateway mixin / session 绑定（如 E-010/E-011） |
+
+新测 **优先** `tests/<area>/`；勿为对齐而搬迁已在 `agent/` 的 M5 切片。
 
 ## 函数命名
 
@@ -46,3 +58,5 @@ pytest --cov=agent --cov-fail-under=15 --cov-append tests/
 - 新增 Python 模块 → 必须同步新增 `test_<name>_imports.py`
 - Mock 不跳过写盘（EV-K05 反模式教训）
 - 过夜测试用 `--timeout=60` 防止 flaky test 挂起 CI
+
+**Phase 0 审计**（合规样本 / tier0 双轨 / 偏离例）：[`docs/phase0/test-naming-convention.md`](./phase0/test-naming-convention.md)
