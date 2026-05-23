@@ -69,7 +69,7 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 - main：`fb53ac2`+（E-004 + E-005 + 常备授权 + bridge WIN-5 签收）
 - JEPA：PR **#8** merge → main（merge `origin/main` 进 feat 后 push + gh merge）
 - **WIN-5** ✅ · **PR #8 merge** ✅（本窗）
-- 下一工程刀：**E-006** `/health`（WIN-3）
+- 下一工程刀：**EP-C01** 测试（E-006 health 切片 ✅ WIN-3）
 
 ---
 
@@ -81,11 +81,12 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 | 2026-05-23 | E-004 / E-005 | **WIN-1/4** | PR #6 #7 merged → main |
 | 2026-05-23 | JEPA | **WIN-5** | rebase；tier0 3×181+2；@ ae8a5c7 |
 | 2026-05-23 | PR #8 | **WIN-8** | JEPA+skills+IC 合入 main @ d3cc0a6；post-merge tier0 PASS |
+| 2026-05-23 | E-006 health | **WIN-3** | loopback /health 默认 18999；tier0 186+2 |
 
 ---
 
 ## 5. Mimir 进度笔记
 
-- **main**：E-004 ✅ E-005 ✅ **JEPA/IC/skills ✅**（PR #8 merged）→ **E-006** `/health` · **EP-C01** 测试
+- **main**：E-004 ✅ E-005 ✅ JEPA ✅ → **E-006** [~] health 切片 ✅ · **EP-C01** 测试
 - **ISSUES**：#7 引擎在 main；接 agent loop 若未接仍标 in-progress
 - **Mimir 运维**：`scripts/mimir_health_check.sh --quick` + TRUNCATE≤19；读 `MIMIR_UNIFIED_PLAN.md`
