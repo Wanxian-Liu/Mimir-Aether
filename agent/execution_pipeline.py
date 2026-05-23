@@ -62,8 +62,9 @@ def record_tool_call(
     result_summary: str = "",
     session_id: str = "",
 ) -> None:
-    """Record one tool execution in both recorder and quality manager."""
-    recorder = get_recorder(session_id=session_id)
+    """Record one tool execution in recorder, quality manager, and telemetry."""
+    sid = session_id or ""
+    recorder = get_recorder(session_id=sid)
     if recorder:
         recorder.record_tool_call(
             tool_name=tool_name,
@@ -74,7 +75,7 @@ def record_tool_call(
             result_summary=result_summary,
         )
 
-    quality_mgr = get_quality_manager(session_id=session_id)
+    quality_mgr = get_quality_manager(session_id=sid)
     if quality_mgr:
         quality_mgr.record(
             tool_name=tool_name,
@@ -82,6 +83,32 @@ def record_tool_call(
             error_message=error_message,
             duration_ms=duration_ms,
         )
+
+    try:
+        from agent.session_tracker import get_session_tracker
+
+        get_session_tracker().record_tool_call(
+            sid or "unknown",
+            tool_name,
+            success=success,
+            duration_ms=duration_ms,
+            error_msg=error_message,
+        )
+    except Exception:
+        pass
+
+    try:
+        from agent.monitor import record_tool_outcome
+
+        record_tool_outcome(
+            tool_name,
+            success=success,
+            duration_ms=duration_ms,
+            error_message=error_message,
+            session_id=sid,
+        )
+    except Exception:
+        pass
 
 
 def close_execution_pipeline(

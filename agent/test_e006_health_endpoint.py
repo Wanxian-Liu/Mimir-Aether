@@ -16,9 +16,11 @@ if str(ROOT) not in sys.path:
 
 def test_api_server_handle_health_returns_status_ok():
     async def _run():
+        from agent.monitor import reset_monitor_state
         from gateway.config import PlatformConfig
         from gateway.platforms.api_server import APIServerAdapter
 
+        reset_monitor_state()
         adapter = APIServerAdapter(PlatformConfig(enabled=True))
         request = _make_get_request("/health")
         response = await adapter._handle_health(request)
@@ -26,6 +28,8 @@ def test_api_server_handle_health_returns_status_ok():
         body = json.loads(response.body)
         assert body["status"] == "ok"
         assert body["gateway"] == "ok"
+        assert "agent_error_rate" in body
+        assert "agent" in body
 
     asyncio.run(_run())
 
@@ -74,9 +78,12 @@ def _make_get_request(path: str):
 
 def test_api_server_connect_exposes_health_route():
     async def _run():
+        from agent.monitor import reset_monitor_state
         from aiohttp.test_utils import TestClient, TestServer
         from gateway.config import PlatformConfig
         from gateway.platforms.api_server import APIServerAdapter
+
+        reset_monitor_state()
 
         cfg = PlatformConfig(enabled=True, extra={"host": "127.0.0.1", "port": 0})
         adapter = APIServerAdapter(cfg)

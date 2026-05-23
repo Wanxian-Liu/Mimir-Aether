@@ -568,6 +568,15 @@ class APIServerAdapter(BasePlatformAdapter):
             "platform": "MimirAether",
             "gateway": "ok",
         }
+        try:
+            from agent.monitor import snapshot_for_health
+
+            payload.update(snapshot_for_health())
+            if payload.get("agent") == "degraded":
+                payload["status"] = "degraded"
+        except Exception:
+            payload["agent"] = "unknown"
+            payload["agent_error_rate"] = 0.0
         return web.json_response(payload)
 
     async def _handle_models(self, request: "web.Request") -> "web.Response":

@@ -403,6 +403,7 @@ class MimirAgentLoop:
                 error_message=error_message,
                 duration_ms=duration_ms,
                 result_summary=result_summary,
+                session_id=self.task_id,
             )
         except Exception:
             pass  # Recording is best-effort

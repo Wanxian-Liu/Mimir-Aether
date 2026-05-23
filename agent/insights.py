@@ -304,19 +304,18 @@ class InsightsEngine:
         success: bool,
         platform: str = "unknown"
     ) -> None:
-        """记录工具调用（内存模式）"""
-        if not self._is_sql_mode:
-            self.record(
-                MetricType.TOOL_CALL,
-                1,
-                metadata={
-                    "session_id": session_id,
-                    "tool_name": tool_name,
-                    "duration_ms": duration_ms,
-                    "success": success,
-                    "platform": platform,
-                },
-            )
+        """记录工具调用（内存 + SQL 模式）"""
+        self.record(
+            MetricType.TOOL_CALL,
+            1,
+            metadata={
+                "session_id": session_id,
+                "tool_name": tool_name,
+                "duration_ms": duration_ms,
+                "success": success,
+                "platform": platform,
+            },
+        )
 
     def record_cost(
         self,
@@ -1005,8 +1004,19 @@ class InsightsEngine:
                 billing_provider=platform,
             )
         elif record.metric == MetricType.TOOL_CALL.value:
-            # tool_call_count增加1
-            pass  # SessionDB可能不支持直接更新tool_call_count
+            meta = record.metadata
+            try:
+                from agent.session_tracker import get_session_tracker
+
+                get_session_tracker().record_tool_call(
+                    session_id,
+                    meta.get("tool_name", "unknown"),
+                    success=bool(meta.get("success", True)),
+                    duration_ms=float(meta.get("duration_ms", 0)),
+                    error_msg=str(meta.get("error_message", "")),
+                )
+            except Exception:
+                pass
 
     def _update_session_insights(self, record: UsageRecord) -> None:
         """更新会话洞察（内存模式）"""

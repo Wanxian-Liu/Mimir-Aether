@@ -66,6 +66,21 @@ class SessionTracker:
                 CREATE INDEX IF NOT EXISTS idx_events_session 
                 ON session_events(session_id, timestamp)
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS tool_calls (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    tool_name TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    duration_ms REAL DEFAULT 0,
+                    error_msg TEXT DEFAULT '',
+                    recorded_at TEXT NOT NULL
+                )
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_tool_calls_status
+                ON tool_calls(status, recorded_at DESC)
+            """)
             conn.commit()
             # 迁移: 添加Token统计字段
             self._migrate_token_fields(conn)
@@ -167,6 +182,40 @@ class SessionTracker:
             return True
         except sqlite3.IntegrityError:
             return False
+
+    def record_tool_call(
+        self,
+        session_id: str,
+        tool_name: str,
+        *,
+        success: bool = True,
+        duration_ms: float = 0.0,
+        error_msg: str = "",
+    ) -> None:
+        """Persist one tool invocation (E-006 D6-0a TOOL_CALL telemetry)."""
+        status = "ok" if success else "error"
+        now = self._now()
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """INSERT INTO tool_calls
+                   (session_id, tool_name, status, duration_ms, error_msg, recorded_at)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (session_id, tool_name, status, duration_ms, error_msg or "", now),
+            )
+            conn.commit()
+
+    def count_tool_errors(self) -> int:
+        """Count failed tool calls in the telemetry table."""
+        with sqlite3.connect(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM tool_calls WHERE status = 'error'"
+            ).fetchone()
+            return int(row[0]) if row else 0
+
+    def count_tool_calls(self) -> int:
+        with sqlite3.connect(self.db_path) as conn:
+            row = conn.execute("SELECT COUNT(*) FROM tool_calls").fetchone()
+            return int(row[0]) if row else 0
     
     def get_session(self, session_id: str) -> Optional[Dict]:
         """获取会话信息
@@ -419,6 +468,16 @@ class SessionTracker:
         # 可扩展：添加会话关闭日志、资源释放等
         return False
 
+
+_tracker_singleton: Optional["SessionTracker"] = None
+
+
+def get_session_tracker(db_path: Optional[str] = None) -> SessionTracker:
+    """Process-wide SessionTracker (lazy)."""
+    global _tracker_singleton
+    if _tracker_singleton is None or db_path is not None:
+        _tracker_singleton = SessionTracker(db_path=db_path)
+    return _tracker_singleton
 
 
 # 使用示例
