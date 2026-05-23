@@ -63,7 +63,7 @@ class RecoveryMixin:
             error,
             (NameError, ImportError, AttributeError, ModuleNotFoundError),
         ):
-            logger.error(
+            logger.warning(
                 "[Recovery] Skipping TRUNCATE/COMPRESS for code error: %s: %s",
                 type(error).__name__,
                 _err_str[:200],

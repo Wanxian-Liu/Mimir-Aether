@@ -16,11 +16,13 @@ if str(ROOT) not in sys.path:
 
 def test_api_server_handle_health_returns_status_ok():
     async def _run():
-        from agent.monitor import reset_monitor_state
+        from agent.monitor import record_tool_outcome, reset_monitor_state
         from gateway.config import PlatformConfig
         from gateway.platforms.api_server import APIServerAdapter
 
         reset_monitor_state()
+        for ms in (10.0, 20.0, 30.0, 40.0, 1000.0):
+            record_tool_outcome("read_file", success=True, duration_ms=ms)
         adapter = APIServerAdapter(PlatformConfig(enabled=True))
         request = _make_get_request("/health")
         response = await adapter._handle_health(request)
@@ -30,6 +32,8 @@ def test_api_server_handle_health_returns_status_ok():
         assert body["gateway"] == "ok"
         assert "agent_error_rate" in body
         assert "agent" in body
+        assert "agent_tool_p95_ms" in body
+        assert body["agent_tool_p95_ms"] >= 40.0
 
     asyncio.run(_run())
 

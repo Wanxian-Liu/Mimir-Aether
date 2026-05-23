@@ -47,6 +47,7 @@
 | **E-008** | Cursor | **D7-2 / D7-3** 删旧 cli + CLI 冒烟测 | grep 无悬挂引用 + 少量 pytest | [x] |
 | **E-009** | Cursor | **D5-2** 单通路 FIX 真写 SKILL | 一条 e2e + tier0 | [x] 2026-05-23 |
 | **E-010** | Cursor | **ISSUES #9** gateway NameError 止血 | `_shared` 模块级绑定 + 烟测 | [x] 2026-05-23 |
+| **E-011** | Cursor | **Phase 1.5 运行时加固** — 011a import/日志；011b Duration P50/P95/P99；011c MemoryFencer 用户入站 | tier0 **225+2**；`/health` 含 `agent_tool_p95_ms` | [x] 2026-05-23 |
 | **M-008** | 刘哥 | **M8 push** | 授权后 `git push origin main` | [x] 2026-05-20 → `599ecb3` |
 
 **E-001 结案（2026-05-20）**  

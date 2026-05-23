@@ -5,11 +5,11 @@
 
 | 字段 | 值 |
 |------|-----|
-| **最近更新** | 2026-05-20 |
-| **更新人** | Cursor（IR-20260520 工程结案 + backlog 交接） |
+| **最近更新** | 2026-05-23 |
+| **更新人** | Cursor（E-011 Phase 1.5 runtime hardening） |
 | **仓库根（真源）** | `~/src/MimirAether` |
-| **可选校验** | `./run_ralph_tier0.sh`（门禁 **181+2**）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
-| **本轮摘要** | **IR-20260520**：mixin 分裂缺 import → NameError → recovery TRUNCATE×19 已止血（`recovery_mixin` + `exec_mixin` + gateway 冒烟）；tier0 **181+2** 绿；飞书 tool Phase 3c Go。交接：`docs/MIMIR_HANDOFF_20260520.md`；Mimir 从 **T-02** 续跑；工程下一刀 **E-004**。本地 main 领先 origin（M-008 push 待授权）。 |
+| **可选校验** | `./run_ralph_tier0.sh`（门禁 **225+2**）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
+| **本轮摘要** | **E-011**：RED Duration（P50/P95/P99）进 `monitor` + `/health`；MemoryFencer 用户入站不再误杀 Markdown 表格；import/hygiene 回归测 + recovery 代码错误改 WARNING（减 agent.log 污染）。tier0 **225+2** 绿。工程下一刀可选 **E-012**（JEPA run_cycle）。 |
 
 ---
 
@@ -17,7 +17,7 @@
 
 | ID | 名称 | 状态 | 说明 |
 |----|------|------|------|
-| M0 | 基线可回归 | **绿** | `run_ralph_tier0.sh` 日常可通过。Gate2 **181**、Gate3 **2**（含 IR mixin 冒烟测）。发版前建议复跑：`for n in 1 2 3; do ./run_ralph_tier0.sh || exit 1; done` |
+| M0 | 基线可回归 | **绿** | `run_ralph_tier0.sh` 日常可通过。Gate2 **225**、Gate3 **2**（含 E-010/E-011 回归测）。发版前建议复跑：`for n in 1 2 3; do ./run_ralph_tier0.sh || exit 1; done` |
 | M1 | 契约可执行 | **绿** | `docs/ralph_parity_testmap.md` 已映射 |
 | M2 | Tier-0 矩阵闭合 | **绿** | `ralph_tier0_case_matrix.md`：无阻塞 P0 |
 | M3 | 垂直切片 | **绿** | CLI + API `POST /v1/chat/completions` |
@@ -63,6 +63,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-23 | **E-011 Phase 1.5**：Duration P50/P95/P99 → `/health`；MemoryFencer 用户入站保留 Markdown 表格；import/hygiene 回归测；tier0 **225+2** 绿。ISSUES #11 resolved。 |
 | 2026-05-20 | **IR-20260520 工程结案**：recovery/exec/gateway 修复；tier0 181+2；TRUNCATE 基线 19；`MIMIR_HANDOFF_20260520.md` + backlog/D17 §5 更新；OpenClaw skill `mimir-handoff-weixin`。 |
 | 2026-05-19 | **收尾**：G5 API Server loopback 确认安全；Git 工作区清理；MAINLINE 刷新；Gateway #2 Token 日志无异常。#1 孤儿 tool 已合 #4 / #9 空表头已合 #5。session_count: 341。 |
 | 2026-05-19 | **双战役闭合**：Hermes 8模块(agent_loop/ContextEngine/Platform/Model/Tool/Cron/Session/Cache) + OpenSpace 8模块(recording/quality/analysis/grounding/host/skill/analyzer/base) 学习完成。ContextEngine 去 Hermes 化（独立 MimirContextCompressor）；fuzzy_match 复制删除；孤儿 tool 双重防护(sanitize+clean)。上下文 25→200 条(128K→1M)。Gateway 重启 PID 69532。 |

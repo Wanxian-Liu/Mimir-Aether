@@ -74,11 +74,40 @@ def get_agent_health_status(threshold: float = DEFAULT_ERROR_RATE_THRESHOLD) -> 
     return "ok"
 
 
+def _percentile(values: List[float], pct: float) -> float:
+    if not values:
+        return 0.0
+    ordered = sorted(values)
+    idx = int(round((pct / 100.0) * (len(ordered) - 1)))
+    idx = max(0, min(idx, len(ordered) - 1))
+    return ordered[idx]
+
+
+def get_tool_duration_percentiles(window_seconds: float = WINDOW_SECONDS) -> Dict[str, float]:
+    """P50/P95/P99 tool call latency (ms) over the sliding window."""
+    cutoff = time.time() - window_seconds
+    with _lock:
+        durs = [
+            float(e["duration_ms"])
+            for e in _recent
+            if e["ts"] >= cutoff and float(e.get("duration_ms") or 0) > 0
+        ]
+    return {
+        "p50_ms": _percentile(durs, 50),
+        "p95_ms": _percentile(durs, 95),
+        "p99_ms": _percentile(durs, 99),
+    }
+
+
 def snapshot_for_health() -> Dict[str, Any]:
     rate = get_agent_error_rate()
+    pct = get_tool_duration_percentiles()
     return {
         "agent": get_agent_health_status(),
         "agent_error_rate": round(rate, 4),
+        "agent_tool_p50_ms": round(pct["p50_ms"], 1),
+        "agent_tool_p95_ms": round(pct["p95_ms"], 1),
+        "agent_tool_p99_ms": round(pct["p99_ms"], 1),
     }
 
 

@@ -15,4 +15,4 @@
 | 8 | 2026-05-20 | T-11 (d7) | ~~`CLI_CONFIG` ImportError~~ — E-004：`mimir_cli.config.CLI_CONFIG` 默认值 + callbacks 改从 `mimir_cli.config` 导入 | 中 | resolved | ✅ E-004 WIN-1 2026-05-23 |
 | 9 | 2026-05-20 | T-10 (d6) | 可观测：TOOL_CALL SQL + monitor 阈值 + /health agent 指标已合（E-006）；NameError import 债 E-010 已补 gateway._shared 模块级绑定 + 烟测 | 中 | resolved | ✅ E-010 2026-05-23 |
 | 10 | 2026-05-20 | T-08 (d4) | Agent 崩溃：21次 Agent error，栈集中在 gateway/run.py L3593/8422；deepseek vision image_url 不支持；TRUNCATE=19 基线稳定 | 高 | open | 🔄 保持（运行时异常随时复发） |
-| 11 | 2026-05-21 | EV-L13 (§13) | RED 三缺一：可观测已覆盖 Rate+Errors（D6-0a/D6-0b），Duration 百分位数（P50/P95/P99 tool call 延迟）缺失 — 供 E-006 后续迭代 | 低 | open | 🔄 保持（新建） |
+| 11 | 2026-05-21 | EV-L13 (§13) | RED 三缺一：可观测已覆盖 Rate+Errors（D6-0a/D6-0b），Duration 百分位数（P50/P95/P99 tool call 延迟）缺失 — 供 E-006 后续迭代 | 低 | resolved | **E-011b** — `agent/monitor.py` + `/health` 暴露 `agent_tool_p50/p95/p99_ms` |

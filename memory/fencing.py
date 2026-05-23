@@ -29,7 +29,7 @@ MEMORY_CONTEXT_CLOSE = "</memory-context>"
 MEMORY_BLOCK_OPEN = "<memory-block>"
 MEMORY_BLOCK_CLOSE = "</memory-block>"
 
-# 注入防护模式
+# 注入防护模式（记忆/不可信内容 — 全量）
 INJECTION_PATTERNS = [
     # 指令注入
     r"(ignore\s+previous\s+instructions?)",
@@ -54,6 +54,24 @@ INJECTION_PATTERNS = [
     r"[;&|`$]",
     # Base64/编码注入（提高阈值避免误判）
     r"(?:[A-Za-z0-9+/]{4}){20,}",  # 至少80字符的Base64字符串
+]
+
+# 用户入站消息：保留指令/XSS/模板防护；不拦截 Markdown 表格 | 与 shell 字符
+USER_MESSAGE_INJECTION_PATTERNS = [
+    r"(ignore\s+previous\s+instructions?)",
+    r"(ignore\s+all\s+previous\s+commands?)",
+    r"(disregard\s+your\s+instructions?)",
+    r"(you\s+are\s+now\s+)",
+    r"(system\s+prompt\s+leak)",
+    r"(reveal\s+your\s+system\s+prompt)",
+    r"(forget\s+everything)",
+    r"(new\s+system\s+prompt)",
+    r"\{\{.*?\}\}",
+    r"\$\{[^}]+\}",
+    r"<%.*?%>",
+    r"<script[^>]*>.*?</script>",
+    r"<!--.*?-->",
+    r"<iframe[^>]*>.*?</iframe>",
 ]
 
 
@@ -113,6 +131,10 @@ class MemoryFencer:
             "|".join(INJECTION_PATTERNS),
             re.IGNORECASE | re.DOTALL
         )
+        self._user_injection_regex = re.compile(
+            "|".join(USER_MESSAGE_INJECTION_PATTERNS),
+            re.IGNORECASE | re.DOTALL
+        )
         
         # 统计
         self._stats = {
@@ -122,13 +144,20 @@ class MemoryFencer:
             "injections_blocked": 0,
         }
     
-    def fence(self, content: str, block_type: str = "default") -> FenceResult:
+    def fence(
+        self,
+        content: str,
+        block_type: str = "default",
+        *,
+        injection_profile: str = "user",
+    ) -> FenceResult:
         """
         隔离处理内容
         
         Args:
             content: 原始内容
             block_type: 记忆块类型
+            injection_profile: ``user`` (入站消息) 或 ``memory`` (不可信记忆块)
             
         Returns:
             隔离结果
@@ -147,7 +176,9 @@ class MemoryFencer:
         
         # 1. 注入防护
         if self.enable_injection_protection:
-            content, removed = self._remove_injections(content)
+            content, removed = self._remove_injections(
+                content, profile=injection_profile
+            )
             if removed:
                 removed_patterns.extend(removed)
                 warnings.append(f"Removed {len(removed)} injection pattern(s)")
@@ -175,12 +206,18 @@ class MemoryFencer:
             warnings=warnings,
         )
     
-    def _remove_injections(self, content: str) -> Tuple[str, List[str]]:
+    def _remove_injections(
+        self,
+        content: str,
+        *,
+        profile: str = "user",
+    ) -> Tuple[str, List[str]]:
         """
         移除注入模式
         
         Args:
             content: 原始内容
+            profile: ``user`` 或 ``memory``
             
         Returns:
             (处理后内容, 移除的模式列表)
@@ -191,7 +228,12 @@ class MemoryFencer:
             removed.append(match.group(0)[:50])  # 记录前50字符
             return "[REDACTED]"
         
-        cleaned = self._injection_regex.sub(replace_match, content)
+        regex = (
+            self._injection_regex
+            if profile == "memory"
+            else self._user_injection_regex
+        )
+        cleaned = regex.sub(replace_match, content)
         
         return cleaned, removed
     
@@ -284,7 +326,7 @@ class MemoryFencer:
             
             # 添加处理后的记忆
             for mc in memory_contents:
-                fenced = self.fence(mc)
+                fenced = self.fence(mc, injection_profile="memory")
                 result_parts.append(fenced.content)
             
             result = "\n\n".join(result_parts)
@@ -321,7 +363,7 @@ class MemoryFencer:
             记忆块
         """
         # 隔离处理
-        fenced = self.fence(content, block_type)
+        fenced = self.fence(content, block_type, injection_profile="memory")
         
         return MemoryBlock(
             id=block_id,

@@ -108,7 +108,10 @@ python3 -m pytest -q \
   tests/agent/test_rate_limit_tracker_lock.py \
   tests/agent/test_e006_tool_call_sql.py \
   tests/agent/test_e006_monitor.py \
-  tests/gateway/test_e010_shared_symbol_bindings.py
+  tests/agent/test_e011_monitor_duration.py \
+  tests/gateway/test_e010_shared_symbol_bindings.py \
+  tests/gateway/test_e011_session_hygiene_bindings.py \
+  tests/agent/test_e011_agent_import_bindings.py
 
 echo "=== Ralph Tier-1: Gate3 Core E2E (mocked LLM) ==="
 python3 -m pytest -q agent/test_tier1_e2e_agent.py

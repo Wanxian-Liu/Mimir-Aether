@@ -36,6 +36,23 @@ def test_memory_fencer_benign_text_can_wrap_without_injection_flag():
     assert "<memory-context>" in result.content
 
 
+def test_memory_fencer_preserves_markdown_table_without_mass_redaction():
+    fencer = MemoryFencer(enable_injection_protection=True, enable_tag_wrapping=False)
+    table = "| # | 项目 | 状态 |\n|---|------|------|\n| 1 | M3 | ok |"
+    result = fencer.fence(table)
+    assert result.content.count("[REDACTED]") == 0
+    assert "M3" in result.content
+    assert "| 项目 |" in result.content
+
+
+def test_memory_fencer_memory_profile_still_redacts_sql_pipe():
+    fencer = MemoryFencer(enable_injection_protection=True, enable_tag_wrapping=False)
+    raw = "DROP TABLE users; --"
+    result = fencer.fence(raw, injection_profile="memory")
+    assert result.was_modified
+    assert "[REDACTED]" in result.content
+
+
 def test_is_sensitive_path_detects_ssh_and_aws_under_home():
     home = Path.home()
     assert _is_sensitive_path(home / ".ssh" / "id_rsa")
