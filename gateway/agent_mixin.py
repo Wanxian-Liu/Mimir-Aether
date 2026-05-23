@@ -493,7 +493,7 @@ class AgentMixin:
         """
         from run_agent import AIAgent
         import queue
-        from gateway.run import _load_gateway_config, _platform_config_key, _resolve_gateway_model
+        from gateway._shared import _load_gateway_config, _platform_config_key, _resolve_gateway_model
 
         user_config = _load_gateway_config()
         platform_key = _platform_config_key(source.platform)

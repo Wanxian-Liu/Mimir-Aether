@@ -25,7 +25,14 @@ from gateway.session import SessionSource
 
 if TYPE_CHECKING:
     from gateway.run import GatewayRunner
-from gateway._shared import _check_unavailable_skill, _format_gateway_process_notification
+from gateway._shared import (
+    _check_unavailable_skill,
+    _format_gateway_process_notification,
+    _load_gateway_config,
+    _platform_config_key,
+    _resolve_gateway_model,
+    _resolve_runtime_agent_kwargs,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1198,7 +1205,6 @@ class RouterMixin:
                 session_entry.session_id = agent_result["session_id"]
 
             # Prepend reasoning/thinking if display is enabled (per-platform)
-            from gateway.run import _load_gateway_config, _platform_config_key, _resolve_gateway_model, _platform_config_key
             try:
                 from gateway.display_config import resolve_display_setting as _rds
                 _show_reasoning_effective = _rds(
@@ -1474,7 +1480,6 @@ class RouterMixin:
             pass
 
         # Resolve runtime credentials for probing
-        from gateway.run import _resolve_runtime_agent_kwargs
         try:
             runtime = _resolve_runtime_agent_kwargs()
             provider = provider or runtime.get("provider")
@@ -2646,7 +2651,7 @@ class RouterMixin:
         config_path = _hermes_home / "config.yaml"
         self._service_tier = self._load_service_tier()
 
-        from gateway.run import _load_gateway_config, _platform_config_key, _resolve_gateway_model, _platform_config_key; user_config = _load_gateway_config()
+        user_config = _load_gateway_config()
         model = _resolve_gateway_model(user_config)
         if not model_supports_fast_mode(model):
             return "⚡ /fast is only available for OpenAI models that support Priority Processing."

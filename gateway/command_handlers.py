@@ -22,6 +22,11 @@ logger = logging.getLogger(__name__)
 # Re-imported for handler use
 from gateway.home_paths import _hermes_home
 from gateway.platforms.base import MessageEvent, MessageType
+from gateway._shared import (
+    _load_gateway_config,
+    _platform_config_key,
+    _resolve_gateway_model,
+)
 
 
 class CommandHandlerMixin:

@@ -80,7 +80,7 @@ class CronMixin:
         _thread_metadata = {"thread_id": source.thread_id} if source.thread_id else None
 
         try:
-            from gateway.run import _load_gateway_config, _platform_config_key; user_config = _load_gateway_config()
+            from gateway._shared import _load_gateway_config, _platform_config_key; user_config = _load_gateway_config()
             model, runtime_kwargs = self._resolve_session_agent_runtime(
                 source=source,
                 user_config=user_config,
@@ -252,7 +252,7 @@ class CronMixin:
         _thread_meta = {"thread_id": source.thread_id} if source.thread_id else None
 
         try:
-            from gateway.run import _load_gateway_config, _platform_config_key; user_config = _load_gateway_config()
+            from gateway._shared import _load_gateway_config, _platform_config_key; user_config = _load_gateway_config()
             model, runtime_kwargs = self._resolve_session_agent_runtime(
                 source=source,
                 session_key=session_key,

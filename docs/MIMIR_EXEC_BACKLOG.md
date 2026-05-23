@@ -46,6 +46,7 @@
 | **E-007** | Cursor | **D5-0 / 0b** 进化安全基线 | recorder 隔离 + skill 路径白名单 | [x] 2026-05-23 |
 | **E-008** | Cursor | **D7-2 / D7-3** 删旧 cli + CLI 冒烟测 | grep 无悬挂引用 + 少量 pytest | [x] |
 | **E-009** | Cursor | **D5-2** 单通路 FIX 真写 SKILL | 一条 e2e + tier0 | [x] 2026-05-23 |
+| **E-010** | Cursor | **ISSUES #9** gateway NameError 止血 | `_shared` 模块级绑定 + 烟测 | [x] 2026-05-23 |
 | **M-008** | 刘哥 | **M8 push** | 授权后 `git push origin main` | [x] 2026-05-20 → `599ecb3` |
 
 **E-001 结案（2026-05-20）**  
