@@ -690,8 +690,42 @@ def load_gateway_config() -> GatewayConfig:
     
     # --- Validate loaded values ---
     _validate_gateway_config(config)
+    _ensure_api_server_health_defaults(config)
 
     return config
+
+
+def _default_health_port() -> int:
+    """Port for loopback GET /health (CLI, mimir_health_check R3)."""
+    raw = os.getenv("MIMIR_PORT") or os.getenv("API_SERVER_PORT") or "18999"
+    try:
+        return int(raw)
+    except ValueError:
+        return 18999
+
+
+def _ensure_api_server_health_defaults(config: "GatewayConfig") -> None:
+    """Enable loopback api_server when not explicitly disabled (E-006 / R3).
+
+    Fresh installs often have Feishu-only config.yaml; without api_server the
+    gateway runs but ``curl :18999/health`` fails. Opt out via
+    ``platforms.api_server.enabled: false`` or ``API_SERVER_ENABLED=false``.
+    """
+    if os.getenv("API_SERVER_ENABLED", "").lower() in ("false", "0", "no"):
+        return
+
+    existing = config.platforms.get(Platform.API_SERVER)
+    if existing is not None and existing.enabled is False:
+        return
+
+    if Platform.API_SERVER not in config.platforms:
+        config.platforms[Platform.API_SERVER] = PlatformConfig()
+    cfg = config.platforms[Platform.API_SERVER]
+    cfg.enabled = True
+    extra = cfg.extra if isinstance(cfg.extra, dict) else {}
+    cfg.extra = extra
+    extra.setdefault("host", "127.0.0.1")
+    extra.setdefault("port", _default_health_port())
 
 
 def _validate_gateway_config(config: "GatewayConfig") -> None:

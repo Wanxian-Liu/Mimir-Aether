@@ -83,8 +83,9 @@ check_r2() {
 
 # --- R3: Health 端点 ---
 check_r3() {
+  local health_port="${MIMIR_PORT:-18999}"
   local health
-  health=$(curl -s --max-time 5 http://127.0.0.1:18999/health 2>/dev/null || true)
+  health=$(curl -s --max-time 5 "http://127.0.0.1:${health_port}/health" 2>/dev/null || true)
   if echo "$health" | grep -q '"status"' 2>/dev/null; then
     log_result "R3" "PASS" "$health"
   else

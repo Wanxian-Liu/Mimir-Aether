@@ -13,7 +13,7 @@ Exposes an HTTP server with endpoints:
 
 Any OpenAI-compatible frontend (Open WebUI, LobeChat, LibreChat,
 AnythingLLM, NextChat, ChatBox, etc.) can connect to hermes-agent
-through this adapter by pointing at http://localhost:8642/v1.
+through this adapter by pointing at http://localhost:18999/v1.
 
 Requires:
 - aiohttp (already available in the gateway)
@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 
 # Default settings
 DEFAULT_HOST = "127.0.0.1"
-DEFAULT_PORT = 8642
+DEFAULT_PORT = 18999
 MAX_STORED_RESPONSES = 100
 MAX_REQUEST_BYTES = 1_000_000  # 1 MB default limit for POST bodies
 CHAT_COMPLETIONS_SSE_KEEPALIVE_SECONDS = 30.0
@@ -376,7 +376,8 @@ class APIServerAdapter(BasePlatformAdapter):
         super().__init__(config, Platform.API_SERVER)
         extra = config.extra or {}
         self._host: str = extra.get("host", os.getenv("API_SERVER_HOST", DEFAULT_HOST))
-        self._port: int = int(extra.get("port", os.getenv("API_SERVER_PORT", str(DEFAULT_PORT))))
+        port_default = os.getenv("MIMIR_PORT") or os.getenv("API_SERVER_PORT") or str(DEFAULT_PORT)
+        self._port: int = int(extra.get("port", port_default))
         self._api_key: str = extra.get("key", os.getenv("API_SERVER_KEY", ""))
         self._cors_origins: tuple[str, ...] = self._parse_cors_origins(
             extra.get("cors_origins", os.getenv("API_SERVER_CORS_ORIGINS", "")),
@@ -561,8 +562,13 @@ class APIServerAdapter(BasePlatformAdapter):
     # ------------------------------------------------------------------
 
     async def _handle_health(self, request: "web.Request") -> "web.Response":
-        """GET /health — simple health check."""
-        return web.json_response({"status": "ok", "platform": "MimirAether"})
+        """GET /health — loopback readiness probe (mimir_health_check R3 / cli gateway health)."""
+        payload: Dict[str, Any] = {
+            "status": "ok",
+            "platform": "MimirAether",
+            "gateway": "ok",
+        }
+        return web.json_response(payload)
 
     async def _handle_models(self, request: "web.Request") -> "web.Response":
         """GET /v1/models — return MimirAether as an available model."""

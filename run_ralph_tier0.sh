@@ -78,6 +78,7 @@ python3 -m pytest -q \
   agent/test_cli_arg_boundaries.py \
   agent/test_m3_cli_quick_task_slice.py \
   agent/test_m3_api_chat_slice.py \
+  agent/test_e006_health_endpoint.py \
   agent/test_m4_auxiliary_http_slice.py \
   agent/test_m5_kernel_replaceability_slice.py \
   agent/test_m5_entry_llm_injection_slice.py \

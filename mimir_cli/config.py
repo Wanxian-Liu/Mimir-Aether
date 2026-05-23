@@ -1374,7 +1374,7 @@ OPTIONAL_ENV_VARS = {
         "advanced": True,
     },
     "API_SERVER_PORT": {
-        "description": "Port for the API server (default: 8642).",
+        "description": "Port for the API server (default: 18999).",
         "prompt": "API server port",
         "url": None,
         "password": False,

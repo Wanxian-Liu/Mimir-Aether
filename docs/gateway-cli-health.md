@@ -15,8 +15,10 @@ That HTTP endpoint is served by the **`api_server` platform adapter** (`gateway/
 
 ## Make health checks pass
 
-1. Edit **`$MIMIR_AETHER_HOME/config.yaml`** (or your runtime home’s `config.yaml`; see `get_mimir_home()` above).
-2. Enable the adapter and align the port with the CLI (default **18999**):
+When **`platforms.api_server`** is absent from `config.yaml`, **`load_gateway_config()`** enables loopback **`api_server`** on **`127.0.0.1:18999`** (or **`MIMIR_PORT`**) so `gateway health` and **`scripts/mimir_health_check.sh`** R3 can succeed after gateway restart. Opt out: `API_SERVER_ENABLED=false` or `platforms.api_server.enabled: false`.
+
+1. Edit **`$MIMIR_AETHER_HOME/config.yaml`** (or your runtime home’s `config.yaml`; see `get_mimir_home()` above) if you need a non-default port or to disable the adapter.
+2. To align explicitly (optional when using defaults):
 
 ```yaml
 platforms:

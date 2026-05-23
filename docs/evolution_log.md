@@ -62,3 +62,4 @@ Append-only. Newest rows at the **bottom**. See **`docs/M6_EVOLUTION.md`** for r
 | 20260523T000000Z_e004 | 2026-05-23T00:00:00Z | e004-win1 | ./run_ralph_tier0.sh | 0 | E-004 D7-0a: mimir_cli.config.CLI_CONFIG defaults; callbacks clarify/approval import from mimir_cli.config; metrics: tier0 181+2 pass |
 | 20260523T120000Z_e005 | 2026-05-23T12:00:00Z | e005-win4 | ./run_ralph_tier0.sh | 0 | E-005 D7-0b/1: mimir_cli.chat_runner replaces cmd_chat→cli.main; delegate/code_execution use mimir_cli.config; metrics: tier0 181+2 pass |
 | 20260523T115308Z_d3cc0a6-dirty | 2026-05-23T11:53:08Z | d3cc0a6-dirty | ./run_ralph_tier0.sh | 0 | PR #8 merge: JEPA self_evolution, IC gate exec_mixin, physics/capsule skills, audit docs; tier0 181+2 PASS on main @ d3cc0a6 |
+| 20260523T120219Z_9ba894e-dirty | 2026-05-23T12:02:19Z | 9ba894e-dirty | ./run_ralph_tier0.sh | 0 | WIN-3 E-006: loopback /health default api_server @ 18999; tier0 186+2 PASS |

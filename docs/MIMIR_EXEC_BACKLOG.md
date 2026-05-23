@@ -42,7 +42,7 @@
 | **M-007** | Mimir | **M7 Gateway 十条** | `GATEWAY_STABILITY_BACKLOG.md` 逐条标状态 | [x] 2026-05-20 状态列已更新 |
 | **E-004** | Cursor | **D7-0a** `CLI_CONFIG` 默认值 | clarify/approval 不 ImportError | [x] 2026-05-23 WIN-1 · tier0 181+2 |
 | **E-005** | Cursor | **D7-0b + D7-1** chat 解耦 + 单入口文档 | `cmd_chat` 不 `import cli.main` | [x] 2026-05-23 WIN-4 · chat_runner + MIMIR_ACTIVATE D7-1 |
-| **E-006** | Cursor | **D6-0a–0d** 可观测 Day-1 | insights SQL + monitor 阈值 + health 接线 | [ ] |
+| **E-006** | Cursor | **D6-0a–0d** 可观测 Day-1 | insights SQL + monitor 阈值 + health 接线 | [~] D6-0c loopback `/health` 默认启用（WIN-3） |
 | **E-007** | Cursor | **D5-0 / 0b** 进化安全基线 | recorder 隔离 + skill 路径白名单 | [ ] |
 | **E-008** | Cursor | **D7-2 / D7-3** 删旧 cli + CLI 冒烟测 | grep 无悬挂引用 + 少量 pytest | [ ] |
 | **E-009** | Cursor | **D5-2** 单通路 FIX 真写 SKILL | 一条 e2e + tier0 | [ ] |
@@ -241,7 +241,7 @@ Mimir 冒烟回报
 |----|------|------|
 | D6-0a | insights SQL `TOOL_CALL` | [ ] → E-006 |
 | D6-0b | monitor 阈值 + status | [ ] → E-006 |
-| D6-0c | health.register | [ ] → E-006 |
+| D6-0c | health.register | [~] loopback `/health` 默认 + R3 端口对齐（WIN-3） |
 | D6-0d | RateLimitTracker Lock | [ ] → E-006 |
 | D6-1 | trajectory/recorder SoT ADR | [ ] |
 | D6-2 | ObservabilityBus（可选） | [ ] |
