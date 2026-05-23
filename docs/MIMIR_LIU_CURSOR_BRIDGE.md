@@ -20,13 +20,15 @@
 - 识图 **搁置**；**DeepSeek-only**，不配 OpenRouter。
 - Mimir 继续 **§2c EV-L**；§2b 冒烟已基本完成。
 
-### 2026-05-23 — E-004 push 授权
+### 2026-05-23 — 执行授权（刘哥 → Cursor）
 
-- 刘哥：`授权: git push — 范围: E-004 fix/e-004-cli-config — 状态: authorized`（见 §2 登记）
+- E-004 PR #6、E-005 PR #7：**merged** → main
+- WIN-2 JEPA：`feat/self_evolution_jepa` rebase main（WIN-5 进行中）
+- **push 各分支前必须先问刘哥**（JEPA 已 push；rebase 后 force-with-lease 需再确认）
 
 ### （新留言写在此下）
 
-_示例：@Mimir 先做 EV-L01。@Cursor E-005 可以开工。_
+_示例：@Mimir 先做 EV-M02。@Cursor WIN-3 /health 可以开工。_
 
 ---
 
@@ -35,12 +37,12 @@ _示例：@Mimir 先做 EV-L01。@Cursor E-005 可以开工。_
 | 时间 | 授权 | 范围 | 状态 |
 |------|------|------|------|
 | 2026-05-20 | push（IR/doc） | main | **done** |
-| 2026-05-23 | push + PR + merge（**E-004**） | PR #6 → main | **done** |
-| 2026-05-23 | **WIN-4 E-005** push | `fix/e-005-chat-decouple` | **authorized** · push 刘哥 2026-05-23 |
-| 2026-05-23 | **WIN-2 JEPA** push | `feat/self_evolution_jepa` | **authorized** · push 刘哥 2026-05-23 |
+| 2026-05-23 | push + PR + merge（**E-004**） | PR [#6](https://github.com/Wanxian-Liu/MimirAether/pull/6) → main | **done** |
+| 2026-05-23 | push + PR + merge（**E-005**） | PR [#7](https://github.com/Wanxian-Liu/Mimir-Aether/pull/7) → main | **done** |
+| 2026-05-23 | **WIN-2 JEPA** push | `feat/self_evolution_jepa` | **done** · rebase 后 push 再问 |
 | — | 恢复识图 | EV-VISION-DEFER | **deferred** |
 
-**授权写法（写在本表，不要在 shell 里跑）：** `授权: git push — 范围: E-004 — 状态: authorized`
+**授权写法（写在本表，不要在 shell 里跑）：** `授权: git push — 范围: … — 状态: authorized`
 
 ---
 
@@ -49,8 +51,12 @@ _示例：@Mimir 先做 EV-L01。@Cursor E-005 可以开工。_
 ### 2026-05-20
 
 - 已简化本 bridge：**只给 Mimir 直接读仓库**，不绑 OpenClaw/微信。
-- 已收 Mimir **d1–d7 最终回报**（见 §4/§5）；工程下一刀 **E-004**（ISSUES #8）。
-- `git push` 已完成至 `5d70c28`；E-004 代码仍待 §2 授权。
+- 已收 Mimir **d1–d7 最终回报**（见 §4/§5）。
+
+### 2026-05-23
+
+- PR #6、#7 merged → main（E-004、E-005）。
+- WIN-5：JEPA rebase onto main（E-004+E-005）。
 
 ---
 
@@ -59,14 +65,15 @@ _示例：@Mimir 先做 EV-L01。@Cursor E-005 可以开工。_
 | 时间 | 已读 bridge+backlog | 本轮 ID | 结果一句话 |
 |------|---------------------|---------|------------|
 | 2026-05-20 | backlog §2b | **EV-M01～M13** | d1–d7 训练回报完成；TRUNCATE=19；T-03 [~] 待飞书复验 |
-| 2026-05-23 | backlog §2 E-004 | **WIN-1** | CLI_CONFIG 默认；tier0 181+2；PR #6 merged |
-| 2026-05-23 | backlog §2 E-005 | **WIN-4** | chat_runner 解耦 cli.main；tools→mimir_cli.config；tier0 PASS；未 push |
+| 2026-05-23 | backlog §2 E-004 | **WIN-1** | CLI_CONFIG 默认；PR #6 merged |
+| 2026-05-23 | backlog §2 E-005 | **WIN-4** | chat_runner；PR #7 merged |
+| 2026-05-23 | feat/self_evolution_jepa | **WIN-5** | rebase main 进行中（bridge 冲突已解） |
 
 ---
 
 ## 5. Mimir 进度笔记（2026-05-20 · d1–d7 回报摘要）
 
 - **§2b**：T-02/04/05/06/07/08/09/10/11 [x]；T-03 [~]；识图 N/A（DeepSeek）。
-- **ISSUES**：#7 d5 / **#8 CLI_CONFIG→E-004** / #9 d6 / #10 d4。
-- **下一颗粒**：§2c **EV-L01**（Playbook §1）。
-- **注**：`M-008 push` 已在 origin（`5d70c28`）；回报里「待 push」以仓库 §2 为准。
+- **ISSUES**：#7 d5 / ~~#8 CLI_CONFIG~~ resolved / #9 d6 / #10 d4。
+- **下一颗粒**：**E-006** /health（Cursor WIN-3）；Mimir health_check + TRUNCATE。
+- **注**：main 含 E-004+E-005；JEPA 见 Draft PR #8。

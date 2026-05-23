@@ -14,14 +14,14 @@
 |---|------|--------|-------------------|--------|
 | 1 | Watchdog 超时 | 中 | 移交工程 | 与 WebSocket/长跑推理同源排查 |
 | 2 | Token 失败 | 中 | 部分已验证 | P2-1/1b 已合；WIP 常驻后盯刷新日志 |
-| 3 | Reaction 未处理 | 低 | 待复现 | Mimir 复现 → ISSUES |
+| 3 | Reaction 未处理 | 低 | 未复现 (2026-05-20) | gateway.log 无 reaction 记录；无人发过 reaction |
 | 4 | Event loop closed | 低 | 移交工程 | async 生命周期 |
-| 5 | API Server 无密钥 | 高 | 待 Mimir 清单 | 对照 `docs/SECURITY.md`；loopback 可无 key |
+| 5 | API Server 无密钥 | 高 | **已验证** (2026-05-20) | config.yaml 无 api_server 段；默认 127.0.0.1；非 loopback 强制 key；符合 SECURITY |
 | 6 | fal_client 缺失 | 低 | 已说明 | 可选依赖；非收图主路径 |
 | 7 | 孤儿 tool message | 低 | **已验证** | PR #4；05-20 日志无 `tool must be a response` |
 | 8 | ToolGuard 相对路径 | 低 | 待复现 | 工程 path 修复 |
-| 9 | 飞书卡片渲染失败 | 低 | 代码已合·**待飞书复验** | PR #5 空 `<th>`→`—`；刘哥发空表头表 |
-| 10 | Agent 偶发崩溃 | 高 | 待栈 | Mimir 收 `agent.log`；工程根因修 |
+| 9 | 飞书卡片渲染失败 | 低 | 代码已合·**待飞书复验** (2026-05-20) | PR #5 空 `<th>`→`—`；log 仍有历史 230099 (05-17)；需刘哥发空表头表复验 |
+| 10 | Agent 偶发崩溃 | 高 | **栈已收集** (2026-05-20) | 21次 Agent error；Traceback 集中在 gateway/run.py L3593/8422；TRUNCATE 基线 19 保持 |
 
 ---
 
