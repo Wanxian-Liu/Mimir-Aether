@@ -1,8 +1,8 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-05-24（**Prompt 1** — ISSUES/Backlog 文档收口；Phase 1.5 工程队列只读）  
+> **最近更新**：2026-05-24（**Phase 1 长任务** — §11 Memory 检索队列 + 未完成项盘点）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5；Mimir 飞书每轮 Read bridge + 本表  
-> **规则**：从下表「统一队列」取**第一条**未勾选项；做完勾 `[x]` + 简短回报 + `./run_ralph_tier0.sh`（触达代码时）。  
+> **规则**：从 **§11 Phase 1 长任务** 取**第一条** `[ ]` 子项；做完勾 `[x]` + 简短回报 + `./run_ralph_tier0.sh`（触达代码时）。§2 / Phase 0 **只读**，勿再取 E-00x。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
 > **勿提交**：`data/persistent.json`（runtime 镜像）。
 
@@ -323,16 +323,66 @@ Mimir 冒烟回报
 - **Phase 1.5** ✅：E-001～E-012 + intent-action guard；**tier0 237+2**；飞书正常；识图 **EV-VISION-DEFER**。
 - **真源**：`~/src/MimirAether` · `MIMIR_AETHER_HOME=~/.mimiraether` · 必读 `MAINLINE_STATUS.md` / `MIMIR_ISSUES.md`（Active≤3）/ `AGENTS.md`。
 - **§2 工程队列**：只读，勿再取「E-004 / T-02 / 181+2」。
-- **Phase 0**：**14/14** [x]（2026-05-24）— 真源 [`MIMIR_PHASE0_QUEUE.md`](./MIMIR_PHASE0_QUEUE.md)；收官粒 **EV-A03** → [`phase0/memory-retrieval-baseline.md`](./phase0/memory-retrieval-baseline.md)。
-- **下一窗**：排 **Phase 1** 工程（测试/GOD 拆分、search DB 回填、fts5 接线等），勿再从本 §2 取 E-00x。
+- **Phase 0**：**14/14** [x]（2026-05-24）— 真源 [`MIMIR_PHASE0_QUEUE.md`](./MIMIR_PHASE0_QUEUE.md)。
+- **当前执行源**：**§11 `P1-LONG-MEM`**（Memory 检索长任务）；其余 Phase 1 主题见 §11 表末「并行长任务」。
 - **勿**：提交 `data/persistent.json`；`git push`（除非刘哥授权）；重做 E-001～E-012。
+
+### 9.1 未完成项盘点（2026-05-24）
+
+| 桶 | 数量 | 说明 |
+|----|------|------|
+| **§11 当前 Active** | **6** 子项 | `P1-LONG-MEM`（Memory 检索可生产化）；**唯一默认取任务源** |
+| **§6 Phase 2 候选** | **6** `[ ]` | D5-1/3/ADR、D6-1/2/3 — 文档标「非 Active」，勿与 §11 混读 |
+| **§8 工程 icebox** | **4** 条 | WebSocket 心跳、自修回滚、P3-0 单写者实现、Gateway 债 |
+| **Gateway 十条** | **~4** 待工程 | #1/#4/#8/#10 等「移交工程」；#9 待飞书复验 |
+| **§2 / Phase 0 / §2b·§2c** | **0** Active | Phase 1.5 + Phase 0 + EV-M/L 已归档 |
+| **搁置** | **1** | EV-VISION-DEFER（识图） |
+
+**为何感觉越来越多**：Phase 0 **只读审计**每粒都会产出 Phase 1/2 跟进（如 EV-A03 → indexer → FTS → semantic）；多层 backlog（本表、Gateway、Unified Plan、D17）此前**未合并成一条执行源**；修一层暴露下一层（空库 → 回填 → 增量 → 接线）。**对策**：§11 用 **一条长任务 + 子项顺序**，新窗只认 `P1-LONG-MEM` 第一条 `[ ]`，审计衍生项先入子项或 Phase 2，不另开平行队列。
 
 ---
 
-## 10. WIP 快照（2026-05-24 · Prompt 1 后）
+## 10. WIP 快照（2026-05-24 · Phase 1 排队后）
 
 - **Phase 1.5** ✅ E-001～E-012 + intent-action guard；tier0 **237+2**  
-- **文档收口** ✅ CLOSE-1～5 · ISSUES Active≤3 · §9 已替换  
+- **Phase 0** ✅ 14/14  
+- **Phase 1 Active** → **§11 `P1-LONG-MEM`**（P1-M01/M02 已合入；下一条 **P1-M03** Gateway 增量索引）  
 - **TRUNCATE** 基线 **19**（仅 >19 时 reopen ISSUES #10）  
-- **下一窗**：Phase 0 **14/14** [x] → 排 **Phase 1**（见 §9）；**P1-LONG-GOD** 见 PR #9–#14 栈（[`plans/P1-GOD-split-plan.md`](./plans/P1-GOD-split-plan.md)）  
+- **下一窗**：**§11 `P1-LONG-MEM`** 下一条 **P1-M03**；**P1-LONG-GOD** 已合 main（[`plans/P1-GOD-split-plan.md`](./plans/P1-GOD-split-plan.md)）  
 - **历史交接**：`docs/MIMIR_HANDOFF_20260520.md`
+
+---
+
+## 11. Phase 1 长任务队列（2026-05-24）
+
+> **一条长任务**：`P1-LONG-MEM` — **Memory 检索可生产化**（EV-A03 审计 → 可运行、可测、可接线）。  
+> **执行法**：每次只勾 **一条**子项；子项全部 `[x]` 后，长任务结案，再开下一条长任务（见表末）。  
+> **真源**：[`phase0/memory-retrieval-baseline.md`](./phase0/memory-retrieval-baseline.md) · 基准 JSON [`phase0/memory-retrieval-benchmark-20260524.json`](./phase0/memory-retrieval-benchmark-20260524.json)
+
+### P1-LONG-MEM — Memory 检索可生产化
+
+| ID | 任务 | 成功标准 | 状态 |
+|----|------|----------|------|
+| **P1-M01** | **回填 + 20-query 基准** — indexer、`backfill_sessions_search.py`、`run_memory_retrieval_benchmark.py`；LIKE 多词 AND | 本机 `sessions≥30`、`messages≥3000`；基准 JSON 存在；LIKE hit rate ≥50%（回填后实测 **60%**） | [x] 2026-05-24 · `6650327` |
+| **P1-M02** | **合入 + M6** — commit 上述 tools/scripts/tests/docs；`record_m6_evolution.sh`；tier0 绿 | `./run_ralph_tier0.sh` PASS；`evolution_log.md` 一行 | [x] 2026-05-24 |
+| **P1-M03** | **Gateway 增量索引** — `append_to_transcript` 同步写 `sessions_search.db`（+ 可选 FTS） | 新会话消息无需手工 backfill 即可被 `session_search` 命中；单测或 smoke | [ ] |
+| **P1-M04** | **FTS5 生产接线** — 修 hyphen token（`IR-20260520`）；`SESSION_SEARCH_BACKEND=fts5` 或 hybrid | 基准中 hyphen query 无 SQL 错；FTS hit rate ≥ LIKE 或文档说明取舍 | [ ] |
+| **P1-M05** | **persistent 路径一致** — `prompt_builder` cross_session 与 runtime home 对齐（EV-A03 分叉项） | grep/烟测：不再默认读 `{repo}/data/persistent.json` 当真源 | [ ] |
+| **P1-M06** | **长任务结案** — 更新 `MAINLINE_STATUS` + baseline §4；标记 `P1-LONG-MEM` [x] | 飞书/会话 3～5 行摘要 + 基准数字 | [ ] |
+
+**Cursor 新窗一句**
+
+```text
+Read docs/MIMIR_EXEC_BACKLOG.md §11，从 P1-LONG-MEM 第一条 [ ] 或 [~] 子项开始；每次只做一颗粒；触达 tools/agent/gateway 后跑 tier0。
+```
+
+### 并行长任务（**非**默认取任务源 — 刘哥点名才开）
+
+| ID | 主题 | 来源 | 状态 |
+|----|------|------|------|
+| **P1-LONG-GOD** | GOD 拆分 + 测试轨续建 | Phase 0 EV-P04、§9 原「GOD 拆分」 | [ ] 未拆子项 |
+| **P1-LONG-OBS** | d6 余债 D6-1～3 ADR/测试 | §6 | [ ] Phase 2 候选 |
+| **P1-LONG-EVO** | d5 余债 D5-1/3、真进化 | §6、Unified Plan | [ ] Phase 2 候选 |
+| **P2-LONG-SEM** | Memory **语义化**（chromadb + 检索策略） | Unified Plan Phase 2 | [ ] 依赖 P1-LONG-MEM 结案 |
+
+**Semantic 检索**：明确 **不在** `P1-LONG-MEM` 内；结案后再排 `P2-LONG-SEM`，避免与 FTS/LIKE 并行膨胀。

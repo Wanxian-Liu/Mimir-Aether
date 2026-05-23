@@ -5,11 +5,11 @@
 
 | 字段 | 值 |
 |------|-----|
-| **最近更新** | 2026-05-19 |
-| **更新人** | Cursor（P1-LONG-GOD 二级拆分 PR 栈） |
+| **最近更新** | 2026-05-24 |
+| **更新人** | Cursor（P1-M02 + P1-LONG-GOD 合流） |
 | **仓库根（真源）** | `~/src/MimirAether` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁 **245+2**）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
-| **本轮摘要** | **P1-LONG-GOD** PR 栈（#9→#14）：router_mixin → `gateway/router/*` 8 mixin；CLI model_wizard + parser 拆分；tier0 **245+2×3**；Mimir 飞书烟测待签。 |
+| **本轮摘要** | **P1-LONG-GOD** 已合远程（router/CLI 拆分，245+2）。**P1-M01/M02** [x]（session_search 回填/基准 LIKE 60%）。下一条 **P1-M03** Gateway 增量索引。 |
 
 ---
 
@@ -63,7 +63,9 @@
 
 | 日期 | 摘要 |
 |------|------|
-| 2026-05-24 | **EV-A03** [x]：Memory 检索基准 → `docs/phase0/memory-retrieval-baseline.md`。**Phase 0 真相图谱 14/14 完成**；Phase 1 待排。 |
+| 2026-05-24 | **P1-M02** [x]：合入 `session_search_indexer`、backfill、20-query 基准（LIKE **60%**）；M6 + tier0 **237+2**（`6650327`/`60192d3`）。下一条 **P1-M03**。 |
+| 2026-05-24 | **Phase 1 排队**：`MIMIR_EXEC_BACKLOG.md` **§11** — 长任务 `P1-LONG-MEM`（6 子项）；§9.1 未完成项盘点；默认执行源从 §2 切到 §11。 |
+| 2026-05-24 | **EV-A03** [x]：Memory 检索基准 → `docs/phase0/memory-retrieval-baseline.md`。**Phase 0 真相图谱 14/14 完成**。 |
 | 2026-05-24 | **EV-A02/A04/A05** [x]：Mimicore 依赖刷新、架构 **6.1/10**、prompt guard 可拆点。 |
 | 2026-05-24 | **EV-Q01–Q04** [x]：硬编码 23 项、ToolQuality DB 快照、IntentPredictor 仍无、IQ **~3.8/10**。下一条 **EV-A02**。 |
 | 2026-05-24 | **EV-A01** [x]：Agent Core 职责映射（重叠 ~32%，core→MimirAgentLoop 委托）→ `docs/phase0/agent-core-responsibility-map.md`。下一条 **EV-A02**。 |
