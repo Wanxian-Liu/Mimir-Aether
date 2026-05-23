@@ -36,7 +36,8 @@ _示例：@Mimir 先做 EV-L01。@Cursor E-005 可以开工。_
 |------|------|------|------|
 | 2026-05-20 | push（IR/doc） | main | **done** |
 | 2026-05-23 | push + PR + merge（**E-004**） | PR #6 → main | **done** |
-| 2026-05-23 | **WIN-4 E-005** | `fix/e-005-chat-decouple` | **authorized** · commit 本地 · **push 前问刘哥** |
+| 2026-05-23 | **WIN-4 E-005** push | `fix/e-005-chat-decouple` | **authorized** · push 刘哥 2026-05-23 |
+| 2026-05-23 | **WIN-2 JEPA** push | `feat/self_evolution_jepa` | **authorized** · push 刘哥 2026-05-23 |
 | — | 恢复识图 | EV-VISION-DEFER | **deferred** |
 
 **授权写法（写在本表，不要在 shell 里跑）：** `授权: git push — 范围: E-004 — 状态: authorized`
