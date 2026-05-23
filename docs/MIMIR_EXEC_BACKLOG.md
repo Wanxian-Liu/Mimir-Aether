@@ -323,7 +323,8 @@ Mimir 冒烟回报
 - **Phase 1.5** ✅：E-001～E-012 + intent-action guard；**tier0 237+2**；飞书正常；识图 **EV-VISION-DEFER**。
 - **真源**：`~/src/MimirAether` · `MIMIR_AETHER_HOME=~/.mimiraether` · 必读 `MAINLINE_STATUS.md` / `MIMIR_ISSUES.md`（Active≤3）/ `AGENTS.md`。
 - **§2 工程队列**：只读，勿再取「E-004 / T-02 / 181+2」。
-- **唯一执行源**：[`docs/MIMIR_PHASE0_QUEUE.md`](./MIMIR_PHASE0_QUEUE.md) 第一条 `[ ]`（**EV-P01** 已完成 → 下一条 **EV-P02**）。
+- **Phase 0**：**14/14** [x]（2026-05-24）— 真源 [`MIMIR_PHASE0_QUEUE.md`](./MIMIR_PHASE0_QUEUE.md)；收官粒 **EV-A03** → [`phase0/memory-retrieval-baseline.md`](./phase0/memory-retrieval-baseline.md)。
+- **下一窗**：排 **Phase 1** 工程（测试/GOD 拆分、search DB 回填、fts5 接线等），勿再从本 §2 取 E-00x。
 - **勿**：提交 `data/persistent.json`；`git push`（除非刘哥授权）；重做 E-001～E-012。
 
 ---
@@ -333,5 +334,5 @@ Mimir 冒烟回报
 - **Phase 1.5** ✅ E-001～E-012 + intent-action guard；tier0 **237+2**  
 - **文档收口** ✅ CLOSE-1～5 · ISSUES Active≤3 · §9 已替换  
 - **TRUNCATE** 基线 **19**（仅 >19 时 reopen ISSUES #10）  
-- **下一窗**：Prompt 2 → Phase 0 执行队列（待建）  
+- **下一窗**：Phase 0 **14/14** [x] → 排 **Phase 1**（见 §9）  
 - **历史交接**：`docs/MIMIR_HANDOFF_20260520.md`

@@ -15,7 +15,7 @@
 | EV-P05 | Compressor 重叠审计 | [docs/phase0/compressor-overlap-audit.md](./phase0/compressor-overlap-audit.md) | 20min | [x] 2026-05-24 |
 | EV-A01 | Agent Core 职责映射 | [docs/phase0/agent-core-responsibility-map.md](./phase0/agent-core-responsibility-map.md) | 40min | [x] 2026-05-24 |
 | EV-A02 | Mimicore 依赖摸底 | [docs/phase0/mimicore-import-audit.md](./phase0/mimicore-import-audit.md) | 15min | [x] 2026-05-24 |
-| EV-A03 | Memory 检索基准 | [docs/phase0/memory-retrieval-baseline.md](./phase0/memory-retrieval-baseline.md) | 30min | [ ] |
+| EV-A03 | Memory 检索基准 | [docs/phase0/memory-retrieval-baseline.md](./phase0/memory-retrieval-baseline.md) | 30min | [x] 2026-05-24 |
 | EV-A04 | 架构评分方法论 | [docs/phase0/architecture-scoring-rubric.md](./phase0/architecture-scoring-rubric.md) | 15min | [x] 2026-05-24 |
 | EV-A05 | prompt_builder 安全审计 | [docs/phase0/prompt-builder-security-audit.md](./phase0/prompt-builder-security-audit.md) | 15min | [x] 2026-05-24 |
 | EV-Q01 | 硬编码阈值清单 | [docs/phase0/hardcoded-thresholds.md](./phase0/hardcoded-thresholds.md) | 15min | [x] 2026-05-24 |
