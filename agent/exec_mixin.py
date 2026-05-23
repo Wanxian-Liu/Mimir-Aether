@@ -427,6 +427,66 @@ class ExecMixin:
             from model_tools import coerce_tool_args
             arguments = coerce_tool_args(func_name, arguments)
 
+            # ── self_evolution IC 安全门 ──
+            # 轻量级：只查 PROTECTED_FILES（不初始化引擎、不做AST解析），
+            # 每次工具调用 <1ms。完整 pre_action_check 留给 evolution_guard。
+            if func_name in ("write_file", "patch", "skill_manage"):
+                target_path = arguments.get("path") or arguments.get("name", "")
+                if target_path and ("agent/" in target_path or "gateway/" in target_path):
+                    try:
+                        from agent.self_evolution.state_encoder import PROTECTED_FILES
+                        fname = target_path.rsplit("/", 1)[-1]
+                        for group, files in PROTECTED_FILES.items():
+                            if fname in files:
+                                self._tool_errors.append(ToolError(
+                                    turn=turn,
+                                    tool_name=func_name,
+                                    arguments=str(raw_args)[:200],
+                                    error=f"IC constraint [{group}]: {target_path}",
+                                    tool_result=f"Blocked: '{target_path}' is a protected file",
+                                ))
+                                # ── IC 顾问：不只说 no，还提供替代方案（EV-VOE08） ──
+                                advice_msg = ""
+                                try:
+                                    from agent.self_evolution.engine import ic_advisor
+                                    advice = ic_advisor(target_path)
+                                    if advice["alternatives"]:
+                                        alts = "; ".join(
+                                            f"'{a['file']}' (TC={a['tc']}, 影响面={a['blast_radius']})"
+                                            for a in advice["alternatives"][:3]
+                                        )
+                                        advice_msg = f" | 💡 建议: {alts}"
+                                except Exception:
+                                    pass  # 顾问失败不阻塞拦截
+
+                                return ToolResult(
+                                    tool_call_id=tool_call_id,
+                                    content=f"Blocked by self_evolution [{group}]: "
+                                            f"'{target_path}' is a protected file{advice_msg}",
+                                    is_error=True,
+                                )
+                    except ImportError:
+                        pass  # fail-open: self_evolution 模块不存在时静默跳过
+                    except Exception as e:
+                        logger.warning(f"self_evolution IC gate error: {e}")  # fail-open
+
+                # ── VoE soft channel (EV-VOE04) ──
+                # 只记录不改行为：IC 硬拦截之后，VoE 评估"这个改动是否异常"
+                # 异常不硬拦截，仅 log WARNING 供后续审查
+                try:
+                    from agent.self_evolution.voe_detector import VoEDetector
+                    _voe = VoEDetector()  # 无历史 → 无惊讶（fail-open）
+                    _r = _voe.detect([target_path])
+                    if _r["level"] in ("caution", "unusual"):
+                        logger.warning(
+                            f"VoE [{_r['level']}] file={target_path} "
+                            f"surprise={_r['surprise_score']} reasons={_r['reasons']}"
+                        )
+                except ImportError:
+                    pass  # voe_detector 不存在 → 静默跳过
+                except Exception:
+                    pass  # VoE 任何异常 → 不阻塞
+
             # ── 统一 dispatch：通过 tools.registry.registry.dispatch() ──
             # dispatch() 返回 JSON 字符串，统一处理错误格式。
             # Sync handler 在线程池中运行以避免阻塞 event loop。
