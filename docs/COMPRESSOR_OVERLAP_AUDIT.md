@@ -3,6 +3,8 @@
 **日期**：2026-05-21  
 **来源**：EV-P05（琬弦工程方案 §3.1）
 
+> **Compressor 真源（2026-05-24）** → [`docs/phase0/compressor-overlap-audit.md`](./phase0/compressor-overlap-audit.md)。下文为 2026-05-21 历史快照。
+
 ## 两个 Compressor 对比
 
 | 维度 | `agent/context_compressor.py` | `trajectory_compressor.py` |

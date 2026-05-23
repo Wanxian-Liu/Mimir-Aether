@@ -12,7 +12,7 @@
 | EV-P02 | 测试命名规范 | [docs/phase0/test-naming-convention.md](./phase0/test-naming-convention.md) | 10min | [x] 2026-05-24 |
 | EV-P03 | 废弃代码审计 | [docs/phase0/dead-code-audit.md](./phase0/dead-code-audit.md) | 20min | [x] 2026-05-24 |
 | EV-P04 | GOD 文件清单 | [docs/phase0/god-file-inventory.md](./phase0/god-file-inventory.md) | 15min | [x] 2026-05-24 |
-| EV-P05 | Compressor 重叠审计 | [docs/phase0/compressor-overlap-audit.md](./phase0/compressor-overlap-audit.md) | 20min | [ ] |
+| EV-P05 | Compressor 重叠审计 | [docs/phase0/compressor-overlap-audit.md](./phase0/compressor-overlap-audit.md) | 20min | [x] 2026-05-24 |
 | EV-A01 | Agent Core 职责映射 | [docs/phase0/agent-core-responsibility-map.md](./phase0/agent-core-responsibility-map.md) | 40min | [ ] |
 | EV-A02 | Mimicore 依赖摸底 | [docs/phase0/mimicore-import-audit.md](./phase0/mimicore-import-audit.md) | 15min | [ ] |
 | EV-A03 | Memory 检索基准 | [docs/phase0/memory-retrieval-baseline.md](./phase0/memory-retrieval-baseline.md) | 30min | [ ] |
