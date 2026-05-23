@@ -57,7 +57,7 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 | 2026-05-23 | E-005 PR #7 merge | main | **done** |
 | 2026-05-23 | JEPA push + rebase | `feat/self_evolution_jepa` | **done**（WIN-5） |
 | 2026-05-23 | **常备工程授权** | §1 列表 · feature push/merge E-*/EP-* | **authorized**（刘哥） |
-| 2026-05-23 | JEPA → main | PR #8 | **done**（merge 进行中） |
+| 2026-05-23 | JEPA → main | PR #8 | **done** @ `d3cc0a6` |
 | — | 恢复识图 | EV-VISION-DEFER | **deferred** |
 
 ---
@@ -80,7 +80,7 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 | 2026-05-20 | backlog §2b | **EV-M01～M13** | d1–d7 回报；TRUNCATE=19；T-03 [~] |
 | 2026-05-23 | E-004 / E-005 | **WIN-1/4** | PR #6 #7 merged → main |
 | 2026-05-23 | JEPA | **WIN-5** | rebase；tier0 3×181+2；@ ae8a5c7 |
-| 2026-05-23 | PR #8 | **WIN-8** | JEPA+skills+IC 合入 main；post-merge tier0 待 Mimir 复跑 |
+| 2026-05-23 | PR #8 | **WIN-8** | JEPA+skills+IC 合入 main @ d3cc0a6；post-merge tier0 PASS |
 
 ---
 
