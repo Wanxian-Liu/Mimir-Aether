@@ -3,6 +3,8 @@
 **日期**：2026-05-21  
 **来源**：EV-A04（琬弦架构方案 §1.2）
 
+> **架构评分真源（2026-05-24）** → [`docs/phase0/architecture-scoring-rubric.md`](./phase0/architecture-scoring-rubric.md)（**6.1/10**）。下文为 2026-05-21 历史自评。
+
 ## 评分体系
 
 | 子维度 | 权重 | 当前自评 | 目标 | 评分标准 |

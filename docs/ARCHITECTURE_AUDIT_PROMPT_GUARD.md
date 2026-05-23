@@ -3,6 +3,8 @@
 **日期**：2026-05-21  
 **来源**：EV-A05（琬弦架构方案方向一 — Agent Core 职责重划）
 
+> **Prompt 安全真源（2026-05-24）** → [`docs/phase0/prompt-builder-security-audit.md`](./phase0/prompt-builder-security-audit.md)。下文为历史快照。
+
 ## 安全逻辑位置
 
 | 函数 | 行号 | 职责 | 注入模式 |

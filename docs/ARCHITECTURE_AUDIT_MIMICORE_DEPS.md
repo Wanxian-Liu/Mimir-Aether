@@ -3,6 +3,8 @@
 **日期**：2026-05-21  
 **来源**：EV-A02（琬弦架构方案方向二 — Mimicore 服务化解耦 P1）
 
+> **Mimicore 真源（2026-05-24）** → [`docs/phase0/mimicore-import-audit.md`](./phase0/mimicore-import-audit.md)。下文为历史快照（含已废弃 `cli.py` 顶层 import）。
+
 ## 全部 import 清单
 
 | # | 文件 | 导入了什么 | 频率 | 类别 |
