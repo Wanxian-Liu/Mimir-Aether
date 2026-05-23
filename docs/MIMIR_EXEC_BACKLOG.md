@@ -55,7 +55,7 @@
 
 **并行允许**：E-004（D7-0a）单独 PR；**禁止** mixin commit + D6 + 删 `cli.py` 同 PR。
 
-**下一条（默认）**：**Cursor → EP-C02**（agent_loop 边界 ×3）；**Mimir → §2c EV-L*** / EV-M02 飞书复验。
+**下一条（默认）**：**Cursor → EP-C03**（skill_evolution 烟测 ×3）；**Mimir → §2c EV-L*** / EV-M02 飞书复验。
 
 ---
 
@@ -66,7 +66,7 @@
 | ID | 任务 | 成功标准 | 状态 |
 |----|------|----------|------|
 | **EP-C01** | agent_loop 集成测 ×3 | `tests/agent/test_agent_loop_integration.py` + tier0 | [x] 2026-05-23 |
-| **EP-C02** | agent_loop 边界 ×3 | 未知/JSON/多工具（待选） | [ ] |
+| **EP-C02** | agent_loop 边界 ×3 | JSON/多工具/max_turns · `test_agent_loop_edge.py` | [x] 2026-05-23 |
 | **EP-C03** | skill_evolution 烟测 ×3 | `agent/skill_evolution` 路径 | [ ] |
 | **EP-C04** | self_evolution 烟测 ×3 | `agent/self_evolution` 路径 | [ ] |
 
