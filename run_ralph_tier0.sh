@@ -105,6 +105,7 @@ python3 -m pytest -q \
   tests/test_mimir_cli_chat_decouple.py \
   tests/agent/test_skill_evolution_e009.py \
   tests/agent/test_evolution_loop_integration.py \
+  tests/agent/test_e012_jepa_session_hook.py \
   tests/agent/test_rate_limit_tracker_lock.py \
   tests/agent/test_e006_tool_call_sql.py \
   tests/agent/test_e006_monitor.py \

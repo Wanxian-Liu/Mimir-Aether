@@ -370,12 +370,14 @@ class MimirAgentLoop:
                 close_execution_pipeline,
                 schedule_post_close_evolution,
             )
+            from agent.jepa_session_hook import schedule_post_close_jepa_cycle
 
             result = close_execution_pipeline(
                 task_name=task_name or self.task_id,
                 session_id=self.task_id,
             )
             schedule_post_close_evolution(result)
+            schedule_post_close_jepa_cycle(result, session_id=self.task_id)
         except Exception:
             pass
 

@@ -5,11 +5,11 @@
 
 | 字段 | 值 |
 |------|-----|
-| **最近更新** | 2026-05-23 |
-| **更新人** | Cursor（E-011 Phase 1.5 runtime hardening） |
+| **最近更新** | 2026-05-24 |
+| **更新人** | Cursor（E-012 JEPA post-pipeline hook） |
 | **仓库根（真源）** | `~/src/MimirAether` |
-| **可选校验** | `./run_ralph_tier0.sh`（门禁 **225+2**）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
-| **本轮摘要** | **E-011**：RED Duration（P50/P95/P99）进 `monitor` + `/health`；MemoryFencer 用户入站不再误杀 Markdown 表格；import/hygiene 回归测 + recovery 代码错误改 WARNING（减 agent.log 污染）。tier0 **225+2** 绿。工程下一刀可选 **E-012**（JEPA run_cycle）。 |
+| **可选校验** | `./run_ralph_tier0.sh`（门禁 **231+2**）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
+| **本轮摘要** | **E-012**：`MIMIR_JEPA_CYCLE=1` 时在 pipeline close 触发 JEPA `run_cycle`（无 `execute_callback` / 默认无 tier0）；ISSUES #7 resolved。tier0 **231+2** 绿。 |
 
 ---
 
@@ -17,7 +17,7 @@
 
 | ID | 名称 | 状态 | 说明 |
 |----|------|------|------|
-| M0 | 基线可回归 | **绿** | `run_ralph_tier0.sh` 日常可通过。Gate2 **225**、Gate3 **2**（含 E-010/E-011 回归测）。发版前建议复跑：`for n in 1 2 3; do ./run_ralph_tier0.sh || exit 1; done` |
+| M0 | 基线可回归 | **绿** | `run_ralph_tier0.sh` 日常可通过。Gate2 **231**、Gate3 **2**（含 E-010/E-011/E-012 回归测）。发版前建议复跑：`for n in 1 2 3; do ./run_ralph_tier0.sh || exit 1; done` |
 | M1 | 契约可执行 | **绿** | `docs/ralph_parity_testmap.md` 已映射 |
 | M2 | Tier-0 矩阵闭合 | **绿** | `ralph_tier0_case_matrix.md`：无阻塞 P0 |
 | M3 | 垂直切片 | **绿** | CLI + API `POST /v1/chat/completions` |

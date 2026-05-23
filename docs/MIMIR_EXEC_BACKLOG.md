@@ -48,6 +48,7 @@
 | **E-009** | Cursor | **D5-2** 单通路 FIX 真写 SKILL | 一条 e2e + tier0 | [x] 2026-05-23 |
 | **E-010** | Cursor | **ISSUES #9** gateway NameError 止血 | `_shared` 模块级绑定 + 烟测 | [x] 2026-05-23 |
 | **E-011** | Cursor | **Phase 1.5 运行时加固** — 011a import/日志；011b Duration P50/P95/P99；011c MemoryFencer 用户入站 | tier0 **225+2**；`/health` 含 `agent_tool_p95_ms` | [x] 2026-05-23 |
+| **E-012** | Cursor | ISSUES #7 JEPA `run_cycle` 接 agent loop（env 门控，默认 analyze/plan/record） | tier0 **231+2**；mock 集成测 | [x] 2026-05-24 |
 | **M-008** | 刘哥 | **M8 push** | 授权后 `git push origin main` | [x] 2026-05-20 → `599ecb3` |
 
 **E-001 结案（2026-05-20）**  
@@ -128,20 +129,20 @@ EV-M01..12: (列表勾选)
 
 | ID | 对标 | 做什么 | 完成标准 | 状态 |
 |----|------|--------|----------|------|
-| **EV-L01** | 三道门 | 读 `DEVELOPMENT_NORTH_STAR.md` §2–§5 | Playbook **§1** 有 5 条守门员自检 | [ ] |
-| **EV-L02** | Postmortem | 读 `MIMIR_INCIDENT_IR-20260520.md` | Playbook **§2** 教训+防再发各 ≥2 条 | [ ] |
-| **EV-L03** | CI 门禁 | tier0 / Ralph 3 连跑策略 | Playbook **§3** 写清触发条件 | [ ] |
-| **EV-L04** | 契约烟测 | mixin import 测试与 Gate1 | Playbook **§4** 列 3 个测试名+何时跑 | [ ] |
-| **EV-L05** | Fail-closed | `recovery_mixin` 护栏 | Playbook **§5** 区分代码错误 vs 溢出 | [ ] |
-| **EV-L06** | 告警信号 | IR 日志签名 | Playbook **§6** ≥3 条红警 `grep -E` | [ ] |
-| **EV-L07** | Parity | `ralph_parity_contract_v1` 摘 3 面 | Playbook **§7** 行为句+验证方式 | [ ] |
-| **EV-L08** | 单写者 ADR | `adr/001-persistent-single-writer` | Playbook **§8** Mimir 禁提交 persistent 理由 | [ ] |
-| **EV-L09** | Runbook | `OPERATIONS_GATEWAY` + 硬重启脚本 | Playbook **§9** 五步 SOP 卡片 | [ ] |
-| **EV-L10** | Readiness | 对标 K8s 就绪探针 | Playbook **§10** ≥8 条重构后 checkbox | [ ] |
-| **EV-L11** | 升级矩阵 | Mimir vs Cursor 分工 | Playbook **§11** 表格 ≥5 行 | [ ] |
-| **EV-L12** | 真进化 | evolution / simulated | Playbook **§12** 真/伪进化各 1 例 | [ ] |
-| **EV-L13** | 可观测债 | 结合 EV-M08 | Playbook **§13** + ISSUES ≤1 条（E-006） | [ ] |
-| **EV-L14** | 索引 | 汇总 §1–§13 | Playbook **§14** 目录+复习节奏；飞书 **学习轨完成包** | [ ] |
+|| **EV-L01** | 三道门 | 读 `DEVELOPMENT_NORTH_STAR.md` §2–§5 | Playbook **§1** 有 5 条守门员自检 | [x] 2026-05-20 |
+|| **EV-L02** | Postmortem | 读 `MIMIR_INCIDENT_IR-20260520.md` | Playbook **§2** 教训+防再发各 ≥2 条 | [x] 2026-05-20 |
+|| **EV-L03** | CI 门禁 | tier0 / Ralph 3 连跑策略 | Playbook **§3** 写清触发条件 | [x] 2026-05-20 |
+|| **EV-L04** | 契约烟测 | mixin import 测试与 Gate1 | Playbook **§4** 列 3 个测试名+何时跑 | [x] 2026-05-20 |
+|| **EV-L05** | Fail-closed | `recovery_mixin` 护栏 | Playbook **§5** 区分代码错误 vs 溢出 | [x] 2026-05-20 |
+|| **EV-L06** | 告警信号 | IR 日志签名 | Playbook **§6** ≥3 条红警 `grep -E` | [x] 2026-05-20 |
+|| **EV-L07** | Parity | `ralph_parity_contract_v1` 摘 3 面 | Playbook **§7** 行为句+验证方式 | [x] 2026-05-20 |
+|| **EV-L08** | 单写者 ADR | `adr/001-persistent-single-writer` | Playbook **§8** Mimir 禁提交 persistent 理由 | [x] 2026-05-20 |
+|| **EV-L09** | Runbook | `OPERATIONS_GATEWAY` + 硬重启脚本 | Playbook **§9** 五步 SOP 卡片 | [x] 2026-05-20 |
+|| **EV-L10** | Readiness | 对标 K8s 就绪探针 | Playbook **§10** ≥8 条重构后 checkbox | [x] 2026-05-20 |
+|| **EV-L11** | 升级矩阵 | Mimir vs Cursor 分工 | Playbook **§11** 表格 ≥5 行 | [x] 2026-05-20 |
+|| **EV-L12** | 真进化 | evolution / simulated | Playbook **§12** 真/伪进化各 1 例 | [x] 2026-05-20 |
+|| **EV-L13** | 可观测债 | 结合 EV-M08 | Playbook **§13** + ISSUES ≤1 条（E-006） | [x] 2026-05-20 |
+|| **EV-L14** | 索引 | 汇总 §1–§13 | Playbook **§14** 目录+复习节奏；飞书 **学习轨完成包** | [x] 2026-05-20 |
 
 **执行约束**
 
