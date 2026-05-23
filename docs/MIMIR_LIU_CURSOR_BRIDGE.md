@@ -20,9 +20,13 @@
 - 识图 **搁置**；**DeepSeek-only**，不配 OpenRouter。
 - Mimir 继续 **§2c EV-L**；§2b 冒烟已基本完成。
 
+### 2026-05-23 — E-004 push 授权
+
+- 刘哥：`授权: git push — 范围: E-004 fix/e-004-cli-config — 状态: authorized`（见 §2 登记）
+
 ### （新留言写在此下）
 
-_示例：@Mimir 先做 EV-L01。@Cursor E-004 可以开工（见 §2 授权）。_
+_示例：@Mimir 先做 EV-L01。@Cursor E-005 可以开工。_
 
 ---
 
@@ -31,10 +35,10 @@ _示例：@Mimir 先做 EV-L01。@Cursor E-004 可以开工（见 §2 授权）�
 | 时间 | 授权 | 范围 | 状态 |
 |------|------|------|------|
 | 2026-05-20 | push（IR/doc） | main | **done** |
-| — | push + PR（**E-004**） | 仅 `CLI_CONFIG` | **pending** — 刘哥在此行改为 authorized |
+| 2026-05-23 | push + PR（**E-004**） | `fix/e-004-cli-config` · 仅 `CLI_CONFIG` | **authorized**（刘哥口头授权） |
 | — | 恢复识图 | EV-VISION-DEFER | **deferred** |
 
-**授权写法：** `授权: git push — 范围: E-004 — 状态: authorized`
+**授权写法（写在本表，不要在 shell 里跑）：** `授权: git push — 范围: E-004 — 状态: authorized`
 
 ---
 
@@ -53,6 +57,7 @@ _示例：@Mimir 先做 EV-L01。@Cursor E-004 可以开工（见 §2 授权）�
 | 时间 | 已读 bridge+backlog | 本轮 ID | 结果一句话 |
 |------|---------------------|---------|------------|
 | 2026-05-20 | backlog §2b | **EV-M01～M13** | d1–d7 训练回报完成；TRUNCATE=19；T-03 [~] 待飞书复验 |
+| 2026-05-23 | backlog §2 E-004 | **WIN-1** | `mimir_cli.config.CLI_CONFIG` 默认 clarify/approvals；callbacks 去 `cli` 依赖；pytest×2；tier0 181+2 PASS；ISSUES #8 resolved |
 
 ---
 
