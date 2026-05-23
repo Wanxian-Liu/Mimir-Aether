@@ -43,7 +43,7 @@
 | **E-004** | Cursor | **D7-0a** `CLI_CONFIG` 默认值 | clarify/approval 不 ImportError | [x] 2026-05-23 WIN-1 · tier0 181+2 |
 | **E-005** | Cursor | **D7-0b + D7-1** chat 解耦 + 单入口文档 | `cmd_chat` 不 `import cli.main` | [x] 2026-05-23 WIN-4 · chat_runner + MIMIR_ACTIVATE D7-1 |
 | **E-006** | Cursor | **D6-0a–0d** 可观测 Day-1 | insights SQL + monitor 阈值 + health 接线 | [~] D6-0c loopback `/health` 默认启用（WIN-3） |
-| **E-007** | Cursor | **D5-0 / 0b** 进化安全基线 | recorder 隔离 + skill 路径白名单 | [ ] |
+| **E-007** | Cursor | **D5-0 / 0b** 进化安全基线 | recorder 隔离 + skill 路径白名单 | [x] 2026-05-23 |
 | **E-008** | Cursor | **D7-2 / D7-3** 删旧 cli + CLI 冒烟测 | grep 无悬挂引用 + 少量 pytest | [ ] |
 | **E-009** | Cursor | **D5-2** 单通路 FIX 真写 SKILL | 一条 e2e + tier0 | [ ] |
 | **M-008** | 刘哥 | **M8 push** | 授权后 `git push origin main` | [x] 2026-05-20 → `599ecb3` |
@@ -55,7 +55,7 @@
 
 **并行允许**：E-004（D7-0a）单独 PR；**禁止** mixin commit + D6 + 删 `cli.py` 同 PR。
 
-**下一条（默认）**：**Cursor → E-007**（进化安全基线）或 **viewer 入库**；**Mimir → §2c EV-L*** / EV-M02 飞书复验。
+**下一条（默认）**：**Cursor → E-008**（删旧 cli + CLI 冒烟测）；**Mimir → §2c EV-L*** / EV-M02 飞书复验。
 
 ---
 
@@ -243,8 +243,8 @@ Mimir 冒烟回报
 
 | ID | 任务 | 状态 |
 |----|------|------|
-| D5-0 | Recorder 按 session 隔离 | [ ] → E-007 |
-| D5-0b | skill 路径白名单 | [ ] → E-007 |
+| D5-0 | Recorder 按 session 隔离 | [x] E-007 |
+| D5-0b | skill 路径白名单 | [x] E-007 |
 | D5-1 | `simulated: true` | [ ] |
 | D5-2 | 单通路 FIX 写 SKILL | [ ] → E-009 |
 | D5-3 | 测试 | [ ] |

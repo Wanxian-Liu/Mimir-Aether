@@ -113,13 +113,22 @@ class ExecutionRecorder:
 
         self._file_path = _today_dir() / f"{self._session_id}.jsonl"
 
-        # Write header record (metadata)
-        self._write_line({
-            "type": "session_start",
-            "session_id": self._session_id,
-            "task_name": self._task_name,
-            "start_time": self._start_ts,
-        })
+        # Fresh session file (avoid appending to stale trajectories on session reuse)
+        with open(self._file_path, "w", encoding="utf-8") as f:
+            f.write(
+                json.dumps(
+                    {
+                        "type": "session_start",
+                        "session_id": self._session_id,
+                        "task_name": self._task_name,
+                        "start_time": self._start_ts,
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n"
+            )
+            f.flush()
+            os.fsync(f.fileno())
 
     # ── Public API ──────────────────────────────────────────────────────
 

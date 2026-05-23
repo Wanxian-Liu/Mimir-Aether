@@ -156,6 +156,12 @@ class MimirAgentLoop:
         import time as _time
         _executor = get_tool_executor()
 
+        try:
+            from agent.execution_pipeline import start_execution_pipeline
+            start_execution_pipeline(task_name=user_task or self.task_id, session_id=self.task_id)
+        except Exception:
+            pass
+
         for turn in range(self.max_turns):
             if self.interrupt_check():
                 logger.info("Loop interrupted at turn %d", turn + 1)
@@ -361,7 +367,7 @@ class MimirAgentLoop:
         """Defensive close of execution pipeline (best-effort, never raises)."""
         try:
             from agent.execution_pipeline import close_execution_pipeline
-            close_execution_pipeline(task_name=task_name or self.task_id)
+            close_execution_pipeline(task_name=task_name or self.task_id, session_id=self.task_id)
         except Exception:
             pass
 

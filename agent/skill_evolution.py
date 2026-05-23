@@ -26,6 +26,7 @@ from typing import Any, Callable, Dict, List, Optional, Awaitable
 
 from .tool_quality import ToolQualityManager
 from .post_analysis import EvolutionSuggestion, ExecutionAnalysis
+from .skill_path_guard import resolve_skill_dir, resolve_skill_write_dir
 
 
 # ── Types ───────────────────────────────────────────────────────────────────
@@ -254,8 +255,8 @@ class SkillEvolutionPipeline:
 
             # Resolve skill directory for FIX/DERIVED
             if action in (EvolutionAction.FIX, EvolutionAction.DERIVED):
-                candidate = skills_dir / s.target
-                if candidate.is_dir():
+                candidate = resolve_skill_dir(skills_dir, s.target)
+                if candidate is not None:
                     skill_dir = candidate
                     skill_md = candidate / "SKILL.md"
                     if skill_md.exists():
@@ -384,11 +385,20 @@ class SkillEvolutionPipeline:
             )
         elif ctx.action == EvolutionAction.DERIVED and ctx.skill_dir:
             # DERIVED: create enhanced version — mkdir + copy source + apply changes
-            new_name = f"{ctx.suggestion.target}-enhanced"
-            new_dir = ctx.skill_dir.parent / new_name
+            parent = ctx.skill_dir.parent
+            derived_target = f"{ctx.suggestion.target}-enhanced"
+            new_dir = resolve_skill_write_dir(parent, derived_target)
+            if new_dir is None:
+                return EvolutionResult(
+                    success=False,
+                    action=ctx.action,
+                    target=ctx.suggestion.target,
+                    error="Derived skill path blocked by whitelist",
+                    duration_ms=(time.monotonic() - start) * 1000,
+                )
 
-            source_content = ""
             source_md = ctx.skill_dir / "SKILL.md"
+            source_content = ""
             try:
                 if source_md.exists():
                     source_content = source_md.read_text(encoding="utf-8")
@@ -470,7 +480,7 @@ class SkillEvolutionPipeline:
                     duration_ms=(time.monotonic() - start) * 1000,
                 )
 
-            # Determine skills base directory
+            # Determine skills base directory (whitelist: must stay under skills_dir)
             if ctx.skill_dir is not None:
                 skills_base = ctx.skill_dir.parent
             else:
@@ -480,7 +490,16 @@ class SkillEvolutionPipeline:
                          str(Path.home() / ".mimiraether")))
                 skills_base = Path(_home) / "skills"
 
-            new_dir = skills_base / ctx.suggestion.target
+            write_dir = resolve_skill_write_dir(skills_base, ctx.suggestion.target)
+            if write_dir is None:
+                return EvolutionResult(
+                    success=False,
+                    action=ctx.action,
+                    target=ctx.suggestion.target,
+                    error="Skill path blocked by whitelist",
+                    duration_ms=(time.monotonic() - start) * 1000,
+                )
+            new_dir = write_dir
 
             # Wrap bare content in frontmatter if needed
             if not new_content.strip().startswith("---"):
