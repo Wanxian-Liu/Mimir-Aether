@@ -70,6 +70,7 @@ _示例：@Mimir 先做 EV-L01。@Cursor E-005 可以开工。_
 | 2026-05-20 | backlog §2b | **EV-M01～M13** | d1–d7 训练回报完成；TRUNCATE=19；T-03 [~] 待飞书复验 |
 | 2026-05-23 | backlog §2 E-004 | **WIN-1** | CLI_CONFIG 默认；tier0 181+2；PR #6 merged |
 | 2026-05-23 | backlog §2 E-005 | **WIN-4** | chat_runner 解耦 cli.main；tools→mimir_cli.config；tier0 PASS；未 push |
+| 2026-05-23 | feat/self_evolution_jepa | **WIN-5** | rebase origin/main（E-004+E-005）；冲突仅 bridge；tier0 3×181+2 PASS；force-with-lease push |
 
 ---
 
