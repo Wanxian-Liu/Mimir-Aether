@@ -759,30 +759,10 @@ def cmd_chat(args):
     if getattr(args, "source", None):
         os.environ["HERMES_SESSION_SOURCE"] = args.source
 
-    # Import and run the CLI
-    from cli import main as cli_main
-    
-    # Build kwargs from args
-    kwargs = {
-        "model": args.model,
-        "provider": getattr(args, "provider", None),
-        "toolsets": args.toolsets,
-        "skills": getattr(args, "skills", None),
-        "verbose": args.verbose,
-        "quiet": getattr(args, "quiet", False),
-        "query": args.query,
-        "image": getattr(args, "image", None),
-        "resume": getattr(args, "resume", None),
-        "worktree": getattr(args, "worktree", False),
-        "checkpoints": getattr(args, "checkpoints", False),
-        "pass_session_id": getattr(args, "pass_session_id", False),
-        "max_turns": getattr(args, "max_turns", None),
-    }
-    # Filter out None values
-    kwargs = {k: v for k, v in kwargs.items() if v is not None}
-    
+    from mimir_cli.chat_runner import run_chat
+
     try:
-        cli_main(**kwargs)
+        run_chat(args)
     except ValueError as e:
         print(f"Error: {e}")
         sys.exit(1)

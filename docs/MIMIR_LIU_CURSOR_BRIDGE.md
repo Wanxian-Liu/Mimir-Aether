@@ -35,7 +35,8 @@ _示例：@Mimir 先做 EV-L01。@Cursor E-005 可以开工。_
 | 时间 | 授权 | 范围 | 状态 |
 |------|------|------|------|
 | 2026-05-20 | push（IR/doc） | main | **done** |
-| 2026-05-23 | push + PR（**E-004**） | `fix/e-004-cli-config` · 仅 `CLI_CONFIG` | **authorized**（刘哥口头授权） |
+| 2026-05-23 | push + PR + merge（**E-004**） | PR #6 → main | **done** |
+| 2026-05-23 | **WIN-4 E-005** | `fix/e-005-chat-decouple` | **authorized** · commit 本地 · **push 前问刘哥** |
 | — | 恢复识图 | EV-VISION-DEFER | **deferred** |
 
 **授权写法（写在本表，不要在 shell 里跑）：** `授权: git push — 范围: E-004 — 状态: authorized`
@@ -57,7 +58,8 @@ _示例：@Mimir 先做 EV-L01。@Cursor E-005 可以开工。_
 | 时间 | 已读 bridge+backlog | 本轮 ID | 结果一句话 |
 |------|---------------------|---------|------------|
 | 2026-05-20 | backlog §2b | **EV-M01～M13** | d1–d7 训练回报完成；TRUNCATE=19；T-03 [~] 待飞书复验 |
-| 2026-05-23 | backlog §2 E-004 | **WIN-1** | `mimir_cli.config.CLI_CONFIG` 默认 clarify/approvals；callbacks 去 `cli` 依赖；pytest×2；tier0 181+2 PASS；ISSUES #8 resolved |
+| 2026-05-23 | backlog §2 E-004 | **WIN-1** | CLI_CONFIG 默认；tier0 181+2；PR #6 merged |
+| 2026-05-23 | backlog §2 E-005 | **WIN-4** | chat_runner 解耦 cli.main；tools→mimir_cli.config；tier0 PASS；未 push |
 
 ---
 
