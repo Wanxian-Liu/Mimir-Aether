@@ -1,0 +1,153 @@
+{
+  "queries": 20,
+  "like_db": "/home/rayliu/.mimiraether/data/sessions_search.db",
+  "fts_db": "/home/rayliu/.mimiraether/data/fts5_search.db",
+  "like_hit_rate": 0.6,
+  "fts_hit_rate": 0.5,
+  "like_p50_ms": 3.31,
+  "like_p99_ms": 6.16,
+  "fts_p50_ms": 0.45,
+  "fts_p99_ms": 4.28,
+  "rows": [
+    {
+      "query": "persistent.json 截断",
+      "like_hits": 15,
+      "like_ms": 4.821613023523241,
+      "fts_hits": 2,
+      "fts_ms": 0.7396219880320132
+    },
+    {
+      "query": "tool call 格式 DeepSeek",
+      "like_hits": 6,
+      "like_ms": 4.018452018499374,
+      "fts_hits": 5,
+      "fts_ms": 0.7732650265097618
+    },
+    {
+      "query": "run_ralph_tier0",
+      "like_hits": 15,
+      "like_ms": 3.147263021674007,
+      "fts_hits": 19,
+      "fts_ms": 1.6227939631789923
+    },
+    {
+      "query": "MIMIR_AETHER_HOME",
+      "like_hits": 11,
+      "like_ms": 2.8629180160351098,
+      "fts_hits": 13,
+      "fts_ms": 3.32767196232453
+    },
+    {
+      "query": "237+2",
+      "like_hits": 0,
+      "like_ms": 2.124438004102558,
+      "fts_hits": 0,
+      "fts_ms": 0.23427099222317338
+    },
+    {
+      "query": "架构方案 琬弦",
+      "like_hits": 12,
+      "like_ms": 6.716308009345084,
+      "fts_hits": 0,
+      "fts_ms": 0.20244100596755743
+    },
+    {
+      "query": "Gateway 崩溃怎么恢复",
+      "like_hits": 0,
+      "like_ms": 3.3092170488089323,
+      "fts_hits": 0,
+      "fts_ms": 0.21985400235280395
+    },
+    {
+      "query": "跨会话记忆 上次在做什么",
+      "like_hits": 0,
+      "like_ms": 4.602522007189691,
+      "fts_hits": 0,
+      "fts_ms": 0.27410598704591393
+    },
+    {
+      "query": "压缩 上下文 重叠",
+      "like_hits": 2,
+      "like_ms": 4.864874994382262,
+      "fts_hits": 0,
+      "fts_ms": 0.26431697187945247
+    },
+    {
+      "query": "智商评分 rubric",
+      "like_hits": 6,
+      "like_ms": 6.162034987937659,
+      "fts_hits": 4,
+      "fts_ms": 0.6166300154291093
+    },
+    {
+      "query": "memory leak session",
+      "like_hits": 0,
+      "like_ms": 2.416778006590903,
+      "fts_hits": 0,
+      "fts_ms": 0.20799203775823116
+    },
+    {
+      "query": "FTS5 semantic search",
+      "like_hits": 0,
+      "like_ms": 1.6371809761039913,
+      "fts_hits": 0,
+      "fts_ms": 0.14567398466169834
+    },
+    {
+      "query": "CrossSessionMemory save",
+      "like_hits": 4,
+      "like_ms": 2.119448035955429,
+      "fts_hits": 2,
+      "fts_ms": 0.47029502457007766
+    },
+    {
+      "query": "2026-05-20 IR",
+      "like_hits": 12,
+      "like_ms": 2.6676200213842094,
+      "fts_hits": 5,
+      "fts_ms": 0.7879729964770377
+    },
+    {
+      "query": "last_session_end",
+      "like_hits": 4,
+      "like_ms": 2.4182209745049477,
+      "fts_hits": 3,
+      "fts_ms": 0.424769998062402
+    },
+    {
+      "query": "session_id feishu",
+      "like_hits": 0,
+      "like_ms": 2.238010987639427,
+      "fts_hits": 0,
+      "fts_ms": 0.2854570047929883
+    },
+    {
+      "query": "IR-20260520",
+      "like_hits": 15,
+      "like_ms": 3.3147570211440325,
+      "fts_hits": 5,
+      "fts_ms": 5.744621041230857
+    },
+    {
+      "query": "E-008 cli shim",
+      "like_hits": 0,
+      "like_ms": 3.5121790133416653,
+      "fts_hits": 0,
+      "fts_ms": 0.2727840328589082
+    },
+    {
+      "query": "JEPA",
+      "like_hits": 15,
+      "like_ms": 4.124761966522783,
+      "fts_hits": 8,
+      "fts_ms": 4.283050016965717
+    },
+    {
+      "query": "EV-A03 memory benchmark",
+      "like_hits": 0,
+      "like_ms": 3.3418890088796616,
+      "fts_hits": 0,
+      "fts_ms": 2.5427850196138024
+    }
+  ]
+}

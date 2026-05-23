@@ -4,7 +4,7 @@ MimirAether Session Search Tool - 会话历史搜索
 学习自Hermes session_search_tool.py设计。
 
 核心功能：
-- FTS5全文搜索
+- 全文搜索（SQLite LIKE；FTS5 见 tools/fts5_search/）
 - 会话分组和截断
 - 摘要生成
 """
@@ -18,7 +18,7 @@ import re
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,21 @@ logger = logging.getLogger(__name__)
 
 MAX_SESSION_CHARS = 100_000
 MAX_SUMMARY_TOKENS = 10000
+
+
+def _search_terms(query: str) -> List[str]:
+    """Split query into terms; multi-word queries require all terms to match."""
+    q = query.strip()
+    if not q:
+        return []
+    parts = [p for p in q.split() if p]
+    return parts if len(parts) > 1 else [q]
+
+
+def _like_and_clause(column: str, terms: List[str]) -> Tuple[str, List[str]]:
+    clause = " AND ".join(f"{column} LIKE ?" for _ in terms)
+    params = [f"%{t}%" for t in terms]
+    return clause, params
 
 
 # ============================================================================
@@ -283,35 +298,43 @@ class SessionSearchDB:
         """
         conn = sqlite3.connect(self.db_path)
         try:
-            # 简单的LIKE搜索
-            cursor = conn.execute("""
+            terms = _search_terms(query)
+            if not terms:
+                return []
+
+            where_clause, term_params = _like_and_clause("m.content", terms)
+            cursor = conn.execute(
+                f"""
                 SELECT DISTINCT m.session_id, s.source, s.started_at, s.title
                 FROM messages m
                 JOIN sessions s ON m.session_id = s.session_id
-                WHERE m.content LIKE ?
+                WHERE {where_clause}
                 ORDER BY s.started_at DESC
                 LIMIT ?
-            """, (f"%{query}%", session_limit))
+                """,
+                (*term_params, session_limit),
+            )
 
             results = []
             for row in cursor.fetchall():
                 session_id, source, started_at, title = row
 
-                # 获取该会话的消息
-                msg_cursor = conn.execute("""
+                msg_where, msg_params = _like_and_clause("content", terms)
+                msg_cursor = conn.execute(
+                    f"""
                     SELECT role, content, tool_name, timestamp
                     FROM messages
-                    WHERE session_id = ?
+                    WHERE session_id = ? AND {msg_where}
                     ORDER BY timestamp
                     LIMIT ?
-                """, (session_id, limit))
+                    """,
+                    (session_id, *msg_params, limit),
+                )
 
                 messages = []
                 for msg_row in msg_cursor.fetchall():
                     role, content, tool_name, timestamp = msg_row
                     if content:
-                        if query.lower() not in content.lower():
-                            continue
                         messages.append({
                             "role": role,
                             "content": content[:500],  # 截断
