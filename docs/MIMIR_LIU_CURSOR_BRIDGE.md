@@ -53,6 +53,7 @@ _示例：@Mimir 先做 EV-L01。@Cursor E-004 可以开工（见 §2 授权）�
 | 时间 | 已读 bridge+backlog | 本轮 ID | 结果一句话 |
 |------|---------------------|---------|------------|
 | 2026-05-20 | backlog §2b | **EV-M01～M13** | d1–d7 训练回报完成；TRUNCATE=19；T-03 [~] 待飞书复验 |
+| 2026-05-23 | backlog §2 E-004 | **WIN-1** | `mimir_cli.config.CLI_CONFIG` 默认 clarify/approvals；callbacks 去 `cli` 依赖；pytest×2；tier0 181+2 PASS；ISSUES #8 resolved |
 
 ---
 
