@@ -1,8 +1,6 @@
-"""Chat entry for ``mimir chat`` without importing ``cli.main`` (E-005 / D7-0b).
+"""Chat entry for ``mimir chat`` without importing legacy ``cli.main`` (E-005 / E-008).
 
-Delegates to ``cli.run_task`` / ``cli.run_interactive`` — the legacy interactive
-implementations in ``cli.py``. Full TUI parity is a later slice; this removes the
-invalid ``cli.main(**kwargs)`` call and keeps a single documented entry path.
+Delegates to ``mimir_cli.task_runner`` for one-shot and interactive chat.
 """
 
 from __future__ import annotations
@@ -72,7 +70,7 @@ def run_chat(args: Any) -> None:
     max_iterations = _resolve_max_iterations(args)
 
     if query:
-        from cli import run_task
+        from mimir_cli.task_runner import run_task
 
         rc = asyncio.run(
             run_task(
@@ -84,7 +82,7 @@ def run_chat(args: Any) -> None:
         )
         raise SystemExit(rc or 0)
 
-    from cli import run_interactive
+    from mimir_cli.task_runner import run_interactive
 
     rc = asyncio.run(run_interactive())
     raise SystemExit(rc or 0)

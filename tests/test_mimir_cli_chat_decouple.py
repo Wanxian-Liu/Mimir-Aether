@@ -21,7 +21,7 @@ def test_run_chat_query_mode(monkeypatch):
         calls["verbose"] = verbose
         return 0
 
-    monkeypatch.setattr("cli.run_task", fake_run_task)
+    monkeypatch.setattr("mimir_cli.task_runner.run_task", fake_run_task)
 
     class Args:
         query = "hello"

@@ -65,3 +65,4 @@ Append-only. Newest rows at the **bottom**. See **`docs/M6_EVOLUTION.md`** for r
 | 20260523T120219Z_9ba894e-dirty | 2026-05-23T12:02:19Z | 9ba894e-dirty | ./run_ralph_tier0.sh | 0 | WIN-3 E-006: loopback /health default api_server @ 18999; tier0 186+2 PASS |
 | 20260523T125403Z_85d6770-dirty | 2026-05-23T12:54:03Z | 85d6770-dirty | ./run_ralph_tier0.sh | 0 | E-007: session-isolated execution pipeline + skill_path_guard whitelist; agent_loop starts pipeline; tier0 201+2 |
 | 20260523T125448Z_85d6770-dirty | 2026-05-23T12:54:48Z | 85d6770-dirty | ./run_ralph_tier0.sh | 0 | E-007: session-isolated execution pipeline + skill_path_guard whitelist; agent_loop starts pipeline; tier0 201+2 |
+| 20260523T131609Z_4723637-dirty | 2026-05-23T13:16:09Z | 4723637-dirty | ./run_ralph_tier0.sh | 0 | E-008: replace monolithic cli.py with shim; extract mimir_cli/task_runner; delete cli_part*/cli_cron; gateway/config/chat smoke tests; tier0 205+2 |
