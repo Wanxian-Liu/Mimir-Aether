@@ -124,6 +124,13 @@ SKILLS_GUIDANCE = (
     "Skills that aren't maintained become liabilities."
 )
 
+PLAYBOOK_ALIAS_GUIDANCE = (
+    "Mimir Playbook (EV-L learning runbook): docs/MIMIR_EV_L_INDUSTRIAL_LEARNING.md "
+    "(there is no docs/PLAYBOOK.md). Backlog queue: docs/MIMIR_EXEC_BACKLOG.md §2c. "
+    "When aligning Playbook checkboxes, edit the Playbook sections — do not only "
+    "mark the Backlog table complete."
+)
+
 TOOL_USE_ENFORCEMENT_GUIDANCE = (
     "# Tool-use enforcement\n"
     "You MUST use your tools to take action — do not describe what you would do "
@@ -1045,6 +1052,7 @@ def build_system_prompt(
     
     # 4. 技能指导
     sections.append(SKILLS_GUIDANCE)
+    sections.append(PLAYBOOK_ALIAS_GUIDANCE)
     
     # 5. 工具使用强制指导（针对特定模型）
     model_lower = model.lower()
@@ -1126,6 +1134,7 @@ def build_system_prompt_parts(
     stable_sections.append(MEMORY_GUIDANCE)
     stable_sections.append(SESSION_SEARCH_GUIDANCE)
     stable_sections.append(SKILLS_GUIDANCE)
+    stable_sections.append(PLAYBOOK_ALIAS_GUIDANCE)
     
     if any(m in model_lower for m in TOOL_USE_ENFORCEMENT_MODELS):
         stable_sections.append(TOOL_USE_ENFORCEMENT_GUIDANCE)

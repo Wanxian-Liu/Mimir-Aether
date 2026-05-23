@@ -28,6 +28,12 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Callable, Awaitable
 
 from .async_bridge import get_tool_executor
+from .intent_action_guard import (
+    MAX_INTENT_NUDGES,
+    build_nudge_message,
+    guard_enabled,
+    should_block_text_only_finish,
+)
 # 统一类型: 从 types.py 导入 (Phase 3 M1)
 from .types import AgentLoopToolError as ToolError, AgentLoopResult as AgentResult
 
@@ -161,6 +167,8 @@ class MimirAgentLoop:
             start_execution_pipeline(task_name=user_task or self.task_id, session_id=self.task_id)
         except Exception:
             pass
+
+        intent_nudges = 0
 
         for turn in range(self.max_turns):
             if self.interrupt_check():
@@ -337,11 +345,29 @@ class MimirAgentLoop:
                     len(_tool_calls), turn_elapsed,
                 )
             else:
-                # No tool calls - model is done
+                # No tool calls — finish unless intent-action guard blocks deferral.
                 msg_dict = {"role": "assistant", "content": content or ""}
                 if _reasoning:
                     msg_dict["reasoning_content"] = _reasoning
                 messages.append(msg_dict)
+
+                block_finish = (
+                    guard_enabled()
+                    and intent_nudges < MAX_INTENT_NUDGES
+                    and should_block_text_only_finish(
+                        messages,
+                        content or "",
+                        has_tool_schemas=bool(self.tool_schemas),
+                    )
+                )
+                if block_finish:
+                    intent_nudges += 1
+                    messages.append({"role": "user", "content": build_nudge_message()})
+                    logger.warning(
+                        "[%s] turn %d: intent-action guard nudge %d/%d (deferred text-only)",
+                        self.task_id[:8], turn + 1, intent_nudges, MAX_INTENT_NUDGES,
+                    )
+                    continue
 
                 logger.info(
                     "[%s] turn %d: api=%.1fs, no tools (finished)",
