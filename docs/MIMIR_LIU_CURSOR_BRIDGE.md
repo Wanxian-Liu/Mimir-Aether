@@ -69,7 +69,7 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 - main：`fb53ac2`+（E-004 + E-005 + 常备授权 + bridge WIN-5 签收）
 - JEPA：PR **#8** merge → main（merge `origin/main` 进 feat 后 push + gh merge）
 - **WIN-5** ✅ · **PR #8 merge** ✅（本窗）
-- 下一工程刀：**E-009** 单通路 FIX 写 SKILL e2e
+- 下一工程刀：**E-006 余量**（insights SQL + monitor 阈值）
 
 ---
 
@@ -88,11 +88,12 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 | 2026-05-23 | EP-C04 | **WIN-EP-C04** | tests/agent 3× self_evolution 烟测；tier0 198+2 |
 | 2026-05-23 | E-007 | **WIN-E-007** | recorder session 隔离 + skill 路径白名单；tier0 201+2 |
 | 2026-05-23 | E-008 | **WIN-E-008** | cli.py 薄 shim + task_runner + CLI 冒烟测；tier0 205+2 |
+| 2026-05-23 | E-009 | **WIN-E-009** | FIX 单通路 e2e + pipeline 接线 + RateLimit lock；tier0 210+2 |
 
 ---
 
 ## 5. Mimir 进度笔记
 
-- **main**：**E-008** ✅ · **E-009** 下一
+- **main**：**E-009** ✅ · **E-006 余量** 下一
 - **ISSUES**：#7 引擎在 main；接 agent loop 若未接仍标 in-progress
 - **Mimir 运维**：`scripts/mimir_health_check.sh --quick` + TRUNCATE≤19；读 `MIMIR_UNIFIED_PLAN.md`

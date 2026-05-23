@@ -366,8 +366,16 @@ class MimirAgentLoop:
     def _close_pipeline(self, task_name: str = "") -> None:
         """Defensive close of execution pipeline (best-effort, never raises)."""
         try:
-            from agent.execution_pipeline import close_execution_pipeline
-            close_execution_pipeline(task_name=task_name or self.task_id, session_id=self.task_id)
+            from agent.execution_pipeline import (
+                close_execution_pipeline,
+                schedule_post_close_evolution,
+            )
+
+            result = close_execution_pipeline(
+                task_name=task_name or self.task_id,
+                session_id=self.task_id,
+            )
+            schedule_post_close_evolution(result)
         except Exception:
             pass
 

@@ -19,13 +19,16 @@ disabled, the pipeline degrades gracefully.
 
 from __future__ import annotations
 
+import asyncio
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from .execution_recorder import ExecutionRecorder, extract_errors, generate_summary
 from .execution_pipeline_sessions import (
     close_execution_pipeline as _pop_session,
+    get_pipeline_session,
     get_quality_manager,
     get_recorder,
     start_execution_pipeline,
@@ -37,8 +40,16 @@ from .post_analysis import (
     build_analysis_prompt,
     parse_analysis_result,
 )
-from .skill_evolution import build_confirmation_prompt, parse_confirmation
+from .skill_evolution import (
+    EvolutionResult,
+    SkillEvolutionPipeline,
+    build_confirmation_prompt,
+    parse_confirmation,
+)
 from .conversation_formatter import format_trajectory_for_analysis
+
+if TYPE_CHECKING:
+    pass
 
 
 def record_tool_call(
@@ -85,6 +96,8 @@ def close_execution_pipeline(
         "quality_report": {},
         "should_evolve": False,
         "degraded_tools": [],
+        "evolution_suggestions": [],
+        "evolution_results": [],
     }
 
     session = _pop_session(task_name=task_name, session_id=session_id)
@@ -98,6 +111,12 @@ def close_execution_pipeline(
         result["quality_report"] = session.quality_mgr.get_report()
         result["should_evolve"] = session.quality_mgr.should_evolve()
         result["degraded_tools"] = session.quality_mgr.get_degraded_tools()
+
+    if session and session.pending_suggestions:
+        result["evolution_suggestions"] = [
+            s.to_dict() for s in session.pending_suggestions  # type: ignore[attr-defined]
+        ]
+        result["_evolution_suggestion_objs"] = list(session.pending_suggestions)
 
     return result
 
@@ -143,7 +162,111 @@ def apply_analysis_to_pipeline(
             if suggestion.action in ("fix", "deprecate"):
                 quality_mgr.flag_llm_issue(suggestion.target)
 
+    session = get_pipeline_session(session_id=session_id, task_name=task_name)
+    if session:
+        session.pending_suggestions.extend(analysis.suggestions)
+
     return analysis
+
+
+async def apply_evolution_from_suggestions_async(
+    suggestions: List[EvolutionSuggestion],
+    skills_dir: Path,
+    *,
+    require_confirmation: bool = False,
+) -> List[EvolutionResult]:
+    """Single pathway: post-analysis suggestions → SKILL.md on disk (E-009)."""
+    if not suggestions:
+        return []
+    pipeline = SkillEvolutionPipeline(require_confirmation=require_confirmation)
+    return await pipeline.evolve_from_suggestions(suggestions, skills_dir)
+
+
+def apply_evolution_from_close_result(
+    pipeline_result: Dict[str, Any],
+    skills_dir: Optional[Path] = None,
+    *,
+    require_confirmation: bool = False,
+) -> List[EvolutionResult]:
+    """Apply FIX/DERIVED/CAPTURED suggestions collected during a pipeline session."""
+    suggestions = pipeline_result.pop("_evolution_suggestion_objs", None)
+    if not suggestions:
+        return []
+
+    if skills_dir is None:
+        from mimir_constants import get_skills_dir
+
+        skills_dir = get_skills_dir()
+
+    return asyncio.run(
+        apply_evolution_from_suggestions_async(
+            suggestions,
+            skills_dir,
+            require_confirmation=require_confirmation,
+        )
+    )
+
+
+async def _finish_post_close_evolution_async(
+    pipeline_result: Dict[str, Any],
+    skills_dir: Optional[Path] = None,
+) -> None:
+    suggestions = pipeline_result.pop("_evolution_suggestion_objs", None)
+    if not suggestions:
+        return
+    if skills_dir is None:
+        from mimir_constants import get_skills_dir
+
+        skills_dir = get_skills_dir()
+    results = await apply_evolution_from_suggestions_async(
+        suggestions,
+        skills_dir,
+        require_confirmation=False,
+    )
+    pipeline_result["evolution_results"] = [
+        {
+            "success": r.success,
+            "action": r.action.value,
+            "target": r.target,
+            "error": r.error,
+        }
+        for r in results
+    ]
+
+
+def schedule_post_close_evolution(
+    pipeline_result: Dict[str, Any],
+    *,
+    skills_dir: Optional[Path] = None,
+) -> None:
+    """When ``MIMIR_AUTO_EVOLVE=1``, apply pending skill suggestions after close."""
+    if os.environ.get("MIMIR_AUTO_EVOLVE", "").strip() not in ("1", "true", "yes"):
+        return
+    if not pipeline_result.get("_evolution_suggestion_objs"):
+        return
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        try:
+            results = apply_evolution_from_close_result(
+                pipeline_result,
+                skills_dir=skills_dir,
+                require_confirmation=False,
+            )
+            pipeline_result["evolution_results"] = [
+                {
+                    "success": r.success,
+                    "action": r.action.value,
+                    "target": r.target,
+                    "error": r.error,
+                }
+                for r in results
+            ]
+        except Exception:
+            pass
+        return
+
+    loop.create_task(_finish_post_close_evolution_async(pipeline_result, skills_dir=skills_dir))
 
 
 def maybe_trigger_post_analysis(
@@ -198,4 +321,7 @@ __all__ = [
     "apply_analysis_to_pipeline",
     "maybe_trigger_post_analysis",
     "save_analysis_artifact",
+    "apply_evolution_from_suggestions_async",
+    "apply_evolution_from_close_result",
+    "schedule_post_close_evolution",
 ]

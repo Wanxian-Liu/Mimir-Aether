@@ -9,12 +9,15 @@ from __future__ import annotations
 
 import uuid
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from threading import Lock
-from typing import Dict, Optional
+from typing import Dict, List, Optional, TYPE_CHECKING
 
 from .execution_recorder import ExecutionRecorder
 from .tool_quality import ToolQualityManager
+
+if TYPE_CHECKING:
+    from .post_analysis import EvolutionSuggestion
 
 _session_lock = Lock()
 _sessions: Dict[str, "_PipelineSession"] = {}
@@ -29,6 +32,7 @@ class _PipelineSession:
     recorder: ExecutionRecorder
     quality_mgr: Optional[ToolQualityManager]
     task_name: str
+    pending_suggestions: List["EvolutionSuggestion"] = field(default_factory=list)
 
 
 def _resolve_session_id(session_id: str = "", task_name: str = "") -> Optional[str]:
@@ -85,6 +89,14 @@ def get_quality_manager(session_id: str = "") -> Optional[ToolQualityManager]:
     with _session_lock:
         sess = _sessions.get(sid)
     return sess.quality_mgr if sess else None
+
+
+def get_pipeline_session(session_id: str = "", task_name: str = "") -> Optional[_PipelineSession]:
+    sid = _resolve_session_id(session_id=session_id, task_name=task_name)
+    if not sid:
+        return None
+    with _session_lock:
+        return _sessions.get(sid)
 
 
 def close_execution_pipeline(

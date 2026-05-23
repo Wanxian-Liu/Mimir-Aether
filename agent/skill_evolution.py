@@ -37,6 +37,18 @@ class EvolutionAction(str, Enum):
     CAPTURED = "captured" # Create new skill from pattern
 
 
+_ACTION_ALIASES = {
+    "derive": "derived",
+    "capture": "captured",
+}
+
+
+def normalize_evolution_action(action: str) -> str:
+    """Map post_analysis verbs (derive/capture) to EvolutionAction values."""
+    key = (action or "fix").strip().lower()
+    return _ACTION_ALIASES.get(key, key)
+
+
 @dataclass
 class EvolutionContext:
     """All the context needed to evolve a skill."""
@@ -251,7 +263,7 @@ class SkillEvolutionPipeline:
         for s in suggestions:
             skill_dir = None
             skill_content = ""
-            action = EvolutionAction(s.action)
+            action = EvolutionAction(normalize_evolution_action(s.action))
 
             # Resolve skill directory for FIX/DERIVED
             if action in (EvolutionAction.FIX, EvolutionAction.DERIVED):

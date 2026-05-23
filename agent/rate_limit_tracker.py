@@ -13,6 +13,7 @@ MimirAether Rate Limit Tracker
 from __future__ import annotations
 
 import time
+import threading
 from dataclasses import dataclass, field
 from typing import Any, Dict, Mapping, Optional
 
@@ -245,6 +246,7 @@ class RateLimitTracker:
     """
     
     def __init__(self):
+        self._lock = threading.Lock()
         self._states: Dict[str, RateLimitState] = {}
         self._backoff_count: Dict[str, int] = {}
         self._base_backoff: float = 1.0
@@ -266,10 +268,10 @@ class RateLimitTracker:
             RateLimitState如果找到速率限制信息
         """
         state = parse_rate_limit_headers(headers, provider)
-        if state:
-            self._states[provider] = state
-            # 重置退避计数（成功请求后重置）
-            self._backoff_count.pop(provider, None)
+        with self._lock:
+            if state:
+                self._states[provider] = state
+                self._backoff_count.pop(provider, None)
         return state
     
     def should_wait(self, provider: str) -> bool:
@@ -278,17 +280,17 @@ class RateLimitTracker:
         
         检查当前使用率，如果超过80%则应该等待
         """
-        state = self._states.get(provider)
-        if not state or not state.has_data:
-            return False
-        
-        # 检查各维度使用率
-        for bucket in [state.requests_min, state.requests_hour, 
-                       state.tokens_min, state.tokens_hour]:
-            if bucket.limit > 0:
-                usage_pct = bucket.usage_pct
-                if usage_pct >= 80:
-                    return True
+        with self._lock:
+            state = self._states.get(provider)
+            if not state or not state.has_data:
+                return False
+            
+            for bucket in [state.requests_min, state.requests_hour, 
+                           state.tokens_min, state.tokens_hour]:
+                if bucket.limit > 0:
+                    usage_pct = bucket.usage_pct
+                    if usage_pct >= 80:
+                        return True
         return False
     
     def get_wait_time(self, provider: str) -> float:
@@ -297,29 +299,26 @@ class RateLimitTracker:
         
         基于当前速率限制状态和退避计数计算
         """
-        state = self._states.get(provider)
-        
-        # 计算退避时间（基于命中次数）
-        backoff_count = self._backoff_count.get(provider, 0)
-        backoff = min(self._base_backoff * (2 ** backoff_count), self._max_backoff)
-        
-        if not state or not state.has_data:
-            # 没有状态时，仍返回退避时间
-            return backoff
-        
-        # 找到最近的重置时间
-        min_wait = float('inf')
-        for bucket in [state.requests_min, state.requests_hour,
-                       state.tokens_min, state.tokens_hour]:
-            if bucket.reset_seconds > 0:
-                remaining = bucket.remaining_seconds_now
-                if remaining > 0 and remaining < min_wait:
-                    min_wait = remaining
-        
-        if min_wait == float('inf'):
-            min_wait = 0.0
-        
-        return max(min_wait, backoff)
+        with self._lock:
+            state = self._states.get(provider)
+            backoff_count = self._backoff_count.get(provider, 0)
+            backoff = min(self._base_backoff * (2 ** backoff_count), self._max_backoff)
+            
+            if not state or not state.has_data:
+                return backoff
+            
+            min_wait = float('inf')
+            for bucket in [state.requests_min, state.requests_hour,
+                           state.tokens_min, state.tokens_hour]:
+                if bucket.reset_seconds > 0:
+                    remaining = bucket.remaining_seconds_now
+                    if remaining > 0 and remaining < min_wait:
+                        min_wait = remaining
+            
+            if min_wait == float('inf'):
+                min_wait = 0.0
+            
+            return max(min_wait, backoff)
     
     def record_hit(self, provider: str, status_code: int) -> None:
         """
@@ -328,21 +327,24 @@ class RateLimitTracker:
         当收到429时调用，增加退避计数
         """
         if status_code == 429:
-            count = self._backoff_count.get(provider, 0) + 1
-            self._backoff_count[provider] = count
+            with self._lock:
+                count = self._backoff_count.get(provider, 0) + 1
+                self._backoff_count[provider] = count
     
     def get_state(self, provider: str) -> Optional[RateLimitState]:
         """获取指定provider的速率限制状态"""
-        return self._states.get(provider)
+        with self._lock:
+            return self._states.get(provider)
     
     def clear(self, provider: str = None) -> None:
         """清除速率限制状态"""
-        if provider:
-            self._states.pop(provider, None)
-            self._backoff_count.pop(provider, None)
-        else:
-            self._states.clear()
-            self._backoff_count.clear()
+        with self._lock:
+            if provider:
+                self._states.pop(provider, None)
+                self._backoff_count.pop(provider, None)
+            else:
+                self._states.clear()
+                self._backoff_count.clear()
 
 
 # ============================================================================

@@ -42,10 +42,10 @@
 | **M-007** | Mimir | **M7 Gateway 十条** | `GATEWAY_STABILITY_BACKLOG.md` 逐条标状态 | [x] 2026-05-20 状态列已更新 |
 | **E-004** | Cursor | **D7-0a** `CLI_CONFIG` 默认值 | clarify/approval 不 ImportError | [x] 2026-05-23 WIN-1 · tier0 181+2 |
 | **E-005** | Cursor | **D7-0b + D7-1** chat 解耦 + 单入口文档 | `cmd_chat` 不 `import cli.main` | [x] 2026-05-23 WIN-4 · chat_runner + MIMIR_ACTIVATE D7-1 |
-| **E-006** | Cursor | **D6-0a–0d** 可观测 Day-1 | insights SQL + monitor 阈值 + health 接线 | [~] D6-0c loopback `/health` 默认启用（WIN-3） |
+| **E-006** | Cursor | **D6-0a–0d** 可观测 Day-1 | insights SQL + monitor 阈值 + health 接线 | [~] D6-0c health + **D6-0d lock** |
 | **E-007** | Cursor | **D5-0 / 0b** 进化安全基线 | recorder 隔离 + skill 路径白名单 | [x] 2026-05-23 |
 | **E-008** | Cursor | **D7-2 / D7-3** 删旧 cli + CLI 冒烟测 | grep 无悬挂引用 + 少量 pytest | [x] |
-| **E-009** | Cursor | **D5-2** 单通路 FIX 真写 SKILL | 一条 e2e + tier0 | [ ] |
+| **E-009** | Cursor | **D5-2** 单通路 FIX 真写 SKILL | 一条 e2e + tier0 | [x] 2026-05-23 |
 | **M-008** | 刘哥 | **M8 push** | 授权后 `git push origin main` | [x] 2026-05-20 → `599ecb3` |
 
 **E-001 结案（2026-05-20）**  
@@ -55,7 +55,7 @@
 
 **并行允许**：E-004（D7-0a）单独 PR；**禁止** mixin commit + D6 + 删 `cli.py` 同 PR。
 
-**下一条（默认）**：**Cursor → E-009**（单通路 FIX 写 SKILL e2e）；**Mimir → §2c EV-L*** / EV-M02 飞书复验。
+**下一条（默认）**：**Cursor → E-006 余量**（D6-0a insights + D6-0b monitor）；**Mimir → §2c EV-L*** / EV-M02 飞书复验。
 
 ---
 
@@ -246,7 +246,7 @@ Mimir 冒烟回报
 | D5-0 | Recorder 按 session 隔离 | [x] E-007 |
 | D5-0b | skill 路径白名单 | [x] E-007 |
 | D5-1 | `simulated: true` | [ ] |
-| D5-2 | 单通路 FIX 写 SKILL | [ ] → E-009 |
+| D5-2 | 单通路 FIX 写 SKILL | [x] E-009 |
 | D5-3 | 测试 | [ ] |
 | D5-ADR | 双架构决策（仅 ADR） | [ ] |
 
@@ -257,7 +257,7 @@ Mimir 冒烟回报
 | D6-0a | insights SQL `TOOL_CALL` | [ ] → E-006 |
 | D6-0b | monitor 阈值 + status | [ ] → E-006 |
 | D6-0c | health.register | [~] loopback `/health` 默认 + R3 端口对齐（WIN-3） |
-| D6-0d | RateLimitTracker Lock | [ ] → E-006 |
+| D6-0d | RateLimitTracker Lock | [x] E-006 batch |
 | D6-1 | trajectory/recorder SoT ADR | [ ] |
 | D6-2 | ObservabilityBus（可选） | [ ] |
 | D6-3 | 测试 | [ ] |

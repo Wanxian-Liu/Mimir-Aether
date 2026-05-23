@@ -102,7 +102,10 @@ python3 -m pytest -q \
   tests/agent/test_e007_evolution_security.py \
   tests/test_mimir_cli_smoke.py \
   tests/test_e008_task_runner_compat.py \
-  tests/test_mimir_cli_chat_decouple.py
+  tests/test_mimir_cli_chat_decouple.py \
+  tests/agent/test_skill_evolution_e009.py \
+  tests/agent/test_evolution_loop_integration.py \
+  tests/agent/test_rate_limit_tracker_lock.py
 
 echo "=== Ralph Tier-1: Gate3 Core E2E (mocked LLM) ==="
 python3 -m pytest -q agent/test_tier1_e2e_agent.py
