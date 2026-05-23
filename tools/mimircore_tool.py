@@ -93,10 +93,14 @@ def _get_capsules_publish_dir() -> Path:
 
 
 def _ensure_mimircore_importable() -> None:
-    """确保 mimicore 子模块可 import（仓库根子目录，与发布目录分离）。"""
+    """确保 mimicore 子模块和 capsule-factory 技能可 import。"""
     import_dir = str(_resolve_mimicore_import_dir())
     if import_dir not in sys.path:
         sys.path.insert(0, import_dir)
+    # capsule-factory 技能路径（提取后）
+    _capsule_factory_dir = str(_resolve_repo_root() / "skills" / "mimiraether" / "mimiraether-capsule-factory")
+    if _capsule_factory_dir not in sys.path:
+        sys.path.insert(0, _capsule_factory_dir)
 
 
 def _title_from_input(input_text: str) -> str:
@@ -243,9 +247,9 @@ def _handle_produce_capsule(
         import sys as _sys
 
         for _mod_name in list(_sys.modules.keys()):
-            if "mimicore" in _mod_name or "capsule_generator" in _mod_name:
+            if "mimicore" in _mod_name or "capsule_generator" in _mod_name or "gdi_scorer" in _mod_name or "evomap_validator" in _mod_name or "classifier" in _mod_name:
                 del _sys.modules[_mod_name]
-        from mimicore.capsule_generator import CapsuleGenerator, CapsuleType
+        from capsule_generator import CapsuleGenerator, CapsuleType
 
         type_map = {
             "auto": None,
@@ -307,7 +311,7 @@ def _dynamic_produce_handler(args, **kwargs):
     import sys as _sys
 
     for _mod_name in list(_sys.modules.keys()):
-        if "mimicore" in _mod_name or "capsule_generator" in _mod_name:
+        if "mimicore" in _mod_name or "capsule_generator" in _mod_name or "gdi_scorer" in _mod_name or "evomap_validator" in _mod_name or "classifier" in _mod_name:
             del _sys.modules[_mod_name]
 
     import tools.mimircore_tool as _mt

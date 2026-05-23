@@ -18,6 +18,7 @@ from pathlib import Path
 # 添加项目路径
 PROJECT_ROOT = Path(__file__).parent
 sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT / "skills" / "mimiraether" / "mimiraether-self_evolution"))
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,7 +35,7 @@ async def activate_three_ring_loop():
     
     # 导入三环闭环模块
     try:
-        from mimicore.evolve.three_ring_architecture import ThreeRingClosedLoop
+        from three_ring_architecture import ThreeRingClosedLoop
         logger.info("✅ 三环闭环模块加载成功")
     except ImportError as e:
         logger.error(f"❌ 三环闭环模块导入失败: {e}")

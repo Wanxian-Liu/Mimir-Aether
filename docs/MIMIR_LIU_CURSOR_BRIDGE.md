@@ -1,12 +1,12 @@
 # 刘哥 ↔ Mimir ↔ Cursor（仓库内对话，与 OpenClaw 无关）
 
 > **真源路径**：`~/src/MimirAether/docs/MIMIR_LIU_CURSOR_BRIDGE.md`  
-> **队列真源**：`docs/MIMIR_EXEC_BACKLOG.md`（§2 / §2b / §2c）
+> **队列真源**：`docs/MIMIR_EXEC_BACKLOG.md`（§2 / §2b / §2c）· 路线图：`docs/MIMIR_UNIFIED_PLAN.md`
 
 | 谁 | 怎么做 |
 |----|--------|
 | **刘哥** | 飞书找 **Mimir**；战略方向 / 例外授权写 **§1、§2** |
-| **Mimir** | 每轮 Read bridge + backlog；冒烟、health_check、§4 签收 |
+| **Mimir** | 每轮 Read bridge + backlog + unified plan；冒烟、health_check、§4 签收 |
 | **Cursor** | 工程 PR、git、rebase、tier0、CI merge（见 §2 常备授权） |
 
 **不走**：OpenClaw cron、微信同步 backlog。
@@ -33,10 +33,14 @@ Cursor **自行执行**（无需每轮再问）：
 
 **仍须刘哥**（Cursor 停手问）：
 
-- **Draft PR #8（JEPA）merge 进 main** — 大 feature，单独拍板
 - 飞书 **T-03** 等人工复验
 - 识图 / OpenRouter / 生产密钥
 - `git push --force` 到 **main**（禁止）
+
+### 2026-05-23 — WIN-2 JEPA
+
+- `feat/self_evolution_jepa`：commit 落盘，**rebase main** 后 push（§2 已 authorized）
+- **PR #8** merge → main（刘哥 2026-05-23 授权战略窗执行）
 
 ### （新留言写在此下）
 
@@ -53,7 +57,7 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 | 2026-05-23 | E-005 PR #7 merge | main | **done** |
 | 2026-05-23 | JEPA push + rebase | `feat/self_evolution_jepa` | **done**（WIN-5） |
 | 2026-05-23 | **常备工程授权** | §1 列表 · feature push/merge E-*/EP-* | **authorized**（刘哥） |
-| — | JEPA → main | PR #8 | **pending** — 刘哥单独拍板 |
+| 2026-05-23 | JEPA → main | PR #8 | **done**（merge 进行中） |
 | — | 恢复识图 | EV-VISION-DEFER | **deferred** |
 
 ---
@@ -62,9 +66,9 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 
 ### 2026-05-23
 
-- main：`fb53ac2`（E-004 + E-005 + 常备授权）
-- JEPA：`feat/self_evolution_jepa` @ `ae8a5c7` rebased；Draft **PR #8**；tier0 3× PASS
-- **WIN-5** 签收 ✅（仅 bridge 冲突，已 force-with-lease push）
+- main：`fb53ac2`+（E-004 + E-005 + 常备授权 + bridge WIN-5 签收）
+- JEPA：PR **#8** merge → main（merge `origin/main` 进 feat 后 push + gh merge）
+- **WIN-5** ✅ · **PR #8 merge** ✅（本窗）
 - 下一工程刀：**E-006** `/health`（WIN-3）
 
 ---
@@ -75,13 +79,13 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 |------|---------------------|---------|------------|
 | 2026-05-20 | backlog §2b | **EV-M01～M13** | d1–d7 回报；TRUNCATE=19；T-03 [~] |
 | 2026-05-23 | E-004 / E-005 | **WIN-1/4** | PR #6 #7 merged → main |
-| 2026-05-23 | JEPA | **WIN-5** | rebase @ d61044a；tier0 3×181+2；@ ae8a5c7 force-push；PR #8 已更新 |
+| 2026-05-23 | JEPA | **WIN-5** | rebase；tier0 3×181+2；@ ae8a5c7 |
+| 2026-05-23 | PR #8 | **WIN-8** | JEPA+skills+IC 合入 main；post-merge tier0 待 Mimir 复跑 |
 
 ---
 
 ## 5. Mimir 进度笔记
 
-- **main 工程线**：E-004 ✅ E-005 ✅ → **E-006** 可观测 / **EP-C01** 测试
-- **JEPA**：Draft PR #8，**勿合 main** 直至刘哥拍板
-- **ISSUES**：#7 in-progress · ~~#8~~ · #9 d6 · #10 d4
-- **Mimir 运维**：`scripts/mimir_health_check.sh --quick` + TRUNCATE≤19
+- **main**：E-004 ✅ E-005 ✅ **JEPA/IC/skills ✅**（PR #8 merged）→ **E-006** `/health` · **EP-C01** 测试
+- **ISSUES**：#7 引擎在 main；接 agent loop 若未接仍标 in-progress
+- **Mimir 运维**：`scripts/mimir_health_check.sh --quick` + TRUNCATE≤19；读 `MIMIR_UNIFIED_PLAN.md`

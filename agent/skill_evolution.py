@@ -334,35 +334,199 @@ class SkillEvolutionPipeline:
         start = time.monotonic()
 
         if ctx.action == EvolutionAction.FIX and ctx.skill_dir:
-            # FIX: repair in-place
-            # For now, record the intent; actual patching is done by the LLM
+            # FIX: repair in-place — write suggested_changes as new SKILL.md content
+            skill_md = ctx.skill_dir / "SKILL.md"
+            try:
+                old_content = skill_md.read_text(encoding="utf-8") if skill_md.exists() else ""
+            except OSError:
+                old_content = ctx.skill_content
+
+            new_content = ctx.suggestion.suggested_changes or ctx.suggestion.reason
+            if not new_content:
+                return EvolutionResult(
+                    success=False,
+                    action=ctx.action,
+                    target=ctx.suggestion.target,
+                    error="No suggested_changes or reason to apply",
+                    duration_ms=(time.monotonic() - start) * 1000,
+                )
+
+            # Generate unified diff
+            import difflib
+            diff_lines = list(difflib.unified_diff(
+                old_content.splitlines(keepends=True),
+                new_content.splitlines(keepends=True),
+                fromfile=str(skill_md),
+                tofile=str(skill_md),
+            ))
+            diff_text = "".join(diff_lines) if diff_lines else "(no changes)"
+
+            try:
+                skill_md.write_text(new_content, encoding="utf-8")
+            except OSError as e:
+                return EvolutionResult(
+                    success=False,
+                    action=ctx.action,
+                    target=ctx.suggestion.target,
+                    error=f"Write failed: {e}",
+                    diff=diff_text,
+                    duration_ms=(time.monotonic() - start) * 1000,
+                )
+
             return EvolutionResult(
                 success=True,
                 action=ctx.action,
                 target=ctx.suggestion.target,
                 changes_applied=1,
                 output_dir=ctx.skill_dir,
+                diff=diff_text,
                 duration_ms=(time.monotonic() - start) * 1000,
             )
         elif ctx.action == EvolutionAction.DERIVED and ctx.skill_dir:
-            # DERIVED: create enhanced version
+            # DERIVED: create enhanced version — mkdir + copy source + apply changes
             new_name = f"{ctx.suggestion.target}-enhanced"
             new_dir = ctx.skill_dir.parent / new_name
+
+            source_content = ""
+            source_md = ctx.skill_dir / "SKILL.md"
+            try:
+                if source_md.exists():
+                    source_content = source_md.read_text(encoding="utf-8")
+            except OSError:
+                pass
+
+            new_content = ctx.suggestion.suggested_changes or ctx.suggestion.reason
+            if not new_content:
+                return EvolutionResult(
+                    success=False,
+                    action=ctx.action,
+                    target=ctx.suggestion.target,
+                    error="No suggested_changes or reason for derived skill",
+                    duration_ms=(time.monotonic() - start) * 1000,
+                )
+
+            # Inject derived_from annotation after frontmatter or at top
+            derived_tag = f"<!-- derived_from: {ctx.suggestion.target} -->\n"
+            if new_content.startswith("---"):
+                parts = new_content.split("---", 2)
+                if len(parts) >= 3:
+                    new_content = f"---{parts[1]}---\n{derived_tag}{parts[2]}"
+                else:
+                    new_content = derived_tag + new_content
+            else:
+                new_content = derived_tag + new_content
+
+            import difflib
+            diff_lines = list(difflib.unified_diff(
+                source_content.splitlines(keepends=True),
+                new_content.splitlines(keepends=True),
+                fromfile=str(source_md) if source_md.exists() else "/dev/null",
+                tofile=str(new_dir / "SKILL.md"),
+            ))
+            diff_text = "".join(diff_lines) if diff_lines else "(no changes)"
+
+            try:
+                new_dir.mkdir(parents=True, exist_ok=True)
+                (new_dir / "SKILL.md").write_text(new_content, encoding="utf-8")
+            except OSError as e:
+                return EvolutionResult(
+                    success=False,
+                    action=ctx.action,
+                    target=ctx.suggestion.target,
+                    error=f"Derived skill creation failed: {e}",
+                    diff=diff_text,
+                    duration_ms=(time.monotonic() - start) * 1000,
+                )
+
+            # Copy auxiliary files from source skill dir
+            for src_file in ctx.skill_dir.iterdir():
+                if src_file.name == "SKILL.md":
+                    continue
+                if src_file.is_file():
+                    try:
+                        import shutil
+                        shutil.copy2(src_file, new_dir / src_file.name)
+                    except OSError:
+                        pass
+
             return EvolutionResult(
                 success=True,
                 action=ctx.action,
                 target=ctx.suggestion.target,
                 changes_applied=1,
                 output_dir=new_dir,
+                diff=diff_text,
                 duration_ms=(time.monotonic() - start) * 1000,
             )
         elif ctx.action == EvolutionAction.CAPTURED:
-            # CAPTURED: create new skill from pattern
+            # CAPTURED: create new skill from pattern — generate SKILL.md + write to disk
+            new_content = ctx.suggestion.suggested_changes or ctx.suggestion.reason
+            if not new_content:
+                return EvolutionResult(
+                    success=False,
+                    action=ctx.action,
+                    target=ctx.suggestion.target,
+                    error="No suggested_changes or reason for captured skill",
+                    duration_ms=(time.monotonic() - start) * 1000,
+                )
+
+            # Determine skills base directory
+            if ctx.skill_dir is not None:
+                skills_base = ctx.skill_dir.parent
+            else:
+                import os as _os
+                _home = _os.environ.get("MIMIR_AETHER_HOME",
+                         _os.environ.get("HERMES_HOME",
+                         str(Path.home() / ".mimiraether")))
+                skills_base = Path(_home) / "skills"
+
+            new_dir = skills_base / ctx.suggestion.target
+
+            # Wrap bare content in frontmatter if needed
+            if not new_content.strip().startswith("---"):
+                title = ctx.suggestion.target.replace("-", " ").replace("_", " ").title()
+                priority = ctx.suggestion.priority
+                confidence = f"{ctx.suggestion.confidence:.0%}" if ctx.suggestion.confidence else "N/A"
+                new_content = (
+                    f"---\n"
+                    f"name: {ctx.suggestion.target}\n"
+                    f"description: Auto-captured skill: {ctx.suggestion.reason}\n"
+                    f"category: captured\n"
+                    f"evolve_priority: {priority}\n"
+                    f"evolve_confidence: {confidence}\n"
+                    f"---\n\n"
+                    f"{new_content}\n"
+                )
+
+            import difflib
+            diff_lines = list(difflib.unified_diff(
+                [],
+                new_content.splitlines(keepends=True),
+                fromfile="/dev/null",
+                tofile=str(new_dir / "SKILL.md"),
+            ))
+            diff_text = "".join(diff_lines) if diff_lines else "(no changes)"
+
+            try:
+                new_dir.mkdir(parents=True, exist_ok=True)
+                (new_dir / "SKILL.md").write_text(new_content, encoding="utf-8")
+            except OSError as e:
+                return EvolutionResult(
+                    success=False,
+                    action=ctx.action,
+                    target=ctx.suggestion.target,
+                    error=f"Captured skill creation failed: {e}",
+                    diff=diff_text,
+                    duration_ms=(time.monotonic() - start) * 1000,
+                )
+
             return EvolutionResult(
                 success=True,
                 action=ctx.action,
                 target=ctx.suggestion.target,
                 changes_applied=1,
+                output_dir=new_dir,
+                diff=diff_text,
                 duration_ms=(time.monotonic() - start) * 1000,
             )
         else:

@@ -1,6 +1,6 @@
 """
 MimirAether Self Evolution Skill
-集成三环闭环 + mimicore.evolve 引擎
+集成三环闭环引擎 (已从 mimicore 提取)
 """
 
 import sys
@@ -11,7 +11,7 @@ PROJECT_ROOT = get_mimir_home()
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from mimicore.evolve.three_ring_architecture import ThreeRingClosedLoop
+from .three_ring_architecture import ThreeRingClosedLoop
 
 
 class SelfEvolutionSkill:
