@@ -62,10 +62,10 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 
 ### 2026-05-23
 
-- main：`d61044a`（E-004 + E-005）
-- JEPA：`feat/self_evolution_jepa` rebased on main；Draft **PR #8**
-- 常备授权已写入 §1/§2
-- 下一工程刀：**E-006** `/health`（WIN-3）或 **EP-C01** 测试
+- main：`fb53ac2`（E-004 + E-005 + 常备授权）
+- JEPA：`feat/self_evolution_jepa` @ `ae8a5c7` rebased；Draft **PR #8**；tier0 3× PASS
+- **WIN-5** 签收 ✅（仅 bridge 冲突，已 force-with-lease push）
+- 下一工程刀：**E-006** `/health`（WIN-3）
 
 ---
 
@@ -75,7 +75,7 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 |------|---------------------|---------|------------|
 | 2026-05-20 | backlog §2b | **EV-M01～M13** | d1–d7 回报；TRUNCATE=19；T-03 [~] |
 | 2026-05-23 | E-004 / E-005 | **WIN-1/4** | PR #6 #7 merged → main |
-| 2026-05-23 | JEPA | **WIN-5** | rebase main；tier0 PASS；origin 已同步 |
+| 2026-05-23 | JEPA | **WIN-5** | rebase @ d61044a；tier0 3×181+2；@ ae8a5c7 force-push；PR #8 已更新 |
 
 ---
 
