@@ -347,7 +347,7 @@ Mimir 冒烟回报
 - **Phase 1.5** ✅ E-001～E-012 + intent-action guard；tier0 **245+2**  
 - **Phase 0** ✅ 14/14  
 - **工程 Active** → **无 §11 子项**；`P1-LONG-MEM` **[x] 结案**；下一条 **§11 `P2-LONG-SEM`** 或 **§12 `MW-D01`**  
-- **写入 Active** → §12 **MW-005** 起（`MIMIR_ISSUES_WRITE_PLAN.md`）  
+- **写入 Active** → §12.1 **MW-D01** 起（刘哥出门 Mimir 包）  
 - **TRUNCATE** 基线 **19**  
 - **A1** [~] Gateway PID **691521**；飞书 T-03/T-04 待刘哥  
 - **A2** [x] GH **#2** closed；OPENCLAW_BOUNDARY §7  
@@ -394,23 +394,75 @@ Read docs/MIMIR_EXEC_BACKLOG.md §11；P1-LONG-MEM 已结案。工程下一条�
 
 ## 12. Mimir ISSUES 写入轨道（MW-* · 运维长任务）
 
-> **真源**：[`docs/MIMIR_ISSUES_WRITE_PLAN.md`](./MIMIR_ISSUES_WRITE_PLAN.md)（缺口审计 + 安全边界 + **§6 新窗提示词**）。  
-> **分工**：**Mimir 窗**只取本节第一条 `[ ]`；**Cursor 窗**只取 §11 工程粒。刘哥不在时 **两轨并行、互不抢改**。
+> **真源**：[`docs/MIMIR_ISSUES_WRITE_PLAN.md`](./MIMIR_ISSUES_WRITE_PLAN.md)（安全边界 + **§6A 提示词**）。  
+> **刘哥出门**：只认 **§12.1** 第一条 `[ ]`；**禁止** push / 改代码。
 
-| ID | 颗粒 | 成功标准 | 状态 |
-|----|------|----------|------|
-| **MW-001** | bridge §4 回填 2026-05-24（A1/A2/P1-M03/GOD） | ≥4 行签收 | [x] 2026-05-24 |
-| **MW-002** | §10 WIP + §11 P1-LONG-GOD **[x]** | 与 main 一致 | [x] 2026-05-24 |
-| **MW-003** | D17 §5 过期横幅 → 本计划 §6 | 新窗不误导 | [x] 2026-05-24 |
-| **MW-004** | GH **#19** comment + close | A1 证据 | [x] 2026-05-24 |
-| **MW-005** | ISSUES.md / #19 交叉引用 | 无矛盾 | [x] 2026-05-24 |
-| **MW-006** | bridge §5 进度笔记刷新 | ≤8 行 | [x] 2026-05-24 |
-| **MW-007** | GH #17–22 ↔ backlog 映射 | ISSUES_WRITE §7 | [x] 2026-05-24 |
-| **MW-D01～D03** | 日常健康/ERROR/230099 | 见 WRITE_PLAN §4B | [ ] 轮询 |
-| **MW-H01～H03** | 飞书复验 / push | **人工门** | [~] |
+### 12.0 回填（已完成）
 
-**Mimir 新窗一句**
+| ID | 颗粒 | 状态 |
+|----|------|------|
+| MW-001～007 | bridge / backlog / D17 / GH #19 / ISSUES | [x] 2026-05-24 |
+
+---
+
+### 12.1 刘哥出门 · Mimir 顺序队列（2026-05-24）
+
+> **每轮一条**。做完：`[x]` + 日期 + bridge §4 一行 + 飞书 3 行（可选）。卡住 → `MIMIR_ISSUES.md` 一条 + **停手**。
+
+| ID | 做什么 | 命令 / 动作 | 成功标准 | 状态 |
+|----|--------|-------------|----------|------|
+| **MW-D01** | **Gateway 健康** | `curl -s http://127.0.0.1:18999/health \| head -c200`；`pgrep -af 'gateway/run.py'` | status/gateway/agent ok；有 PID | [x] 2026-05-25 · PID **90544** · /health ok |
+| **MW-D02** | **TRUNCATE 基线** | `grep -c 'Level 3 TRUNCATE' ~/.mimiraether/logs/agent.log` | **≤19**；>19 → ISSUES P0 + 停手 | **[!] P0** · 全量 **63** · 2026-05-24 **33** · `MIMIR_ISSUES` #10 active |
+| **MW-D03** | **ERROR 扫** | `grep ERROR ~/.mimiraether/logs/agent.log \| tail -20` | 列 top3 主题；无新 P0 则 §4 记「无新 P0」 | [x] 2026-05-25 · recovery 测例 ImportError/AttributeError；Feishu Not connected |
+| **MW-D04** | **飞书卡片 log** | `grep -E '230099\|200907' ~/.mimiraether/logs/agent.log ~/.mimiraether/logs/gateway.log 2>/dev/null \| tail -10` | 有/无新 230099；更新 `GATEWAY_STABILITY_BACKLOG` #9 一句 | [x] 2026-05-25 · 末条 **2026-05-17**；无新 230099 |
+| **MW-D05** | **session_search 烟测** | `cd ~/src/MimirAether && MIMIR_AETHER_HOME=~/.mimiraether SESSION_SEARCH_BACKEND=hybrid python3 -c "from tools.session_search_tool import session_search; print(session_search('IR-20260520', limit=3))"` | 无异常；有 hit 或空结果均可；**无 SQL 错** | [x] 2026-05-25 · hybrid 3 hits |
+| **MW-D06** | **persistent 路径** | `MIMIR_AETHER_HOME=~/.mimiraether python3 -c "from agent.prompt_builder import _build_cross_session_context; print(_build_cross_session_context()[:200])"` | 输出含 cross-session 或空；**不**读 `{repo}/data/persistent.json` | [x] 2026-05-25 · cross-session 来自 runtime home |
+| **MW-D07** | **health_check 脚本** | `~/src/MimirAether/scripts/mimir_health_check.sh --quick` | exit 0 或记录失败行 | [~] 2026-05-25 · **>90s 无输出**（疑挂起）；curl /health 已绿 |
+| **MW-D08** | **Gateway 十条刷新** | Read `GATEWAY_STABILITY_BACKLOG.md`；#2 #9 各 grep 今日 log 一行 | 状态列日期 → 今天；无改码 | [x] 2026-05-25 |
+| **MW-D09** | **MAINLINE 轻刷新** | Read `MAINLINE_STATUS.md`；确认 P1-LONG-MEM 结案与 tier0 **245+2** | 最近更新=今天；无矛盾 | [x] 2026-05-25 |
+| **MW-D10** | **GH 只读对账** | `gh issue list --state open --limit 10` | #17/#18/#19 应 closed；#20–22 icebox → bridge §4「对账 ok」 | [x] 2026-05-25 · open **10**；#2/#12/#13/#31 已关 |
+| **MW-D11** | **出门汇总** | 飞书发 **MW-D01～D10 勾选表** + TRUNCATE 数 + Gateway PID | 刘哥一眼能看；勾 `[x]` MW-D11 | [~] bridge §4 汇总；飞书待发 |
+
+**人工门（刘哥回来再做，Mimir 只提醒）**
+
+| ID | 内容 | 状态 |
+|----|------|------|
+| **MW-H01** | 飞书 T-03 空表头 | [~] 见 `mimir_prod_smoke.md` §2026-05-24 |
+| **MW-H02** | 飞书 T-04 双按钮 | [~] |
+| **MW-H03** | 恢复识图 / OpenRouter | [~] EV-VISION-DEFER |
+
+**Mimir 新窗一句（出门版）**
 
 ```text
-Read docs/MIMIR_ISSUES_WRITE_PLAN.md §6A + MIMIR_EXEC_BACKLOG.md §12，只做第一条 [ ] 的 MW-*；更新 bridge §4；禁止 push/改 agent 代码。
+Read docs/MIMIR_ZERO_DEBT_MASTERPLAN.md §3 + MIMIR_EXEC_BACKLOG.md §13（优先）或 §12.1 MW-D*。
+MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗粒。
+更新 bridge §4 一行。禁止 push；禁止改 agent/gateway/tools/mimir_cli。
+回报：ID + 结果 + 下一粒。
+```
+
+---
+
+## 13. 零技术债执行源（2026-05-24 · **取代 §11 取任务**）
+
+> **真源**：[`docs/MIMIR_ZERO_DEBT_MASTERPLAN.md`](./MIMIR_ZERO_DEBT_MASTERPLAN.md)（盘点 + 四波 + Done 定义）。  
+> **规则**：清空完成前 **只认本 §** 第一条 `[ ]`；§11/§12/§8/§6 **只读归档**。
+
+### 13.0 当前波：**Wave 0 — W0-LONG-HYGIENE**
+
+| ID | 任务 | Owner | 状态 |
+|----|------|-------|------|
+| **W0-01** | MW-D01–D10（§12.1） | Mimir | [~] D01/D03–D06/D08–D10 [x]；D02 **P0**；D07 挂起；D11 待汇总 |
+| **W0-02** | GH 关 #2 #12 #13 #31 | Cursor | [x] 2026-05-25 |
+| **W0-03** | GH 标签 #20–32 | Cursor | [x] 2026-05-25 · icebox / wave-2-stability / phase-2 |
+| **W0-04** | §9/§10/MAINLINE → §13 | Cursor | [x] 2026-05-25 |
+| **W0-05** | MIMIR_ISSUES Active 复核 | Mimir | [x] 2026-05-25 · #10 → active P0（TRUNCATE） |
+| **W0-06** | MW-D11 汇总 | Mimir | [~] bridge §4；飞书可选 |
+
+**下一波（Wave 0 全 [x] 后）**：`W1-LONG-SMOKE`（刘哥 T-03/T-04）→ `P2-LONG-STAB` → `P2-LONG-INDEP` + `P2-LONG-IEVO` → Horizon `P2-LONG-SEM`。
+
+**Cursor 新窗一句**
+
+```text
+Read docs/MIMIR_ZERO_DEBT_MASTERPLAN.md + MIMIR_EXEC_BACKLOG.md §13。
+只做 §13 第一条 [ ]；Wave 2+ 触达 agent/gateway/tools 后 tier0 + evolution_log。
 ```

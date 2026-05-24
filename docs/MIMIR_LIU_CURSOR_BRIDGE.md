@@ -42,6 +42,12 @@ Cursor **自行执行**（无需每轮再问）：
 - `feat/self_evolution_jepa`：commit 落盘，**rebase main** 后 push（§2 已 authorized）
 - **PR #8** merge → main（刘哥 2026-05-23 授权战略窗执行）
 
+### 2026-05-24 — 刘哥出门 · Mimir 运维
+
+- **Mimir**：只读 `docs/MIMIR_EXEC_BACKLOG.md` **§12.1**，每轮 **一条** `MW-D*`；更新 bridge §4；**禁止** push / 改 `agent|gateway|tools|mimir_cli`。
+- **飞书 T-03/T-04**：刘哥回来再做（**MW-H01/H02**）；Mimir 可发一条提醒，不代测。
+- **Cursor 工程**：**不**自动开 `P2-LONG-SEM`；等刘哥点名。
+
 ### （新留言写在此下）
 
 _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
@@ -98,12 +104,14 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 | 2026-05-24 | §11 P1-M04 | **Cursor** | FTS5 生产接线 + hyphen 引号；`SESSION_SEARCH_BACKEND`；tier0 245+2；基准 FTS 50% vs LIKE 60% |
 | 2026-05-24 | §11 P1-M05 | **Cursor** | prompt cross_session → `get_mimir_data_dir()` / `get_mimir_home()`；tier0 245+2；GH #18 closed |
 | 2026-05-24 | §11 P1-M06 | **Cursor** | **P1-LONG-MEM** 结案；baseline §4 + backlog §9/§10/§11；LIKE 60% / FTS 50% / hybrid；main 7f4b53d |
+| 2026-05-25 | Wave 0 W0-02/03 | **Cursor** | GH 关 #2/#12/#13/#31；标签 icebox/wave-2/phase-2；open **10** |
+| 2026-05-25 | Wave 0 W0-01 | **Cursor** | MW-D01/D03–06/D08–10 ok；**TRUNCATE P0** 63（24日33）；PID **90544**；D07 health_check 挂起 |
 
 ---
 
 ## 5. Mimir 进度笔记
 
-- **main**：tier0 **245+2** · **P1-LONG-MEM 结案** @ `7f4b53d` · Phase 0 **14/14**
-- **双轨**：工程 **§11 → P2-LONG-SEM**（点名）；写入 **§12 MW-D01**（见 `MIMIR_ISSUES_WRITE_PLAN.md`）
-- **ISSUES**：GH #2/#19 closed (A2/A1)；飞书 T-03/T-04 **MW-H01/H02**
-- **Mimir 运维**：`scripts/mimir_health_check.sh --quick` + TRUNCATE≤19；D17 §5 已过期 → WRITE_PLAN §6A
+- **main**：tier0 **245+2** · **Wave 0** [~] · 执行源 **§13** · `MIMIR_ZERO_DEBT_MASTERPLAN.md`
+- **双轨**：工程 **P2-LONG-STAB**（TRUNCATE P0 后）；Mimir **W0-06 / W1 T-03/T-04**
+- **ISSUES**：GH open **10**；`MIMIR_ISSUES` #10 **active P0**（TRUNCATE）；飞书 **MW-H01/H02**
+- **Gateway**：PID **90544** · /health ok · 无新 230099（末条 2026-05-17）
