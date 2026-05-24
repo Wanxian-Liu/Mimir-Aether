@@ -13,7 +13,7 @@ Architecture:
 
 from .message import Message, MessageType, MessageContext
 from .adapter import PlatformAdapter, AdapterConfig
-from .router import MessageRouter
+from .message_router import MessageRouter
 
 # SessionManager不存在于session.py，优雅降级
 try:

@@ -55,13 +55,13 @@ def test_router_format_session_info_resolves_model(
     class _Runner(RouterMixin):
         pass
 
-    monkeypatch.setattr("gateway.router_mixin._hermes_home", tmp_path)
+    monkeypatch.setattr("gateway.router.agent_route_mixin._hermes_home", tmp_path)
     monkeypatch.setattr(
-        "gateway.router_mixin._resolve_gateway_model",
+        "gateway.router.agent_route_mixin._resolve_gateway_model",
         lambda config=None: "deepseek/deepseek-chat",
     )
     monkeypatch.setattr(
-        "gateway.router_mixin._resolve_runtime_agent_kwargs",
+        "gateway.router.agent_route_mixin._resolve_runtime_agent_kwargs",
         lambda: {"provider": "deepseek", "api_key": "k", "base_url": "http://127.0.0.1"},
     )
     monkeypatch.setattr(

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import importlib
-import importlib.util
 from types import ModuleType
 
 import pytest
@@ -42,7 +41,7 @@ def test_router_mixin_module_reloads_without_nameerror() -> None:
 
 
 def test_router_subpackage_imports_when_present() -> None:
-    """gateway/router/* mixins — skip until G01+ lands."""
-    if importlib.util.find_spec("gateway.router.inbound_prep_mixin") is None:
-        pytest.skip("gateway.router package not created yet")
-    import gateway.router.inbound_prep_mixin  # noqa: F401
+    """gateway/router/* mixins import after P1-LONG-GOD secondary split."""
+    import gateway.router  # noqa: F401
+    import gateway.router.agent_route_mixin  # noqa: F401
+    import gateway.router.core_route_mixin  # noqa: F401
