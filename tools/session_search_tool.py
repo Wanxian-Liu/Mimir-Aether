@@ -372,6 +372,19 @@ class SessionSearchDB:
         finally:
             conn.close()
 
+    def clear_session_messages(self, session_id: str) -> None:
+        """Remove indexed messages for a session (session row kept for metadata)."""
+        conn = sqlite3.connect(self.db_path)
+        try:
+            conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+            conn.execute(
+                "UPDATE sessions SET message_count = 0 WHERE session_id = ?",
+                (session_id,),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
     def add_message(
         self,
         session_id: str,

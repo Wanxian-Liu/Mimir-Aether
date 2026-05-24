@@ -174,3 +174,50 @@ def backfill_sessions(
         fts_engine.close()
 
     return stats
+
+
+def index_transcript_message(
+    session_id: str,
+    message: Dict[str, Any],
+    *,
+    like_db: Any,
+    source: str = "unknown",
+    title: str = "",
+    ensure_session: bool = True,
+) -> bool:
+    """Append one JSONL transcript row to sessions_search.db. Returns True if indexed."""
+    parsed = extract_searchable_message(message)
+    if parsed is None:
+        return False
+    role, content, tool_name, _ts = parsed
+    if ensure_session:
+        like_db.add_session(session_id, source=source, title=title)
+    like_db.add_message(session_id, role, content, tool_name=tool_name)
+    return True
+
+
+def reindex_session_transcript(
+    session_id: str,
+    messages: list,
+    *,
+    like_db: Any,
+    source: str = "unknown",
+    title: str = "",
+) -> int:
+    """Replace search index rows for a session (e.g. after rewrite_transcript)."""
+    clear = getattr(like_db, "clear_session_messages", None)
+    if callable(clear):
+        clear(session_id)
+    like_db.add_session(session_id, source=source, title=title)
+    count = 0
+    for message in messages:
+        if index_transcript_message(
+            session_id,
+            message,
+            like_db=like_db,
+            source=source,
+            title=title,
+            ensure_session=False,
+        ):
+            count += 1
+    return count

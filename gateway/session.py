@@ -560,6 +560,8 @@ class SessionStore:
 
         #: Optional SQLite store for transcript dual-write (same object as ``GatewayRunner._session_db``).
         self._db = transcript_session_db
+        #: Lazy ``SessionSearchDB`` for ``session_search`` tool (``MIMIR_SESSION_SEARCH_INDEX=0`` disables).
+        self._sessions_search_db: Any = None
     
     def _ensure_loaded(self) -> None:
         """Load sessions index from disk if not already loaded."""
@@ -1022,6 +1024,8 @@ class SessionStore:
                 _append_transcript_dict_to_session_db(self._db, session_id, message)
             except Exception as e:
                 logger.debug("Session DB transcript append failed: %s", e)
+
+        self._append_to_sessions_search_index(session_id, message)
     
     def rewrite_transcript(self, session_id: str, messages: List[Dict[str, Any]]) -> None:
         """Replace the entire transcript for a session with new messages.
@@ -1051,6 +1055,84 @@ class SessionStore:
                         _append_transcript_dict_to_session_db(self._db, session_id, msg)
             except Exception as e:
                 logger.debug("Session DB transcript rewrite failed: %s", e)
+
+        self._rewrite_sessions_search_index(session_id, messages)
+
+    def _sessions_search_index_enabled(self) -> bool:
+        return os.environ.get("MIMIR_SESSION_SEARCH_INDEX", "1").strip().lower() not in (
+            "0",
+            "false",
+            "no",
+            "off",
+        )
+
+    def _get_sessions_search_db(self) -> Optional[Any]:
+        if not self._sessions_search_index_enabled():
+            return None
+        db = getattr(self, "_sessions_search_db", None)
+        if db is None:
+            try:
+                from tools.session_search_tool import SessionSearchDB
+
+                self._sessions_search_db = SessionSearchDB()
+                db = self._sessions_search_db
+            except Exception as e:
+                logger.debug("sessions_search DB init failed: %s", e)
+                self._sessions_search_db = False  # type: ignore[assignment]
+                return None
+        if db is False:
+            return None
+        return db
+
+    def _session_search_meta(self, session_id: str) -> tuple[str, str]:
+        with self._lock:
+            self._ensure_loaded_locked()
+            for entry in self._entries.values():
+                if entry.session_id == session_id:
+                    source = entry.platform or "unknown"
+                    title = entry.display_name or entry.session_key or session_id
+                    return str(source), str(title)
+        return "unknown", session_id
+
+    def _append_to_sessions_search_index(
+        self, session_id: str, message: Dict[str, Any]
+    ) -> None:
+        db = self._get_sessions_search_db()
+        if db is None:
+            return
+        try:
+            from tools.session_search_indexer import index_transcript_message
+
+            source, title = self._session_search_meta(session_id)
+            index_transcript_message(
+                session_id,
+                message,
+                like_db=db,
+                source=source,
+                title=title,
+            )
+        except Exception as e:
+            logger.debug("sessions_search index append failed: %s", e)
+
+    def _rewrite_sessions_search_index(
+        self, session_id: str, messages: List[Dict[str, Any]]
+    ) -> None:
+        db = self._get_sessions_search_db()
+        if db is None:
+            return
+        try:
+            from tools.session_search_indexer import reindex_session_transcript
+
+            source, title = self._session_search_meta(session_id)
+            reindex_session_transcript(
+                session_id,
+                messages,
+                like_db=db,
+                source=source,
+                title=title,
+            )
+        except Exception as e:
+            logger.debug("sessions_search index rewrite failed: %s", e)
 
     def load_transcript(self, session_id: str) -> List[Dict[str, Any]]:
         """Load all messages from a session's transcript.
