@@ -5,11 +5,11 @@
 
 | 字段 | 值 |
 |------|-----|
-| **最近更新** | 2026-05-24 |
-| **更新人** | Cursor（Prompt 10 — EV-A03 · Phase 0 收官） |
+| **最近更新** | 2026-05-19 |
+| **更新人** | Cursor（P1-LONG-GOD 二级拆分 PR 栈） |
 | **仓库根（真源）** | `~/src/MimirAether` |
-| **可选校验** | `./run_ralph_tier0.sh`（门禁 **237+2**）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
-| **本轮摘要** | Phase 0 真相图谱 **14/14** 完成；Phase 1 待排。EV-A03 Memory 检索基准（LIKE vs doc FTS5、fts5 未接线、`sessions_search.db` 空）。Phase 1.5 已结案；tier0 **237+2**。 |
+| **可选校验** | `./run_ralph_tier0.sh`（门禁 **245+2**）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
+| **本轮摘要** | **P1-LONG-GOD** PR 栈（#9→#14）：router_mixin → `gateway/router/*` 8 mixin；CLI model_wizard + parser 拆分；tier0 **245+2×3**；Mimir 飞书烟测待签。 |
 
 ---
 
@@ -17,7 +17,7 @@
 
 | ID | 名称 | 状态 | 说明 |
 |----|------|------|------|
-| M0 | 基线可回归 | **绿** | `run_ralph_tier0.sh` 日常可通过。Gate2 **237**、Gate3 **2**（含 E-010/E-011/E-012/intent-action guard 回归测）。发版前建议复跑：`for n in 1 2 3; do ./run_ralph_tier0.sh || exit 1; done` |
+| M0 | 基线可回归 | **绿** | `run_ralph_tier0.sh` 日常可通过。Gate2 **245**、Gate3 **2**（含 P1-GOD router/CLI smoke）。 |
 | M1 | 契约可执行 | **绿** | `docs/ralph_parity_testmap.md` 已映射 |
 | M2 | Tier-0 矩阵闭合 | **绿** | `ralph_tier0_case_matrix.md`：无阻塞 P0 |
 | M3 | 垂直切片 | **绿** | CLI + API `POST /v1/chat/completions` |
