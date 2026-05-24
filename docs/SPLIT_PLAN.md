@@ -34,9 +34,26 @@
 2. `agent/test_gateway_mixin_import_smoke.py` 与 `agent/test_recovery_mixin_code_errors.py` 通过
 3. 硬重启 gateway 后：飞书一条普通消息 + 一次 tool 调用无 NameError；`agent.log` 不因代码错误新增 `Level 3 TRUNCATE`
 
-## router 二级拆分（P1-LONG-GOD · 进行中）
+## router 二级拆分（P1-LONG-GOD · 2026-05-19）
 
 > 可执行计划：**[`docs/plans/P1-GOD-split-plan.md`](plans/P1-GOD-split-plan.md)**  
-> 基线 tier0：**237+2** · 测试轨：`tests/gateway/test_router_mixin_reload_matrix.py`、`tests/test_mimir_cli_main_import_smoke.py`
+> 基线 commit：`d6c7ee931a29e0c0809cda2e967274192b578bb1` · tier0 **237+2**
 
-将把 `gateway/router_mixin.py`（~3573 行）切为 `gateway/router/*_mixin.py`（G01–G08）；`mimir_cli/main.py` 切为 model_wizard / parser 等（C01–C08）。每 PR 一个新建模块 + import smoke + tier0。
+`gateway/router_mixin.py` 已降为 **composition shell**（~22 行）；实现分布在 `gateway/router/*_mixin.py`（G01–G08）：
+
+| 模块 | 职责 |
+|------|------|
+| `gateway/router/inbound_prep_mixin.py` | `_prepare_inbound_message_text` |
+| `gateway/router/core_route_mixin.py` | `_handle_message` |
+| `gateway/router/agent_route_mixin.py` | `_handle_message_with_agent`, `_format_session_info` |
+| `gateway/router/session_commands_mixin.py` | reset/profile/status/stop/restart/help/commands |
+| `gateway/router/model_commands_mixin.py` | model/provider/personality/retry/undo/set_home |
+| `gateway/router/media_mixin.py` | `_get_guild_id`, `_deliver_media_from_response` |
+| `gateway/router/tuning_commands_mixin.py` | rollback/reasoning/fast/yolo/verbose/compress/title/resume/branch/usage/insights/reload_mcp |
+| `gateway/router/admin_commands_mixin.py` | approve/deny/debug/update |
+
+**注意**：原 `gateway/router.py`（MessageRouter）已重命名为 **`gateway/message_router.py`**，避免与 `gateway/router/` 包冲突。
+
+**CLI 二级拆分**（C01–C08）：`mimir_cli/model_wizard.py`、`session_picker.py`、`update_command.py`、`profile_command.py`、`container_cli.py`、`cli_subparsers_setup.py`、`cli_subparsers_bind.py`；`main()` ~50 行。
+
+**测试轨**：`tests/gateway/test_router_mixin_reload_matrix.py`、`tests/test_mimir_cli_main_import_smoke.py`、`tests/test_mimir_cli_model_wizard_import.py`；`agent/test_gateway_mixin_import_smoke.py` 扩展 8 个 router 子模块。
