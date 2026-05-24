@@ -334,5 +334,5 @@ Mimir 冒烟回报
 - **Phase 1.5** ✅ E-001～E-012 + intent-action guard；tier0 **237+2**  
 - **文档收口** ✅ CLOSE-1～5 · ISSUES Active≤3 · §9 已替换  
 - **TRUNCATE** 基线 **19**（仅 >19 时 reopen ISSUES #10）  
-- **下一窗**：Phase 0 **14/14** [x] → 排 **Phase 1**（见 §9）  
+- **下一窗**：Phase 0 **14/14** [x] → 排 **Phase 1**（见 §9）；**P1-LONG-GOD** 见 PR #9–#14 栈（[`plans/P1-GOD-split-plan.md`](./plans/P1-GOD-split-plan.md)）  
 - **历史交接**：`docs/MIMIR_HANDOFF_20260520.md`
