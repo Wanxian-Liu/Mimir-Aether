@@ -1233,6 +1233,12 @@ class SessionMixin:
             except Exception:
                 pass
 
+            try:
+                from agent.auxiliary_client import shutdown_cached_clients
+                shutdown_cached_clients()
+            except Exception:
+                pass
+
             from gateway.status import remove_pid_file
             remove_pid_file()
 

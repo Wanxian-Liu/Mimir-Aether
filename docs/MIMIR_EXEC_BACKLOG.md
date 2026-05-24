@@ -315,6 +315,7 @@ Mimir 冒烟回报
 | 自修回滚护栏 | gstack P0 |
 | P3-0 单写者 **实现** | ADR 已有，代码未做 |
 | Gateway #1/#4/#5/#10 等 | `GATEWAY_STABILITY_BACKLOG.md` |
+| **P3-CROSS-SESSION-RETRIEVAL** | 🔮 跨会话知识检索方案调研。背景：persistent.json（~12KB）全量注入 vs sessions.db（8MB+）只按需查询 → 缺少「自动按需检索相关历史」的机制。方向：调研 Hermes/OpenClaw 原版注入策略、OpenSpaces/chromadb 语义检索（关联 #32 P2-LONG-SEM）、分层注入（核心全量 + 相关 Top-N + RAG）。等 P0-LONG-CLEARANCE 全部清完后启动。 |
 
 ---
 
@@ -387,7 +388,7 @@ Read docs/MIMIR_EXEC_BACKLOG.md §11；P1-LONG-MEM 已结案。工程下一条�
 | **P1-LONG-GOD** | GOD 拆分 + 测试轨续建 | Phase 0 EV-P04、§9 原「GOD 拆分」 | [x] 2026-05-24 · #16→main；`router_mixin` ~38 行；见 `plans/P1-GOD-split-plan.md` |
 | **P1-LONG-OBS** | d6 余债 D6-1～3 ADR/测试 | §6 | [ ] Phase 2 候选 |
 | **P1-LONG-EVO** | d5 余债 D5-1/3、真进化 | §6、Unified Plan | [ ] Phase 2 候选 |
-| **P2-LONG-SEM** | Memory **语义化**（chromadb + 检索策略） | Unified Plan Phase 2 | [ ] 前置已满足（P1-LONG-MEM 结案 2026-05-24） |
+| **P2-LONG-SEM** | Memory **语义化**（chromadb + 检索策略） | Unified Plan Phase 2 | [ ] 前置已满足（P1-LONG-MEM 结案 2026-05-24） · 关联 §8 P3-CROSS-SESSION-RETRIEVAL（存储层 ok，缺注入策略） |
 
 **Semantic 检索**：明确 **不在** `P1-LONG-MEM` 内；结案后再排 `P2-LONG-SEM`，避免与 FTS/LIKE 并行膨胀。
 
@@ -494,7 +495,7 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 |----|------|-----|----------|------|
 | **STAB-04** | **TRUNCATE P0** + Agent 栈（`recovery` / `run.py`） | #30 | 无双截断；since-start TRUNCATE 可控；gateway drain 不 Executor 崩溃；tier0 + M6 | [x] 2026-05-25 · tier0 **246+2** |
 | **STAB-01** | Watchdog 超时 / 长推理 / WS 同源 | #27 #25 | 7 日无超时或降级策略 documented | [x] 2026-05-25 · WS 非阻塞 + activity 心跳 |
-| **STAB-02** | Event loop closed | #28 | 单测或 gateway 回归 | [ ] |
+| **STAB-02** | Event loop closed | #28 | 单测或 gateway 回归 | [x] 2026-05-25 · run_async + shutdown cleanup |
 | **STAB-03** | ToolGuard 相对路径 | #29 | path 单测；tier0 | [x] 2026-05-25 · resolve_path_for_guard + 7 tests |
 | **STAB-05** | 自修回滚护栏 | #26 | 回滚路径 + 测试 | [ ] |
 | **STAB-06** | WebSocket 推理阻塞心跳 | #25 | 与 STAB-01 同 PR 或子 PR | [x] 2026-05-25 · 同 STAB-01 |

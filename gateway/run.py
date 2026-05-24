@@ -1004,6 +1004,13 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
                  Useful for systemd services to avoid restart-loop deadlocks
                  when the previous process hasn't fully exited yet.
     """
+    # STAB-02: prevent AsyncHttpxClientWrapper.__del__ from raising on closed loops.
+    try:
+        from agent.auxiliary_client import neuter_async_httpx_del
+        neuter_async_httpx_del()
+    except Exception:
+        pass
+
     # ── Duplicate-instance guard ──────────────────────────────────────
     # Prevent two gateways from running under the same HERMES_HOME.
     # The PID file is scoped to HERMES_HOME, so future multi-profile

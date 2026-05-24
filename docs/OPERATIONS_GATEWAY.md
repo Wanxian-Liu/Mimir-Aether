@@ -99,6 +99,7 @@ tail -3 ~/.mimiraether/logs/agent.log
 | **`watchdog.sh`** | 每轮 `curl -m 5` **`/health`**；不等待 agent 回合结束。若 hard restart 后 R3 误报，见 `scripts/restart_gateway_hard.sh` 的 `/health` 轮询。 |
 | **Gateway inactivity** | 依赖 agent 的 **`get_activity_summary()`**。`run_agent.AIAgent` 在 `run_conversation` 期间每 **30s** 心跳刷新活动，并在 step/tool 回调中 `_touch_activity`。 |
 | **飞书 WebSocket** | 入站消息 **非阻塞** dispatch 到 gateway 主 loop（不在 lark WS worker 上 `fut.result(timeout=300)`），避免长跑推理阻塞 ping/pong。 |
+| **Event loop（STAB-02）** | Gateway agent 回合用 **`run_async`**（持久 loop），不用每轮 `asyncio.run()`；启动时 `neuter_async_httpx_del()`，停止时 `shutdown_cached_clients()`。 |
 
 **7 日观察**：`grep -i timeout $MIMIR_AETHER_HOME/logs/watchdog.log`；长跑推理时确认飞书 WS 未断。若仍有 watchdog 重启，记录当时 `/health` 与 gateway 负载后开 ISSUE。
 

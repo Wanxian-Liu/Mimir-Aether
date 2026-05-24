@@ -135,6 +135,7 @@ from .async_bridge import (
     resize_tool_pool,
     get_tool_loop,
     get_worker_loop,
+    run_async,
 )
 # Backward-compatible alias
 _tool_executor = get_tool_executor()
@@ -848,7 +849,7 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
                     "type": "function",
                     "function": {"name": name, "arguments": _json.dumps(args, ensure_ascii=False) if isinstance(args, dict) else str(args)},
                 }
-                result = asyncio.run(self._execute_single_tool(tc, turn=self._current_turn))
+                result = run_async(self._execute_single_tool(tc, turn=self._current_turn))
                 return result.content
             
             # ── 创建并运行 MimirAgentLoop ──

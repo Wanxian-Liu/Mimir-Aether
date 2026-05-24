@@ -16,7 +16,7 @@
 | 1   | Watchdog 超时       | 中   | **STAB-01 已合** (2026-05-25)              | 飞书 WS 非阻塞 dispatch + AIAgent activity 心跳；**7 日**盯 watchdog.log |
 | 2   | Token 失败          | 中   | 部分已验证                                   | P2-1/1b 已合；WIP 常驻后盯刷新日志                                                                    |
 | 3   | Reaction 未处理      | 低   | 未复现 (2026-05-20)                        | gateway.log 无 reaction 记录；无人发过 reaction                                                    |
-| 4   | Event loop closed | 低   | 移交工程                                    | async 生命周期                                                                                 |
+| 4   | Event loop closed | 低   | **STAB-02 已合** (2026-05-25)              | run_async 持久 loop；gateway 启停清理 httpx 缓存 |
 | 5   | API Server 无密钥    | 高   | **已验证** (2026-05-20)                    | config.yaml 无 api_server 段；默认 127.0.0.1；非 loopback 强制 key；符合 SECURITY                      |
 | 6   | fal_client 缺失     | 低   | 已说明                                     | 可选依赖；非收图主路径                                                                                |
 | 7   | 孤儿 tool message   | 低   | **已验证**                                 | PR #4；05-20 日志无 `tool must be a response`                                                  |
@@ -59,6 +59,11 @@
 
 - 日志：`Could not import tools.image_generation_tool: No module named 'fal_client'`
 - Mimir：记「可选模块」；非收图主路径
+
+### #4 Event loop closed
+
+- **STAB-02 (2026-05-25)**：`run_agent` / `core_loop` 工具 dispatch 用 `run_async`；gateway 启停 httpx 缓存清理。
+- Mimir：长跑/多轮后 `agent.log` 无 `Event loop is closed`
 
 ---
 

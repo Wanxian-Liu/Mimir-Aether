@@ -221,12 +221,14 @@ class AIAgent:
 
             heartbeat = threading.Thread(target=_activity_heartbeat, daemon=True)
             heartbeat.start()
-            import asyncio
+            from agent.async_bridge import run_async
+            from agent.auxiliary_client import cleanup_stale_async_clients
             
             try:
                 # MimirAetherAgent.run_conversation is async, returns str
                 # C1: 传递前置对话历史以保持飞书多轮连续性
-                response = asyncio.run(agent.run_conversation(
+                # STAB-02: run_async (persistent loop) — not asyncio.run() per turn
+                response = run_async(agent.run_conversation(
                     user_message,
                     conversation_history=conversation_history,
                 ))
@@ -235,6 +237,7 @@ class AIAgent:
                 heartbeat.join(timeout=1.0)
                 self._current_tool = None
                 self._touch_activity("run_conversation end")
+                cleanup_stale_async_clients()
             
             return {
                 "final_response": response,
