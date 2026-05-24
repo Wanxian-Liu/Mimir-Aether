@@ -46,3 +46,10 @@ skills/mimiraether/mimiraether-feishu-config-bridge/
 
 # 运行时备份（勿提交）
 data/persistent.json.bak
+
+# 本地 benchmark 产物（physics_reasoner 测试写入仓库根；正式基准见 docs/phase0/*.json）
+/baseline_v2_results.json
+/pbd_v*_results.json
+
+# 本地 viewer 原型（含 node_modules，非主线）
+/viewer/
