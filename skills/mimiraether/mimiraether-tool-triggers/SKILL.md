@@ -54,7 +54,7 @@ description: MimirAether Tool Triggers — 工具触发规则
 
 **必用场景：**
 
-1. **任务领域匹配**：任务涉及的关键词与某个skill名称/描述有部分重叠（如"PR"→github-pr-workflow，"PDF"→ocr-and-documents，"视频"→youtube-content）
+1. **任务领域匹配**：任务涉及的关键词与某个skill名称/描述有部分重叠（如"PR"→github-pr-workflow，"计划执行"→executing-plans，"删技能/清理上游"→mimiraether-skill-prune）
 2. **复杂任务（预计3+步骤）**：动手前先扫描skills_list，加载可能相关的技能
 3. **文件格式操作**：涉及.pptx/.pdf/.docx等格式时，一定有对应的skill
 4. **上次做过但记不清**：如果某个操作之前做过但现在不记得具体步骤，说明可能已有skill
@@ -126,6 +126,26 @@ description: MimirAether Tool Triggers — 工具触发规则
 **触发自检问题：** "刚才那个任务，下次还会遇到吗？会→存为skill。"
 
 **完整固化流程（路径、命名、frontmatter、create/patch 步骤、质量清单）：** `skill_view('mimiraether-skill-solidify')`
+
+---
+
+### skill_prune（删除 bundled 技能）
+
+**必用场景：**
+
+1. 用户或你发现 **上游/Hermes 技能从未使用**，要减 `skills/` 体积  
+2. 要删 **整个 skill 目录**（多文件、脚本、XSD），不是改一两句 SKILL.md  
+3. 清理 **空壳类目录**（gaming/media 等）或统一收口 commit  
+
+**必做：** 先 `skill_view('mimiraether-skill-prune')`，再按 `docs/skills/SKILLS_POLICY.md` §3（rg 证明 → 清单 → 用户确认 → git 删目录 → 修交叉引用 → 独立 commit）。
+
+**反模式：**
+
+- 只说「没用」就直接 `terminal` + `rm -rf skills/...`  
+- 用 `skill_manage(delete)` 批量删上游大树  
+- 删 repo 不告诉用户 `$MIMIR_AETHER_HOME/skills/` 可能还有安装副本  
+
+**触发自检问题：** 「这是删整包还是改一条？整包 → prune 技能，不是 solidify 的 delete。」
 
 ---
 

@@ -41,6 +41,7 @@ Gateway ops checklist (start, logs, human smoke, systemd notes — no secrets): 
 - **Overview** (threat boundary, `api_server` bind/key rules, adapters, skills install / `--force`, secrets): **`docs/SECURITY.md`**.
 - **API server**: default loopback; non-loopback requires strong **`API_SERVER_KEY`**; loopback without key = no auth for local HTTP — see SECURITY §2 and [`gateway/platforms/api_server.py`](../gateway/platforms/api_server.py).
 - **Skills**: `mimir skills install` uses quarantine + **`tools/skills_guard`** + **`INSTALL_POLICY`**; treat **`--force`** as human-gated only.
+- **Skills 增删治理**：真源 **`docs/skills/SKILLS_POLICY.md`**。Agent 删 bundled 技能前必须 **`skill_view('mimiraether-skill-prune')`**（禁止盲目 `rm` / 批量 `skill_manage(delete)`）。增改见 **`mimiraether-skill-solidify`**；触发意识见 **`mimiraether-tool-triggers`** §skill_prune。
 - **Secrets**: keep **`$MIMIR_AETHER_HOME/.env`** out of git; align env with [`MIMIR_RUNTIME_CONTRACT.md`](./MIMIR_RUNTIME_CONTRACT.md) / [`MIMIR_ACTIVATE.md`](./MIMIR_ACTIVATE.md).
 
 ## Ralph mode (strict iteration)

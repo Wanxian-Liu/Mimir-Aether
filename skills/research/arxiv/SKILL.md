@@ -1,13 +1,13 @@
 ---
 name: arxiv
-description: Search and retrieve academic papers from arXiv using their free REST API. No API key needed. Search by keyword, author, category, or ID. Combine with web_extract or the ocr-and-documents skill to read full paper content.
+description: Search and retrieve academic papers from arXiv using their free REST API. No API key needed. Search by keyword, author, category, or ID. For full PDF text use web_extract or install an optional document skill from optional-skills.
 version: 1.0.0
 author: Hermes Agent
 license: MIT
 metadata:
   hermes:
     tags: [Research, Arxiv, Papers, Academic, Science, API]
-    related_skills: [ocr-and-documents]
+    related_skills: []
 ---
 
 # arXiv Research
@@ -154,7 +154,7 @@ web_extract(urls=["https://arxiv.org/abs/2402.03300"])
 web_extract(urls=["https://arxiv.org/pdf/2402.03300"])
 ```
 
-For local PDF processing, see the `ocr-and-documents` skill.
+For local PDF processing, use `web_extract` on the PDF URL or install a document skill from `optional-skills/` if available.
 
 ## Common Categories
 
@@ -264,7 +264,7 @@ curl -s "https://api.semanticscholar.org/graph/v1/author/search?query=Yann+LeCun
 - arXiv IDs: old format (`hep-th/0601001`) vs new (`2402.03300`)
 - PDF: `https://arxiv.org/pdf/{id}` — Abstract: `https://arxiv.org/abs/{id}`
 - HTML (when available): `https://arxiv.org/html/{id}`
-- For local PDF processing, see the `ocr-and-documents` skill
+- For local PDF processing, use `web_extract` or an optional document skill from `optional-skills/`
 
 ## ID Versioning
 

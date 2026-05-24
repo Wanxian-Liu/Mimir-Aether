@@ -109,7 +109,7 @@
 | 技能 | 配置入口 |
 |------|----------|
 | **`skills/research/llm-wiki/SKILL.md`** | `skills.config.wiki.path` in **`$MIMIR_AETHER_HOME/config.yaml`**；默认 **`~/wiki`** |
-| **`skills/note-taking/obsidian/SKILL.md`** | 环境变量 **`OBSIDIAN_VAULT_PATH`**（文档示例在 **`${MIMIR_AETHER_HOME}/.env`**）；未设则 **`~/Documents/Obsidian Vault`** |
+| ~~`skills/note-taking/obsidian`~~ | **已裁**（2026-05-24）；笔记/wiki 用 **`llm-wiki`** 或 `optional-skills`。见 **`docs/skills/SKILLS_POLICY.md`** |
 
 **未测**：本机 `config.yaml` 内是否已配置 `skills.config.wiki.path` / `OBSIDIAN_VAULT_PATH`（未解析 yaml 内容，避免泄露配置细节）。
 

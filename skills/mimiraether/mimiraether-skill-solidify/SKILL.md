@@ -61,7 +61,7 @@ version: 1.0.0
 2. **小改**：优先 **`patch`**（`old_string` / `new_string`，可选 `file_path` 指向子文件）。  
 3. **大改**：**`edit`** 提交整份新 `content`（仅当 patch 不划算时）。  
 4. **附属文件**：**`write_file`**（如 `references/notes.md`）；删除用 **`remove_file`**。  
-5. **删除技能**：**`delete`**（需与用户确认，避免误删）。
+5. **删除单个自建小技能**：**`delete`**（需与用户确认）。**批量删上游 bundled 树** → 不用 `delete`，改 `skill_view('mimiraether-skill-prune')` + `docs/skills/SKILLS_POLICY.md`。
 
 单步完成后建议再次 **`skill_view`**，确认渲染与链接无误。
 
@@ -91,3 +91,4 @@ version: 1.0.0
 | `mimiraether-tool-triggers` | 何时必须想到 `skill_manage` |
 | `hermes-agent-skill-authoring` | SKILL.md 结构与 frontmatter 深度约定 |
 | `mimiraether-auto-load` | `auto_load` 策略与审计脚本 |
+| `mimiraether-skill-prune` | 安全删除 bundled / 上游技能（git SOP） |
