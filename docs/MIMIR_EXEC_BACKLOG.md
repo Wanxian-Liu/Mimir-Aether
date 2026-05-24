@@ -460,7 +460,7 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 |--------|-----------|-------|------------------|------|
 | **A** | **W0-LONG-HYGIENE** | Mimir + Cursor | W0-01～06 全 `[x]`；GH 无重复；TRUNCATE **登记** → C | **[x] 2026-05-25** |
 | **B** | **W1-LONG-SMOKE** | 刘哥 + Mimir | T-03/T-04；Gateway #9 **已验证**；**D6** | **[x] 2026-05-25** |
-| **C** | **P2-LONG-STAB** | Cursor | STAB-01～07；Gateway 十条无「移交工程」；**#10 TRUNCATE 回落**；GH #25–30 关 | [ ] |
+| **C** | **P2-LONG-STAB** | Cursor | STAB-01～07；Gateway 十条无「移交工程」；**#10 TRUNCATE 回落**；GH #25–30 关 | **[x] 2026-05-25** |
 | **D** | **P2-LONG-INDEP** | Cursor | IND-01～06；**D7**；GH #20 关 | [ ] |
 | **E** | **P2-LONG-IEVO** | Cursor | IEVO-01～06；**D8**；GH #21/#22 部分关 | [ ] |
 | **✓** | **CLEARANCE-DONE** | 刘哥 sign-off | §0 **8/8**；MAINLINE 刷新；Horizon 二选一 | [ ] |
@@ -499,7 +499,7 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 | **STAB-03** | ToolGuard 相对路径 | #29 | path 单测；tier0 | [x] 2026-05-25 · resolve_path_for_guard + 7 tests |
 | **STAB-05** | 自修回滚护栏 | #26 | 回滚路径 + 测试 | [x] 2026-05-25 · evolution_rollback + 5 tests |
 | **STAB-06** | WebSocket 推理阻塞心跳 | #25 | 与 STAB-01 同 PR 或子 PR | [x] 2026-05-25 · 同 STAB-01 |
-| **STAB-07** | **STAB 结案** | #25–30 | Gateway 十条无「移交工程」 | [ ] |
+| **STAB-07** | **STAB 结案** | #25–30 | Gateway 十条无「移交工程」 | [x] 2026-05-25 · backlog 刷新 + GH #25–30 closed |
 
 #### D — P2-LONG-INDEP
 

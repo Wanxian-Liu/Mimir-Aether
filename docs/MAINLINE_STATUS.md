@@ -9,7 +9,7 @@
 | **更新人** | Cursor（W1 刘哥 sign-off 入账） |
 | **仓库根（真源）** | `~/src/MimirAether` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁 **245+2**）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
-| **本轮摘要** | **Wave 0 A [x]** · **Wave 1 B [x]**；**STAB-01–03/05/06 [x]**（2026-05-25）；Done **~38%**（3/8）。工程下一条 **STAB-07** 结案。 |
+| **本轮摘要** | **Wave 0 A [x]** · **Wave 1 B [x]** · **Wave 2 C [x]**（STAB-07）；Done **~45%**（3.5/8，C 轨结案）。工程下一条 **IND-01**（D 轨）。 |
 
 ---
 
@@ -63,6 +63,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-25 | **Wave 2 C [x] STAB-07**：Gateway 十条无「移交工程」；`GATEWAY_STABILITY_BACKLOG.md` 刷新；GH **#25–30** closed；下一条 **IND-01**。 |
 | 2026-05-25 | **§13.1 P0-LONG-CLEARANCE** | **Cursor** | 母任务 A→E + STAB/IND/IEVO 子项表；Done 对照；§9/§10 刷新 |
 | 2026-05-25 | **Wave 0 卫生** [~] | **Cursor** | masterplan + §13；GH 10 open；TRUNCATE P0；PID **90544** |
 | 2026-05-24 | **P1-LONG-MEM** [x] 结案：M01～M06 文档收口；基准 LIKE **60%** / FTS **50%** / hybrid 推荐；backlog §11 Active **0**；main `7f4b53d`。 |
