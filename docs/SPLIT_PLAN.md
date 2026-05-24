@@ -33,3 +33,10 @@
 1. `./run_ralph_tier0.sh` 全绿（含 Gate1 `gateway.run` + mixin import smoke）
 2. `agent/test_gateway_mixin_import_smoke.py` 与 `agent/test_recovery_mixin_code_errors.py` 通过
 3. 硬重启 gateway 后：飞书一条普通消息 + 一次 tool 调用无 NameError；`agent.log` 不因代码错误新增 `Level 3 TRUNCATE`
+
+## router 二级拆分（P1-LONG-GOD · 进行中）
+
+> 可执行计划：**[`docs/plans/P1-GOD-split-plan.md`](plans/P1-GOD-split-plan.md)**  
+> 基线 tier0：**237+2** · 测试轨：`tests/gateway/test_router_mixin_reload_matrix.py`、`tests/test_mimir_cli_main_import_smoke.py`
+
+将把 `gateway/router_mixin.py`（~3573 行）切为 `gateway/router/*_mixin.py`（G01–G08）；`mimir_cli/main.py` 切为 model_wizard / parser 等（C01–C08）。每 PR 一个新建模块 + import smoke + tier0。
