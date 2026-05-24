@@ -428,8 +428,8 @@ Read docs/MIMIR_EXEC_BACKLOG.md §11；P1-LONG-MEM 已结案。工程下一条�
 
 | ID | 内容 | 状态 |
 |----|------|------|
-| **MW-H01** | 飞书 T-03 空表头 | [~] 见 `mimir_prod_smoke.md` §2026-05-24 |
-| **MW-H02** | 飞书 T-04 双按钮 | [~] |
+| **MW-H01** | 飞书 T-03 空表头 | [x] 2026-05-25 刘哥复验 pass |
+| **MW-H02** | 飞书 T-04 双按钮 | [x] 2026-05-25 刘哥复验 pass |
 | **MW-H03** | 恢复识图 / OpenRouter | [~] EV-VISION-DEFER |
 
 **Mimir 新窗一句（出门版）**
@@ -458,7 +458,7 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 | 子阶段 | 长任务 ID | Owner | 结案判据（摘要） | 状态 |
 |--------|-----------|-------|------------------|------|
 | **A** | **W0-LONG-HYGIENE** | Mimir + Cursor | W0-01～06 全 `[x]`；GH 无重复；TRUNCATE **登记** → C | **[x] 2026-05-25** |
-| **B** | **W1-LONG-SMOKE** | 刘哥 + Mimir | T-03/T-04；Gateway #9 **已验证**；**D6** | [ ] |
+| **B** | **W1-LONG-SMOKE** | 刘哥 + Mimir | T-03/T-04；Gateway #9 **已验证**；**D6** | **[x] 2026-05-25** |
 | **C** | **P2-LONG-STAB** | Cursor | STAB-01～07；Gateway 十条无「移交工程」；**#10 TRUNCATE 回落**；GH #25–30 关 | [ ] |
 | **D** | **P2-LONG-INDEP** | Cursor | IND-01～06；**D7**；GH #20 关 | [ ] |
 | **E** | **P2-LONG-IEVO** | Cursor | IEVO-01～06；**D8**；GH #21/#22 部分关 | [ ] |
@@ -483,10 +483,10 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 
 | ID | 任务 | 成功标准 | 状态 |
 |----|------|----------|------|
-| **W1-01** | 飞书 **T-03** 空表头 | 无 `230099` · `mimir_prod_smoke.md` | [ ] |
-| **W1-02** | 飞书 **T-04** 双按钮 | 两按钮可见 | [ ] |
-| **W1-03** | Gateway **#9** → 已验证 | `GATEWAY_STABILITY_BACKLOG` 状态列 | [ ] |
-| **W1-04** | MW-H01/H02 关或 wontfix | §12.1 人工门表 | [ ] |
+| **W1-01** | 飞书 **T-03** 空表头 | 无 `230099` · `mimir_prod_smoke.md` | [x] 2026-05-25 刘哥 |
+| **W1-02** | 飞书 **T-04** 双按钮 | 两按钮可见 | [x] 2026-05-25 刘哥 |
+| **W1-03** | Gateway **#9** → 已验证 | `GATEWAY_STABILITY_BACKLOG` 状态列 | [x] 2026-05-25 |
+| **W1-04** | MW-H01/H02 关或 wontfix | §12.1 人工门表 | [x] 2026-05-25 |
 
 #### C — P2-LONG-STAB（**执行顺序：STAB-04 优先**）
 
@@ -531,19 +531,19 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 | D1 GH ≤6 | 🟡 10 open（标签已整理） |
 | D2 Active 无 P0 | 🟡 #10 → **monitoring**（since-start R4） |
 | D3 Gateway 十条 | 🔴 → **CLR-C** |
-| D4 §13 无 `[ ]` | 🟡 母任务 **B/C**（A 已结案） |
-| D5 tier0 | ✅ 245+2 |
-| D6 飞书 smoke | 🔴 → **CLR-B** |
+| D4 §13 无 `[ ]` | 🟡 母任务 **C**（A/B 已结案） |
+| D5 tier0 | ✅ 246+2 |
+| D6 飞书 smoke | ✅ T-03/T-04 + R5 tool 往返（2026-05-25 刘哥） |
 | D7 路径独立 | ⬜ → **CLR-D** |
 | D8 工业进化 MVP | ⬜ → **CLR-E** |
 
-**整体清空（D1–D8）**：约 **25%** · **含独立+IEVO 全链路**：约 **15%**
+**整体清空（D1–D8）**：约 **38%** · **含独立+IEVO 全链路**：约 **20%**
 
 **Cursor 新窗一句**
 
 ```text
 Read docs/MIMIR_ZERO_DEBT_MASTERPLAN.md + MIMIR_EXEC_BACKLOG.md §13.1 P0-LONG-CLEARANCE。
-只做母任务第一条 [ ] 子阶段内的第一条 [ ] 子项（现：**B/W1-01** 刘哥 或 **C/STAB-01**）。
+只做母任务第一条 [ ] 子阶段内的第一条 [ ] 子项（现：**C/STAB-01**）。
 触达 agent/gateway/tools 后 ./run_ralph_tier0.sh + evolution_log。
 ```
 

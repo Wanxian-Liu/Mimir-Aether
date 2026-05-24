@@ -6,10 +6,10 @@
 | 字段 | 值 |
 |------|-----|
 | **最近更新** | 2026-05-25 |
-| **更新人** | Cursor（Wave 0 A 结案 + STAB-03） |
+| **更新人** | Cursor（W1 刘哥 sign-off 入账） |
 | **仓库根（真源）** | `~/src/MimirAether` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁 **245+2**）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
-| **本轮摘要** | **Wave 0 A [x]**（W0-06）；**STAB-03 [x]** ToolGuard 路径；Done **~30%**（2.5/8）。下一条 **W1 飞书**（刘哥）或 **STAB-01**。 |
+| **本轮摘要** | **Wave 0 A [x]** · **Wave 1 B [x]**（T-03/T-04/R5 刘哥 2026-05-25）；**STAB-03 [x]**；Done **~38%**（3/8）。工程下一条 **STAB-01**。 |
 
 ---
 
