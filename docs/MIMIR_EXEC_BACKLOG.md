@@ -348,7 +348,7 @@ Mimir 冒烟回报
 - **Phase 0** ✅ 14/14  
 - **Phase 1 Active** → **§11 `P1-LONG-MEM`**（P1-M01/M02 已合入；下一条 **P1-M03** Gateway 增量索引）  
 - **TRUNCATE** 基线 **19**（仅 >19 时 reopen ISSUES #10）  
-- **下一窗**：**§11 `P1-LONG-MEM`** 下一条 **P1-M03**；**P1-LONG-GOD** 已合 main（[`plans/P1-GOD-split-plan.md`](./plans/P1-GOD-split-plan.md)）  
+- **下一窗**：**§11 `P1-LONG-MEM`** 下一条 **P1-M04**（FTS5 接线）；**P1-LONG-GOD** 已合 main  
 - **历史交接**：`docs/MIMIR_HANDOFF_20260520.md`
 
 ---
@@ -365,7 +365,7 @@ Mimir 冒烟回报
 |----|------|----------|------|
 | **P1-M01** | **回填 + 20-query 基准** — indexer、`backfill_sessions_search.py`、`run_memory_retrieval_benchmark.py`；LIKE 多词 AND | 本机 `sessions≥30`、`messages≥3000`；基准 JSON 存在；LIKE hit rate ≥50%（回填后实测 **60%**） | [x] 2026-05-24 · `6650327` |
 | **P1-M02** | **合入 + M6** — commit 上述 tools/scripts/tests/docs；`record_m6_evolution.sh`；tier0 绿 | `./run_ralph_tier0.sh` PASS；`evolution_log.md` 一行 | [x] 2026-05-24 |
-| **P1-M03** | **Gateway 增量索引** — `append_to_transcript` 同步写 `sessions_search.db`（+ 可选 FTS） | 新会话消息无需手工 backfill 即可被 `session_search` 命中；单测或 smoke | [ ] |
+| **P1-M03** | **Gateway 增量索引** — `append_to_transcript` 同步写 `sessions_search.db`（+ 可选 FTS） | 新会话消息无需手工 backfill 即可被 `session_search` 命中；单测或 smoke | [x] 2026-05-24 · `027eaaf` |
 | **P1-M04** | **FTS5 生产接线** — 修 hyphen token（`IR-20260520`）；`SESSION_SEARCH_BACKEND=fts5` 或 hybrid | 基准中 hyphen query 无 SQL 错；FTS hit rate ≥ LIKE 或文档说明取舍 | [ ] |
 | **P1-M05** | **persistent 路径一致** — `prompt_builder` cross_session 与 runtime home 对齐（EV-A03 分叉项） | grep/烟测：不再默认读 `{repo}/data/persistent.json` 当真源 | [ ] |
 | **P1-M06** | **长任务结案** — 更新 `MAINLINE_STATUS` + baseline §4；标记 `P1-LONG-MEM` [x] | 飞书/会话 3～5 行摘要 + 基准数字 | [ ] |
