@@ -6,10 +6,10 @@
 | 字段 | 值 |
 |------|-----|
 | **最近更新** | 2026-05-25 |
-| **更新人** | Cursor（Wave 0 卫生） |
+| **更新人** | Cursor（Wave 0 A 结案 + STAB-03） |
 | **仓库根（真源）** | `~/src/MimirAether` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁 **245+2**）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
-| **本轮摘要** | **§13.1 `P0-LONG-CLEARANCE`** 母任务入 backlog；Wave 0 **A [~85%]**；Done **~25%**（2/8）。下一条 **W0-06** 或 **STAB-04 TRUNCATE**；并行 **W1 飞书 smoke**（刘哥）。 |
+| **本轮摘要** | **Wave 0 A [x]**（W0-06）；**STAB-03 [x]** ToolGuard 路径；Done **~30%**（2.5/8）。下一条 **W1 飞书**（刘哥）或 **STAB-01**。 |
 
 ---
 

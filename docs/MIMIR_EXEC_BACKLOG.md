@@ -412,17 +412,17 @@ Read docs/MIMIR_EXEC_BACKLOG.md §11；P1-LONG-MEM 已结案。工程下一条�
 
 | ID | 做什么 | 命令 / 动作 | 成功标准 | 状态 |
 |----|--------|-------------|----------|------|
-| **MW-D01** | **Gateway 健康** | `curl -s http://127.0.0.1:18999/health \| head -c200`；`pgrep -af 'gateway/run.py'` | status/gateway/agent ok；有 PID | [x] 2026-05-25 · PID **90544** · /health ok |
+| **MW-D01** | **Gateway 健康** | `curl -s http://127.0.0.1:18999/health \| head -c200`；`pgrep -af 'gateway/run.py'` | status/gateway/agent ok；有 PID | [x] 2026-05-25 · PID **135797** · /health ok |
 | **MW-D02** | **TRUNCATE 基线** | `grep -c 'Level 3 TRUNCATE' <since Gateway running>` via `mimir_health_check.sh --quick` R4 | **≤10 since start**；全量历史非 P0 | **[!]** 全量 63 历史；**since start=0**（2026-05-25 重启后） |
 | **MW-D03** | **ERROR 扫** | `grep ERROR ~/.mimiraether/logs/agent.log \| tail -20` | 列 top3 主题；无新 P0 则 §4 记「无新 P0」 | [x] 2026-05-25 · recovery 测例 ImportError/AttributeError；Feishu Not connected |
 | **MW-D04** | **飞书卡片 log** | `grep -E '230099\|200907' ~/.mimiraether/logs/agent.log ~/.mimiraether/logs/gateway.log 2>/dev/null \| tail -10` | 有/无新 230099；更新 `GATEWAY_STABILITY_BACKLOG` #9 一句 | [x] 2026-05-25 · 末条 **2026-05-17**；无新 230099 |
 | **MW-D05** | **session_search 烟测** | `cd ~/src/MimirAether && MIMIR_AETHER_HOME=~/.mimiraether SESSION_SEARCH_BACKEND=hybrid python3 -c "from tools.session_search_tool import session_search; print(session_search('IR-20260520', limit=3))"` | 无异常；有 hit 或空结果均可；**无 SQL 错** | [x] 2026-05-25 · hybrid 3 hits |
 | **MW-D06** | **persistent 路径** | `MIMIR_AETHER_HOME=~/.mimiraether python3 -c "from agent.prompt_builder import _build_cross_session_context; print(_build_cross_session_context()[:200])"` | 输出含 cross-session 或空；**不**读 `{repo}/data/persistent.json` | [x] 2026-05-25 · cross-session 来自 runtime home |
-| **MW-D07** | **health_check 脚本** | `~/src/MimirAether/scripts/mimir_health_check.sh --quick` | exit 0 或记录失败行 | [~] 2026-05-25 · **>90s 无输出**（疑挂起）；curl /health 已绿 |
+| **MW-D07** | **health_check 脚本** | `~/src/MimirAether/scripts/mimir_health_check.sh --quick` | exit 0 或记录失败行 | [x] 2026-05-25 · **READY**；R3 重试 + restart health poll |
 | **MW-D08** | **Gateway 十条刷新** | Read `GATEWAY_STABILITY_BACKLOG.md`；#2 #9 各 grep 今日 log 一行 | 状态列日期 → 今天；无改码 | [x] 2026-05-25 |
 | **MW-D09** | **MAINLINE 轻刷新** | Read `MAINLINE_STATUS.md`；确认 P1-LONG-MEM 结案与 tier0 **245+2** | 最近更新=今天；无矛盾 | [x] 2026-05-25 |
 | **MW-D10** | **GH 只读对账** | `gh issue list --state open --limit 10` | #17/#18/#19 应 closed；#20–22 icebox → bridge §4「对账 ok」 | [x] 2026-05-25 · open **10**；#2/#12/#13/#31 已关 |
-| **MW-D11** | **出门汇总** | 飞书发 **MW-D01～D10 勾选表** + TRUNCATE 数 + Gateway PID | 刘哥一眼能看；勾 `[x]` MW-D11 | [~] bridge §4 汇总；飞书待发 |
+| **MW-D11** | **出门汇总** | 飞书发 **MW-D01～D10 勾选表** + TRUNCATE 数 + Gateway PID | 刘哥一眼能看；勾 `[x]` MW-D11 | [x] 2026-05-25 · bridge §5 勾选表 |
 
 **人工门（刘哥回来再做，Mimir 只提醒）**
 
@@ -457,7 +457,7 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 
 | 子阶段 | 长任务 ID | Owner | 结案判据（摘要） | 状态 |
 |--------|-----------|-------|------------------|------|
-| **A** | **W0-LONG-HYGIENE** | Mimir + Cursor | W0-01～06 全 `[x]`；GH 无重复；TRUNCATE **登记** → C | **[~] 85%** |
+| **A** | **W0-LONG-HYGIENE** | Mimir + Cursor | W0-01～06 全 `[x]`；GH 无重复；TRUNCATE **登记** → C | **[x] 2026-05-25** |
 | **B** | **W1-LONG-SMOKE** | 刘哥 + Mimir | T-03/T-04；Gateway #9 **已验证**；**D6** | [ ] |
 | **C** | **P2-LONG-STAB** | Cursor | STAB-01～07；Gateway 十条无「移交工程」；**#10 TRUNCATE 回落**；GH #25–30 关 | [ ] |
 | **D** | **P2-LONG-INDEP** | Cursor | IND-01～06；**D7**；GH #20 关 | [ ] |
@@ -470,12 +470,12 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 
 | ID | 任务 | Owner | 状态 |
 |----|------|-------|------|
-| **W0-01** | MW-D01–D10（§12.1） | Mimir | [~] D02 **P0**；D07 挂起；余 mostly [x] |
+| **W0-01** | MW-D01–D10（§12.1） | Mimir | [x] 2026-05-25 · D02 since-start=0；D07 health READY |
 | **W0-02** | GH 关 #2 #12 #13 #31 | Cursor | [x] 2026-05-25 |
 | **W0-03** | GH 标签 #20–32 | Cursor | [x] 2026-05-25 |
 | **W0-04** | §9/§10/MAINLINE → §13 | Cursor | [x] 2026-05-25 |
 | **W0-05** | MIMIR_ISSUES Active 复核 | Mimir | [x] 2026-05-25 · #10 active P0 |
-| **W0-06** | MW-D11 汇总 | Mimir | [ ] bridge §4 / 飞书汇总 |
+| **W0-06** | MW-D11 汇总 | Mimir | [x] 2026-05-25 · bridge §5 勾选表 |
 
 **A 结案**：W0-06 `[x]` 后，子阶段 A → `[x]`（D02 不阻塞 A 结案，**移交 C/STAB-04**）。
 
@@ -495,7 +495,7 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 | **STAB-04** | **TRUNCATE P0** + Agent 栈（`recovery` / `run.py`） | #30 | 无双截断；since-start TRUNCATE 可控；gateway drain 不 Executor 崩溃；tier0 + M6 | [x] 2026-05-25 · tier0 **246+2** |
 | **STAB-01** | Watchdog 超时 / 长推理 / WS 同源 | #27 #25 | 7 日无超时或降级策略 documented | [ ] |
 | **STAB-02** | Event loop closed | #28 | 单测或 gateway 回归 | [ ] |
-| **STAB-03** | ToolGuard 相对路径 | #29 | path 单测 | [ ] |
+| **STAB-03** | ToolGuard 相对路径 | #29 | path 单测；tier0 | [x] 2026-05-25 · resolve_path_for_guard + 7 tests |
 | **STAB-05** | 自修回滚护栏 | #26 | 回滚路径 + 测试 | [ ] |
 | **STAB-06** | WebSocket 推理阻塞心跳 | #25 | 与 STAB-01 同 PR 或子 PR | [ ] |
 | **STAB-07** | **STAB 结案** | #25–30 | Gateway 十条无「移交工程」 | [ ] |
@@ -531,7 +531,7 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 | D1 GH ≤6 | 🟡 10 open（标签已整理） |
 | D2 Active 无 P0 | 🟡 #10 → **monitoring**（since-start R4） |
 | D3 Gateway 十条 | 🔴 → **CLR-C** |
-| D4 §13 无 `[ ]` | 🟡 母任务 A 尾 |
+| D4 §13 无 `[ ]` | 🟡 母任务 **B/C**（A 已结案） |
 | D5 tier0 | ✅ 245+2 |
 | D6 飞书 smoke | 🔴 → **CLR-B** |
 | D7 路径独立 | ⬜ → **CLR-D** |
@@ -543,7 +543,7 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 
 ```text
 Read docs/MIMIR_ZERO_DEBT_MASTERPLAN.md + MIMIR_EXEC_BACKLOG.md §13.1 P0-LONG-CLEARANCE。
-只做母任务第一条 [ ] 子阶段内的第一条 [ ] 子项（现：A/W0-06 或 C/STAB-04）。
+只做母任务第一条 [ ] 子阶段内的第一条 [ ] 子项（现：**B/W1-01** 刘哥 或 **C/STAB-01**）。
 触达 agent/gateway/tools 后 ./run_ralph_tier0.sh + evolution_log。
 ```
 

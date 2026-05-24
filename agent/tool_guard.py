@@ -119,8 +119,92 @@ def classify_risk(tool_name: str) -> ToolRisk:
 # File-path parameter names (for relative-path detection).
 _PATH_PARAM_NAMES: set[str] = {
     "path", "file_path", "source", "destination", "target",
-    "workdir", "output", "input", "db_path",
+    "workdir", "output", "input", "db_path", "dst", "src",
 }
+
+
+def _guard_base_dir() -> str:
+    """Absolute base for path containment checks (aligned with tools.builtin._ALLOWED_BASE_DIR)."""
+    return os.path.abspath(os.path.expanduser(os.environ.get("MIMIR_BASE_DIR", "~")))
+
+
+def resolve_path_for_guard(path_str: str, base_dir: str | None = None) -> str:
+    """Resolve a path argument to absolute for guard checks.
+
+    Relative paths resolve against ``base_dir`` or the process cwd — matching
+    ``os.path.abspath`` / ``tools.builtin._safe_path`` behaviour so guard checks
+    do not compare unresolved relative paths.
+    """
+    raw = path_str.strip()
+    if not raw:
+        return raw
+    expanded = os.path.expanduser(raw)
+    if os.path.isabs(expanded):
+        return os.path.normpath(expanded)
+    root = base_dir or os.getcwd()
+    return os.path.normpath(os.path.join(root, expanded))
+
+
+def _is_relative_path_arg(value: str) -> bool:
+    raw = value.strip()
+    if not raw:
+        return False
+    if raw.startswith(("/", "~")):
+        return False
+    if raw.startswith("$") or raw.startswith("{"):
+        return False
+    return True
+
+
+def _path_stays_under_allowed(resolved: str) -> bool:
+    allowed = _guard_base_dir()
+    try:
+        resolved_real = os.path.realpath(resolved)
+        allowed_real = os.path.realpath(allowed)
+    except (OSError, ValueError):
+        return False
+    return (
+        resolved_real == allowed_real
+        or resolved_real.startswith(allowed_real + os.sep)
+    )
+
+
+def _validate_file_paths(tool_name: str, args: dict) -> tuple[list[str], str]:
+    """Poka-yoke: resolve path args; warn on relative; block escape outside base."""
+    risk = classify_risk(tool_name)
+    if risk not in (ToolRisk.FILE_WRITE, ToolRisk.DESTRUCTIVE):
+        return [], ""
+
+    warnings: list[str] = []
+    cwd = os.getcwd()
+    allowed_base = _guard_base_dir()
+
+    for key, value in (args or {}).items():
+        if key not in _PATH_PARAM_NAMES:
+            continue
+        if not isinstance(value, str) or not value.strip():
+            continue
+        if value.startswith("$") or value.startswith("{"):
+            continue
+
+        resolved = resolve_path_for_guard(value, cwd)
+
+        if _is_relative_path_arg(value):
+            warnings.append(
+                f"Tool '{tool_name}' received relative path '{key}={value}'. "
+                f"Resolved to '{resolved}'. Use an absolute path to avoid ambiguity."
+            )
+
+        if not _path_stays_under_allowed(resolved):
+            block = (
+                f"Path argument '{key}' resolves outside allowed base "
+                f"({allowed_base}): '{value}' → '{resolved}'. "
+                f"Tool '{tool_name}' blocked by ToolGuard."
+            )
+            return warnings, block
+
+    return warnings, ""
+
 
 # Shell-injection patterns that should never appear in a terminal command.
 _DANGEROUS_SHELL_PATTERNS: list[tuple[str, str]] = [
@@ -134,34 +218,6 @@ _DANGEROUS_SHELL_PATTERNS: list[tuple[str, str]] = [
     ("curl ... | sh",  "pipe-to-shell (supply-chain risk)"),
     ("wget ... | sh",  "pipe-to-shell (supply-chain risk)"),
 ]
-
-
-def _validate_relative_path(tool_name: str, args: dict) -> list[str]:
-    """Poka-yoke: warn when file-write tools receive relative paths.
-
-    LLMs frequently emit relative paths (``\"./foo\"``, ``\"bar/baz\"``) when
-    an absolute path would be safer.  This is a WARNING, not a block — MimirAether
-    resolves relative paths via _safe_path(), so it's not a security hole, but
-    it can cause writes to unexpected locations.
-    """
-    risk = classify_risk(tool_name)
-    if risk not in (ToolRisk.FILE_WRITE, ToolRisk.DESTRUCTIVE):
-        return []
-
-    warnings: list[str] = []
-    for key, value in (args or {}).items():
-        if key not in _PATH_PARAM_NAMES:
-            continue
-        if not isinstance(value, str) or not value.strip():
-            continue
-        if value.startswith(("/", "~", "$", "{")):
-            continue  # absolute, home, or env-var — fine
-        warnings.append(
-            f"Tool '{tool_name}' received relative path '{key}={value}'. "
-            f"Consider using an absolute path to avoid ambiguity."
-        )
-
-    return warnings
 
 
 def _validate_dangerous_shell(tool_name: str, args: dict) -> list[str]:
@@ -206,8 +262,9 @@ def guard_tool_call(tool_name: str, args: dict) -> GuardResult:
     risk = classify_risk(tool_name)
     warnings: list[str] = []
 
-    # 1. Relative-path detection (FILE_WRITE tools)
-    warnings.extend(_validate_relative_path(tool_name, args))
+    # 1. Path resolution + relative-path warn + traversal block (FILE_WRITE tools)
+    path_warnings, block_reason = _validate_file_paths(tool_name, args)
+    warnings.extend(path_warnings)
 
     # 2. Dangerous shell patterns (terminal tool)
     warnings.extend(_validate_dangerous_shell(tool_name, args))
@@ -215,5 +272,10 @@ def guard_tool_call(tool_name: str, args: dict) -> GuardResult:
     if warnings:
         for w in warnings:
             logger.warning("ToolGuard [%s] risk=%s: %s", tool_name, risk.value, w)
+
+    if block_reason:
+        return GuardResult(
+            ok=False, risk=risk, warnings=warnings, block_reason=block_reason
+        )
 
     return GuardResult(ok=True, risk=risk, warnings=warnings)

@@ -380,8 +380,19 @@ def pre_validate_tool_call(tool_name: str, args: dict) -> PreValidationResult:
     checks_run.append("tool_guard")
     from agent.tool_guard import guard_tool_call
     guard_result = guard_tool_call(tool_name, args)
+    if not guard_result.ok:
+        logger.warning(
+            "Pre-validation FAIL [tool_guard] tool=%s: %s",
+            tool_name,
+            guard_result.block_reason,
+        )
+        return PreValidationResult(
+            ok=False,
+            error_message=guard_result.block_reason,
+            tool_name=tool_name,
+            checks_run=checks_run,
+        )
     # Poka-yoke warnings are non-blocking (logged by guard_tool_call).
-    # Future: DESTRUCTIVE-tier tools could be gated here with user confirmation.
 
     return PreValidationResult(ok=True, tool_name=tool_name, checks_run=checks_run)
 

@@ -48,6 +48,11 @@ Cursor **自行执行**（无需每轮再问）：
 - **飞书 T-03/T-04**：刘哥回来再做（**MW-H01/H02**）；Mimir 可发一条提醒，不代测。
 - **Cursor 工程**：**不**自动开 `P2-LONG-SEM`；等刘哥点名。
 
+### 2026-05-25 — P0-LONG-CLEARANCE 工程授权
+
+- **刘哥**：「按你建议我授权。」→ Cursor 执行 **W0-06 结案 A** + **STAB-03** 起 **C 轨**；`commit`/`push`/`tier0`/gateway 重启脚本范围内自行推进。
+- **并行**：刘哥 **W1** 飞书 T-03/T-04（Mimir 可提醒，不代测）。
+
 ### （新留言写在此下）
 
 _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
@@ -106,12 +111,31 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 | 2026-05-24 | §11 P1-M06 | **Cursor** | **P1-LONG-MEM** 结案；baseline §4 + backlog §9/§10/§11；LIKE 60% / FTS 50% / hybrid；main 7f4b53d |
 | 2026-05-25 | Wave 0 W0-02/03 | **Cursor** | GH 关 #2/#12/#13/#31；标签 icebox/wave-2/phase-2；open **10** |
 | 2026-05-25 | Wave 0 W0-01 | **Cursor** | MW-D01/D03–06/D08–10 ok；**TRUNCATE P0** 63（24日33）；PID **90544**；D07 health_check 挂起 |
+| 2026-05-25 | **W0-06 MW-D11** | **Cursor** | Wave 0 **A 结案** — D01–D10 全 [x]；PID **135797**；TRUNCATE since-start **0**；health **READY**；飞书 T-03/T-04 → **W1** |
+| 2026-05-25 | **STAB-03** | **Cursor** | ToolGuard 相对路径 → `resolve_path_for_guard` + 越界 block；`test_tool_guard_paths` 7×；tier0 **246+2** |
 
 ---
 
 ## 5. Mimir 进度笔记
 
-- **main**：tier0 **245+2** · 母任务 **§13.1 `P0-LONG-CLEARANCE`** · Done **~25%**
-- **双轨**：Cursor **A 尾 W0-06 → C STAB-04**；刘哥 **B W1 飞书 T-03/T-04**
-- **ISSUES**：GH open **10** · #10 **TRUNCATE P0** → STAB-04
-- **Gateway**：PID **90544** · /health ok
+- **main**：tier0 **246+2**（STAB-03 后待确认）· 母任务 **§13.1 `P0-LONG-CLEARANCE`**
+- **Wave 0 A**：**[x] 结案**（W0-06 2026-05-25）
+- **Wave 1 B**：刘哥 **T-03/T-04**（W1-01/02）
+- **Wave 2 C**：**STAB-03 [x]** → 下一条 **STAB-01**
+- **Gateway**：PID **135797** · /health ok · TRUNCATE since-start **0**
+- **GH open**：**10** · #10 **monitoring**（STAB-04 已修）
+
+### MW-D11 勾选表（2026-05-25 · W0-06）
+
+| ID | 状态 | 摘要 |
+|----|------|------|
+| MW-D01 | [x] | PID **135797** · /health ok |
+| MW-D02 | [x] | since-start **0**（全量历史 63 非 P0） |
+| MW-D03 | [x] | ERROR 扫：无新 P0 |
+| MW-D04 | [x] | 无新 230099 |
+| MW-D05 | [x] | session_search hybrid ok |
+| MW-D06 | [x] | cross-session 读 runtime home |
+| MW-D07 | [x] | `mimir_health_check.sh --quick` **READY**（R3 重试 + restart poll） |
+| MW-D08 | [x] | Gateway 十条状态已刷新 |
+| MW-D09 | [x] | MAINLINE 与 tier0 一致 |
+| MW-D10 | [x] | GH open **10**；重复 issue 已关 |
