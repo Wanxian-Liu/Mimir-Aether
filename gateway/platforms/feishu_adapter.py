@@ -766,11 +766,19 @@ class FeishuAdapter(BasePlatformAdapter):
         if loop is None:
             return
 
+        # STAB-01: Do not block the lark ws worker thread on agent turns.
+        # Blocking fut.result() here prevented WS ping/pong during long inference
+        # (Gateway #1 / #25). Dispatch on the gateway main loop; log failures async.
         fut = asyncio.run_coroutine_threadsafe(self._async_dispatch_p2(payload), loop)
-        try:
-            fut.result(timeout=300)
-        except Exception as e:
-            logger.error("[%s] Inbound dispatch failed: %s", self.name, e)
+
+        def _log_dispatch_error(done: asyncio.Future) -> None:
+            if done.cancelled():
+                return
+            exc = done.exception()
+            if exc is not None:
+                logger.error("[%s] Inbound dispatch failed: %s", self.name, exc)
+
+        fut.add_done_callback(_log_dispatch_error)
 
     async def _async_dispatch_p2(self, payload: dict) -> None:
         # P0-4: 图片消息在主事件循环中处理──先用 aiohttp 异步下载，避免阻塞

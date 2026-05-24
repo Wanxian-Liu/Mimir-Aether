@@ -13,7 +13,7 @@
 
 | #   | 摘要                | 优先级 | 状态（2026-05-24）                          | 下一步                                                                                        |
 | --- | ----------------- | --- | --------------------------------------- | ------------------------------------------------------------------------------------------ |
-| 1   | Watchdog 超时       | 中   | 移交工程                                    | 与 WebSocket/长跑推理同源排查                                                                       |
+| 1   | Watchdog 超时       | 中   | **STAB-01 已合** (2026-05-25)              | 飞书 WS 非阻塞 dispatch + AIAgent activity 心跳；**7 日**盯 watchdog.log |
 | 2   | Token 失败          | 中   | 部分已验证                                   | P2-1/1b 已合；WIP 常驻后盯刷新日志                                                                    |
 | 3   | Reaction 未处理      | 低   | 未复现 (2026-05-20)                        | gateway.log 无 reaction 记录；无人发过 reaction                                                    |
 | 4   | Event loop closed | 低   | 移交工程                                    | async 生命周期                                                                                 |
@@ -41,8 +41,9 @@
 
 ### #1 Watchdog 超时
 
-- Mimir：记录超时发生时的 gateway 负载、是否在长跑推理
-- 工程：与 **P0 WebSocket/心跳** 可能同源（见 stability sprint Phase D）
+- **STAB-01 (2026-05-25)**：`feishu_adapter` 入站非阻塞；`run_agent.AIAgent` 活动心跳 + `get_activity_summary`。
+- Mimir：7 日内 `watchdog.log` 无新 timeout；长跑推理时飞书 WS 保持在线。
+- 工程：若仍复现，对照 [`OPERATIONS_GATEWAY.md`](./OPERATIONS_GATEWAY.md) §4.1
 
 ### #7 孤儿 tool message
 

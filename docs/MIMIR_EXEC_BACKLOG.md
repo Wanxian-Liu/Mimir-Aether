@@ -493,11 +493,11 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 | ID | 任务 | GH | 成功标准 | 状态 |
 |----|------|-----|----------|------|
 | **STAB-04** | **TRUNCATE P0** + Agent 栈（`recovery` / `run.py`） | #30 | 无双截断；since-start TRUNCATE 可控；gateway drain 不 Executor 崩溃；tier0 + M6 | [x] 2026-05-25 · tier0 **246+2** |
-| **STAB-01** | Watchdog 超时 / 长推理 / WS 同源 | #27 #25 | 7 日无超时或降级策略 documented | [ ] |
+| **STAB-01** | Watchdog 超时 / 长推理 / WS 同源 | #27 #25 | 7 日无超时或降级策略 documented | [x] 2026-05-25 · WS 非阻塞 + activity 心跳 |
 | **STAB-02** | Event loop closed | #28 | 单测或 gateway 回归 | [ ] |
 | **STAB-03** | ToolGuard 相对路径 | #29 | path 单测；tier0 | [x] 2026-05-25 · resolve_path_for_guard + 7 tests |
 | **STAB-05** | 自修回滚护栏 | #26 | 回滚路径 + 测试 | [ ] |
-| **STAB-06** | WebSocket 推理阻塞心跳 | #25 | 与 STAB-01 同 PR 或子 PR | [ ] |
+| **STAB-06** | WebSocket 推理阻塞心跳 | #25 | 与 STAB-01 同 PR 或子 PR | [x] 2026-05-25 · 同 STAB-01 |
 | **STAB-07** | **STAB 结案** | #25–30 | Gateway 十条无「移交工程」 | [ ] |
 
 #### D — P2-LONG-INDEP

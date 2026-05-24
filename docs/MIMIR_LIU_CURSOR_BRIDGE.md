@@ -122,7 +122,7 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 - **main**：tier0 **246+2**（STAB-03 后待确认）· 母任务 **§13.1 `P0-LONG-CLEARANCE`**
 - **Wave 0 A**：**[x] 结案**（W0-06 2026-05-25）
 - **Wave 1 B**：**[x] 结案**（T-03/T-04 + R5 2026-05-25）
-- **Wave 2 C**：**STAB-03 [x]** → 下一条 **STAB-01**
+- **Wave 2 C**：**STAB-01 [x]** · **STAB-06 [x]**（2026-05-25）→ 下一条 **STAB-02**
 - **R5**：刘哥复验 **pass**（30s 内 tool）
 - **Gateway**：PID **135797** · /health ok · TRUNCATE since-start **0**
 - **GH open**：**10** · #10 **monitoring**（STAB-04 已修）
