@@ -97,12 +97,13 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 | 2026-05-24 | ISSUES_WRITE | **Cursor** | 新建 `MIMIR_ISSUES_WRITE_PLAN.md` + backlog §12 MW 队列 |
 | 2026-05-24 | §11 P1-M04 | **Cursor** | FTS5 生产接线 + hyphen 引号；`SESSION_SEARCH_BACKEND`；tier0 245+2；基准 FTS 50% vs LIKE 60% |
 | 2026-05-24 | §11 P1-M05 | **Cursor** | prompt cross_session → `get_mimir_data_dir()` / `get_mimir_home()`；tier0 245+2；GH #18 closed |
+| 2026-05-24 | §11 P1-M06 | **Cursor** | **P1-LONG-MEM** 结案；baseline §4 + backlog §9/§10/§11；LIKE 60% / FTS 50% / hybrid；main 7f4b53d |
 
 ---
 
 ## 5. Mimir 进度笔记
 
-- **main**：tier0 **245+2** · P1-M01～M03 + P1-LONG-GOD 已合 · Phase 0 **14/14**
-- **双轨**：工程 **§11 P1-M04**；写入 **§12 MW-***（见 `MIMIR_ISSUES_WRITE_PLAN.md`）
+- **main**：tier0 **245+2** · **P1-LONG-MEM 结案** @ `7f4b53d` · Phase 0 **14/14**
+- **双轨**：工程 **§11 → P2-LONG-SEM**（点名）；写入 **§12 MW-D01**（见 `MIMIR_ISSUES_WRITE_PLAN.md`）
 - **ISSUES**：GH #2/#19 closed (A2/A1)；飞书 T-03/T-04 **MW-H01/H02**
 - **Mimir 运维**：`scripts/mimir_health_check.sh --quick` + TRUNCATE≤19；D17 §5 已过期 → WRITE_PLAN §6A

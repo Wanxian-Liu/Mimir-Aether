@@ -6,10 +6,10 @@
 | 字段 | 值 |
 |------|-----|
 | **最近更新** | 2026-05-24 |
-| **更新人** | Cursor（P1-M05 persistent 路径对齐） |
+| **更新人** | Cursor（P1-LONG-MEM 结案） |
 | **仓库根（真源）** | `~/src/MimirAether` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁 **245+2**）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
-| **本轮摘要** | **P1-M05** [x]：`prompt_builder` cross_session 读 `get_mimir_data_dir()` / `get_mimir_home()`，与 CrossSessionMemory 同路径；tier0 **245+2**。下一条 **P1-M06** 或 A1 smoke。 |
+| **本轮摘要** | **P1-LONG-MEM** [x] 结案（M01～M06）：`session_search` 可生产化；20-query 基准 LIKE **60%** / FTS **50%**，推荐 **hybrid**；main `7f4b53d`。下一条 **P2-LONG-SEM** 或 **MW-D01**。 |
 
 ---
 
@@ -63,6 +63,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-24 | **P1-LONG-MEM** [x] 结案：M01～M06 文档收口；基准 LIKE **60%** / FTS **50%** / hybrid 推荐；backlog §11 Active **0**；main `7f4b53d`。 |
 | 2026-05-24 | **P1-M05** [x]：`prompt_builder._build_cross_session_context` → runtime home；`agent/test_prompt_builder_cross_session_paths.py`；GH **#18**；tier0 **245+2**。 |
 | 2026-05-24 | **P1-M04** [x]：`prepare_fts5_match_query` 修 hyphen/dot；`session_search` 接 `SESSION_SEARCH_BACKEND`；`tests/tools/test_fts5_prepare_query.py`；tier0 **245+2**。 |
 | 2026-05-24 | **A2** [x]：`.openclaw` 母 issue **#2** 结案；`MIMIR_OPENCLAW_BOUNDARY.md` §7；tier0 **245+2** + advisory **6/60**。 |

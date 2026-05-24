@@ -49,8 +49,20 @@
 | 19 | `JEPA` | 工具/事件专有 | JEPA/预测相关计划或 mimicore 文档（若曾写入 transcript） |
 | 20 | `EV-A03 memory benchmark` | 工具/事件专有 | 本基准或 ARCHITECTURE_AUDIT_MEMORY_BENCHMARK 方法论 |
 
-## 4. 结论
+## 4. 结论（P1-LONG-MEM 结案 · 2026-05-24）
 
-生产（P1-M04 后）：默认 **LIKE**；设 **`SESSION_SEARCH_BACKEND=fts5`** 或 **`hybrid`** 时 `session_search` 走 **`fts5_search.db`**（`hybrid` 在 FTS 零命中时回退 LIKE）。Hyphen/dot token（如 `IR-20260520`、`E-008`）在 FTS MATCH 中已加引号，基准 hyphen 行 **无 SQL 错**。
+**Phase 1 交付（M01～M05，main `7f4b53d`+）**
 
-**2026-05-24 基准**（`memory-retrieval-benchmark-20260524.json`，回填后）：LIKE **60%** 会话命中 / FTS **50%** — FTS 未达 ≥LIKE，主因 CJK 多词与部分英文短语在 FTS5 tokenizer 上弱于 LIKE 子串；**保留 hybrid 为推荐生产值**。仍待：semantic、`memory_benchmark`、P1-M05 persistent 路径统一。
+| 子项 | 交付物 |
+|------|--------|
+| **M01** | `session_search_indexer`、backfill、20-query 基准脚本 + JSON |
+| **M02** | 合入 + M6 + tier0 绿 |
+| **M03** | Gateway `append_to_transcript` / rewrite → `sessions_search.db`（`MIMIR_SESSION_SEARCH_INDEX=0` 可关） |
+| **M04** | `SESSION_SEARCH_BACKEND=fts5\|hybrid`；`prepare_fts5_match_query`（hyphen/dot 无 SQL 错） |
+| **M05** | `prompt_builder._build_cross_session_context` → `get_mimir_data_dir()` / `get_mimir_home()`（与 CrossSessionMemory 同路径） |
+
+**生产检索**：默认 **LIKE**；推荐 **`SESSION_SEARCH_BACKEND=hybrid`**（FTS5 优先，零命中回退 LIKE）。`fts5` 仅用 `fts5_search.db`。
+
+**2026-05-24 基准**（`memory-retrieval-benchmark-20260524.json`，回填后）：LIKE **60%** / FTS **50%** 会话命中率（20 query）；FTS 未达 ≥LIKE（CJK 多词与部分英文短语在 FTS5 tokenizer 上弱于 LIKE 子串）。
+
+**明确不做（Phase 2）**：**semantic / chromadb 检索** → **`P2-LONG-SEM`**；统一 `memory_benchmark` 工具仍为后续项。

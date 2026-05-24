@@ -324,14 +324,14 @@ Mimir 冒烟回报
 - **真源**：`~/src/MimirAether` · `MIMIR_AETHER_HOME=~/.mimiraether` · 必读 `MAINLINE_STATUS.md` / `MIMIR_ISSUES.md`（Active≤3）/ `AGENTS.md`。
 - **§2 工程队列**：只读，勿再取「E-004 / T-02 / 181+2」。
 - **Phase 0**：**14/14** [x]（2026-05-24）— 真源 [`MIMIR_PHASE0_QUEUE.md`](./MIMIR_PHASE0_QUEUE.md)。
-- **当前执行源**：**§11 `P1-LONG-MEM`**（Memory 检索长任务）；其余 Phase 1 主题见 §11 表末「并行长任务」。
+- **当前执行源**：**§11 无 Active 子项**（`P1-LONG-MEM` 已结案）；工程下一条 **§11 `P2-LONG-SEM`** 或 **§12 `MW-D01`**（见 §10）。
 - **勿**：提交 `data/persistent.json`；`git push`（除非刘哥授权）；重做 E-001～E-012。
 
 ### 9.1 未完成项盘点（2026-05-24）
 
 | 桶 | 数量 | 说明 |
 |----|------|------|
-| **§11 当前 Active** | **6** 子项 | `P1-LONG-MEM`（Memory 检索可生产化）；**唯一默认取任务源** |
+| **§11 当前 Active** | **0** 子项 | `P1-LONG-MEM` **[x] 结案** 2026-05-24；工程取 **P2-LONG-SEM** 或 Mimir 取 **§12 MW-D01** |
 | **§6 Phase 2 候选** | **6** `[ ]` | D5-1/3/ADR、D6-1/2/3 — 文档标「非 Active」，勿与 §11 混读 |
 | **§8 工程 icebox** | **4** 条 | WebSocket 心跳、自修回滚、P3-0 单写者实现、Gateway 债 |
 | **Gateway 十条** | **~4** 待工程 | #1/#4/#8/#10 等「移交工程」；#9 待飞书复验 |
@@ -346,7 +346,7 @@ Mimir 冒烟回报
 
 - **Phase 1.5** ✅ E-001～E-012 + intent-action guard；tier0 **245+2**  
 - **Phase 0** ✅ 14/14  
-- **工程 Active** → §11 **P1-M04**（FTS5）；P1-M01～M03 ✅；P1-LONG-GOD ✅  
+- **工程 Active** → **无 §11 子项**；`P1-LONG-MEM` **[x] 结案**；下一条 **§11 `P2-LONG-SEM`** 或 **§12 `MW-D01`**  
 - **写入 Active** → §12 **MW-005** 起（`MIMIR_ISSUES_WRITE_PLAN.md`）  
 - **TRUNCATE** 基线 **19**  
 - **A1** [~] Gateway PID **691521**；飞书 T-03/T-04 待刘哥  
@@ -360,7 +360,9 @@ Mimir 冒烟回报
 > **执行法**：每次只勾 **一条**子项；子项全部 `[x]` 后，长任务结案，再开下一条长任务（见表末）。  
 > **真源**：[`phase0/memory-retrieval-baseline.md`](./phase0/memory-retrieval-baseline.md) · 基准 JSON [`phase0/memory-retrieval-benchmark-20260524.json`](./phase0/memory-retrieval-benchmark-20260524.json)
 
-### P1-LONG-MEM — Memory 检索可生产化
+### P1-LONG-MEM — Memory 检索可生产化 **[x] 结案 2026-05-24**
+
+> M01～M06 全部 `[x]`；main **`7f4b53d`** 起可生产化 `session_search`（回填、Gateway 增量、FTS/hybrid、persistent 对齐）。基准见 phase0 §4。
 
 | ID | 任务 | 成功标准 | 状态 |
 |----|------|----------|------|
@@ -369,12 +371,12 @@ Mimir 冒烟回报
 | **P1-M03** | **Gateway 增量索引** — `append_to_transcript` 同步写 `sessions_search.db`（+ 可选 FTS） | 新会话消息无需手工 backfill 即可被 `session_search` 命中；单测或 smoke | [x] 2026-05-24 · `027eaaf` |
 | **P1-M04** | **FTS5 生产接线** — 修 hyphen token（`IR-20260520`）；`SESSION_SEARCH_BACKEND=fts5` 或 hybrid | 基准中 hyphen query 无 SQL 错；FTS hit rate ≥ LIKE 或文档说明取舍 | [x] 2026-05-24 |
 | **P1-M05** | **persistent 路径一致** — `prompt_builder` cross_session 与 runtime home 对齐（EV-A03 分叉项） | grep/烟测：不再默认读 `{repo}/data/persistent.json` 当真源 | [x] 2026-05-24 |
-| **P1-M06** | **长任务结案** — 更新 `MAINLINE_STATUS` + baseline §4；标记 `P1-LONG-MEM` [x] | 飞书/会话 3～5 行摘要 + 基准数字 | [ ] |
+| **P1-M06** | **长任务结案** — 更新 `MAINLINE_STATUS` + baseline §4；标记 `P1-LONG-MEM` [x] | 飞书/会话 3～5 行摘要 + 基准数字 | [x] 2026-05-24 |
 
 **Cursor 新窗一句**
 
 ```text
-Read docs/MIMIR_EXEC_BACKLOG.md §11，从 P1-LONG-MEM 第一条 [ ] 或 [~] 子项开始；每次只做一颗粒；触达 tools/agent/gateway 后跑 tier0。
+Read docs/MIMIR_EXEC_BACKLOG.md §11；P1-LONG-MEM 已结案。工程下一条：P2-LONG-SEM（刘哥点名）或 §12 MW-D01（运维）；每次一颗粒；触达 agent/gateway/tools 后 tier0。
 ```
 
 ### 并行长任务（**非**默认取任务源 — 刘哥点名才开）
@@ -384,7 +386,7 @@ Read docs/MIMIR_EXEC_BACKLOG.md §11，从 P1-LONG-MEM 第一条 [ ] 或 [~] 子
 | **P1-LONG-GOD** | GOD 拆分 + 测试轨续建 | Phase 0 EV-P04、§9 原「GOD 拆分」 | [x] 2026-05-24 · #16→main；`router_mixin` ~38 行；见 `plans/P1-GOD-split-plan.md` |
 | **P1-LONG-OBS** | d6 余债 D6-1～3 ADR/测试 | §6 | [ ] Phase 2 候选 |
 | **P1-LONG-EVO** | d5 余债 D5-1/3、真进化 | §6、Unified Plan | [ ] Phase 2 候选 |
-| **P2-LONG-SEM** | Memory **语义化**（chromadb + 检索策略） | Unified Plan Phase 2 | [ ] 依赖 P1-LONG-MEM 结案 |
+| **P2-LONG-SEM** | Memory **语义化**（chromadb + 检索策略） | Unified Plan Phase 2 | [ ] 前置已满足（P1-LONG-MEM 结案 2026-05-24） |
 
 **Semantic 检索**：明确 **不在** `P1-LONG-MEM` 内；结案后再排 `P2-LONG-SEM`，避免与 FTS/LIKE 并行膨胀。
 
