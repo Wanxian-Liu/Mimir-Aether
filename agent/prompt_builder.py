@@ -929,17 +929,18 @@ def _write_skills_snapshot(skills_dirs: list, skills_prompt: str, category_descr
 
 
 def _build_cross_session_context() -> str:
-    """读取 data/persistent.json 和 NEXT_SESSION.md 生成恢复上下文"""
-    import json, os
-    parts = []
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    
-    # 仅读取 data/persistent.json（memory/persistent.json 已废弃，
-    # CrossSessionMemory.save() 只写 data/persistent.json）
-    path = os.path.join(base, "data", "persistent.json")
-    if os.path.exists(path):
+    """Read runtime-home persistent.json and NEXT_SESSION.md (same paths as CrossSessionMemory)."""
+    import json
+
+    from mimir_constants import get_mimir_data_dir, get_mimir_home
+
+    parts: list[str] = []
+
+    # Same file as agent/cross_session_memory.PERSISTENT_FILE (get_mimir_data_dir()).
+    path = get_mimir_data_dir() / "persistent.json"
+    if path.is_file():
         try:
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
                 state = json.load(f)
             curator_nudge = state.get("curator_nudge", "")
             last_end = state.get("last_session_end", "")
@@ -954,11 +955,14 @@ def _build_cross_session_context() -> str:
             parts.append(f"会话计数: {session_count}")
         except Exception:
             pass
-    
-    next_path = os.path.join(base, "NEXT_SESSION.md")
-    if os.path.exists(next_path):
-        with open(next_path) as f:
-            parts.append(f.read()[:500])
+
+    next_path = get_mimir_home() / "NEXT_SESSION.md"
+    if next_path.is_file():
+        try:
+            with open(next_path, encoding="utf-8") as f:
+                parts.append(f.read()[:500])
+        except Exception:
+            pass
     
     if parts:
         return "<cross-session-context>\n" + "\n".join(parts) + "\n</cross-session-context>"

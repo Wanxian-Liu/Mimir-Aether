@@ -10,7 +10,7 @@
 | **fts5_search** | `tools/fts5_search/` | SQLite **FTS5** 虚拟表 + rank | **未接入生产**：`rg` 无 gateway/tier0/registry import；仅模块内 `test_engine.py` | 默认 `data/fts5_search.db`（引擎内 `get_mimir_data_dir()`） |
 | **cross_session** | `agent/cross_session_memory.py` | JSON **全量 load/save**（identity/progress/decisions） | `core_loop` `_init_cross_session` / `_save_cross_session`；prompt 注入 | `$MIMIR_AETHER_HOME/data/persistent.json` |
 | **memory 包** | `memory/memory_manager.py` + `providers/*` | 进程内 **list/dict**（Session/Working/Persistent/Skill）；**无全文检索** | `agent/__init__` 导出；`core_loop` 用 `memory.fencing`；与 `agent/memory_manager.py` **并存** | 运行时内存；Persistent provider 不落独立检索 DB |
-| **prompt 直读** | `prompt_builder._build_cross_session_context` | JSON→XML | `build_system_prompt` | ⚠️ 常读 **`{repo}/data/persistent.json`**，可与 runtime home 分叉 |
+| **prompt 直读** | `prompt_builder._build_cross_session_context` | JSON→XML | `build_system_prompt` | **`$MIMIR_AETHER_HOME/data/persistent.json`** + **`$MIMIR_AETHER_HOME/NEXT_SESSION.md`**（P1-M05，与 CrossSessionMemory 对齐） |
 | **tool_quality** | `tool_quality.db` | SQL 聚合（非 transcript） | IQ 审计 | `$MIMIR_AETHER_HOME/data/tool_quality.db` |
 
 孤儿：`agent/memory_system.py`（0 import，见 [`dead-code-audit.md`](./dead-code-audit.md)）。

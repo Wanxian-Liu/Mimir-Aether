@@ -368,7 +368,7 @@ Mimir 冒烟回报
 | **P1-M02** | **合入 + M6** — commit 上述 tools/scripts/tests/docs；`record_m6_evolution.sh`；tier0 绿 | `./run_ralph_tier0.sh` PASS；`evolution_log.md` 一行 | [x] 2026-05-24 |
 | **P1-M03** | **Gateway 增量索引** — `append_to_transcript` 同步写 `sessions_search.db`（+ 可选 FTS） | 新会话消息无需手工 backfill 即可被 `session_search` 命中；单测或 smoke | [x] 2026-05-24 · `027eaaf` |
 | **P1-M04** | **FTS5 生产接线** — 修 hyphen token（`IR-20260520`）；`SESSION_SEARCH_BACKEND=fts5` 或 hybrid | 基准中 hyphen query 无 SQL 错；FTS hit rate ≥ LIKE 或文档说明取舍 | [x] 2026-05-24 |
-| **P1-M05** | **persistent 路径一致** — `prompt_builder` cross_session 与 runtime home 对齐（EV-A03 分叉项） | grep/烟测：不再默认读 `{repo}/data/persistent.json` 当真源 | [ ] |
+| **P1-M05** | **persistent 路径一致** — `prompt_builder` cross_session 与 runtime home 对齐（EV-A03 分叉项） | grep/烟测：不再默认读 `{repo}/data/persistent.json` 当真源 | [x] 2026-05-24 |
 | **P1-M06** | **长任务结案** — 更新 `MAINLINE_STATUS` + baseline §4；标记 `P1-LONG-MEM` [x] | 飞书/会话 3～5 行摘要 + 基准数字 | [ ] |
 
 **Cursor 新窗一句**
