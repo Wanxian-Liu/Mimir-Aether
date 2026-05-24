@@ -9,7 +9,7 @@
 | **更新人** | Cursor（Wave 0 卫生） |
 | **仓库根（真源）** | `~/src/MimirAether` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁 **245+2**）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
-| **本轮摘要** | **Wave 0** [~]：`MIMIR_ZERO_DEBT_MASTERPLAN` + §13；GH **10 open**（#2/#12/#13/#31 已关）；Gateway PID **90544**；**TRUNCATE P0**（全量 63 / 24日 33）。下一条 **W1 T-03/T-04** 或 **P2-LONG-STAB**。 |
+| **本轮摘要** | **§13.1 `P0-LONG-CLEARANCE`** 母任务入 backlog；Wave 0 **A [~85%]**；Done **~25%**（2/8）。下一条 **W0-06** 或 **STAB-04 TRUNCATE**；并行 **W1 飞书 smoke**（刘哥）。 |
 
 ---
 
@@ -63,7 +63,8 @@
 
 | 日期 | 摘要 |
 |------|------|
-| 2026-05-25 | **Wave 0 卫生** [~]：`MIMIR_ZERO_DEBT_MASTERPLAN` + backlog §13；GH #2/#12/#13/#31 closed、open→**10**；**TRUNCATE P0**（63/24日33）；Gateway PID **90544**。 |
+| 2026-05-25 | **§13.1 P0-LONG-CLEARANCE** | **Cursor** | 母任务 A→E + STAB/IND/IEVO 子项表；Done 对照；§9/§10 刷新 |
+| 2026-05-25 | **Wave 0 卫生** [~] | **Cursor** | masterplan + §13；GH 10 open；TRUNCATE P0；PID **90544** |
 | 2026-05-24 | **P1-LONG-MEM** [x] 结案：M01～M06 文档收口；基准 LIKE **60%** / FTS **50%** / hybrid 推荐；backlog §11 Active **0**；main `7f4b53d`。 |
 | 2026-05-24 | **P1-M05** [x]：`prompt_builder._build_cross_session_context` → runtime home；`agent/test_prompt_builder_cross_session_paths.py`；GH **#18**；tier0 **245+2**。 |
 | 2026-05-24 | **P1-M04** [x]：`prepare_fts5_match_query` 修 hyphen/dot；`session_search` 接 `SESSION_SEARCH_BACKEND`；`tests/tools/test_fts5_prepare_query.py`；tier0 **245+2**。 |

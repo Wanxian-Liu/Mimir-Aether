@@ -111,7 +111,7 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 
 ## 5. Mimir 进度笔记
 
-- **main**：tier0 **245+2** · **Wave 0** [~] · 执行源 **§13** · `MIMIR_ZERO_DEBT_MASTERPLAN.md`
-- **双轨**：工程 **P2-LONG-STAB**（TRUNCATE P0 后）；Mimir **W0-06 / W1 T-03/T-04**
-- **ISSUES**：GH open **10**；`MIMIR_ISSUES` #10 **active P0**（TRUNCATE）；飞书 **MW-H01/H02**
-- **Gateway**：PID **90544** · /health ok · 无新 230099（末条 2026-05-17）
+- **main**：tier0 **245+2** · 母任务 **§13.1 `P0-LONG-CLEARANCE`** · Done **~25%**
+- **双轨**：Cursor **A 尾 W0-06 → C STAB-04**；刘哥 **B W1 飞书 T-03/T-04**
+- **ISSUES**：GH open **10** · #10 **TRUNCATE P0** → STAB-04
+- **Gateway**：PID **90544** · /health ok

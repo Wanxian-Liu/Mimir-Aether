@@ -233,11 +233,11 @@ Read docs/MIMIR_ZERO_DEBT_MASTERPLAN.md + MIMIR_EXEC_BACKLOG.md §13。
 
 ## 10. 清空后 → 整体规划入口
 
-当 **§0 Done 八条全绿**：
+当 **§0 Done 八条全绿**（或 **§13.1 `CLEARANCE-DONE`** `[x]`）：
 
 1. 召开 **30min 规划**：只读 `MIMIR_UNIFIED_PLAN.md` §3 Phase 2→4 + 本文件 §7 Horizon。  
 2. **单选下一条长任务**：默认 **P2-LONG-SEM** 或 **Phase 3 智商**（刘哥二选一）。  
-3. **冻结** 新 parallel backlog；衍生项只进 **当前长任务子项**。
+3. **冻结** 新 parallel backlog；衍生项只进 **当前长任务子项**（**§13.1 `P0-LONG-CLEARANCE`**）。
 
 ---
 
