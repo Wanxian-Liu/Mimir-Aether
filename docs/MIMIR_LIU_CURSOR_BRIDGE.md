@@ -53,6 +53,13 @@ Cursor **自行执行**（无需每轮再问）：
 - **刘哥**：「按你建议我授权。」→ Cursor 执行 **W0-06 结案 A** + **STAB-03** 起 **C 轨**；`commit`/`push`/`tier0`/gateway 重启脚本范围内自行推进。
 - **并行**：刘哥 **W1** 飞书 T-03/T-04（Mimir 可提醒，不代测）。
 
+### 2026-05-25 — 过夜长任务（刘哥睡觉授权）
+
+- **范围**：**Wave D Night 1** — `IND-01`～`IND-03` only（见 `docs/superpowers/plans/2026-05-25-p2-long-indep-night1.md`）
+- **Superpowers 链**：`using-git-worktrees` → `executing-plans` 或 `subagent-driven-development` → `verification-before-completion` → `finishing-a-development-branch`
+- **禁止今夜碰**：`IND-05`（P3-0 单写者）、`P2-LONG-SEM`、gateway 硬重启（除非 tier0 失败且与本次 diff 相关）
+- **回报**：明早 bridge §4 一行 + PR 链接；tier0 证据贴 PR
+
 ### （新留言写在此下）
 
 _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
