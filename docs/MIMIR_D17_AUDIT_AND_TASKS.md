@@ -313,6 +313,8 @@ python3 cli.py chat --help 2>&1 | head -5
 
 ## 5. 给 Mimir 的总提示词（新窗一键）
 
+> **⚠️ 2026-05-24 起本段除历史参考外已过期。** 新窗请用 **[`docs/MIMIR_ISSUES_WRITE_PLAN.md`](./MIMIR_ISSUES_WRITE_PLAN.md) §6A**（Mimir 运维）或 **§6B**（Cursor 工程）。执行源：**backlog §12 MW-*** 或 **§11 P1-M04**。
+
 ```markdown
 # Mimir 训练窗 — d1–d7 任务包
 

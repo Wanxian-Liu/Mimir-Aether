@@ -342,14 +342,15 @@ Mimir 冒烟回报
 
 ---
 
-## 10. WIP 快照（2026-05-24 · Phase 1 排队后）
+## 10. WIP 快照（2026-05-24 · 双轨）
 
-- **Phase 1.5** ✅ E-001～E-012 + intent-action guard；tier0 **237+2**  
+- **Phase 1.5** ✅ E-001～E-012 + intent-action guard；tier0 **245+2**  
 - **Phase 0** ✅ 14/14  
-- **Phase 1 Active** → **§11 `P1-LONG-MEM`**（P1-M01/M02 已合入；下一条 **P1-M03** Gateway 增量索引）  
-- **TRUNCATE** 基线 **19**（仅 >19 时 reopen ISSUES #10）  
-- **下一窗**：**§11 `P1-LONG-MEM`** 下一条 **P1-M04**（FTS5 接线）；**P1-LONG-GOD** 已合 main  
-- **历史交接**：`docs/MIMIR_HANDOFF_20260520.md`
+- **工程 Active** → §11 **P1-M04**（FTS5）；P1-M01～M03 ✅；P1-LONG-GOD ✅  
+- **写入 Active** → §12 **MW-005** 起（`MIMIR_ISSUES_WRITE_PLAN.md`）  
+- **TRUNCATE** 基线 **19**  
+- **A1** [~] Gateway PID **691521**；飞书 T-03/T-04 待刘哥  
+- **A2** [x] GH **#2** closed；OPENCLAW_BOUNDARY §7  
 
 ---
 
@@ -380,9 +381,34 @@ Read docs/MIMIR_EXEC_BACKLOG.md §11，从 P1-LONG-MEM 第一条 [ ] 或 [~] 子
 
 | ID | 主题 | 来源 | 状态 |
 |----|------|------|------|
-| **P1-LONG-GOD** | GOD 拆分 + 测试轨续建 | Phase 0 EV-P04、§9 原「GOD 拆分」 | [ ] 未拆子项 |
+| **P1-LONG-GOD** | GOD 拆分 + 测试轨续建 | Phase 0 EV-P04、§9 原「GOD 拆分」 | [x] 2026-05-24 · #16→main；`router_mixin` ~38 行；见 `plans/P1-GOD-split-plan.md` |
 | **P1-LONG-OBS** | d6 余债 D6-1～3 ADR/测试 | §6 | [ ] Phase 2 候选 |
 | **P1-LONG-EVO** | d5 余债 D5-1/3、真进化 | §6、Unified Plan | [ ] Phase 2 候选 |
 | **P2-LONG-SEM** | Memory **语义化**（chromadb + 检索策略） | Unified Plan Phase 2 | [ ] 依赖 P1-LONG-MEM 结案 |
 
 **Semantic 检索**：明确 **不在** `P1-LONG-MEM` 内；结案后再排 `P2-LONG-SEM`，避免与 FTS/LIKE 并行膨胀。
+
+---
+
+## 12. Mimir ISSUES 写入轨道（MW-* · 运维长任务）
+
+> **真源**：[`docs/MIMIR_ISSUES_WRITE_PLAN.md`](./MIMIR_ISSUES_WRITE_PLAN.md)（缺口审计 + 安全边界 + **§6 新窗提示词**）。  
+> **分工**：**Mimir 窗**只取本节第一条 `[ ]`；**Cursor 窗**只取 §11 工程粒。刘哥不在时 **两轨并行、互不抢改**。
+
+| ID | 颗粒 | 成功标准 | 状态 |
+|----|------|----------|------|
+| **MW-001** | bridge §4 回填 2026-05-24（A1/A2/P1-M03/GOD） | ≥4 行签收 | [x] 2026-05-24 |
+| **MW-002** | §10 WIP + §11 P1-LONG-GOD **[x]** | 与 main 一致 | [x] 2026-05-24 |
+| **MW-003** | D17 §5 过期横幅 → 本计划 §6 | 新窗不误导 | [x] 2026-05-24 |
+| **MW-004** | GH **#19** comment + close | A1 证据 | [x] 2026-05-24 |
+| **MW-005** | ISSUES.md / #19 交叉引用 | 无矛盾 | [x] 2026-05-24 |
+| **MW-006** | bridge §5 进度笔记刷新 | ≤8 行 | [x] 2026-05-24 |
+| **MW-007** | GH #17–22 ↔ backlog 映射 | ISSUES_WRITE §7 | [x] 2026-05-24 |
+| **MW-D01～D03** | 日常健康/ERROR/230099 | 见 WRITE_PLAN §4B | [ ] 轮询 |
+| **MW-H01～H03** | 飞书复验 / push | **人工门** | [~] |
+
+**Mimir 新窗一句**
+
+```text
+Read docs/MIMIR_ISSUES_WRITE_PLAN.md §6A + MIMIR_EXEC_BACKLOG.md §12，只做第一条 [ ] 的 MW-*；更新 bridge §4；禁止 push/改 agent 代码。
+```

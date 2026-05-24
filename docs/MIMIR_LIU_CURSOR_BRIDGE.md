@@ -90,11 +90,17 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 | 2026-05-23 | E-008 | **WIN-E-008** | cli.py 薄 shim + task_runner + CLI 冒烟测；tier0 205+2 |
 | 2026-05-23 | E-009 | **WIN-E-009** | FIX 单通路 e2e + pipeline 接线 + RateLimit lock；tier0 210+2 |
 | 2026-05-23 | E-006 | **WIN-E-006** | TOOL_CALL SQL + monitor 阈值 + /health agent 指标；tier0 213+2 |
+| 2026-05-24 | WRITE_PLAN §12 | **MW-001** | A1 硬重启 PID 691521；/health ok；飞书 WS 已连；T-03/T-04 待刘哥 |
+| 2026-05-24 | A2 openclaw | **MW-001** | GH #2 closed；OPENCLAW_BOUNDARY §7；advisory 6/60；tier0 245+2 |
+| 2026-05-24 | §11 P1-M03 | **Cursor** | sessions_search 增量索引 `027eaaf`；tier0 245+2 |
+| 2026-05-24 | P1-LONG-GOD | **Cursor** | #16→main；router_mixin ~38 行；evolution 已记 |
+| 2026-05-24 | ISSUES_WRITE | **Cursor** | 新建 `MIMIR_ISSUES_WRITE_PLAN.md` + backlog §12 MW 队列 |
 
 ---
 
 ## 5. Mimir 进度笔记
 
-- **main**：**E-006** ✅ · Phase 1 工程线收口
-- **ISSUES**：#7 引擎在 main；接 agent loop 若未接仍标 in-progress
-- **Mimir 运维**：`scripts/mimir_health_check.sh --quick` + TRUNCATE≤19；读 `MIMIR_UNIFIED_PLAN.md`
+- **main**：tier0 **245+2** · P1-M01～M03 + P1-LONG-GOD 已合 · Phase 0 **14/14**
+- **双轨**：工程 **§11 P1-M04**；写入 **§12 MW-***（见 `MIMIR_ISSUES_WRITE_PLAN.md`）
+- **ISSUES**：GH #2/#19 closed (A2/A1)；飞书 T-03/T-04 **MW-H01/H02**
+- **Mimir 运维**：`scripts/mimir_health_check.sh --quick` + TRUNCATE≤19；D17 §5 已过期 → WRITE_PLAN §6A

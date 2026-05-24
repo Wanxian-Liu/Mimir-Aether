@@ -89,6 +89,35 @@
 
 ---
 
+## 7. 全量审计结案（2026-05-24 · GitHub #2）
+
+母 issue **#2** 与子项 **#10 / #12 / #13** 已按优先级闭合；运行时默认路径不再指向 `~/.openclaw`。
+
+| 区域 | Issue | 状态 | 证据 |
+|------|-------|------|------|
+| `tools/` 运行时 5 处 | #10 / #12 | **closed**（PR **#23**） | `code_execution_tool` → `get_mimir_home()`；`skills_guard` 动态 `mimir_paths`；`file_sync` 含 `/root/.mimiraether` remap |
+| `mimicore/` ~30 处 | #13 | **closed**（PR **#24** + memory-hall `cbde44b`） | `mimicore/mimir_paths.py` 对齐 `get_mimir_home()` |
+| `agent/` · `gateway/` · `tools/` advisory | — | **6 matches**（阈值 60） | [`scripts/warn_openclaw_literals.py`](../scripts/warn_openclaw_literals.py)；均为注释 / 迁移 remap / 历史说明 |
+| `mimir_cli/` 迁移 CLI | — | **有意保留** | [`mimir_cli/claw.py`](../mimir_cli/claw.py)、[`paths.py`](../mimir_cli/paths.py)；见 [`path-contract.md`](./path-contract.md) §5 |
+| `docs/` · `learnings/` · `optional-skills/migration/` | — | **豁免 / 边界文档** | 见 path-contract §历史路径与豁免目录 |
+| Tier-0 门禁 | — | **245+2 PASS** | `./run_ralph_tier0.sh`（2026-05-24） |
+
+**剩余 6 处字面量（运行树，非默认路径）：**
+
+| 文件 | 性质 |
+|------|------|
+| `agent/prompt_builder.py` | 历史注释 |
+| `gateway/hooks.py` | 注释（未启用 hooks） |
+| `gateway/session.py` | 注释 |
+| `tools/credential_files.py` | docstring 迁移示例 |
+| `tools/environments/file_sync.py` | legacy 容器 remap 元组 |
+
+**身份混淆**：根因是硬编码默认路径与 prompt 语境；**LLM 路由不经 OpenClaw**。修复后新环境无 `~/.openclaw` 仍可运行；OpenClaw 仅作迁移源与对照（§5）。
+
+**后续**：勿在 `agent/` / `gateway/` / `tools/` 新增无注释的 `.openclaw` 默认路径；advisory 超阈值时再开 chore issue。
+
+---
+
 ## 相关文档
 
 - [`MIMIR_HTML_MEMORY_CONTRACT.md`](./MIMIR_HTML_MEMORY_CONTRACT.md) — 记忆 HTML 真源与 `memory/` 布局  

@@ -147,6 +147,36 @@
 | reward | ✅ `step_rewards=[0.0, 1.3]` |
 | train | ✅ `PPOOptimizer` + `Trainer` 初始化成功 |
 
+### 2026-05-24 — A1 Gateway 硬重启 + 飞书回归 smoke（人工）
+
+**前置（已由 Cursor 执行）**
+
+| 项 | 结果 |
+|----|------|
+| 命令 | `MIMIR_REPO_ROOT=~/src/MimirAether MIMIR_AETHER_HOME=~/.mimiraether ./scripts/restart_gateway_hard.sh` |
+| 新 PID | **691521**（`python3 …/gateway/run.py`） |
+| `/health` | `{"status":"ok","gateway":"ok","agent":"ok"}` |
+| 飞书 WS | `Lark: connected to wss://msg-frontier.feishu.cn/ws/v2…` |
+
+**刘哥在飞书对 mimiraether 执行（勾选后回贴结果）**
+
+| # | 用例 | 操作 | 期望 | ☐ |
+|---|------|------|------|---|
+| T-03 | 空表头表（ISSUES #2 / backlog #9） | 让 bot 回复含空 `<th></th>` 的 HTML 表格 | 列名显示 `—`；**无**纯文本回退；日志无 `230099` | |
+| T-04 | 双按钮（ISSUES #3） | 让 bot 回复含两组按钮的 HTML（选 A / 选 B） | 飞书卡片 **两个按钮都可见** | |
+| T-01 | 图片下载（ISSUES #1，可选） | 发一张图片 | 无「图片下载失败」；识图仍受 OPENROUTER 限制可跳过 | |
+
+**验收后 log grep（本机）**
+
+```bash
+grep -E '230099|200907|Image downloaded|feishu.*card' \
+  ~/.mimiraether/logs/agent.log ~/.mimiraether/logs/gateway.log 2>/dev/null | tail -15
+```
+
+全部通过后：将 `docs/ISSUES.md` #3 标为 resolved；`GATEWAY_STABILITY_BACKLOG.md` #9 标为已验证；可关 GitHub **#19**（Gateway 重启）。
+
+---
+
 ### 2026-05-02 — 飞书（Lark）补测（A2 真实消息）
 
 | 项目 | 结果 |
@@ -171,6 +201,7 @@
 
 | 日期 | 说明 |
 |------|------|
+| 2026-05-24 | A1：硬重启 Gateway（PID 691521）；飞书 WS 已连；T-03/T-04 人工 smoke 清单见上节。 |
 | 2026-05-02 | 飞书应用 **mimiraether** 发送成功；A2 真实消息项已闭合；**勿**提交 token。 |
 | 2026-05-01 | 写入首轮真环境执行记录（A1/A3/A4 通过；A2 缺跨平台真实消息）。 |
 | 2026-05-01 | 增加「何时需要跑」「如何委托代理」与可复制指令。 |
