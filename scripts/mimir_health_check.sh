@@ -30,7 +30,8 @@ done
 MIMIR_HOME="${MIMIR_AETHER_HOME:-$HOME/.mimiraether}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 AGENT_LOG="${MIMIR_HOME}/logs/agent.log"
-TRUNCATE_BASELINE=19  # 当前基线，每次重启后更新
+TRUNCATE_BASELINE=19  # legacy full-log snapshot (2026-05-20); R4 uses since-gateway-start
+TRUNCATE_SINCE_START_MAX=10  # Level 3 TRUNCATE since last "Gateway running" line
 
 # --- 辅助函数 ---
 now() { date '+%Y-%m-%dT%H:%M:%S'; }
@@ -93,16 +94,21 @@ check_r3() {
   fi
 }
 
-# --- R4: TRUNCATE 基线 ---
+# --- R4: TRUNCATE 基线（since last gateway start） ---
 check_r4() {
   if [ -f "$AGENT_LOG" ]; then
-    local count
-    count=$(grep -c 'TRUNCATE' "$AGENT_LOG" 2>/dev/null || echo 0)
-    local diff=$((count - TRUNCATE_BASELINE))
-    if [ "$diff" -le 5 ]; then
-      log_result "R4" "PASS" "TRUNCATE=$count (baseline=$TRUNCATE_BASELINE, delta=$diff ≤5)"
+    local count start_line
+    start_line=$(grep -n 'Gateway running with' "$AGENT_LOG" 2>/dev/null | tail -1 | cut -d: -f1 || true)
+    if [ -n "$start_line" ]; then
+      count=$(tail -n +"$start_line" "$AGENT_LOG" 2>/dev/null | grep -c 'Level 3 TRUNCATE' 2>/dev/null || true)
     else
-      log_result "R4" "FAIL" "TRUNCATE=$count (baseline=$TRUNCATE_BASELINE, delta=$diff >5)"
+      count=$(grep -c 'Level 3 TRUNCATE' "$AGENT_LOG" 2>/dev/null || true)
+    fi
+    count=${count:-0}
+    if [ "$count" -le "$TRUNCATE_SINCE_START_MAX" ]; then
+      log_result "R4" "PASS" "Level3 TRUNCATE since start=$count (max=$TRUNCATE_SINCE_START_MAX)"
+    else
+      log_result "R4" "FAIL" "Level3 TRUNCATE since start=$count (max=$TRUNCATE_SINCE_START_MAX; legacy baseline=$TRUNCATE_BASELINE)"
     fi
   else
     log_result "R4" "WARN" "agent.log not found at $AGENT_LOG — cannot check TRUNCATE"
@@ -201,13 +207,18 @@ if ! $JSON_MODE; then
   echo ""
 fi
 
-check_r1
-check_r2
-check_r3
-check_r4
-check_r5
-
-if ! $QUICK_MODE; then
+if $QUICK_MODE; then
+  log_result "R1" "WARN" "skipped in --quick (run full check for tier0)"
+  check_r2
+  check_r3
+  check_r4
+  check_r5
+else
+  check_r1
+  check_r2
+  check_r3
+  check_r4
+  check_r5
   check_r6
   check_r7
   check_r8

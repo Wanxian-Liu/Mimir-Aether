@@ -60,4 +60,21 @@ def test_context_overflow_still_truncates() -> None:
         stub.handle_error_with_recovery(RuntimeError("context length exceeded"))
     )
     assert recovered is True
-    stub._truncate_history.assert_awaited()
+    stub._truncate_history.assert_awaited_once()
+
+
+def test_context_overflow_single_truncate_when_compress_runs() -> None:
+    """Level 2 COMPRESS must not be followed by Level 3 TRUNCATE (STAB-04)."""
+    stub = _RecoveryStub()
+    stub.decision_ring.decide.return_value = MagicMock(
+        classified_error=MagicMock(reason=FailoverReason.context_overflow),
+        suggested_actions=[
+            StrategyAction.COMPRESS_CONTEXT,
+            StrategyAction.TRUNCATE_CONTEXT,
+        ],
+    )
+    recovered = asyncio.run(
+        stub.handle_error_with_recovery(RuntimeError("context length exceeded"))
+    )
+    assert recovered is True
+    stub._truncate_history.assert_awaited_once()

@@ -46,6 +46,16 @@ class AgentRouteMixin:
             source.chat_id or "unknown", _msg_preview,
         )
 
+        if getattr(self, "_draining", False) or not getattr(self, "_running", True):
+            _drain_msg = "Gateway is restarting — please resend your message in a few seconds."
+            _drain_adapter = self.adapters.get(source.platform)
+            if _drain_adapter and source.chat_id:
+                try:
+                    await _drain_adapter.send(source.chat_id, _drain_msg)
+                except Exception:
+                    pass
+            return
+
         # Get or create session
         session_entry = self.session_store.get_or_create_session(source)
         session_key = session_entry.session_key
@@ -754,6 +764,10 @@ class AgentRouteMixin:
             logger.exception("Agent error in session %s", session_key)
             error_type = type(e).__name__
             error_detail = str(e)[:300] if str(e) else "no details available"
+            if error_type == "RuntimeError" and "Executor shutdown" in error_detail:
+                return (
+                    "Gateway is restarting — please resend your message in a few seconds."
+                )
             status_hint = ""
             status_code = getattr(e, "status_code", None)
             _hist_len = len(history) if 'history' in locals() else 0

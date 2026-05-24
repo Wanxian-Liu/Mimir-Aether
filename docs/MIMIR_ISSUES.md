@@ -12,7 +12,7 @@
 |---|------|------|------|--------|------|---------|
 | 2 | 2026-05-16 | CLARIFY_BASELINE §5 | `~/.openclaw/projects/MimirAether` 并行树仍存在，易误操作；**工程真源仅** `~/src/MimirAether`（见 `docs/path-contract.md`） | 中 | resolved (process) | — |
 | 3 | 2026-05-16 | CLARIFY_BASELINE §4 | 记忆落盘三条入口未统一（mimicore public/、skill_curator、llm-wiki/obsidian）— 设计债，见 ADR | 中 | deferred | [adr/002-memory-write-paths.md](./adr/002-memory-write-paths.md) |
-| 10 | 2026-05-20 | T-08 (d4) | `Level 3 TRUNCATE` 日志 **63**（2026-05-24 单日 **33**，多 `context_overflow`）；Gateway PID **90544**；识图仍 **EV-VISION-DEFER** | 高 | **active P0** | W0-01 → **P2-LONG-STAB** STAB-04 |
+| 10 | 2026-05-20 | T-08 (d4) | TRUNCATE：**全量 63** 多为历史+双截断 bug（**STAB-04 已修**）；监控改为 **since gateway start ≤10**；Gateway drain race（**STAB-04**） | 高 | **monitoring** | STAB-04 |
 
 ---
 

@@ -94,17 +94,14 @@ class RecoveryMixin:
             self._clean_orphan_tools()
             recovered = True
         
-        # Level 3: TRUNCATE — 仅上下文类错误；勿因 not recovered 单独截断（曾放大 NameError 事故）
-        _needs_truncate = (
+        # Level 3: TRUNCATE — only when Level 2 did not already recover (avoid double truncate).
+        _needs_truncate = not recovered and (
             StrategyAction.TRUNCATE_CONTEXT in _actions
             or StrategyAction.REDUCE_PAYLOAD in _actions
-            or (
-                not recovered
-                and _reason
-                in (
-                    FailoverReason.context_overflow,
-                    FailoverReason.payload_too_large,
-                )
+            or _reason
+            in (
+                FailoverReason.context_overflow,
+                FailoverReason.payload_too_large,
             )
         )
         if _needs_truncate:

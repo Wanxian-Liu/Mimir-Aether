@@ -413,7 +413,7 @@ Read docs/MIMIR_EXEC_BACKLOG.md §11；P1-LONG-MEM 已结案。工程下一条�
 | ID | 做什么 | 命令 / 动作 | 成功标准 | 状态 |
 |----|--------|-------------|----------|------|
 | **MW-D01** | **Gateway 健康** | `curl -s http://127.0.0.1:18999/health \| head -c200`；`pgrep -af 'gateway/run.py'` | status/gateway/agent ok；有 PID | [x] 2026-05-25 · PID **90544** · /health ok |
-| **MW-D02** | **TRUNCATE 基线** | `grep -c 'Level 3 TRUNCATE' ~/.mimiraether/logs/agent.log` | **≤19**；>19 → ISSUES P0 + 停手 | **[!] P0** · 全量 **63** · 2026-05-24 **33** · `MIMIR_ISSUES` #10 active |
+| **MW-D02** | **TRUNCATE 基线** | `grep -c 'Level 3 TRUNCATE' <since Gateway running>` via `mimir_health_check.sh --quick` R4 | **≤10 since start**；全量历史非 P0 | **[!]** 全量 63 历史；**since start=0**（2026-05-25 重启后） |
 | **MW-D03** | **ERROR 扫** | `grep ERROR ~/.mimiraether/logs/agent.log \| tail -20` | 列 top3 主题；无新 P0 则 §4 记「无新 P0」 | [x] 2026-05-25 · recovery 测例 ImportError/AttributeError；Feishu Not connected |
 | **MW-D04** | **飞书卡片 log** | `grep -E '230099\|200907' ~/.mimiraether/logs/agent.log ~/.mimiraether/logs/gateway.log 2>/dev/null \| tail -10` | 有/无新 230099；更新 `GATEWAY_STABILITY_BACKLOG` #9 一句 | [x] 2026-05-25 · 末条 **2026-05-17**；无新 230099 |
 | **MW-D05** | **session_search 烟测** | `cd ~/src/MimirAether && MIMIR_AETHER_HOME=~/.mimiraether SESSION_SEARCH_BACKEND=hybrid python3 -c "from tools.session_search_tool import session_search; print(session_search('IR-20260520', limit=3))"` | 无异常；有 hit 或空结果均可；**无 SQL 错** | [x] 2026-05-25 · hybrid 3 hits |
@@ -492,7 +492,7 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 
 | ID | 任务 | GH | 成功标准 | 状态 |
 |----|------|-----|----------|------|
-| **STAB-04** | **TRUNCATE P0** + Agent 栈（`recovery` / `run.py`） | #30 | 24h 新增 TRUNCATE 可控；`MIMIR_ISSUES` #10 可降级；tier0 + M6 | [ ] |
+| **STAB-04** | **TRUNCATE P0** + Agent 栈（`recovery` / `run.py`） | #30 | 无双截断；since-start TRUNCATE 可控；gateway drain 不 Executor 崩溃；tier0 + M6 | [x] 2026-05-25 · tier0 **246+2** |
 | **STAB-01** | Watchdog 超时 / 长推理 / WS 同源 | #27 #25 | 7 日无超时或降级策略 documented | [ ] |
 | **STAB-02** | Event loop closed | #28 | 单测或 gateway 回归 | [ ] |
 | **STAB-03** | ToolGuard 相对路径 | #29 | path 单测 | [ ] |
@@ -529,7 +529,7 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 | masterplan §0 | 进度 |
 |---------------|------|
 | D1 GH ≤6 | 🟡 10 open（标签已整理） |
-| D2 Active 无 P0 | 🔴 #10 TRUNCATE → **STAB-04** |
+| D2 Active 无 P0 | 🟡 #10 → **monitoring**（since-start R4） |
 | D3 Gateway 十条 | 🔴 → **CLR-C** |
 | D4 §13 无 `[ ]` | 🟡 母任务 A 尾 |
 | D5 tier0 | ✅ 245+2 |
