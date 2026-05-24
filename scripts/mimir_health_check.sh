@@ -85,13 +85,17 @@ check_r2() {
 # --- R3: Health 端点 ---
 check_r3() {
   local health_port="${MIMIR_PORT:-18999}"
-  local health
-  health=$(curl -s --max-time 5 "http://127.0.0.1:${health_port}/health" 2>/dev/null || true)
-  if echo "$health" | grep -q '"status"' 2>/dev/null; then
-    log_result "R3" "PASS" "$health"
-  else
-    log_result "R3" "FAIL" "health endpoint unreachable or no status field — got: ${health:-timeout/empty}"
-  fi
+  local health attempt
+  health=""
+  for attempt in 1 2 3; do
+    health=$(curl -s --max-time 5 "http://127.0.0.1:${health_port}/health" 2>/dev/null || true)
+    if echo "$health" | grep -q '"status"' 2>/dev/null; then
+      log_result "R3" "PASS" "$health"
+      return
+    fi
+    [ "$attempt" -lt 3 ] && sleep 2
+  done
+  log_result "R3" "FAIL" "health endpoint unreachable or no status field — got: ${health:-timeout/empty}"
 }
 
 # --- R4: TRUNCATE 基线（since last gateway start） ---

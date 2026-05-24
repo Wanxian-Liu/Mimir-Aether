@@ -51,6 +51,20 @@ sleep 2
 
 if kill -0 "$new_pid" 2>/dev/null; then
   echo "Gateway started PID=$new_pid"
+  health_port="${MIMIR_PORT:-18999}"
+  ready=0
+  for _ in $(seq 1 15); do
+    if curl -sf --max-time 2 "http://127.0.0.1:${health_port}/health" >/dev/null 2>&1; then
+      ready=1
+      break
+    fi
+    sleep 1
+  done
+  if [[ "$ready" -eq 1 ]]; then
+    echo "Health: ok (http://127.0.0.1:${health_port}/health)"
+  else
+    echo "WARN: /health not ready after 15s — gateway process alive; retry: curl http://127.0.0.1:${health_port}/health"
+  fi
   echo "Check: tail -5 \"$MIMIR_AETHER_HOME/logs/agent.log\""
   echo "       pgrep -af 'gateway/run.py'"
 else
