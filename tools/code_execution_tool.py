@@ -1126,11 +1126,11 @@ def execute_code(
         from mimir_constants import get_mimir_home
 
         _profile_home = get_mimir_home() / "home"
-        _legacy_profile = Path.home() / ".openclaw" / "mimir-aether"
+        _mimir_data_root = get_mimir_home()
         if _profile_home.exists():
             child_env["HOME"] = str(_profile_home)
-        elif _legacy_profile.exists():
-            child_env["HOME"] = str(_legacy_profile)
+        elif _mimir_data_root.is_dir():
+            child_env["HOME"] = str(_mimir_data_root)
 
         proc = subprocess.Popen(
             [sys.executable, "script.py"],
