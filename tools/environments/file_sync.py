@@ -27,7 +27,11 @@ def _remap_credential_container_path(container_path: str, container_base: str) -
     if container_path == default_base or container_path.startswith(default_base + "/"):
         return cb + container_path[len(default_base) :]
     # Historical/legacy container layout only — not deploy truth; see docs/path-contract.md §历史路径与豁免目录.
-    for legacy in ("/root/.hermes", "/root/.openclaw/projects/MimirAether"):
+    for legacy in (
+        "/root/.hermes",
+        "/root/.mimiraether",
+        "/root/.openclaw/projects/MimirAether",
+    ):
         if container_path.startswith(legacy):
             return cb + container_path[len(legacy) :]
     return container_path

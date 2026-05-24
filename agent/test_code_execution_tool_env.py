@@ -19,44 +19,39 @@ def _run_execute_code(code: str) -> dict:
     return json.loads(out)
 
 
-def test_execute_code_home_overrides_when_profile_dir_exists(tmp_path):
+def test_execute_code_home_overrides_when_profile_dir_exists(tmp_path, monkeypatch):
     import tools.code_execution_tool as cet
 
-    # Ensure we don't touch the user's real HOME.
-    # The tool uses Path.home() to build the profile-home override dir.
-    # We monkeypatch that to a temporary directory.
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setattr(cet.Path, "home", staticmethod(lambda: tmp_path))
+    monkeypatch.setenv("MIMIR_AETHER_HOME", str(tmp_path))
 
-        profile_home = tmp_path / ".openclaw" / "mimir-aether"
+    profile_home = tmp_path / "home"
 
-        # Case 1: directory exists => HOME should be overridden to profile_home.
-        profile_home.mkdir(parents=True, exist_ok=True)
-        code = "import os; print(os.environ.get('HOME','').strip())"
-        res1 = _run_execute_code(code)
-        assert res1.get("status") in ("success", "error")
-        output1 = (res1.get("output") or "").strip()
-        assert output1 == str(profile_home)
+    # Case 1: directory exists => HOME should be overridden to profile_home.
+    profile_home.mkdir(parents=True, exist_ok=True)
+    code = "import os; print(os.environ.get('HOME','').strip())"
+    res1 = _run_execute_code(code)
+    assert res1.get("status") in ("success", "error")
+    output1 = (res1.get("output") or "").strip()
+    assert output1 == str(profile_home)
 
-        # Case 2: directory missing => HOME should NOT be overridden.
-        # Remove the directory so the override is not applied.
-        for p in sorted(profile_home.rglob("*"), reverse=True):
-            if p.is_file():
-                p.unlink()
-        for p in sorted(profile_home.rglob("*"), reverse=True):
-            if p.is_dir():
-                try:
-                    p.rmdir()
-                except OSError:
-                    pass
-        try:
-            profile_home.rmdir()
-        except OSError:
-            pass
+    # Case 2: directory missing => HOME should NOT be overridden.
+    for p in sorted(profile_home.rglob("*"), reverse=True):
+        if p.is_file():
+            p.unlink()
+    for p in sorted(profile_home.rglob("*"), reverse=True):
+        if p.is_dir():
+            try:
+                p.rmdir()
+            except OSError:
+                pass
+    try:
+        profile_home.rmdir()
+    except OSError:
+        pass
 
-        res2 = _run_execute_code(code)
-        output2 = (res2.get("output") or "").strip()
-        assert output2 != str(profile_home)
+    res2 = _run_execute_code(code)
+    output2 = (res2.get("output") or "").strip()
+    assert output2 != str(profile_home)
 
 
 def test_execute_code_child_env_strips_secret_like_vars(monkeypatch, tmp_path):

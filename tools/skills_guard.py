@@ -116,9 +116,6 @@ THREAT_PATTERNS = [
     (r'\$HOME/\.docker|\~/\.docker',
      "docker_dir_access", "high", "exfiltration",
      "references Docker config (may contain registry creds)"),
-    (r'\$HOME/\.openclaw/mimir-aether/\.env|\~/\.openclaw/mimir-aether/\.env',
-     "mimiraether_env_access", "critical", "exfiltration",
-     "directly references MimirAether secrets file (legacy OpenClaw layout)"),
     (r'\$HOME/\.mimiraether/\.env|\~/\.mimiraether/\.env',
      "mimiraether_default_env_access", "critical", "exfiltration",
      "directly references default MimirAether data root secrets file"),
@@ -430,9 +427,9 @@ THREAT_PATTERNS = [
     (r'AGENTS\.md|CLAUDE\.md|\.cursorrules|\.clinerules',
      "agent_config_mod", "critical", "persistence",
      "references agent config files (could persist malicious instructions across sessions)"),
-    (r'\.openclaw/mimir-aether/config\.yaml|\.openclaw/mimir-aether/SOUL\.md',
+    (r'\.mimiraether/config\.yaml|\.mimiraether/SOUL\.md',
      "mimiraether_config_mod", "critical", "persistence",
-     "references MimirAether configuration files directly"),
+     "references default MimirAether configuration files"),
     (r'\.claude/settings|\.codex/config',
      "other_agent_config", "high", "persistence",
      "references other agent configuration files"),
@@ -488,6 +485,56 @@ THREAT_PATTERNS = [
      "send_to_url", "high", "exfiltration",
      "instructs agent to send data to a URL"),
 ]
+
+
+def _runtime_mimir_home_threat_patterns() -> List[Tuple[str, str, str, str, str]]:
+    """Threat patterns for the resolved Mimir data root (non-default ``MIMIR_AETHER_HOME``)."""
+    from mimir_constants import get_mimir_home
+
+    home = get_mimir_home()
+    home_re = re.escape(str(home))
+    patterns: List[Tuple[str, str, str, str, str]] = [
+        (
+            rf"{home_re}/\.env",
+            "mimiraether_resolved_env",
+            "critical",
+            "exfiltration",
+            "directly references resolved MimirAether secrets file",
+        ),
+        (
+            rf"{home_re}/config\.yaml",
+            "mimiraether_resolved_config",
+            "critical",
+            "persistence",
+            "references resolved MimirAether configuration file",
+        ),
+        (
+            rf"{home_re}/SOUL\.md",
+            "mimiraether_resolved_soul",
+            "critical",
+            "persistence",
+            "references resolved MimirAether SOUL.md",
+        ),
+    ]
+    try:
+        rel = home.relative_to(Path.home())
+    except ValueError:
+        return patterns
+    rel_re = "/".join(re.escape(part) for part in rel.parts)
+    if rel_re:
+        patterns.append(
+            (
+                rf"\$HOME/{rel_re}/\.env|\~/{rel_re}/\.env",
+                "mimiraether_resolved_home_env",
+                "critical",
+                "exfiltration",
+                "references resolved MimirAether home via $HOME/~ alias",
+            )
+        )
+    return patterns
+
+
+THREAT_PATTERNS.extend(_runtime_mimir_home_threat_patterns())
 
 # Structural limits for skill directories
 MAX_FILE_COUNT = 50       # skills shouldn't have 50+ files
