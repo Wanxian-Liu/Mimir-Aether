@@ -4,7 +4,7 @@ MimirAether Session Search Tool - 会话历史搜索
 学习自Hermes session_search_tool.py设计。
 
 核心功能：
-- 全文搜索（SQLite LIKE；FTS5 见 tools/fts5_search/）
+- 全文搜索：默认 SQLite LIKE；`SESSION_SEARCH_BACKEND=fts5|hybrid` 使用 `fts5_search.db`
 - 会话分组和截断
 - 摘要生成
 """
@@ -411,6 +411,85 @@ class SessionSearchDB:
 
 
 # ============================================================================
+# Backend selection (P1-M04)
+# ============================================================================
+
+def get_session_search_backend() -> str:
+    """``like`` (default), ``fts5``, or ``hybrid`` (FTS5 then LIKE if empty)."""
+    raw = os.environ.get("SESSION_SEARCH_BACKEND", "like").strip().lower()
+    if raw in ("fts5", "hybrid"):
+        return raw
+    return "like"
+
+
+def _default_fts5_db_path() -> str:
+    from mimir_constants import get_mimir_data_dir
+
+    return os.environ.get(
+        "OPENCLAW_FTS5_DB",
+        str(get_mimir_data_dir() / "fts5_search.db"),
+    )
+
+
+def _session_search_via_fts5(
+    query: str,
+    *,
+    fts_db_path: str,
+    limit: int,
+    session_limit: int,
+) -> List[Dict[str, Any]]:
+    from tools.fts5_search.engine import FTS5SearchEngine, SearchOptions
+
+    if not Path(fts_db_path).exists():
+        return []
+
+    engine = FTS5SearchEngine(fts_db_path)
+    try:
+        resp = engine.search(
+            SearchOptions(
+                query=query,
+                limit=session_limit,
+                use_cache=False,
+                highlight=False,
+            )
+        )
+    finally:
+        engine.close()
+
+    processed: List[Dict[str, Any]] = []
+    for sr in resp.results[:session_limit]:
+        messages: List[Dict[str, Any]] = []
+        for seg in sr.matches[:limit]:
+            if not seg.content:
+                continue
+            messages.append(
+                {
+                    "role": seg.role or "unknown",
+                    "content": (seg.content or "")[:500],
+                    "tool_name": None,
+                    "timestamp": seg.created_at,
+                }
+            )
+        if not messages:
+            continue
+
+        conversation = _format_conversation(messages)
+        truncated = _truncate_around_matches(conversation, query)
+        summary = simple_summarize(truncated, query)
+        processed.append(
+            {
+                "session_id": sr.session_id,
+                "source": sr.source or "unknown",
+                "started_at": _format_timestamp(sr.created_at),
+                "title": sr.session_title or "Untitled",
+                "summary": summary,
+                "message_count": len(messages),
+            }
+        )
+    return processed
+
+
+# ============================================================================
 # 主搜索函数
 # ============================================================================
 
@@ -434,6 +513,19 @@ def session_search(
     Returns:
         搜索结果列表
     """
+    backend = get_session_search_backend()
+    fts_path = _default_fts5_db_path()
+
+    if backend in ("fts5", "hybrid") and Path(fts_path).exists():
+        fts_results = _session_search_via_fts5(
+            query,
+            fts_db_path=fts_path,
+            limit=limit,
+            session_limit=session_limit,
+        )
+        if fts_results or backend == "fts5":
+            return fts_results
+
     db = SessionSearchDB(db_path)
     results = db.search(query, limit=limit, session_limit=session_limit)
 
@@ -488,6 +580,7 @@ SESSION_SEARCH_SCHEMA = {
     "name": "session_search",
     "description": (
         "Search stored session messages by keyword (local SQLite index). "
+        "Set SESSION_SEARCH_BACKEND=fts5 or hybrid for FTS5 on fts5_search.db. "
         "Use when the user refers to past work across sessions."
     ),
     "parameters": {

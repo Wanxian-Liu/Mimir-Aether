@@ -4,150 +4,150 @@
   "fts_db": "/home/rayliu/.mimiraether/data/fts5_search.db",
   "like_hit_rate": 0.6,
   "fts_hit_rate": 0.5,
-  "like_p50_ms": 3.31,
-  "like_p99_ms": 6.16,
-  "fts_p50_ms": 0.45,
-  "fts_p99_ms": 4.28,
+  "like_p50_ms": 4.89,
+  "like_p99_ms": 11.47,
+  "fts_p50_ms": 1.08,
+  "fts_p99_ms": 4.66,
   "rows": [
     {
       "query": "persistent.json 截断",
       "like_hits": 15,
-      "like_ms": 4.821613023523241,
+      "like_ms": 11.746858999686083,
       "fts_hits": 2,
-      "fts_ms": 0.7396219880320132
+      "fts_ms": 2.497807000509056
     },
     {
       "query": "tool call 格式 DeepSeek",
       "like_hits": 6,
-      "like_ms": 4.018452018499374,
+      "like_ms": 6.470227000136219,
       "fts_hits": 5,
-      "fts_ms": 0.7732650265097618
+      "fts_ms": 2.0064840000486583
     },
     {
       "query": "run_ralph_tier0",
       "like_hits": 15,
-      "like_ms": 3.147263021674007,
+      "like_ms": 4.915405999781797,
       "fts_hits": 19,
-      "fts_ms": 1.6227939631789923
+      "fts_ms": 3.587496000363899
     },
     {
       "query": "MIMIR_AETHER_HOME",
       "like_hits": 11,
-      "like_ms": 2.8629180160351098,
+      "like_ms": 4.322281999520783,
       "fts_hits": 13,
-      "fts_ms": 3.32767196232453
+      "fts_ms": 2.788092999253422
     },
     {
       "query": "237+2",
       "like_hits": 0,
-      "like_ms": 2.124438004102558,
+      "like_ms": 3.119398999842815,
       "fts_hits": 0,
-      "fts_ms": 0.23427099222317338
+      "fts_ms": 0.2306870001120842
     },
     {
       "query": "架构方案 琬弦",
       "like_hits": 12,
-      "like_ms": 6.716308009345084,
+      "like_ms": 11.004527999830316,
       "fts_hits": 0,
-      "fts_ms": 0.20244100596755743
+      "fts_ms": 1.0440180003570276
     },
     {
       "query": "Gateway 崩溃怎么恢复",
       "like_hits": 0,
-      "like_ms": 3.3092170488089323,
+      "like_ms": 4.783655999744951,
       "fts_hits": 0,
-      "fts_ms": 0.21985400235280395
+      "fts_ms": 0.6562190001204726
     },
     {
       "query": "跨会话记忆 上次在做什么",
       "like_hits": 0,
-      "like_ms": 4.602522007189691,
+      "like_ms": 7.579081999210757,
       "fts_hits": 0,
-      "fts_ms": 0.27410598704591393
+      "fts_ms": 1.2664389996643877
     },
     {
       "query": "压缩 上下文 重叠",
       "like_hits": 2,
-      "like_ms": 4.864874994382262,
+      "like_ms": 7.977031999871542,
       "fts_hits": 0,
-      "fts_ms": 0.26431697187945247
+      "fts_ms": 1.773322999724769
     },
     {
       "query": "智商评分 rubric",
       "like_hits": 6,
-      "like_ms": 6.162034987937659,
+      "like_ms": 11.466103000202565,
       "fts_hits": 4,
-      "fts_ms": 0.6166300154291093
+      "fts_ms": 1.6421030004494241
     },
     {
       "query": "memory leak session",
       "like_hits": 0,
-      "like_ms": 2.416778006590903,
+      "like_ms": 3.8920799997868016,
       "fts_hits": 0,
-      "fts_ms": 0.20799203775823116
+      "fts_ms": 0.43732699941756437
     },
     {
       "query": "FTS5 semantic search",
       "like_hits": 0,
-      "like_ms": 1.6371809761039913,
+      "like_ms": 3.5014249997402658,
       "fts_hits": 0,
-      "fts_ms": 0.14567398466169834
+      "fts_ms": 0.226128000576864
     },
     {
       "query": "CrossSessionMemory save",
       "like_hits": 4,
-      "like_ms": 2.119448035955429,
+      "like_ms": 4.2176749993814155,
       "fts_hits": 2,
-      "fts_ms": 0.47029502457007766
+      "fts_ms": 1.0524649997023516
     },
     {
       "query": "2026-05-20 IR",
       "like_hits": 12,
-      "like_ms": 2.6676200213842094,
+      "like_ms": 4.555464000077336,
       "fts_hits": 5,
-      "fts_ms": 0.7879729964770377
+      "fts_ms": 1.083425999240717
     },
     {
       "query": "last_session_end",
       "like_hits": 4,
-      "like_ms": 2.4182209745049477,
+      "like_ms": 4.475795000871585,
       "fts_hits": 3,
-      "fts_ms": 0.424769998062402
+      "fts_ms": 0.5993380000290927
     },
     {
       "query": "session_id feishu",
       "like_hits": 0,
-      "like_ms": 2.238010987639427,
+      "like_ms": 3.8506180007971125,
       "fts_hits": 0,
-      "fts_ms": 0.2854570047929883
+      "fts_ms": 0.2699450005820836
     },
     {
       "query": "IR-20260520",
       "like_hits": 15,
-      "like_ms": 3.3147570211440325,
+      "like_ms": 5.114269999467069,
       "fts_hits": 5,
-      "fts_ms": 5.744621041230857
+      "fts_ms": 4.655001000173797
     },
     {
       "query": "E-008 cli shim",
       "like_hits": 0,
-      "like_ms": 3.5121790133416653,
+      "like_ms": 4.8679230003472185,
       "fts_hits": 0,
-      "fts_ms": 0.2727840328589082
+      "fts_ms": 0.3730389998963801
     },
     {
       "query": "JEPA",
       "like_hits": 15,
-      "like_ms": 4.124761966522783,
+      "like_ms": 5.924987000071269,
       "fts_hits": 8,
-      "fts_ms": 4.283050016965717
+      "fts_ms": 8.297526999740512
     },
     {
       "query": "EV-A03 memory benchmark",
       "like_hits": 0,
-      "like_ms": 3.3418890088796616,
+      "like_ms": 8.257717999185843,
       "fts_hits": 0,
-      "fts_ms": 2.5427850196138024
+      "fts_ms": 1.0781959999803803
     }
   ]
 }

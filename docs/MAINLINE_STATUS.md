@@ -6,10 +6,10 @@
 | 字段 | 值 |
 |------|-----|
 | **最近更新** | 2026-05-24 |
-| **更新人** | Cursor（P1-M03 Gateway 增量索引） |
+| **更新人** | Cursor（P1-M04 FTS5 生产接线） |
 | **仓库根（真源）** | `~/src/MimirAether` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁 **245+2**）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
-| **本轮摘要** | **A2** [x]：`.openclaw` 审计结案（#2 关；#10/#12/#23、#13/#24）；运行树 **6** 字面量（advisory ok）。**A1** [~] 飞书 T-03/T-04 待刘哥。下一条 **B1 P1-M04** 或 A1 smoke 收尾。 |
+| **本轮摘要** | **P1-M04** [x]：FTS5 hyphen 引号 + `SESSION_SEARCH_BACKEND=fts5|hybrid`；基准 FTS **50%** vs LIKE **60%**（见 phase0 基准 §4）；tier0 **245+2**。下一条 **P1-M05** 或 A1 smoke。 |
 
 ---
 
@@ -63,6 +63,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-24 | **P1-M04** [x]：`prepare_fts5_match_query` 修 hyphen/dot；`session_search` 接 `SESSION_SEARCH_BACKEND`；`tests/tools/test_fts5_prepare_query.py`；tier0 **245+2**。 |
 | 2026-05-24 | **A2** [x]：`.openclaw` 母 issue **#2** 结案；`MIMIR_OPENCLAW_BOUNDARY.md` §7；tier0 **245+2** + advisory **6/60**。 |
 | 2026-05-24 | **A1** [~]：`restart_gateway_hard.sh` → PID **691521**；`/health` + 飞书 WS ok；T-03/T-04 人工 smoke 待刘哥（`mimir_prod_smoke.md`）。 |
 | 2026-05-24 | **P1-M03** [x]：Gateway 增量写入 `sessions_search.db`；`tests/gateway/test_session_search_incremental.py`；tier0 **245+2**（`027eaaf`）。下一条 **P1-M04**。 |

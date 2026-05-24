@@ -51,4 +51,6 @@
 
 ## 4. 结论
 
-生产：**LIKE `session_search` + JSON cross_session**；fts5 **未接线**。F1/latency **阻塞**（search DB 空，需 indexer 回填）。Phase 1：接线 fts5/semantic、`memory_benchmark`、统一 persistent 路径。
+生产（P1-M04 后）：默认 **LIKE**；设 **`SESSION_SEARCH_BACKEND=fts5`** 或 **`hybrid`** 时 `session_search` 走 **`fts5_search.db`**（`hybrid` 在 FTS 零命中时回退 LIKE）。Hyphen/dot token（如 `IR-20260520`、`E-008`）在 FTS MATCH 中已加引号，基准 hyphen 行 **无 SQL 错**。
+
+**2026-05-24 基准**（`memory-retrieval-benchmark-20260524.json`，回填后）：LIKE **60%** 会话命中 / FTS **50%** — FTS 未达 ≥LIKE，主因 CJK 多词与部分英文短语在 FTS5 tokenizer 上弱于 LIKE 子串；**保留 hybrid 为推荐生产值**。仍待：semantic、`memory_benchmark`、P1-M05 persistent 路径统一。

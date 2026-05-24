@@ -46,6 +46,46 @@ BATCH_SIZE = 100
 DEFAULT_LIMIT = 10
 MAX_LIMIT = 100
 
+# FTS5 MATCH treats hyphen as NOT; dot/plus as syntax — quote these tokens.
+_FTS_BOOL_WORDS = frozenset({"AND", "OR", "NOT", "NEAR"})
+
+
+def fts_token_needs_quoting(term: str) -> bool:
+    """True when an unquoted FTS5 token would be parsed as operators/syntax."""
+    if not term or term.upper() in _FTS_BOOL_WORDS:
+        return False
+    return any(ch in term for ch in "-.+:/")
+
+
+def prepare_fts5_match_query(query: str) -> str:
+    """Build a safe FTS5 MATCH string for agent session_search queries."""
+    query = query.strip()
+    if not query:
+        return query
+
+    padded = f" {query.upper()} "
+    has_bool = any(f" {op} " in padded for op in _FTS_BOOL_WORDS)
+
+    def quote_term(term: str) -> str:
+        return f'"{term.replace(chr(34), chr(34) * 2)}"'
+
+    if has_bool:
+        return query.replace('"', '""')
+
+    terms = query.split()
+    if len(terms) > 1:
+        parts = []
+        for t in terms:
+            if not t:
+                continue
+            parts.append(quote_term(t) if fts_token_needs_quoting(t) else t.replace('"', '""'))
+        return " AND ".join(parts)
+
+    if fts_token_needs_quoting(query):
+        return quote_term(query)
+    return query.replace('"', '""')
+
+
 # ============================================================================
 # 数据类定义
 # ============================================================================
@@ -477,20 +517,9 @@ class FTS5SearchEngine:
         )
     
     def _prepare_query(self, query: str) -> str:
-        """准备FTS5查询"""
-        # 转义特殊字符
-        query = query.replace('"', '""')
-        
-        # 处理布尔操作符
-        query = query.strip()
-        
-        # 如果包含空格且没有操作符，转换为AND查询
-        if ' ' in query and not any(op in query.upper() for op in ['AND', 'OR', 'NOT']):
-            terms = query.split()
-            query = ' AND '.join(f'"{t}"' for t in terms if t)
-        
-        return query
-    
+        """准备FTS5查询（quote hyphen/dot tokens so IR-20260520 does not become NOT)."""
+        return prepare_fts5_match_query(query)
+
     def _execute_fts_search(
         self,
         query: str,
