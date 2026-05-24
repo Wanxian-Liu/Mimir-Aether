@@ -27,6 +27,10 @@ from typing import Any, Callable, Dict, List, Optional, Awaitable
 from .tool_quality import ToolQualityManager
 from .post_analysis import EvolutionSuggestion, ExecutionAnalysis
 from .skill_path_guard import resolve_skill_dir, resolve_skill_write_dir
+from .evolution_rollback import (
+    create_skill_dir_guarded,
+    write_skill_md_guarded,
+)
 
 
 # ── Types ───────────────────────────────────────────────────────────────────
@@ -374,14 +378,18 @@ class SkillEvolutionPipeline:
             ))
             diff_text = "".join(diff_lines) if diff_lines else "(no changes)"
 
-            try:
-                skill_md.write_text(new_content, encoding="utf-8")
-            except OSError as e:
+            rollback_error = write_skill_md_guarded(
+                ctx.skill_dir,
+                skill_md,
+                new_content,
+                prior_content=old_content,
+            )
+            if rollback_error:
                 return EvolutionResult(
                     success=False,
                     action=ctx.action,
                     target=ctx.suggestion.target,
-                    error=f"Write failed: {e}",
+                    error=rollback_error,
                     diff=diff_text,
                     duration_ms=(time.monotonic() - start) * 1000,
                 )
@@ -447,15 +455,17 @@ class SkillEvolutionPipeline:
             ))
             diff_text = "".join(diff_lines) if diff_lines else "(no changes)"
 
-            try:
-                new_dir.mkdir(parents=True, exist_ok=True)
-                (new_dir / "SKILL.md").write_text(new_content, encoding="utf-8")
-            except OSError as e:
+            rollback_error = create_skill_dir_guarded(
+                new_dir,
+                new_dir / "SKILL.md",
+                new_content,
+            )
+            if rollback_error:
                 return EvolutionResult(
                     success=False,
                     action=ctx.action,
                     target=ctx.suggestion.target,
-                    error=f"Derived skill creation failed: {e}",
+                    error=rollback_error,
                     diff=diff_text,
                     duration_ms=(time.monotonic() - start) * 1000,
                 )
@@ -538,15 +548,17 @@ class SkillEvolutionPipeline:
             ))
             diff_text = "".join(diff_lines) if diff_lines else "(no changes)"
 
-            try:
-                new_dir.mkdir(parents=True, exist_ok=True)
-                (new_dir / "SKILL.md").write_text(new_content, encoding="utf-8")
-            except OSError as e:
+            rollback_error = create_skill_dir_guarded(
+                new_dir,
+                new_dir / "SKILL.md",
+                new_content,
+            )
+            if rollback_error:
                 return EvolutionResult(
                     success=False,
                     action=ctx.action,
                     target=ctx.suggestion.target,
-                    error=f"Captured skill creation failed: {e}",
+                    error=rollback_error,
                     diff=diff_text,
                     duration_ms=(time.monotonic() - start) * 1000,
                 )

@@ -497,7 +497,7 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 | **STAB-01** | Watchdog 超时 / 长推理 / WS 同源 | #27 #25 | 7 日无超时或降级策略 documented | [x] 2026-05-25 · WS 非阻塞 + activity 心跳 |
 | **STAB-02** | Event loop closed | #28 | 单测或 gateway 回归 | [x] 2026-05-25 · run_async + shutdown cleanup |
 | **STAB-03** | ToolGuard 相对路径 | #29 | path 单测；tier0 | [x] 2026-05-25 · resolve_path_for_guard + 7 tests |
-| **STAB-05** | 自修回滚护栏 | #26 | 回滚路径 + 测试 | [ ] |
+| **STAB-05** | 自修回滚护栏 | #26 | 回滚路径 + 测试 | [x] 2026-05-25 · evolution_rollback + 5 tests |
 | **STAB-06** | WebSocket 推理阻塞心跳 | #25 | 与 STAB-01 同 PR 或子 PR | [x] 2026-05-25 · 同 STAB-01 |
 | **STAB-07** | **STAB 结案** | #25–30 | Gateway 十条无「移交工程」 | [ ] |
 
