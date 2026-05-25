@@ -89,3 +89,4 @@ Append-only. Newest rows at the **bottom**. See **`docs/M6_EVOLUTION.md`** for r
 | 20260525T150000Z_ind05 | 2026-05-25T15:00:00Z | ind05 | ./run_ralph_tier0.sh | 0 | IND-05: persistent_store threading lock; skill_curator+cross_session single writer; ADR-001 accepted; GH #20 closed; metrics: 278+2 pass |
 | 20260525T013641Z_4ea534f-dirty | 2026-05-25T01:36:41Z | 4ea534f-dirty | ./run_ralph_tier0.sh | 0 | IND Night1: ADR-003 env aliases; IND-02 contract gate bare HERMES_HOME; IND-03 MIMIR_SESSION_DB resolver; tier0 267+2 pass |
 | 20260525T160000Z_ind06 | 2026-05-25T16:00:00Z | ind06-docs | docs-only | 0 | IND-06: OPENCLAW_BOUNDARY §8 independence declaration + sign-off table; MAINLINE Wave D/D7; backlog §13.1 D [x]; 刘哥 §8.3 pending; metrics: n/a |
+| 20260525T024850Z_0142b0c-dirty | 2026-05-25T02:48:50Z | 0142b0c-dirty | ./run_ralph_tier0.sh | 0 | IEVO-01: evolution_audit guard + record_m6 blocks pseudo-evolution markers; contract test; M6 doc; tier0 284+2 |

@@ -44,6 +44,17 @@ if [[ -z "${SUMMARY}" ]]; then
   exit 2
 fi
 
+# IEVO-01 / D5-1: block pseudo-evolution markers before tier0
+if ! python3 -c "
+import sys
+sys.path.insert(0, '${ROOT}')
+from agent.evolution_audit import assert_evolution_summary_allowed
+assert_evolution_summary_allowed(sys.argv[1])
+" "${SUMMARY}"; then
+  echo "record_m6_evolution: rejected summary (simulated:true forbidden — see docs/M6_EVOLUTION.md)" >&2
+  exit 2
+fi
+
 TMP_OUT="$(mktemp)"
 set +e
 ./run_ralph_tier0.sh >"${TMP_OUT}" 2>&1

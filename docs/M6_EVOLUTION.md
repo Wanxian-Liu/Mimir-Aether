@@ -50,3 +50,9 @@
 ## 指标（可选）
 
 有量化指标时在同一 PR 或本行 `summary` 用分号附上，例如：`tool_ok_rate 0.94→0.96`。无指标时写 `metrics: n/a` 即可 —— **禁止**无记录合并（见 `docs/DEVELOPMENT_NORTH_STAR.md` §2.2 伪进化信号）。
+
+## 禁 `simulated:true`（IEVO-01 / D5-1）
+
+- **禁止**在 `evolution_log.md` 摘要或 `agent/` / `gateway/` / `tools/` 生产代码中写入 `simulated:true`（及等价 JSON/YAML 形式）作为「未跑 tier0 的伪进化」标记。
+- **正确**：`./scripts/record_m6_evolution.sh "…"` — 脚本会跑完整 `./run_ralph_tier0.sh` 并记录**真实** `exit_code`（失败也如实记非 0）。
+- **门禁**：`tests/contract/test_no_simulated_evolution_ievo01.py`；`record_m6_evolution.sh` 在跑 tier0 前拒绝含 `simulated:true` 的摘要。

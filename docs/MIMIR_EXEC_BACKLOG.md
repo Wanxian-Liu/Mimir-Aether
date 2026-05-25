@@ -263,7 +263,7 @@ Mimir 冒烟回报
 |----|------|------|
 | D5-0 | Recorder 按 session 隔离 | [x] E-007 |
 | D5-0b | skill 路径白名单 | [x] E-007 |
-| D5-1 | `simulated: true` | [ ] |
+| D5-1 | `simulated: true` | [x] 2026-05-25 · IEVO-01 |
 | D5-2 | 单通路 FIX 写 SKILL | [x] E-009 |
 | D5-3 | 测试 | [ ] |
 | D5-ADR | 双架构决策（仅 ADR） | [ ] |
@@ -516,7 +516,7 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 
 | ID | 任务 | 成功标准 | 状态 |
 |----|------|----------|------|
-| **IEVO-01** | D5-1 禁 `simulated` 生产路径 | grep + 单测；GH #21 部分关 | [ ] |
+| **IEVO-01** | D5-1 禁 `simulated` 生产路径 | grep + 单测；GH #21 部分关 | [x] 2026-05-25 |
 | **IEVO-02** | D5-3 evolution pytest | tier0 或 wide 绿 | [ ] |
 | **IEVO-03** | D6-1 Observability SoT ADR | GH #22 部分关 | [ ] |
 | **IEVO-04** | `scripts/run_evolution_eval.sh` | 一次绿 run + 基线 JSON | [ ] |
@@ -544,7 +544,7 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 
 ```text
 Read docs/MIMIR_ZERO_DEBT_MASTERPLAN.md + MIMIR_EXEC_BACKLOG.md §13.1 P0-LONG-CLEARANCE。
-只做母任务第一条 [ ] 子阶段内的第一条 [ ] 子项（现：**E/IEVO-01**）。
+只做母任务第一条 [ ] 子阶段内的第一条 [ ] 子项（现：**E/IEVO-02**）。
 触达 agent/gateway/tools 后 ./run_ralph_tier0.sh + evolution_log。
 ```
 

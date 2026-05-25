@@ -126,6 +126,7 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 | 2026-05-25 | **IND-05** | **Cursor** | `persistent_store` 单写者 · ADR-001 · GH **#20** closed · tier0 **278+2** · 下一粒 **IND-06** |
 | 2026-05-25 | **IND-06** | **Cursor** | `OPENCLAW_BOUNDARY` **§8** 独立宣言 + MAINLINE · **Wave D [x]** · **D7** ✅ · tier0 **278+2** · 下一粒 **IEVO-01** |
 | 2026-05-25 | **IND-06 签收** | **刘哥** | §8.3 确认独立宣言与路径边界**可对外承诺** · Wave D 全结案 |
+| 2026-05-25 | **IEVO-01** | **Cursor** | D5-1 禁 `simulated:true` · `evolution_audit` + record_m6 拦截 · tier0 **284+2** · 下一粒 **IEVO-02** |
 
 ---
 
@@ -133,7 +134,7 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 
 - **main**：`2ba2e7b` 一带 · tier0 **278+2** · 母任务 **§13.1 `P0-LONG-CLEARANCE`**
 - **Wave 0 A / 1 B / 2 C / D**：**[x]**（刘哥 §8.3 签收 2026-05-25）
-- **Wave E**：下一条 **IEVO-01**（D5-1 禁 `simulated` 生产路径）
+- **Wave E**：**IEVO-01** [x] → 下一条 **IEVO-02**
 - **R5**：刘哥复验 **pass**（30s 内 tool）
 - **Gateway**：PID **135797** · /health ok · TRUNCATE since-start **0**
 - **GH open**：**10** · #10 **monitoring**（STAB-04 已修）

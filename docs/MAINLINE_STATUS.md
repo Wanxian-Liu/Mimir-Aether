@@ -8,8 +8,8 @@
 | **最近更新** | 2026-05-25 |
 | **更新人** | Cursor（P2-LONG-INDEP **IND-06** 工程结案） |
 | **仓库根（真源）** | `~/src/MimirAether` |
-| **可选校验** | `./run_ralph_tier0.sh`（门禁 **278+2**）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
-| **本轮摘要** | **Wave D [x]**（刘哥 §8.3 签收）：独立宣言**可对外承诺**；**D7** ✅；tier0 **278+2**。下一条 **IEVO-01**（Wave E）。 |
+| **可选校验** | `./run_ralph_tier0.sh`（门禁 **284+2**）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
+| **本轮摘要** | **IEVO-01** [x]：禁 `simulated:true` 生产路径 + `record_m6` 拦截；tier0 **284+2**。下一条 **IEVO-02**。 |
 
 ---
 
@@ -17,7 +17,7 @@
 
 | ID | 名称 | 状态 | 说明 |
 |----|------|------|------|
-| M0 | 基线可回归 | **绿** | `run_ralph_tier0.sh` 日常可通过。Gate2 **278**、Gate3 **2**（含 P1-GOD router/CLI + IND contract）。 |
+| M0 | 基线可回归 | **绿** | `run_ralph_tier0.sh` 日常可通过。Gate2 **284**、Gate3 **2**（含 IEVO-01 contract）。 |
 | M1 | 契约可执行 | **绿** | `docs/ralph_parity_testmap.md` 已映射 |
 | M2 | Tier-0 矩阵闭合 | **绿** | `ralph_tier0_case_matrix.md`：无阻塞 P0 |
 | M3 | 垂直切片 | **绿** | CLI + API `POST /v1/chat/completions` |
@@ -63,6 +63,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-25 | **IEVO-01** [x]：`evolution_audit` + `record_m6` 禁 `simulated:true`；contract IEVO-01；tier0 **284+2**。 |
 | 2026-05-25 | **IND-06** [x]：§8 独立宣言；**刘哥签收**（可对外承诺）；**Wave D** 全结案；**D7** ✅。 |
 | 2026-05-25 | **IND-05** [x]：`persistent_store` 锁 + ADR-001 Accepted；GH #20 closed；tier0 **278+2**。 |
 | 2026-05-25 | **IND-04** [x]：ADR-004 + `test_mimicore_openclaw_boundary_ind04`；tier0 纳入 contract IND-02/03/04。 |
