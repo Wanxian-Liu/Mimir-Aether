@@ -8,8 +8,8 @@
 | **最近更新** | 2026-05-25 |
 | **更新人** | Cursor（P2-LONG-INDEP **IND-06** 工程结案） |
 | **仓库根（真源）** | `~/src/MimirAether` |
-| **可选校验** | `./run_ralph_tier0.sh`（门禁 **284+2**）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
-| **本轮摘要** | **IEVO-01** [x]：禁 `simulated:true` 生产路径 + `record_m6` 拦截；tier0 **284+2**。下一条 **IEVO-02**。 |
+| **可选校验** | `./run_ralph_tier0.sh`（门禁 **306+2**）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
+| **本轮摘要** | **IEVO-02** [x]：evolution pytest 纳入 tier0（+22 测）；tier0 **306+2**。下一条 **IEVO-03**。 |
 
 ---
 
@@ -63,7 +63,8 @@
 
 | 日期 | 摘要 |
 |------|------|
-| 2026-05-25 | **IEVO-01** [x]：`evolution_audit` + `record_m6` 禁 `simulated:true`；contract IEVO-01；tier0 **284+2**。 |
+| 2026-05-25 | **IEVO-02** [x]：`test_skill_evolution` + `test_self_evolution_jepa` 入 tier0；manifest contract；**306+2**。 |
+| 2026-05-25 | **IEVO-01** [x]：`evolution_audit` + `record_m6` 禁伪进化标记；contract IEVO-01；tier0 **284+2**。 |
 | 2026-05-25 | **IND-06** [x]：§8 独立宣言；**刘哥签收**（可对外承诺）；**Wave D** 全结案；**D7** ✅。 |
 | 2026-05-25 | **IND-05** [x]：`persistent_store` 锁 + ADR-001 Accepted；GH #20 closed；tier0 **278+2**。 |
 | 2026-05-25 | **IND-04** [x]：ADR-004 + `test_mimicore_openclaw_boundary_ind04`；tier0 纳入 contract IND-02/03/04。 |
