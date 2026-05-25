@@ -123,6 +123,7 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 | 2026-05-25 | **W1 smoke** | **刘哥** | T-03/T-04 pass；R5 飞书 `read_file` **30s 内** tool 成功；Wave **B [x]**；D6 ✅ |
 | 2026-05-25 | **IND Night1** | **Cursor** | IND-01～03 · PR **#33** merged · tier0 **267+2** · **D7** 🟡 · 下一粒 **IND-04** |
 | 2026-05-25 | **IND-04** | **Cursor** | ADR-004 + mimicore contract test · tier0 **274+2**（含 IND-02/03/04）· 下一粒 **IND-05** |
+| 2026-05-25 | **IND-05** | **Cursor** | `persistent_store` 单写者 · ADR-001 · GH **#20** closed · tier0 **278+2** · 下一粒 **IND-06** |
 
 ---
 

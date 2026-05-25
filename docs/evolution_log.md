@@ -86,4 +86,5 @@ Append-only. Newest rows at the **bottom**. See **`docs/M6_EVOLUTION.md`** for r
 | 20260524T194541Z_edba235-dirty | 2026-05-24T19:45:41Z | edba235-dirty | ./run_ralph_tier0.sh | 0 | STAB-05: evolution_rollback skills_guard + in-place rollback + data/evolution_backups; skill_evolution FIX/DERIVED/CAPTURED; 5 tests; tier0 267+2 |
 | 20260525T120000Z_stab07 | 2026-05-25T12:00:00Z | stab07-docs | docs-only | 0 | STAB-07: Gateway 十条结案表 + STAB→GH 映射; MIMIR_EXEC_BACKLOG Wave 2 C [x]; GH #25–30 closed; metrics: n/a |
 | 20260525T140000Z_ind04 | 2026-05-25T14:00:00Z | ind04 | ./run_ralph_tier0.sh | 0 | IND-04: ADR-004 mimicore openclaw boundary; contract test; tier0 adds IND-02/03/04 contract tests; metrics: 274+2 pass |
+| 20260525T150000Z_ind05 | 2026-05-25T15:00:00Z | ind05 | ./run_ralph_tier0.sh | 0 | IND-05: persistent_store threading lock; skill_curator+cross_session single writer; ADR-001 accepted; GH #20 closed; metrics: 278+2 pass |
 | 20260525T013641Z_4ea534f-dirty | 2026-05-25T01:36:41Z | 4ea534f-dirty | ./run_ralph_tier0.sh | 0 | IND Night1: ADR-003 env aliases; IND-02 contract gate bare HERMES_HOME; IND-03 MIMIR_SESSION_DB resolver; tier0 267+2 pass |
