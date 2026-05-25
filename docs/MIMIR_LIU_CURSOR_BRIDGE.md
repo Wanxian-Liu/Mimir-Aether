@@ -124,14 +124,15 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 | 2026-05-25 | **IND Night1** | **Cursor** | IND-01～03 · PR **#33** merged · tier0 **267+2** · **D7** 🟡 · 下一粒 **IND-04** |
 | 2026-05-25 | **IND-04** | **Cursor** | ADR-004 + mimicore contract test · tier0 **274+2**（含 IND-02/03/04）· 下一粒 **IND-05** |
 | 2026-05-25 | **IND-05** | **Cursor** | `persistent_store` 单写者 · ADR-001 · GH **#20** closed · tier0 **278+2** · 下一粒 **IND-06** |
+| 2026-05-25 | **IND-06** | **Cursor** | `OPENCLAW_BOUNDARY` **§8** 独立宣言 + MAINLINE · **Wave D [x]** · **D7** ✅ · tier0 **278+2** · **刘哥 §8.3 待签** · 下一粒 **IEVO-01** |
 
 ---
 
 ## 5. Mimir 进度笔记
 
-- **main**：`178e837` · tier0 **267+2** · 母任务 **§13.1 `P0-LONG-CLEARANCE`**
-- **Wave 0 A / 1 B / 2 C**：**[x]**
-- **Wave D**：**IND-01～05 [x]**（#20 closed）→ 下一条 **IND-06**（刘哥 sign-off）
+- **main**：`2ba2e7b` 一带 · tier0 **278+2** · 母任务 **§13.1 `P0-LONG-CLEARANCE`**
+- **Wave 0 A / 1 B / 2 C / D**：**[x]**（D：§8.3 刘哥待签）
+- **Wave E**：下一条 **IEVO-01**（D5-1 禁 `simulated` 生产路径）
 - **R5**：刘哥复验 **pass**（30s 内 tool）
 - **Gateway**：PID **135797** · /health ok · TRUNCATE since-start **0**
 - **GH open**：**10** · #10 **monitoring**（STAB-04 已修）

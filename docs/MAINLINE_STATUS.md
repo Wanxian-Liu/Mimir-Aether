@@ -6,10 +6,10 @@
 | 字段 | 值 |
 |------|-----|
 | **最近更新** | 2026-05-25 |
-| **更新人** | Cursor（P2-LONG-INDEP Night1 IND-01～03） |
+| **更新人** | Cursor（P2-LONG-INDEP **IND-06** 工程结案） |
 | **仓库根（真源）** | `~/src/MimirAether` |
-| **可选校验** | `./run_ralph_tier0.sh`（门禁 **245+2**）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
-| **本轮摘要** | **IND-05** [x]：`persistent_store` 单写者 + GH **#20** closed；**D7** 🟡（IND-06）；tier0 **278+2**。下一条 **IND-06**。 |
+| **可选校验** | `./run_ralph_tier0.sh`（门禁 **278+2**）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
+| **本轮摘要** | **Wave D [x]**：`OPENCLAW_BOUNDARY` **§8** 独立宣言；**D7** ✅；tier0 **278+2**。§8.3 **刘哥签收待填**。下一条 **IEVO-01**（Wave E）。 |
 
 ---
 
@@ -17,7 +17,7 @@
 
 | ID | 名称 | 状态 | 说明 |
 |----|------|------|------|
-| M0 | 基线可回归 | **绿** | `run_ralph_tier0.sh` 日常可通过。Gate2 **245**、Gate3 **2**（含 P1-GOD router/CLI smoke）。 |
+| M0 | 基线可回归 | **绿** | `run_ralph_tier0.sh` 日常可通过。Gate2 **278**、Gate3 **2**（含 P1-GOD router/CLI + IND contract）。 |
 | M1 | 契约可执行 | **绿** | `docs/ralph_parity_testmap.md` 已映射 |
 | M2 | Tier-0 矩阵闭合 | **绿** | `ralph_tier0_case_matrix.md`：无阻塞 P0 |
 | M3 | 垂直切片 | **绿** | CLI + API `POST /v1/chat/completions` |
@@ -63,6 +63,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-25 | **IND-06** [x]：`MIMIR_OPENCLAW_BOUNDARY.md` §8 独立宣言 + 签收表；**Wave D** 工程结案；**D7** ✅；§8.3 刘哥待签。 |
 | 2026-05-25 | **IND-05** [x]：`persistent_store` 锁 + ADR-001 Accepted；GH #20 closed；tier0 **278+2**。 |
 | 2026-05-25 | **IND-04** [x]：ADR-004 + `test_mimicore_openclaw_boundary_ind04`；tier0 纳入 contract IND-02/03/04。 |
 | 2026-05-25 | **IND-01～03** [x]：Night1 PR — ADR-003、contract IND-02/03、`get_mimir_session_search_db_path()`；tier0 **267+2**；**D7** 部分绿。 |

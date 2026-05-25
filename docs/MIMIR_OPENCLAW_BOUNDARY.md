@@ -2,7 +2,7 @@
 
 | 字段 | 值 |
 |------|-----|
-| **状态** | 理清期边界（**仅文档**） |
+| **状态** | **Accepted**（工程验收 2026-05-25 · **IND-06**）· §8 **待刘哥签收** |
 | **依据** | [`MIMIR_CLARIFY_BASELINE.md`](./MIMIR_CLARIFY_BASELINE.md) §5、[`MIMIR_HTML_MEMORY_CONTRACT.md`](./MIMIR_HTML_MEMORY_CONTRACT.md)、[`path-contract.md`](./path-contract.md)、[`AGENTS.md`](../AGENTS.md) |
 | **负责人裁定** | OpenClaw / weavevault **零部署**；MA 记忆真源在 **`$MIMIR_AETHER_HOME/memory/`**（HTML）；飞书等密钥仅在 **`$MIMIR_AETHER_HOME/.env`** |
 
@@ -85,7 +85,7 @@
 | 旧路径 `~/.openclaw/projects/MimirAether`？ | **归档 / 只读**；**禁止**从此启动 gateway 或当作 `MIMIR_AETHER_HOME` |
 | 飞书密钥放哪？ | **`$MIMIR_AETHER_HOME/.env`** |
 
-**文档自检**：§1–§6 齐全；§2 禁止项可执行；§4 对照表覆盖代码/数据/记忆/旧 clone；与 T02 交叉引用已建立（§1、§2、§3、§4、§6）。
+**文档自检**：§1–§8 齐全；§2 禁止项可执行；§4 对照表覆盖代码/数据/记忆/旧 clone；§8 与 IND-01～05 验收表一致；与 T02 交叉引用已建立（§1、§2、§3、§4、§6）。
 
 ---
 
@@ -100,7 +100,7 @@
 | `agent/` · `gateway/` · `tools/` advisory | — | **6 matches**（阈值 60） | [`scripts/warn_openclaw_literals.py`](../scripts/warn_openclaw_literals.py)；均为注释 / 迁移 remap / 历史说明 |
 | `mimir_cli/` 迁移 CLI | — | **有意保留** | [`mimir_cli/claw.py`](../mimir_cli/claw.py)、[`paths.py`](../mimir_cli/paths.py)；见 [`path-contract.md`](./path-contract.md) §5 |
 | `docs/` · `learnings/` · `optional-skills/migration/` | — | **豁免 / 边界文档** | 见 path-contract §历史路径与豁免目录 |
-| Tier-0 门禁 | — | **245+2 PASS** | `./run_ralph_tier0.sh`（2026-05-24） |
+| Tier-0 门禁 | — | **278+2 PASS** | `./run_ralph_tier0.sh`（2026-05-25） |
 
 **剩余 6 处字面量（运行树，非默认路径）：**
 
@@ -118,6 +118,44 @@
 
 ---
 
+## 8. 独立宣言（IND-06 · P2-LONG-INDEP 结案）
+
+### 8.1 宣言
+
+自 **2026-05-25** 起，**MimirAether 生产运行时**与 **OpenClaw 平台**在路径、配置、记忆真源上**解耦**：
+
+1. **唯一运行时数据根**：`$MIMIR_AETHER_HOME`（默认 `~/.mimiraether`），经 `mimir_constants.get_mimir_home()` / `mimicore.mimir_paths.get_mimir_home()` 解析。
+2. **唯一源码真源**：独立 **git clone**（如 `~/src/MimirAether`），**不**使用 `~/.openclaw/projects/MimirAether` 启动 gateway 或写入 `.env`。
+3. **记忆 canonical**：`$MIMIR_AETHER_HOME/memory/**/*.html`（见 HTML 契约）；OpenClaw / weavevault **不**作读写真源。
+4. **OpenClaw 角色**：历史对照、一次性迁移（§5）、概念借鉴（§3）——**非** MA 运行时依赖。
+
+新环境可在**无 `~/.openclaw` 目录**下完成：tier0 绿、gateway `/health`、飞书 smoke（T-03/T-04）、`persistent.json` 单写者（ADR-001）。
+
+### 8.2 路径独立子项验收（Wave D）
+
+| 子项 | 交付 | 验证 |
+|------|------|------|
+| **IND-01** | [`adr/003-runtime-env-aliases.md`](./adr/003-runtime-env-aliases.md) | 环境变量别名表；canonical `MIMIR_AETHER_HOME` |
+| **IND-02** | `tests/contract/test_runtime_path_independence_ind02.py` | 运行树禁止裸 `HERMES_HOME` 默认 |
+| **IND-03** | `get_mimir_session_search_db_path()` | `MIMIR_SESSION_DB` > `OPENCLAW_SESSION_DB` > 默认 |
+| **IND-04** | [`adr/004-mimicore-openclaw-boundary.md`](./adr/004-mimicore-openclaw-boundary.md) | mimicore 子模块契约测；GH #13 类不复发 |
+| **IND-05** | `agent/persistent_store.py` | 单写者锁；GH **#20** closed；并发 segment 单测 |
+
+**门禁**：`./run_ralph_tier0.sh` → **278+2** PASS；`.openclaw` advisory **6/60**。
+
+### 8.3 签收
+
+| 角色 | 验收内容 | 日期 | 状态 |
+|------|----------|------|------|
+| **工程（Cursor）** | §8.1–8.2 与 §1–§7 一致；IND-01～05 已合 `main` | 2026-05-25 | **[x]** |
+| **负责人（刘哥）** | 独立宣言与路径边界可对外承诺；Horizon（SEM 等）另拍板 | _待填_ | **[ ] 待签收** |
+
+刘哥签收后：将上表「待签收」改为 `[x]` 并填日期；在 [`MIMIR_LIU_CURSOR_BRIDGE.md`](./MIMIR_LIU_CURSOR_BRIDGE.md) §4 追加一行。
+
+**文档自检（§1–§8）**：§8 与 §7 审计、§4 对照表、ADR-003/004/001 无冲突；新人应能回答「MA 是否仍依赖 OpenClaw 磁盘树？」→ **否（运行时）**。
+
+---
+
 ## 相关文档
 
 - [`MIMIR_HTML_MEMORY_CONTRACT.md`](./MIMIR_HTML_MEMORY_CONTRACT.md) — 记忆 HTML 真源与 `memory/` 布局  
@@ -125,5 +163,7 @@
 - [`path-contract.md`](./path-contract.md) — 三根与历史路径豁免  
 - [`OPENCLAW_ENV_LEGACY.md`](./OPENCLAW_ENV_LEGACY.md) — 遗留 `OPENCLAW_*` 环境变量  
 - [`adr/004-mimicore-openclaw-boundary.md`](./adr/004-mimicore-openclaw-boundary.md) — 子模块边界（IND-04）  
+- [`adr/001-persistent-single-writer.md`](./adr/001-persistent-single-writer.md) — `persistent.json` 单写者（IND-05）  
+- [`adr/003-runtime-env-aliases.md`](./adr/003-runtime-env-aliases.md) — 运行时 env 别名（IND-01）  
 - [`SECURITY.md`](./SECURITY.md) — 密钥与 `.env`  
 - [`AGENTS.md`](../AGENTS.md) — 协作者总则  
