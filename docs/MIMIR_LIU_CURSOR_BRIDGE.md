@@ -127,10 +127,9 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 
 ## 5. Mimir 进度笔记
 
-- **main**：tier0 **246+2**（STAB-03 后待确认）· 母任务 **§13.1 `P0-LONG-CLEARANCE`**
-- **Wave 0 A**：**[x] 结案**（W0-06 2026-05-25）
-- **Wave 1 B**：**[x] 结案**（T-03/T-04 + R5 2026-05-25）
-- **Wave 2 C [x]**（2026-05-25 STAB-07）→ 下一条 **IND-01**（子阶段 D）
+- **main**：`178e837` · tier0 **267+2** · 母任务 **§13.1 `P0-LONG-CLEARANCE`**
+- **Wave 0 A / 1 B / 2 C**：**[x]**
+- **Wave D**：**IND-01～03 [x]**（PR **#33** 2026-05-25）→ 下一条 **IND-04**
 - **R5**：刘哥复验 **pass**（30s 内 tool）
 - **Gateway**：PID **135797** · /health ok · TRUNCATE since-start **0**
 - **GH open**：**10** · #10 **monitoring**（STAB-04 已修）

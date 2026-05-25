@@ -531,20 +531,20 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 |---------------|------|
 | D1 GH ≤6 | 🟡 10 open（标签已整理） |
 | D2 Active 无 P0 | 🟡 #10 → **monitoring**（since-start R4） |
-| D3 Gateway 十条 | 🔴 → **CLR-C** |
-| D4 §13 无 `[ ]` | 🟡 母任务 **C**（A/B 已结案） |
-| D5 tier0 | ✅ 246+2 |
+| D3 Gateway 十条 | ✅ **STAB-07**（2026-05-25） |
+| D4 §13 无 `[ ]` | 🟡 子阶段 **D/E** 进行中（A/B/C 已结案） |
+| D5 tier0 | ✅ **267+2** |
 | D6 飞书 smoke | ✅ T-03/T-04 + R5 tool 往返（2026-05-25 刘哥） |
-| D7 路径独立 | ⬜ → **CLR-D** |
+| D7 路径独立 | 🟡 **IND-01～03** [x]；IND-04～06 待办 |
 | D8 工业进化 MVP | ⬜ → **CLR-E** |
 
-**整体清空（D1–D8）**：约 **38%** · **含独立+IEVO 全链路**：约 **20%**
+**整体清空（D1–D8）**：约 **48%** · **含独立+IEVO 全链路**：约 **28%**
 
 **Cursor 新窗一句**
 
 ```text
 Read docs/MIMIR_ZERO_DEBT_MASTERPLAN.md + MIMIR_EXEC_BACKLOG.md §13.1 P0-LONG-CLEARANCE。
-只做母任务第一条 [ ] 子阶段内的第一条 [ ] 子项（现：**C/STAB-01**）。
+只做母任务第一条 [ ] 子阶段内的第一条 [ ] 子项（现：**D/IND-04**）。
 触达 agent/gateway/tools 后 ./run_ralph_tier0.sh + evolution_log。
 ```
 
