@@ -462,7 +462,7 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 | **B** | **W1-LONG-SMOKE** | 刘哥 + Mimir | T-03/T-04；Gateway #9 **已验证**；**D6** | **[x] 2026-05-25** |
 | **C** | **P2-LONG-STAB** | Cursor | STAB-01～07；Gateway 十条无「移交工程」；**#10 TRUNCATE 回落**；GH #25–30 关 | **[x] 2026-05-25** |
 | **D** | **P2-LONG-INDEP** | Cursor | IND-01～06；**D7**；GH #20 关 | **[x] 2026-05-25**（刘哥 §8.3 签收） |
-| **E** | **P2-LONG-IEVO** | Cursor | IEVO-01～06；**D8**；GH #21/#22 部分关 | [ ] |
+| **E** | **P2-LONG-IEVO** | Cursor | IEVO-01～06；**D8**；GH #21/#22 部分关 | **[x] 2026-05-25** |
 | **✓** | **CLEARANCE-DONE** | 刘哥 sign-off | §0 **8/8**；MAINLINE 刷新；Horizon 二选一 | [ ] |
 
 **Horizon（清空后）**：`P2-LONG-SEM` · ADR-002 · Unified Plan Phase 3/4 — **刘哥拍板**，不纳入本母任务。
@@ -521,7 +521,7 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 | **IEVO-03** | D6-1 Observability SoT ADR | GH #22 部分关 | [x] 2026-05-25 · ADR-005 |
 | **IEVO-04** | `scripts/run_evolution_eval.sh` | 一次绿 run + 基线 JSON | [x] 2026-05-25 |
 | **IEVO-05** | D6-3 monitor/insights 回归测 | 单测 ≥3 | [x] 2026-05-25 |
-| **IEVO-06** | IEVO 结案 + Phase ∞ 续勾 | MAINLINE 绿 | [ ] |
+| **IEVO-06** | IEVO 结案 + Phase ∞ 续勾 | MAINLINE 绿 | [x] 2026-05-25 · `p2-long-iev0-closeout.md` |
 
 ---
 
@@ -532,19 +532,19 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 | D1 GH ≤6 | 🟡 10 open（标签已整理） |
 | D2 Active 无 P0 | 🟡 #10 → **monitoring**（since-start R4） |
 | D3 Gateway 十条 | ✅ **STAB-07**（2026-05-25） |
-| D4 §13 无 `[ ]` | 🟡 子阶段 **E** 进行中（A/B/C/D 已结案） |
-| D5 tier0 | ✅ **322+2** |
+| D4 §13 无 `[ ]` | 🟡 子阶段 **E** [x]；待 **CLEARANCE-DONE** |
+| D5 tier0 | ✅ **326+2** |
 | D6 飞书 smoke | ✅ T-03/T-04 + R5 tool 往返（2026-05-25 刘哥） |
 | D7 路径独立 | ✅ **IND-01～06**（§8 独立宣言 · 刘哥签收 2026-05-25） |
 | D8 工业进化 MVP | ⬜ → **CLR-E** |
 
-**整体清空（D1–D8）**：约 **48%** · **含独立+IEVO 全链路**：约 **28%**
+**整体清空（D1–D8）**：约 **55%** · **含独立+IEVO 全链路**：约 **38%**（Wave E 已结案）
 
 **Cursor 新窗一句**
 
 ```text
 Read docs/MIMIR_ZERO_DEBT_MASTERPLAN.md + MIMIR_EXEC_BACKLOG.md §13.1 P0-LONG-CLEARANCE。
-只做母任务第一条 [ ] 子阶段内的第一条 [ ] 子项（现：**E/IEVO-06**）。
+只做母任务 **CLEARANCE-DONE**（§0 D1–D8 全绿 · 刘哥 sign-off）；勿并行开 Horizon。
 触达 agent/gateway/tools 后 ./run_ralph_tier0.sh + evolution_log。
 ```
 

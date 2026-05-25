@@ -6,10 +6,10 @@
 | 字段 | 值 |
 |------|-----|
 | **最近更新** | 2026-05-25 |
-| **更新人** | Cursor（P2-LONG-IEVO **IEVO-05**） |
+| **更新人** | Cursor（P2-LONG-IEVO **IEVO-06** · Wave E 结案） |
 | **仓库根（真源）** | `~/src/MimirAether` |
-| **可选校验** | `./run_ralph_tier0.sh`（门禁 **322+2**）；`./scripts/run_evolution_eval.sh`（本机 DB） |[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
-| **本轮摘要** | **IEVO-05** [x]：D6-3 monitor/insights 回归（5 行为测 + 3 contract）；tier0 **322+2**。下一条 **IEVO-06**。 |
+| **可选校验** | `./run_ralph_tier0.sh`（门禁 **326+2**）；`./scripts/run_evolution_eval.sh`（本机 DB） |[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
+| **本轮摘要** | **IEVO-06** [x]：Wave E 结案 · `p2-long-iev0-closeout.md` · **D8** ✅ · Phase ∞ §执行记录续勾；tier0 **326+2**。下一粒 **CLEARANCE-DONE**。 |
 
 ---
 
@@ -63,6 +63,8 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-25 | **IEVO-06** [x]：Wave E 结案 doc + contract ievo06；**P2-LONG-IEVO** [x]；**D8** ✅；tier0 **326+2**。 |
+| 2026-05-25 | **IEVO-05** [x]：D6-3 monitor/insights 回归（5 行为 + 3 contract）；tier0 **322+2**。 |
 | 2026-05-25 | **IEVO-04** [x]：`run_evolution_eval.sh` + compare；本机 eval pass（LIKE 60% / FTS 50%）。 |
 | 2026-05-25 | **IEVO-03** [x]：ADR-005 observability SoT；`execution_recorder` → `get_mimir_data_dir()`；contract IEVO-03。 |
 | 2026-05-25 | **IEVO-02** [x]：`test_skill_evolution` + `test_self_evolution_jepa` 入 tier0；manifest contract；**306+2**。 |

@@ -210,6 +210,7 @@
 
 | 日期 | 周期摘要 | ∞1–∞4 要点 | 备注 |
 |------|----------|------------|------|
+| 2026-05-25 | **P2-LONG-IEVO** Wave E 结案（IEVO-01～06） | **∞1**：禁伪进化 + evolution tier0 + eval 脚本 + ADR-005 + monitor/insights 回归；**tier0 326+2**；**M6** `20260525T*` 多行 | [`p2-long-iev0-closeout.md`](phase0/p2-long-iev0-closeout.md)；GH **#21/#22** 部分关（icebox 余量见结案 doc） |
 | 2026-05-07 | **织界宪章**草案入库 + 首条对照审查 | **∞3/∞4**：§宪章对照审查记录 **#1**（当时 MAINLINE **∞** 仍为 **黄**） | [`weave_charter.md`](weave_charter.md)；**∞1 索引 #7**（`8b8d684`） |
 | 2026-05-06 | 真源习惯 + ∞ 推进对齐 | **∞1–∞4**：未宣称 ∞ 绿；固化真源与 §执行记录习惯 | [`path-contract.md`](path-contract.md) 新增 §协作习惯；**∞1 索引 #6**（`77b26fc`） |
 | 2026-05-05 | **search_web→web_search**（Hermes 名级对齐） | **∞1**：代码向周期；**M6** `20260504T174957Z_78350ca-dirty`；合并 **`5099fc6`** | **∞1 索引 #5**；见索引表脚注 |
