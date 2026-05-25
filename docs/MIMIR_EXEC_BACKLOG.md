@@ -533,7 +533,7 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 | D2 Active 无 P0 | 🟡 #10 → **monitoring**（since-start R4） |
 | D3 Gateway 十条 | ✅ **STAB-07**（2026-05-25） |
 | D4 §13 无 `[ ]` | 🟡 子阶段 **E** 进行中（A/B/C/D 已结案） |
-| D5 tier0 | ✅ **278+2** |
+| D5 tier0 | ✅ **284+2** |
 | D6 飞书 smoke | ✅ T-03/T-04 + R5 tool 往返（2026-05-25 刘哥） |
 | D7 路径独立 | ✅ **IND-01～06**（§8 独立宣言 · 刘哥签收 2026-05-25） |
 | D8 工业进化 MVP | ⬜ → **CLR-E** |
