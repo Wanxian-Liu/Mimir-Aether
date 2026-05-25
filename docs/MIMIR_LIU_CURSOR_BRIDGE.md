@@ -46,7 +46,7 @@ Cursor **自行执行**（无需每轮再问）：
 
 - **Mimir**：只读 `docs/MIMIR_EXEC_BACKLOG.md` **§12.1**，每轮 **一条** `MW-D*`；更新 bridge §4；**禁止** push / 改 `agent|gateway|tools|mimir_cli`。
 - **飞书 T-03/T-04**：刘哥回来再做（**MW-H01/H02**）；Mimir 可发一条提醒，不代测。
-- **Cursor 工程**：**不**自动开 `P2-LONG-SEM`；等刘哥点名。
+- **Cursor 工程**：**P2-LONG-SEM** Active（Horizon A · 2026-05-25）；只认 backlog **§14** 第一条 `[ ]`。
 
 ### 2026-05-25 — P0-LONG-CLEARANCE 工程授权
 
@@ -132,6 +132,7 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 | 2026-05-25 | **IEVO-04** | **Cursor** | `run_evolution_eval.sh` 记忆检索 eval + 基线对比 · tier0 **314+2** · 下一粒 **IEVO-05** |
 | 2026-05-25 | **IEVO-05** | **Cursor** | D6-3 monitor/insights 回归测入 tier0 · tier0 **322+2** · 下一粒 **IEVO-06** |
 | 2026-05-25 | **IEVO-06** | **Cursor** | Wave E 结案 · D8 ✅ · Phase ∞ 续勾 · tier0 **326+2** · **Wave E [x]** · 下一粒 **CLEARANCE-DONE** |
+| 2026-05-25 | **Horizon A / SEM-01** | **Cursor** | ADR-006 semantic memory · path-contract · backlog §14 · tier0 **332+2** · 下一粒 **SEM-02** |
 | 2026-05-25 | **CLEARANCE-DONE** | **Cursor** | §0 **8/8** · GH **3** open · ISSUES Active **2** · **`P0-LONG-CLEARANCE` [x]** · Horizon 待刘哥拍板 |
 
 ---
@@ -140,7 +141,7 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 
 - **main**：`46baca6` 一带 · tier0 **329+2** · **`P0-LONG-CLEARANCE` [x] 2026-05-25**
 - **Wave 0 A / 1 B / 2 C / D / E**：**[x]**（刘哥 §8.3 签收 2026-05-25）
-- **Horizon**：刘哥拍板 **SEM (#32)** / **ADR-002** / **Phase 3** — 只开一条
+- **Horizon A**：**P2-LONG-SEM** Active · **SEM-01** [x] → 下一条 **SEM-02**（Chroma backfill）
 - **R5**：刘哥复验 **pass**（30s 内 tool）
 - **Gateway**：PID **135797** · /health ok · TRUNCATE since-start **0**
 - **GH open**：**10** · #10 **monitoring**（STAB-04 已修）

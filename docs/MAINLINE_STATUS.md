@@ -8,8 +8,8 @@
 | **最近更新** | 2026-05-25 |
 | **更新人** | Cursor（**P0-LONG-CLEARANCE** · CLEARANCE-DONE） |
 | **仓库根（真源）** | `~/src/MimirAether` |
-| **可选校验** | `./run_ralph_tier0.sh`（门禁 **326+2**）；`./scripts/run_evolution_eval.sh`（本机 DB） |[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
-| **本轮摘要** | **CLEARANCE-DONE** [x]：§0 **D1–D8 8/8** · `p0-long-clearance-done.md`；**P0-LONG-CLEARANCE** 母任务结案。下一粒 **Horizon**（刘哥拍板 SEM / ADR-002 / Phase 3）。 |
+| **可选校验** | `./run_ralph_tier0.sh`（门禁 **332+2**）；`./scripts/run_evolution_eval.sh`（本机 DB） |
+| **本轮摘要** | **Horizon A** · **SEM-01** [x]：ADR-006 + path-contract + §14 执行源。下一条 **SEM-02**（Chroma indexer）。 |
 
 ---
 
@@ -17,7 +17,7 @@
 
 | ID | 名称 | 状态 | 说明 |
 |----|------|------|------|
-| M0 | 基线可回归 | **绿** | `run_ralph_tier0.sh` 日常可通过。Gate2 **329**、Gate3 **2**。 |
+| M0 | 基线可回归 | **绿** | `run_ralph_tier0.sh` 日常可通过。Gate2 **332**、Gate3 **2**。 |
 | M1 | 契约可执行 | **绿** | `docs/ralph_parity_testmap.md` 已映射 |
 | M2 | Tier-0 矩阵闭合 | **绿** | `ralph_tier0_case_matrix.md`：无阻塞 P0 |
 | M3 | 垂直切片 | **绿** | CLI + API `POST /v1/chat/completions` |
@@ -63,7 +63,7 @@
 
 | 日期 | 摘要 |
 |------|------|
-| 2026-05-25 | **CLEARANCE-DONE** [x]：§0 八条全绿；ISSUES Active=2；GH open=3；母任务 **P0-LONG-CLEARANCE** [x]。 |
+| 2026-05-25 | **Horizon A / SEM-01** [x]：ADR-006 + path-contract + backlog §14；tier0 **332+2**。 |
 | 2026-05-25 | **IEVO-06** [x]：Wave E 结案 doc + contract ievo06；**P2-LONG-IEVO** [x]；**D8** ✅；tier0 **326+2**。 |
 | 2026-05-25 | **IEVO-05** [x]：D6-3 monitor/insights 回归（5 行为 + 3 contract）；tier0 **322+2**。 |
 | 2026-05-25 | **IEVO-04** [x]：`run_evolution_eval.sh` + compare；本机 eval pass（LIKE 60% / FTS 50%）。 |

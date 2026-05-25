@@ -325,7 +325,7 @@ Mimir 冒烟回报
 - **真源**：`~/src/MimirAether` · `MIMIR_AETHER_HOME=~/.mimiraether` · 必读 `MAINLINE_STATUS.md` / `MIMIR_ISSUES.md`（Active≤3）/ `AGENTS.md`。
 - **§2 工程队列**：只读，勿再取「E-004 / T-02 / 181+2」。
 - **Phase 0**：**14/14** [x]（2026-05-24）— 真源 [`MIMIR_PHASE0_QUEUE.md`](./MIMIR_PHASE0_QUEUE.md)。
-- **当前执行源**：**Horizon**（[`MIMIR_ZERO_DEBT_MASTERPLAN.md`](./MIMIR_ZERO_DEBT_MASTERPLAN.md) §7）— **刘哥拍板一条**：`P2-LONG-SEM` **或** ADR-002 **或** Phase 3；**`P0-LONG-CLEARANCE` [x] 2026-05-25**。
+- **当前执行源**：**§14 `P2-LONG-SEM`**（Horizon **A** · 刘哥 2026-05-25）— GH **#32**；[`adr/006-semantic-memory-chromadb.md`](./adr/006-semantic-memory-chromadb.md)。
 - **勿**：提交 `data/persistent.json`；重做 E-001～E-012。
 
 ### 9.1 未完成项盘点（2026-05-25）
@@ -333,7 +333,7 @@ Mimir 冒烟回报
 | 桶 | 数量 | 说明 |
 |----|------|------|
 | **§13.1 母任务** | **1** Active | `P0-LONG-CLEARANCE` — 子阶段 A [~] → B→C→D→E |
-| **§11 长任务** | **0** Active | `P1-LONG-MEM` **[x]**；Horizon **`P2-LONG-SEM`** 清空后再开 |
+| **§11 长任务** | **1** Active | **`P2-LONG-SEM`** — §14 SEM-02 起 |
 | **§6 Phase 2 候选** | **6** `[ ]` | 已并入 **CLR-D / CLR-E**；勿单独开队列 |
 | **§8 工程 icebox** | **4** 条 | 已并入 **CLR-C**（`P2-LONG-STAB`） |
 | **Gateway 十条** | **~4** 待工程 | CLR-C 结案；#9 待 **CLR-B** 飞书复验 |
@@ -388,7 +388,7 @@ Read docs/MIMIR_EXEC_BACKLOG.md §11；P1-LONG-MEM 已结案。工程下一条�
 | **P1-LONG-GOD** | GOD 拆分 + 测试轨续建 | Phase 0 EV-P04、§9 原「GOD 拆分」 | [x] 2026-05-24 · #16→main；`router_mixin` ~38 行；见 `plans/P1-GOD-split-plan.md` |
 | **P1-LONG-OBS** | d6 余债 D6-1～3 ADR/测试 | §6 | [ ] Phase 2 候选 |
 | **P1-LONG-EVO** | d5 余债 D5-1/3、真进化 | §6、Unified Plan | [ ] Phase 2 候选 |
-| **P2-LONG-SEM** | Memory **语义化**（chromadb + 检索策略） | Unified Plan Phase 2 | [ ] 前置已满足（P1-LONG-MEM 结案 2026-05-24） · 关联 §8 P3-CROSS-SESSION-RETRIEVAL（存储层 ok，缺注入策略） |
+| **P2-LONG-SEM** | Memory **语义化**（chromadb + 检索策略） | Unified Plan Phase 2 | [~] **Active** · Horizon A 2026-05-25 · §14 |
 
 **Semantic 检索**：明确 **不在** `P1-LONG-MEM` 内；结案后再排 `P2-LONG-SEM`，避免与 FTS/LIKE 并行膨胀。
 
@@ -543,15 +543,40 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 **Cursor 新窗一句**
 
 ```text
-Read docs/MIMIR_ZERO_DEBT_MASTERPLAN.md §7 Horizon + phase0/p0-long-clearance-done.md。
-P0-LONG-CLEARANCE 已 [x]；只做刘哥拍板的一条长任务（SEM / ADR-002 / Phase 3），勿并行开战。
+Read docs/MIMIR_ZERO_DEBT_MASTERPLAN.md §7 + MIMIR_EXEC_BACKLOG.md §14 P2-LONG-SEM。
+只做 §14 第一条 [ ] 子项（现：**SEM-02**）；勿并行 ADR-002 / Phase 3。
 触达 agent/gateway/tools 后 ./run_ralph_tier0.sh + evolution_log。
 ```
 
 **Mimir 新窗一句**
 
 ```text
-Read MIMIR_ZERO_DEBT_MASTERPLAN.md + backlog §13.1 子阶段 A 或 B。
-MIMIR_AETHER_HOME=~/.mimiraether。只做 W0-* / W1-* 运维粒；禁止改码/push。
-更新 bridge §4 一行。回报：子项 ID + 结果 + 下一粒。
+Read docs/adr/006-semantic-memory-chromadb.md + backlog §14（工程 SEM-* 由 Cursor 做）。
+MIMIR_AETHER_HOME=~/.mimiraether。运维：MW-D01～D11 / health / TRUNCATE since-start；禁止 push 工程分支。
+更新 bridge §4 一行。回报：ID + 结果 + 下一粒。
+```
+
+---
+
+## 14. Horizon 执行源 — **`P2-LONG-SEM`**（2026-05-25 · 刘哥 **Horizon A**）
+
+> **真源**：[`docs/adr/006-semantic-memory-chromadb.md`](./adr/006-semantic-memory-chromadb.md) · GH **#32** · Unified Plan §4 冲突 2（AC3+AC6 合并）  
+> **规则**：只认 **§14 第一条 `[ ]` 子项**；每粒 `./run_ralph_tier0.sh`；**禁止**并行 ADR-002 代码或 Phase 3 智商。  
+> **基准**：[`phase0/memory-retrieval-baseline.md`](./phase0/memory-retrieval-baseline.md) · IEVO-04 eval 脚本（LIKE/FTS 门保持至 SEM-04）。
+
+| ID | 任务 | 成功标准 | 状态 |
+|----|------|----------|------|
+| **SEM-01** | ADR-006 + path-contract § semantic | ADR Proposed + path 表 | [x] 2026-05-25 |
+| **SEM-02** | Chroma 持久化 + backfill indexer | `$MIMIR_AETHER_HOME/data/chroma_sessions/` 可查询；脚本 idempotent | [ ] |
+| **SEM-03** | `SESSION_SEARCH_BACKEND=semantic\|semantic_hybrid` | `session_search_tool` + 单测 | [ ] |
+| **SEM-04** | 基准 + eval 扩展 semantic 腿 | benchmark JSON 含 `semantic_hit_rate`；compare 逻辑 | [ ] |
+| **SEM-05** | tier0 回归 ≥3 | contract + smoke | [ ] |
+| **SEM-06** | 结案 + MAINLINE + GH #32 | 语义 query 子集 ≥ LIKE 或 documented 例外 | [ ] |
+
+**Cursor 新窗一句**
+
+```text
+Read docs/adr/006-semantic-memory-chromadb.md + MIMIR_EXEC_BACKLOG.md §14。
+只做第一条 [ ] 子项（现：SEM-02）；MIMIR_AETHER_HOME=~/.mimiraether。
+触达 agent/gateway/tools 后 tier0 + evolution_log。
 ```

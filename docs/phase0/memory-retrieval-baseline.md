@@ -65,7 +65,7 @@
 
 **2026-05-24 基准**（`memory-retrieval-benchmark-20260524.json`，回填后）：LIKE **60%** / FTS **50%** 会话命中率（20 query）；FTS 未达 ≥LIKE（CJK 多词与部分英文短语在 FTS5 tokenizer 上弱于 LIKE 子串）。
 
-**明确不做（Phase 2）**：**semantic / chromadb 检索** → **`P2-LONG-SEM`**；统一 `memory_benchmark` 工具仍为后续项。
+**明确不做（Phase 2）**：**semantic / chromadb 检索** → **`P2-LONG-SEM`**（**Active** 2026-05-25 · [ADR-006](../adr/006-semantic-memory-chromadb.md) · backlog §14）。
 
 ## IEVO-04 自动化 eval（工业进化）
 

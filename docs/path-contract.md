@@ -97,6 +97,19 @@ Avoid confusing **where the code lives** with **where state lives**.
 2. No new unexplained **`Path.home() / ".openclaw"`** defaults under `agent/`, `gateway/`, or `tools/` (excluding vendored `hermes_cli`) — same resolution helpers as above.
 3. Run **`./run_ralph_tier0.sh`** before merge (matches pre-push / CI Ralph job).
 
+## Semantic session search (ChromaDB · P2-LONG-SEM)
+
+Per **[ADR-006](./adr/006-semantic-memory-chromadb.md)**:
+
+| Asset | Path / API |
+|-------|------------|
+| Chroma persist root | `{get_mimir_data_dir()}/chroma_sessions/` unless **`MIMIR_CHROMA_DIR`** |
+| Transcript SoT (read) | **`get_mimir_session_search_db_path()`** → `sessions_search.db` (same as LIKE/FTS) |
+| Backend switch | **`SESSION_SEARCH_BACKEND`** — add `semantic` / `semantic_hybrid` in SEM-03 |
+| Eval artifacts | `{get_mimir_data_dir()}/evolution_eval/memory-retrieval-*.json` (extend in SEM-04) |
+
+New code must **not** place chroma data under the git clone or under `.openclaw/projects/`.
+
 ## Optional skills / bundled scripts
 
 Python under **`skills/**`** and **`optional-skills/**`** should use the same resolution pattern as core code: **`HERMES_HOME`** if set, else **`get_mimir_home()`**, with a small **ImportError** fallback to **`Path.home() / ".mimiraether"`** (matches `mimir_constants` default).

@@ -95,3 +95,5 @@ Append-only. Newest rows at the **bottom**. See **`docs/M6_EVOLUTION.md`** for r
 | 20260525T032841Z_bec993a-dirty | 2026-05-25T03:28:41Z | bec993a-dirty | ./run_ralph_tier0.sh | 0 | IEVO-04: run_evolution_eval.sh memory benchmark + baseline compare; FTS open fail-open; contract ievo04; tier0 314+2 |
 | 20260525T033843Z_e49c26d-dirty | 2026-05-25T03:38:43Z | e49c26d-dirty | ./run_ralph_tier0.sh | 0 | IEVO-05: D6-3 monitor/insights regression tests + tier0 manifest; metrics: tier0 322+2 |
 | 20260525T034652Z_29d2cfa-dirty | 2026-05-25T03:46:52Z | 29d2cfa-dirty | ./run_ralph_tier0.sh | 0 | IEVO-06: Wave E closeout doc + ievo06 contract; D8 CLR-E; tier0 326+2; Phase infinity execution record |
+| 20260525T040505Z_110eab8-dirty | 2026-05-25T04:05:05Z | 110eab8-dirty | ./run_ralph_tier0.sh | 0 | CLEARANCE-DONE: P0-LONG-CLEARANCE 8/8; p0-long-clearance-done.md; ISSUES Active=2; GH open=3; tier0 329+2 |
+| 20260525T041516Z_110eab8-dirty | 2026-05-25T04:15:16Z | 110eab8-dirty | ./run_ralph_tier0.sh | 0 | Horizon A SEM-01: ADR-006 chromadb semantic memory + path-contract + backlog section 14; tier0 332+2 |
