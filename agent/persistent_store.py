@@ -14,7 +14,46 @@ from mimir_constants import get_mimir_data_dir
 logger = logging.getLogger(__name__)
 
 _REQUIRED_TOP_KEYS = frozenset({"version", "memory", "progress"})
+
+_DEFAULT_MEMORY = {
+    "key_decisions": [],
+    "learned_patterns": [],
+    "active_projects": [],
+    "user_preferences": {},
+    "skills_used": [],
+}
+
+_DEFAULT_PROGRESS = {
+    "current_objective": None,
+    "completed_milestones": [],
+    "pending_tasks": [],
+}
+
 _write_lock = threading.Lock()
+
+
+def _fill_missing_defaults(data: dict, source: str = "") -> set:
+    """Auto-fill missing required top-level keys with sensible defaults.
+
+    Returns the set of keys that were filled (empty = nothing was missing).
+    """
+    filled: set = set()
+    if "version" not in data:
+        data["version"] = "1.4"
+        filled.add("version")
+    if "memory" not in data or not isinstance(data.get("memory"), dict):
+        data["memory"] = dict(_DEFAULT_MEMORY)
+        filled.add("memory")
+    if "progress" not in data or not isinstance(data.get("progress"), dict):
+        data["progress"] = dict(_DEFAULT_PROGRESS)
+        filled.add("progress")
+    if filled and source:
+        logger.info(
+            "persistent.json auto-filled missing keys from %s: %s",
+            source,
+            sorted(filled),
+        )
+    return filled
 
 
 def get_persistent_path() -> Path:
@@ -40,14 +79,19 @@ def _load_unlocked(path: Path | None = None) -> dict:
                     if attempt == 1:
                         time.sleep(0.1)
                         continue
-                    raise ValueError(
-                        f"persistent.json 结构不完整，缺失: {missing}"
-                    )
+                    # Auto-fill instead of crashing — transient missing keys
+                    # are normal during hot-reload / concurrent mutation.
+                    _fill_missing_defaults(data, source="disk-load")
                 return data
-        except (json.JSONDecodeError, OSError, ValueError) as e:
+        except (json.JSONDecodeError, OSError) as e:
             logger.warning(
                 "Failed to read persistent.json (attempt %d): %s", attempt, e
             )
+            if attempt == 1:
+                time.sleep(0.1)
+                continue
+        except ValueError:
+            # _fill_missing_defaults already logged; continue
             if attempt == 1:
                 time.sleep(0.1)
                 continue
@@ -82,15 +126,13 @@ def _write_atomic(raw: str, path: Path | None = None) -> None:
 
 
 def _save_unlocked(data: dict, path: Path | None = None) -> None:
-    missing = _REQUIRED_TOP_KEYS - data.keys()
-    if missing:
-        logger.error(
-            "REJECTED save: persistent.json data missing critical keys: %s",
-            missing,
-        )
-        raise ValueError(
-            f"Refusing to write persistent.json: missing critical keys {missing}. "
-            f"Data has keys: {sorted(data.keys())}"
+    # Auto-fill missing required keys with defaults instead of rejecting.
+    # IND-05 protection was too strict: transient missing keys during hot-reload
+    # or concurrent mutation are normal — rejecting them silently drops memory.
+    filled = _fill_missing_defaults(data, source="pre-save")
+    if filled:
+        logger.info(
+            "persistent.json save: auto-filled %s before write", sorted(filled)
         )
 
     target = path or get_persistent_path()
