@@ -118,7 +118,10 @@ python3 -m pytest -q \
   tests/test_feishu_ws_dispatch.py \
   tests/test_run_agent_activity.py \
   tests/agent/test_tool_guard_paths.py \
-  tests/agent/test_evolution_rollback_stab05.py
+  tests/agent/test_evolution_rollback_stab05.py \
+  tests/contract/test_runtime_path_independence_ind02.py \
+  tests/contract/test_mimir_session_db_ind03.py \
+  tests/contract/test_mimicore_openclaw_boundary_ind04.py
 
 echo "=== Ralph Tier-1: Gate3 Core E2E (mocked LLM) ==="
 python3 -m pytest -q agent/test_tier1_e2e_agent.py

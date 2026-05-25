@@ -9,7 +9,7 @@
 | **更新人** | Cursor（P2-LONG-INDEP Night1 IND-01～03） |
 | **仓库根（真源）** | `~/src/MimirAether` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁 **245+2**）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
-| **本轮摘要** | **IND Night1** [x]：ADR-003 + HERMES_HOME 门禁 + `MIMIR_SESSION_DB`；**D7** 🟡（IND-04～06 待办）；tier0 **267+2**。下一条 **IND-04** 或 **P2-LONG-SEM**（刘哥点名）。 |
+| **本轮摘要** | **IND-04** [x]：ADR-004 mimicore 边界 + 契约测；**D7** 🟡（IND-05～06）；tier0 **274+2**。下一条 **IND-05**（P3-0 单写者，另 PR）。 |
 
 ---
 
@@ -63,6 +63,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-25 | **IND-04** [x]：ADR-004 + `test_mimicore_openclaw_boundary_ind04`；tier0 纳入 contract IND-02/03/04。 |
 | 2026-05-25 | **IND-01～03** [x]：Night1 PR — ADR-003、contract IND-02/03、`get_mimir_session_search_db_path()`；tier0 **267+2**；**D7** 部分绿。 |
 | 2026-05-25 | **Wave 2 C [x] STAB-07**：Gateway 十条无「移交工程」；`GATEWAY_STABILITY_BACKLOG.md` 刷新；GH **#25–30** closed；下一条 **IND-01**。 |
 | 2026-05-25 | **§13.1 P0-LONG-CLEARANCE** | **Cursor** | 母任务 A→E + STAB/IND/IEVO 子项表；Done 对照；§9/§10 刷新 |

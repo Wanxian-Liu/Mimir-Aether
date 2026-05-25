@@ -96,7 +96,7 @@
 | 区域 | Issue | 状态 | 证据 |
 |------|-------|------|------|
 | `tools/` 运行时 5 处 | #10 / #12 | **closed**（PR **#23**） | `code_execution_tool` → `get_mimir_home()`；`skills_guard` 动态 `mimir_paths`；`file_sync` 含 `/root/.mimiraether` remap |
-| `mimicore/` ~30 处 | #13 | **closed**（PR **#24** + memory-hall `cbde44b`） | `mimicore/mimir_paths.py` 对齐 `get_mimir_home()` |
+| `mimicore/` ~30 处 | #13 | **closed**（PR **#24** + memory-hall `cbde44b`） | `mimicore/mimir_paths.py` + **ADR-004**（IND-04 防复发） |
 | `agent/` · `gateway/` · `tools/` advisory | — | **6 matches**（阈值 60） | [`scripts/warn_openclaw_literals.py`](../scripts/warn_openclaw_literals.py)；均为注释 / 迁移 remap / 历史说明 |
 | `mimir_cli/` 迁移 CLI | — | **有意保留** | [`mimir_cli/claw.py`](../mimir_cli/claw.py)、[`paths.py`](../mimir_cli/paths.py)；见 [`path-contract.md`](./path-contract.md) §5 |
 | `docs/` · `learnings/` · `optional-skills/migration/` | — | **豁免 / 边界文档** | 见 path-contract §历史路径与豁免目录 |
@@ -124,5 +124,6 @@
 - [`MIMIR_CLARIFY_BASELINE.md`](./MIMIR_CLARIFY_BASELINE.md) — T01 实测（§5 OpenClaw）  
 - [`path-contract.md`](./path-contract.md) — 三根与历史路径豁免  
 - [`OPENCLAW_ENV_LEGACY.md`](./OPENCLAW_ENV_LEGACY.md) — 遗留 `OPENCLAW_*` 环境变量  
+- [`adr/004-mimicore-openclaw-boundary.md`](./adr/004-mimicore-openclaw-boundary.md) — 子模块边界（IND-04）  
 - [`SECURITY.md`](./SECURITY.md) — 密钥与 `.env`  
 - [`AGENTS.md`](../AGENTS.md) — 协作者总则  

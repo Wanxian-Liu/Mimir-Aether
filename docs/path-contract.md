@@ -100,7 +100,7 @@ Copy-paste examples in **`skills/**`** and **`optional-skills/**`** should use *
 | 包 / 目录 | 谁在用 | 说明 |
 |-----------|--------|------|
 | [`mimcore/`](../mimcore/) | **已删除（2026-05-12）** — 薄 shim 已移除；`agent/core_loop.py` 和 `mcp_serve.py` 改为直接从 `mimir_state` 导入 `SessionDB` |
-| [`mimicore/`](../mimicore/) | [`cli.py`](../cli.py)、[`api_service.py`](../api_service.py)、技能 `mimiraether-self_evolution`、根目录若干 `run_capsule_*.py` 等 | 历史与测试根路径多；**仅**当某模块被上述主链路 import 且会在「无 `~/.openclaw`」环境执行时，才收敛其默认路径；其余 legacy（如旧项目名测试根）可延后。 |
+| [`mimicore/`](../mimicore/) | [`cli.py`](../cli.py)、[`api_service.py`](../api_service.py)、技能 `mimiraether-self_evolution`、根目录若干 `run_capsule_*.py` 等 | 子模块路径真源：**[`adr/004-mimicore-openclaw-boundary.md`](./adr/004-mimicore-openclaw-boundary.md)** · `mimicore/mimir_paths.py`；tier0 契约 `tests/contract/test_mimicore_openclaw_boundary_ind04.py` |
 
 ## Intentionally lower priority
 
