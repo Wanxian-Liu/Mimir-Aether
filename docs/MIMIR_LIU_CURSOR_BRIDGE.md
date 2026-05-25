@@ -130,6 +130,7 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 | 2026-05-25 | **IEVO-02** | **Cursor** | D5-3 evolution pytest 入 tier0 · manifest contract · tier0 **306+2** · 下一粒 **IEVO-03** |
 | 2026-05-25 | **IEVO-03** | **Cursor** | ADR-005 ExecutionRecorder SoT · path-contract · tier0 **310+2** · GH **#22** 部分关 · 下一粒 **IEVO-04** |
 | 2026-05-25 | **IEVO-04** | **Cursor** | `run_evolution_eval.sh` 记忆检索 eval + 基线对比 · tier0 **314+2** · 下一粒 **IEVO-05** |
+| 2026-05-25 | **IEVO-05** | **Cursor** | D6-3 monitor/insights 回归测入 tier0 · tier0 **322+2** · 下一粒 **IEVO-06** |
 
 ---
 
@@ -137,7 +138,7 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 
 - **main**：`2ba2e7b` 一带 · tier0 **278+2** · 母任务 **§13.1 `P0-LONG-CLEARANCE`**
 - **Wave 0 A / 1 B / 2 C / D**：**[x]**（刘哥 §8.3 签收 2026-05-25）
-- **Wave E**：**IEVO-01～04** [x] → 下一条 **IEVO-05**（D6-3 monitor/insights 回归）
+- **Wave E**：**IEVO-01～05** [x] → 下一条 **IEVO-06**（Wave E 结案 + Phase ∞ checklist）
 - **R5**：刘哥复验 **pass**（30s 内 tool）
 - **Gateway**：PID **135797** · /health ok · TRUNCATE since-start **0**
 - **GH open**：**10** · #10 **monitoring**（STAB-04 已修）

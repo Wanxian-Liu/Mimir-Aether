@@ -93,3 +93,4 @@ Append-only. Newest rows at the **bottom**. See **`docs/M6_EVOLUTION.md`** for r
 | 20260525T025922Z_6838137-dirty | 2026-05-25T02:59:22Z | 6838137-dirty | ./run_ralph_tier0.sh | 0 | IEVO-02: skill_evolution + self_evolution_jepa in tier0; evolution manifest contract; tier0 306+2 |
 | 20260525T031804Z_f0021ac-dirty | 2026-05-25T03:18:04Z | f0021ac-dirty | ./run_ralph_tier0.sh | 0 | IEVO-03: ADR-005 ExecutionRecorder observability SoT; execution_recorder path via get_mimir_data_dir; contract; tier0 310+2 |
 | 20260525T032841Z_bec993a-dirty | 2026-05-25T03:28:41Z | bec993a-dirty | ./run_ralph_tier0.sh | 0 | IEVO-04: run_evolution_eval.sh memory benchmark + baseline compare; FTS open fail-open; contract ievo04; tier0 314+2 |
+| 20260525T033843Z_e49c26d-dirty | 2026-05-25T03:38:43Z | e49c26d-dirty | ./run_ralph_tier0.sh | 0 | IEVO-05: D6-3 monitor/insights regression tests + tier0 manifest; metrics: tier0 322+2 |

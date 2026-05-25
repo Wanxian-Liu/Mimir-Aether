@@ -6,10 +6,10 @@
 | 字段 | 值 |
 |------|-----|
 | **最近更新** | 2026-05-25 |
-| **更新人** | Cursor（P2-LONG-INDEP **IND-06** 工程结案） |
+| **更新人** | Cursor（P2-LONG-IEVO **IEVO-05**） |
 | **仓库根（真源）** | `~/src/MimirAether` |
-| **可选校验** | `./run_ralph_tier0.sh`（门禁 **314+2**）；`./scripts/run_evolution_eval.sh`（本机 DB） |[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
-| **本轮摘要** | **IEVO-04** [x]：`run_evolution_eval.sh` 记忆检索 eval + 基线对比；tier0 **314+2**。下一条 **IEVO-05**。 |
+| **可选校验** | `./run_ralph_tier0.sh`（门禁 **322+2**）；`./scripts/run_evolution_eval.sh`（本机 DB） |[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
+| **本轮摘要** | **IEVO-05** [x]：D6-3 monitor/insights 回归（5 行为测 + 3 contract）；tier0 **322+2**。下一条 **IEVO-06**。 |
 
 ---
 
