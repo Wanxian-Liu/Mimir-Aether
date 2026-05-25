@@ -132,14 +132,15 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 | 2026-05-25 | **IEVO-04** | **Cursor** | `run_evolution_eval.sh` 记忆检索 eval + 基线对比 · tier0 **314+2** · 下一粒 **IEVO-05** |
 | 2026-05-25 | **IEVO-05** | **Cursor** | D6-3 monitor/insights 回归测入 tier0 · tier0 **322+2** · 下一粒 **IEVO-06** |
 | 2026-05-25 | **IEVO-06** | **Cursor** | Wave E 结案 · D8 ✅ · Phase ∞ 续勾 · tier0 **326+2** · **Wave E [x]** · 下一粒 **CLEARANCE-DONE** |
+| 2026-05-25 | **CLEARANCE-DONE** | **Cursor** | §0 **8/8** · GH **3** open · ISSUES Active **2** · **`P0-LONG-CLEARANCE` [x]** · Horizon 待刘哥拍板 |
 
 ---
 
 ## 5. Mimir 进度笔记
 
-- **main**：`2ba2e7b` 一带 · tier0 **278+2** · 母任务 **§13.1 `P0-LONG-CLEARANCE`**
-- **Wave 0 A / 1 B / 2 C / D**：**[x]**（刘哥 §8.3 签收 2026-05-25）
-- **Wave E**：**[x] 2026-05-25**（IEVO-01～06）→ 母任务 **CLEARANCE-DONE**（§0 D1–D8）
+- **main**：`46baca6` 一带 · tier0 **329+2** · **`P0-LONG-CLEARANCE` [x] 2026-05-25**
+- **Wave 0 A / 1 B / 2 C / D / E**：**[x]**（刘哥 §8.3 签收 2026-05-25）
+- **Horizon**：刘哥拍板 **SEM (#32)** / **ADR-002** / **Phase 3** — 只开一条
 - **R5**：刘哥复验 **pass**（30s 内 tool）
 - **Gateway**：PID **135797** · /health ok · TRUNCATE since-start **0**
 - **GH open**：**10** · #10 **monitoring**（STAB-04 已修）

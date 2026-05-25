@@ -131,6 +131,7 @@ python3 -m pytest -q \
   tests/agent/test_ievo05_monitor_insights_regression.py \
   tests/contract/test_monitor_insights_ievo05.py \
   tests/contract/test_ievo06_wave_e_closeout.py \
+  tests/contract/test_clearance_done.py \
   tests/agent/test_persistent_single_writer_ind05.py
 
 echo "=== Ralph Tier-1: Gate3 Core E2E (mocked LLM) ==="

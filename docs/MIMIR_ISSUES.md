@@ -10,9 +10,8 @@
 
 | # | 日期 | 来源 | 描述 | 严重度 | 状态 | Backlog |
 |---|------|------|------|--------|------|---------|
-| 2 | 2026-05-16 | CLARIFY_BASELINE §5 | `~/.openclaw/projects/MimirAether` 并行树仍存在，易误操作；**工程真源仅** `~/src/MimirAether`（见 `docs/path-contract.md`） | 中 | resolved (process) | — |
 | 3 | 2026-05-16 | CLARIFY_BASELINE §4 | 记忆落盘三条入口未统一（mimicore public/、skill_curator、llm-wiki/obsidian）— 设计债，见 ADR | 中 | deferred | [adr/002-memory-write-paths.md](./adr/002-memory-write-paths.md) |
-| 10 | 2026-05-20 | T-08 (d4) | TRUNCATE：**全量 63** 多为历史+双截断 bug（**STAB-04 已修**）；监控 **since gateway start ≤10**；Gateway drain race（**STAB-04**）；Wave 2 C 结案 **STAB-07** | 高 | **monitoring** | STAB-04 / STAB-07 |
+| 10 | 2026-05-20 | T-08 (d4) | TRUNCATE：**全量 63** 历史噪声；**since gateway start ≤10** 为运维 KPI（**STAB-04 已修**）；非 P0 | 中 | **monitoring** | STAB-04 / STAB-07 · [`p0-long-clearance-done.md`](./phase0/p0-long-clearance-done.md) |
 
 ---
 
@@ -28,3 +27,4 @@
 | 8 | 2026-05-20 | T-11 (d7) | `CLI_CONFIG` ImportError — **E-004** 默认值 + 导入路径修复 | 中 | resolved | **E-004** 2026-05-23 |
 | 9 | 2026-05-20 | T-10 (d6) | 可观测 TOOL_CALL SQL + monitor + `/health`；NameError **E-010** | 中 | resolved | **E-006** / **E-010** / **E-011b** |
 | 11 | 2026-05-21 | EV-L13 | RED Duration P50/P95/P99 缺失 | 低 | resolved | **E-011b** |
+| 2 | 2026-05-16 | CLARIFY_BASELINE §5 | 并行树 `~/.openclaw/projects/MimirAether` — **工程真源** `~/src/MimirAether` | 中 | resolved (process) | CLEARANCE-DONE 2026-05-25 |

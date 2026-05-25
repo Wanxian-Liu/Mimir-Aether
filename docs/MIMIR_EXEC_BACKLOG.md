@@ -325,7 +325,7 @@ Mimir 冒烟回报
 - **真源**：`~/src/MimirAether` · `MIMIR_AETHER_HOME=~/.mimiraether` · 必读 `MAINLINE_STATUS.md` / `MIMIR_ISSUES.md`（Active≤3）/ `AGENTS.md`。
 - **§2 工程队列**：只读，勿再取「E-004 / T-02 / 181+2」。
 - **Phase 0**：**14/14** [x]（2026-05-24）— 真源 [`MIMIR_PHASE0_QUEUE.md`](./MIMIR_PHASE0_QUEUE.md)。
-- **当前执行源**：**§13.1 `P0-LONG-CLEARANCE`**（[`MIMIR_ZERO_DEBT_MASTERPLAN.md`](./MIMIR_ZERO_DEBT_MASTERPLAN.md)）；§11/§12/§8/§6 **只读归档**。
+- **当前执行源**：**Horizon**（[`MIMIR_ZERO_DEBT_MASTERPLAN.md`](./MIMIR_ZERO_DEBT_MASTERPLAN.md) §7）— **刘哥拍板一条**：`P2-LONG-SEM` **或** ADR-002 **或** Phase 3；**`P0-LONG-CLEARANCE` [x] 2026-05-25**。
 - **勿**：提交 `data/persistent.json`；重做 E-001～E-012。
 
 ### 9.1 未完成项盘点（2026-05-25）
@@ -337,8 +337,8 @@ Mimir 冒烟回报
 | **§6 Phase 2 候选** | **6** `[ ]` | 已并入 **CLR-D / CLR-E**；勿单独开队列 |
 | **§8 工程 icebox** | **4** 条 | 已并入 **CLR-C**（`P2-LONG-STAB`） |
 | **Gateway 十条** | **~4** 待工程 | CLR-C 结案；#9 待 **CLR-B** 飞书复验 |
-| **GitHub open** | **10** | icebox **5** + wave-2 **4** + phase-2 **1**；Done 目标 **≤6** |
-| **Active P0** | **1** | `MIMIR_ISSUES` **#10 TRUNCATE** → **CLR-C STAB-04** 优先 |
+| **GitHub open** | **3** | #21 #22 icebox · #32 phase-2 |
+| **Active P0** | **0** | #10 **monitoring**（非 P0） |
 | **搁置** | **1** | EV-VISION-DEFER（识图） |
 
 **对策不变**：只认 **§13.1 第一条 `[ ]` 子阶段**；子阶段内只认该段 **第一条 `[ ]` 子项**。
@@ -463,7 +463,7 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 | **C** | **P2-LONG-STAB** | Cursor | STAB-01～07；Gateway 十条无「移交工程」；**#10 TRUNCATE 回落**；GH #25–30 关 | **[x] 2026-05-25** |
 | **D** | **P2-LONG-INDEP** | Cursor | IND-01～06；**D7**；GH #20 关 | **[x] 2026-05-25**（刘哥 §8.3 签收） |
 | **E** | **P2-LONG-IEVO** | Cursor | IEVO-01～06；**D8**；GH #21/#22 部分关 | **[x] 2026-05-25** |
-| **✓** | **CLEARANCE-DONE** | 刘哥 sign-off | §0 **8/8**；MAINLINE 刷新；Horizon 二选一 | [ ] |
+| **✓** | **CLEARANCE-DONE** | 刘哥 sign-off | §0 **8/8**；MAINLINE 刷新；Horizon 二选一 | **[x] 2026-05-25** · [`p0-long-clearance-done.md`](./phase0/p0-long-clearance-done.md) |
 
 **Horizon（清空后）**：`P2-LONG-SEM` · ADR-002 · Unified Plan Phase 3/4 — **刘哥拍板**，不纳入本母任务。
 
@@ -529,22 +529,22 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 
 | masterplan §0 | 进度 |
 |---------------|------|
-| D1 GH ≤6 | 🟡 10 open（标签已整理） |
-| D2 Active 无 P0 | 🟡 #10 → **monitoring**（since-start R4） |
+| D1 GH ≤6 | ✅ **3 open**（#21 #22 icebox · #32 phase-2） |
+| D2 Active 无 P0 | ✅ Active **2**（#3 deferred · #10 monitoring） |
 | D3 Gateway 十条 | ✅ **STAB-07**（2026-05-25） |
-| D4 §13 无 `[ ]` | 🟡 子阶段 **E** [x]；待 **CLEARANCE-DONE** |
+| D4 §13 无 `[ ]` | ✅ **P0-LONG-CLEARANCE** 全子阶段 `[x]` |
 | D5 tier0 | ✅ **326+2** |
 | D6 飞书 smoke | ✅ T-03/T-04 + R5 tool 往返（2026-05-25 刘哥） |
 | D7 路径独立 | ✅ **IND-01～06**（§8 独立宣言 · 刘哥签收 2026-05-25） |
-| D8 工业进化 MVP | ⬜ → **CLR-E** |
+| D8 工业进化 MVP | ✅ **CLR-E**（IEVO-01～06） |
 
-**整体清空（D1–D8）**：约 **55%** · **含独立+IEVO 全链路**：约 **38%**（Wave E 已结案）
+**整体清空（D1–D8）**：✅ **8/8**（2026-05-25 · [`p0-long-clearance-done.md`](./phase0/p0-long-clearance-done.md)）
 
 **Cursor 新窗一句**
 
 ```text
-Read docs/MIMIR_ZERO_DEBT_MASTERPLAN.md + MIMIR_EXEC_BACKLOG.md §13.1 P0-LONG-CLEARANCE。
-只做母任务 **CLEARANCE-DONE**（§0 D1–D8 全绿 · 刘哥 sign-off）；勿并行开 Horizon。
+Read docs/MIMIR_ZERO_DEBT_MASTERPLAN.md §7 Horizon + phase0/p0-long-clearance-done.md。
+P0-LONG-CLEARANCE 已 [x]；只做刘哥拍板的一条长任务（SEM / ADR-002 / Phase 3），勿并行开战。
 触达 agent/gateway/tools 后 ./run_ralph_tier0.sh + evolution_log。
 ```
 

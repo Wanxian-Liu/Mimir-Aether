@@ -39,7 +39,11 @@
 | A1 Gateway 硬重启 | 进程 ok | PID **691521**；GH #19 closed |
 | `.openclaw` advisory | **6/60** | 非阻断 |
 
-### 1.2 仍 open（须进波次）
+### 1.2 仍 open（Horizon · 不阻塞清空）
+
+> **2026-05-25**：**P0-LONG-CLEARANCE** 已宣告完成 — 见 [`phase0/p0-long-clearance-done.md`](./phase0/p0-long-clearance-done.md)。下列 **3** 个 GH open 均为 icebox / phase-2。
+
+### 1.2a 历史盘点（Wave 0 前 · 已收口）
 
 #### GitHub（14 open — **含重复/漂移**）
 
