@@ -121,7 +121,7 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 | 2026-05-25 | **W0-06 MW-D11** | **Cursor** | Wave 0 **A 结案** — D01–D10 全 [x]；PID **135797**；TRUNCATE since-start **0**；health **READY**；飞书 T-03/T-04 → **W1** |
 | 2026-05-25 | **STAB-03** | **Cursor** | ToolGuard 相对路径 → `resolve_path_for_guard` + 越界 block；`test_tool_guard_paths` 7×；tier0 **246+2** |
 | 2026-05-25 | **W1 smoke** | **刘哥** | T-03/T-04 pass；R5 飞书 `read_file` **30s 内** tool 成功；Wave **B [x]**；D6 ✅ |
-| 2026-05-25 | **IND Night1** | **Cursor** | IND-01～03 · PR pending · tier0 267+2 · D7 🟡 · 下一粒 IND-04 |
+| 2026-05-25 | **IND Night1** | **Cursor** | IND-01～03 · PR **#33** merged · tier0 **267+2** · **D7** 🟡 · 下一粒 **IND-04** |
 
 ---
 
