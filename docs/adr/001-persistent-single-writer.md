@@ -1,6 +1,6 @@
 # ADR-001: persistent.json 单写者模式
 
-> **状态**: 提议  
+> **状态**: Accepted (2026-05-25, IND-05)  
 > **日期**: 2026-05-20  
 > **来源**: ISSUES #4 | Session 72 截断事件 | d3 审计 P3-0
 
@@ -122,6 +122,16 @@ with open(PERSISTENT_PATH, 'r+') as f:
 - `core_loop.py:1928` 由 `self._cross_memory.save()` 变为 `await self._cross_memory.save()`
 - 不再有静默覆盖风险
 
-## 实施
+## 实施（IND-05）
 
-待 d3 GOD 拆分完成后由 d4 阶段统一实施。
+**已采用方案 A 的同步等价物**：`agent/persistent_store.py` 模块级 `threading.Lock`，所有 RMW 经 `load` / `save` / `read_modify_write` / `save_merged`。
+
+| 模块 | 变更 |
+|------|------|
+| `agent/persistent_store.py` | 新建：原子写、写前校验、`.bak`、锁 |
+| `agent/skill_curator.py` | 经 `read_modify_write` 写 segment；路径对齐 `get_mimir_data_dir()` |
+| `agent/cross_session_memory.py` | `save()` → `save_merged` + `merge_disk_into_memory` |
+
+**测试**：`tests/agent/test_persistent_single_writer_ind05.py`（并发 segment 不丢）。
+
+**未做**：asyncio.Lock（调用链均为同步）；方案 B 单入口收敛可后续演进。

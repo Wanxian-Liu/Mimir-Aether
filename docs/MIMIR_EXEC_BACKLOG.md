@@ -509,7 +509,7 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 | **IND-02** | 新代码仅 `get_mimir_home()`；grep 门禁 | tier0 + advisory | [x] 2026-05-25 |
 | **IND-03** | `MIMIR_SESSION_DB`（保留旧名读） | 单测 + path-contract | [x] 2026-05-25 |
 | **IND-04** | mimicore 子模块 `.openclaw` 边界 ADR | 不再复发 | [x] 2026-05-25 |
-| **IND-05** | P3-0 单写者实现 | GH #20 close | [ ] |
+| **IND-05** | P3-0 单写者实现 | GH #20 close | [x] 2026-05-25 |
 | **IND-06** | OPENCLAW_BOUNDARY §8 + MAINLINE | 刘哥 sign-off | [ ] |
 
 #### E — P2-LONG-IEVO
@@ -535,7 +535,7 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 | D4 §13 无 `[ ]` | 🟡 子阶段 **D/E** 进行中（A/B/C 已结案） |
 | D5 tier0 | ✅ **274+2** |
 | D6 飞书 smoke | ✅ T-03/T-04 + R5 tool 往返（2026-05-25 刘哥） |
-| D7 路径独立 | 🟡 **IND-01～04** [x]；IND-05～06 待办 |
+| D7 路径独立 | 🟡 **IND-01～05** [x]；IND-06 待办 |
 | D8 工业进化 MVP | ⬜ → **CLR-E** |
 
 **整体清空（D1–D8）**：约 **48%** · **含独立+IEVO 全链路**：约 **28%**
@@ -544,7 +544,7 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 
 ```text
 Read docs/MIMIR_ZERO_DEBT_MASTERPLAN.md + MIMIR_EXEC_BACKLOG.md §13.1 P0-LONG-CLEARANCE。
-只做母任务第一条 [ ] 子阶段内的第一条 [ ] 子项（现：**D/IND-05**）。
+只做母任务第一条 [ ] 子阶段内的第一条 [ ] 子项（现：**D/IND-06**）。
 触达 agent/gateway/tools 后 ./run_ralph_tier0.sh + evolution_log。
 ```
 

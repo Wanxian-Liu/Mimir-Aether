@@ -12,17 +12,17 @@ MimirAether Skill Curator — 技能生命周期管理
   - 知识永不删除——dormant 前胶囊化（Phase 2）
 """
 
-import json
 import logging
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+from agent import persistent_store
+
 logger = logging.getLogger(__name__)
 
 # ── 配置 ────────────────────────────────────────────────────────────────────
 SKILLS_ROOT = Path(__file__).resolve().parent.parent / "skills"
-PERSISTENT_PATH = Path(__file__).resolve().parent.parent / "data" / "persistent.json"
 SKILL_FILENAME = "SKILL.md"
 
 STALE_THRESHOLD_DAYS = 30
@@ -41,118 +41,6 @@ class SkillStatus:
 
 def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
-
-
-# ── persistent.json 安全常量 ──────────────────────────────────────────────
-# 必须存在的顶层键（缺一则视为文件损坏/读取不完整）
-_REQUIRED_TOP_KEYS = frozenset({"version", "memory", "progress"})
-
-
-def _load_persistent() -> dict:
-    """加载 persistent.json，带结构验证与备份恢复。
-
-    安全设计：
-      - 禁止在读取失败时返回 {}：空 dict 会被 _save_persistent 写回磁盘，
-        造成全量数据丢失（Session 72 已发生：324行→5行）。
-      - 读取成功后校验顶层结构（version / memory / progress），
-        缺失任一关键键视为损坏，回退到 .bak 备份。
-      - 两次读取+延迟重试，防御瞬时 I/O 抖动。
-    """
-    import time
-
-    for attempt in (1, 2):
-        try:
-            if PERSISTENT_PATH.exists():
-                raw = PERSISTENT_PATH.read_text(encoding="utf-8")
-                data = json.loads(raw)
-                # 结构校验：关键键缺一不可
-                missing = _REQUIRED_TOP_KEYS - data.keys()
-                if missing:
-                    logger.warning(
-                        "persistent.json missing critical keys: %s (attempt %d)",
-                        missing, attempt,
-                    )
-                    if attempt == 1:
-                        time.sleep(0.1)  # 瞬时写入抖动，等100ms重试
-                        continue
-                    # 两次都不完整 → 尝试 .bak
-                    raise ValueError(
-                        f"persistent.json 结构不完整，缺失: {missing}"
-                    )
-                return data
-        except (json.JSONDecodeError, OSError, ValueError) as e:
-            logger.warning(
-                "Failed to read persistent.json (attempt %d): %s", attempt, e
-            )
-            if attempt == 1:
-                time.sleep(0.1)
-                continue
-
-    # ── 两次读取均失败 → 尝试 .bak 备份 ──
-    bak_path = PERSISTENT_PATH.with_suffix(".json.bak")
-    if bak_path.exists():
-        try:
-            data = json.loads(bak_path.read_text(encoding="utf-8"))
-            missing = _REQUIRED_TOP_KEYS - data.keys()
-            if not missing:
-                logger.warning(
-                    "persistent.json 不可读，已从 .bak 恢复 (%d 键)",
-                    len(data),
-                )
-                # 将备份写回正式文件
-                _write_atomic(bak_path.read_text(encoding="utf-8"))
-                return data
-            else:
-                logger.error(".bak 备份也损坏，缺失: %s", missing)
-        except Exception as e:
-            logger.error("Failed to read .bak backup: %s", e)
-
-    # ── 彻底失败：抛异常而非返回 {} ──
-    raise RuntimeError(
-        "persistent.json 不可读且无可用备份——拒绝以空状态覆写磁盘。"
-        "请检查 data/persistent.json 文件完整性。"
-    )
-
-
-def _write_atomic(raw: str) -> None:
-    """原子写入 persistent.json（tmp + replace）。"""
-    PERSISTENT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    tmp = PERSISTENT_PATH.with_suffix(".tmp")
-    tmp.write_text(raw, encoding="utf-8")
-    tmp.replace(PERSISTENT_PATH)
-
-
-def _save_persistent(data: dict) -> None:
-    """保存 persistent.json：写前验证 + 自动备份 + 原子替换。
-
-    安全约束：
-      - 写入前校验 data 含 version/memory/progress，缺失则拒绝写入。
-      - 写入前自动生成 .bak 备份（保留最近一次完好版本）。
-      - 使用 tmp + replace 保证原子性（Linux 文件系统保证）。
-    """
-    # 写前结构校验
-    missing = _REQUIRED_TOP_KEYS - data.keys()
-    if missing:
-        logger.error(
-            "REJECTED save: persistent.json data missing critical keys: %s. "
-            "This prevents the 324→5 truncation bug (Session 72).",
-            missing,
-        )
-        raise ValueError(
-            f"Refusing to write persistent.json: missing critical keys {missing}. "
-            f"Data has keys: {sorted(data.keys())}"
-        )
-
-    # 写入前自动备份（保留最近一次完好版本）
-    if PERSISTENT_PATH.exists():
-        try:
-            bak = PERSISTENT_PATH.with_suffix(".json.bak")
-            bak.write_text(PERSISTENT_PATH.read_text(encoding="utf-8"))
-        except OSError as e:
-            logger.warning("Failed to create .bak backup: %s", e)
-
-    raw = json.dumps(data, ensure_ascii=False, indent=2)
-    _write_atomic(raw)
 
 
 def _parse_frontmatter(content: str) -> dict:
@@ -204,7 +92,7 @@ def _discover_skills() -> List[Tuple[str, Path, dict]]:
 def _get_usage() -> Dict[str, str]:
     """从 persistent.json 读取 skill_usage 段。读取失败时返回空 dict。"""
     try:
-        data = _load_persistent()
+        data = persistent_store.load()
         return data.get("skill_usage", {})
     except RuntimeError as e:
         logger.warning("Cannot track skill usage: %s", e)
@@ -214,9 +102,9 @@ def _get_usage() -> Dict[str, str]:
 def _set_usage(usage: Dict[str, str]) -> None:
     """写入 skill_usage 到 persistent.json。读取/写入失败时仅记录日志。"""
     try:
-        data = _load_persistent()
-        data["skill_usage"] = usage
-        _save_persistent(data)
+        persistent_store.read_modify_write(
+            lambda data: data.__setitem__("skill_usage", usage)
+        )
     except (RuntimeError, ValueError) as e:
         logger.warning("Failed to persist skill_usage: %s", e)
 
@@ -322,7 +210,7 @@ def _get_dormant_root() -> Path:
 def _get_dormant_registry() -> dict:
     """从 persistent.json 读取 dormant_skills 段。读取失败时返回空 dict。"""
     try:
-        data = _load_persistent()
+        data = persistent_store.load()
         return data.get("dormant_skills", {})
     except RuntimeError as e:
         logger.warning("Cannot read dormant registry: %s", e)
@@ -332,9 +220,9 @@ def _get_dormant_registry() -> dict:
 def _save_dormant_registry(registry: dict) -> None:
     """写入 dormant_skills 到 persistent.json。失败时仅记录日志。"""
     try:
-        data = _load_persistent()
-        data["dormant_skills"] = registry
-        _save_persistent(data)
+        persistent_store.read_modify_write(
+            lambda data: data.__setitem__("dormant_skills", registry)
+        )
     except (RuntimeError, ValueError) as e:
         logger.warning("Failed to persist dormant_skills: %s", e)
 

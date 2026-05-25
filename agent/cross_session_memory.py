@@ -29,6 +29,7 @@
     mem.save()
 """
 
+import copy
 import json
 import os
 import time
@@ -36,11 +37,11 @@ from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from pathlib import Path
 
-from mimir_constants import get_mimir_data_dir
+from agent.persistent_store import get_persistent_path, save_merged
 
 
-# 持久化文件路径（随 MIMIR_AETHER_HOME 解析）
-PERSISTENT_FILE = get_mimir_data_dir() / "persistent.json"
+# 持久化文件路径（随 MIMIR_AETHER_HOME 解析；与 persistent_store 一致）
+PERSISTENT_FILE = get_persistent_path()
 
 
 class CrossSessionMemory:
@@ -165,62 +166,51 @@ class CrossSessionMemory:
             mem["active_projects"] = fixed_ap
     
     def save(self) -> bool:
-        """保存持久化记忆（先从磁盘合并外部变更，防止覆盖 agent 的手动 patch）"""
-        try:
-            self._data["last_session_end"] = datetime.now(timezone.utc).isoformat()
-
-            # ── 磁盘合并：防止覆盖 agent 在会话中直接 patch 的字段 ──
-            self._merge_disk_changes()
-
-            self.file_path.parent.mkdir(parents=True, exist_ok=True)
-            # 原子写入
-            temp_path = self.file_path.with_suffix('.tmp')
-            with open(temp_path, 'w', encoding='utf-8') as f:
-                json.dump(self._data, f, ensure_ascii=False, indent=2)
-            temp_path.rename(self.file_path)
-            return True
-        except (IOError, OSError) as e:
-            print(f"[CrossSessionMemory] 保存失败: {e}")
-            return False
+        """保存持久化记忆（单写者锁 + 磁盘合并，ADR-001）。"""
+        self._data["last_session_end"] = datetime.now(timezone.utc).isoformat()
+        self.file_path = get_persistent_path()
+        ok = save_merged(
+            self._data,
+            CrossSessionMemory.merge_disk_into_memory,
+            self.file_path,
+        )
+        if not ok:
+            print("[CrossSessionMemory] 保存失败")
+        return ok
 
     def _merge_disk_changes(self) -> None:
-        """读取磁盘 persistent.json，将 agent 手动 patch 的字段合并到内存。
-
-        合并策略（防止 end_session 覆盖 agent 的 patch）：
-        - progress.current_objective: 磁盘优先（agent 可 patch）
-        - progress.completed_milestones: 并集
-        - memory.active_projects: 按 name 匹配合并，磁盘 status 优先
-        - memory.learned_patterns: 并集（按 pattern 文本去重）
-        - memory.key_decisions: 并集（按 decision 文本去重）
-        - 其他字段: 内存优先（运行时管理）
-        """
+        """合并磁盘快照到 ``self._data``（供会话内逻辑；保存走 :meth:`save`）。"""
         try:
             if not self.file_path.exists():
                 return
-            with open(self.file_path, 'r', encoding='utf-8') as f:
+            with open(self.file_path, "r", encoding="utf-8") as f:
                 disk_data = json.load(f)
         except (json.JSONDecodeError, IOError):
             return
+        merged = self.merge_disk_into_memory(disk_data, self._data)
+        self._data = merged
 
-        # ── progress.current_objective: 磁盘优先 ──
+    @staticmethod
+    def merge_disk_into_memory(disk_data: dict, memory_data: dict) -> dict:
+        """将磁盘上 agent 手动 patch 的字段合并进内存快照并返回完整写入体。"""
+        out = copy.deepcopy(memory_data)
+
         disk_obj = disk_data.get("progress", {}).get("current_objective")
-        mem_obj = self._data.get("progress", {}).get("current_objective")
+        mem_obj = out.get("progress", {}).get("current_objective")
         if disk_obj and disk_obj != mem_obj:
-            self._data.setdefault("progress", {})["current_objective"] = disk_obj
+            out.setdefault("progress", {})["current_objective"] = disk_obj
 
-        # ── progress.completed_milestones: 并集 ──
         disk_ms = disk_data.get("progress", {}).get("completed_milestones", [])
         if disk_ms:
-            mem_ms = self._data.setdefault("progress", {}).setdefault("completed_milestones", [])
+            mem_ms = out.setdefault("progress", {}).setdefault("completed_milestones", [])
             existing = set(mem_ms)
             for item in disk_ms:
                 if item not in existing:
                     mem_ms.append(item)
 
-        # ── memory.active_projects: 按 name 匹配合并，磁盘 status/额外字段优先 ──
         disk_ap = disk_data.get("memory", {}).get("active_projects", [])
         if disk_ap:
-            mem_ap = self._data.setdefault("memory", {}).setdefault("active_projects", [])
+            mem_ap = out.setdefault("memory", {}).setdefault("active_projects", [])
             mem_by_name = {p.get("name"): p for p in mem_ap if isinstance(p, dict)}
             for dp in disk_ap:
                 if not isinstance(dp, dict):
@@ -229,16 +219,14 @@ class CrossSessionMemory:
                 if not name:
                     continue
                 if name in mem_by_name:
-                    # 磁盘的 status 和额外字段优先
                     for k, v in dp.items():
                         mem_by_name[name][k] = v
                 else:
                     mem_ap.append(dp)
 
-        # ── memory.learned_patterns: 并集（按 pattern 文本去重） ──
         disk_lp = disk_data.get("memory", {}).get("learned_patterns", [])
         if disk_lp:
-            mem_lp = self._data.setdefault("memory", {}).setdefault("learned_patterns", [])
+            mem_lp = out.setdefault("memory", {}).setdefault("learned_patterns", [])
             seen_patterns = set()
             for item in mem_lp:
                 if isinstance(item, dict) and item.get("pattern"):
@@ -249,10 +237,9 @@ class CrossSessionMemory:
                         mem_lp.append(item)
                         seen_patterns.add(item["pattern"])
 
-        # ── memory.key_decisions: 并集（按 decision 文本去重） ──
         disk_kd = disk_data.get("memory", {}).get("key_decisions", [])
         if disk_kd:
-            mem_kd = self._data.setdefault("memory", {}).setdefault("key_decisions", [])
+            mem_kd = out.setdefault("memory", {}).setdefault("key_decisions", [])
             seen_decisions = set()
             for item in mem_kd:
                 if isinstance(item, dict) and item.get("decision"):
@@ -262,6 +249,20 @@ class CrossSessionMemory:
                     if item["decision"] not in seen_decisions:
                         mem_kd.append(item)
                         seen_decisions.add(item["decision"])
+
+        for key in ("skill_usage", "dormant_skills"):
+            if key in disk_data:
+                disk_seg = disk_data.get(key) or {}
+                mem_seg = out.get(key) or {}
+                if isinstance(disk_seg, dict) and isinstance(mem_seg, dict):
+                    out[key] = {**disk_seg, **mem_seg}
+                elif key not in out:
+                    out[key] = copy.deepcopy(disk_seg)
+
+        if "curator_nudge" in disk_data and "curator_nudge" not in out:
+            out["curator_nudge"] = copy.deepcopy(disk_data["curator_nudge"])
+
+        return out
     
     def is_first_session(self) -> bool:
         """是否是首次会话（无历史记忆）"""

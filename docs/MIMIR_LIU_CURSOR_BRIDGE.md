@@ -130,7 +130,7 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 
 - **main**：`178e837` · tier0 **267+2** · 母任务 **§13.1 `P0-LONG-CLEARANCE`**
 - **Wave 0 A / 1 B / 2 C**：**[x]**
-- **Wave D**：**IND-01～04 [x]** → 下一条 **IND-05**（单写者，需 review）
+- **Wave D**：**IND-01～05 [x]**（#20 closed）→ 下一条 **IND-06**（刘哥 sign-off）
 - **R5**：刘哥复验 **pass**（30s 内 tool）
 - **Gateway**：PID **135797** · /health ok · TRUNCATE since-start **0**
 - **GH open**：**10** · #10 **monitoring**（STAB-04 已修）
