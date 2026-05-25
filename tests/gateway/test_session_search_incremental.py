@@ -16,9 +16,37 @@ if str(ROOT) not in sys.path:
 @pytest.fixture
 def search_db_path(tmp_path, monkeypatch):
     db_path = tmp_path / "sessions_search.db"
+    monkeypatch.delenv("MIMIR_SESSION_DB", raising=False)
     monkeypatch.setenv("OPENCLAW_SESSION_DB", str(db_path))
+    monkeypatch.setenv("MIMIR_AETHER_HOME", str(tmp_path))
     monkeypatch.setenv("MIMIR_SESSION_SEARCH_INDEX", "1")
     return db_path
+
+
+def test_append_indexes_with_mimir_session_db_env(tmp_path, monkeypatch):
+    """IND-03: gateway indexing respects MIMIR_SESSION_DB."""
+    db_path = tmp_path / "mimir_named.db"
+    monkeypatch.delenv("OPENCLAW_SESSION_DB", raising=False)
+    monkeypatch.setenv("MIMIR_SESSION_DB", str(db_path))
+    monkeypatch.setenv("MIMIR_AETHER_HOME", str(tmp_path))
+    monkeypatch.setenv("MIMIR_SESSION_SEARCH_INDEX", "1")
+
+    from gateway.config import load_gateway_config
+    from gateway.session import SessionStore
+
+    sessions_dir = tmp_path / "sessions"
+    store = SessionStore(sessions_dir, load_gateway_config())
+    store.append_to_transcript("sid-mimir", {"role": "user", "content": "mimir env path"})
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        count = conn.execute(
+            "SELECT COUNT(*) FROM messages WHERE session_id = ?",
+            ("sid-mimir",),
+        ).fetchone()[0]
+    finally:
+        conn.close()
+    assert count == 1
 
 
 def test_append_to_transcript_indexes_sessions_search(tmp_path, search_db_path):

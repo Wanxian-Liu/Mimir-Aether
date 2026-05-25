@@ -6,7 +6,7 @@
 
 | 路径 | 模块/工具 | 机制 | 谁调用 | 数据位置 |
 |------|-----------|------|--------|----------|
-| **session_search** | `tools/session_search_tool.py` | **SQL `LIKE %query%`**（docstring 写 FTS5，实现无 FTS5 表） | Agent 工具 `toolsets`/`tools.registry`；`prompt_builder` 引导召回 | `$MIMIR_AETHER_HOME/data/sessions_search.db`（env `OPENCLAW_SESSION_DB` 可覆盖） |
+| **session_search** | `tools/session_search_tool.py` | LIKE 默认；`SESSION_SEARCH_BACKEND=fts5\|hybrid` 可选 | Agent 工具；`prompt_builder` 引导召回 | `get_mimir_session_search_db_path()`：`MIMIR_SESSION_DB` > `OPENCLAW_SESSION_DB`（legacy）> `data/sessions_search.db` |
 | **fts5_search** | `tools/fts5_search/` | SQLite **FTS5** 虚拟表 + rank | **未接入生产**：`rg` 无 gateway/tier0/registry import；仅模块内 `test_engine.py` | 默认 `data/fts5_search.db`（引擎内 `get_mimir_data_dir()`） |
 | **cross_session** | `agent/cross_session_memory.py` | JSON **全量 load/save**（identity/progress/decisions） | `core_loop` `_init_cross_session` / `_save_cross_session`；prompt 注入 | `$MIMIR_AETHER_HOME/data/persistent.json` |
 | **memory 包** | `memory/memory_manager.py` + `providers/*` | 进程内 **list/dict**（Session/Working/Persistent/Skill）；**无全文检索** | `agent/__init__` 导出；`core_loop` 用 `memory.fencing`；与 `agent/memory_manager.py` **并存** | 运行时内存；Persistent provider 不落独立检索 DB |

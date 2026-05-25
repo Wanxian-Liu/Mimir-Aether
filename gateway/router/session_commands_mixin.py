@@ -157,12 +157,7 @@ class SessionCommandsMixin:
         )
 
         display = display_hermes_home()
-        raw_home = os.environ.get("HERMES_HOME")
-        home = (
-            Path(raw_home).expanduser().resolve()
-            if raw_home
-            else get_hermes_home().resolve()
-        )
+        home = get_hermes_home().resolve()
 
         # Detect profile name from HERMES_HOME path (e.g. <openclaw_root>/profiles/<name>)
         profiles_parent = get_default_hermes_root() / "profiles"

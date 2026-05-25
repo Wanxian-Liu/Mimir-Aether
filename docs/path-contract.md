@@ -7,7 +7,7 @@ Short rules so agent code, gateway, and configs stay aligned. **Update this file
 | Layer | What | Typical location / API |
 |--------|------|-------------------------|
 | **Git / repo root** | Source tree (`cli.py`, `gateway/`, `scripts/`, tests). Not implied by `get_mimir_home()`. | Your clone (e.g. `~/src/MimirAether`), or **`MIMIR_REPO_ROOT`**, or `$(git rev-parse --show-toplevel)`. |
-| **Runtime / data home** | `.env`, `config.yaml`, `gateway.json`, `data/`, tool DBs, logs — **may differ** from the clone | **`mimir_constants.get_mimir_home()`**: `MIMIR_AETHER_HOME` → `MIMIRAETHER_HOME` → `HERMES_HOME` → default **`~/.mimiraether`**. |
+| **Runtime / data home** | `.env`, `config.yaml`, `gateway.json`, `data/`, tool DBs, logs — **may differ** from the clone | **`mimir_constants.get_mimir_home()`**: `MIMIR_AETHER_HOME` → `MIMIRAETHER_HOME` → `HERMES_HOME` → default **`~/.mimiraether`**. Legacy env aliases: **[ADR-003](./adr/003-runtime-env-aliases.md)**. |
 | **Profile layout** | When `HERMES_HOME` points at a profile dir, that path is the active home for resolution; profile siblings live under | `mimir_constants.get_default_hermes_root() / "profiles"` |
 | **Platform / gateway config** | `platforms`, merged gateway settings, `api_server` for `/health` | **Primary:** `get_mimir_home()/config.yaml` via [`gateway/config.py`](../gateway/config.py) `load_gateway_config()`. Optional legacy OpenClaw files may still exist on disk; new installs should not assume a fixed clone under `~/.openclaw/projects/` (see [`MIMIR_RUNTIME_CONTRACT.md`](./MIMIR_RUNTIME_CONTRACT.md)). |
 

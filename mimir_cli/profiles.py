@@ -605,7 +605,7 @@ def _cleanup_gateway_service(name: str, profile_dir: Path) -> None:
 
     # Derive service name for this profile
     # Temporarily set HERMES_HOME so _profile_suffix resolves correctly
-    old_home = os.environ.get("HERMES_HOME")
+    old_home = os.environ.get("HERMES_HOME")  # legacy: ADR-003 (save/restore for service teardown)
     try:
         os.environ["HERMES_HOME"] = str(profile_dir)
         from mimir_cli.gateway import get_service_name, get_launchd_plist_path

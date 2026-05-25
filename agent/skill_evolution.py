@@ -506,11 +506,9 @@ class SkillEvolutionPipeline:
             if ctx.skill_dir is not None:
                 skills_base = ctx.skill_dir.parent
             else:
-                import os as _os
-                _home = _os.environ.get("MIMIR_AETHER_HOME",
-                         _os.environ.get("HERMES_HOME",
-                         str(Path.home() / ".mimiraether")))
-                skills_base = Path(_home) / "skills"
+                from mimir_constants import get_mimir_home
+
+                skills_base = get_mimir_home() / "skills"
 
             write_dir = resolve_skill_write_dir(skills_base, ctx.suggestion.target)
             if write_dir is None:
