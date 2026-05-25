@@ -20,6 +20,7 @@
 | **进化审计** | `docs/evolution_log.md` | Cursor | 触达 agent/gateway/tools 合并前 | Mimir 默认不写 |
 | **GitHub Issues** | `gh issue …` | Cursor（已授权）或 Mimir comment | 工程结案 / ops 结案 | 无授权不 close |
 | **Phase 0 产出** | `docs/phase0/*.md` | Mimir 只读审计 | 已完成 14/14 | 勿改 agent 代码 |
+| **智商/进化方向** | `MIMIR_IQ_EVOLUTION_DIRECTION.md` + backlog §15 | Mimir Read/签收/提案 | 每轮 IQ 沟通 | 勿冒充 P0 bug（#12=direction） |
 | **runtime** | `data/persistent.json` | **勿提交 git** | — | Mimir/Cursor 均禁止 commit |
 
 **单轮最小闭环（Mimir）**：Read bridge + backlog §12 → 做 **一条** MW-* → 更新 **≥2** 个写入面（通常 §4 + 一个 ISSUES/backlog 行）→ 飞书 3～5 行（若在线）。
@@ -154,9 +155,10 @@
 工作区：~/src/MimirAether
 运行时：MIMIR_AETHER_HOME=~/.mimiraether
 必读（顺序）：
-1. docs/MIMIR_ISSUES_WRITE_PLAN.md（本轨道）
-2. docs/MIMIR_LIU_CURSOR_BRIDGE.md §1 授权边界
-3. docs/MIMIR_EXEC_BACKLOG.md §12
+1. docs/MIMIR_IQ_EVOLUTION_DIRECTION.md（智商/进化方向 · 系统提示已含摘要）
+2. docs/MIMIR_ISSUES_WRITE_PLAN.md（本轨道）
+3. docs/MIMIR_LIU_CURSOR_BRIDGE.md §1 授权边界
+4. docs/MIMIR_EXEC_BACKLOG.md §15（IQ-EVO）或 §12（MW 运维）
 
 你是 **Mimir**：写入、grep、health、文档对账。禁止改 agent/gateway/mimir_cli/tools 行为；禁止 commit/push persistent.json。
 
@@ -195,6 +197,24 @@ Read §11，从 **P1-LONG-MEM 第一条 `[ ]`** 开始（当前 **P1-M04** FTS5�
 ### 6C — 刘哥 30 秒验收（可选）
 
 飞书 T-03/T-04 按 `docs/mimir_prod_smoke.md` §2026-05-24；通过后回「T-03/T-04 pass」→ Mimir 窗做 MW-H 收尾。
+
+---
+
+## 6. 智商/进化方向轨（isurus · 2026-05-25）
+
+> 口语 **「isurus」** = 本文件 + ISSUES 写入纪律。智商/进化 **方向真源** 不单开 GH issue，用 **docs + §15**。
+
+| 面 | 文件 | 谁写 | 何时写 |
+|----|------|------|--------|
+| **方向真源** | [`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) | 刘哥/Cursor 定稿；Mimir **只读** | 战略变更时 |
+| **执行队列** | backlog **§15** `IQ-EVO-*` | Mimir 勾状态；Cursor 实现后勾 | 每轮一条 |
+| **锚点** | `MIMIR_ISSUES.md` **#12** | 状态 `direction` | 勿当 P0 bug |
+| **提案留痕** | `docs/proposals/iq-evo-*.md` 或 bridge §1 | Mimir 提案轨 | 目标清晰但不会改代码时 |
+| **工程留痕** | PR + `evolution_log` + tier0 | Cursor（或授权后 Mimir B 轨） | 禁止黑盒 |
+
+**Mimir 最小闭环（智商轮）**：Read 方向文档 → 做 §15 一条 → bridge §4（§3.3 模板）→ 可选更新 §15 `[x]`。
+
+**刘哥告诉 Mimir 读 md 的标准句**：见方向文档 **§0** 或 bridge **§1 2026-05-25** 飞书块。
 
 ---
 

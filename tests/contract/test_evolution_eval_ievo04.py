@@ -38,6 +38,20 @@ def test_compare_fails_on_like_regression():
     assert summary["like_hit_rate"]["ok"] is False
 
 
+def test_compare_semantic_skipped_for_legacy_baseline():
+    baseline = {
+        "like_hit_rate": 0.6,
+        "fts_hit_rate": 0.5,
+        "fts_db": "/x/fts5_search.db",
+        "semantic_hit_rate": None,
+        "queries": 20,
+    }
+    current = dict(baseline, semantic_hit_rate=0.4)
+    summary = compare_memory_retrieval_report(current, baseline)
+    assert summary["pass"] is True
+    assert summary["semantic_hit_rate"]["skipped"] is True
+
+
 def test_compare_cli_against_repo_baseline(tmp_path: Path):
     assert BASELINE.is_file()
     current = json.loads(BASELINE.read_text(encoding="utf-8"))

@@ -4,7 +4,7 @@ MimirAether Session Search Tool - 会话历史搜索
 学习自Hermes session_search_tool.py设计。
 
 核心功能：
-- 全文搜索：默认 SQLite LIKE；`SESSION_SEARCH_BACKEND=fts5|hybrid` 使用 `fts5_search.db`
+- 全文搜索：默认 SQLite LIKE；`SESSION_SEARCH_BACKEND=fts5|hybrid|semantic|semantic_hybrid`
 - 会话分组和截断
 - 摘要生成
 """
@@ -406,17 +406,46 @@ class SessionSearchDB:
         finally:
             conn.close()
 
+    def get_session_info(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """Return session metadata row or None."""
+        conn = sqlite3.connect(self.db_path)
+        try:
+            row = conn.execute(
+                """
+                SELECT source, started_at, title
+                FROM sessions
+                WHERE session_id = ?
+                """,
+                (session_id,),
+            ).fetchone()
+            if not row:
+                return None
+            source, started_at, title = row
+            return {
+                "source": source or "unknown",
+                "started_at": started_at,
+                "title": title or "Untitled",
+            }
+        finally:
+            conn.close()
+
 
 # ============================================================================
 # Backend selection (P1-M04)
 # ============================================================================
 
 def get_session_search_backend() -> str:
-    """``like`` (default), ``fts5``, or ``hybrid`` (FTS5 then LIKE if empty)."""
+    """``like`` (default), ``fts5``, ``hybrid``, ``semantic``, or ``semantic_hybrid``."""
     raw = os.environ.get("SESSION_SEARCH_BACKEND", "like").strip().lower()
-    if raw in ("fts5", "hybrid"):
+    if raw in ("fts5", "hybrid", "semantic", "semantic_hybrid"):
         return raw
     return "like"
+
+
+def _semantic_index_ready() -> bool:
+    from tools.chroma_session_indexer import chroma_available, get_mimir_chroma_dir
+
+    return chroma_available() and get_mimir_chroma_dir().is_dir()
 
 
 def _default_fts5_db_path() -> str:
@@ -486,6 +515,115 @@ def _session_search_via_fts5(
     return processed
 
 
+def _session_search_via_semantic(
+    query: str,
+    *,
+    db_path: Optional[str],
+    limit: int,
+    session_limit: int,
+) -> List[Dict[str, Any]]:
+    """Chroma vector search grouped by session (SEM-03)."""
+    try:
+        from tools.chroma_session_indexer import query_session_messages
+    except ImportError:
+        return []
+
+    try:
+        hits = query_session_messages(
+            query,
+            limit=max(limit * session_limit, session_limit),
+        )
+    except ImportError:
+        logger.debug("Chroma semantic search unavailable")
+        return []
+    except Exception as exc:
+        logger.warning("Chroma semantic search failed: %s", exc)
+        return []
+
+    if not hits:
+        return []
+
+    db = SessionSearchDB(db_path)
+    sessions: Dict[str, List[Dict[str, Any]]] = {}
+    session_order: List[str] = []
+
+    for hit in hits:
+        meta = hit.get("metadata") or {}
+        sid = str(meta.get("session_id") or "")
+        if not sid:
+            continue
+        if sid not in sessions:
+            if len(session_order) >= session_limit:
+                continue
+            session_order.append(sid)
+            sessions[sid] = []
+        if len(sessions[sid]) >= limit:
+            continue
+        sessions[sid].append(
+            {
+                "role": meta.get("role") or "unknown",
+                "content": (hit.get("content") or "")[:500],
+                "tool_name": meta.get("tool_name"),
+                "timestamp": meta.get("timestamp"),
+            }
+        )
+
+    processed: List[Dict[str, Any]] = []
+    for sid in session_order:
+        messages = sessions.get(sid) or []
+        if not messages:
+            continue
+        info = db.get_session_info(sid) or {}
+        conversation = _format_conversation(messages)
+        truncated = _truncate_around_matches(conversation, query)
+        summary = simple_summarize(truncated, query)
+        processed.append(
+            {
+                "session_id": sid,
+                "source": info.get("source") or "unknown",
+                "started_at": _format_timestamp(info.get("started_at")),
+                "title": info.get("title") or "Untitled",
+                "summary": summary,
+                "message_count": len(messages),
+            }
+        )
+    return processed
+
+
+def _session_search_via_like(
+    query: str,
+    *,
+    db_path: Optional[str],
+    limit: int,
+    session_limit: int,
+) -> List[Dict[str, Any]]:
+    db = SessionSearchDB(db_path)
+    results = db.search(query, limit=limit, session_limit=session_limit)
+
+    processed: List[Dict[str, Any]] = []
+    for result in results:
+        messages = result.get("messages", [])
+        if not messages:
+            continue
+
+        conversation = _format_conversation(messages)
+        truncated = _truncate_around_matches(conversation, query)
+        summary = simple_summarize(truncated, query)
+
+        processed.append(
+            {
+                "session_id": result["session_id"],
+                "source": result["source"],
+                "started_at": result["started_at"],
+                "title": result["title"],
+                "summary": summary,
+                "message_count": len(messages),
+            }
+        )
+
+    return processed
+
+
 # ============================================================================
 # 主搜索函数
 # ============================================================================
@@ -513,7 +651,19 @@ def session_search(
     backend = get_session_search_backend()
     fts_path = _default_fts5_db_path()
 
-    if backend in ("fts5", "hybrid") and Path(fts_path).exists():
+    if backend in ("semantic", "semantic_hybrid") and _semantic_index_ready():
+        semantic_results = _session_search_via_semantic(
+            query,
+            db_path=db_path,
+            limit=limit,
+            session_limit=session_limit,
+        )
+        if semantic_results:
+            return semantic_results
+        if backend == "semantic":
+            return []
+
+    if backend in ("fts5", "hybrid", "semantic_hybrid") and Path(fts_path).exists():
         fts_results = _session_search_via_fts5(
             query,
             fts_db_path=fts_path,
@@ -523,38 +673,12 @@ def session_search(
         if fts_results or backend == "fts5":
             return fts_results
 
-    db = SessionSearchDB(db_path)
-    results = db.search(query, limit=limit, session_limit=session_limit)
-
-    # 处理结果
-    processed = []
-    for result in results:
-        messages = result.get("messages", [])
-        if not messages:
-            continue
-
-        # 格式化会话
-        conversation = _format_conversation(messages)
-
-        # 截断到匹配区域
-        truncated = _truncate_around_matches(conversation, query)
-
-        # 生成摘要
-        if use_llm:
-            summary = simple_summarize(truncated, query)  # 暂时用简单版本
-        else:
-            summary = simple_summarize(truncated, query)
-
-        processed.append({
-            "session_id": result["session_id"],
-            "source": result["source"],
-            "started_at": result["started_at"],
-            "title": result["title"],
-            "summary": summary,
-            "message_count": len(messages),
-        })
-
-    return processed
+    return _session_search_via_like(
+        query,
+        db_path=db_path,
+        limit=limit,
+        session_limit=session_limit,
+    )
 
 
 # ============================================================================
@@ -576,8 +700,8 @@ def check_session_search_requirements() -> bool:
 SESSION_SEARCH_SCHEMA = {
     "name": "session_search",
     "description": (
-        "Search stored session messages by keyword (local SQLite index). "
-        "Set SESSION_SEARCH_BACKEND=fts5 or hybrid for FTS5 on fts5_search.db. "
+        "Search stored session messages (local SQLite / optional Chroma semantic index). "
+        "Set SESSION_SEARCH_BACKEND=fts5|hybrid|semantic|semantic_hybrid. "
         "Use when the user refers to past work across sessions."
     ),
     "parameters": {

@@ -12,6 +12,7 @@
 |---|------|------|------|--------|------|---------|
 | 3 | 2026-05-16 | CLARIFY_BASELINE §4 | 记忆落盘三条入口未统一（mimicore public/、skill_curator、llm-wiki/obsidian）— 设计债，见 ADR | 中 | deferred | [adr/002-memory-write-paths.md](./adr/002-memory-write-paths.md) |
 | 10 | 2026-05-20 | T-08 (d4) | TRUNCATE：**全量 63** 历史噪声；**since gateway start ≤10** 为运维 KPI（**STAB-04 已修**）；非 P0 | 中 | **monitoring** | STAB-04 / STAB-07 · [`p0-long-clearance-done.md`](./phase0/p0-long-clearance-done.md) |
+| 12 | 2026-05-25 | 刘哥 | **智商/进化方向锚点** — 自知不足与完善路径；非 bug。真源 [`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md)；执行 **backlog §15** | — | **direction** | **P2-LONG-IQEVO** · IQ-EVO-* |
 
 ---
 

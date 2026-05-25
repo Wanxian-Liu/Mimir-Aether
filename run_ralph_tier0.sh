@@ -133,6 +133,15 @@ python3 -m pytest -q \
   tests/contract/test_ievo06_wave_e_closeout.py \
   tests/contract/test_clearance_done.py \
   tests/contract/test_horizon_sem_sem01.py \
+  tests/contract/test_horizon_sem_sem02.py \
+  tests/contract/test_horizon_sem_sem03.py \
+  tests/tools/test_chroma_session_indexer.py \
+  tests/tools/test_session_search_semantic.py \
+  tests/tools/test_memory_retrieval_benchmark_semantic.py \
+  tests/contract/test_horizon_sem_sem04.py \
+  tests/contract/test_horizon_sem_sem05.py \
+  tests/contract/test_horizon_sem_sem06.py \
+  tests/tools/test_sem05_smoke.py \
   tests/agent/test_persistent_single_writer_ind05.py
 
 echo "=== Ralph Tier-1: Gate3 Core E2E (mocked LLM) ==="

@@ -11,6 +11,7 @@ from typing import Any, Dict
 
 DEFAULT_MIN_LIKE_FLOOR = 0.50
 DEFAULT_LIKE_REGRESSION_DELTA = 0.05
+DEFAULT_SEMANTIC_REGRESSION_DELTA = 0.05
 
 
 def compare_memory_retrieval_report(
@@ -19,6 +20,7 @@ def compare_memory_retrieval_report(
     *,
     min_like_floor: float = DEFAULT_MIN_LIKE_FLOOR,
     like_regression_delta: float = DEFAULT_LIKE_REGRESSION_DELTA,
+    semantic_regression_delta: float = DEFAULT_SEMANTIC_REGRESSION_DELTA,
 ) -> Dict[str, Any]:
     """Return comparison dict with ``pass`` bool and metric deltas."""
     cur_like = float(current.get("like_hit_rate") or 0)
@@ -30,10 +32,36 @@ def compare_memory_retrieval_report(
     like_ok = cur_like >= min_like
     fts_ok = cur_fts >= (base_fts - like_regression_delta) if baseline.get("fts_db") else True
 
+    base_sem_raw = baseline.get("semantic_hit_rate")
+    cur_sem_raw = current.get("semantic_hit_rate")
+    semantic_skipped = base_sem_raw is None
+    if semantic_skipped:
+        semantic_ok = True
+        min_sem = None
+        cur_sem = float(cur_sem_raw) if cur_sem_raw is not None else None
+        base_sem = None
+    elif cur_sem_raw is None:
+        semantic_ok = False
+        min_sem = max(0.0, float(base_sem_raw) - semantic_regression_delta)
+        cur_sem = None
+        base_sem = float(base_sem_raw)
+    else:
+        base_sem = float(base_sem_raw)
+        cur_sem = float(cur_sem_raw)
+        min_sem = max(0.0, base_sem - semantic_regression_delta)
+        semantic_ok = cur_sem >= min_sem
+
     return {
-        "pass": like_ok and fts_ok,
+        "pass": like_ok and fts_ok and semantic_ok,
         "like_hit_rate": {"current": cur_like, "baseline": base_like, "min_allowed": min_like, "ok": like_ok},
         "fts_hit_rate": {"current": cur_fts, "baseline": base_fts, "ok": fts_ok},
+        "semantic_hit_rate": {
+            "current": cur_sem,
+            "baseline": base_sem,
+            "min_allowed": min_sem,
+            "ok": semantic_ok,
+            "skipped": semantic_skipped,
+        },
         "queries": {"current": current.get("queries"), "baseline": baseline.get("queries")},
     }
 

@@ -65,7 +65,7 @@
 
 **2026-05-24 基准**（`memory-retrieval-benchmark-20260524.json`，回填后）：LIKE **60%** / FTS **50%** 会话命中率（20 query）；FTS 未达 ≥LIKE（CJK 多词与部分英文短语在 FTS5 tokenizer 上弱于 LIKE 子串）。
 
-**明确不做（Phase 2）**：**semantic / chromadb 检索** → **`P2-LONG-SEM`**（**Active** 2026-05-25 · [ADR-006](../adr/006-semantic-memory-chromadb.md) · backlog §14）。
+**明确不做（Phase 2 原 scope）**：已由 **`P2-LONG-SEM`** 交付（**[x]** 2026-05-19）— Chroma persist/backfill · `SESSION_SEARCH_BACKEND=semantic|semantic_hybrid` · benchmark 第三腿 · tier0 契约。结案 [`p2-long-sem-closeout.md`](./p2-long-sem-closeout.md) · [ADR-006](../adr/006-semantic-memory-chromadb.md)。生产 embed 模型选型与 Gateway 增量 upsert 为 follow-up（非 SEM 阻塞项）。
 
 ## IEVO-04 自动化 eval（工业进化）
 
@@ -75,5 +75,5 @@
 
 - 跑 20-query 基准（`run_memory_retrieval_benchmark.py`）→ 写入 `$MIMIR_AETHER_HOME/data/evolution_eval/memory-retrieval-<UTC>.json` 与 `memory-retrieval-latest.json`
 - 对比冻结基线 [`memory-retrieval-benchmark-20260524.json`](./memory-retrieval-benchmark-20260524.json)（`compare_memory_retrieval_baseline.py`）
-- **通过**：`like_hit_rate` ≥ max(50%, 基线 − 5pp)；FTS 不低于基线 − 5pp（有 `fts_db` 时）
+- **通过**：`like_hit_rate` ≥ max(50%, 基线 − 5pp)；FTS 不低于基线 − 5pp（有 `fts_db` 时）；**SEM-04 起** 若基线含 `semantic_hit_rate` 则当前不低于基线 − 5pp（Chroma 索引缺失且基线有 semantic 则 fail）
 - **非 tier0 门禁**（依赖本机 `sessions_search.db`）；契约测见 `tests/contract/test_evolution_eval_ievo04.py`

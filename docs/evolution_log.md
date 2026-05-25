@@ -97,3 +97,8 @@ Append-only. Newest rows at the **bottom**. See **`docs/M6_EVOLUTION.md`** for r
 | 20260525T034652Z_29d2cfa-dirty | 2026-05-25T03:46:52Z | 29d2cfa-dirty | ./run_ralph_tier0.sh | 0 | IEVO-06: Wave E closeout doc + ievo06 contract; D8 CLR-E; tier0 326+2; Phase infinity execution record |
 | 20260525T040505Z_110eab8-dirty | 2026-05-25T04:05:05Z | 110eab8-dirty | ./run_ralph_tier0.sh | 0 | CLEARANCE-DONE: P0-LONG-CLEARANCE 8/8; p0-long-clearance-done.md; ISSUES Active=2; GH open=3; tier0 329+2 |
 | 20260525T041516Z_110eab8-dirty | 2026-05-25T04:15:16Z | 110eab8-dirty | ./run_ralph_tier0.sh | 0 | Horizon A SEM-01: ADR-006 chromadb semantic memory + path-contract + backlog section 14; tier0 332+2 |
+| 20260525T042317Z_2cdeb27-dirty | 2026-05-25T04:23:17Z | 2cdeb27-dirty | ./run_ralph_tier0.sh | 0 | SEM-02: chroma_session_indexer + backfill_chroma_sessions.py; get_mimir_chroma_dir(); tier0 342+2 |
+| 20260525T043346Z_2cdeb27-dirty | 2026-05-25T04:33:46Z | 2cdeb27-dirty | ./run_ralph_tier0.sh | 0 | SEM-03: SESSION_SEARCH_BACKEND semantic|semantic_hybrid in session_search_tool; tier0 349+2 |
+| 20260525T043959Z_2cdeb27-dirty | 2026-05-25T04:39:59Z | 2cdeb27-dirty | ./run_ralph_tier0.sh | 0 | SEM-04: benchmark semantic_hit_rate + compare regression gate; tier0 358+2 |
+| 20260525T044622Z_2cdeb27-dirty | 2026-05-25T04:46:22Z | 2cdeb27-dirty | ./run_ralph_tier0.sh | 0 | SEM-05: tier0 manifest 9 SEM test files + smoke roundtrip; tier0 363+2 |
+| 20260525T045459Z_2cdeb27-dirty | 2026-05-25T04:54:59Z | 2cdeb27-dirty | ./run_ralph_tier0.sh | 0 | SEM-06 P2-LONG-SEM closeout: p2-long-sem-closeout.md, ADR-006 Accepted, semantic_heavy benchmark fields, tier0 368+2; metrics: n/a (docs+scripts+tests) |

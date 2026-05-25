@@ -105,7 +105,7 @@ Per **[ADR-006](./adr/006-semantic-memory-chromadb.md)**:
 |-------|------------|
 | Chroma persist root | `{get_mimir_data_dir()}/chroma_sessions/` unless **`MIMIR_CHROMA_DIR`** |
 | Transcript SoT (read) | **`get_mimir_session_search_db_path()`** → `sessions_search.db` (same as LIKE/FTS) |
-| Backend switch | **`SESSION_SEARCH_BACKEND`** — add `semantic` / `semantic_hybrid` in SEM-03 |
+| Backend switch | **`SESSION_SEARCH_BACKEND`** — `semantic` / `semantic_hybrid` (SEM-03) |
 | Eval artifacts | `{get_mimir_data_dir()}/evolution_eval/memory-retrieval-*.json` (extend in SEM-04) |
 
 New code must **not** place chroma data under the git clone or under `.openclaw/projects/`.

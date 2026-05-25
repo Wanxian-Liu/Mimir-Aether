@@ -13,7 +13,7 @@ PATH_CONTRACT = ROOT / "docs/path-contract.md"
 def test_adr006_proposed_and_names_chroma_path():
     assert ADR.is_file()
     text = ADR.read_text(encoding="utf-8")
-    assert "Proposed" in text
+    assert "Accepted" in text or "Proposed" in text
     assert "chroma_sessions" in text
     assert "semantic_hybrid" in text
 
@@ -34,4 +34,16 @@ def test_backlog_section14_sem01_done_sem02_next():
     assert "[x]" in sem01
     assert "**SEM-02**" in section
     sem02 = section.split("**SEM-02**", 1)[1][:120]
-    assert "[ ]" in sem02
+    assert "[x]" in sem02
+    assert "**SEM-03**" in section
+    sem03 = section.split("**SEM-03**", 1)[1][:120]
+    assert "[x]" in sem03
+    assert "**SEM-04**" in section
+    sem04 = section.split("**SEM-04**", 1)[1][:120]
+    assert "[x]" in sem04
+    assert "**SEM-05**" in section
+    sem05 = section.split("**SEM-05**", 1)[1][:120]
+    assert "[x]" in sem05
+    assert "**SEM-06**" in section
+    sem06 = section.split("**SEM-06**", 1)[1][:120]
+    assert "[x]" in sem06

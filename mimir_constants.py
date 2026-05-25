@@ -51,6 +51,17 @@ def get_mimir_session_search_db_path() -> Path:
     return get_mimir_data_dir() / "sessions_search.db"
 
 
+def get_mimir_chroma_dir() -> Path:
+    """Chroma persist root (ADR-006 / SEM-02).
+
+    Precedence: MIMIR_CHROMA_DIR > {get_mimir_data_dir()}/chroma_sessions/
+    """
+    override = os.getenv("MIMIR_CHROMA_DIR", "").strip()
+    if override:
+        return Path(override).expanduser()
+    return get_mimir_data_dir() / "chroma_sessions"
+
+
 def get_mimir_sessions_dir() -> Path:
     """Gateway file-based session artifacts (distinct from SQLite ``state.db``)."""
     return get_mimir_data_dir() / "sessions"

@@ -1,6 +1,6 @@
 # ADR-006: Semantic session search (ChromaDB)
 
-> **Status:** Proposed (2026-05-25)  
+> **Status:** Accepted (2026-05-19 · SEM-06 closeout)  
 > **Scope:** Horizon **A** · `P2-LONG-SEM` · GH **#32**  
 > **Owner:** Cursor（工程）· 刘哥拍板 Horizon A 2026-05-25  
 > **Related:** [memory-retrieval-baseline.md](../phase0/memory-retrieval-baseline.md) · [ADR-003](./003-runtime-env-aliases.md) · Unified Plan §4 冲突 2（AC3 + AC6 合并）
@@ -93,8 +93,8 @@ Contract tests: `tests/contract/test_horizon_sem_*.py` (manifest per SEM milesto
 | ID | Deliverable | Status |
 |----|-------------|--------|
 | SEM-01 | This ADR + path-contract + backlog §14 | [x] 2026-05-25 |
-| SEM-02 | Indexer / backfill → chroma | [ ] |
-| SEM-03 | `semantic` / `semantic_hybrid` backend | [ ] |
-| SEM-04 | Benchmark + eval compare semantic leg | [ ] |
-| SEM-05 | tier0 regression ≥3 | [ ] |
-| SEM-06 | Closeout + GH #32 + MAINLINE | [ ] |
+| SEM-02 | Indexer / backfill → chroma | [x] 2026-05-19 |
+| SEM-03 | `semantic` / `semantic_hybrid` backend | [x] 2026-05-19 |
+| SEM-04 | Benchmark + eval compare semantic leg | [x] 2026-05-19 |
+| SEM-05 | tier0 regression ≥3 | [x] 2026-05-19 |
+| SEM-06 | Closeout + GH #32 + MAINLINE | [x] 2026-05-19 |

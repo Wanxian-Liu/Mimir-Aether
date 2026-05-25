@@ -1,8 +1,8 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-05-24（**Phase 1 长任务** — §11 Memory 检索队列 + 未完成项盘点）  
-> **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5；Mimir 飞书每轮 Read bridge + 本表  
-> **规则**：从 **§11 Phase 1 长任务** 取**第一条** `[ ]` 子项；做完勾 `[x]` + 简短回报 + `./run_ralph_tier0.sh`（触达代码时）。§2 / Phase 0 **只读**，勿再取 E-00x。  
+> **最近更新**：2026-05-25（**智商/进化方向** — [`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) + **§15**）  
+> **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5；Mimir 飞书每轮 Read **方向真源** + bridge + 本表  
+> **规则**：**Mimir 运维/智商** → **§15** 第一条 `[ ]`；**Cursor 工程 SEM** → **§14** 第一条 `[ ]`。§11 / §2 / Phase 0 **只读**。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
 > **勿提交**：`data/persistent.json`（runtime 镜像）。
 
@@ -325,7 +325,8 @@ Mimir 冒烟回报
 - **真源**：`~/src/MimirAether` · `MIMIR_AETHER_HOME=~/.mimiraether` · 必读 `MAINLINE_STATUS.md` / `MIMIR_ISSUES.md`（Active≤3）/ `AGENTS.md`。
 - **§2 工程队列**：只读，勿再取「E-004 / T-02 / 181+2」。
 - **Phase 0**：**14/14** [x]（2026-05-24）— 真源 [`MIMIR_PHASE0_QUEUE.md`](./MIMIR_PHASE0_QUEUE.md)。
-- **当前执行源**：**§14 `P2-LONG-SEM`**（Horizon **A** · 刘哥 2026-05-25）— GH **#32**；[`adr/006-semantic-memory-chromadb.md`](./adr/006-semantic-memory-chromadb.md)。
+- **智商/进化方向真源**：[`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) · Mimir 队列 **§15** · ISSUES **#12**（锚点，非 P0）。
+- **当前执行源**：**Cursor** → Horizon A **SEM 波 [x]**（[`p2-long-sem-closeout.md`](./phase0/p2-long-sem-closeout.md)）— 下一条 Horizon **待刘哥拍板**；**Mimir** → **§15 `P2-LONG-IQEVO`**（与 SEM 工程分离）。
 - **勿**：提交 `data/persistent.json`；重做 E-001～E-012。
 
 ### 9.1 未完成项盘点（2026-05-25）
@@ -333,7 +334,7 @@ Mimir 冒烟回报
 | 桶 | 数量 | 说明 |
 |----|------|------|
 | **§13.1 母任务** | **1** Active | `P0-LONG-CLEARANCE` — 子阶段 A [~] → B→C→D→E |
-| **§11 长任务** | **1** Active | **`P2-LONG-SEM`** — §14 SEM-02 起 |
+| **§11 长任务** | **0** Active | **`P2-LONG-SEM`** **[x]** 2026-05-19 · 见 [`p2-long-sem-closeout.md`](./phase0/p2-long-sem-closeout.md) |
 | **§6 Phase 2 候选** | **6** `[ ]` | 已并入 **CLR-D / CLR-E**；勿单独开队列 |
 | **§8 工程 icebox** | **4** 条 | 已并入 **CLR-C**（`P2-LONG-STAB`） |
 | **Gateway 十条** | **~4** 待工程 | CLR-C 结案；#9 待 **CLR-B** 飞书复验 |
@@ -388,9 +389,9 @@ Read docs/MIMIR_EXEC_BACKLOG.md §11；P1-LONG-MEM 已结案。工程下一条�
 | **P1-LONG-GOD** | GOD 拆分 + 测试轨续建 | Phase 0 EV-P04、§9 原「GOD 拆分」 | [x] 2026-05-24 · #16→main；`router_mixin` ~38 行；见 `plans/P1-GOD-split-plan.md` |
 | **P1-LONG-OBS** | d6 余债 D6-1～3 ADR/测试 | §6 | [ ] Phase 2 候选 |
 | **P1-LONG-EVO** | d5 余债 D5-1/3、真进化 | §6、Unified Plan | [ ] Phase 2 候选 |
-| **P2-LONG-SEM** | Memory **语义化**（chromadb + 检索策略） | Unified Plan Phase 2 | [~] **Active** · Horizon A 2026-05-25 · §14 |
+| **P2-LONG-SEM** | Memory **语义化**（chromadb + 检索策略） | Unified Plan Phase 2 | [x] **结案** 2026-05-19 · [`p2-long-sem-closeout.md`](./phase0/p2-long-sem-closeout.md) · GH **#32** |
 
-**Semantic 检索**：明确 **不在** `P1-LONG-MEM` 内；结案后再排 `P2-LONG-SEM`，避免与 FTS/LIKE 并行膨胀。
+**Semantic 检索**：**P2-LONG-SEM** 已结案（SEM-01～06）；生产默认仍 **LIKE/hybrid**；`semantic` / `semantic_hybrid` 见 ADR-006。
 
 ---
 
@@ -543,8 +544,8 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 **Cursor 新窗一句**
 
 ```text
-Read docs/MIMIR_ZERO_DEBT_MASTERPLAN.md §7 + MIMIR_EXEC_BACKLOG.md §14 P2-LONG-SEM。
-只做 §14 第一条 [ ] 子项（现：**SEM-02**）；勿并行 ADR-002 / Phase 3。
+Read docs/MIMIR_ZERO_DEBT_MASTERPLAN.md §7 + docs/phase0/p2-long-sem-closeout.md。
+Horizon A SEM 波已 [x]；勿默认开 ADR-002 / Phase 3 — 待刘哥拍板下一条 Horizon。
 触达 agent/gateway/tools 后 ./run_ralph_tier0.sh + evolution_log。
 ```
 
@@ -567,16 +568,51 @@ MIMIR_AETHER_HOME=~/.mimiraether。运维：MW-D01～D11 / health / TRUNCATE sin
 | ID | 任务 | 成功标准 | 状态 |
 |----|------|----------|------|
 | **SEM-01** | ADR-006 + path-contract § semantic | ADR Proposed + path 表 | [x] 2026-05-25 |
-| **SEM-02** | Chroma 持久化 + backfill indexer | `$MIMIR_AETHER_HOME/data/chroma_sessions/` 可查询；脚本 idempotent | [ ] |
-| **SEM-03** | `SESSION_SEARCH_BACKEND=semantic\|semantic_hybrid` | `session_search_tool` + 单测 | [ ] |
-| **SEM-04** | 基准 + eval 扩展 semantic 腿 | benchmark JSON 含 `semantic_hit_rate`；compare 逻辑 | [ ] |
-| **SEM-05** | tier0 回归 ≥3 | contract + smoke | [ ] |
-| **SEM-06** | 结案 + MAINLINE + GH #32 | 语义 query 子集 ≥ LIKE 或 documented 例外 | [ ] |
+| **SEM-02** | Chroma 持久化 + backfill indexer | `$MIMIR_AETHER_HOME/data/chroma_sessions/` 可查询；脚本 idempotent | [x] 2026-05-19 |
+| **SEM-03** | `SESSION_SEARCH_BACKEND=semantic\|semantic_hybrid` | `session_search_tool` + 单测 | [x] 2026-05-19 |
+| **SEM-04** | 基准 + eval 扩展 semantic 腿 | benchmark JSON 含 `semantic_hit_rate`；compare 逻辑 | [x] 2026-05-19 |
+| **SEM-05** | tier0 回归 ≥3 | contract + smoke | [x] 2026-05-19 |
+| **SEM-06** | 结案 + MAINLINE + GH #32 | 语义 query 子集 ≥ LIKE 或 documented 例外 | [x] 2026-05-19 |
+
+**§14 波次状态**：SEM-01～06 **全 [x]** · 结案 [`p2-long-sem-closeout.md`](./phase0/p2-long-sem-closeout.md) · GH **#32** 待刘哥 comment/close。
 
 **Cursor 新窗一句**
 
 ```text
-Read docs/adr/006-semantic-memory-chromadb.md + MIMIR_EXEC_BACKLOG.md §14。
-只做第一条 [ ] 子项（现：SEM-02）；MIMIR_AETHER_HOME=~/.mimiraether。
-触达 agent/gateway/tools 后 tier0 + evolution_log。
+Read docs/phase0/p2-long-sem-closeout.md + MIMIR_EXEC_BACKLOG.md §14。
+Horizon A **P2-LONG-SEM** 已结案；勿默认开下一条 Horizon（ADR-002 / Phase 3 等）。
+维护 tier0 / eval 回归时 MIMIR_AETHER_HOME=~/.mimiraether。
+```
+
+---
+
+## 15. 智商与进化方向 — **`P2-LONG-IQEVO`**（2026-05-25 · 刘哥定稿）
+
+> **真源**：[`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md)（自知 + 协作 + 四阶段）  
+> **规则**：**Mimir** 只认 **§15 第一条 `[ ]`**；回报用方向文档 **§3.3 模板**；**禁止**无 §3.2 证据宣称「进化/变聪明」。  
+> **与 §14 关系**：§14 做 **SEM 工程**（Cursor）；§15 做 **方向签收、提案、冒烟证据**（Mimir）。同一阶段可并行，但 **Mimir 不得抢改 SEM 代码**（除非 bridge §1 授权自研）。
+
+| ID | 任务 | Owner | 成功标准 | 状态 |
+|----|------|-------|----------|------|
+| **IQ-EVO-00** | **Read 方向真源** + bridge §4 签收一行 | Mimir | 已读 §0～§4；§4 含「已读方向文档」 | [ ] |
+| **IQ-EVO-01** | **阶段1·回忆**：复跑 20-query 基准并记录 JSON 路径 | Mimir | 贴 `memory-retrieval-benchmark-*.json` 或 hit rate 三行；DB 非空 smoke | [ ] |
+| **IQ-EVO-02** | **阶段1·回忆**：飞书 1 条「需查历史」场景 + log 证明调用了 `session_search` | Mimir+刘哥 | log 有 tool 名；或 ISSUES 记 fail | [ ] |
+| **IQ-EVO-03** | **阶段2·进化**：提案 — staging 开 `MIMIR_AUTO_ANALYSIS` 风险与步骤 | Mimir → 刘哥 | `docs/proposals/iq-evo-auto-analysis.md` 或 bridge 提案轨 | [ ] |
+| **IQ-EVO-04** | **阶段2·进化**：跑 `run_evolution_eval.sh` 贴摘要 | Mimir | 命令 exit 0 + 输出路径；非 simulated | [ ] |
+| **IQ-EVO-05** | **阶段3·衔接**：SEM-04 后复填 iq-scoring 表（只读对比） | Mimir | 更新方向文档 §1.1 表或 phase0 rubric 备注 | [ ] |
+| **IQ-EVO-06** | **长任务结案** — §15 全 `[x]` + MAINLINE 一行 | Cursor | IQ≥5.5 或 documented 例外 + 进化 eval 周常约定 | [ ] |
+
+**Mimir 新窗一句（智商/进化 · 优先于旧 §12 一句）**
+
+```text
+Read docs/MIMIR_IQ_EVOLUTION_DIRECTION.md 全文 + MIMIR_EXEC_BACKLOG.md §15 + bridge §4。
+只做 §15 第一条 [ ]（现：IQ-EVO-00）；回报用方向文档 §3.3 模板。
+工程代码请 Cursor（§14 SEM-*）；禁止黑盒改 agent/gateway/tools；禁止无证据宣称进化完成。
+```
+
+**Cursor 新窗一句（与 §14 并行）**
+
+```text
+Read MIMIR_IQ_EVOLUTION_DIRECTION.md §2 阶段1～3 + backlog §14 第一条 [ ]。
+SEM 工程按 §14；若 Mimir §15 提案轨请求实现，先对 §3.2 证据再开 PR。
 ```

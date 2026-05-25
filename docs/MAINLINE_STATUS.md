@@ -5,11 +5,11 @@
 
 | 字段 | 值 |
 |------|-----|
-| **最近更新** | 2026-05-25 |
-| **更新人** | Cursor（**P0-LONG-CLEARANCE** · CLEARANCE-DONE） |
+| **最近更新** | 2026-05-19 |
+| **更新人** | Cursor（**P2-LONG-SEM** · SEM-06 结案） |
 | **仓库根（真源）** | `~/src/MimirAether` |
-| **可选校验** | `./run_ralph_tier0.sh`（门禁 **332+2**）；`./scripts/run_evolution_eval.sh`（本机 DB） |
-| **本轮摘要** | **Horizon A** · **SEM-01** [x]：ADR-006 + path-contract + §14 执行源。下一条 **SEM-02**（Chroma indexer）。 |
+| **可选校验** | `./run_ralph_tier0.sh`（门禁 **368+2**）；`./scripts/run_evolution_eval.sh` |
+| **本轮摘要** | **Horizon A** · **P2-LONG-SEM** [x]：SEM-01～06 全绿；结案 [`p2-long-sem-closeout.md`](phase0/p2-long-sem-closeout.md)；下一条 Horizon **待刘哥拍板**。 |
 
 ---
 
@@ -17,7 +17,7 @@
 
 | ID | 名称 | 状态 | 说明 |
 |----|------|------|------|
-| M0 | 基线可回归 | **绿** | `run_ralph_tier0.sh` 日常可通过。Gate2 **332**、Gate3 **2**。 |
+| M0 | 基线可回归 | **绿** | `run_ralph_tier0.sh` 日常可通过。Gate2 **368**、Gate3 **2**。 |
 | M1 | 契约可执行 | **绿** | `docs/ralph_parity_testmap.md` 已映射 |
 | M2 | Tier-0 矩阵闭合 | **绿** | `ralph_tier0_case_matrix.md`：无阻塞 P0 |
 | M3 | 垂直切片 | **绿** | CLI + API `POST /v1/chat/completions` |
@@ -63,6 +63,11 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-19 | **Horizon A / P2-LONG-SEM** [x]：SEM-06 结案 + closeout doc；tier0 **368+2**；GH **#32** 待刘哥 close。 |
+| 2026-05-19 | **Horizon A / SEM-05** [x]：tier0 manifest + smoke；**363+2**；下一条 **SEM-06**。 |
+| 2026-05-19 | **Horizon A / SEM-04** [x]：benchmark `semantic_hit_rate` + eval compare；tier0 **358+2**；下一条 **SEM-05**。 |
+| 2026-05-19 | **Horizon A / SEM-03** [x]：`semantic` / `semantic_hybrid` session_search backend；tier0 **349+2**；下一条 **SEM-04**。 |
+| 2026-05-19 | **Horizon A / SEM-02** [x]：`chroma_session_indexer` + `backfill_chroma_sessions.py`；tier0 **342+2**；下一条 **SEM-03**。 |
 | 2026-05-25 | **Horizon A / SEM-01** [x]：ADR-006 + path-contract + backlog §14；tier0 **332+2**。 |
 | 2026-05-25 | **IEVO-06** [x]：Wave E 结案 doc + contract ievo06；**P2-LONG-IEVO** [x]；**D8** ✅；tier0 **326+2**。 |
 | 2026-05-25 | **IEVO-05** [x]：D6-3 monitor/insights 回归（5 行为 + 3 contract）；tier0 **322+2**。 |

@@ -54,5 +54,9 @@ def test_session_search_backend_env(monkeypatch):
     assert get_session_search_backend() == "hybrid"
     monkeypatch.setenv("SESSION_SEARCH_BACKEND", "FTS5")
     assert get_session_search_backend() == "fts5"
+    monkeypatch.setenv("SESSION_SEARCH_BACKEND", "semantic")
+    assert get_session_search_backend() == "semantic"
+    monkeypatch.setenv("SESSION_SEARCH_BACKEND", "semantic_hybrid")
+    assert get_session_search_backend() == "semantic_hybrid"
     monkeypatch.setenv("SESSION_SEARCH_BACKEND", "bogus")
     assert get_session_search_backend() == "like"

@@ -3,16 +3,16 @@
 
 | 字段        | 值                                                                                                                                                                                                     |
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **状态**    | **Accepted**（工程 + **刘哥签收** 2026-05-25 · **IND-06**）                                                                                                                                                         |
+| **状态**    | **Accepted**（工程 + **刘哥签收** 2026-05-25 · **IND-06**）                                                                                                                                                   |
 | **依据**    | `[MIMIR_CLARIFY_BASELINE.md](./MIMIR_CLARIFY_BASELINE.md)` §5、`[MIMIR_HTML_MEMORY_CONTRACT.md](./MIMIR_HTML_MEMORY_CONTRACT.md)`、`[path-contract.md](./path-contract.md)`、`[AGENTS.md](../AGENTS.md)` |
-| **负责人裁定** | OpenClaw / weavevault **零部署**；MA 记忆真源在 `**$MIMIR_AETHER_HOME/memory/`**（HTML）；飞书等密钥仅在 `**$MIMIR_AETHER_HOME/.env**`                                                                                   |
+| **负责人裁定** | OpenClaw / weavevault **零部署**；MA 记忆真源在 `**$MIMIR_AETHER_HOME/memory/`**（HTML）；飞书等密钥仅在 `**$MIMIR_AETHER_HOME/.env`**                                                                                   |
 
 
 ---
 
 ## 1. 一句话边界
 
-**OpenClaw** 是历史平台与**对照环境**（含 `~/.openclaw` 下旧布局、织界/weavevault 等概念）；**MimirAether 真源**仅为：**任意 git clone 根**（源码与 Ralph）+ `**$MIMIR_AETHER_HOME`**（`.env`、`config.yaml`、`data/`、`logs/`）+ `**$MIMIR_AETHER_HOME/memory/**` 下 `**.html` canonical 记忆树**（见 `[MIMIR_HTML_MEMORY_CONTRACT.md](./MIMIR_HTML_MEMORY_CONTRACT.md)`）。二者**不得**混为同一部署根或同一记忆真源。
+**OpenClaw** 是历史平台与**对照环境**（含 `~/.openclaw` 下旧布局、织界/weavevault 等概念）；**MimirAether 真源**仅为：**任意 git clone 根**（源码与 Ralph）+ `**$MIMIR_AETHER_HOME`**（`.env`、`config.yaml`、`data/`、`logs/`）+ `**$MIMIR_AETHER_HOME/memory/`** 下 `**.html` canonical 记忆树**（见 `[MIMIR_HTML_MEMORY_CONTRACT.md](./MIMIR_HTML_MEMORY_CONTRACT.md)`）。二者**不得**混为同一部署根或同一记忆真源。
 
 ---
 
@@ -23,8 +23,8 @@
 1. **不得**将 `**~/.openclaw`**（及其任意子路径）当作 MimirAether 的**运行时数据根**、**配置根**或**记忆真源**。
 2. **不得**在 MimirAether 部署中**安装、启动或依赖** OpenClaw 平台进程（含 `openclaw-gateway` 等）作为 MA 网关的运行时。
 3. **不得**部署、挂载、引用或默认使用 **weavevault** 的**代码仓库、数据目录、配置路径**；MA 仓库内**不**新增名为 `weavevault` 的目录、技能包或子模块（T01：全仓无 `weavevault` 字符串，应保持）。
-4. **不得**在 MA 仓库 `**skills/`**、`**optional-skills/**` 或 `**agent/**` 中新增**以 weavevault 为运行时依赖**的技能或工具（概念借鉴见 §3，与代码路径无关）。
-5. **不得**使用 `**~/.openclaw/projects/MimirAether`**（或等价历史 clone 路径）**启动** MimirAether gateway、写入 `.env`、或作为 `MIMIR_AETHER_HOME`；该树仅作**归档 / 只读对照**（负责人已停用旧飞书等旧路径，**禁止**再从此处拉起生产网关）。
+4. **不得**在 MA 仓库 `**skills/`**、`**optional-skills/`** 或 `**agent/**` 中新增**以 weavevault 为运行时依赖**的技能或工具（概念借鉴见 §3，与代码路径无关）。
+5. **不得**使用 `**~/.openclaw/projects/MimirAether`**（或等价历史 clone 路径）启动 MimirAether gateway、写入 `.env`、或作为 `MIMIR_AETHER_HOME`；该树仅作**归档 / 只读对照**（负责人已停用旧飞书等旧路径，**禁止**再从此处拉起生产网关）。
 6. **不得**把 OpenClaw 侧「织界 wiki / 库房」路径当作 agent 的**默认读写在途记忆**；读写 canonical 记忆**仅**认 `[MIMIR_HTML_MEMORY_CONTRACT.md](./MIMIR_HTML_MEMORY_CONTRACT.md)` 中的 `**memory/`** 树。
 7. **不得**将飞书等平台密钥写入 git clone 根 `.env`、OpenClaw 项目目录或 `memory/` 内 HTML 页面；**仅** `**$MIMIR_AETHER_HOME/.env`**（见 `[SECURITY.md](./SECURITY.md)`）。
 8. **不得**在文档、脚本默认示例、未注释代码中，把 `**~/.openclaw/projects/MimirAether`** 写成 MA 的推荐部署根（历史路径豁免区除外，见 `[path-contract.md](./path-contract.md)` §历史路径与豁免目录）。
@@ -74,7 +74,7 @@
 | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **技能位置** | `[optional-skills/migration/openclaw-migration/](../optional-skills/migration/openclaw-migration/)`（含 `scripts/openclaw_to_hermes.py`）                                      |
 | **性质**   | **一次性迁移 / 对照工具**；用于从 OpenClaw 布局**导出**配置、记忆、技能等到 Hermes/MA 兼容形态；**不是** MA 运行时依赖，**不得**在 gateway 启动路径或 agent 默认工具链中自动加载。                                                     |
-| **产物落点** | 迁移得到的**可积累知识**应写入 `**$MIMIR_AETHER_HOME/memory/`**（理清期目标为 HTML；过渡期 MD 仅 `_drafts/`），并更新 `**$MIMIR_AETHER_HOME/.env` / `config.yaml**`；**不得**将 OpenClaw 目录设为迁移后的「主真源」或双向同步源。 |
+| **产物落点** | 迁移得到的**可积累知识**应写入 `**$MIMIR_AETHER_HOME/memory/`**（理清期目标为 HTML；过渡期 MD 仅 `_drafts/`），并更新 `**$MIMIR_AETHER_HOME/.env` / `config.yaml`**；**不得**将 OpenClaw 目录设为迁移后的「主真源」或双向同步源。 |
 | **迁移后**  | OpenClaw 侧数据**不回流**为 MA 真源；MA 侧变更**不要求**写回 `~/.openclaw`。                                                                                                                   |
 | **有损点**  | 迁移脚本已知有损项见 `[DEVELOPMENT_NORTH_STAR.md](./DEVELOPMENT_NORTH_STAR.md)` §4；迁移完成 **≠** Parity 已达成。                                                                             |
 
@@ -88,7 +88,7 @@
 
 | 问题                                      | 期望答案要点                                                                                                                      |
 | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| MA 记忆写哪？                                | `**$MIMIR_AETHER_HOME/memory/`**，canonical `***.html**`（`[MIMIR_HTML_MEMORY_CONTRACT.md](./MIMIR_HTML_MEMORY_CONTRACT.md)`） |
+| MA 记忆写哪？                                | `**$MIMIR_AETHER_HOME/memory/`**，canonical `***.html`**（`[MIMIR_HTML_MEMORY_CONTRACT.md](./MIMIR_HTML_MEMORY_CONTRACT.md)`） |
 | OpenClaw 还能用来干什么？                       | **仅**：历史对照、阅读旧树、**一次性迁移**（openclaw-migration）、**概念借鉴**（§3）；**不能**作 MA 运行或记忆真源                                               |
 | weavevault 与 MA 关系？                     | **不部署、不共用路径**；无 MA 仓库内 weavevault 真源                                                                                        |
 | 旧路径 `~/.openclaw/projects/MimirAether`？ | **归档 / 只读**；**禁止**从此启动 gateway 或当作 `MIMIR_AETHER_HOME`                                                                      |
@@ -162,10 +162,10 @@
 ### 8.3 签收
 
 
-| 角色             | 验收内容                                    | 日期         | 状态          |
-| -------------- | --------------------------------------- | ---------- | ----------- |
-| **工程（Cursor）** | §8.1–8.2 与 §1–§7 一致；IND-01～05 已合 `main` | 2026-05-25 | **[x]**     |
-| **负责人（刘哥）**    | 独立宣言与路径边界可对外承诺；Horizon（SEM 等）另拍板        | 2026-05-25 | **[x]**     |
+| 角色             | 验收内容                                    | 日期         | 状态      |
+| -------------- | --------------------------------------- | ---------- | ------- |
+| **工程（Cursor）** | §8.1–8.2 与 §1–§7 一致；IND-01～05 已合 `main` | 2026-05-25 | **[x]** |
+| **负责人（刘哥）**    | 独立宣言与路径边界可对外承诺；Horizon（SEM 等）另拍板        | 2026-05-25 | **[x]** |
 
 
 **签收完成**（2026-05-25）：刘哥确认 §8.1 独立宣言与 §1–§7 路径边界**可对外承诺**。Horizon（`P2-LONG-SEM` 等）仍由负责人另拍板，不纳入本签收范围。
@@ -185,4 +185,3 @@
 - `[adr/003-runtime-env-aliases.md](./adr/003-runtime-env-aliases.md)` — 运行时 env 别名（IND-01）  
 - `[SECURITY.md](./SECURITY.md)` — 密钥与 `.env`  
 - `[AGENTS.md](../AGENTS.md)` — 协作者总则
-

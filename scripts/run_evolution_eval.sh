@@ -6,6 +6,7 @@
 #   ./scripts/run_evolution_eval.sh --baseline docs/phase0/memory-retrieval-benchmark-20260524.json
 #
 # Requires: $MIMIR_AETHER_HOME/data/sessions_search.db (run backfill / gateway indexing first).
+# Optional: scripts/backfill_chroma_sessions.py for semantic_hit_rate leg (SEM-04).
 # Writes: $MIMIR_AETHER_HOME/data/evolution_eval/memory-retrieval-<UTC>.json
 #         $MIMIR_AETHER_HOME/data/evolution_eval/memory-retrieval-latest.json
 #

@@ -2,6 +2,11 @@
 
 ## Progress inquiries
 
+When the user asks about **智商 / 进化 / 变聪明** (or Mimir self-improvement direction):
+
+1. **Read** **`docs/MIMIR_IQ_EVOLUTION_DIRECTION.md`** and **`docs/MIMIR_EXEC_BACKLOG.md` §15** (Mimir queue) or **§14** (Cursor SEM engineering).
+2. Follow collaboration rules in direction doc **§3** (proposal vs self-dev vs Cursor); no “evolution complete” without measurable evidence.
+
 When the user asks for **进度 / 主线 / 完成度** (or similar):
 
 1. **Read** **`docs/MAINLINE_STATUS.md`** first.

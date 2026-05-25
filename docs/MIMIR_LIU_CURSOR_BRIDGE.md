@@ -46,7 +46,7 @@ Cursor **自行执行**（无需每轮再问）：
 
 - **Mimir**：只读 `docs/MIMIR_EXEC_BACKLOG.md` **§12.1**，每轮 **一条** `MW-D*`；更新 bridge §4；**禁止** push / 改 `agent|gateway|tools|mimir_cli`。
 - **飞书 T-03/T-04**：刘哥回来再做（**MW-H01/H02**）；Mimir 可发一条提醒，不代测。
-- **Cursor 工程**：**P2-LONG-SEM** Active（Horizon A · 2026-05-25）；只认 backlog **§14** 第一条 `[ ]`。
+- **Cursor 工程**：**P2-LONG-SEM** **[x]**（Horizon A · SEM-06 结案）；下一条 Horizon **待刘哥拍板**。
 
 ### 2026-05-25 — P0-LONG-CLEARANCE 工程授权
 
@@ -60,9 +60,18 @@ Cursor **自行执行**（无需每轮再问）：
 - **禁止今夜碰**：`IND-05`（P3-0 单写者）、`P2-LONG-SEM`、gateway 硬重启（除非 tier0 失败且与本次 diff 相关）
 - **回报**：明早 bridge §4 一行 + PR 链接；tier0 证据贴 PR
 
+### 2026-05-25 — 智商与进化方向（刘哥 → Mimir / Cursor）
+
+- **真源**：[`docs/MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md)（自知、四阶段、**反黑盒协作** §3）。
+- **Mimir 每轮**：Read 方向文档 + **backlog §15** 第一条 `[ ]`；回报用文档 **§3.3 模板**；默认 **提案轨 A**，改代码须本条授权 **自研轨 B**。
+- **Cursor**：继续 **§14 SEM-*** 工程；实现 Mimir 提案时须 PR + tier0 + evolution_log，并在 §4 回一行。
+- **ISSUES #12**：方向锚点（`direction`，非 P0）；卡住仍记 Active，但勿与 TRUNCATE 混为一谈。
+
+**飞书 @Mimir**：**不必每轮贴** — `prompt_builder` 已注入方向摘要；每轮仍 Read bridge + backlog。仅当强调某一粒时：`本轮只做 §15 IQ-EVO-xx，回报 §3.3`。
+
 ### （新留言写在此下）
 
-_示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
+_示例：@Mimir 按 IQ-EVO-01。@Cursor SEM-03。_
 
 ---
 
@@ -132,6 +141,11 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 | 2026-05-25 | **IEVO-04** | **Cursor** | `run_evolution_eval.sh` 记忆检索 eval + 基线对比 · tier0 **314+2** · 下一粒 **IEVO-05** |
 | 2026-05-25 | **IEVO-05** | **Cursor** | D6-3 monitor/insights 回归测入 tier0 · tier0 **322+2** · 下一粒 **IEVO-06** |
 | 2026-05-25 | **IEVO-06** | **Cursor** | Wave E 结案 · D8 ✅ · Phase ∞ 续勾 · tier0 **326+2** · **Wave E [x]** · 下一粒 **CLEARANCE-DONE** |
+| 2026-05-19 | **Horizon A / SEM-06** | **Cursor** | P2-LONG-SEM 结案 · closeout doc · tier0 **368+2** · GH **#32** 待刘哥 |
+| 2026-05-19 | **Horizon A / SEM-05** | **Cursor** | tier0 manifest 9 files + smoke · tier0 **363+2** · 下一粒 **SEM-06** |
+| 2026-05-19 | **Horizon A / SEM-04** | **Cursor** | benchmark semantic leg + compare gate · tier0 **358+2** · 下一粒 **SEM-05** |
+| 2026-05-19 | **Horizon A / SEM-03** | **Cursor** | semantic / semantic_hybrid backends · tier0 **349+2** · 下一粒 **SEM-04** |
+| 2026-05-19 | **Horizon A / SEM-02** | **Cursor** | Chroma backfill indexer · `get_mimir_chroma_dir()` · tier0 **342+2** · 下一粒 **SEM-03** |
 | 2026-05-25 | **Horizon A / SEM-01** | **Cursor** | ADR-006 semantic memory · path-contract · backlog §14 · tier0 **332+2** · 下一粒 **SEM-02** |
 | 2026-05-25 | **CLEARANCE-DONE** | **Cursor** | §0 **8/8** · GH **3** open · ISSUES Active **2** · **`P0-LONG-CLEARANCE` [x]** · Horizon 待刘哥拍板 |
 
@@ -141,7 +155,7 @@ _示例：@Mimir EV-M02。@Cursor WIN-3 /health。_
 
 - **main**：`46baca6` 一带 · tier0 **329+2** · **`P0-LONG-CLEARANCE` [x] 2026-05-25**
 - **Wave 0 A / 1 B / 2 C / D / E**：**[x]**（刘哥 §8.3 签收 2026-05-25）
-- **Horizon A**：**P2-LONG-SEM** Active · **SEM-01** [x] → 下一条 **SEM-02**（Chroma backfill）
+- **Horizon A**：**P2-LONG-SEM** **[x]**（SEM-01～06 · [`p2-long-sem-closeout.md`](phase0/p2-long-sem-closeout.md)）→ 下一条 Horizon **待刘哥拍板**
 - **R5**：刘哥复验 **pass**（30s 内 tool）
 - **Gateway**：PID **135797** · /health ok · TRUNCATE since-start **0**
 - **GH open**：**10** · #10 **monitoring**（STAB-04 已修）

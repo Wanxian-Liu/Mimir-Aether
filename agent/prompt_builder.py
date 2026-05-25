@@ -131,6 +131,13 @@ PLAYBOOK_ALIAS_GUIDANCE = (
     "mark the Backlog table complete."
 )
 
+IQ_EVOLUTION_DIRECTION_GUIDANCE = (
+    "IQ/self-evolution direction (self-assessed ~3.8 IQ / ~5 evolution vs Hermes/OpenSpace): "
+    "Read docs/MIMIR_IQ_EVOLUTION_DIRECTION.md when planning memory, skills, or evolution work. "
+    "Mimir execution queue: docs/MIMIR_EXEC_BACKLOG.md §15; SEM engineering: §14. "
+    "Use report template §3.3; never claim evolution complete without measurable evidence (§3.2)."
+)
+
 TOOL_USE_ENFORCEMENT_GUIDANCE = (
     "# Tool-use enforcement\n"
     "You MUST use your tools to take action — do not describe what you would do "
@@ -1057,6 +1064,7 @@ def build_system_prompt(
     # 4. 技能指导
     sections.append(SKILLS_GUIDANCE)
     sections.append(PLAYBOOK_ALIAS_GUIDANCE)
+    sections.append(IQ_EVOLUTION_DIRECTION_GUIDANCE)
     
     # 5. 工具使用强制指导（针对特定模型）
     model_lower = model.lower()
@@ -1139,6 +1147,7 @@ def build_system_prompt_parts(
     stable_sections.append(SESSION_SEARCH_GUIDANCE)
     stable_sections.append(SKILLS_GUIDANCE)
     stable_sections.append(PLAYBOOK_ALIAS_GUIDANCE)
+    stable_sections.append(IQ_EVOLUTION_DIRECTION_GUIDANCE)
     
     if any(m in model_lower for m in TOOL_USE_ENFORCEMENT_MODELS):
         stable_sections.append(TOOL_USE_ENFORCEMENT_GUIDANCE)

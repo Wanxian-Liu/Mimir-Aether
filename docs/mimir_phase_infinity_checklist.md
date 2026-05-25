@@ -210,6 +210,7 @@
 
 | 日期 | 周期摘要 | ∞1–∞4 要点 | 备注 |
 |------|----------|------------|------|
+| 2026-05-19 | **Horizon A 结案** · P2-LONG-SEM SEM-06 | **∞1**：Chroma semantic 检索交付；benchmark 第三腿 + tier0 契约 | [`p2-long-sem-closeout.md`](phase0/p2-long-sem-closeout.md) · ADR-006 Accepted |
 | 2026-05-25 | **Horizon A 启动** · SEM-01 ADR-006 | **∞1**：P2-LONG-SEM 立项；path-contract chroma 路径 | [`adr/006-semantic-memory-chromadb.md`](adr/006-semantic-memory-chromadb.md) · backlog §14 |
 | 2026-05-25 | **P2-LONG-IEVO** Wave E 结案（IEVO-01～06） | **∞1**：禁伪进化 + evolution tier0 + eval 脚本 + ADR-005 + monitor/insights 回归；**tier0 326+2**；**M6** `20260525T*` 多行 | [`p2-long-iev0-closeout.md`](phase0/p2-long-iev0-closeout.md)；GH **#21/#22** 部分关（icebox 余量见结案 doc） |
 | 2026-05-07 | **织界宪章**草案入库 + 首条对照审查 | **∞3/∞4**：§宪章对照审查记录 **#1**（当时 MAINLINE **∞** 仍为 **黄**） | [`weave_charter.md`](weave_charter.md)；**∞1 索引 #7**（`8b8d684`） |
