@@ -8,8 +8,8 @@
 | **最近更新** | 2026-05-25 |
 | **更新人** | Cursor（P2-LONG-INDEP **IND-06** 工程结案） |
 | **仓库根（真源）** | `~/src/MimirAether` |
-| **可选校验** | `./run_ralph_tier0.sh`（门禁 **310+2**）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
-| **本轮摘要** | **IEVO-03** [x]：ADR-005 可观测性 SoT（ExecutionRecorder）；tier0 **310+2**。下一条 **IEVO-04**。 |
+| **可选校验** | `./run_ralph_tier0.sh`（门禁 **314+2**）；`./scripts/run_evolution_eval.sh`（本机 DB） |[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
+| **本轮摘要** | **IEVO-04** [x]：`run_evolution_eval.sh` 记忆检索 eval + 基线对比；tier0 **314+2**。下一条 **IEVO-05**。 |
 
 ---
 
@@ -63,6 +63,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-25 | **IEVO-04** [x]：`run_evolution_eval.sh` + compare；本机 eval pass（LIKE 60% / FTS 50%）。 |
 | 2026-05-25 | **IEVO-03** [x]：ADR-005 observability SoT；`execution_recorder` → `get_mimir_data_dir()`；contract IEVO-03。 |
 | 2026-05-25 | **IEVO-02** [x]：`test_skill_evolution` + `test_self_evolution_jepa` 入 tier0；manifest contract；**306+2**。 |
 | 2026-05-25 | **IEVO-01** [x]：`evolution_audit` + `record_m6` 禁伪进化标记；contract IEVO-01；tier0 **284+2**。 |

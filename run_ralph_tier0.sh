@@ -127,6 +127,7 @@ python3 -m pytest -q \
   tests/contract/test_no_simulated_evolution_ievo01.py \
   tests/contract/test_evolution_tier0_manifest_ievo02.py \
   tests/contract/test_observability_sot_ievo03.py \
+  tests/contract/test_evolution_eval_ievo04.py \
   tests/agent/test_persistent_single_writer_ind05.py
 
 echo "=== Ralph Tier-1: Gate3 Core E2E (mocked LLM) ==="

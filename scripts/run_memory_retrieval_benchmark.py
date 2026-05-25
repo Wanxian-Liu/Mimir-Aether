@@ -81,7 +81,11 @@ def run_benchmark(
     fts_engine: Optional[FTS5SearchEngine] = None
     fts_available = Path(fts_db_path).exists()
     if fts_available:
-        fts_engine = FTS5SearchEngine(fts_db_path)
+        try:
+            fts_engine = FTS5SearchEngine(fts_db_path)
+        except Exception:
+            fts_available = False
+            fts_engine = None
 
     rows: List[QueryResult] = []
     for q in BENCHMARK_QUERIES:
