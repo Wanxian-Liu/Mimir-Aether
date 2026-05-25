@@ -37,6 +37,20 @@ def get_mimir_data_dir() -> Path:
     return get_mimir_home() / "data"
 
 
+def get_mimir_session_search_db_path() -> Path:
+    """Session search SQLite path (IND-03 / ADR-003).
+
+    Precedence: MIMIR_SESSION_DB > OPENCLAW_SESSION_DB (legacy) > data/sessions_search.db
+    """
+    override = os.getenv("MIMIR_SESSION_DB", "").strip()
+    if override:
+        return Path(override).expanduser()
+    legacy = os.getenv("OPENCLAW_SESSION_DB", "").strip()  # legacy: ADR-003
+    if legacy:
+        return Path(legacy).expanduser()
+    return get_mimir_data_dir() / "sessions_search.db"
+
+
 def get_mimir_sessions_dir() -> Path:
     """Gateway file-based session artifacts (distinct from SQLite ``state.db``)."""
     return get_mimir_data_dir() / "sessions"

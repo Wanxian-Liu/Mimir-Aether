@@ -111,10 +111,10 @@ _MARKER_TTL = 86400  # 24 hours
 
 
 def _get_hermes_home() -> str:
-    """Return the agent home directory, respecting HERMES_HOME env var."""
+    """Return the agent home directory (MIMIR_AETHER_HOME / legacy aliases via mimir_constants)."""
     from mimir_constants import get_mimir_home
 
-    return os.environ.get("HERMES_HOME", str(get_mimir_home()))
+    return str(get_mimir_home())
 
 
 def _failure_marker_path() -> str:

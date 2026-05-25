@@ -505,9 +505,9 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 
 | ID | 任务 | 成功标准 | 状态 |
 |----|------|----------|------|
-| **IND-01** | ADR-003 legacy env 别名表 | `docs/adr/003-runtime-env-aliases.md` | [ ] |
-| **IND-02** | 新代码仅 `get_mimir_home()`；grep 门禁 | tier0 + advisory | [ ] |
-| **IND-03** | `MIMIR_SESSION_DB`（保留旧名读） | 单测 + path-contract | [ ] |
+| **IND-01** | ADR-003 legacy env 别名表 | `docs/adr/003-runtime-env-aliases.md` | [x] 2026-05-25 |
+| **IND-02** | 新代码仅 `get_mimir_home()`；grep 门禁 | tier0 + advisory | [x] 2026-05-25 |
+| **IND-03** | `MIMIR_SESSION_DB`（保留旧名读） | 单测 + path-contract | [x] 2026-05-25 |
 | **IND-04** | mimicore 子模块 `.openclaw` 边界 ADR | 不再复发 | [ ] |
 | **IND-05** | P3-0 单写者实现 | GH #20 close | [ ] |
 | **IND-06** | OPENCLAW_BOUNDARY §8 + MAINLINE | 刘哥 sign-off | [ ] |

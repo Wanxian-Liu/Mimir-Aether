@@ -251,9 +251,7 @@ def _resolve_stdio_command(command: str, env: dict) -> tuple[str, dict]:
         elif resolved_command in {"npx", "npm", "node"}:
             from mimir_constants import get_mimir_home
 
-            hermes_home = os.path.expanduser(
-                os.getenv("HERMES_HOME", str(get_mimir_home()))
-            )
+            hermes_home = os.path.expanduser(str(get_mimir_home()))
             candidates = [
                 os.path.join(hermes_home, "node", "bin", resolved_command),
                 os.path.join(os.path.expanduser("~"), ".local", "bin", resolved_command),

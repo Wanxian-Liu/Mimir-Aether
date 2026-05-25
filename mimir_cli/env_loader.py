@@ -75,7 +75,12 @@ def load_hermes_dotenv(
     """
     loaded: list[Path] = []
 
-    home_path = Path(hermes_home or os.getenv("HERMES_HOME", Path.home() / ".mimir"))
+    if hermes_home:
+        home_path = Path(hermes_home)
+    else:
+        from mimir_constants import get_mimir_home
+
+        home_path = get_mimir_home()
     user_env = home_path / ".env"
     project_env_path = Path(project_env) if project_env else None
 
