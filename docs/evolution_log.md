@@ -91,3 +91,4 @@ Append-only. Newest rows at the **bottom**. See **`docs/M6_EVOLUTION.md`** for r
 | 20260525T160000Z_ind06 | 2026-05-25T16:00:00Z | ind06-docs | docs-only | 0 | IND-06: OPENCLAW_BOUNDARY §8 independence declaration + sign-off table; MAINLINE Wave D/D7; backlog §13.1 D [x]; 刘哥 §8.3 pending; metrics: n/a |
 | 20260525T024850Z_0142b0c-dirty | 2026-05-25T02:48:50Z | 0142b0c-dirty | ./run_ralph_tier0.sh | 0 | IEVO-01: evolution_audit guard + record_m6 blocks pseudo-evolution markers; contract test; M6 doc; tier0 284+2 |
 | 20260525T025922Z_6838137-dirty | 2026-05-25T02:59:22Z | 6838137-dirty | ./run_ralph_tier0.sh | 0 | IEVO-02: skill_evolution + self_evolution_jepa in tier0; evolution manifest contract; tier0 306+2 |
+| 20260525T031804Z_f0021ac-dirty | 2026-05-25T03:18:04Z | f0021ac-dirty | ./run_ralph_tier0.sh | 0 | IEVO-03: ADR-005 ExecutionRecorder observability SoT; execution_recorder path via get_mimir_data_dir; contract; tier0 310+2 |

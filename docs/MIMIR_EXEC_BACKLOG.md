@@ -276,7 +276,7 @@ Mimir 冒烟回报
 | D6-0b | monitor 阈值 + status | [x] agent/monitor.py + monitor_alerts.json |
 | D6-0c | health.register | [x] `/health` 含 agent + agent_error_rate |
 | D6-0d | RateLimitTracker Lock | [x] E-006 batch |
-| D6-1 | trajectory/recorder SoT ADR | [ ] |
+| D6-1 | trajectory/recorder SoT ADR | [x] 2026-05-25 · IEVO-03 · ADR-005 |
 | D6-2 | ObservabilityBus（可选） | [ ] |
 | D6-3 | 测试 | [ ] |
 
@@ -518,7 +518,7 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 |----|------|----------|------|
 | **IEVO-01** | D5-1 禁 `simulated` 生产路径 | grep + 单测；GH #21 部分关 | [x] 2026-05-25 |
 | **IEVO-02** | D5-3 evolution pytest | tier0 或 wide 绿 | [x] 2026-05-25 · tier0 **306+2** |
-| **IEVO-03** | D6-1 Observability SoT ADR | GH #22 部分关 | [ ] |
+| **IEVO-03** | D6-1 Observability SoT ADR | GH #22 部分关 | [x] 2026-05-25 · ADR-005 |
 | **IEVO-04** | `scripts/run_evolution_eval.sh` | 一次绿 run + 基线 JSON | [ ] |
 | **IEVO-05** | D6-3 monitor/insights 回归测 | 单测 ≥3 | [ ] |
 | **IEVO-06** | IEVO 结案 + Phase ∞ 续勾 | MAINLINE 绿 | [ ] |
@@ -533,7 +533,7 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 | D2 Active 无 P0 | 🟡 #10 → **monitoring**（since-start R4） |
 | D3 Gateway 十条 | ✅ **STAB-07**（2026-05-25） |
 | D4 §13 无 `[ ]` | 🟡 子阶段 **E** 进行中（A/B/C/D 已结案） |
-| D5 tier0 | ✅ **306+2** |
+| D5 tier0 | ✅ **310+2** |
 | D6 飞书 smoke | ✅ T-03/T-04 + R5 tool 往返（2026-05-25 刘哥） |
 | D7 路径独立 | ✅ **IND-01～06**（§8 独立宣言 · 刘哥签收 2026-05-25） |
 | D8 工业进化 MVP | ⬜ → **CLR-E** |
@@ -544,7 +544,7 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 
 ```text
 Read docs/MIMIR_ZERO_DEBT_MASTERPLAN.md + MIMIR_EXEC_BACKLOG.md §13.1 P0-LONG-CLEARANCE。
-只做母任务第一条 [ ] 子阶段内的第一条 [ ] 子项（现：**E/IEVO-03**）。
+只做母任务第一条 [ ] 子阶段内的第一条 [ ] 子项（现：**E/IEVO-04**）。
 触达 agent/gateway/tools 后 ./run_ralph_tier0.sh + evolution_log。
 ```
 

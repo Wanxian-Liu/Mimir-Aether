@@ -28,9 +28,10 @@ from typing import Any, Dict, List, Optional
 
 
 def _get_trajectory_dir() -> Path:
-    """Resolve trajectory storage directory."""
-    home = os.getenv("MIMIR_AETHER_HOME", os.path.expanduser("~/.mimiraether"))
-    return Path(home) / "data" / "trajectories"
+    """Resolve trajectory storage directory (ADR-005 SoT under runtime data home)."""
+    from mimir_constants import get_mimir_data_dir
+
+    return get_mimir_data_dir() / "trajectories"
 
 
 def _today_dir() -> Path:

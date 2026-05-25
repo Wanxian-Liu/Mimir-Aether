@@ -13,6 +13,16 @@ Short rules so agent code, gateway, and configs stay aligned. **Update this file
 
 See also: [gateway-cli-health.md](./gateway-cli-health.md) for `api_server` and cron execution notes.
 
+## Observability — execution trace SoT
+
+Per-session **authoritative** tool/agent trace for evolution and post-hoc analysis:
+
+| SoT | Path | API |
+|-----|------|-----|
+| **ExecutionRecorder JSONL** | `get_mimir_data_dir() / "trajectories" / "<date>" / "<session_id>.jsonl"` | `execution_pipeline.start_execution_pipeline` → `record_tool_call` → `close_execution_pipeline` |
+
+**Not SoT:** `sessions.db` aggregates, `monitor_alerts.json`, Insights metrics, legacy `{repo}/trajectory/*.jsonl`, or `trajectory_samples.jsonl` batch files. Full rules: **[ADR-005](./adr/005-observability-execution-sot.md)** (IEVO-03 / D6-1).
+
 ## 历史路径与豁免目录
 
 本节固定：**哪些树可以出现旧机器 / OpenClaw 布局字符串**，以及它们**不是**当前默认真源。新代码与新文档**禁止**从下列区域复制路径当作默认部署根。

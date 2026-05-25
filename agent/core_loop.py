@@ -1084,7 +1084,7 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
         self._trajectory = []
 
     def _save_trajectory(self, completed: bool):
-        """保存轨迹"""
+        """保存轨迹（legacy：写入 repo 下 trajectory/；SoT 见 ADR-005 ExecutionRecorder）。"""
         if not self.save_trajectories:
             return
 
