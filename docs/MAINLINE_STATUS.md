@@ -9,7 +9,7 @@
 | **更新人** | Cursor（P2-LONG-INDEP **IND-06** 工程结案） |
 | **仓库根（真源）** | `~/src/MimirAether` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁 **278+2**）；[`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh)（独立 home smoke）；宽 pytest 见 [`.github/workflows/pytest-wide.yml`](../.github/workflows/pytest-wide.yml） |
-| **本轮摘要** | **Wave D [x]**：`OPENCLAW_BOUNDARY` **§8** 独立宣言；**D7** ✅；tier0 **278+2**。§8.3 **刘哥签收待填**。下一条 **IEVO-01**（Wave E）。 |
+| **本轮摘要** | **Wave D [x]**（刘哥 §8.3 签收）：独立宣言**可对外承诺**；**D7** ✅；tier0 **278+2**。下一条 **IEVO-01**（Wave E）。 |
 
 ---
 
@@ -63,7 +63,7 @@
 
 | 日期 | 摘要 |
 |------|------|
-| 2026-05-25 | **IND-06** [x]：`MIMIR_OPENCLAW_BOUNDARY.md` §8 独立宣言 + 签收表；**Wave D** 工程结案；**D7** ✅；§8.3 刘哥待签。 |
+| 2026-05-25 | **IND-06** [x]：§8 独立宣言；**刘哥签收**（可对外承诺）；**Wave D** 全结案；**D7** ✅。 |
 | 2026-05-25 | **IND-05** [x]：`persistent_store` 锁 + ADR-001 Accepted；GH #20 closed；tier0 **278+2**。 |
 | 2026-05-25 | **IND-04** [x]：ADR-004 + `test_mimicore_openclaw_boundary_ind04`；tier0 纳入 contract IND-02/03/04。 |
 | 2026-05-25 | **IND-01～03** [x]：Night1 PR — ADR-003、contract IND-02/03、`get_mimir_session_search_db_path()`；tier0 **267+2**；**D7** 部分绿。 |
