@@ -149,6 +149,7 @@ python3 -m pytest -q \
   tests/contract/test_horizon_obs_b1_01.py \
   tests/contract/test_horizon_obs_b1_02.py \
   tests/contract/test_horizon_obs_b1_03.py \
+  tests/contract/test_horizon_aut_autonomy.py \
   tests/tools/test_chroma_incremental.py \
   tests/agent/test_post_close_analysis.py \
   tests/agent/test_conversation_nudges.py \

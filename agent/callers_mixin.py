@@ -339,6 +339,22 @@ class CallersMixin:
             )
         except Exception as _e:
             logger.debug("compressor.ingest_usage skipped: %s", _e)
+        try:
+            from agent.context_usage_snapshot import write_context_usage_snapshot
+
+            comp = self.compressor
+            write_context_usage_snapshot(
+                prompt_tokens=pt,
+                completion_tokens=ct,
+                total_tokens=int(total),
+                context_length=int(getattr(comp, "context_length", 0) or 0),
+                threshold_tokens=int(getattr(comp, "threshold_tokens", 0) or 0),
+                message_count=len(messages) if messages else 0,
+                session_id=str(getattr(self, "session_id", "") or ""),
+                model=str(getattr(self, "model", "") or ""),
+            )
+        except Exception as _e:
+            logger.debug("context_usage_snapshot skipped: %s", _e)
 
     def _build_full_messages(self) -> List[Dict]:
         """构建完整消息列表(用于API调用)

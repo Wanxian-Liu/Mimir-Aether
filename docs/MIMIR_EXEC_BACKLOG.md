@@ -1,6 +1,6 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-05-25（**智商/进化方向** — [`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) + **§15**）  
+> **最近更新**：2026-05-26（**§17 P1-LONG-AUTONOMY** AUTO-01～06 **[x]** · tier0 **425+2**）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5；Mimir 飞书每轮 Read **方向真源** + bridge + 本表  
 > **规则**：**Mimir 运维/智商** → **§15** 第一条 `[ ]`；**Cursor 工程 SEM** → **§14** 第一条 `[ ]`。§11 / §2 / Phase 0 **只读**。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
@@ -675,3 +675,30 @@ Read backlog §15 Wave 3。刘哥序：先 Wave 3 再 Horizon B1。
 | **OBS-B1-03** | ISSUES **#10** monitoring 收口或降为 documented 例外 | Mimir | ISSUES 更新；Active≤3 | [x] 2026-05-26 · [`obs-b1-03-issue10-closeout.md`](./phase0/obs-b1-03-issue10-closeout.md) · Active **1** |
 
 **禁止**：与 Wave 3 **并行**改 `agent|gateway|tools`（B1 开跑时 Wave 3 工程应已结案）。
+
+---
+
+## 17. 运行自治 — **`P1-LONG-AUTONOMY`**（2026-05-26 · 刘哥「真正独立 Agent」）
+
+> **真源**：bridge §1「会话上下文治理 + Token 计数」· [`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) §3.4（Mimir 运维边界）  
+> **规则**：只认 **§17 第一条 `[ ]`**；每粒 `./run_ralph_tier0.sh`；**禁止**无授权 `MIMIR_AUTO_EVOLVE=1` 或默认 `semantic_hybrid` 生产切换。  
+> **含义**：**backlog 工程粒空 ≠ Mimir 已能自运维** — 本 Horizon 补 **重启 / 自检 / 新会话 / token 可见**。
+
+| ID | 任务 | Owner | 成功标准 | 状态 |
+|----|------|-------|----------|------|
+| **AUTO-01** | **`mimir_ops` 工具** — allowlist：`health_check` · `evolution_eval` · `gateway_restart`（env+confirm） | Cursor | `tools/mimir_ops_tool.py` + registry + 单测 | [x] 2026-05-26 |
+| **AUTO-02** | **会话重置** — `/new`/`/reset` 文档化 + `mimir_ops(session_reset)` + gateway pending 消费 | Cursor | Feishu 可 `/new`；tool 队列下轮 reset | [x] 2026-05-26 |
+| **AUTO-03** | **上下文治理** — prompt 指引 + `max_history_length`/compressor 运维说明 | Cursor | `SESSION_AUTONOMY_GUIDANCE` + ops 文档 | [x] 2026-05-26 |
+| **AUTO-04** | **Token 用量可见** — `last_context_usage.json` + `mimir_ops(context_usage)` | Cursor | 每轮 LLM 后写入 snapshot；tool 可读 | [x] 2026-05-26 |
+| **AUTO-05** | **结案文档** — 「队列空 ≠ 自治完成」+ ops 面板 § autonomy | Cursor | `p1-long-autonomy-closeout.md` + `MIMIR_OPS_PANEL.md` | [x] 2026-05-26 |
+| **AUTO-06** | **tier0 契约** + bridge §4 签收 | Cursor | `test_horizon_aut_autonomy.py` 入 tier0 | [x] 2026-05-26 · tier0 **425+2** |
+
+**§17 波次状态**：AUTO-01～06 **全 [x]** · 结案 [`p1-long-autonomy-closeout.md`](./phase0/p1-long-autonomy-closeout.md) · Mimir 待飞书 `/new` + `mimir_ops(health_check)` 冒烟。
+
+**Cursor 新窗一句**
+
+```text
+Read backlog §17 P1-LONG-AUTONOMY 第一条 [ ]。
+实现 mimir_ops + session reset pending + context_usage snapshot；tier0 + evolution_log。
+勿开 AUTO_EVOLVE / 勿改 semantic 生产默认。
+```

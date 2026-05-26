@@ -495,6 +495,19 @@ class AgentMixin:
         import queue
         from gateway._shared import _load_gateway_config, _platform_config_key, _resolve_gateway_model
 
+        if session_key:
+            try:
+                from tools.mimir_ops_tool import (
+                    apply_session_reset_on_runner,
+                    consume_session_reset_pending,
+                )
+
+                if consume_session_reset_pending(session_key):
+                    apply_session_reset_on_runner(self, session_key)
+                    history = []
+            except Exception as _reset_err:
+                logger.debug("Pending session reset skipped: %s", _reset_err)
+
         user_config = _load_gateway_config()
         platform_key = _platform_config_key(source.platform)
 

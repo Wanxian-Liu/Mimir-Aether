@@ -108,3 +108,4 @@ Append-only. Newest rows at the **bottom**. See **`docs/M6_EVOLUTION.md`** for r
 | 20260526T074741Z_f593f7d-dirty | 2026-05-26T07:47:41Z | f593f7d-dirty | ./run_ralph_tier0.sh | 0 | IQ-EVO-12: SESSION_SEARCH_GUIDANCE search-first MUST; contract test_horizon_iqevo_wave3 |
 | 20260526T075535Z_2113983-dirty | 2026-05-26T07:55:35Z | 2113983-dirty | ./run_ralph_tier0.sh | 0 | IQ-EVO-13: MIMIR_AUTO_ANALYSIS production rollout doc, env contract, list_analysis_artifacts.sh; tier0 393+2 |
 | 20260526T082221Z_41ce6b7-dirty | 2026-05-26T08:22:21Z | 41ce6b7-dirty | ./run_ralph_tier0.sh | 0 | OBS-B1-01: ADR-007 ObservabilityBus defer; Wave 3 IQ-EVO-14 backlog [x]; tier0 398+2 |
+| 20260526T091704Z_e353b4f-dirty | 2026-05-26T09:17:04Z | e353b4f-dirty | ./run_ralph_tier0.sh | 0 | §17 P1-LONG-AUTONOMY: mimir_ops allowlist tool, session_reset pending, context_usage snapshot, SESSION_AUTONOMY_GUIDANCE; tier0 425+2 |

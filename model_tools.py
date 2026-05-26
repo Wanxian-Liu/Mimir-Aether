@@ -66,6 +66,7 @@ def _discover_tools():
         "tools.process_registry",
         "tools.send_message_tool",
         "tools.homeassistant_tool",
+        "tools.mimir_ops_tool",
     ]
     for mod_name in _modules:
         try:

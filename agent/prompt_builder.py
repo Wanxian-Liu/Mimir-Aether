@@ -120,6 +120,18 @@ SESSION_SEARCH_GUIDANCE = (
     "refine the query if the first search returns too few or too many hits."
 )
 
+SESSION_AUTONOMY_GUIDANCE = (
+    "# Session hygiene & ops (P1-LONG-AUTONOMY)\n"
+    "One Feishu chat window keeps one session_key — context can grow large. "
+    "When the user wants a fresh start, they can send **/new** or **/reset** "
+    "(gateway rotates session_id and clears the cached agent). "
+    "You may call mimir_ops(action='session_reset') to queue the same reset "
+    "before the next turn, or mimir_ops(action='context_usage') for the last "
+    "reported prompt_tokens / context_length (not guesses). "
+    "For production health: mimir_ops(action='health_check'). "
+    "gateway_restart requires human env MIMIR_OPS_ALLOW_GATEWAY_RESTART=1 and confirm=true."
+)
+
 SKILLS_GUIDANCE = (
     "After completing a complex task (5+ tool calls), fixing a tricky error, "
     "or discovering a non-trivial workflow, save the approach as a "
@@ -1087,6 +1099,7 @@ def build_system_prompt(
     
     # 3. 会话搜索指导
     sections.append(SESSION_SEARCH_GUIDANCE)
+    sections.append(SESSION_AUTONOMY_GUIDANCE)
     
     # 4. 技能指导
     sections.append(SKILLS_GUIDANCE)
@@ -1172,6 +1185,7 @@ def build_system_prompt_parts(
     stable_sections.append(DEFAULT_AGENT_IDENTITY)
     stable_sections.append(MEMORY_GUIDANCE)
     stable_sections.append(SESSION_SEARCH_GUIDANCE)
+    stable_sections.append(SESSION_AUTONOMY_GUIDANCE)
     stable_sections.append(SKILLS_GUIDANCE)
     stable_sections.append(PLAYBOOK_ALIAS_GUIDANCE)
     stable_sections.append(IQ_EVOLUTION_DIRECTION_GUIDANCE)

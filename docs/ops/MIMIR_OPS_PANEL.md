@@ -134,9 +134,30 @@ Closeout: [`docs/phase0/p2-long-sem-closeout.md`](../phase0/p2-long-sem-closeout
 
 ---
 
-## 8. Revision log
+## 8. Agent autonomy (`mimir_ops` · §17)
+
+**Tool:** `mimir_ops` (allowlisted only — no arbitrary shell).
+
+| Action | Purpose | Guards |
+|--------|---------|--------|
+| `health_check` | Runs `scripts/mimir_health_check.sh --json [--quick]` | — |
+| `evolution_eval` | Runs `scripts/run_evolution_eval.sh` | — |
+| `gateway_restart` | Runs `scripts/restart_gateway_hard.sh` | `confirm=true` **and** `MIMIR_OPS_ALLOW_GATEWAY_RESTART=1` in `$MIMIR_AETHER_HOME/.env` |
+| `context_usage` | Reads `data/ops/last_context_usage.json` + monitor snapshot | Written after each model call |
+| `session_reset` | Queues reset for next agent turn | User can also send **`/new`** or **`/reset`** in Feishu |
+
+**Session reset (Feishu):** same chat window keeps one `session_key`; `/new` rotates `session_id` and evicts the cached agent (see `gateway/router/session_commands_mixin.py`).
+
+**Context governance:** in-process history capped at `max_history_length` (default 200 messages); compressor may TRUNCATE when prompt tokens exceed threshold — see `agent/context_compressor.py`.
+
+**Closeout:** [`docs/phase0/p1-long-autonomy-closeout.md`](../phase0/p1-long-autonomy-closeout.md)
+
+---
+
+## 9. Revision log
 
 | Date | Note |
 |------|------|
+| 2026-05-26 | §17: `mimir_ops` + context_usage snapshot + `/new` docs |
 | 2026-05-26 | SEM-07: semantic baseline + eval gate + §7 |
 | 2026-05-26 | OBS-B1-02: ops panel + R3b + monitor env overrides |
