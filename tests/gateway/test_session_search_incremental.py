@@ -6,6 +6,8 @@ import sqlite3
 import sys
 from pathlib import Path
 
+from unittest.mock import patch
+
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -55,7 +57,9 @@ def test_append_to_transcript_indexes_sessions_search(tmp_path, search_db_path):
 
     sessions_dir = tmp_path / "sessions"
     store = SessionStore(sessions_dir, load_gateway_config())
-    store.append_to_transcript("sid-1", {"role": "user", "content": "hello gateway"})
+    with patch("tools.chroma_session_indexer.sync_message_to_chroma") as mock_chroma:
+        store.append_to_transcript("sid-1", {"role": "user", "content": "hello gateway"})
+        mock_chroma.assert_called_once()
 
     conn = sqlite3.connect(str(search_db_path))
     try:

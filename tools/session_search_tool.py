@@ -4,7 +4,7 @@ MimirAether Session Search Tool - 会话历史搜索
 学习自Hermes session_search_tool.py设计。
 
 核心功能：
-- 全文搜索：默认 SQLite LIKE；`SESSION_SEARCH_BACKEND=fts5|hybrid|semantic|semantic_hybrid`
+- 全文搜索：默认 **hybrid**（FTS5→LIKE）；`SESSION_SEARCH_BACKEND=like|fts5|semantic|semantic_hybrid`
 - 会话分组和截断
 - 摘要生成
 """
@@ -388,14 +388,19 @@ class SessionSearchDB:
         role: str,
         content: str,
         tool_name: Optional[str] = None,
-    ) -> None:
-        """添加消息到会话"""
+    ) -> int:
+        """添加消息到会话；返回 sqlite messages.id（供 Chroma 增量索引）。"""
         conn = sqlite3.connect(self.db_path)
         try:
-            conn.execute("""
+            ts = datetime.now().timestamp()
+            cur = conn.execute(
+                """
                 INSERT INTO messages (session_id, role, content, tool_name, timestamp)
                 VALUES (?, ?, ?, ?, ?)
-            """, (session_id, role, content, tool_name, datetime.now().timestamp()))
+            """,
+                (session_id, role, content, tool_name, ts),
+            )
+            message_id = int(cur.lastrowid or 0)
 
             conn.execute("""
                 UPDATE sessions
@@ -403,6 +408,7 @@ class SessionSearchDB:
                 WHERE session_id = ?
             """, (session_id,))
             conn.commit()
+            return message_id
         finally:
             conn.close()
 
@@ -434,12 +440,17 @@ class SessionSearchDB:
 # Backend selection (P1-M04)
 # ============================================================================
 
+_DEFAULT_SESSION_SEARCH_BACKEND = "hybrid"
+
+
 def get_session_search_backend() -> str:
-    """``like`` (default), ``fts5``, ``hybrid``, ``semantic``, or ``semantic_hybrid``."""
-    raw = os.environ.get("SESSION_SEARCH_BACKEND", "like").strip().lower()
-    if raw in ("fts5", "hybrid", "semantic", "semantic_hybrid"):
+    """``hybrid`` (default), ``like``, ``fts5``, ``semantic``, or ``semantic_hybrid``."""
+    raw = os.environ.get(
+        "SESSION_SEARCH_BACKEND", _DEFAULT_SESSION_SEARCH_BACKEND
+    ).strip().lower()
+    if raw in ("like", "fts5", "hybrid", "semantic", "semantic_hybrid"):
         return raw
-    return "like"
+    return _DEFAULT_SESSION_SEARCH_BACKEND
 
 
 def _semantic_index_ready() -> bool:

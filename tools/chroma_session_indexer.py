@@ -189,6 +189,114 @@ def get_chroma_collection(
     )
 
 
+def chroma_incremental_enabled() -> bool:
+    """Gateway/indexer incremental upsert when chromadb is available (IQ-EVO-11)."""
+    if not chroma_available():
+        return False
+    return os.environ.get("MIMIR_CHROMA_INCREMENTAL", "1").strip().lower() not in (
+        "0",
+        "false",
+        "no",
+        "off",
+    )
+
+
+_cached_chroma_collection: Any = None
+
+
+def _get_incremental_collection() -> Any:
+    global _cached_chroma_collection
+    if _cached_chroma_collection is None:
+        _cached_chroma_collection = get_chroma_collection()
+    return _cached_chroma_collection
+
+
+def reset_chroma_collection_cache() -> None:
+    """Test helper: drop lazy collection cache."""
+    global _cached_chroma_collection
+    _cached_chroma_collection = None
+
+
+def upsert_indexed_messages(
+    messages: Sequence[IndexedMessage],
+    *,
+    collection: Any = None,
+) -> int:
+    """Upsert one or more messages into Chroma (idempotent by doc id)."""
+    if not messages:
+        return 0
+    if collection is None:
+        collection = _get_incremental_collection()
+    batch_size = DEFAULT_BATCH_SIZE
+    indexed = 0
+    batch: List[IndexedMessage] = []
+    for msg in messages:
+        batch.append(msg)
+        if len(batch) >= batch_size:
+            indexed += _upsert_batch(collection, batch)
+            batch = []
+    if batch:
+        indexed += _upsert_batch(collection, batch)
+    return indexed
+
+
+def sync_message_to_chroma(msg: IndexedMessage) -> bool:
+    """Incremental upsert for a single message row (fail-open)."""
+    if not chroma_incremental_enabled():
+        return False
+    try:
+        upsert_indexed_messages([msg])
+        return True
+    except Exception as exc:
+        logger.debug("chroma incremental upsert failed: %s", exc)
+        return False
+
+
+def delete_session_chroma_documents(session_id: str, *, collection: Any = None) -> None:
+    """Remove all Chroma docs for a session (before full re-sync)."""
+    if not chroma_available():
+        return
+    if collection is None:
+        collection = _get_incremental_collection()
+    try:
+        collection.delete(where={"session_id": session_id})
+    except Exception as exc:
+        logger.debug("chroma delete session %s failed: %s", session_id, exc)
+
+
+def sync_session_chroma_from_db(
+    session_id: str,
+    like_db_path: Path | str,
+    *,
+    replace_existing: bool = True,
+) -> int:
+    """Re-sync one session from sessions_search.db into Chroma."""
+    if not chroma_incremental_enabled():
+        return 0
+    like_db_path = Path(like_db_path)
+    if not like_db_path.is_file():
+        return 0
+    try:
+        collection = _get_incremental_collection()
+        if replace_existing:
+            delete_session_chroma_documents(session_id, collection=collection)
+        batch: List[IndexedMessage] = []
+        count = 0
+        for msg in iter_indexable_messages(like_db_path):
+            if msg.session_id != session_id:
+                continue
+            batch.append(msg)
+            if len(batch) >= DEFAULT_BATCH_SIZE:
+                count += upsert_indexed_messages(batch, collection=collection)
+                batch = []
+        if batch:
+            count += upsert_indexed_messages(batch, collection=collection)
+        return count
+    except Exception as exc:
+        logger.debug("chroma session sync failed %s: %s", session_id, exc)
+        return 0
+
+
 def backfill_chroma_sessions(
     like_db_path: Path | str,
     *,

@@ -192,7 +192,24 @@ def index_transcript_message(
     role, content, tool_name, _ts = parsed
     if ensure_session:
         like_db.add_session(session_id, source=source, title=title)
-    like_db.add_message(session_id, role, content, tool_name=tool_name)
+    message_id = like_db.add_message(session_id, role, content, tool_name=tool_name)
+    if message_id > 0:
+        try:
+            from tools.chroma_session_indexer import IndexedMessage, sync_message_to_chroma
+
+            sync_message_to_chroma(
+                IndexedMessage(
+                    message_id=message_id,
+                    session_id=session_id,
+                    role=role,
+                    content=content,
+                    source=source,
+                    timestamp=_ts,
+                    tool_name=tool_name,
+                )
+            )
+        except Exception as exc:
+            logger.debug("chroma incremental hook failed: %s", exc)
     return True
 
 
@@ -220,4 +237,12 @@ def reindex_session_transcript(
             ensure_session=False,
         ):
             count += 1
+    try:
+        from tools.chroma_session_indexer import sync_session_chroma_from_db
+
+        db_path = getattr(like_db, "db_path", None)
+        if db_path:
+            sync_session_chroma_from_db(session_id, db_path)
+    except Exception as exc:
+        logger.debug("chroma session re-sync failed: %s", exc)
     return count

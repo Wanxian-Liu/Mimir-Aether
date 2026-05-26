@@ -49,7 +49,7 @@ def test_session_search_backend_env(monkeypatch):
     from tools.session_search_tool import get_session_search_backend
 
     monkeypatch.delenv("SESSION_SEARCH_BACKEND", raising=False)
-    assert get_session_search_backend() == "like"
+    assert get_session_search_backend() == "hybrid"
     monkeypatch.setenv("SESSION_SEARCH_BACKEND", "hybrid")
     assert get_session_search_backend() == "hybrid"
     monkeypatch.setenv("SESSION_SEARCH_BACKEND", "FTS5")
@@ -59,4 +59,4 @@ def test_session_search_backend_env(monkeypatch):
     monkeypatch.setenv("SESSION_SEARCH_BACKEND", "semantic_hybrid")
     assert get_session_search_backend() == "semantic_hybrid"
     monkeypatch.setenv("SESSION_SEARCH_BACKEND", "bogus")
-    assert get_session_search_backend() == "like"
+    assert get_session_search_backend() == "hybrid"

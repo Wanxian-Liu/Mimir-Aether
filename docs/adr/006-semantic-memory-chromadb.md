@@ -35,9 +35,9 @@ Extend `SESSION_SEARCH_BACKEND` in `tools/session_search_tool.py`:
 
 | Value | Behavior |
 |-------|----------|
-| `like` | unchanged (default) |
+| `like` | unchanged |
 | `fts5` | unchanged |
-| `hybrid` | unchanged (FTS5 → LIKE) |
+| `hybrid` | unchanged (FTS5 → LIKE); **production default** (IQ-EVO-11) |
 | **`semantic`** | Chroma query → if empty, **no** silent LIKE (explicit semantic-only mode) |
 | **`semantic_hybrid`** | Chroma query → if empty, existing **hybrid** (FTS5 → LIKE) |
 
@@ -46,6 +46,7 @@ Extend `SESSION_SEARCH_BACKEND` in `tools/session_search_tool.py`:
 | Variable | Purpose |
 |----------|---------|
 | `MIMIR_CHROMA_DIR` | Override chroma persist root (default under `data/chroma_sessions/`) |
+| `MIMIR_CHROMA_INCREMENTAL` | `1` (default) gateway/indexer upsert to Chroma on `sessions_search` write; `0` disables |
 | `MIMIR_EMBED_MODEL` | Local embedding model id (default TBD in SEM-02; must work offline for tier0 smoke) |
 
 ### 4. Benchmark & evolution

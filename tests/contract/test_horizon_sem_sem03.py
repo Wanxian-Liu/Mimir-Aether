@@ -13,7 +13,9 @@ def test_session_search_tool_documents_semantic_backends():
     text = TOOL.read_text(encoding="utf-8")
     assert "semantic_hybrid" in text
     assert "_session_search_via_semantic" in text
-    assert 'raw in ("fts5", "hybrid", "semantic", "semantic_hybrid")' in text
+    assert '"like", "fts5", "hybrid", "semantic", "semantic_hybrid"' in text
+    assert "_DEFAULT_SESSION_SEARCH_BACKEND" in text
+    assert '"hybrid"' in text
 
 
 def test_backlog_section14_sem03_done_sem04_next():
