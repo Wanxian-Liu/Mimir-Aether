@@ -42,3 +42,7 @@ Close the gap on **#3 反馈收集** and **#10 数据闭环** without opening `M
 
 - tier0 green + contract `test_horizon_iqevo_wave4.py`  
 - IQ-EVO-19 rubric honest re-score; #3 and #10 should move ≥0.5 each if events flow
+
+## Closeout
+
+**[x] 2026-05-26** — [`p2-long-iqevo-wave4-closeout.md`](p2-long-iqevo-wave4-closeout.md) · rubric **4.5/10** documented exception · 刘哥验收签收

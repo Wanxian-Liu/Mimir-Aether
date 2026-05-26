@@ -1,8 +1,8 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-05-26（**§15 Wave 4** IQ-EVO-15～18 工程粒）  
+> **最近更新**：2026-05-26（**§15 Wave 4 [x]** · IQ **4.5/10** documented exception）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5；Mimir 飞书每轮 Read **方向真源** + bridge + 本表  
-> **规则**：**Mimir 智商** → **§15 Wave 4** 第一条 `[ ]`（**IQ-EVO-19** 为 Mimir 复评）；**Cursor** 工程认同表 Wave 4 第一条 `[ ]`。§11 / §2 / Phase 0 **只读**。  
+> **规则**：**§15 IQ-EVO** 全 Wave **[x]** — 下一 Horizon **待刘哥拍板**（Wave 5 / 1b / 新队列）；§11 / §2 / Phase 0 **只读**。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
 > **勿提交**：`data/persistent.json`（runtime 镜像）。
 
@@ -328,7 +328,7 @@ Mimir 冒烟回报
 - **§2 工程队列**：只读，勿再取「E-004 / T-02 / 181+2」。
 - **Phase 0**：**14/14** [x]（2026-05-24）— 真源 [`MIMIR_PHASE0_QUEUE.md`](./MIMIR_PHASE0_QUEUE.md)。
 - **智商/进化方向真源**：[`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) · Mimir 队列 **§15** · ISSUES **#12**（锚点，非 P0）。
-- **当前执行源**：**§15 Wave 4** — **IQ-EVO-19**（Mimir 复评）；工程 IQ-EVO-15～18 **[x]**；§16 B1 与 Wave 4 验收并行时勿改阈值。
+- **当前执行源**：**§15 Wave 4 [x]**（IQ-EVO-15～19 · closeout `p2-long-iqevo-wave4-closeout.md`）· **§16 B1 [x]** · **§17 [x]** — 待刘哥定下一 Horizon。
 - **勿**：提交 `data/persistent.json`；重做 E-001～E-012。
 
 ### 9.1 未完成项盘点（2026-05-25）
@@ -672,9 +672,9 @@ Read backlog §15 Wave 3。刘哥序：先 Wave 3 再 Horizon B1。
 | **IQ-EVO-16** | **FeedbackCollector** — `feedback_events.jsonl`（`MIMIR_FEEDBACK_COLLECTOR=1`） | Cursor | tool_failure + pipeline_close 事件；单测 | [x] 2026-05-26 |
 | **IQ-EVO-17** | **tool_quality 只读注入** prompt（degraded 摘要） | Cursor | `build_tool_quality_guidance` + tier0 | [x] 2026-05-26 |
 | **IQ-EVO-18** | **analysis artifact** → feedback 事件 | Cursor | `post_close_analysis` 接线 | [x] 2026-05-26 |
-| **IQ-EVO-19** | rubric **复评 #3** + Wave 4 closeout | Mimir | ≥5.5 或 documented exception；bridge §4 | [ ] |
+| **IQ-EVO-19** | rubric **复评 #3** + Wave 4 closeout | Mimir+刘哥 | ≥5.5 或 documented exception；bridge §4 | [x] 2026-05-26 · **4.5/10** exception |
 
-**§15 Wave 4 工程状态**：IQ-EVO-15～18 **[x]** · 待 **IQ-EVO-19**（Mimir）+ staging `MIMIR_FEEDBACK_COLLECTOR=1` 冒烟。
+**§15 Wave 4 状态**：**[x] 结案** · 生产 `MIMIR_FEEDBACK_COLLECTOR=1` · Gateway **PID 356976** · closeout [`p2-long-iqevo-wave4-closeout.md`](./phase0/p2-long-iqevo-wave4-closeout.md)
 
 **Mimir 新窗一句（Wave 4 验收）**
 

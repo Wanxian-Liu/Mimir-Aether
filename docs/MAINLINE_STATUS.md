@@ -6,10 +6,10 @@
 | 字段 | 值 |
 |------|-----|
 | **最近更新** | 2026-05-26 |
-| **更新人** | Cursor（进度问询 · Wave 3 收尾） |
+| **更新人** | Cursor（刘哥 Wave 4 + §17 验收签收 · 文档收尾） |
 | **仓库根（真源）** | `~/src/MimirAether` |
-| **可选校验** | `./run_ralph_tier0.sh`（门禁 **393+2**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
-| **本轮摘要** | **Horizon A SEM-07 [x]**（semantic 基线 + eval 门）· §14/§15/§16 **空** · tier0 **417+2**。 |
+| **可选校验** | `./run_ralph_tier0.sh`（门禁 **433+2**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
+| **本轮摘要** | **§15 Wave 4 [x]**（IQ **4.5/10**）· **§17 AUTONOMY [x]** · **§16 OBS-B1 [x]** · 生产 `MIMIR_FEEDBACK_COLLECTOR=1` · 下一 Horizon **待拍板**。 |
 
 ---
 
@@ -112,6 +112,7 @@
 | 2026-05-24 | **A1** [~]：`restart_gateway_hard.sh` → PID **691521**；`/health` + 飞书 WS ok；T-03/T-04 人工 smoke 待刘哥（`mimir_prod_smoke.md`）。 |
 | 2026-05-24 | **P1-M03** [x]：Gateway 增量写入 `sessions_search.db`；`tests/gateway/test_session_search_incremental.py`；tier0 **245+2**（`027eaaf`）。下一条 **P1-M04**。 |
 | 2026-05-24 | **P1-M02** [x]：合入 `session_search_indexer`、backfill、20-query 基准（LIKE **60%**）；M6 + tier0 **237+2**（`6650327`/`60192d3`）。 |
+| 2026-05-26 | **§15 Wave 4 [x]**：FeedbackCollector 生产 · IQ **4.5/10** · §17 飞书验收签收 · tier0 **433+2** · 下一 Horizon 待拍板。 |
 | 2026-05-24 | **Phase 1 排队**：`MIMIR_EXEC_BACKLOG.md` **§11** — 长任务 `P1-LONG-MEM`（6 子项）；§9.1 未完成项盘点；默认执行源从 §2 切到 §11。 |
 | 2026-05-24 | **EV-A03** [x]：Memory 检索基准 → `docs/phase0/memory-retrieval-baseline.md`。**Phase 0 真相图谱 14/14 完成**。 |
 | 2026-05-24 | **EV-A02/A04/A05** [x]：Mimicore 依赖刷新、架构 **6.1/10**、prompt guard 可拆点。 |

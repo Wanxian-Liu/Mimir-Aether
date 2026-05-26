@@ -216,15 +216,16 @@ Cursor **自行执行**（无需每轮再问）：
 - `gateway/session_mixin.py` 的 `_load_session` 会加载全部历史消息
 - `context_compressor` 只在 session 过长时触发 TRUNCATE，不是主动裁剪
 
-### 2026-05-26 — 刘哥拍板：**开 IQ Wave 4**（§15）
+### 2026-05-26 — **§15 Wave 4 [x]** + §17 验收（刘哥签收）
 
-| 顺序 | 轨道 | 说明 |
-|------|------|------|
-| **现在** | **§15 Wave 4** IQ-EVO-15～18 | FeedbackCollector 只记录 · tool_quality 只读 prompt · **不改阈值** · **不开** AUTO_EVOLVE |
-| **下一** | **IQ-EVO-19** | Mimir rubric 复评 + closeout（目标 ≥5.5 或 documented exception） |
-| **仍关** | `MIMIR_AUTO_EVOLVE=1` · Unified Plan **1b** 自改参 | 待刘哥另拍板 |
-
-**Staging 建议**：`MIMIR_FEEDBACK_COLLECTOR=1` + Gateway 重启 → 见 [`p2-long-iqevo-wave4.md`](./phase0/p2-long-iqevo-wave4.md)。
+| 项 | 状态 |
+|----|------|
+| **Wave 4 工程** | IQ-EVO-15～18 · main `42da9c0` · tier0 **433+2** |
+| **Wave 4 验收** | **刘哥签收** · IQ-EVO-19 · rubric **4.5/10** documented exception · closeout `p2-long-iqevo-wave4-closeout.md` |
+| **生产** | `$MIMIR_AETHER_HOME/.env` **`MIMIR_FEEDBACK_COLLECTOR=1`** · Gateway **PID 356976** · `/health` ok |
+| **§17 飞书** | /new ✅ · `mimir_ops` health_check ✅ · context_usage ✅（见 §4 末行） |
+| **下一** | Wave 5 / Unified Plan **1b** / 新 Horizon — **待刘哥拍板** |
+| **仍关** | `MIMIR_AUTO_EVOLVE=1` · 阈值自改 | 未授权 |
 
 ### 2026-05-26 — 刘哥拍板：下一 Horizon = **`P1-LONG-AUTONOMY`**（§17）
 
@@ -347,6 +348,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-26 | **AUTO-01～06** | **Cursor** | §17 **P1-LONG-AUTONOMY** [x]：`mimir_ops` · session_reset pending · `last_context_usage.json` · tier0 **425+2** · closeout `p1-long-autonomy-closeout.md` |
 | 2026-05-26 | **§17 部署** | **Cursor** | push `db1e880`+`mimir_ops`→`mimir-feishu` · Gateway **PID 346104→** 硬重启 · `/health` ok · **待 Mimir 飞书验收** |
 | 2026-05-26 | bridge §1 + p1-long-autonomy-closeout.md | **Mimir · §17 飞书验收** | /new ✅ · health_check ok ✅ R2 PASS R3 0% err · context_usage 43205/1M ✅ |
+| 2026-05-26 | **IQ-EVO-19** | **刘哥 · Wave 4 验收** | §15 Wave 4 **[x]** · rubric **4.5/10** exception · `MIMIR_FEEDBACK_COLLECTOR=1` 生产 · Gateway **356976** |
 
 ---
 
