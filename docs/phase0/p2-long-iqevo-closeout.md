@@ -76,8 +76,9 @@ MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh
 
 Bridge §4 签收 · 回报 §3.3 见 Mimir 飞书会话 2026-05-26。
 
-## 下一粒
+## 下一粒（刘哥 2026-05-26）
 
-- **刘哥拍板**：Chroma Gateway 增量 · `SESSION_SEARCH_BACKEND=hybrid` 生产默认 · rubric 复评 **≥5.5** · 是否开 Wave 3 / Horizon B。
-- **Mimir**：维持周常 `run_evolution_eval.sh`；**勿**默认开 `MIMIR_AUTO_EVOLVE=1`。
-- **ISSUES #12**：Wave 2 工程+验收已落地；复评达标后可 **resolved** 或开 Wave 3 issue。
+- **先 §15 Wave 3**（IQ-EVO-10～14）— backlog + bridge §1「刘哥拍板」。
+- **再 Horizon B1**（`P1-LONG-OBS` · d6 可观测）— backlog **§16**；不与 Wave 3 并行工程。
+- **Mimir**：维持周常 `run_evolution_eval.sh`；**勿** `MIMIR_AUTO_EVOLVE=1`。
+- **ISSUES #12**：IQ-EVO-14 达标后再 **resolved**。

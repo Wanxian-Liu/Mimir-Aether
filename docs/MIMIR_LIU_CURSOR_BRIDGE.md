@@ -162,9 +162,20 @@ Cursor **自行执行**（无需每轮再问）：
 
 **勿**再 patch agent/gateway；**勿**等 Cursor 重复交付 07～09。
 
+### 2026-05-26 — 刘哥拍板：先 Wave 3 · Horizon B = B1 可观测
+
+| 顺序 | 轨道 | 说明 |
+|------|------|------|
+| **现在** | **§15 IQ-EVO Wave 3** | 智商/行为默认化（hybrid 生产、Chroma 增量、先 search、生产 AUTO_ANALYSIS 门闩、诚实 rubric×2）— 真源 backlog **§15 Wave 3** |
+| **Wave 3 工程绿后** | **Horizon B1 · `P1-LONG-OBS`** | **d6 可观测**（§6 D6-2 ObservabilityBus 等 · 不接新 IQ 功能）— **不与 Wave 3 并行抢 Cursor 工程刀** |
+| **仍关** | `MIMIR_AUTO_EVOLVE=1` | 未授权 |
+
+**Mimir 当前粒**：§15 第一条 `[ ]` → **IQ-EVO-10**（rubric 诚实复评，预期 ~4.x，勿宣称 ≥5.5）。  
+**Cursor 当前粒**：等 IQ-EVO-10 签收后 → **IQ-EVO-11**（hybrid 默认 + Chroma 增量）。
+
 ### （新留言写在此下）
 
-_示例：@Mimir 按 IQ-EVO-01。@Cursor SEM-03。_
+_示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 
 ---
 
@@ -267,7 +278,9 @@ _示例：@Mimir 按 IQ-EVO-01。@Cursor SEM-03。_
 - **main**：`b55fa98` · tier0 **368+2** · **`P0-LONG-CLEARANCE` [x]** · **`P2-LONG-SEM` [x]**
 - **身份（2026-05-19）**：Mimir **是智能体**（loop+tools+memory），**不是** DeepSeek 传话桶 — bridge §1
 - **Wave 0 A / 1 B / 2 C / D / E**：**[x]**（刘哥 §8.3 签收 2026-05-25）
-- **Horizon A**：**P2-LONG-SEM** **[x]** · **IQ-EVO Wave 1+2 工程+验收 [x]**（Mimir 2026-05-26）· **Chroma 增量 / hybrid 默认 / rubric≥5.5** 待刘哥
+- **Horizon A**：**[x]** SEM + IQ-EVO Wave 1/2
+- **执行序**：**Wave 3**（§15 IQ-EVO-10～14）→ **Horizon B1** 可观测（`P1-LONG-OBS` · d6）
+- **main**：`5e7b9a4`+ · tier0 **382+2**
 - **R5**：刘哥复验 **pass**（30s 内 tool）
 - **Gateway**：PID **135797** · /health ok · TRUNCATE since-start **0**
 - **GH open**：**10** · #10 **monitoring**（STAB-04 已修）

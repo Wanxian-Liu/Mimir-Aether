@@ -6,10 +6,10 @@
 | 字段 | 值 |
 |------|-----|
 | **最近更新** | 2026-05-19 |
-| **更新人** | Cursor（**P2-LONG-IQEVO** · Wave 2 · IQ-EVO-07～09） |
+| **更新人** | Cursor（**Wave 3 拍板** · Horizon B1 排队） |
 | **仓库根（真源）** | `~/src/MimirAether` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁 **382+2**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
-| **本轮摘要** | **§15 Wave 2 [x]**：AUTO_ANALYSIS 门闩 + memory/skill nudge + 跨会话注入 cap；staging 开 `MIMIR_AUTO_ANALYSIS=1` 待 Mimir smoke。 |
+| **本轮摘要** | 刘哥拍板：**先 §15 Wave 3**（IQ-EVO-10～14）→ **Horizon B1** 可观测（§16）；Wave 2 验收 [x]。 |
 
 ---
 
@@ -80,7 +80,8 @@
 
 | 日期 | 摘要 |
 |------|------|
-| 2026-05-19 | **Horizon A / IQ-EVO Wave 2** [x]：07 AUTO_ANALYSIS · 08 nudge · 09 cross-session cap · tier0 **382+2**；下一条 staging smoke + rubric **≥5.5** 复评。 |
+| 2026-05-26 | **刘哥拍板**：先 **IQ-EVO Wave 3** · 再 **Horizon B1**（`P1-LONG-OBS`/d6）；bridge §1 + backlog §15/§16。 |
+| 2026-05-19 | **Horizon A / IQ-EVO Wave 2** [x]：07～09 工程 + Mimir 验收；tier0 **382+2**。 |
 | 2026-05-19 | **Horizon A / P2-LONG-IQEVO Wave 1** [x]：IQ-EVO-06 结案 · rubric **3.9/10** documented 例外 · eval 周常 · closeout [`p2-long-iqevo-closeout.md`](./phase0/p2-long-iqevo-closeout.md)。 |
 | 2026-05-19 | **刘哥定调**：Mimir = 智能体 ≠ 传话桶；MAINLINE §6 距终局快照；bridge/backlog/issues/方向文档 §0.1 同步。 |
 | 2026-05-19 | **Horizon A / P2-LONG-SEM** [x]：SEM-06 结案 + closeout doc；tier0 **368+2**；GH **#32** 待刘哥 close。 |

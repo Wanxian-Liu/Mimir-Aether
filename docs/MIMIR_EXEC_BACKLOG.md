@@ -328,7 +328,7 @@ Mimir 冒烟回报
 - **§2 工程队列**：只读，勿再取「E-004 / T-02 / 181+2」。
 - **Phase 0**：**14/14** [x]（2026-05-24）— 真源 [`MIMIR_PHASE0_QUEUE.md`](./MIMIR_PHASE0_QUEUE.md)。
 - **智商/进化方向真源**：[`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) · Mimir 队列 **§15** · ISSUES **#12**（锚点，非 P0）。
-- **当前执行源**：**Wave 2 验收 [x]**（Mimir 2026-05-26）· **下一粒待刘哥**：Chroma 增量 / `SESSION_SEARCH_BACKEND=hybrid` 默认 / rubric **≥5.5** 复评。
+- **当前执行源**：**§15 Wave 3**（刘哥 2026-05-26：**先 Wave 3**）→ 再 **Horizon B1** 可观测（`P1-LONG-OBS`）· Wave 2 验收 **[x]**。
 - **勿**：提交 `data/persistent.json`；重做 E-001～E-012。
 
 ### 9.1 未完成项盘点（2026-05-25）
@@ -389,10 +389,11 @@ Read docs/MIMIR_EXEC_BACKLOG.md §11；P1-LONG-MEM 已结案。工程下一条�
 | ID | 主题 | 来源 | 状态 |
 |----|------|------|------|
 | **P1-LONG-GOD** | GOD 拆分 + 测试轨续建 | Phase 0 EV-P04、§9 原「GOD 拆分」 | [x] 2026-05-24 · #16→main；`router_mixin` ~38 行；见 `plans/P1-GOD-split-plan.md` |
-| **P1-LONG-OBS** | d6 余债 D6-1～3 ADR/测试 | §6 | [ ] Phase 2 候选 |
+| ~~**P1-LONG-OBS**~~ | — | — | → 升格 **§16 Horizon B1**（见下） |
 | **P1-LONG-EVO** | d5 余债 D5-1/3、真进化 | §6、Unified Plan | [ ] Phase 2 候选 |
 | **P2-LONG-SEM** | Memory **语义化**（chromadb + 检索策略） | Unified Plan Phase 2 | [x] **结案** 2026-05-19 · [`p2-long-sem-closeout.md`](./phase0/p2-long-sem-closeout.md) · GH **#32** |
-| **P2-LONG-IQEVO** | 智商/进化 Wave 1 基线 + **Wave 2** 行为默认项 | [`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) | [x] Wave 1 结案 · Wave 2 工程 2026-05-19（07～09）· rubric **≥5.5** 待复评 |
+| **P2-LONG-IQEVO** | 智商/进化 Wave 1–3 | [`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) | Wave 1–2 **[x]** · **Wave 3 Active**（§15 · IQ-EVO-10～14） |
+| **Horizon B1** | **`P1-LONG-OBS`** · d6 可观测 | **§16** | **[ ]** 待 Wave 3 工程粒（11～13）绿后 |
 
 **Semantic 检索**：**P2-LONG-SEM** 已结案（SEM-01～06）；生产默认仍 **LIKE/hybrid**；`semantic` / `semantic_hybrid` 见 ADR-006。
 
@@ -631,3 +632,45 @@ staging：MIMIR_AUTO_ANALYSIS=1，重启 Gateway；跑 analysis_artifacts 冒烟
 Read docs/phase0/p2-long-iqevo-closeout.md。
 IQ-EVO Wave 1 [x]；勿默认开 AUTO_ANALYSIS/nudge/ADR-002 — 待刘哥拍板 Wave 2。
 ```
+
+### §15 Wave 3 — 智商默认化（2026-05-26 · 刘哥拍板 · **先于 Horizon B1**）
+
+> **Horizon B**：**B1 可观测** = 本表 **§16 `P1-LONG-OBS`**；**Wave 3 工程未绿前不开 B1**。
+
+| ID | 任务 | Owner | 成功标准 | 状态 |
+|----|------|-------|----------|------|
+| **IQ-EVO-10** | **rubric 诚实复评**（Wave 2 后；**不**强行 ≥5.5） | Mimir | 更新 [`iq-scoring-rubric.md`](./phase0/iq-scoring-rubric.md)；写明距 5.5 差距；bridge §4 | [ ] |
+| **IQ-EVO-11** | **`SESSION_SEARCH_BACKEND=hybrid` 生产默认** + Gateway **Chroma 增量** upsert | Cursor | tier0 + eval JSON；path-contract | [ ] |
+| **IQ-EVO-12** | prompt **先 `session_search` 再答**（硬约束/指引） | Cursor | 飞书 1 条 log 有 `session_search`；tier0 若触达 prompt | [ ] |
+| **IQ-EVO-13** | 生产 **`MIMIR_AUTO_ANALYSIS=1` 门闩**（文档化 rollout；仍 **不开** `AUTO_EVOLVE`） | Cursor | `.env` 契约 + ops 注记；7d artifact 样本路径 | [ ] |
+| **IQ-EVO-14** | rubric **复评 #2**；是否关 ISSUES **#12** | Mimir | ≥5.5 或 **documented exception** 续期；bridge §4 | [ ] |
+
+**Mimir 新窗一句（Wave 3）**
+
+```text
+Read backlog §15 Wave 3 + bridge §1「刘哥拍板」。
+本轮只做 IQ-EVO-10（诚实 rubric）；回报 §3.3 + bridge §4。勿开 Horizon B1。
+```
+
+**Cursor 新窗一句（Wave 3 工程）**
+
+```text
+Read backlog §15 Wave 3。刘哥序：先 Wave 3 再 Horizon B1。
+在 IQ-EVO-10 Mimir 签收后做 IQ-EVO-11～13；tier0 + evolution_log；Horizon B1 勿并行。
+```
+
+---
+
+## 16. Horizon B1 — **`P1-LONG-OBS`**（可观测 · 2026-05-26 刘哥拍板）
+
+> **前置**：§15 **Wave 3** 中 Cursor 粒（IQ-EVO-11～13）**[x]**。  
+> **范围**：**d6 可观测** — 不接 IQ/SEM 新功能。  
+> **真源**：§6 **d6** · [`MIMIR_D17_AUDIT_AND_TASKS.md`](./MIMIR_D17_AUDIT_AND_TASKS.md) d6 行 · ISSUES **#10** monitoring。
+
+| ID | 任务 | Owner | 成功标准 | 状态 |
+|----|------|-------|----------|------|
+| **OBS-B1-01** | **D6-2** ObservabilityBus（可选）— 评估 + 最小接线或 ADR defer | Cursor | ADR 或 tier0 测；不破坏 `/health` | [ ] |
+| **OBS-B1-02** | monitor/TRUNCATE/Gateway **运维面板化** — `mimir_health_check` + monitor 阈值文档化 | Mimir+Cursor | bridge §4 一行；周常可跑命令 | [ ] |
+| **OBS-B1-03** | ISSUES **#10** monitoring 收口或降为 documented 例外 | Mimir | ISSUES 更新；Active≤3 | [ ] |
+
+**禁止**：与 Wave 3 **并行**改 `agent|gateway|tools`（B1 开跑时 Wave 3 工程应已结案）。
