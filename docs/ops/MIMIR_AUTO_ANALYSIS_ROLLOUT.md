@@ -2,7 +2,9 @@
 
 Post-close LLM execution analysis is **opt-in** via environment variable. Wave 2 wired the hook (`agent/post_close_analysis.py`); this document is the **production gate** for turning it on outside staging.
 
-**Do not enable `MIMIR_AUTO_EVOLVE=1` as part of this rollout** — that path auto-applies skill suggestions and requires separate human authorization (see [`OPERATIONS_GATEWAY.md`](../OPERATIONS_GATEWAY.md) STAB-05).
+**Do not enable `MIMIR_AUTO_EVOLVE=1` on production as part of this rollout** — that path auto-applies skill suggestions and requires separate human authorization (Gate **C**; see [`iqevo-evolution-gates.md`](../phase0/iqevo-evolution-gates.md) · [`OPERATIONS_GATEWAY.md`](../OPERATIONS_GATEWAY.md) STAB-05).
+
+**Staging (2026-05-26):** After Gate **B**, Liu staging `$MIMIR_AETHER_HOME/.env` may set `MIMIR_AUTO_EVOLVE=1` alongside `MIMIR_AUTO_ANALYSIS=1`. Evidence: [`iqevo-gate-b-closeout.md`](../phase0/iqevo-gate-b-closeout.md). Production hosts must keep `MIMIR_AUTO_EVOLVE=0` until Gate C.
 
 ---
 

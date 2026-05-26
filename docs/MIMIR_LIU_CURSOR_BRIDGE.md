@@ -163,13 +163,18 @@ Cursor **自行执行**（无需每轮再问）：
 | 档位 | 含义 | 状态 |
 |------|------|------|
 | **A** | 开 staging `MIMIR_AUTO_EVOLVE` 前 | **[x] 2026-05-26**（A1～A6 全过） |
-| **B** | staging 试点通过 → 讨论生产 | [ ] |
-| **C** | 生产 AUTO_EVOLVE（可选） | [ ] |
-| **D** | 授权 1c 实现 | [ ] |
+| **B** | staging 试点通过 → 讨论生产 | **[x] 2026-05-26** |
+| **C** | 生产 AUTO_EVOLVE（可选） | **[x] 2026-05-26**（C1–C3 · 3× eval · [`iqevo-gate-c-closeout.md`](./phase0/iqevo-gate-c-closeout.md)） |
+| **D** | 授权 1c 实现 | **[x] 2026-05-27**（D1–D4 · 刘哥签字 · `MIMIR_AUTO_1C_POLICY` 默认关） |
 
 **档位 A 摘要：** eval `memory-retrieval-compare-20260526T125015Z.json` · search-first 抽样违例率 **80%**（基线）· analysis 误报 **0/10** · tier0 **454+2 三连绿**（见 `iqevo-gate-a6-tier0.md`）。
 
-**下一动作（需刘哥）：** 若同意 staging 开 `MIMIR_AUTO_EVOLVE=1`，回复一句；Cursor 执行 **档位 B**（B1～B7）。
+**档位 C 已结案（2026-05-26）：** 本 home `MIMIR_AUTO_ANALYSIS=1` + `MIMIR_AUTO_EVOLVE=1`；§41 真实 skills 写入 + §42 3× eval；Gateway **434462**。
+
+### 2026-05-27 — 刘哥拍板：授权 Unified Plan 1c 实现（Gate D）
+
+已读 `docs/phase0/decision-ring-compressor-1c-spike.md`、`docs/phase0/iqevo-1c-boundary.md`、`docs/phase0/iqevo-1c-contract-draft.md`（GATE-D1～D3 [x]）。
+授权 Cursor 执行 IQ-EVO-43～45（1c 有界实现；env `MIMIR_AUTO_1C_POLICY` 默认关）。仍禁止：写/改 SKILL.md、替代 Top-3 `tuned_thresholds` 三键、无界改 `degeneration_guard.json` 源文件。
 
 ### 2026-05-26 — Cursor 回复 @Mimir（必读）
 
@@ -190,7 +195,7 @@ Cursor **自行执行**（无需每轮再问）：
 |------|------|------|
 | **现在** | **§15 IQ-EVO Wave 3** | 智商/行为默认化（hybrid 生产、Chroma 增量、先 search、生产 AUTO_ANALYSIS 门闩、诚实 rubric×2）— 真源 backlog **§15 Wave 3** |
 | **Wave 3 工程绿后** | **Horizon B1 · `P1-LONG-OBS`** | **d6 可观测**（§6 D6-2 ObservabilityBus 等 · 不接新 IQ 功能）— **不与 Wave 3 并行抢 Cursor 工程刀** |
-| **仍关** | `MIMIR_AUTO_EVOLVE=1` | 未授权 |
+| **已开** | `MIMIR_AUTO_EVOLVE=1` | **档位 C [x]**（Gate C closeout）；1c 代码仍等档位 D + §46 |
 
 **Mimir 当前粒**：**Horizon A SEM-07 [x]** — 可选试 **`SESSION_SEARCH_BACKEND=semantic_hybrid`** + `MIMIR_EMBED_MODEL` 后飞书复测「上次在做什么」。  
 **Cursor 当前粒**：待命 — §14/§15/§16 工程粒已空；下一拍板 **ADR-002** 或 Phase 2。
@@ -244,7 +249,7 @@ Cursor **自行执行**（无需每轮再问）：
 |------|------|------|
 | **现在** | **§15 Wave 5** IQ-EVO-20～25 | 有界 AutoTuner · Top-3 阈值 · `MIMIR_AUTO_TUNER=1`（默认关，staging 冒烟） |
 | **下一** | **IQ-EVO-26** | Mimir rubric 复评 + closeout |
-| **仍关** | `MIMIR_AUTO_EVOLVE=1` · **1c** DecisionRing/Compressor 全量学习 | 未授权 |
+| **已开（Wave 7）** | `MIMIR_AUTO_EVOLVE=1` · **1c** 有界（`MIMIR_AUTO_1C_POLICY` 默认关） | Gate C/D [x] · 见 Wave 7 closeout |
 
 **依赖**：`MIMIR_FEEDBACK_COLLECTOR=1`（生产已开）→ `feedback_events.jsonl` → AutoTuner。
 
@@ -258,7 +263,7 @@ Cursor **自行执行**（无需每轮再问）：
 | **计划真源** | [`p2-long-iqevo-wave6-qualified-agent.md`](./phase0/p2-long-iqevo-wave6-qualified-agent.md) | 13 粒 **IQ-EVO-27～39**（反传话筒行为 + rubric ≥5.5） |
 | **执行** | backlog **§15 Wave 6** | 第一条 `[ ]` = **IQ-EVO-28**（方向文档 §1.5）；**IQ-EVO-27** 立案 **[x]** |
 | **ISSUES** | **#12** `direction` | 仅锚点 — **勿**把 13 粒拆进 Active（≤3） |
-| **仍关** | `MIMIR_AUTO_EVOLVE=1` · 生产 IntentPredictor | Wave 6 仅离线 intent MVP（IQ-EVO-32） |
+| **仍关** | 生产 IntentPredictor | Wave 6 离线 intent MVP；**EVOLVE/1c** 已 Wave 7 门闩开 |
 
 **合格线（摘要）**：rubric **≥5.5** 或 documented exception + `session_search` 基线/3 场景冒烟 + `run_evolution_eval` 周常 + tool ok% 一行 — 见方向文档 **§1.5**。
 
@@ -408,7 +413,20 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-26 | **IQ-EVO-29** | **Cursor** | 7d baseline **0/0 sessions**（state.db 窗内无会话）· JSON `~/.mimiraether/data/ops/session_search_baseline_7d.json` · tier0 **441+2** · `mimir_ops session_search_baseline` |
 | 2026-05-26 | **Gate A** | **Cursor** | 任务制门禁 A1～A6 **[x]** · eval `…T125015Z` · search-first **80%** 基线 · analysis **0/10** 误报 · tier0 **454+2×3** · `iqevo-evolution-gates.md` |
 | 2026-05-26 | **IQ-EVO-30～39** | **Cursor** | Wave 6 **全 [x]** · rubric **4.8/10** exception · closeout `p2-long-iqevo-wave6-closeout.md` · evolution_eval exit 0 · tool top5 ok% |
-| 2026-05-26 | **初代世界模型改进提案** | **Mimir** | 研读 P1 LeWM + P2 HierPlanning + P3 H-JEPA + P4 World Models → `docs/proposals/world-model-evolution-plan.md` · 论文索引表 · 6 改进方案 · 3 Phase 路线图 |
+|| 2026-05-26 | **初代世界模型改进提案** | **Mimir** | 研读 P1 LeWM + P2 HierPlanning + P3 H-JEPA + P4 World Models → `docs/proposals/world-model-evolution-plan.md` · 论文索引表 · 6 改进方案 · 3 Phase 路线图 |
+|| 2026-05-26 | **Gate B staging 确认** | **Mimir** | 已读 bridge §1 档位 B · Gate B closeout B1-B7 [x] · `~/.mimiraether/skills/` **0 real writes** · 生产 AUTO_EVOLVE 仍 0 · 待刘哥决定是否进档位 C |
+|| 2026-05-26 | **IQ-EVO-40** | **Cursor** | `apply_evolution_from_analysis` · async analysis 后写 SKILL · tier0 **456+2** · 工作区未 commit |
+|| 2026-05-26 | **IQ-EVO-41** | **Cursor** | 真实 `~/.mimiraether/skills/iqevo-41-gate-c-staging/` 写入 · 方式 B · 证据 doc 已建 |
+|| 2026-05-26 | **IQ-EVO-42 · Gate C** | **Cursor** | C1–C3 [x] · 3× eval pass · closeout · tier0 **456+2** · Gateway **434462** · AUTO_EVOLVE 生产 ON |
+|| 2026-05-27 | **GATE-D1** | **Cursor** | 1c spike · DecisionRing 8 + Compressor 6 · touch 4 模块 · 纯文档 |
+|| 2026-05-27 | **GATE-D2** | **Cursor** | `iqevo-1c-boundary.md` · Top-3 / EVOLVE / nudge 优先级 B-4 |
+|| 2026-05-27 | **GATE-D3** | **Cursor** | contract 草案 7 条 · `MIMIR_AUTO_1C_POLICY` · policy schema v1 |
+|| 2026-05-27 | **GATE-D4** | **刘哥** | bridge §1 授权 1c 实现 · IQ-EVO-43～45 可开 |
+|| 2026-05-27 | **IQ-EVO-43** | **Cursor** | DecisionRing D* · `decision_compressor_policy.py` · 1C-01/02 · tier0 **460+2** |
+|| 2026-05-27 | **IQ-EVO-44** | **Cursor** | Compressor C1–C6 · core_loop 1b+1c · 1C-04/05 · tier0 **462+2** |
+|| 2026-05-27 | **IQ-EVO-45** | **Cursor** | 1c contract 1C-01～07 · 1c closeout · tier0 **3×466+2** |
+|| 2026-05-27 | **IQ-EVO-46** | **Cursor** | rubric **#6** **4.9/10** documented exception（+0.1 vs 4.8）· Wave 7 closeout · tier0 **466+2** |
+|| 2026-05-27 | **第2轮 Hermes 对比 10 块** | **Mimir** | 归档 §6.22～§6.31 · Memory/Mimir领先 · Guardrails/定位不同 · Dispatch/模块化参考 · Retry/File/Display/Insights/ResultClass/NousGuard/ContextEngine — 最终结论：Mimir在3块领先、5块不学、2块可参考 |
 
 ---
 
@@ -419,7 +437,8 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 - **Wave 0 A / 1 B / 2 C / D / E**：**[x]**（刘哥 §8.3 签收 2026-05-25）
 - **Horizon A**：**[x]** SEM + IQ-EVO Wave 1/2
 - **§15 Wave 6**：**[x]** · rubric **4.8/10** documented exception · closeout `p2-long-iqevo-wave6-closeout.md`
-- **main**：`5e7b9a4`+ · tier0 **382+2**
+- **§15 Wave 7**：**[x]** · rubric **4.9/10** exception · closeout `p2-long-iqevo-wave7-closeout.md` · tier0 **466+2**
+- **main**：`5e7b9a4`+ · tier0 **466+2**
 - **R5**：刘哥复验 **pass**（30s 内 tool）
 - **Gateway**：PID **135797** · /health ok · TRUNCATE since-start **0**
 - **GH open**：**10** · #10 **monitoring**（STAB-04 已修）
@@ -437,4 +456,23 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | MW-D07 | [x] | `mimir_health_check.sh --quick` **READY**（R3 重试 + restart poll） |
 | MW-D08 | [x] | Gateway 十条状态已刷新 |
 | MW-D09 | [x] | MAINLINE 与 tier0 一致 |
-| MW-D10 | [x] | GH open **10**；重复 issue 已关 |
+|| MW-D10 | [x] | GH open **10**；重复 issue 已关 |
+
+---
+
+## 6. Hermes 对比 — 第二版（2026-05-27 · 新标准）
+
+> **旧版（已废弃，飞书滤镜）**：第一版对比（§6.1～§6.31）使用「飞书不用 X」作为排除理由，已标记为飞书滤镜缺陷。
+> 详细数据保留在 `docs/hermes-comparison-detailed.md`，但结论不予采用。
+>
+> **新标准**：不问「飞书要不要」，问「MimirAether 作为独立智能体需不需要？」
+> CLI / Terminal / API / 飞书 / Telegram 都算 Mimir 的能力场景。
+>
+> **待审区（有用项累积，目标 10 个）**
+>
+| # | 模块 | 批次 | 理由 |
+|---|------|------|------|
+| 1 | `context_references.py` | 第1批 | 内联引用DSL（`@file:`, `@git:diff`, `@url:`），智能体可直接理解用户聊天的底层文件引用 |
+| 2 | `auxiliary_client.py` | 第2批 | 主/辅模型分离架构；压缩/搜索/分析用便宜模型，降低推理成本 |
+| 3 | `redact.py` | 第2批 | 运行时秘密脱敏（API key/token的正则擦除），Mimir无此模块 |
+| 4 | `think_scrubber.py` | 第2批 | 流式 `<think>` 块状态机擦除；DeepSeek回复含think块，需过滤后输出 |

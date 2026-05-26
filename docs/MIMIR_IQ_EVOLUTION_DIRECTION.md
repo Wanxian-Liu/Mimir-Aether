@@ -5,7 +5,7 @@
 > **参照**：本机 `~/.openclaw/projects/hermes-agent`（Hermes）· `~/src/openspace`（OpenSpace）  
 > **证据**：[`phase0/iq-scoring-rubric.md`](./phase0/iq-scoring-rubric.md) · [`phase0/memory-retrieval-baseline.md`](./phase0/memory-retrieval-baseline.md) · [`DEVELOPMENT_NORTH_STAR.md`](./DEVELOPMENT_NORTH_STAR.md) §2.2 伪进化
 
-**最近更新**：2026-05-26 · Wave 6 合格智能体颗粒方案（backlog §15 · [`phase0/p2-long-iqevo-wave6-qualified-agent.md`](./phase0/p2-long-iqevo-wave6-qualified-agent.md)）
+**最近更新**：2026-05-27 · Wave 7 Gate C/D + 1c 结案 · rubric **#6**（[`phase0/p2-long-iqevo-wave7-closeout.md`](./phase0/p2-long-iqevo-wave7-closeout.md)）
 
 ---
 
@@ -43,15 +43,15 @@
 
 ## 1. 自我定位（必须承认，禁止夸大）
 
-### 1.1 分数（2026-05-26 真源 · IQ-EVO-26）
+### 1.1 分数（2026-05-27 真源 · IQ-EVO-46 · rubric #6）
 
 | 维度 | Mimir | Hermes（参照） | OpenSpace（参照） |
 |------|:-----:|:--------------:|:-----------------:|
-| **智商**（会用记忆/工具/模型） | **4.8/10**（[`iq-scoring-rubric.md`](./phase0/iq-scoring-rubric.md) · Wave 6 后） | **~8/10** | **~6/10**（非全 Agent） |
-| **进化**（会自己变好） | **~5.5/10** | **~8.5/10** | **~9/10**（技能层） |
-| **工程可回归**（tier0） | **强（441+2）** | 中上 | 不适用 |
+| **智商**（会用记忆/工具/模型） | **4.9/10**（[`iq-scoring-rubric.md`](./phase0/iq-scoring-rubric.md) · Wave 7 后） | **~8/10** | **~6/10**（非全 Agent） |
+| **进化**（会自己变好） | **~6.0/10** | **~8.5/10** | **~9/10**（技能层） |
+| **工程可回归**（tier0） | **强（466+2）** | 中上 | 不适用 |
 
-**一句话**：Wave 6 已补**行为证据与 ops 周常**；rubric **4.8/10**，**距合格线 5.5 仍差 0.7**；#1 学习能力、生产 IntentPredictor 仍缺。
+**一句话**：Wave 7 已开 **Gate C**（`AUTO_EVOLVE` 路径 + 真实 SKILL）与 **1c** 有界 policy（默认关）；rubric **4.9/10**，**距合格线 5.5 仍差 0.6**（documented exception）；#1 学习能力、#8 生产 Intent 仍为主瓶颈。
 
 ### 1.5 合格智能体检查表（≠ 传话筒）
 
@@ -73,8 +73,8 @@
 |---|------|------|---------------|
 | I1 | **跨会话回忆** | `persistent.json` 整包注入；`session_search` 有但未成第一习惯；基准 LIKE **60%** / FTS **50%** | FTS5 + 会话去重 + 锚点上下文；prompt 要求先 search |
 | I2 | **意图与模型** | 仅 `intent_action_guard`；**无 IntentPredictor** | 意图/复杂度 → 策略与模型 |
-| I3 | **学习能力** | IQ 维 **2.0**：DecisionRing/压缩等多为**写死规则** | memory/skill **nudge** + 后台 self-improvement |
-| I4 | **数据闭环** | IQ 维 **5.0**：feedback→`tune_audit`→Top-3 消费；**无** AUTO_EVOLVE / 全量 23 项自适应 | 工具退化 → 行为变化 |
+| I3 | **学习能力** | IQ 维 **3.5**：Gate C/1c **可开**（env 门闩）；非默认每日进化 | memory/skill **nudge** + 后台 self-improvement |
+| I4 | **数据闭环** | IQ 维 **5.5**：analysis→evolution 时序 + tune/1c 分轨；EVOLVE **staging 已开** | 工具退化 → 行为变化 |
 | I5 | **自适应** | IQ 维 **4.0**：Top-3 有界 `tuned_thresholds`；其余 **23** 项仍硬编码（phase0 Q01） | 配置与行为调参空间更大 |
 | I6 | **用户模型** | 无 Honcho/长期画像 | Hermes 插件化用户建模 |
 

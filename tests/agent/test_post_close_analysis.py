@@ -92,6 +92,113 @@ def test_post_analysis_applies_llm_json(tmp_path, monkeypatch):
     assert artifacts
 
 
+def test_post_analysis_evolution_after_close_without_session(tmp_path, monkeypatch):
+    """IQ-EVO-40: async analysis worker applies SKILL writes without pipeline session."""
+    monkeypatch.setenv("MIMIR_AETHER_HOME", str(tmp_path))
+    monkeypatch.setenv("MIMIR_AUTO_ANALYSIS", "1")
+    monkeypatch.setenv("MIMIR_AUTO_EVOLVE", "1")
+
+    skills_dir = tmp_path / "skills"
+    skill_dir = skills_dir / "async-evolve-skill"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("# before async\n", encoding="utf-8")
+    monkeypatch.setattr("mimir_constants.get_skills_dir", lambda: skills_dir)
+
+    traj = tmp_path / "data" / "trajectories" / "async-sess.jsonl"
+    traj.parent.mkdir(parents=True)
+    traj.write_text(
+        json.dumps(
+            {
+                "type": "session_start",
+                "task_name": "iq40",
+                "session_id": "iq40-sess",
+                "start_time": "2026-05-26T00:00:00Z",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    from agent.execution_pipeline import (
+        close_execution_pipeline,
+        start_execution_pipeline,
+    )
+    from agent.execution_pipeline_sessions import reset_execution_pipeline_state
+    from agent.post_close_analysis import run_post_analysis_sync
+
+    reset_execution_pipeline_state()
+    start_execution_pipeline(task_name="iq40", session_id="iq40-sess")
+    pipeline_result = close_execution_pipeline(session_id="iq40-sess")
+    assert pipeline_result.get("trajectory_path")
+    assert not pipeline_result.get("_evolution_suggestion_objs")
+    pipeline_result["errors"] = [{"tool_name": "read_file", "message": "fail"}]
+
+    analysis_payload = {
+        "summary": "tool failed",
+        "overall_rating": 5,
+        "tool_issues": [],
+        "suggestions": [
+            {
+                "target": "async-evolve-skill",
+                "action": "fix",
+                "reason": "repair",
+                "suggested_changes": "# after async\n",
+                "priority": 1,
+                "confidence": 0.9,
+            }
+        ],
+    }
+    mock_response = MagicMock()
+    mock_response.choices = [
+        MagicMock(message=MagicMock(content=json.dumps(analysis_payload)))
+    ]
+
+    with patch("agent.auxiliary_client.call_llm", return_value=mock_response):
+        reason = run_post_analysis_sync(
+            pipeline_result,
+            task_name="iq40",
+            session_id="iq40-sess",
+        )
+
+    assert reason is None
+    assert "# after async" in (skill_dir / "SKILL.md").read_text(encoding="utf-8")
+
+
+def test_post_analysis_skips_evolution_when_auto_evolve_off(tmp_path, monkeypatch):
+    monkeypatch.setenv("MIMIR_AETHER_HOME", str(tmp_path))
+    monkeypatch.setenv("MIMIR_AUTO_ANALYSIS", "1")
+    monkeypatch.delenv("MIMIR_AUTO_EVOLVE", raising=False)
+
+    skills_dir = tmp_path / "skills"
+    skill_dir = skills_dir / "no-evolve-skill"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("# before\n", encoding="utf-8")
+    monkeypatch.setattr("mimir_constants.get_skills_dir", lambda: skills_dir)
+
+    traj = tmp_path / "data" / "trajectories" / "no-evolve.jsonl"
+    traj.parent.mkdir(parents=True)
+    traj.write_text(
+        json.dumps({"type": "session_start", "session_id": "ne-sess"}) + "\n",
+        encoding="utf-8",
+    )
+
+    from agent.execution_pipeline import apply_evolution_from_analysis
+    from agent.post_analysis import ExecutionAnalysis, EvolutionSuggestion
+
+    analysis = ExecutionAnalysis(
+        suggestions=[
+            EvolutionSuggestion(
+                target="no-evolve-skill",
+                action="fix",
+                suggested_changes="# should not apply\n",
+            )
+        ]
+    )
+    results = apply_evolution_from_analysis(analysis, skills_dir=skills_dir)
+    assert results == []
+    assert (skill_dir / "SKILL.md").read_text(encoding="utf-8") == "# before\n"
+
+
 def test_schedule_post_close_analysis_spawns_thread(monkeypatch):
     monkeypatch.setenv("MIMIR_AUTO_ANALYSIS", "1")
     called = []

@@ -1,6 +1,6 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-05-26（**Gate A [x]** · 进化任务制 `iqevo-evolution-gates.md` · Wave 6 表全 [x]）  
+> **最近更新**：2026-05-27（**Wave 7 [x]** · rubric **4.9** exception · **IQ-EVO-47** 可选未开）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5  
 > **规则**：**刘哥** — 新 Cursor 窗粘贴 handoff 对应 §N；**Cursor** — backlog §15 第一条 `[ ]` 至 Wave 6 结案。Mimir 飞书只读回报。§11 / §2 / Phase 0 **只读**。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
@@ -328,7 +328,7 @@ Mimir 冒烟回报
 - **§2 工程队列**：只读，勿再取「E-004 / T-02 / 181+2」。
 - **Phase 0**：**14/14** [x]（2026-05-24）— 真源 [`MIMIR_PHASE0_QUEUE.md`](./MIMIR_PHASE0_QUEUE.md)。
 - **智商/进化方向真源**：[`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) · Mimir 队列 **§15** · ISSUES **#12**（锚点，非 P0）。
-- **当前执行源**：**§15 Wave 6** — 第一条 **`[ ]`**（见 handoff 页）。Wave 5 **[x]**（4.7/10）。
+- **当前执行源**：**§15 Wave 7 [x]** — closeout [`p2-long-iqevo-wave7-closeout.md`](./phase0/p2-long-iqevo-wave7-closeout.md) · rubric **4.9/10** exception。下一条可选 **IQ-EVO-47** 或 Horizon B1（§16）。
 - **勿**：提交 `data/persistent.json`；重做 E-001～E-012。
 
 ### 9.1 未完成项盘点（2026-05-25）
@@ -751,13 +751,36 @@ Read backlog §15 Wave 5。IQ-EVO-21～25；tier0 + evolution_log。
 
 **§15 Wave 6 状态**：IQ-EVO-27～39 **全 [x]** · 结案 [`p2-long-iqevo-wave6-closeout.md`](./phase0/p2-long-iqevo-wave6-closeout.md) · rubric **4.8/10** documented exception。
 
-**进化门禁（与 Wave 6 并行真源）：** [`iqevo-evolution-gates.md`](./phase0/iqevo-evolution-gates.md) — **档位 A [x]** · 下一档 **B**（staging `MIMIR_AUTO_EVOLVE` 试点，需刘哥确认）。
+**进化门禁：** [`iqevo-evolution-gates.md`](./phase0/iqevo-evolution-gates.md) — **档位 A/B/C/D [x]** · Wave 7 **§40–§46 [x]** · rubric **4.9** exception。
 
-**刘哥 / Cursor 新窗**
+### §15 Wave 7 — Gate C/D + 智商 ≥5.5（2026-05-26 · 刘哥拍板）
+
+> **真源：** [`p2-long-iqevo-wave7-gate-cd-plan.md`](./phase0/p2-long-iqevo-wave7-gate-cd-plan.md)  
+> **Handoff：** [`2026-05-26-wave7-gate-cd-handoff.md`](./superpowers/plans/2026-05-26-wave7-gate-cd-handoff.md) — **§39→§50 顺序，一次一粒**  
+> **前置：** Wave 6 **[x]** · Gate B staging AUTO_EVOLVE 已开 · **§40 时序修复为阻塞**
+
+| ID | 任务 | Owner | 状态 |
+|----|------|-------|------|
+| DOC-01 | 文档对齐 | Cursor | [x] 2026-05-27 · bridge §5 · MAINLINE C · 去过时「仍关 EVOLVE」 |
+| IQ-EVO-40 | analysis→evolution 时序 | Cursor | [x] 2026-05-26 · apply_evolution_from_analysis · tier0 **456+2** |
+| IQ-EVO-41 | staging 真实 SKILL 写入 | Cursor+Mimir | [x] 2026-05-26 · B 脚本 · `skills/iqevo-41-gate-c-staging/` · 证据 `iqevo-gate-c-staging-write-evidence.md` |
+| IQ-EVO-42 | Gate C 结案 | Cursor+刘哥 | [x] 2026-05-26 · C2 3× eval · closeout · tier0 **456+2** |
+| GATE-D1 | 1c spike | Cursor | [x] 2026-05-27 · `decision-ring-compressor-1c-spike.md` · D1–D8 / C1–C6 |
+| GATE-D2 | 1c 边界 | Cursor | [x] 2026-05-27 · `iqevo-1c-boundary.md` · B-1～B-5 |
+| GATE-D3 | contract 草案 ≥5 条 | Cursor | [x] 2026-05-27 · 7 条 1C-01～07 · `MIMIR_AUTO_1C_POLICY` · schema v1 |
+| GATE-D4 | 刘哥签字 | 刘哥 | [x] 2026-05-27 · bridge §1 Gate D 拍板 |
+| IQ-EVO-43 | 1c DecisionRing 有界 | Cursor | [x] 2026-05-27 · D* policy · 1C-01/02 · tier0 **460+2** |
+| IQ-EVO-44 | 1c Compressor 有界 | Cursor | [x] 2026-05-27 · C1–C6 · 1C-04/05 · tier0 **462+2** |
+| IQ-EVO-45 | 1c contract + closeout | Cursor | [x] 2026-05-27 · 1C-01～07 · tier0 **3×466+2** · `p2-long-iqevo-wave7-1c-closeout.md` |
+| IQ-EVO-46 | rubric #6 + Wave 7 closeout | Mimir+Cursor | [x] 2026-05-27 · **4.9/10** exception · `p2-long-iqevo-wave7-closeout.md` |
+| IQ-EVO-47 | Intent MVP（可选） | Cursor | [ ] |
+
+**§15 Wave 7 状态**：IQ-EVO-40～46 + DOC-01 **全 [x]** · rubric **4.9/10** documented exception（距 5.5 差 0.6）· 1c closeout [`p2-long-iqevo-wave7-1c-closeout.md`](./phase0/p2-long-iqevo-wave7-1c-closeout.md)
+
+**刘哥 / Cursor 新窗一句**
 
 ```text
-Read docs/phase0/iqevo-evolution-gates.md（档位 B 第一条 [ ]）。
-staging 开 AUTO_EVOLVE 须刘哥确认；生产仍 0。
+Read docs/superpowers/plans/2026-05-26-wave7-gate-cd-handoff.md §0 + 下一粒 §N（从 §40 起，勿跳序）。
 ```
 
 ---

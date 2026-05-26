@@ -394,13 +394,17 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
             _threshold_percent = get_tuned_float("compressor.threshold_percent")
         except Exception:
             _threshold_percent = 0.50
+        try:
+            from agent.decision_compressor_policy import compressor_init_kwargs_from_policy
+
+            _comp_policy = compressor_init_kwargs_from_policy()
+        except Exception:
+            _comp_policy = {}
         self.compressor = MimirContextCompressor(
             model=model,
             context_length=int(self._context_length or 1048576),
-            threshold_percent=_threshold_percent,  # Wave 5: bounded override or 0.50 default
-            protect_first_n=3,
-            protect_last_n=6,
-            tail_token_budget=4000,
+            threshold_percent=_threshold_percent,  # 1b Top-3 only
+            **_comp_policy,
         )
 
         ko = kernel_overrides

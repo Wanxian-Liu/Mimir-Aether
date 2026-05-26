@@ -101,6 +101,12 @@ class DecisionRingConfig:
     # 上下文限制
     max_context_size: int = 200000
 
+    # 1c policy (D4–D8 · IQ-EVO-43); defaults match spike
+    compress_context_pressure: float = 0.85
+    truncate_context_pressure: float = 0.95
+    confidence_floor: float = 0.5
+    cooldown_scale: float = 1.0
+
 
 
 # ============================================================================
@@ -132,6 +138,12 @@ class DecisionRing:
     
     def __init__(self, config: Optional[DecisionRingConfig] = None):
         self.config = config or DecisionRingConfig()
+        try:
+            from agent.decision_compressor_policy import merge_ring_policy_into_config
+
+            merge_ring_policy_into_config(self.config)
+        except Exception:
+            pass
         self._matcher = StrategyMatcher(
             custom_rules=self.config.custom_rules,
             enable_provider_rules=self.config.enable_provider_rules,
@@ -201,6 +213,17 @@ class DecisionRing:
         strategy_result = self._matcher.match(classified, ctx)
         
         # 4. 构建决策结果
+        backoff = float(strategy_result.backoff_seconds) * float(
+            self.config.cooldown_scale
+        )
+        confidence = max(
+            float(self.config.confidence_floor),
+            min(1.0, float(strategy_result.confidence)),
+        )
+        should_compress = strategy_result.should_compress
+        if ctx.context_pressure >= self.config.compress_context_pressure:
+            should_compress = True
+
         result = DecisionResult(
             classified_error=classified,
             strategy_result=strategy_result,
@@ -209,17 +232,18 @@ class DecisionRing:
             suggested_provider=strategy_result.suggested_provider,
             suggested_model=strategy_result.suggested_model,
             suggested_credential=strategy_result.suggested_credential,
-            backoff_seconds=strategy_result.backoff_seconds,
-            should_compress=strategy_result.should_compress,
+            backoff_seconds=backoff,
+            should_compress=should_compress,
             should_abort=strategy_result.should_abort,
             decision_time_ms=(time.time() - start_time) * 1000,
-            confidence=strategy_result.confidence,
+            confidence=confidence,
         )
-        
+
         self._decision_count += 1
         self._log_decision(result, attempt)
         
         return result
+
     def _log_decision(self, result: DecisionResult, attempt: int) -> None:
         """记录决策日志"""
         logger.info(

@@ -68,6 +68,8 @@ class ContextCompressorV2:
         protect_last_n: int = 6,
         tail_token_budget: int = None,
         summary_target_ratio: float = 0.20,
+        preflight_relax_ratio: float = 0.80,
+        summary_failure_cooldown_s: int = 600,
         summary_model: str = None,
         base_url: str = "https://api.deepseek.com",
         api_key: str = "",
@@ -81,6 +83,8 @@ class ContextCompressorV2:
         self.protect_first_n = protect_first_n
         self.protect_last_n = protect_last_n
         self.summary_target_ratio = summary_target_ratio
+        self.preflight_relax_ratio = float(preflight_relax_ratio)
+        self.summary_failure_cooldown_s = int(summary_failure_cooldown_s)
         self.summary_model = summary_model or model
         self.quiet_mode = quiet_mode
         
@@ -169,7 +173,7 @@ class ContextCompressorV2:
         if not self.has_content_to_compress(messages):
             return False
         estimated = self._estimate_tokens(messages)
-        return estimated >= self.threshold_tokens * 0.8  # 80% 放宽阈值
+        return estimated >= self.threshold_tokens * self.preflight_relax_ratio
     
     def needs_compression(self, messages: List[Dict] = None) -> bool:
         """Check if compression is needed (uses last_prompt_tokens)."""
@@ -331,7 +335,10 @@ class ContextCompressorV2:
                 return self._with_prefix(summary), "llm"
         except Exception as e:
             logger.debug(f"LLM summary failed: {e}")
-        
+            self._summary_failure_cooldown_until = (
+                time.monotonic() + float(self.summary_failure_cooldown_s)
+            )
+
         template_summary = self._generate_template_summary(
             turns_to_summarize, 
             self._previous_summary

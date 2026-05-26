@@ -157,14 +157,35 @@ def close_execution_pipeline(
         pass
 
     try:
-        from agent.auto_tuner import run_tune_after_pipeline_close
+        from agent.decision_compressor_policy import post_analysis_will_run
 
-        result["tune_changes"] = run_tune_after_pipeline_close(
-            result,
-            session_id=session_id or "",
-        )
+        defer_tune_and_1c = post_analysis_will_run(result)
     except Exception:
-        pass
+        defer_tune_and_1c = False
+
+    if not defer_tune_and_1c:
+        try:
+            from agent.auto_tuner import run_tune_after_pipeline_close
+
+            result["tune_changes"] = run_tune_after_pipeline_close(
+                result,
+                session_id=session_id or "",
+            )
+        except Exception:
+            pass
+
+        try:
+            from agent.decision_compressor_policy import (
+                run_1c_policy_after_pipeline_close,
+            )
+
+            result["policy_1c_changes"] = run_1c_policy_after_pipeline_close(
+                result,
+                session_id=session_id or "",
+                task_name=task_name or (session.task_name if session else ""),
+            )
+        except Exception:
+            pass
 
     return result
 
@@ -215,6 +236,37 @@ def apply_analysis_to_pipeline(
         session.pending_suggestions.extend(analysis.suggestions)
 
     return analysis
+
+
+def apply_evolution_from_analysis(
+    analysis: ExecutionAnalysis,
+    *,
+    skills_dir: Optional[Path] = None,
+    require_confirmation: bool = False,
+) -> List[EvolutionResult]:
+    """Apply fix/deprecate suggestions after post-close LLM analysis (IQ-EVO-40).
+
+    Does not require an active pipeline session — used from the async analysis
+    worker after ``close_execution_pipeline`` has already popped the session.
+    """
+    if os.environ.get("MIMIR_AUTO_EVOLVE", "").strip() not in ("1", "true", "yes"):
+        return []
+    suggestions = [
+        s for s in analysis.suggestions if s.action in ("fix", "deprecate")
+    ]
+    if not suggestions:
+        return []
+    if skills_dir is None:
+        from mimir_constants import get_skills_dir
+
+        skills_dir = get_skills_dir()
+    return asyncio.run(
+        apply_evolution_from_suggestions_async(
+            suggestions,
+            skills_dir,
+            require_confirmation=require_confirmation,
+        )
+    )
 
 
 async def apply_evolution_from_suggestions_async(
@@ -367,6 +419,7 @@ __all__ = [
     "close_execution_pipeline",
     "build_analysis_from_pipeline",
     "apply_analysis_to_pipeline",
+    "apply_evolution_from_analysis",
     "maybe_trigger_post_analysis",
     "save_analysis_artifact",
     "apply_evolution_from_suggestions_async",

@@ -5,11 +5,11 @@
 
 | 字段 | 值 |
 |------|-----|
-| **最近更新** | 2026-05-26 |
-| **更新人** | Cursor（刘哥 Wave 4 + §17 验收签收 · 文档收尾） |
+| **最近更新** | 2026-05-27 |
+| **更新人** | 战略窗（IQ-EVO-46 签收 · Wave 7 结案） |
 | **仓库根（真源）** | `~/src/MimirAether` |
-| **可选校验** | `./run_ralph_tier0.sh`（门禁 **433+2**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
-| **本轮摘要** | **§15 Wave 4 [x]**（IQ **4.5/10**）· **§17 AUTONOMY [x]** · **§16 OBS-B1 [x]** · 生产 `MIMIR_FEEDBACK_COLLECTOR=1` · 下一 Horizon **待拍板**。 |
+| **可选校验** | `./run_ralph_tier0.sh`（门禁 **466+2**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
+| **本轮摘要** | **§15 Wave 7 [x]** · Gate C/D · 1c · rubric **4.9/10** exception（距 5.5 差 **0.6**）· tier0 **466+2** · 下一可选 **IQ-EVO-47** 或 Horizon 拍板。 |
 
 ---
 
@@ -67,7 +67,7 @@
 |----|:------:|------|----------|
 | **A. 能跑、能回归、能运维** | **~85%** | M0–M6 绿 · CLEARANCE **8/8** · tier0 **382+2** · Gateway 飞书真对话 | TRUNCATE 历史噪声 monitoring；#32 close；Gateway Chroma 增量 |
 | **B. 默认「想起来」**（阶段1） | **~65%** | hybrid **生产默认** · Chroma **增量** · search-first prompt · SEM 全栈 | ADR-002 注入策略 · 飞书「上次在做什么」稳定复现 · rubric #8 仍 3.0 |
-| **C. 默认「会话后会进化」**（阶段2） | **~55%** | AUTO_ANALYSIS **生产门闩** + 7d **97 artifacts** · nudge 已接线 | AUTO_EVOLVE 仍关 · artifact→阈值反哺未接 · FeedbackCollector 无 |
+| **C. 默认「会话后会进化」**（阶段2） | **~65%** | Gate C：`AUTO_EVOLVE=1` + 真实 SKILL · IQ-EVO-40 时序 · 1c policy（默认关） | 生产默认进化肌肉 · IntentPredictor · rubric #1 仍 3.5 |
 | **D. 织界者伙伴**（阶段3–4 终局） | **~25%** | 文档 ∞ 绿裁定 · 宪章草案 | 长期画像 · 集体技能网 · 刘哥角色从「验收者」→「同行者」**可感知** |
 
 **一句话**：**底座和纪律已经很远**（这不是传话桶能有的）；**「日常用起来明显更聪明、会自己变好」大约还有一半到三分之二的路**，主要在 §15 **IQ-EVO-01～06** 和 Horizon 下一拍（ADR-002 / nudge / AUTO_ANALYSIS），不是再堆 tier0。

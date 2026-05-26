@@ -59,6 +59,7 @@ def run_post_analysis_sync(
 
     prompt = build_analysis_from_pipeline(pipeline_result, task_name)
     if not prompt:
+        _run_post_analysis_tail(pipeline_result, session_id=session_id, task_name=task_name)
         return "no_trajectory"
 
     artifact_path = save_analysis_artifact(prompt, task_name)
@@ -88,13 +89,34 @@ def run_post_analysis_sync(
         )
         raw = _extract_llm_text(response)
         if not raw:
+            _run_post_analysis_tail(pipeline_result, session_id=session_id, task_name=task_name)
             return "empty_llm"
-        apply_analysis_to_pipeline(raw, session_id=session_id, task_name=task_name)
+        analysis = apply_analysis_to_pipeline(
+            raw, session_id=session_id, task_name=task_name
+        )
         logger.info(
             "post_analysis applied session_id=%s task=%s",
             session_id,
             (task_name or "")[:40],
         )
+        try:
+            from agent.execution_pipeline import apply_evolution_from_analysis
+
+            evo_results = apply_evolution_from_analysis(analysis)
+            if evo_results:
+                logger.info(
+                    "post_analysis evolution session_id=%s applied=%s ok=%s",
+                    session_id,
+                    len(evo_results),
+                    sum(1 for r in evo_results if r.success),
+                )
+        except Exception as exc:
+            logger.warning(
+                "post_analysis evolution failed session_id=%s: %s",
+                session_id,
+                exc,
+            )
+        _run_post_analysis_tail(pipeline_result, session_id=session_id, task_name=task_name)
         return None
     except Exception as exc:
         logger.warning(
@@ -102,7 +124,31 @@ def run_post_analysis_sync(
             session_id,
             exc,
         )
+        _run_post_analysis_tail(pipeline_result, session_id=session_id, task_name=task_name)
         return "llm_failed"
+
+
+def _run_post_analysis_tail(
+    pipeline_result: Dict[str, Any],
+    *,
+    session_id: str = "",
+    task_name: str = "",
+) -> None:
+    """Tune (1b) then 1c policy nudge — boundary B-4 after analysis/evolve."""
+    try:
+        from agent.decision_compressor_policy import run_tune_and_1c_after_post_analysis
+
+        run_tune_and_1c_after_post_analysis(
+            pipeline_result,
+            session_id=session_id,
+            task_name=task_name,
+        )
+    except Exception as exc:
+        logger.warning(
+            "post_analysis tune/1c failed session_id=%s: %s",
+            session_id,
+            exc,
+        )
 
 
 def schedule_post_close_analysis(
