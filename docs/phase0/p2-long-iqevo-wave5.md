@@ -53,3 +53,7 @@ Turn Wave 4 **feedback JSONL** into **bounded, auditable threshold overrides** f
 
 - tier0 green + wave5 contract  
 - IQ-EVO-26 rubric；#2 自适应、#10 闭环应各 +≥0.5（若调参生效）
+
+## Closeout
+
+**[x] 2026-05-26** — [`p2-long-iqevo-wave5-closeout.md`](p2-long-iqevo-wave5-closeout.md) · rubric **4.7/10** documented exception
