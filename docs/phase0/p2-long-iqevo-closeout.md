@@ -56,8 +56,18 @@ MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh
 - `tests/contract/test_evolution_eval_ievo04.py`（eval 脚本契约）
 - `tests/contract/test_iqevo06_closeout.py`（本波结案）
 
+## Wave 2 工程（IQ-EVO-07～09 · 2026-05-19）
+
+| ID | 交付 |
+|----|------|
+| IQ-EVO-07 | `agent/post_close_analysis.py` — `MIMIR_AUTO_ANALYSIS=1` → LLM 分析 + `data/analysis_artifacts/` |
+| IQ-EVO-08 | `agent/conversation_nudges.py` — `MIMIR_MEMORY_NUDGE_INTERVAL` / `MIMIR_SKILL_NUDGE_INTERVAL`（默认 10） |
+| IQ-EVO-09 | `prompt_builder` 跨会话 **核心字段 + cap**（`MIMIR_CROSS_SESSION_MAX_CHARS` 默认 2000） |
+
+**Staging 开分析（刘哥本机）**：在 `$MIMIR_AETHER_HOME/.env` 加 `MIMIR_AUTO_ANALYSIS=1`，重启 Gateway；**不要**默认开 `MIMIR_AUTO_EVOLVE=1`。
+
 ## 下一粒
 
-- **Mimir**：维持周常 eval + §3.3 回报；**不**默认开 AUTO_ANALYSIS 代码（等刘哥 + Cursor 工程轨）。
-- **Cursor / Horizon**：ADR-002 · AUTO_ANALYSIS 门闩 · nudge — **刘哥拍板后**开新 backlog 子项或 icebox issue。
-- **ISSUES #12**：Wave 1 方向锚点已落地；可归档或保留为「Wave 2 入口」。
+- **Mimir**：staging smoke（AUTO_ANALYSIS 开一轮有 error 的任务 → 查 `analysis_artifacts/`）+ 周常 eval。
+- **Cursor / 刘哥**：Chroma Gateway 增量 · `SESSION_SEARCH_BACKEND=hybrid` 生产默认 · rubric 复评 **≥5.5**。
+- **ISSUES #12**：Wave 2 工程已落地；复评达标后可 **resolved** 或开 Wave 3 issue。

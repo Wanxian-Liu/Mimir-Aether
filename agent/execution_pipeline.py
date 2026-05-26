@@ -315,7 +315,7 @@ def save_analysis_artifact(
     task_name: str = "",
 ) -> Optional[str]:
     """Persist an analysis prompt as a JSON artifact for next-session injection."""
-    from .mimir_constants import get_mimir_home
+    from mimir_constants import get_mimir_home
 
     home = get_mimir_home()
     artifacts_dir = Path(home) / "data" / "analysis_artifacts"

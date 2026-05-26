@@ -328,7 +328,7 @@ Mimir 冒烟回报
 - **§2 工程队列**：只读，勿再取「E-004 / T-02 / 181+2」。
 - **Phase 0**：**14/14** [x]（2026-05-24）— 真源 [`MIMIR_PHASE0_QUEUE.md`](./MIMIR_PHASE0_QUEUE.md)。
 - **智商/进化方向真源**：[`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) · Mimir 队列 **§15** · ISSUES **#12**（锚点，非 P0）。
-- **当前执行源**：**Mimir** → §15 **Wave 1 [x]**（[`p2-long-iqevo-closeout.md`](./phase0/p2-long-iqevo-closeout.md)）— **周常 eval** + §3.3 回报；**Cursor** → Horizon **待刘哥拍板**（ADR-002 / AUTO_ANALYSIS / nudge）。
+- **当前执行源**：**Mimir** → §15 **Wave 2 验收**（staging 开 `MIMIR_AUTO_ANALYSIS=1` + 飞书 smoke）+ **周常 eval**；**Cursor** → Wave 2 工程 **[x]** · 下一粒 **Chroma 增量 / hybrid 默认** 待刘哥。
 - **勿**：提交 `data/persistent.json`；重做 E-001～E-012。
 
 ### 9.1 未完成项盘点（2026-05-25）
@@ -336,7 +336,7 @@ Mimir 冒烟回报
 | 桶 | 数量 | 说明 |
 |----|------|------|
 | **§13.1 母任务** | **1** Active | `P0-LONG-CLEARANCE` — 子阶段 A [~] → B→C→D→E |
-| **§11 长任务** | **0** Active | **`P2-LONG-SEM`** [x] · **`P2-LONG-IQEVO`** Wave 1 [x] |
+| **§11 长任务** | **0** Active | **`P2-LONG-SEM`** [x] · **`P2-LONG-IQEVO`** Wave 1+2 工程 [x] |
 | **§6 Phase 2 候选** | **6** `[ ]` | 已并入 **CLR-D / CLR-E**；勿单独开队列 |
 | **§8 工程 icebox** | **4** 条 | 已并入 **CLR-C**（`P2-LONG-STAB`） |
 | **Gateway 十条** | **~4** 待工程 | CLR-C 结案；#9 待 **CLR-B** 飞书复验 |
@@ -392,7 +392,7 @@ Read docs/MIMIR_EXEC_BACKLOG.md §11；P1-LONG-MEM 已结案。工程下一条�
 | **P1-LONG-OBS** | d6 余债 D6-1～3 ADR/测试 | §6 | [ ] Phase 2 候选 |
 | **P1-LONG-EVO** | d5 余债 D5-1/3、真进化 | §6、Unified Plan | [ ] Phase 2 候选 |
 | **P2-LONG-SEM** | Memory **语义化**（chromadb + 检索策略） | Unified Plan Phase 2 | [x] **结案** 2026-05-19 · [`p2-long-sem-closeout.md`](./phase0/p2-long-sem-closeout.md) · GH **#32** |
-| **P2-LONG-IQEVO** | 智商/进化 **Wave 1**（基线 + Mimir 证据链） | [`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) | [x] **Wave 1 结案** 2026-05-19 · [`p2-long-iqevo-closeout.md`](./phase0/p2-long-iqevo-closeout.md) · IQ **3.9** documented 例外 |
+| **P2-LONG-IQEVO** | 智商/进化 Wave 1 基线 + **Wave 2** 行为默认项 | [`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) | [x] Wave 1 结案 · Wave 2 工程 2026-05-19（07～09）· rubric **≥5.5** 待复评 |
 
 **Semantic 检索**：**P2-LONG-SEM** 已结案（SEM-01～06）；生产默认仍 **LIKE/hybrid**；`semantic` / `semantic_hybrid` 见 ADR-006。
 
@@ -605,14 +605,24 @@ Horizon A **P2-LONG-SEM** 已结案；勿默认开下一条 Horizon（ADR-002 / 
 | **IQ-EVO-05** | **阶段3·衔接**：SEM-04 后复填 iq-scoring 表（只读对比） | Mimir | 更新方向文档 §1.1 表或 phase0 rubric 备注 | [x] 2026-05-25 |
 | **IQ-EVO-06** | **长任务结案** — §15 全 `[x]` + MAINLINE 一行 | Cursor | IQ≥5.5 或 documented 例外 + 进化 eval 周常约定 | [x] 2026-05-19 |
 
-**§15 Wave 1 状态**：IQ-EVO-00～06 **全 [x]** · 结案 [`p2-long-iqevo-closeout.md`](./phase0/p2-long-iqevo-closeout.md) · IQ **3.9/10**（documented 例外；5.5 → Horizon Wave 2）。
+**§15 Wave 1 状态**：IQ-EVO-00～06 **全 [x]** · 结案 [`p2-long-iqevo-closeout.md`](./phase0/p2-long-iqevo-closeout.md) · IQ **3.9/10**（documented 例外；5.5 → Wave 2）。
 
-**Mimir 新窗一句（Wave 1 结案后 · 运维）**
+### §15 Wave 2 — Horizon IQ-EVO（2026-05-19 · 刘哥「继续 Wave 2」）
+
+| ID | 任务 | Owner | 成功标准 | 状态 |
+|----|------|-------|----------|------|
+| **IQ-EVO-07** | **`MIMIR_AUTO_ANALYSIS=1` 接入** `_close_pipeline`（fire-and-forget LLM + artifact） | Cursor | `agent/post_close_analysis.py` + tier0；staging `.env` 可选开 | [x] 2026-05-19 |
+| **IQ-EVO-08** | **memory/skill nudge**（`MIMIR_*_NUDGE_INTERVAL` 默认 10） | Cursor | `conversation_nudges.py` + agent_loop 注入 | [x] 2026-05-19 |
+| **IQ-EVO-09** | **ADR-002 注入切片** — 跨会话核心字段 + `MIMIR_CROSS_SESSION_MAX_CHARS` | Cursor | `prompt_builder._build_cross_session_context` 有 cap + objective | [x] 2026-05-19 |
+
+**Wave 2 未纳入本波（待刘哥）**：Gateway Chroma **增量** upsert · 生产 `SESSION_SEARCH_BACKEND=hybrid` 默认 · `MIMIR_AUTO_EVOLVE=1` 自动改技能。
+
+**Mimir 新窗一句（Wave 2 验收 · 刘哥 @ 时用）**
 
 ```text
-Read docs/phase0/p2-long-iqevo-closeout.md §进化 eval 周常约定 + MIMIR_IQ_EVOLUTION_DIRECTION.md §3.3。
-每周跑 run_evolution_eval.sh 贴摘要；无 §3.2 证据不宣称变聪明。
-工程变更请 Cursor（刘哥拍板 Horizon 后再开 Wave 2）。
+Read docs/MIMIR_LIU_CURSOR_BRIDGE.md §1「IQ-EVO Wave 2 验收」+ p2-long-iqevo-closeout.md §Wave 2。
+staging：MIMIR_AUTO_ANALYSIS=1，重启 Gateway；跑 analysis_artifacts 冒烟 + nudge log + run_evolution_eval。
+回报 §3.3 + bridge §4；勿改 agent/gateway 代码。
 ```
 
 **Cursor 新窗一句（Wave 1 结案后）**

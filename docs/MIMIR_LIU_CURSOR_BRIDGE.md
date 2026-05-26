@@ -113,6 +113,42 @@ Cursor **自行执行**（无需每轮再问）：
 - ❌ 不要从旧路径 `commit` 或 `push`
 - ❌ 不要在旧路径跑 `run_ralph_tier0.sh`
 
+### 2026-05-19 — IQ-EVO Wave 2 工程已合入（Cursor → **@Mimir** 验收轨）
+
+**刘哥不用长贴**：飞书 @Mimir 一句「按 bridge §1 Wave 2 验收」即可；或复制下面灰框全文。
+
+**Mimir 本轮只做验收（提案轨 A，勿改 agent 代码）**：
+
+1. **Read**（顺序）：本段 → [`p2-long-iqevo-closeout.md`](./phase0/p2-long-iqevo-closeout.md) §Wave 2 → backlog **§15 Wave 2** → 方向文档 §3.3 模板回报。
+2. **仓库**：只在 **`~/src/MimirAether/`**；`git pull` 到含 Wave 2 的 `main`（Cursor 已推则拉最新；未推则等刘哥说一声）。
+3. **staging 开分析**（刘哥本机 `$MIMIR_AETHER_HOME/.env`，改完 **重启 Gateway**）：
+   ```bash
+   MIMIR_AUTO_ANALYSIS=1
+   MIMIR_MEMORY_NUDGE_INTERVAL=10
+   MIMIR_SKILL_NUDGE_INTERVAL=10
+   ```
+   **不要**开 `MIMIR_AUTO_EVOLVE=1`。
+4. **冒烟 A — AUTO_ANALYSIS**：跑一轮**会触发工具错误**的任务（或 staging 故意用坏参数调一次 `read_file`），会话结束后查：
+   ```bash
+   ls -lt ~/.mimiraether/data/analysis_artifacts/ | head -5
+   ```
+   应有新 `.json`；贴**最新文件路径** + `summary` 字段一行摘要。
+5. **冒烟 B — nudge**：同一 Gateway 进程里连续对话 **≥10 轮**（或看 gateway/agent log），应出现 `[MIMIR_MEMORY_NUDGE]` / `[MIMIR_SKILL_NUDGE]`（skill 需累计 ≥3 次 tool call）。
+6. **周常 eval**（照旧）：
+   ```bash
+   cd ~/src/MimirAether && MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh
+   ```
+   贴 hit rate 三行 + JSON 路径。
+7. **回报**：bridge **§4 一行** + 方向文档 **§3.3** 全文；子项写 **「Wave 2 验收」**，证据类型对照 §3.2（行为 + 路径，不是「感觉变聪明」）。
+
+**刘哥可复制的飞书一句**：
+
+```text
+@Mimir 按 bridge §1「IQ-EVO Wave 2 验收」：staging 开 MIMIR_AUTO_ANALYSIS=1 重启 Gateway 后做 07/08 冒烟 + run_evolution_eval，回报 §3.3 + bridge §4。勿改代码。
+```
+
+**Cursor 已交付（勿重复做）**：`post_close_analysis` · `conversation_nudges` · 跨会话 cap · tier0 **382+2**。
+
 ### （新留言写在此下）
 
 _示例：@Mimir 按 IQ-EVO-01。@Cursor SEM-03。_
@@ -185,6 +221,7 @@ _示例：@Mimir 按 IQ-EVO-01。@Cursor SEM-03。_
 | 2026-05-25 | **IEVO-04** | **Cursor** | `run_evolution_eval.sh` 记忆检索 eval + 基线对比 · tier0 **314+2** · 下一粒 **IEVO-05** |
 | 2026-05-25 | **IEVO-05** | **Cursor** | D6-3 monitor/insights 回归测入 tier0 · tier0 **322+2** · 下一粒 **IEVO-06** |
 | 2026-05-25 | **IEVO-06** | **Cursor** | Wave E 结案 · D8 ✅ · Phase ∞ 续勾 · tier0 **326+2** · **Wave E [x]** · 下一粒 **CLEARANCE-DONE** |
+| 2026-05-19 | **IQ-EVO-07～09** | **Cursor** | Wave 2：AUTO_ANALYSIS + nudge + cross-session cap · tier0 **382+2** |
 | 2026-05-19 | **IQ-EVO-06** | **Cursor** | P2-LONG-IQEVO Wave 1 结案 · IQ 3.9 documented 例外 · eval 周常 · tier0 **372+2** |
 | 2026-05-19 | **刘哥定调** | **刘哥** | Mimir = **智能体** ≠ DeepSeek 传话桶；MAINLINE §6 距终局；docs 四文件同步 |
 | 2026-05-19 | **Horizon A / SEM-06** | **Cursor** | P2-LONG-SEM 结案 · closeout doc · tier0 **368+2** · GH **#32** 待刘哥 |
@@ -208,7 +245,7 @@ _示例：@Mimir 按 IQ-EVO-01。@Cursor SEM-03。_
 - **main**：`b55fa98` · tier0 **368+2** · **`P0-LONG-CLEARANCE` [x]** · **`P2-LONG-SEM` [x]**
 - **身份（2026-05-19）**：Mimir **是智能体**（loop+tools+memory），**不是** DeepSeek 传话桶 — bridge §1
 - **Wave 0 A / 1 B / 2 C / D / E**：**[x]**（刘哥 §8.3 签收 2026-05-25）
-- **Horizon A**：**P2-LONG-SEM** **[x]** · **P2-LONG-IQEVO Wave 1** **[x]** → Horizon Wave 2 **待刘哥拍板**（AUTO_ANALYSIS / ADR-002 / nudge）
+- **Horizon A**：**P2-LONG-SEM** **[x]** · **IQ-EVO Wave 1+2 工程 [x]** → staging `MIMIR_AUTO_ANALYSIS=1` + Mimir smoke；**Chroma 增量 / hybrid 默认** 待刘哥
 - **R5**：刘哥复验 **pass**（30s 内 tool）
 - **Gateway**：PID **135797** · /health ok · TRUNCATE since-start **0**
 - **GH open**：**10** · #10 **monitoring**（STAB-04 已修）

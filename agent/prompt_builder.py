@@ -935,30 +935,46 @@ def _write_skills_snapshot(skills_dirs: list, skills_prompt: str, category_descr
 # Auto-Load Skills (frontmatter auto_load: true)
 
 
+def _cross_session_max_chars() -> int:
+    raw = os.environ.get("MIMIR_CROSS_SESSION_MAX_CHARS", "2000").strip()
+    try:
+        return max(200, int(raw))
+    except ValueError:
+        return 2000
+
+
 def _build_cross_session_context() -> str:
-    """Read runtime-home persistent.json and NEXT_SESSION.md (same paths as CrossSessionMemory)."""
+    """Core fields from runtime-home persistent + NEXT_SESSION (ADR-002 injection slice)."""
     import json
 
     from mimir_constants import get_mimir_data_dir, get_mimir_home
 
     parts: list[str] = []
+    cap = _cross_session_max_chars()
 
-    # Same file as agent/cross_session_memory.PERSISTENT_FILE (get_mimir_data_dir()).
     path = get_mimir_data_dir() / "persistent.json"
     if path.is_file():
         try:
             with open(path, encoding="utf-8") as f:
                 state = json.load(f)
+            progress = state.get("progress") if isinstance(state.get("progress"), dict) else {}
             curator_nudge = state.get("curator_nudge", "")
             last_end = state.get("last_session_end", "")
             session_count = state.get("session_count", 0)
-            pending = state.get("pending_tasks", [])
+            objective = progress.get("current_objective") or state.get("current_objective")
+            pending = progress.get("pending_tasks") or state.get("pending_tasks") or []
+            milestones = progress.get("completed_milestones") or []
             if curator_nudge:
-                parts.append(f"技能策展: {curator_nudge}")
+                parts.append(f"技能策展: {str(curator_nudge)[:400]}")
+            if objective:
+                parts.append(f"当前目标: {str(objective)[:300]}")
+            if pending:
+                preview = "; ".join(str(p)[:80] for p in pending[:3])
+                parts.append(f"待办({len(pending)}): {preview}")
+            if milestones:
+                parts.append(f"近期里程碑: {len(milestones)} 项")
             if last_end:
                 parts.append(f"上次会话结束: {last_end}")
-            if pending:
-                parts.append(f"待办任务: {len(pending)} 项")
             parts.append(f"会话计数: {session_count}")
         except Exception:
             pass
@@ -967,13 +983,19 @@ def _build_cross_session_context() -> str:
     if next_path.is_file():
         try:
             with open(next_path, encoding="utf-8") as f:
-                parts.append(f.read()[:500])
+                remaining = cap - sum(len(p) for p in parts)
+                if remaining > 80:
+                    parts.append(f.read()[: min(500, remaining)])
         except Exception:
             pass
-    
-    if parts:
-        return "<cross-session-context>\n" + "\n".join(parts) + "\n</cross-session-context>"
-    return ""
+
+    if not parts:
+        return ""
+
+    body = "\n".join(parts)
+    if len(body) > cap:
+        body = body[: cap - 20] + "\n…[truncated]"
+    return "<cross-session-context>\n" + body + "\n</cross-session-context>"
 
 def _auto_load_inject_chunk(skill_name: str, frontmatter: dict, body: str) -> str:
     """Prefer short description (top-level or auto_load_meta); else truncated body."""

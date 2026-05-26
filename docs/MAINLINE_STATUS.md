@@ -6,10 +6,10 @@
 | 字段 | 值 |
 |------|-----|
 | **最近更新** | 2026-05-19 |
-| **更新人** | Cursor（**P2-LONG-IQEVO** · IQ-EVO-06 结案） |
+| **更新人** | Cursor（**P2-LONG-IQEVO** · Wave 2 · IQ-EVO-07～09） |
 | **仓库根（真源）** | `~/src/MimirAether` |
-| **可选校验** | `./run_ralph_tier0.sh`（门禁 **372+2**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
-| **本轮摘要** | **§15 IQ-EVO Wave 1 [x]**：基线 3.9 documented 例外 + eval 周常约定；[`p2-long-iqevo-closeout.md`](phase0/p2-long-iqevo-closeout.md)。 |
+| **可选校验** | `./run_ralph_tier0.sh`（门禁 **382+2**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
+| **本轮摘要** | **§15 Wave 2 [x]**：AUTO_ANALYSIS 门闩 + memory/skill nudge + 跨会话注入 cap；staging 开 `MIMIR_AUTO_ANALYSIS=1` 待 Mimir smoke。 |
 
 ---
 
@@ -17,7 +17,7 @@
 
 | ID | 名称 | 状态 | 说明 |
 |----|------|------|------|
-| M0 | 基线可回归 | **绿** | `run_ralph_tier0.sh` 日常可通过。Gate2 **372**、Gate3 **2**。 |
+| M0 | 基线可回归 | **绿** | `run_ralph_tier0.sh` 日常可通过。Gate2 **382**、Gate3 **2**。 |
 | M1 | 契约可执行 | **绿** | `docs/ralph_parity_testmap.md` 已映射 |
 | M2 | Tier-0 矩阵闭合 | **绿** | `ralph_tier0_case_matrix.md`：无阻塞 P0 |
 | M3 | 垂直切片 | **绿** | CLI + API `POST /v1/chat/completions` |
@@ -65,9 +65,9 @@
 
 | 层 | 完成度 | 证据 | 还差什么 |
 |----|:------:|------|----------|
-| **A. 能跑、能回归、能运维** | **~85%** | M0–M6 绿 · CLEARANCE **8/8** · tier0 **372+2** · Gateway 飞书真对话 | TRUNCATE 历史噪声 monitoring；#32 close；Gateway Chroma 增量 |
+| **A. 能跑、能回归、能运维** | **~85%** | M0–M6 绿 · CLEARANCE **8/8** · tier0 **382+2** · Gateway 飞书真对话 | TRUNCATE 历史噪声 monitoring；#32 close；Gateway Chroma 增量 |
 | **B. 默认「想起来」**（阶段1） | **~45%** | LIKE 60% / FTS 50% · hybrid/semantic 代码 · Chroma **3827** 条已 backfill | prompt **先 search** 习惯 · ADR-002 注入策略 · 飞书「上次在做什么」稳定复现 |
-| **C. 默认「会话后会进化」**（阶段2） | **~25%** | IEVO 波 · JEPA/skill_evolution 代码 · 禁伪进化 | 生产开 AUTO_ANALYSIS · nudge · tool_quality→行为 · eval **周常** |
+| **C. 默认「会话后会进化」**（阶段2） | **~40%** | Wave 2：`post_close_analysis` + nudge 已接线 · IEVO 禁伪进化 | staging 开 AUTO_ANALYSIS + Mimir smoke · AUTO_EVOLVE 仍关 · eval 周常 |
 | **D. 织界者伙伴**（阶段3–4 终局） | **~25%** | 文档 ∞ 绿裁定 · 宪章草案 | 长期画像 · 集体技能网 · 刘哥角色从「验收者」→「同行者」**可感知** |
 
 **一句话**：**底座和纪律已经很远**（这不是传话桶能有的）；**「日常用起来明显更聪明、会自己变好」大约还有一半到三分之二的路**，主要在 §15 **IQ-EVO-01～06** 和 Horizon 下一拍（ADR-002 / nudge / AUTO_ANALYSIS），不是再堆 tier0。
@@ -80,7 +80,8 @@
 
 | 日期 | 摘要 |
 |------|------|
-| 2026-05-19 | **Horizon A / P2-LONG-IQEVO Wave 1** [x]：IQ-EVO-06 结案 · rubric **3.9/10** documented 例外 · eval 周常 · tier0 **372+2** · closeout [`p2-long-iqevo-closeout.md`](./phase0/p2-long-iqevo-closeout.md)；ISSUES **#12 resolved**；下一条 **Horizon Wave 2 待刘哥拍板**。 |
+| 2026-05-19 | **Horizon A / IQ-EVO Wave 2** [x]：07 AUTO_ANALYSIS · 08 nudge · 09 cross-session cap · tier0 **382+2**；下一条 staging smoke + rubric **≥5.5** 复评。 |
+| 2026-05-19 | **Horizon A / P2-LONG-IQEVO Wave 1** [x]：IQ-EVO-06 结案 · rubric **3.9/10** documented 例外 · eval 周常 · closeout [`p2-long-iqevo-closeout.md`](./phase0/p2-long-iqevo-closeout.md)。 |
 | 2026-05-19 | **刘哥定调**：Mimir = 智能体 ≠ 传话桶；MAINLINE §6 距终局快照；bridge/backlog/issues/方向文档 §0.1 同步。 |
 | 2026-05-19 | **Horizon A / P2-LONG-SEM** [x]：SEM-06 结案 + closeout doc；tier0 **368+2**；GH **#32** 待刘哥 close。 |
 | 2026-05-19 | **Horizon A / SEM-05** [x]：tier0 manifest + smoke；**363+2**；下一条 **SEM-06**。 |

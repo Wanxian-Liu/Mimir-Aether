@@ -28,6 +28,10 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Callable, Awaitable
 
 from .async_bridge import get_tool_executor
+from .conversation_nudges import (
+    maybe_memory_nudge_message,
+    maybe_skill_nudge_message,
+)
 from .intent_action_guard import (
     MAX_INTENT_NUDGES,
     build_nudge_message,
@@ -169,6 +173,7 @@ class MimirAgentLoop:
             pass
 
         intent_nudges = 0
+        tool_calls_so_far = 0
 
         for turn in range(self.max_turns):
             if self.interrupt_check():
@@ -181,6 +186,13 @@ class MimirAgentLoop:
                 )
 
             turn_start = _time.monotonic()
+
+            mem_nudge = maybe_memory_nudge_message(turn)
+            if mem_nudge:
+                messages.append({"role": "user", "content": mem_nudge})
+            skill_nudge = maybe_skill_nudge_message(turn, tool_calls_so_far)
+            if skill_nudge:
+                messages.append({"role": "user", "content": skill_nudge})
 
             # --- Call model ---
             api_start = _time.monotonic()
@@ -251,6 +263,7 @@ class MimirAgentLoop:
             # --- Tool calls? ---
             if _tool_calls:
                 normalized = [_tc_to_dict(tc) for tc in _tool_calls]
+                tool_calls_so_far += len(normalized)
                 msg_dict: Dict[str, Any] = {
                     "role": "assistant", "content": content or "",
                     "tool_calls": normalized,
@@ -397,9 +410,16 @@ class MimirAgentLoop:
                 schedule_post_close_evolution,
             )
             from agent.jepa_session_hook import schedule_post_close_jepa_cycle
+            from agent.post_close_analysis import schedule_post_close_analysis
 
+            task = task_name or self.task_id
             result = close_execution_pipeline(
-                task_name=task_name or self.task_id,
+                task_name=task,
+                session_id=self.task_id,
+            )
+            schedule_post_close_analysis(
+                result,
+                task_name=task,
                 session_id=self.task_id,
             )
             schedule_post_close_evolution(result)
