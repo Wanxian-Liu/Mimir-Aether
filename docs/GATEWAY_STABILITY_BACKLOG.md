@@ -50,7 +50,7 @@
 ### #10 Agent 偶发崩溃
 
 - **STAB-04**：双 TRUNCATE、`recovery` code-error 分流、gateway drain guard
-- Mimir：`mimir_health_check.sh` R4 since-start；`MIMIR_ISSUES.md` #10 **monitoring**
+- Ops：`mimir_health_check.sh` R4 since-start；#10 **documented exception**（[`obs-b1-03-issue10-closeout.md`](./phase0/obs-b1-03-issue10-closeout.md)）
 
 ### #1 Watchdog 超时
 

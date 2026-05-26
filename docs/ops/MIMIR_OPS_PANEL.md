@@ -74,7 +74,9 @@ tail -20 "$MIMIR_AETHER_HOME/data/monitor_alerts.json"
 
 ---
 
-## 4. TRUNCATE KPI（非 P0 · ISSUES #10）
+## 4. TRUNCATE KPI（ISSUES #10 — documented exception · OBS-B1-03）
+
+> **#10 closed 2026-05-26** — no Active row; KPI via R4 only. See [`obs-b1-03-issue10-closeout.md`](../phase0/obs-b1-03-issue10-closeout.md).
 
 | Metric | Command | Pass (ops) |
 |--------|---------|------------|

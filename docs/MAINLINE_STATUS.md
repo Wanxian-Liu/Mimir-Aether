@@ -9,7 +9,7 @@
 | **更新人** | Cursor（进度问询 · Wave 3 收尾） |
 | **仓库根（真源）** | `~/src/MimirAether` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁 **393+2**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
-| **本轮摘要** | **Wave 3 [x]**（14 = 4.3 exception）· **OBS-B1-01 [x]** ADR-007 defer · 执行队列剩 **B1-02～03**（2 粒）· tier0 **398+2**。 |
+| **本轮摘要** | **Horizon B1 [x]**（OBS-B1-01～03）· §15/§16 执行队列 **空** · ISSUES Active **1** · tier0 **410+2**。 |
 
 ---
 
@@ -80,6 +80,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-26 | **OBS-B1-01**：ADR-007 ObservabilityBus defer；Wave 3 **14 [x]**；tier0 **398+2**。 |
 | 2026-05-26 | **进度**：执行队列 **4 粒**（14 + B1×3）；CLEARANCE **8/8**；Wave 3 Cursor **11～13 [x]**；tier0 **393+2**。 |
 | 2026-05-26 | **刘哥拍板**：先 **IQ-EVO Wave 3** · 再 **Horizon B1**（`P1-LONG-OBS`/d6）；bridge §1 + backlog §15/§16。 |
 | 2026-05-19 | **Horizon A / IQ-EVO Wave 2** [x]：07～09 工程 + Mimir 验收；tier0 **382+2**。 |

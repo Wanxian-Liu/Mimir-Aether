@@ -170,8 +170,8 @@ Cursor **自行执行**（无需每轮再问）：
 | **Wave 3 工程绿后** | **Horizon B1 · `P1-LONG-OBS`** | **d6 可观测**（§6 D6-2 ObservabilityBus 等 · 不接新 IQ 功能）— **不与 Wave 3 并行抢 Cursor 工程刀** |
 | **仍关** | `MIMIR_AUTO_EVOLVE=1` | 未授权 |
 
-**Mimir 当前粒**：**OBS-B1-03**（ISSUES #10 monitoring 收口）。  
-**Cursor 当前粒**：**OBS-B1-02** [x] 运维面板；B1 剩 **03**。
+**Mimir 当前粒**：**Horizon B1 [x]** — 执行队列已空；下一拍板 **Horizon A**（`P2-LONG-SEM` / 刘哥 2026-05-25）或 Phase 2 项。  
+**Cursor 当前粒**：待命 — 无 §15/§16 Active 工程粒。
 
 ### （新留言写在此下）
 
@@ -278,6 +278,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-26 | **IQ-EVO-14** | **Mimir** | rubric 复评 #2 4.1→**4.3**（#3 反馈+1.0 生产默认 · #7 上下文 7.5→8.0 触顶 · #10 闭环+0.5）；距 5.5 差 1.2；瓶颈 #1 学习能力 2.0 |
 | 2026-05-26 | **OBS-B1-01** | **Cursor** | ADR-007 ObservabilityBus **defer**；保留 `record_tool_call` 扇出；tier0 contract |
 | 2026-05-26 | **OBS-B1-02** | **Cursor** | `docs/ops/MIMIR_OPS_PANEL.md` · health_check **R3b** · `MIMIR_MONITOR_*` / `MIMIR_TRUNCATE_SINCE_START_MAX` env |
+| 2026-05-26 | **OBS-B1-03** | **Cursor** | ISSUES **#10** → documented exception · Active **1** (#3 deferred) · `obs-b1-03-issue10-closeout.md` |
 
 ---
 

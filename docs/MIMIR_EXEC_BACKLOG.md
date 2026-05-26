@@ -393,7 +393,7 @@ Read docs/MIMIR_EXEC_BACKLOG.md §11；P1-LONG-MEM 已结案。工程下一条�
 | **P1-LONG-EVO** | d5 余债 D5-1/3、真进化 | §6、Unified Plan | [ ] Phase 2 候选 |
 | **P2-LONG-SEM** | Memory **语义化**（chromadb + 检索策略） | Unified Plan Phase 2 | [x] **结案** 2026-05-19 · [`p2-long-sem-closeout.md`](./phase0/p2-long-sem-closeout.md) · GH **#32** |
 | **P2-LONG-IQEVO** | 智商/进化 Wave 1–3 | [`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) | Wave 1–3 **[x]**（§15 · IQ-EVO-14 = 4.3 documented exception） |
-| **Horizon B1** | **`P1-LONG-OBS`** · d6 可观测 | **§16** | **[~]** OBS-B1-01/02 [x] · **03** Active |
+| **Horizon B1** | **`P1-LONG-OBS`** · d6 可观测 | **§16** | **[x] 2026-05-26** OBS-B1-01～03 |
 
 **Semantic 检索**：**P2-LONG-SEM** 已结案（SEM-01～06）；生产默认仍 **LIKE/hybrid**；`semantic` / `semantic_hybrid` 见 ADR-006。
 
@@ -671,6 +671,6 @@ Read backlog §15 Wave 3。刘哥序：先 Wave 3 再 Horizon B1。
 |----|------|-------|----------|------|
 | **OBS-B1-01** | **D6-2** ObservabilityBus（可选）— 评估 + 最小接线或 ADR defer | Cursor | ADR 或 tier0 测；不破坏 `/health` | [x] 2026-05-26 · **ADR-007** defer；`test_horizon_obs_b1_01` |
 | **OBS-B1-02** | monitor/TRUNCATE/Gateway **运维面板化** — `mimir_health_check` + monitor 阈值文档化 | Mimir+Cursor | bridge §4 一行；周常可跑命令 | [x] 2026-05-26 · `docs/ops/MIMIR_OPS_PANEL.md` · R3b · monitor env |
-| **OBS-B1-03** | ISSUES **#10** monitoring 收口或降为 documented 例外 | Mimir | ISSUES 更新；Active≤3 | [ ] |
+| **OBS-B1-03** | ISSUES **#10** monitoring 收口或降为 documented 例外 | Mimir | ISSUES 更新；Active≤3 | [x] 2026-05-26 · [`obs-b1-03-issue10-closeout.md`](./phase0/obs-b1-03-issue10-closeout.md) · Active **1** |
 
 **禁止**：与 Wave 3 **并行**改 `agent|gateway|tools`（B1 开跑时 Wave 3 工程应已结案）。
