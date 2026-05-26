@@ -62,6 +62,8 @@ _MIMIR_CORE_TOOLS = [
     "text_to_speech",
     # Environment variable access
     "get_env",
+    # Allowlisted ops (health / eval / session_reset — §17 P1-LONG-AUTONOMY)
+    "mimir_ops",
 ]
 
 # ============================================================================
