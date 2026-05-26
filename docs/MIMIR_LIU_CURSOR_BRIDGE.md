@@ -335,6 +335,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-26 | **OBS-B1-03** | **Cursor** | ISSUES **#10** → documented exception · Active **1** (#3 deferred) · `obs-b1-03-issue10-closeout.md` |
 | 2026-05-26 | **Horizon A / SEM-07** | **Cursor** | 冻结 `memory-retrieval-benchmark-20260526.json` · IEVO-04 semantic 回归门 · ops §7 |
 | 2026-05-26 | **AUTO-01～06** | **Cursor** | §17 **P1-LONG-AUTONOMY** [x]：`mimir_ops` · session_reset pending · `last_context_usage.json` · tier0 **425+2** · closeout `p1-long-autonomy-closeout.md` |
+| 2026-05-26 | **§17 部署** | **Cursor** | push `db1e880`+`mimir_ops`→`mimir-feishu` · Gateway **PID 346104→** 硬重启 · `/health` ok · **待 Mimir 飞书验收** |
 
 ---
 
