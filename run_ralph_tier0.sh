@@ -152,6 +152,11 @@ python3 -m pytest -q \
   tests/contract/test_horizon_aut_autonomy.py \
   tests/contract/test_horizon_iqevo_wave4.py \
   tests/contract/test_horizon_iqevo_wave5.py \
+  tests/contract/test_horizon_iqevo_wave6.py \
+  tests/tools/test_wave6_evidence.py \
+  tests/tools/test_session_search_usage_baseline.py \
+  tests/tools/test_label_intent_offline.py \
+  tests/agent/test_analysis_artifact_guidance.py \
   tests/agent/test_feedback_collector.py \
   tests/agent/test_auto_tuner_wave5.py \
   tests/tools/test_chroma_incremental.py \

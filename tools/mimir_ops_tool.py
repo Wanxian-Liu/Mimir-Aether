@@ -215,6 +215,12 @@ def _action_context_usage() -> Dict[str, Any]:
     }
 
 
+def _action_session_search_baseline(*, days: int = 7) -> Dict[str, Any]:
+    from tools.session_search_usage_baseline import write_baseline_json
+
+    return write_baseline_json(days=max(1, int(days)))
+
+
 def _action_session_reset(*, session_key: str = "") -> Dict[str, Any]:
     from tools.approval import get_current_session_key
 
@@ -243,6 +249,7 @@ def mimir_ops(
     quick: bool = True,
     confirm: bool = False,
     session_key: str = "",
+    days: int = 7,
 ) -> str:
     """Dispatch allowlisted ops actions; returns JSON string."""
     action = (action or "").strip().lower()
@@ -255,13 +262,16 @@ def mimir_ops(
         result = _action_gateway_restart(confirm=confirm)
     elif action == "context_usage":
         result = _action_context_usage()
+    elif action == "session_search_baseline":
+        result = _action_session_search_baseline(days=int(days or 7))
     elif action == "session_reset":
         result = _action_session_reset(session_key=session_key)
     else:
         result = {
             "ok": False,
             "error": f"unknown action: {action}",
-            "allowed": sorted(_ALLOWLIST.keys()) + ["context_usage", "session_reset"],
+            "allowed": sorted(_ALLOWLIST.keys())
+            + ["context_usage", "session_reset", "session_search_baseline"],
         }
     return json.dumps(result, ensure_ascii=False, indent=2)
 
@@ -284,6 +294,7 @@ MIMIR_OPS_SCHEMA = {
                     "gateway_restart",
                     "context_usage",
                     "session_reset",
+                    "session_search_baseline",
                 ],
                 "description": "Operation to run.",
             },
@@ -301,6 +312,11 @@ MIMIR_OPS_SCHEMA = {
                 "type": "string",
                 "description": "Optional override for session_reset (default: current session).",
             },
+            "days": {
+                "type": "integer",
+                "description": "For session_search_baseline: lookback days (default 7).",
+                "default": 7,
+            },
         },
         "required": ["action"],
     },
@@ -317,6 +333,7 @@ registry.register(
         quick=bool(args.get("quick", True)),
         confirm=bool(args.get("confirm", False)),
         session_key=args.get("session_key", ""),
+        days=int(args.get("days", 7) or 7),
     ),
     emoji="🛠️",
     max_result_size_chars=50_000,

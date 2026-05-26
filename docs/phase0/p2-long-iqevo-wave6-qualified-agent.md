@@ -1,7 +1,7 @@
 # P2-LONG-IQEVO · Wave 6（合格智能体 · 行为 + rubric）
 
 **Date:** 2026-05-26  
-**Baseline:** Wave 5 结案后 · rubric **4.5/10**（距 **5.5** 差 1.0）  
+**Baseline:** Wave 5 结案后 · rubric **4.7/10**（距 **5.5** 差 0.8）  
 **真源：** [`MIMIR_IQ_EVOLUTION_DIRECTION.md`](../MIMIR_IQ_EVOLUTION_DIRECTION.md) §0.1、§1.5  
 **拍板：** 2026-05-26 — [`MIMIR_LIU_CURSOR_BRIDGE.md`](../MIMIR_LIU_CURSOR_BRIDGE.md) §1「Wave 6 合格智能体已立案」+ backlog §15 · IQ-EVO-27 **[x]**
 
@@ -37,7 +37,7 @@
 | ID | 任务 | Owner | 成功标准 |
 |----|------|-------|----------|
 | **IQ-EVO-27** | Wave 6 立案 + backlog 表 + bridge §1 一行拍板 | Cursor | 本文 + §15 表；刘哥可回复「开 Wave 6」 |
-| **IQ-EVO-28** | 方向文档 **§1.1→4.5** + **§1.5 合格检查表** | Cursor | `MIMIR_IQ_EVOLUTION_DIRECTION.md` 与 rubric 一致 |
+| **IQ-EVO-28** | 方向文档 **§1.1→4.7** + **§1.5 合格检查表** | Cursor | `MIMIR_IQ_EVOLUTION_DIRECTION.md` 与 rubric 一致 |
 
 ### B · 反「传话筒」行为证据
 

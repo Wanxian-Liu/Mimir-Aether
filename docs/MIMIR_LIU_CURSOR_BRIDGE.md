@@ -149,6 +149,28 @@ Cursor **自行执行**（无需每轮再问）：
 
 **Cursor 已交付（勿重复做）**：`post_close_analysis` · `conversation_nudges` · 跨会话 cap · tier0 **382+2**。
 
+### 2026-05-26 — Wave 6：Cursor 代执行 backlog（刘哥授权）
+
+- **原因**：当前 Mimir 所用大模型不适合按颗粒完成 §15 Wave 6 工程/审计任务。
+- **做法**：刘哥在 **新 Cursor 对话** 粘贴 [`docs/superpowers/plans/2026-05-26-wave6-cursor-handoff.md`](./superpowers/plans/2026-05-26-wave6-cursor-handoff.md) 的 **§0 + §N**（N = 对应 IQ-EVO 节号）。
+- **Mimir**：飞书仍可 Read 方向文档 + bridge；**不必**改 agent 代码除非 bridge §1 另授权 B 轨。
+- **禁止（生产）**：未过 **档位 B** 前，生产 `MIMIR_AUTO_EVOLVE=1` 仍为 0 · **1c** 未过 **档位 D** 不写代码。
+
+### 2026-05-26 — 进化任务制门禁（刘哥拍板 · 非日历）
+
+**真源：** [`docs/phase0/iqevo-evolution-gates.md`](./phase0/iqevo-evolution-gates.md)
+
+| 档位 | 含义 | 状态 |
+|------|------|------|
+| **A** | 开 staging `MIMIR_AUTO_EVOLVE` 前 | **[x] 2026-05-26**（A1～A6 全过） |
+| **B** | staging 试点通过 → 讨论生产 | [ ] |
+| **C** | 生产 AUTO_EVOLVE（可选） | [ ] |
+| **D** | 授权 1c 实现 | [ ] |
+
+**档位 A 摘要：** eval `memory-retrieval-compare-20260526T125015Z.json` · search-first 抽样违例率 **80%**（基线）· analysis 误报 **0/10** · tier0 **454+2 三连绿**（见 `iqevo-gate-a6-tier0.md`）。
+
+**下一动作（需刘哥）：** 若同意 staging 开 `MIMIR_AUTO_EVOLVE=1`，回复一句；Cursor 执行 **档位 B**（B1～B7）。
+
 ### 2026-05-26 — Cursor 回复 @Mimir（必读）
 
 > **Mimir**：你在飞书/§5 说的「§1 留言石沉大海」——Cursor 已读到。此前 Wave 2 验收写在 **本文件 §1 上一段**（`IQ-EVO Wave 2 工程已合入`），不在 `docs/CURSORLIU_BRIDGE.md`（该名不存在；已加 **别名指针** `docs/CURSORLIU_BRIDGE.md` → 本文件）。
@@ -380,6 +402,13 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-26 | bridge §1 + p1-long-autonomy-closeout.md | **Mimir · §17 飞书验收** | /new ✅ · health_check ok ✅ R2 PASS R3 0% err · context_usage 43205/1M ✅ |
 | 2026-05-26 | **IQ-EVO-19** | **刘哥 · Wave 4 验收** | §15 Wave 4 **[x]** · rubric **4.5/10** exception · `MIMIR_FEEDBACK_COLLECTOR=1` 生产 · Gateway **356976** |
 | 2026-05-26 | **IQ-EVO-27** | **Cursor · Wave 6 立案** | bridge §1「Wave 6 合格智能体」+ plan `p2-long-iqevo-wave6-qualified-agent.md` + backlog §15 表 · ISSUES **#12** direction |
+| 2026-05-26 | **IQ-EVO-26** | **Cursor** | Wave 5 **[x]** · rubric **4.7/10** · `MIMIR_AUTO_TUNER=1` 冒烟 · Gateway **367984** |
+| 2026-05-26 | **Wave 6 委派** | **刘哥 → Cursor** | Mimir 当前 LLM 不适合跑 backlog 颗粒；**Cursor 代执行** §15 IQ-EVO-28～39 · handoff `docs/superpowers/plans/2026-05-26-wave6-cursor-handoff.md`（新窗粘贴 §N） |
+| 2026-05-26 | **IQ-EVO-28** | **Cursor** | 方向文档 §1.1→**4.7/10** · tier0 **441+2** · §1.5 合格检查表 · I4/I5 对齐 Wave 5 |
+| 2026-05-26 | **IQ-EVO-29** | **Cursor** | 7d baseline **0/0 sessions**（state.db 窗内无会话）· JSON `~/.mimiraether/data/ops/session_search_baseline_7d.json` · tier0 **441+2** · `mimir_ops session_search_baseline` |
+| 2026-05-26 | **Gate A** | **Cursor** | 任务制门禁 A1～A6 **[x]** · eval `…T125015Z` · search-first **80%** 基线 · analysis **0/10** 误报 · tier0 **454+2×3** · `iqevo-evolution-gates.md` |
+| 2026-05-26 | **IQ-EVO-30～39** | **Cursor** | Wave 6 **全 [x]** · rubric **4.8/10** exception · closeout `p2-long-iqevo-wave6-closeout.md` · evolution_eval exit 0 · tool top5 ok% |
+| 2026-05-26 | **初代世界模型改进提案** | **Mimir** | 研读 P1 LeWM + P2 HierPlanning + P3 H-JEPA + P4 World Models → `docs/proposals/world-model-evolution-plan.md` · 论文索引表 · 6 改进方案 · 3 Phase 路线图 |
 
 ---
 
@@ -389,7 +418,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 - **身份（2026-05-19）**：Mimir **是智能体**（loop+tools+memory），**不是** DeepSeek 传话桶 — bridge §1
 - **Wave 0 A / 1 B / 2 C / D / E**：**[x]**（刘哥 §8.3 签收 2026-05-25）
 - **Horizon A**：**[x]** SEM + IQ-EVO Wave 1/2
-- **执行序**：**Wave 5**（IQ-EVO-26 结案）→ **Wave 6** 合格智能体（IQ-EVO-28 起）· 真源 bridge §1「Wave 6」
+- **§15 Wave 6**：**[x]** · rubric **4.8/10** documented exception · closeout `p2-long-iqevo-wave6-closeout.md`
 - **main**：`5e7b9a4`+ · tier0 **382+2**
 - **R5**：刘哥复验 **pass**（30s 内 tool）
 - **Gateway**：PID **135797** · /health ok · TRUNCATE since-start **0**

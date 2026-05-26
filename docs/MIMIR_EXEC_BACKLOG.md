@@ -1,8 +1,8 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-05-26（**§15 Wave 5 [x]** · **Wave 6** IQ-EVO-28 起）  
-> **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5；Mimir 飞书每轮 Read **方向真源** + bridge + 本表  
-> **规则**：**Mimir** → **§15 Wave 6** 第一条 `[ ]`；**Cursor** → **IQ-EVO-28**。§11 / §2 / Phase 0 **只读**。  
+> **最近更新**：2026-05-26（**Gate A [x]** · 进化任务制 `iqevo-evolution-gates.md` · Wave 6 表全 [x]）  
+> **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5  
+> **规则**：**刘哥** — 新 Cursor 窗粘贴 handoff 对应 §N；**Cursor** — backlog §15 第一条 `[ ]` 至 Wave 6 结案。Mimir 飞书只读回报。§11 / §2 / Phase 0 **只读**。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
 > **勿提交**：`data/persistent.json`（runtime 镜像）。
 
@@ -328,7 +328,7 @@ Mimir 冒烟回报
 - **§2 工程队列**：只读，勿再取「E-004 / T-02 / 181+2」。
 - **Phase 0**：**14/14** [x]（2026-05-24）— 真源 [`MIMIR_PHASE0_QUEUE.md`](./MIMIR_PHASE0_QUEUE.md)。
 - **智商/进化方向真源**：[`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) · Mimir 队列 **§15** · ISSUES **#12**（锚点，非 P0）。
-- **当前执行源**：**§15 Wave 6** — 第一条 **IQ-EVO-28**（合格智能体）。Wave 5 **[x]**（4.7/10 exception）。
+- **当前执行源**：**§15 Wave 6** — 第一条 **`[ ]`**（见 handoff 页）。Wave 5 **[x]**（4.7/10）。
 - **勿**：提交 `data/persistent.json`；重做 E-001～E-012。
 
 ### 9.1 未完成项盘点（2026-05-25）
@@ -736,26 +736,28 @@ Read backlog §15 Wave 5。IQ-EVO-21～25；tier0 + evolution_log。
 | ID | 任务 | Owner | 成功标准 | 状态 |
 |----|------|-------|----------|------|
 | **IQ-EVO-27** | Wave 6 **立案** + plan + bridge 拍板行 | Cursor | 本文 + 本表 | [x] 2026-05-26 |
-| **IQ-EVO-28** | 方向文档 §1.1=4.5 + **§1.5 合格检查表** | Cursor | `MIMIR_IQ_EVOLUTION_DIRECTION.md` | [ ] |
-| **IQ-EVO-29** | **session_search** 7d 使用率基线 | Cursor | 脚本/`mimir_ops` + 输出路径 | [ ] |
-| **IQ-EVO-30** | 飞书 **3 场景**冒烟（历史/偏好/决策） | Mimir+刘哥 | 每场景 log 或 fail 记 ISSUES | [ ] |
-| **IQ-EVO-31** | search-first **违例审计**（抽样 10） | Mimir | 违例率 % 表 | [ ] |
-| **IQ-EVO-32** | **离线 intent 标签** MVP（无生产 Predictor） | Cursor | Q03 路径 + tier0 若触达 | [ ] |
-| **IQ-EVO-33** | memory/skill **nudge** 7d 触发计数 | Mimir | bridge §4 一行 | [ ] |
-| **IQ-EVO-34** | **JEPA** `no_candidates` 7d 占比 | Mimir | 较 Wave 4 升/平/降 | [ ] |
-| **IQ-EVO-35** | artifact 摘要 → **prompt 只读**段 | Cursor | AUTO_ANALYSIS=1 可见；tier0 | [ ] |
-| **IQ-EVO-36** | **tool_quality** top5 ok% 周常 | Mimir | bridge 模板 + DB 命令 | [ ] |
-| **IQ-EVO-37** | **`run_evolution_eval`** 周常手册 + 一次真跑 | Cursor | exit 0 + JSON 路径 | [ ] |
-| **IQ-EVO-38** | rubric **复评 #5** + closeout + **#12** 关/续 | Mimir+刘哥 | ≥5.5 或 documented exception | [ ] |
-| **IQ-EVO-39** | **ADR-002 写入 Spike**（可选） | Cursor | 一页设计对比；不改三入口代码 | [ ] |
+| **IQ-EVO-28** | 方向文档 §1.1=**4.7** + **§1.5 合格检查表** | Cursor | `MIMIR_IQ_EVOLUTION_DIRECTION.md` | [x] 2026-05-26 |
+| **IQ-EVO-29** | **session_search** 7d 使用率基线 | Cursor | `data/ops/session_search_baseline_7d.json` | [x] 2026-05-26 |
+| **IQ-EVO-30** | 飞书 **3 场景**冒烟（历史/偏好/决策） | Cursor | 每场景 log 或 documented fail | [x] 2026-05-26 · Gate A4 `iqevo-30-feishu-smoke-evidence.md` |
+| **IQ-EVO-31** | search-first **违例审计**（抽样 10） | Cursor | 违例率 % 表 | [x] 2026-05-26 · Gate A3 违例率 **80%** 基线 |
+| **IQ-EVO-32** | **离线 intent 标签** MVP（无生产 Predictor） | Cursor | Q03 路径 + tier0 若触达 | [x] 2026-05-26 · `label_intent_offline.py` |
+| **IQ-EVO-33** | memory/skill **nudge** 7d 触发计数 | Cursor | bridge §4 一行 | [x] 2026-05-26 · `iqevo-33-nudge-7d.md` |
+| **IQ-EVO-34** | **JEPA** `no_candidates` 7d 占比 | Cursor | 较 Wave 4 升/平/降 | [x] 2026-05-26 · `iqevo-34-jepa-candidate-rate.md` |
+| **IQ-EVO-35** | artifact 摘要 → **prompt 只读**段 | Cursor | AUTO_ANALYSIS=1 可见；tier0 | [x] 2026-05-26 · `build_analysis_artifact_guidance` |
+| **IQ-EVO-36** | **tool_quality** top5 ok% 周常 | Cursor | bridge 模板 + DB 命令 | [x] 2026-05-26 · `tool-quality-weekly.md` |
+| **IQ-EVO-37** | **`run_evolution_eval`** 周常手册 + 一次真跑 | Cursor | exit 0 + JSON 路径 | [x] 2026-05-26 · compare `20260526T122238Z` |
+| **IQ-EVO-38** | rubric **复评 #5** + closeout + **#12** 关/续 | Cursor | ≥5.5 或 documented exception | [x] 2026-05-26 · **4.8/10** exception |
+| **IQ-EVO-39** | **ADR-002 写入 Spike**（可选） | Cursor | 一页设计对比；不改三入口代码 | [x] 2026-05-26 · `adr-002-write-spike.md` |
 
-**§15 Wave 6 状态**：IQ-EVO-27 **[x]** · **下一粒 IQ-EVO-28**（Cursor 方向文档 + 合格检查表）。
+**§15 Wave 6 状态**：IQ-EVO-27～39 **全 [x]** · 结案 [`p2-long-iqevo-wave6-closeout.md`](./phase0/p2-long-iqevo-wave6-closeout.md) · rubric **4.8/10** documented exception。
 
-**Mimir 新窗一句（Wave 6）**
+**进化门禁（与 Wave 6 并行真源）：** [`iqevo-evolution-gates.md`](./phase0/iqevo-evolution-gates.md) — **档位 A [x]** · 下一档 **B**（staging `MIMIR_AUTO_EVOLVE` 试点，需刘哥确认）。
+
+**刘哥 / Cursor 新窗**
 
 ```text
-Read docs/phase0/p2-long-iqevo-wave6-qualified-agent.md + backlog §15 Wave 6 第一条 [ ]。
-回报 §3.3；勿开 AUTO_EVOLVE。
+Read docs/phase0/iqevo-evolution-gates.md（档位 B 第一条 [ ]）。
+staging 开 AUTO_EVOLVE 须刘哥确认；生产仍 0。
 ```
 
 ---

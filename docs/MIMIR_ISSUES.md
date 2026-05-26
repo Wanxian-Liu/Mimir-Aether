@@ -11,7 +11,6 @@
 | # | 日期 | 来源 | 描述 | 严重度 | 状态 | Backlog |
 |---|------|------|------|--------|------|---------|
 | 3 | 2026-05-16 | CLARIFY_BASELINE §4 | 记忆落盘三条入口未统一（mimicore public/、skill_curator、llm-wiki/obsidian）— 设计债，见 ADR | 中 | deferred | [adr/002-memory-write-paths.md](./adr/002-memory-write-paths.md) |
-| 12 | 2026-05-26 | 刘哥 IQ/合格智能体 | **方向锚点**：智商+进化+「非传话筒」— **非 P0**；执行见 §15 **Wave 6** IQ-EVO-28 起第一条 `[ ]` | 低 | direction | [§15 Wave 6](./MIMIR_EXEC_BACKLOG.md) · [wave6 plan](./phase0/p2-long-iqevo-wave6-qualified-agent.md) |
 
 ---
 
@@ -28,5 +27,5 @@
 | 9 | 2026-05-20 | T-10 (d6) | 可观测 TOOL_CALL SQL + monitor + `/health`；NameError **E-010** | 中 | resolved | **E-006** / **E-010** / **E-011b** |
 | 11 | 2026-05-21 | EV-L13 | RED Duration P50/P95/P99 缺失 | 低 | resolved | **E-011b** |
 | 10 | 2026-05-20 | T-08 (d4) | TRUNCATE：STAB-04 已修；**since-start** 运维 KPI → **documented exception**（非 Active） | 中 | documented exception | **OBS-B1-03** · [`obs-b1-03-issue10-closeout.md`](./phase0/obs-b1-03-issue10-closeout.md) |
-| 12 | 2026-05-25 | 刘哥 | **智商/进化 Wave 1 [x]** — rubric **3.9** + eval 周常 | — | resolved | [`p2-long-iqevo-closeout.md`](./phase0/p2-long-iqevo-closeout.md) |
+| 12 | 2026-05-26 | IQ-EVO-38 | **智商/进化方向** — Wave 6 全 **[x]** · rubric **4.8/10**（documented exception，距 5.5 差 0.7） | 低 | resolved | [`p2-long-iqevo-wave6-closeout.md`](./phase0/p2-long-iqevo-wave6-closeout.md) |
 | 2 | 2026-05-16 | CLARIFY_BASELINE §5 | 并行树 `~/.openclaw/projects/MimirAether` — **工程真源** `~/src/MimirAether` | 中 | resolved (process) | CLEARANCE-DONE 2026-05-25 |

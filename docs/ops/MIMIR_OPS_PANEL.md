@@ -15,7 +15,16 @@ cd ~/src/MimirAether
 ./scripts/mimir_health_check.sh --quick
 ./scripts/list_analysis_artifacts.sh --days 7
 MIMIR_AETHER_HOME="$MIMIR_AETHER_HOME" ./scripts/run_evolution_eval.sh
+python3 scripts/session_search_usage_baseline.py
 ```
+
+**session_search 7d 基线（IQ-EVO-29）：** 输出 `$MIMIR_AETHER_HOME/data/ops/session_search_baseline_7d.json`；或 `mimir_ops` action `session_search_baseline`.
+
+**Wave 6 证据收集（IQ-EVO-30～34）：** `python3 scripts/wave6_collect_evidence.py` → `data/ops/*.json` + `docs/phase0/iqevo-30`～`34` md。
+
+**tool_quality 周常（IQ-EVO-36）：** `./scripts/tool_quality_weekly.sh` · 见 [`tool-quality-weekly.md`](./tool-quality-weekly.md).
+
+**evolution_eval 周常（IQ-EVO-37）：** 见 [`evolution-eval-weekly.md`](./evolution-eval-weekly.md).
 
 **Pass:** `--quick` → **READY** (R2–R4 PASS, R3b monitor PASS); eval script exit 0.
 

@@ -1,0 +1,70 @@
+{
+  "ok": true,
+  "sessions_dir": "/home/rayliu/.mimiraether/data/sessions",
+  "recall_candidates_total": 317,
+  "sample_size": 10,
+  "violations": 8,
+  "violation_rate": 0.8,
+  "rows": [
+    {
+      "session_file": "20260526_185834_2165a33b.jsonl",
+      "user_snippet": "我们之前聊的没有记忆了对吧",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn"
+    },
+    {
+      "session_file": "20260526_185834_2165a33b.jsonl",
+      "user_snippet": "你找一找昨天我们做的一些工作，跟世界模型有关的，特别是有了两篇新的论文作为支撑，你看看你能找到吗？跟世界模型有关的论文",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn"
+    },
+    {
+      "session_file": "20260526_185834_2165a33b.jsonl",
+      "user_snippet": "是的，就是这些。我们发展的方向是非像素类的，能在CPU里进行运行的初代世界模型。我想慢慢去完善这个，但是我的阅读理解能力是不够的。这几个论文，你能从中得到什么启发和对现有的我们自研的世界模型有什么想法？",
+      "search_first_ok": true,
+      "evidence": "tool session_search in turn"
+    },
+    {
+      "session_file": "20260526_171857_b84a2d2e.jsonl",
+      "user_snippet": "我们之前聊的没有记忆了对吧",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn"
+    },
+    {
+      "session_file": "20260526_100850_2ac778be.jsonl",
+      "user_snippet": "继续把你之前准备入库的都入库，然后回头检查一遍是否入库",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn"
+    },
+    {
+      "session_file": "20260526_100850_2ac778be.jsonl",
+      "user_snippet": "上次是多久前",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn"
+    },
+    {
+      "session_file": "20260526_100850_2ac778be.jsonl",
+      "user_snippet": "这之前我想问一下你的wiki 能解决这件事么",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn"
+    },
+    {
+      "session_file": "20260526_100850_2ac778be.jsonl",
+      "user_snippet": "我和你感觉差不多，你查一下根因，不去改动，查一下，看看严重不",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn"
+    },
+    {
+      "session_file": "20260526_100850_2ac778be.jsonl",
+      "user_snippet": "查历史，和世界模型相关的论文",
+      "search_first_ok": true,
+      "evidence": "assistant cites session_search results"
+    },
+    {
+      "session_file": "20260526_100850_2ac778be.jsonl",
+      "user_snippet": "Backlog里边有没有什么你还可以继续做的？没有的话，我们可以适当做一些科研话题，往下去研究世界模型和物理学方面的相关信息。做一些培养",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn"
+    }
+  ]
+}
