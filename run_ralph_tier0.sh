@@ -146,6 +146,7 @@ python3 -m pytest -q \
   tests/contract/test_horizon_iqevo_wave2.py \
   tests/contract/test_horizon_iqevo_wave3.py \
   tests/contract/test_horizon_obs_b1_01.py \
+  tests/contract/test_horizon_obs_b1_02.py \
   tests/tools/test_chroma_incremental.py \
   tests/agent/test_post_close_analysis.py \
   tests/agent/test_conversation_nudges.py \

@@ -31,7 +31,8 @@ MIMIR_HOME="${MIMIR_AETHER_HOME:-$HOME/.mimiraether}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 AGENT_LOG="${MIMIR_HOME}/logs/agent.log"
 TRUNCATE_BASELINE=19  # legacy full-log snapshot (2026-05-20); R4 uses since-gateway-start
-TRUNCATE_SINCE_START_MAX=10  # Level 3 TRUNCATE since last "Gateway running" line
+TRUNCATE_SINCE_START_MAX="${MIMIR_TRUNCATE_SINCE_START_MAX:-10}"  # Level 3 TRUNCATE since last "Gateway running" line
+MONITOR_ERROR_RATE_MAX="${MIMIR_MONITOR_ERROR_RATE_THRESHOLD:-0.10}"
 
 # --- 辅助函数 ---
 now() { date '+%Y-%m-%dT%H:%M:%S'; }
@@ -96,6 +97,34 @@ check_r3() {
     [ "$attempt" -lt 3 ] && sleep 2
   done
   log_result "R3" "FAIL" "health endpoint unreachable or no status field — got: ${health:-timeout/empty}"
+}
+
+# --- R3b: Monitor fields on /health (OBS-B1-02) ---
+check_r3b() {
+  local health_port="${MIMIR_PORT:-18999}"
+  local health detail rc
+  health=$(curl -s --max-time 5 "http://127.0.0.1:${health_port}/health" 2>/dev/null || true)
+  if ! echo "$health" | grep -q '"status"' 2>/dev/null; then
+    log_result "R3b" "WARN" "skipped — health unavailable"
+    return
+  fi
+  detail=$(printf '%s' "$health" | MIMIR_MONITOR_ERROR_RATE_THRESHOLD="$MONITOR_ERROR_RATE_MAX" python3 -c '
+import json, os, sys
+h = json.load(sys.stdin)
+rate = float(h.get("agent_error_rate") or 0)
+thresh = float(os.environ.get("MIMIR_MONITOR_ERROR_RATE_THRESHOLD", "0.10"))
+agent = h.get("agent", "ok")
+p95 = h.get("agent_tool_p95_ms", 0)
+if agent == "degraded" or rate > thresh:
+    print(f"agent={agent} rate={rate:.4f} max={thresh} p95_ms={p95}")
+    sys.exit(1)
+print(f"agent={agent} rate={rate:.4f} max={thresh} p95_ms={p95}")
+' 2>/dev/null) && rc=0 || rc=$?
+  if [ "$rc" -eq 0 ]; then
+    log_result "R3b" "PASS" "$detail"
+  else
+    log_result "R3b" "FAIL" "${detail:-monitor check failed}"
+  fi
 }
 
 # --- R4: TRUNCATE 基线（since last gateway start） ---
@@ -215,12 +244,14 @@ if $QUICK_MODE; then
   log_result "R1" "WARN" "skipped in --quick (run full check for tier0)"
   check_r2
   check_r3
+  check_r3b
   check_r4
   check_r5
 else
   check_r1
   check_r2
   check_r3
+  check_r3b
   check_r4
   check_r5
   check_r6

@@ -126,3 +126,4 @@ tail -3 ~/.mimiraether/logs/agent.log
 | [`mimir_prod_smoke.md`](./mimir_prod_smoke.md) | 真环境 smoke 清单 |
 | [`GATEWAY_SYSTEMD_ENV.md`](./GATEWAY_SYSTEMD_ENV.md) | systemd / `.env` 迁移注意事项 |
 | [`SECURITY.md`](./SECURITY.md) | 自托管安全总览（与运维清单互补） |
+| [`ops/MIMIR_OPS_PANEL.md`](./ops/MIMIR_OPS_PANEL.md) | **运维面板** — health_check R1–R10、monitor 阈值、TRUNCATE KPI、周常命令（B1-02） |

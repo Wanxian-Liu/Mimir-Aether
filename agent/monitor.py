@@ -14,6 +14,32 @@ DEFAULT_ERROR_RATE_THRESHOLD = 0.10
 CHECK_EVERY_N_CALLS = 10
 WINDOW_SECONDS = 300.0
 
+
+def get_monitor_error_rate_threshold() -> float:
+    """Tool error-rate cap for degraded status (OBS-B1-02 · override via env)."""
+    raw = os.environ.get("MIMIR_MONITOR_ERROR_RATE_THRESHOLD", "").strip()
+    if raw:
+        try:
+            value = float(raw)
+            if 0.0 < value <= 1.0:
+                return value
+        except ValueError:
+            pass
+    return DEFAULT_ERROR_RATE_THRESHOLD
+
+
+def get_monitor_window_seconds() -> float:
+    """Sliding window for error rate and latency percentiles (seconds)."""
+    raw = os.environ.get("MIMIR_MONITOR_WINDOW_SECONDS", "").strip()
+    if raw:
+        try:
+            value = float(raw)
+            if value > 0:
+                return value
+        except ValueError:
+            pass
+    return WINDOW_SECONDS
+
 _lock = threading.RLock()
 _recent: Deque[Dict[str, Any]] = deque(maxlen=1000)
 _total_calls = 0
@@ -56,7 +82,11 @@ def record_tool_outcome(
             _maybe_write_alert_locked()
 
 
-def get_agent_error_rate(window_seconds: float = WINDOW_SECONDS) -> float:
+def get_agent_error_rate(
+    window_seconds: Optional[float] = None,
+) -> float:
+    if window_seconds is None:
+        window_seconds = get_monitor_window_seconds()
     """Error rate in [0, 1] over the sliding window."""
     cutoff = time.time() - window_seconds
     with _lock:
@@ -67,7 +97,11 @@ def get_agent_error_rate(window_seconds: float = WINDOW_SECONDS) -> float:
     return errors / len(window)
 
 
-def get_agent_health_status(threshold: float = DEFAULT_ERROR_RATE_THRESHOLD) -> str:
+def get_agent_health_status(
+    threshold: Optional[float] = None,
+) -> str:
+    if threshold is None:
+        threshold = get_monitor_error_rate_threshold()
     rate = get_agent_error_rate()
     if rate > threshold:
         return "degraded"
@@ -83,7 +117,11 @@ def _percentile(values: List[float], pct: float) -> float:
     return ordered[idx]
 
 
-def get_tool_duration_percentiles(window_seconds: float = WINDOW_SECONDS) -> Dict[str, float]:
+def get_tool_duration_percentiles(
+    window_seconds: Optional[float] = None,
+) -> Dict[str, float]:
+    if window_seconds is None:
+        window_seconds = get_monitor_window_seconds()
     """P50/P95/P99 tool call latency (ms) over the sliding window."""
     cutoff = time.time() - window_seconds
     with _lock:
@@ -113,13 +151,14 @@ def snapshot_for_health() -> Dict[str, Any]:
 
 def _maybe_write_alert_locked() -> None:
     rate = get_agent_error_rate()
-    if rate <= DEFAULT_ERROR_RATE_THRESHOLD:
+    threshold = get_monitor_error_rate_threshold()
+    if rate <= threshold:
         return
     recent_errors = [e for e in list(_recent)[-20:] if not e["success"]]
     payload = {
         "timestamp": time.time(),
         "agent_error_rate": round(rate, 4),
-        "threshold": DEFAULT_ERROR_RATE_THRESHOLD,
+        "threshold": threshold,
         "recent_errors": recent_errors,
     }
     path = _alerts_file()
