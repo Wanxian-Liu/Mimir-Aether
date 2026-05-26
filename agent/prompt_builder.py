@@ -110,9 +110,14 @@ MEMORY_GUIDANCE = (
 )
 
 SESSION_SEARCH_GUIDANCE = (
-    "When the user references something from a past conversation or you suspect "
-    "relevant cross-session context exists, use session_search to recall it before "
-    "asking them to repeat themselves."
+    "# Cross-session recall (search-first)\n"
+    "When the user references a past conversation, prior task, earlier decision, "
+    "or anything that may live in another session transcript, you MUST call "
+    "session_search before answering or asking them to repeat. "
+    "Do not guess from memory alone for historical work — search first, then answer.\n"
+    "Also call session_search when you are unsure whether related context exists "
+    "from a prior thread. Use compact queries (keywords, paths, issue IDs); "
+    "refine the query if the first search returns too few or too many hits."
 )
 
 SKILLS_GUIDANCE = (

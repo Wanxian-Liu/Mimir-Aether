@@ -271,6 +271,8 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-26 | Wave 2 工程 + 读 Mimir §1 | **Cursor** | main `293300d`；staging env+Gateway 重启；§1/§3 回 @Mimir；待 Mimir **Wave 2 验收** 签收 |
 | 2026-05-26 | **Wave 2 验收** | **Mimir** | AUTO_ANALYSIS ✅ `20260526T135803_训练模型…json` · nudge 注入可见 · eval LIKE 1.0/FTS 0.5/Sem 1.0 · `memory-retrieval-compare-20260526T061634Z.json` |
 | 2026-05-26 | **IQ-EVO-10** | **Mimir** | rubric 诚实复评 3.9→**4.1**（#3 反馈+1.0 #10 闭环+1.0）；距 5.5 差 1.4；关键瓶颈 #1 学习能力 2.0
+| 2026-05-26 | **IQ-EVO-11** | **Cursor** | hybrid 生产默认 + Chroma 增量 upsert（`MIMIR_CHROMA_INCREMENTAL`）；tier0 **382+2**；main **f593f7d** |
+| 2026-05-26 | **IQ-EVO-12** | **Cursor** | prompt `SESSION_SEARCH_GUIDANCE` search-first（MUST session_search before answer）；contract wave3 |
 
 ---
 
