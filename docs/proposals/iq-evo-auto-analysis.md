@@ -2,7 +2,8 @@
 
 > **提案轨 A** — Mimir 分析 + 建议，刘哥拍板，Cursor 工程实现  
 > **父任务**：§15 IQ-EVO-03  
-> **日期**：2026-05-25
+> **日期**：2026-05-25  
+> **实现**：IQ-EVO-07 接线 · **IQ-EVO-13** 生产 rollout → [`docs/ops/MIMIR_AUTO_ANALYSIS_ROLLOUT.md`](../ops/MIMIR_AUTO_ANALYSIS_ROLLOUT.md)
 
 ---
 

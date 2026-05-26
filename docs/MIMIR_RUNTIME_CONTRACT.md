@@ -45,6 +45,15 @@ python3 -c "import importlib; import mimir_constants, gateway.sticker_cache as s
 
 （须在同一会话中已 `export MIMIR_AETHER_HOME` / `HERMES_HOME`。）最后一条在 reload 后确认 `gateway.sticker_cache.CACHE_PATH` 落在 `$MIMIR_AETHER_HOME/data/` 下。
 
+## 进化 / 分析（opt-in · IQ-EVO）
+
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| **`MIMIR_AUTO_ANALYSIS`** | off | `1`/`true`/`yes` → 会话结束后台 LLM 分析（仅当有 pipeline errors 或 degraded tools）。产物：`$MIMIR_AETHER_HOME/data/analysis_artifacts/*.json`。生产开启见 [`ops/MIMIR_AUTO_ANALYSIS_ROLLOUT.md`](./ops/MIMIR_AUTO_ANALYSIS_ROLLOUT.md)。 |
+| **`MIMIR_AUTO_EVOLVE`** | off | **勿与 IQ-EVO-13 同时开。** `1` 时可能自动把 suggestion 写入 SKILL；见 [`OPERATIONS_GATEWAY.md`](./OPERATIONS_GATEWAY.md) STAB-05。 |
+
+巡检脚本（近 7 日 artifact）：`./scripts/list_analysis_artifacts.sh --days 7`（在仓库根执行，读取 `MIMIR_AETHER_HOME`）。
+
 ## 配置与密钥
 
 - **主配置**：`$MIMIR_AETHER_HOME/config.yaml`

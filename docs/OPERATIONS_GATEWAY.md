@@ -101,8 +101,9 @@ tail -3 ~/.mimiraether/logs/agent.log
 | **飞书 WebSocket** | 入站消息 **非阻塞** dispatch 到 gateway 主 loop（不在 lark WS worker 上 `fut.result(timeout=300)`），避免长跑推理阻塞 ping/pong。 |
 | **Event loop（STAB-02）** | Gateway agent 回合用 **`run_async`**（持久 loop），不用每轮 `asyncio.run()`；启动时 `neuter_async_httpx_del()`，停止时 `shutdown_cached_clients()`。 |
 | **自修回滚（STAB-05）** | `MIMIR_AUTO_EVOLVE` / pipeline FIX 写 SKILL.md 后跑 **skills_guard**；失败则原位回滚，备份在 **`$MIMIR_AETHER_HOME/data/evolution_backups/`**。 |
+| **事后分析（IQ-EVO-13）** | **`MIMIR_AUTO_ANALYSIS=1`** → 后台 `post_close_analysis`；产物 **`$MIMIR_AETHER_HOME/data/analysis_artifacts/`**。**生产开启**见 [`ops/MIMIR_AUTO_ANALYSIS_ROLLOUT.md`](./ops/MIMIR_AUTO_ANALYSIS_ROLLOUT.md)；**勿**顺带开 `MIMIR_AUTO_EVOLVE`。巡检：`./scripts/list_analysis_artifacts.sh --days 7`。 |
 
-**7 日观察**：`grep -i timeout $MIMIR_AETHER_HOME/logs/watchdog.log`；长跑推理时确认飞书 WS 未断。若仍有 watchdog 重启，记录当时 `/health` 与 gateway 负载后开 ISSUE。
+**7 日观察**：`grep -i timeout $MIMIR_AETHER_HOME/logs/watchdog.log`；长跑推理时确认飞书 WS 未断。若仍有 watchdog 重启，记录当时 `/health` 与 gateway 负载后开 ISSUE。开启 AUTO_ANALYSIS 后另做 **7 日 artifact 抽查**（见 rollout 文档 §4）。
 
 ---
 

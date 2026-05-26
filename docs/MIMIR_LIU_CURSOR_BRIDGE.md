@@ -171,7 +171,7 @@ Cursor **自行执行**（无需每轮再问）：
 | **仍关** | `MIMIR_AUTO_EVOLVE=1` | 未授权 |
 
 **Mimir 当前粒**：**IQ-EVO-14**（Wave 3 末 rubric；待 11～13 工程绿）。  
-**Cursor 当前粒**：**IQ-EVO-11**（hybrid 生产默认 + Chroma 增量）→ 12 → 13。
+**Cursor 当前粒**：Wave 3 **11～13** [x]；下一粒 **IQ-EVO-14**（Mimir rubric 复评 #2）→ 再开 **Horizon B1** §16。
 
 ### （新留言写在此下）
 
@@ -273,6 +273,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-26 | **IQ-EVO-10** | **Mimir** | rubric 诚实复评 3.9→**4.1**（#3 反馈+1.0 #10 闭环+1.0）；距 5.5 差 1.4；关键瓶颈 #1 学习能力 2.0
 | 2026-05-26 | **IQ-EVO-11** | **Cursor** | hybrid 生产默认 + Chroma 增量 upsert（`MIMIR_CHROMA_INCREMENTAL`）；tier0 **382+2**；main **f593f7d** |
 | 2026-05-26 | **IQ-EVO-12** | **Cursor** | prompt `SESSION_SEARCH_GUIDANCE` search-first（MUST session_search before answer）；contract wave3 |
+| 2026-05-26 | **IQ-EVO-13** | **Cursor** | 生产 AUTO_ANALYSIS rollout 门闩：`docs/ops/MIMIR_AUTO_ANALYSIS_ROLLOUT.md` · runtime/path-contract · **勿开** AUTO_EVOLVE；7d `list_analysis_artifacts.sh` |
 
 ---
 

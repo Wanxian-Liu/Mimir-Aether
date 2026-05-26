@@ -108,6 +108,7 @@ Per **[ADR-006](./adr/006-semantic-memory-chromadb.md)**:
 | Backend switch | **`SESSION_SEARCH_BACKEND`** — default **`hybrid`** (IQ-EVO-11); also `like` / `fts5` / `semantic` / `semantic_hybrid` |
 | Chroma incremental | **`MIMIR_CHROMA_INCREMENTAL`** default `1` — upsert on `sessions_search` write (IQ-EVO-11) |
 | Eval artifacts | `{get_mimir_data_dir()}/evolution_eval/memory-retrieval-*.json` (extend in SEM-04) |
+| Post-close analysis artifacts | `{get_mimir_home()}/data/analysis_artifacts/*.json` when **`MIMIR_AUTO_ANALYSIS=1`** (IQ-EVO-07/13); rollout [`ops/MIMIR_AUTO_ANALYSIS_ROLLOUT.md`](./ops/MIMIR_AUTO_ANALYSIS_ROLLOUT.md) |
 
 New code must **not** place chroma data under the git clone or under `.openclaw/projects/`.
 
