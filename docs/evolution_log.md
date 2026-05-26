@@ -102,3 +102,4 @@ Append-only. Newest rows at the **bottom**. See **`docs/M6_EVOLUTION.md`** for r
 | 20260525T043959Z_2cdeb27-dirty | 2026-05-25T04:39:59Z | 2cdeb27-dirty | ./run_ralph_tier0.sh | 0 | SEM-04: benchmark semantic_hit_rate + compare regression gate; tier0 358+2 |
 | 20260525T044622Z_2cdeb27-dirty | 2026-05-25T04:46:22Z | 2cdeb27-dirty | ./run_ralph_tier0.sh | 0 | SEM-05: tier0 manifest 9 SEM test files + smoke roundtrip; tier0 363+2 |
 | 20260525T045459Z_2cdeb27-dirty | 2026-05-25T04:54:59Z | 2cdeb27-dirty | ./run_ralph_tier0.sh | 0 | SEM-06 P2-LONG-SEM closeout: p2-long-sem-closeout.md, ADR-006 Accepted, semantic_heavy benchmark fields, tier0 368+2; metrics: n/a (docs+scripts+tests) |
+| 20260526T052211Z_9cfb038-dirty | 2026-05-26T05:22:11Z | 9cfb038-dirty | ./run_ralph_tier0.sh | 0 | IQ-EVO-06: P2-LONG-IQEVO Wave 1 closeout doc + contract test_iqevo06; rubric 3.9 documented exception; eval weekly convention; tier0 372+2 |

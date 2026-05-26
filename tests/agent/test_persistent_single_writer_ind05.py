@@ -42,9 +42,12 @@ def test_persistent_path_uses_mimir_data_dir(runtime_home: Path) -> None:
     assert persistent_store.get_persistent_path() == runtime_home / "data" / "persistent.json"
 
 
-def test_save_rejects_missing_required_keys(runtime_home: Path) -> None:
-    with pytest.raises(ValueError, match="missing critical keys"):
-        persistent_store.save({"version": "1.0"})
+def test_save_auto_fills_missing_required_keys(runtime_home: Path) -> None:
+    persistent_store.save({"version": "1.0"})
+    final = json.loads(persistent_store.get_persistent_path().read_text(encoding="utf-8"))
+    assert final["version"] == "1.0"
+    assert "memory" in final and isinstance(final["memory"], dict)
+    assert "progress" in final and isinstance(final["progress"], dict)
 
 
 def test_concurrent_segment_updates_both_persist(runtime_home: Path) -> None:

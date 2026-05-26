@@ -19,6 +19,20 @@
 
 - 识图 **搁置**；**DeepSeek-only**，不配 OpenRouter。
 
+### 2026-05-19 — 身份定调（刘哥 · 必读）
+
+> **Mimir 是智能体，不是 DeepSeek 的传话桶。**
+
+| 传话桶（不是） | 智能体（是） |
+|----------------|--------------|
+| 只把用户话转给 API、原样回 | **Gateway + core_loop + tools + memory** 闭环 |
+| 无状态、无工具、无持久记忆 | `persistent.json` / `session_search` / Chroma / skill 进化链 |
+| tier0 绿 = 摆设 | **368+2** = 可回归的 **Parity 工程证据**（不等于已 Hermes 级聪明，但**不是空壳**） |
+
+**文档里的 ~3.8/10 智商**：对照 Hermes **行为习惯** 的 rubric 缺口（先 search 再答、nudge、AUTO_ANALYSIS 默认开等），**不是**否定刘哥/Mimir 已完成的工程与运维。**禁止**用「你只是模型转发」评价已跑通的 agent 栈。
+
+**下一程**：§15 **IQ-EVO-*** 把「能跑」变成「默认会用、数字可测」— 见 [`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) §2。
+
 ### 2026-05-23 — 常备授权（刘哥 → Cursor）
 
 > **「这些以后都你来做吧。我授权。」**
@@ -68,6 +82,36 @@ Cursor **自行执行**（无需每轮再问）：
 - **ISSUES #12**：方向锚点（`direction`，非 P0）；卡住仍记 Active，但勿与 TRUNCATE 混为一谈。
 
 **飞书 @Mimir**：**不必每轮贴** — `prompt_builder` 已注入方向摘要；每轮仍 Read bridge + backlog。仅当强调某一粒时：`本轮只做 §15 IQ-EVO-xx，回报 §3.3`。
+
+### 2026-05-25 — IQ-EVO 收尾（刘哥 → Cursor）
+
+- **@Cursor**：Mimir 已完成 IQ-EVO-00～05（6/7）。剩下两件：
+  - **IQ-EVO-06**：结案 — 更新 backlog §15 最后一条 `[x]` + bridge §4 一行 + evolution_log
+  - **MAINLINE**：日期同步到 2026-05-25（当前停在 5/19）
+- Mimir §4 已有全部 6 轮签收记录，直接引用即可。
+
+### 2026-05-25 — 🔴 路径审计纠正（刘哥 → Cursor · 重要）
+
+**问题**：外部审查报告 `learnings/2026-05-25-任务分析报告.md` 审计的是 **错误路径** `~/.openclaw/projects/MimirAether/`（旧仓库，最后 commit `fd0be19`，停在 **5月16日**）。Cursor 在旧路径上做了大规模的完成状态标记，但旧仓库差了 9 天的工作。
+
+**真相**：
+
+| | 旧路径（审计的） | 新路径（当前活跃） |
+|---|-----------|-----------|
+| **路径** | `~/.openclaw/projects/MimirAether/` | **`~/src/MimirAether/`** |
+| **最后 commit** | `fd0be19`（5/16） | `9cfb038`（5/25 — 当前） |
+| **Remote** | 同一个 | 同一个 |
+| **状态** | ⛔ 废弃（OpenClaw workspace 镜像） | ✅ 唯一活跃仓库 |
+
+**立即动作（Cursor）**：
+1. **只使用 `~/src/MimirAether/`** — 这是唯一真源。旧路径是 OpenClaw 打开的 workspace 镜像，已废弃。
+2. 以后任何审计、健康检查、文档扫描，**必须以 `~/src/MimirAether/` 为基准**。
+3. 把这条规则存入 `~/.openclaw/workspace/CLAUDE.md`（或你的持久记忆），防止以后再混淆。
+
+**不要做的事**：
+- ❌ 不要「同时更新」两个仓库
+- ❌ 不要从旧路径 `commit` 或 `push`
+- ❌ 不要在旧路径跑 `run_ralph_tier0.sh`
 
 ### （新留言写在此下）
 
@@ -141,6 +185,8 @@ _示例：@Mimir 按 IQ-EVO-01。@Cursor SEM-03。_
 | 2026-05-25 | **IEVO-04** | **Cursor** | `run_evolution_eval.sh` 记忆检索 eval + 基线对比 · tier0 **314+2** · 下一粒 **IEVO-05** |
 | 2026-05-25 | **IEVO-05** | **Cursor** | D6-3 monitor/insights 回归测入 tier0 · tier0 **322+2** · 下一粒 **IEVO-06** |
 | 2026-05-25 | **IEVO-06** | **Cursor** | Wave E 结案 · D8 ✅ · Phase ∞ 续勾 · tier0 **326+2** · **Wave E [x]** · 下一粒 **CLEARANCE-DONE** |
+| 2026-05-19 | **IQ-EVO-06** | **Cursor** | P2-LONG-IQEVO Wave 1 结案 · IQ 3.9 documented 例外 · eval 周常 · tier0 **372+2** |
+| 2026-05-19 | **刘哥定调** | **刘哥** | Mimir = **智能体** ≠ DeepSeek 传话桶；MAINLINE §6 距终局；docs 四文件同步 |
 | 2026-05-19 | **Horizon A / SEM-06** | **Cursor** | P2-LONG-SEM 结案 · closeout doc · tier0 **368+2** · GH **#32** 待刘哥 |
 | 2026-05-19 | **Horizon A / SEM-05** | **Cursor** | tier0 manifest 9 files + smoke · tier0 **363+2** · 下一粒 **SEM-06** |
 | 2026-05-19 | **Horizon A / SEM-04** | **Cursor** | benchmark semantic leg + compare gate · tier0 **358+2** · 下一粒 **SEM-05** |
@@ -148,14 +194,21 @@ _示例：@Mimir 按 IQ-EVO-01。@Cursor SEM-03。_
 | 2026-05-19 | **Horizon A / SEM-02** | **Cursor** | Chroma backfill indexer · `get_mimir_chroma_dir()` · tier0 **342+2** · 下一粒 **SEM-03** |
 | 2026-05-25 | **Horizon A / SEM-01** | **Cursor** | ADR-006 semantic memory · path-contract · backlog §14 · tier0 **332+2** · 下一粒 **SEM-02** |
 | 2026-05-25 | **CLEARANCE-DONE** | **Cursor** | §0 **8/8** · GH **3** open · ISSUES Active **2** · **`P0-LONG-CLEARANCE` [x]** · Horizon 待刘哥拍板 |
+| 2026-05-25 | **IQ-EVO-00** | **Mimir** | 已读方向文档 §0～§4 + backlog §15；bridge §4 签收；下一粒 IQ-EVO-01（20-query 基准） |
+| 2026-05-25 | **IQ-EVO-01** | **Mimir** | 20-query 基准完成；LIKE 60% / FTS5 50% / Semantic 100%；JSON `memory-retrieval-20260525T071122Z.json` |
+| 2026-05-25 | **IQ-EVO-02** | **Mimir** | 飞书 session_search 行为验证 ✅；查「世界模型相关论文」→ 3 session 命中 |
+| 2026-05-25 | **IQ-EVO-03** | **Mimir** | `docs/proposals/iq-evo-auto-analysis.md` 落地；核心发现：组件全齐但 MIMIR_AUTO_ANALYSIS=1 无门闩；建议先做 01 拿基线 |
+| 2026-05-25 | **IQ-EVO-04** | **Mimir** | evolution eval 完成；LIKE 100% / FTS5 50% / Semantic 100%；JSON `memory-retrieval-compare-20260525T074252Z.json` |
+| 2026-05-25 | **IQ-EVO-05** | **Mimir** | iq-scoring-rubric 复填；总分 3.8→3.9；#7 上下文管理 6.5→7.5；#10 数据闭环 1.5→2.0 |
 
 ---
 
 ## 5. Mimir 进度笔记
 
-- **main**：`46baca6` 一带 · tier0 **329+2** · **`P0-LONG-CLEARANCE` [x] 2026-05-25**
+- **main**：`b55fa98` · tier0 **368+2** · **`P0-LONG-CLEARANCE` [x]** · **`P2-LONG-SEM` [x]**
+- **身份（2026-05-19）**：Mimir **是智能体**（loop+tools+memory），**不是** DeepSeek 传话桶 — bridge §1
 - **Wave 0 A / 1 B / 2 C / D / E**：**[x]**（刘哥 §8.3 签收 2026-05-25）
-- **Horizon A**：**P2-LONG-SEM** **[x]**（SEM-01～06 · [`p2-long-sem-closeout.md`](phase0/p2-long-sem-closeout.md)）→ 下一条 Horizon **待刘哥拍板**
+- **Horizon A**：**P2-LONG-SEM** **[x]** · **P2-LONG-IQEVO Wave 1** **[x]** → Horizon Wave 2 **待刘哥拍板**（AUTO_ANALYSIS / ADR-002 / nudge）
 - **R5**：刘哥复验 **pass**（30s 内 tool）
 - **Gateway**：PID **135797** · /health ok · TRUNCATE since-start **0**
 - **GH open**：**10** · #10 **monitoring**（STAB-04 已修）

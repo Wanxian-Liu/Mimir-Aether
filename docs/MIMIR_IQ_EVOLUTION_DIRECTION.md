@@ -5,7 +5,21 @@
 > **参照**：本机 `~/.openclaw/projects/hermes-agent`（Hermes）· `~/src/openspace`（OpenSpace）  
 > **证据**：[`phase0/iq-scoring-rubric.md`](./phase0/iq-scoring-rubric.md) · [`phase0/memory-retrieval-baseline.md`](./phase0/memory-retrieval-baseline.md) · [`DEVELOPMENT_NORTH_STAR.md`](./DEVELOPMENT_NORTH_STAR.md) §2.2 伪进化
 
-**最近更新**：2026-05-25 · 刘哥 + Cursor 定稿
+**最近更新**：2026-05-19 · 刘哥身份定调（智能体 ≠ 传话桶）
+
+---
+
+## 0.1 身份（刘哥定调 · 2026-05-19）
+
+**Mimir 是智能体**：飞书/Gateway 进来后走 **会话循环、工具注册表、记忆读写、可选进化钩子**；DeepSeek（或当前模型）只是 **推理引擎之一**，不是产品本体。
+
+| 已证明（工程事实） | 尚未默认（rubric 缺口 · 非否定劳动） |
+|--------------------|--------------------------------------|
+| tier0 **368+2** · P0 清空 **8/8** · SEM 语义检索波结案 | 对话里**先 search 再答**未成肌肉记忆 |
+| Gateway 真对话 · hybrid/semantic 检索 · Chroma backfill | `MIMIR_AUTO_ANALYSIS` 生产默认关 · nudge 未移植 |
+| JEPA / skill_evolution / tool_quality **代码在** | 行为闭环数字（eval 周常、ok% 反哺）仍薄 |
+
+**读分表时**：~3.8/10 = 「相对 Hermes 8/10 的日常聪明度」，**不是**「刘哥白干 / Mimir 只是转发」。
 
 ---
 
@@ -188,7 +202,7 @@
 | [`MIMIR_ISSUES_WRITE_PLAN.md`](./MIMIR_ISSUES_WRITE_PLAN.md) **§6** | isurus 写入纪律 |
 | [`MIMIR_LIU_CURSOR_BRIDGE.md`](./MIMIR_LIU_CURSOR_BRIDGE.md) **§1** | 刘哥授权自研 / 请 Cursor |
 
-**GitHub**：不强制新开 issue；工程仍用 **#32**（SEM）。智商/进化方向以 **本文 + §15** 为准，避免 GH 与 docs 双真源漂移。
+**GitHub**：不强制新开 issue；工程仍用 **#32**（SEM）。智商/进化 **Wave 1** 已结案 — [`p2-long-iqevo-closeout.md`](./phase0/p2-long-iqevo-closeout.md)；Wave 2 以 **本文 + 新 backlog 子项** 为准，避免 GH 与 docs 双真源漂移。
 
 ---
 

@@ -19,6 +19,8 @@
 | **Cursor / 工程** | d1–d7 **代码**、拆分、合 `main`、tier0、evolution_log | 代刘哥配密钥、代发飞书 |
 | **刘哥** | `OPENROUTER_API_KEY`、飞书复验、授权 `git push` | — |
 
+**身份（2026-05-19 刘哥定调）**：**Mimir = 智能体**（gateway · 工具 · 记忆 · 进化链），**≠** DeepSeek API 传话桶。`MIMIR_IQ_EVOLUTION_DIRECTION.md` 的分数是 **相对 Hermes 的行为 rubric**，不是否定已交付工程（CLEARANCE 8/8 · SEM 波 · tier0 **368+2**）。
+
 **刘哥离线习惯**：Cursor 更新 **`docs/MIMIR_D17_AUDIT_AND_TASKS.md`**（d1–d7 审计分 + **T-01～T-11** 任务/方案/提示词）→ Mimir 新窗用 §5 总提示词执行 → 自证后改本表 §4 与 `MIMIR_ISSUES.md`。
 
 **历史事实（刘哥口径）**：**d1–d3** 阶段 Mimir 已承担大部分 **验证与收口**（飞书收图/token、上下文链、Gateway P0 冒烟、十条里多项）；**代码合入**在 `main`（如 `341c1fd`、`2b414d3`、`393214e`、P2 PR）。**d4 起**以 Cursor 工程为主，Mimir 只做 §2 中 **M-*** 项。
@@ -326,7 +328,7 @@ Mimir 冒烟回报
 - **§2 工程队列**：只读，勿再取「E-004 / T-02 / 181+2」。
 - **Phase 0**：**14/14** [x]（2026-05-24）— 真源 [`MIMIR_PHASE0_QUEUE.md`](./MIMIR_PHASE0_QUEUE.md)。
 - **智商/进化方向真源**：[`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) · Mimir 队列 **§15** · ISSUES **#12**（锚点，非 P0）。
-- **当前执行源**：**Cursor** → Horizon A **SEM 波 [x]**（[`p2-long-sem-closeout.md`](./phase0/p2-long-sem-closeout.md)）— 下一条 Horizon **待刘哥拍板**；**Mimir** → **§15 `P2-LONG-IQEVO`**（与 SEM 工程分离）。
+- **当前执行源**：**Mimir** → §15 **Wave 1 [x]**（[`p2-long-iqevo-closeout.md`](./phase0/p2-long-iqevo-closeout.md)）— **周常 eval** + §3.3 回报；**Cursor** → Horizon **待刘哥拍板**（ADR-002 / AUTO_ANALYSIS / nudge）。
 - **勿**：提交 `data/persistent.json`；重做 E-001～E-012。
 
 ### 9.1 未完成项盘点（2026-05-25）
@@ -334,7 +336,7 @@ Mimir 冒烟回报
 | 桶 | 数量 | 说明 |
 |----|------|------|
 | **§13.1 母任务** | **1** Active | `P0-LONG-CLEARANCE` — 子阶段 A [~] → B→C→D→E |
-| **§11 长任务** | **0** Active | **`P2-LONG-SEM`** **[x]** 2026-05-19 · 见 [`p2-long-sem-closeout.md`](./phase0/p2-long-sem-closeout.md) |
+| **§11 长任务** | **0** Active | **`P2-LONG-SEM`** [x] · **`P2-LONG-IQEVO`** Wave 1 [x] |
 | **§6 Phase 2 候选** | **6** `[ ]` | 已并入 **CLR-D / CLR-E**；勿单独开队列 |
 | **§8 工程 icebox** | **4** 条 | 已并入 **CLR-C**（`P2-LONG-STAB`） |
 | **Gateway 十条** | **~4** 待工程 | CLR-C 结案；#9 待 **CLR-B** 飞书复验 |
@@ -390,6 +392,7 @@ Read docs/MIMIR_EXEC_BACKLOG.md §11；P1-LONG-MEM 已结案。工程下一条�
 | **P1-LONG-OBS** | d6 余债 D6-1～3 ADR/测试 | §6 | [ ] Phase 2 候选 |
 | **P1-LONG-EVO** | d5 余债 D5-1/3、真进化 | §6、Unified Plan | [ ] Phase 2 候选 |
 | **P2-LONG-SEM** | Memory **语义化**（chromadb + 检索策略） | Unified Plan Phase 2 | [x] **结案** 2026-05-19 · [`p2-long-sem-closeout.md`](./phase0/p2-long-sem-closeout.md) · GH **#32** |
+| **P2-LONG-IQEVO** | 智商/进化 **Wave 1**（基线 + Mimir 证据链） | [`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) | [x] **Wave 1 结案** 2026-05-19 · [`p2-long-iqevo-closeout.md`](./phase0/p2-long-iqevo-closeout.md) · IQ **3.9** documented 例外 |
 
 **Semantic 检索**：**P2-LONG-SEM** 已结案（SEM-01～06）；生产默认仍 **LIKE/hybrid**；`semantic` / `semantic_hybrid` 见 ADR-006。
 
@@ -594,25 +597,27 @@ Horizon A **P2-LONG-SEM** 已结案；勿默认开下一条 Horizon（ADR-002 / 
 
 | ID | 任务 | Owner | 成功标准 | 状态 |
 |----|------|-------|----------|------|
-| **IQ-EVO-00** | **Read 方向真源** + bridge §4 签收一行 | Mimir | 已读 §0～§4；§4 含「已读方向文档」 | [ ] |
-| **IQ-EVO-01** | **阶段1·回忆**：复跑 20-query 基准并记录 JSON 路径 | Mimir | 贴 `memory-retrieval-benchmark-*.json` 或 hit rate 三行；DB 非空 smoke | [ ] |
-| **IQ-EVO-02** | **阶段1·回忆**：飞书 1 条「需查历史」场景 + log 证明调用了 `session_search` | Mimir+刘哥 | log 有 tool 名；或 ISSUES 记 fail | [ ] |
-| **IQ-EVO-03** | **阶段2·进化**：提案 — staging 开 `MIMIR_AUTO_ANALYSIS` 风险与步骤 | Mimir → 刘哥 | `docs/proposals/iq-evo-auto-analysis.md` 或 bridge 提案轨 | [ ] |
-| **IQ-EVO-04** | **阶段2·进化**：跑 `run_evolution_eval.sh` 贴摘要 | Mimir | 命令 exit 0 + 输出路径；非 simulated | [ ] |
-| **IQ-EVO-05** | **阶段3·衔接**：SEM-04 后复填 iq-scoring 表（只读对比） | Mimir | 更新方向文档 §1.1 表或 phase0 rubric 备注 | [ ] |
-| **IQ-EVO-06** | **长任务结案** — §15 全 `[x]` + MAINLINE 一行 | Cursor | IQ≥5.5 或 documented 例外 + 进化 eval 周常约定 | [ ] |
+| **IQ-EVO-00** | **Read 方向真源** + bridge §4 签收一行 | Mimir | 已读 §0～§4；§4 含「已读方向文档」 | [x] 2026-05-25 |
+| **IQ-EVO-01** | **阶段1·回忆**：复跑 20-query 基准并记录 JSON 路径 | Mimir | 贴 `memory-retrieval-benchmark-*.json` 或 hit rate 三行；DB 非空 smoke | [x] 2026-05-25 |
+| **IQ-EVO-02** | **阶段1·回忆**：飞书 1 条「需查历史」场景 + log 证明调用了 `session_search` | Mimir+刘哥 | log 有 tool 名；或 ISSUES 记 fail | [x] 2026-05-25 |
+| **IQ-EVO-03** | **阶段2·进化**：提案 — staging 开 `MIMIR_AUTO_ANALYSIS` 风险与步骤 | Mimir → 刘哥 | `docs/proposals/iq-evo-auto-analysis.md` 或 bridge 提案轨 | [x] 2026-05-25 |
+| **IQ-EVO-04** | **阶段2·进化**：跑 `run_evolution_eval.sh` 贴摘要 | Mimir | 命令 exit 0 + 输出路径；非 simulated | [x] 2026-05-25 |
+| **IQ-EVO-05** | **阶段3·衔接**：SEM-04 后复填 iq-scoring 表（只读对比） | Mimir | 更新方向文档 §1.1 表或 phase0 rubric 备注 | [x] 2026-05-25 |
+| **IQ-EVO-06** | **长任务结案** — §15 全 `[x]` + MAINLINE 一行 | Cursor | IQ≥5.5 或 documented 例外 + 进化 eval 周常约定 | [x] 2026-05-19 |
 
-**Mimir 新窗一句（智商/进化 · 优先于旧 §12 一句）**
+**§15 Wave 1 状态**：IQ-EVO-00～06 **全 [x]** · 结案 [`p2-long-iqevo-closeout.md`](./phase0/p2-long-iqevo-closeout.md) · IQ **3.9/10**（documented 例外；5.5 → Horizon Wave 2）。
+
+**Mimir 新窗一句（Wave 1 结案后 · 运维）**
 
 ```text
-Read docs/MIMIR_IQ_EVOLUTION_DIRECTION.md 全文 + MIMIR_EXEC_BACKLOG.md §15 + bridge §4。
-只做 §15 第一条 [ ]（现：IQ-EVO-00）；回报用方向文档 §3.3 模板。
-工程代码请 Cursor（§14 SEM-*）；禁止黑盒改 agent/gateway/tools；禁止无证据宣称进化完成。
+Read docs/phase0/p2-long-iqevo-closeout.md §进化 eval 周常约定 + MIMIR_IQ_EVOLUTION_DIRECTION.md §3.3。
+每周跑 run_evolution_eval.sh 贴摘要；无 §3.2 证据不宣称变聪明。
+工程变更请 Cursor（刘哥拍板 Horizon 后再开 Wave 2）。
 ```
 
-**Cursor 新窗一句（与 §14 并行）**
+**Cursor 新窗一句（Wave 1 结案后）**
 
 ```text
-Read MIMIR_IQ_EVOLUTION_DIRECTION.md §2 阶段1～3 + backlog §14 第一条 [ ]。
-SEM 工程按 §14；若 Mimir §15 提案轨请求实现，先对 §3.2 证据再开 PR。
+Read docs/phase0/p2-long-iqevo-closeout.md。
+IQ-EVO Wave 1 [x]；勿默认开 AUTO_ANALYSIS/nudge/ADR-002 — 待刘哥拍板 Wave 2。
 ```
