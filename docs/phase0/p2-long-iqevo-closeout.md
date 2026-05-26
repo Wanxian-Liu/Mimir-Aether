@@ -66,8 +66,18 @@ MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh
 
 **Staging 开分析（刘哥本机）**：在 `$MIMIR_AETHER_HOME/.env` 加 `MIMIR_AUTO_ANALYSIS=1`，重启 Gateway；**不要**默认开 `MIMIR_AUTO_EVOLVE=1`。
 
+## Wave 2 验收（Mimir · 2026-05-26）
+
+| 冒烟 | 结果 | 证据 |
+|------|------|------|
+| **A — AUTO_ANALYSIS** | ✅ | `~/.mimiraether/data/analysis_artifacts/20260526T135803_训练模型我们用不上么？.json`（`type=post_task_analysis`） |
+| **B — nudge** | ✅（会话内） | MEMORY/SKILL nudge 文案注入可见；log 未单独计数 `[MIMIR_*_NUDGE]` |
+| **周常 eval** | ✅ | `memory-retrieval-compare-20260526T061634Z.json` — LIKE **1.0** / FTS **0.5** / Semantic **1.0** vs 基线 pass |
+
+Bridge §4 签收 · 回报 §3.3 见 Mimir 飞书会话 2026-05-26。
+
 ## 下一粒
 
-- **Mimir**：staging smoke（AUTO_ANALYSIS 开一轮有 error 的任务 → 查 `analysis_artifacts/`）+ 周常 eval。
-- **Cursor / 刘哥**：Chroma Gateway 增量 · `SESSION_SEARCH_BACKEND=hybrid` 生产默认 · rubric 复评 **≥5.5**。
-- **ISSUES #12**：Wave 2 工程已落地；复评达标后可 **resolved** 或开 Wave 3 issue。
+- **刘哥拍板**：Chroma Gateway 增量 · `SESSION_SEARCH_BACKEND=hybrid` 生产默认 · rubric 复评 **≥5.5** · 是否开 Wave 3 / Horizon B。
+- **Mimir**：维持周常 `run_evolution_eval.sh`；**勿**默认开 `MIMIR_AUTO_EVOLVE=1`。
+- **ISSUES #12**：Wave 2 工程+验收已落地；复评达标后可 **resolved** 或开 Wave 3 issue。

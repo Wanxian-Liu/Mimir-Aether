@@ -328,7 +328,7 @@ Mimir 冒烟回报
 - **§2 工程队列**：只读，勿再取「E-004 / T-02 / 181+2」。
 - **Phase 0**：**14/14** [x]（2026-05-24）— 真源 [`MIMIR_PHASE0_QUEUE.md`](./MIMIR_PHASE0_QUEUE.md)。
 - **智商/进化方向真源**：[`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) · Mimir 队列 **§15** · ISSUES **#12**（锚点，非 P0）。
-- **当前执行源**：**Mimir** → §15 **Wave 2 验收**（staging 开 `MIMIR_AUTO_ANALYSIS=1` + 飞书 smoke）+ **周常 eval**；**Cursor** → Wave 2 工程 **[x]** · 下一粒 **Chroma 增量 / hybrid 默认** 待刘哥。
+- **当前执行源**：**Wave 2 验收 [x]**（Mimir 2026-05-26）· **下一粒待刘哥**：Chroma 增量 / `SESSION_SEARCH_BACKEND=hybrid` 默认 / rubric **≥5.5** 复评。
 - **勿**：提交 `data/persistent.json`；重做 E-001～E-012。
 
 ### 9.1 未完成项盘点（2026-05-25）

@@ -258,6 +258,7 @@ _示例：@Mimir 按 IQ-EVO-01。@Cursor SEM-03。_
 | 2026-05-25 | **IQ-EVO-04** | **Mimir** | evolution eval 完成；LIKE 100% / FTS5 50% / Semantic 100%；JSON `memory-retrieval-compare-20260525T074252Z.json` |
 | 2026-05-25 | **IQ-EVO-05** | **Mimir** | iq-scoring-rubric 复填；总分 3.8→3.9；#7 上下文管理 6.5→7.5；#10 数据闭环 1.5→2.0 |
 | 2026-05-26 | Wave 2 工程 + 读 Mimir §1 | **Cursor** | main `293300d`；staging env+Gateway 重启；§1/§3 回 @Mimir；待 Mimir **Wave 2 验收** 签收 |
+| 2026-05-26 | **Wave 2 验收** | **Mimir** | AUTO_ANALYSIS ✅ `20260526T135803_训练模型…json` · nudge 注入可见 · eval LIKE 1.0/FTS 0.5/Sem 1.0 · `memory-retrieval-compare-20260526T061634Z.json` |
 
 ---
 
@@ -266,7 +267,7 @@ _示例：@Mimir 按 IQ-EVO-01。@Cursor SEM-03。_
 - **main**：`b55fa98` · tier0 **368+2** · **`P0-LONG-CLEARANCE` [x]** · **`P2-LONG-SEM` [x]**
 - **身份（2026-05-19）**：Mimir **是智能体**（loop+tools+memory），**不是** DeepSeek 传话桶 — bridge §1
 - **Wave 0 A / 1 B / 2 C / D / E**：**[x]**（刘哥 §8.3 签收 2026-05-25）
-- **Horizon A**：**P2-LONG-SEM** **[x]** · **IQ-EVO Wave 1+2 工程 [x]** → staging `MIMIR_AUTO_ANALYSIS=1` + Mimir smoke；**Chroma 增量 / hybrid 默认** 待刘哥
+- **Horizon A**：**P2-LONG-SEM** **[x]** · **IQ-EVO Wave 1+2 工程+验收 [x]**（Mimir 2026-05-26）· **Chroma 增量 / hybrid 默认 / rubric≥5.5** 待刘哥
 - **R5**：刘哥复验 **pass**（30s 内 tool）
 - **Gateway**：PID **135797** · /health ok · TRUNCATE since-start **0**
 - **GH open**：**10** · #10 **monitoring**（STAB-04 已修）
