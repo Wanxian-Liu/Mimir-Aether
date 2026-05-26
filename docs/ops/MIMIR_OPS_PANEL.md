@@ -154,10 +154,27 @@ Closeout: [`docs/phase0/p2-long-sem-closeout.md`](../phase0/p2-long-sem-closeout
 
 ---
 
-## 9. Revision log
+## 9. Feedback collector（IQ-EVO Wave 4 · record-only）
+
+| Env | Default | Effect |
+|-----|---------|--------|
+| `MIMIR_FEEDBACK_COLLECTOR` | `0` | `1` → append `$MIMIR_AETHER_HOME/data/feedback_events.jsonl` |
+
+**Event types:** `tool_failure` (from monitor on failed tools) · `pipeline_close` (degraded/errors at close) · `analysis_artifact` (post-close analysis path).
+
+**Does not:** change `tool_quality` thresholds or enable `MIMIR_AUTO_EVOLVE`. Prompt may show **read-only** degraded-tool hints via `build_tool_quality_guidance()`.
+
+**Smoke:** enable env → restart Gateway → bad `read_file` → `tail -1 "$MIMIR_AETHER_HOME/data/feedback_events.jsonl"`.
+
+**Plan:** [`docs/phase0/p2-long-iqevo-wave4.md`](../phase0/p2-long-iqevo-wave4.md)
+
+---
+
+## 10. Revision log
 
 | Date | Note |
 |------|------|
+| 2026-05-26 | Wave 4: `MIMIR_FEEDBACK_COLLECTOR` + feedback_events.jsonl (§9) |
 | 2026-05-26 | §17: `mimir_ops` + context_usage snapshot + `/new` docs |
 | 2026-05-26 | SEM-07: semantic baseline + eval gate + §7 |
 | 2026-05-26 | OBS-B1-02: ops panel + R3b + monitor env overrides |

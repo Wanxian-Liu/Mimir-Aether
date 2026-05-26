@@ -80,6 +80,19 @@ def record_tool_outcome(
         _total_calls += 1
         if _total_calls % CHECK_EVERY_N_CALLS == 0:
             _maybe_write_alert_locked()
+    if not success:
+        try:
+            from agent.feedback_collector import record_tool_outcome_feedback
+
+            record_tool_outcome_feedback(
+                tool_name,
+                success=False,
+                duration_ms=duration_ms,
+                error_message=error_message,
+                session_id=session_id,
+            )
+        except Exception:
+            pass
 
 
 def get_agent_error_rate(

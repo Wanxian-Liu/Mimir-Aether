@@ -216,6 +216,16 @@ Cursor **自行执行**（无需每轮再问）：
 - `gateway/session_mixin.py` 的 `_load_session` 会加载全部历史消息
 - `context_compressor` 只在 session 过长时触发 TRUNCATE，不是主动裁剪
 
+### 2026-05-26 — 刘哥拍板：**开 IQ Wave 4**（§15）
+
+| 顺序 | 轨道 | 说明 |
+|------|------|------|
+| **现在** | **§15 Wave 4** IQ-EVO-15～18 | FeedbackCollector 只记录 · tool_quality 只读 prompt · **不改阈值** · **不开** AUTO_EVOLVE |
+| **下一** | **IQ-EVO-19** | Mimir rubric 复评 + closeout（目标 ≥5.5 或 documented exception） |
+| **仍关** | `MIMIR_AUTO_EVOLVE=1` · Unified Plan **1b** 自改参 | 待刘哥另拍板 |
+
+**Staging 建议**：`MIMIR_FEEDBACK_COLLECTOR=1` + Gateway 重启 → 见 [`p2-long-iqevo-wave4.md`](./phase0/p2-long-iqevo-wave4.md)。
+
 ### 2026-05-26 — 刘哥拍板：下一 Horizon = **`P1-LONG-AUTONOMY`**（§17）
 
 | 顺序 | 轨道 | 说明 |
@@ -336,6 +346,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-26 | **Horizon A / SEM-07** | **Cursor** | 冻结 `memory-retrieval-benchmark-20260526.json` · IEVO-04 semantic 回归门 · ops §7 |
 | 2026-05-26 | **AUTO-01～06** | **Cursor** | §17 **P1-LONG-AUTONOMY** [x]：`mimir_ops` · session_reset pending · `last_context_usage.json` · tier0 **425+2** · closeout `p1-long-autonomy-closeout.md` |
 | 2026-05-26 | **§17 部署** | **Cursor** | push `db1e880`+`mimir_ops`→`mimir-feishu` · Gateway **PID 346104→** 硬重启 · `/health` ok · **待 Mimir 飞书验收** |
+| 2026-05-26 | bridge §1 + p1-long-autonomy-closeout.md | **Mimir · §17 飞书验收** | /new ✅ · health_check ok ✅ R2 PASS R3 0% err · context_usage 43205/1M ✅ |
 
 ---
 

@@ -145,6 +145,17 @@ def close_execution_pipeline(
         ]
         result["_evolution_suggestion_objs"] = list(session.pending_suggestions)
 
+    try:
+        from agent.feedback_collector import record_pipeline_close_feedback
+
+        record_pipeline_close_feedback(
+            result,
+            session_id=session_id or "",
+            task_name=task_name or (session.task_name if session else ""),
+        )
+    except Exception:
+        pass
+
     return result
 
 

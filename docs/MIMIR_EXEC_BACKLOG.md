@@ -1,8 +1,8 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-05-26（**§17 P1-LONG-AUTONOMY** AUTO-01～06 **[x]** · tier0 **425+2**）  
+> **最近更新**：2026-05-26（**§15 Wave 4** IQ-EVO-15～18 工程粒）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5；Mimir 飞书每轮 Read **方向真源** + bridge + 本表  
-> **规则**：**Mimir 运维/智商** → **§15** 第一条 `[ ]`；**Cursor 工程 SEM** → **§14** 第一条 `[ ]`。§11 / §2 / Phase 0 **只读**。  
+> **规则**：**Mimir 智商** → **§15 Wave 4** 第一条 `[ ]`（**IQ-EVO-19** 为 Mimir 复评）；**Cursor** 工程认同表 Wave 4 第一条 `[ ]`。§11 / §2 / Phase 0 **只读**。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
 > **勿提交**：`data/persistent.json`（runtime 镜像）。
 
@@ -328,7 +328,7 @@ Mimir 冒烟回报
 - **§2 工程队列**：只读，勿再取「E-004 / T-02 / 181+2」。
 - **Phase 0**：**14/14** [x]（2026-05-24）— 真源 [`MIMIR_PHASE0_QUEUE.md`](./MIMIR_PHASE0_QUEUE.md)。
 - **智商/进化方向真源**：[`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) · Mimir 队列 **§15** · ISSUES **#12**（锚点，非 P0）。
-- **当前执行源**：**§16 Horizon B1**（`P1-LONG-OBS`）— OBS-B1-02～03；§15 Wave 3 **[x]**。
+- **当前执行源**：**§15 Wave 4** — **IQ-EVO-19**（Mimir 复评）；工程 IQ-EVO-15～18 **[x]**；§16 B1 与 Wave 4 验收并行时勿改阈值。
 - **勿**：提交 `data/persistent.json`；重做 E-001～E-012。
 
 ### 9.1 未完成项盘点（2026-05-25）
@@ -658,6 +658,38 @@ Read backlog §15 Wave 3 + bridge §1「刘哥拍板」。
 ```text
 Read backlog §15 Wave 3。刘哥序：先 Wave 3 再 Horizon B1。
 在 IQ-EVO-10 Mimir 签收后做 IQ-EVO-11～13；tier0 + evolution_log；Horizon B1 勿并行。
+```
+
+### §15 Wave 4 — 学习闭环 · 只记录（2026-05-26 · 刘哥「开 IQ Wave 4」）
+
+> **真源**：[`p2-long-iqevo-wave4.md`](./phase0/p2-long-iqevo-wave4.md) · Unified Plan 冲突 3 · **1a**（FeedbackCollector 只记录，**不改阈值**）  
+> **规则**：每粒 `./run_ralph_tier0.sh`；**禁止** `MIMIR_AUTO_EVOLVE=1`；**禁止** AutoTuner/阈值自改（留 Wave 5 / 1b）。  
+> **前置**：§17 AUTONOMY **[x]** · Wave 3 **[x]** · rubric **4.3/10**。
+
+| ID | 任务 | Owner | 成功标准 | 状态 |
+|----|------|-------|----------|------|
+| **IQ-EVO-15** | Wave 4 **立案** + plan doc + bridge 拍板 | Cursor | `p2-long-iqevo-wave4.md` + 本表 | [x] 2026-05-26 |
+| **IQ-EVO-16** | **FeedbackCollector** — `feedback_events.jsonl`（`MIMIR_FEEDBACK_COLLECTOR=1`） | Cursor | tool_failure + pipeline_close 事件；单测 | [x] 2026-05-26 |
+| **IQ-EVO-17** | **tool_quality 只读注入** prompt（degraded 摘要） | Cursor | `build_tool_quality_guidance` + tier0 | [x] 2026-05-26 |
+| **IQ-EVO-18** | **analysis artifact** → feedback 事件 | Cursor | `post_close_analysis` 接线 | [x] 2026-05-26 |
+| **IQ-EVO-19** | rubric **复评 #3** + Wave 4 closeout | Mimir | ≥5.5 或 documented exception；bridge §4 | [ ] |
+
+**§15 Wave 4 工程状态**：IQ-EVO-15～18 **[x]** · 待 **IQ-EVO-19**（Mimir）+ staging `MIMIR_FEEDBACK_COLLECTOR=1` 冒烟。
+
+**Mimir 新窗一句（Wave 4 验收）**
+
+```text
+Read docs/phase0/p2-long-iqevo-wave4.md §Mimir smoke。
+staging：MIMIR_FEEDBACK_COLLECTOR=1，重启 Gateway；触发 tool 失败 + 可选 AUTO_ANALYSIS 任务；
+贴 feedback_events.jsonl 末行 + prompt 是否含 Tool quality signals。
+回报 §3.3 + bridge §4「Wave 4 验收」。勿开 AUTO_EVOLVE。
+```
+
+**Cursor 新窗一句（Wave 4 工程）**
+
+```text
+Read backlog §15 Wave 4。实现 IQ-EVO-16～18；tier0 + evolution_log。
+勿开 AUTO_EVOLVE / 勿改硬编码阈值。
 ```
 
 ---

@@ -61,7 +61,18 @@ def run_post_analysis_sync(
     if not prompt:
         return "no_trajectory"
 
-    save_analysis_artifact(prompt, task_name)
+    artifact_path = save_analysis_artifact(prompt, task_name)
+    try:
+        from agent.feedback_collector import record_analysis_artifact_feedback
+
+        record_analysis_artifact_feedback(
+            artifact_path or "",
+            session_id=session_id,
+            task_name=task_name,
+            degraded_tools=pipeline_result.get("degraded_tools"),
+        )
+    except Exception:
+        pass
 
     try:
         from agent.auxiliary_client import call_llm

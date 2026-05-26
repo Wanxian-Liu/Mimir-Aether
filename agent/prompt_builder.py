@@ -120,6 +120,27 @@ SESSION_SEARCH_GUIDANCE = (
     "refine the query if the first search returns too few or too many hits."
 )
 
+def build_tool_quality_guidance() -> str:
+    """Read-only degraded-tool hints from persisted tool_quality.db (IQ-EVO-17)."""
+    try:
+        from agent.tool_quality import ToolQualityManager
+
+        qm = ToolQualityManager(enable_persistence=True)
+        degraded = qm.get_degraded_tools(threshold=0.5)[:8]
+        if not degraded:
+            return ""
+        lines = [
+            "# Tool quality signals (read-only · IQ-EVO Wave 4)",
+            "Production telemetry shows low success rates for these tools. "
+            "Prefer alternatives or verify carefully; do not assume they are reliable:",
+        ]
+        for name, score in degraded:
+            lines.append(f"- {name}: quality_score={score:.2f}")
+        return "\n".join(lines)
+    except Exception:
+        return ""
+
+
 SESSION_AUTONOMY_GUIDANCE = (
     "# Session hygiene & ops (P1-LONG-AUTONOMY)\n"
     "One Feishu chat window keeps one session_key — context can grow large. "
@@ -1125,6 +1146,10 @@ def build_system_prompt(
     env_hints = build_environment_hints()
     if env_hints:
         sections.append(env_hints)
+
+    tq_guidance = build_tool_quality_guidance()
+    if tq_guidance:
+        sections.append(tq_guidance)
     
     # 8. 上下文文件
     if include_context:
@@ -1224,6 +1249,9 @@ def build_system_prompt_parts(
             context_sections.append(context_prompt)
     
     # ── volatile tier ──
+    tq_guidance = build_tool_quality_guidance()
+    if tq_guidance:
+        volatile_sections.append(tq_guidance)
     cross_ctx = _build_cross_session_context()
     if cross_ctx:
         volatile_sections.append(cross_ctx)
