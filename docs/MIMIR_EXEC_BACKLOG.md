@@ -639,7 +639,7 @@ IQ-EVO Wave 1 [x]；勿默认开 AUTO_ANALYSIS/nudge/ADR-002 — 待刘哥拍板
 
 | ID | 任务 | Owner | 成功标准 | 状态 |
 |----|------|-------|----------|------|
-| **IQ-EVO-10** | **rubric 诚实复评**（Wave 2 后；**不**强行 ≥5.5） | Mimir | 更新 [`iq-scoring-rubric.md`](./phase0/iq-scoring-rubric.md)；写明距 5.5 差距；bridge §4 | [ ] |
+| **IQ-EVO-10** | **rubric 诚实复评**（Wave 2 后；**不**强行 ≥5.5） | Mimir | 更新 [`iq-scoring-rubric.md`](./phase0/iq-scoring-rubric.md)；写明距 5.5 差距；bridge §4 | [x] 2026-05-26 · 4.1/10（#3 +1.0 #10 +1.0）；距 5.5 差 1.4 |
 | **IQ-EVO-11** | **`SESSION_SEARCH_BACKEND=hybrid` 生产默认** + Gateway **Chroma 增量** upsert | Cursor | tier0 + eval JSON；path-contract | [ ] |
 | **IQ-EVO-12** | prompt **先 `session_search` 再答**（硬约束/指引） | Cursor | 飞书 1 条 log 有 `session_search`；tier0 若触达 prompt | [ ] |
 | **IQ-EVO-13** | 生产 **`MIMIR_AUTO_ANALYSIS=1` 门闩**（文档化 rollout；仍 **不开** `AUTO_EVOLVE`） | Cursor | `.env` 契约 + ops 注记；7d artifact 样本路径 | [ ] |

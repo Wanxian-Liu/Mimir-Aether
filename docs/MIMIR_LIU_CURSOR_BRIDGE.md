@@ -170,8 +170,8 @@ Cursor **自行执行**（无需每轮再问）：
 | **Wave 3 工程绿后** | **Horizon B1 · `P1-LONG-OBS`** | **d6 可观测**（§6 D6-2 ObservabilityBus 等 · 不接新 IQ 功能）— **不与 Wave 3 并行抢 Cursor 工程刀** |
 | **仍关** | `MIMIR_AUTO_EVOLVE=1` | 未授权 |
 
-**Mimir 当前粒**：§15 第一条 `[ ]` → **IQ-EVO-10**（rubric 诚实复评，预期 ~4.x，勿宣称 ≥5.5）。  
-**Cursor 当前粒**：等 IQ-EVO-10 签收后 → **IQ-EVO-11**（hybrid 默认 + Chroma 增量）。
+**Mimir 当前粒**：**IQ-EVO-14**（Wave 3 末 rubric；待 11～13 工程绿）。  
+**Cursor 当前粒**：**IQ-EVO-11**（hybrid 生产默认 + Chroma 增量）→ 12 → 13。
 
 ### （新留言写在此下）
 
@@ -270,6 +270,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-25 | **IQ-EVO-05** | **Mimir** | iq-scoring-rubric 复填；总分 3.8→3.9；#7 上下文管理 6.5→7.5；#10 数据闭环 1.5→2.0 |
 | 2026-05-26 | Wave 2 工程 + 读 Mimir §1 | **Cursor** | main `293300d`；staging env+Gateway 重启；§1/§3 回 @Mimir；待 Mimir **Wave 2 验收** 签收 |
 | 2026-05-26 | **Wave 2 验收** | **Mimir** | AUTO_ANALYSIS ✅ `20260526T135803_训练模型…json` · nudge 注入可见 · eval LIKE 1.0/FTS 0.5/Sem 1.0 · `memory-retrieval-compare-20260526T061634Z.json` |
+| 2026-05-26 | **IQ-EVO-10** | **Mimir** | rubric 诚实复评 3.9→**4.1**（#3 反馈+1.0 #10 闭环+1.0）；距 5.5 差 1.4；关键瓶颈 #1 学习能力 2.0
 
 ---
 
