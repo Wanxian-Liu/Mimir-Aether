@@ -3,7 +3,7 @@
 **Date:** 2026-05-26  
 **Baseline:** Wave 5 结案后 · rubric **4.5/10**（距 **5.5** 差 1.0）  
 **真源：** [`MIMIR_IQ_EVOLUTION_DIRECTION.md`](../MIMIR_IQ_EVOLUTION_DIRECTION.md) §0.1、§1.5  
-**拍板：** 待刘哥 — 本文 + backlog §15 Wave 6 立案
+**拍板：** 2026-05-26 — [`MIMIR_LIU_CURSOR_BRIDGE.md`](../MIMIR_LIU_CURSOR_BRIDGE.md) §1「Wave 6 合格智能体已立案」+ backlog §15 · IQ-EVO-27 **[x]**
 
 ## 放哪？（ISSUES vs backlog）
 

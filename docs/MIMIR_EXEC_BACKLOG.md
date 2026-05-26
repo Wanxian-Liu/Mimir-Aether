@@ -726,7 +726,7 @@ Read backlog §15 Wave 5。IQ-EVO-21～25；tier0 + evolution_log。
 有界 Top-3 only；勿开 AUTO_EVOLVE / 勿做 1c。
 ```
 
-### §15 Wave 6 — 合格智能体（2026-05-26 · 颗粒方案 · 待刘哥拍板）
+### §15 Wave 6 — 合格智能体（2026-05-26 · 颗粒方案 · bridge §1 已立案）
 
 > **真源**：[`p2-long-iqevo-wave6-qualified-agent.md`](./phase0/p2-long-iqevo-wave6-qualified-agent.md)  
 > **ISSUES**：仅 **#12** direction 锚点 — **勿**把下表拆进 Active（≤3 规则）  

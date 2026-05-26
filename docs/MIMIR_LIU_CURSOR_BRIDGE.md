@@ -226,6 +226,29 @@ Cursor **自行执行**（无需每轮再问）：
 
 **依赖**：`MIMIR_FEEDBACK_COLLECTOR=1`（生产已开）→ `feedback_events.jsonl` → AutoTuner。
 
+### 2026-05-26 — **Wave 6 合格智能体已立案**（§15 · 颗粒方案）
+
+> **刘哥 2026-05-26**：需要 bridge §1 镜像 + backlog 执行表 — 已落盘。
+
+| 顺序 | 轨道 | 说明 |
+|------|------|------|
+| **前置** | **Wave 5** IQ-EVO-26 | rubric 复评 #4 + closeout **全 [x]** 后再开 Wave 6 工程粒 |
+| **计划真源** | [`p2-long-iqevo-wave6-qualified-agent.md`](./phase0/p2-long-iqevo-wave6-qualified-agent.md) | 13 粒 **IQ-EVO-27～39**（反传话筒行为 + rubric ≥5.5） |
+| **执行** | backlog **§15 Wave 6** | 第一条 `[ ]` = **IQ-EVO-28**（方向文档 §1.5）；**IQ-EVO-27** 立案 **[x]** |
+| **ISSUES** | **#12** `direction` | 仅锚点 — **勿**把 13 粒拆进 Active（≤3） |
+| **仍关** | `MIMIR_AUTO_EVOLVE=1` · 生产 IntentPredictor | Wave 6 仅离线 intent MVP（IQ-EVO-32） |
+
+**合格线（摘要）**：rubric **≥5.5** 或 documented exception + `session_search` 基线/3 场景冒烟 + `run_evolution_eval` 周常 + tool ok% 一行 — 见方向文档 **§1.5**。
+
+**飞书 @Mimir**（开 Wave 6 后）：
+
+```text
+Read bridge §1「Wave 6」+ backlog §15 Wave 6 第一条 [ ]。
+回报方向文档 §3.3；勿开 AUTO_EVOLVE。
+```
+
+**飞书 @Cursor**：按 Wave 6 表顺序实现 IQ-EVO-28/29/32/35/37/39；每粒 tier0；Wave 5 未结案前勿并行大 diff。
+
 ### 2026-05-26 — **§15 Wave 4 [x]** + §17 验收（刘哥签收）
 
 | 项 | 状态 |
@@ -356,6 +379,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-26 | **§17 部署** | **Cursor** | push `db1e880`+`mimir_ops`→`mimir-feishu` · Gateway **PID 346104→** 硬重启 · `/health` ok · **待 Mimir 飞书验收** |
 | 2026-05-26 | bridge §1 + p1-long-autonomy-closeout.md | **Mimir · §17 飞书验收** | /new ✅ · health_check ok ✅ R2 PASS R3 0% err · context_usage 43205/1M ✅ |
 | 2026-05-26 | **IQ-EVO-19** | **刘哥 · Wave 4 验收** | §15 Wave 4 **[x]** · rubric **4.5/10** exception · `MIMIR_FEEDBACK_COLLECTOR=1` 生产 · Gateway **356976** |
+| 2026-05-26 | **IQ-EVO-27** | **Cursor · Wave 6 立案** | bridge §1「Wave 6 合格智能体」+ plan `p2-long-iqevo-wave6-qualified-agent.md` + backlog §15 表 · ISSUES **#12** direction |
 
 ---
 
@@ -365,7 +389,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 - **身份（2026-05-19）**：Mimir **是智能体**（loop+tools+memory），**不是** DeepSeek 传话桶 — bridge §1
 - **Wave 0 A / 1 B / 2 C / D / E**：**[x]**（刘哥 §8.3 签收 2026-05-25）
 - **Horizon A**：**[x]** SEM + IQ-EVO Wave 1/2
-- **执行序**：**Wave 3**（§15 IQ-EVO-10～14）→ **Horizon B1** 可观测（`P1-LONG-OBS` · d6）
+- **执行序**：**Wave 5**（IQ-EVO-26 结案）→ **Wave 6** 合格智能体（IQ-EVO-28 起）· 真源 bridge §1「Wave 6」
 - **main**：`5e7b9a4`+ · tier0 **382+2**
 - **R5**：刘哥复验 **pass**（30s 内 tool）
 - **Gateway**：PID **135797** · /health ok · TRUNCATE since-start **0**
