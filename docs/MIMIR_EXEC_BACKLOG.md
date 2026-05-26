@@ -1,8 +1,8 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-05-26（**§15 Wave 5** IQ-EVO-20～25 工程粒）  
+> **最近更新**：2026-05-26（**§15 Wave 5 [x]** · **Wave 6** IQ-EVO-28 起）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5；Mimir 飞书每轮 Read **方向真源** + bridge + 本表  
-> **规则**：**Mimir 智商** → **§15 Wave 5** 第一条 `[ ]`（**IQ-EVO-26** 复评）；**Cursor** 认 Wave 5 工程第一条 `[ ]`。§11 / §2 / Phase 0 **只读**。  
+> **规则**：**Mimir** → **§15 Wave 6** 第一条 `[ ]`；**Cursor** → **IQ-EVO-28**。§11 / §2 / Phase 0 **只读**。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
 > **勿提交**：`data/persistent.json`（runtime 镜像）。
 
@@ -328,7 +328,7 @@ Mimir 冒烟回报
 - **§2 工程队列**：只读，勿再取「E-004 / T-02 / 181+2」。
 - **Phase 0**：**14/14** [x]（2026-05-24）— 真源 [`MIMIR_PHASE0_QUEUE.md`](./MIMIR_PHASE0_QUEUE.md)。
 - **智商/进化方向真源**：[`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) · Mimir 队列 **§15** · ISSUES **#12**（锚点，非 P0）。
-- **当前执行源**：**§15 Wave 5** — IQ-EVO-20～25 工程；**IQ-EVO-26** Mimir 复评。Wave 4/§16/§17 **[x]**。
+- **当前执行源**：**§15 Wave 6** — 第一条 **IQ-EVO-28**（合格智能体）。Wave 5 **[x]**（4.7/10 exception）。
 - **勿**：提交 `data/persistent.json`；重做 E-001～E-012。
 
 ### 9.1 未完成项盘点（2026-05-25）
@@ -706,9 +706,9 @@ Read backlog §15 Wave 4。实现 IQ-EVO-16～18；tier0 + evolution_log。
 | **IQ-EVO-23** | **AutoTuner** — `MIMIR_AUTO_TUNER=1` + `tune_audit.jsonl` | Cursor | pipeline close 接线 | [x] 2026-05-26 |
 | **IQ-EVO-24** | **消费方接线** — compressor / guard / tool_quality | Cursor | 三处读 override | [x] 2026-05-26 |
 | **IQ-EVO-25** | tier0 + contract wave5 | Cursor | `test_horizon_iqevo_wave5.py` | [x] 2026-05-26 |
-| **IQ-EVO-26** | rubric **复评 #4** + Wave 5 closeout | Mimir | ≥5.5 或 documented exception | [ ] |
+| **IQ-EVO-26** | rubric **复评 #4** + Wave 5 closeout | Cursor+Mimir | ≥5.5 或 documented exception | [x] 2026-05-26 · **4.7/10** |
 
-**§15 Wave 5 工程状态**：IQ-EVO-20～25 **[x]** · 待 **IQ-EVO-26** + staging `MIMIR_AUTO_TUNER=1` 冒烟。
+**§15 Wave 5 状态**：**[x] 结案** · closeout [`p2-long-iqevo-wave5-closeout.md`](./phase0/p2-long-iqevo-wave5-closeout.md)
 
 **Mimir 新窗一句（Wave 5 验收）**
 
@@ -749,7 +749,7 @@ Read backlog §15 Wave 5。IQ-EVO-21～25；tier0 + evolution_log。
 | **IQ-EVO-38** | rubric **复评 #5** + closeout + **#12** 关/续 | Mimir+刘哥 | ≥5.5 或 documented exception | [ ] |
 | **IQ-EVO-39** | **ADR-002 写入 Spike**（可选） | Cursor | 一页设计对比；不改三入口代码 | [ ] |
 
-**§15 Wave 6 状态**：IQ-EVO-27 **[x]** · **IQ-EVO-28 为 Mimir/Cursor 下一粒 `[ ]`**（Wave 5 未结案前勿并行改 agent|gateway 大 diff）。
+**§15 Wave 6 状态**：IQ-EVO-27 **[x]** · **下一粒 IQ-EVO-28**（Cursor 方向文档 + 合格检查表）。
 
 **Mimir 新窗一句（Wave 6）**
 
