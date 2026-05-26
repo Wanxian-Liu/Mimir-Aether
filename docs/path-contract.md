@@ -21,7 +21,7 @@ Per-session **authoritative** tool/agent trace for evolution and post-hoc analys
 |-----|------|-----|
 | **ExecutionRecorder JSONL** | `get_mimir_data_dir() / "trajectories" / "<date>" / "<session_id>.jsonl"` | `execution_pipeline.start_execution_pipeline` → `record_tool_call` → `close_execution_pipeline` |
 
-**Not SoT:** `sessions.db` aggregates, `monitor_alerts.json`, Insights metrics, legacy `{repo}/trajectory/*.jsonl`, or `trajectory_samples.jsonl` batch files. Full rules: **[ADR-005](./adr/005-observability-execution-sot.md)** (IEVO-03 / D6-1).
+**Not SoT:** `sessions.db` aggregates, `monitor_alerts.json`, Insights metrics, legacy `{repo}/trajectory/*.jsonl`, or `trajectory_samples.jsonl` batch files. Full rules: **[ADR-005](./adr/005-observability-execution-sot.md)** (IEVO-03 / D6-1). **ObservabilityBus:** deferred — **[ADR-007](./adr/007-observability-bus-defer.md)** (B1 / D6-2); integration seam remains `record_tool_call()`.
 
 ## 历史路径与豁免目录
 

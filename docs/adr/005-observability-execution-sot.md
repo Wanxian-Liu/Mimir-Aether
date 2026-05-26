@@ -59,9 +59,7 @@ These layers MUST NOT be the **only** persistence for evolution-altering decisio
 
 ### 4. D6-2 ObservabilityBus
 
-A unified in-process event bus (fan-out to monitor, tracker, recorder) is **out of scope** for IEVO-03. Current wiring: `execution_pipeline.record_tool_call()` fans out synchronously with fail-open `try/except` per sink.
-
-Revisit ObservabilityBus only if fan-out complexity or ordering bugs justify a dedicated refactor (GH #22 remainder).
+**Deferred** — see **[ADR-007](./007-observability-bus-defer.md)** (OBS-B1-01, 2026-05-26). Current wiring: `execution_pipeline.record_tool_call()` fans out synchronously with fail-open `try/except` per sink. No separate bus module.
 
 ### 5. Implementation alignment (IEVO-03)
 

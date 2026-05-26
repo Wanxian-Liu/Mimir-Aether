@@ -5,11 +5,11 @@
 
 | 字段 | 值 |
 |------|-----|
-| **最近更新** | 2026-05-19 |
-| **更新人** | Cursor（**Wave 3 拍板** · Horizon B1 排队） |
+| **最近更新** | 2026-05-26 |
+| **更新人** | Cursor（进度问询 · Wave 3 收尾） |
 | **仓库根（真源）** | `~/src/MimirAether` |
-| **可选校验** | `./run_ralph_tier0.sh`（门禁 **382+2**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
-| **本轮摘要** | 刘哥拍板：**先 §15 Wave 3**（IQ-EVO-10～14）→ **Horizon B1** 可观测（§16）；Wave 2 验收 [x]。 |
+| **可选校验** | `./run_ralph_tier0.sh`（门禁 **393+2**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
+| **本轮摘要** | **Wave 3 [x]**（14 = 4.3 exception）· **OBS-B1-01 [x]** ADR-007 defer · 执行队列剩 **B1-02～03**（2 粒）· tier0 **398+2**。 |
 
 ---
 
@@ -66,8 +66,8 @@
 | 层 | 完成度 | 证据 | 还差什么 |
 |----|:------:|------|----------|
 | **A. 能跑、能回归、能运维** | **~85%** | M0–M6 绿 · CLEARANCE **8/8** · tier0 **382+2** · Gateway 飞书真对话 | TRUNCATE 历史噪声 monitoring；#32 close；Gateway Chroma 增量 |
-| **B. 默认「想起来」**（阶段1） | **~45%** | LIKE 60% / FTS 50% · hybrid/semantic 代码 · Chroma **3827** 条已 backfill | prompt **先 search** 习惯 · ADR-002 注入策略 · 飞书「上次在做什么」稳定复现 |
-| **C. 默认「会话后会进化」**（阶段2） | **~40%** | Wave 2：`post_close_analysis` + nudge 已接线 · IEVO 禁伪进化 | staging 开 AUTO_ANALYSIS + Mimir smoke · AUTO_EVOLVE 仍关 · eval 周常 |
+| **B. 默认「想起来」**（阶段1） | **~65%** | hybrid **生产默认** · Chroma **增量** · search-first prompt · SEM 全栈 | ADR-002 注入策略 · 飞书「上次在做什么」稳定复现 · rubric #8 仍 3.0 |
+| **C. 默认「会话后会进化」**（阶段2） | **~55%** | AUTO_ANALYSIS **生产门闩** + 7d **97 artifacts** · nudge 已接线 | AUTO_EVOLVE 仍关 · artifact→阈值反哺未接 · FeedbackCollector 无 |
 | **D. 织界者伙伴**（阶段3–4 终局） | **~25%** | 文档 ∞ 绿裁定 · 宪章草案 | 长期画像 · 集体技能网 · 刘哥角色从「验收者」→「同行者」**可感知** |
 
 **一句话**：**底座和纪律已经很远**（这不是传话桶能有的）；**「日常用起来明显更聪明、会自己变好」大约还有一半到三分之二的路**，主要在 §15 **IQ-EVO-01～06** 和 Horizon 下一拍（ADR-002 / nudge / AUTO_ANALYSIS），不是再堆 tier0。
@@ -80,6 +80,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-26 | **进度**：执行队列 **4 粒**（14 + B1×3）；CLEARANCE **8/8**；Wave 3 Cursor **11～13 [x]**；tier0 **393+2**。 |
 | 2026-05-26 | **刘哥拍板**：先 **IQ-EVO Wave 3** · 再 **Horizon B1**（`P1-LONG-OBS`/d6）；bridge §1 + backlog §15/§16。 |
 | 2026-05-19 | **Horizon A / IQ-EVO Wave 2** [x]：07～09 工程 + Mimir 验收；tier0 **382+2**。 |
 | 2026-05-19 | **Horizon A / P2-LONG-IQEVO Wave 1** [x]：IQ-EVO-06 结案 · rubric **3.9/10** documented 例外 · eval 周常 · closeout [`p2-long-iqevo-closeout.md`](./phase0/p2-long-iqevo-closeout.md)。 |

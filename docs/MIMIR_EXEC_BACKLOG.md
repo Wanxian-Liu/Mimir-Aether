@@ -279,7 +279,7 @@ Mimir 冒烟回报
 | D6-0c | health.register | [x] `/health` 含 agent + agent_error_rate |
 | D6-0d | RateLimitTracker Lock | [x] E-006 batch |
 | D6-1 | trajectory/recorder SoT ADR | [x] 2026-05-25 · IEVO-03 · ADR-005 |
-| D6-2 | ObservabilityBus（可选） | [ ] |
+| D6-2 | ObservabilityBus（可选） | [x] 2026-05-26 · ADR-007 defer（OBS-B1-01） |
 | D6-3 | 测试 | [x] 2026-05-25 · IEVO-05 |
 
 ### d7 — CLI 双轨 · d7 窗进行中
@@ -328,7 +328,7 @@ Mimir 冒烟回报
 - **§2 工程队列**：只读，勿再取「E-004 / T-02 / 181+2」。
 - **Phase 0**：**14/14** [x]（2026-05-24）— 真源 [`MIMIR_PHASE0_QUEUE.md`](./MIMIR_PHASE0_QUEUE.md)。
 - **智商/进化方向真源**：[`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) · Mimir 队列 **§15** · ISSUES **#12**（锚点，非 P0）。
-- **当前执行源**：**§15 Wave 3**（刘哥 2026-05-26：**先 Wave 3**）→ 再 **Horizon B1** 可观测（`P1-LONG-OBS`）· Wave 2 验收 **[x]**。
+- **当前执行源**：**§16 Horizon B1**（`P1-LONG-OBS`）— OBS-B1-02～03；§15 Wave 3 **[x]**。
 - **勿**：提交 `data/persistent.json`；重做 E-001～E-012。
 
 ### 9.1 未完成项盘点（2026-05-25）
@@ -392,8 +392,8 @@ Read docs/MIMIR_EXEC_BACKLOG.md §11；P1-LONG-MEM 已结案。工程下一条�
 | ~~**P1-LONG-OBS**~~ | — | — | → 升格 **§16 Horizon B1**（见下） |
 | **P1-LONG-EVO** | d5 余债 D5-1/3、真进化 | §6、Unified Plan | [ ] Phase 2 候选 |
 | **P2-LONG-SEM** | Memory **语义化**（chromadb + 检索策略） | Unified Plan Phase 2 | [x] **结案** 2026-05-19 · [`p2-long-sem-closeout.md`](./phase0/p2-long-sem-closeout.md) · GH **#32** |
-| **P2-LONG-IQEVO** | 智商/进化 Wave 1–3 | [`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) | Wave 1–2 **[x]** · **Wave 3 Active**（§15 · IQ-EVO-10～14） |
-| **Horizon B1** | **`P1-LONG-OBS`** · d6 可观测 | **§16** | **[ ]** 待 Wave 3 工程粒（11～13）绿后 |
+| **P2-LONG-IQEVO** | 智商/进化 Wave 1–3 | [`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) | Wave 1–3 **[x]**（§15 · IQ-EVO-14 = 4.3 documented exception） |
+| **Horizon B1** | **`P1-LONG-OBS`** · d6 可观测 | **§16** | **[~]** OBS-B1-01 [x] · **02～03** Active |
 
 **Semantic 检索**：**P2-LONG-SEM** 已结案（SEM-01～06）；生产默认仍 **LIKE/hybrid**；`semantic` / `semantic_hybrid` 见 ADR-006。
 
@@ -643,7 +643,7 @@ IQ-EVO Wave 1 [x]；勿默认开 AUTO_ANALYSIS/nudge/ADR-002 — 待刘哥拍板
 | **IQ-EVO-11** | **`SESSION_SEARCH_BACKEND=hybrid` 生产默认** + Gateway **Chroma 增量** upsert | Cursor | tier0 + eval JSON；path-contract | [x] 2026-05-26 · hybrid 默认；`MIMIR_CHROMA_INCREMENTAL` 写路径 upsert；tier0 382+2 |
 | **IQ-EVO-12** | prompt **先 `session_search` 再答**（硬约束/指引） | Cursor | 飞书 1 条 log 有 `session_search`；tier0 若触达 prompt | [x] 2026-05-26 · `SESSION_SEARCH_GUIDANCE` search-first MUST；contract wave3 |
 | **IQ-EVO-13** | 生产 **`MIMIR_AUTO_ANALYSIS=1` 门闩**（文档化 rollout；仍 **不开** `AUTO_EVOLVE`） | Cursor | `.env` 契约 + ops 注记；7d artifact 样本路径 | [x] 2026-05-26 · `docs/ops/MIMIR_AUTO_ANALYSIS_ROLLOUT.md` + `list_analysis_artifacts.sh` |
-| **IQ-EVO-14** | rubric **复评 #2**；是否关 ISSUES **#12** | Mimir | ≥5.5 或 **documented exception** 续期；bridge §4 | [ ] |
+| **IQ-EVO-14** | rubric **复评 #2**；是否关 ISSUES **#12** | Mimir | ≥5.5 或 **documented exception** 续期；bridge §4 | [x] 2026-05-26 · **4.3/10** documented exception（距 5.5 差 1.2）；#12 续期见 closeout |
 
 **Mimir 新窗一句（Wave 3）**
 
@@ -663,13 +663,13 @@ Read backlog §15 Wave 3。刘哥序：先 Wave 3 再 Horizon B1。
 
 ## 16. Horizon B1 — **`P1-LONG-OBS`**（可观测 · 2026-05-26 刘哥拍板）
 
-> **前置**：§15 **Wave 3** 中 Cursor 粒（IQ-EVO-11～13）**[x]**。  
+> **前置**：§15 **Wave 3** **[x]**（IQ-EVO-10～14，14 为 documented exception 4.3/10）。  
 > **范围**：**d6 可观测** — 不接 IQ/SEM 新功能。  
 > **真源**：§6 **d6** · [`MIMIR_D17_AUDIT_AND_TASKS.md`](./MIMIR_D17_AUDIT_AND_TASKS.md) d6 行 · ISSUES **#10** monitoring。
 
 | ID | 任务 | Owner | 成功标准 | 状态 |
 |----|------|-------|----------|------|
-| **OBS-B1-01** | **D6-2** ObservabilityBus（可选）— 评估 + 最小接线或 ADR defer | Cursor | ADR 或 tier0 测；不破坏 `/health` | [ ] |
+| **OBS-B1-01** | **D6-2** ObservabilityBus（可选）— 评估 + 最小接线或 ADR defer | Cursor | ADR 或 tier0 测；不破坏 `/health` | [x] 2026-05-26 · **ADR-007** defer；`test_horizon_obs_b1_01` |
 | **OBS-B1-02** | monitor/TRUNCATE/Gateway **运维面板化** — `mimir_health_check` + monitor 阈值文档化 | Mimir+Cursor | bridge §4 一行；周常可跑命令 | [ ] |
 | **OBS-B1-03** | ISSUES **#10** monitoring 收口或降为 documented 例外 | Mimir | ISSUES 更新；Active≤3 | [ ] |
 

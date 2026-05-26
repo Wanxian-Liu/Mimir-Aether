@@ -157,7 +157,7 @@ Cursor **自行执行**（无需每轮再问）：
 |----|------|
 | **IQ-EVO-06**（Wave 1 结案） | ✅ Cursor 已做 · main `b6f2abc` 一带 |
 | **IQ-EVO-07～09**（Wave 2 工程） | ✅ Cursor 已做 · main **`293300d`** · tier0 **382+2** |
-| **staging** | ✅ 刘哥机 `$MIMIR_AETHER_HOME/.env` 已开 `MIMIR_AUTO_ANALYSIS=1` + nudge 间隔 · Gateway **已硬重启** |
+| **staging** | ✅ 刘哥机 `$MIMIR_AETHER_HOME/.env` 已开 `MIMIR_AUTO_ANALYSIS=1` + nudge · Gateway **PID 326974**（2026-05-26 硬重启）· rollout ops 已执行 |
 | **你这轮** | 提案轨 A：**只做验收** — 读本段上一节「Wave 2 验收」步骤 1～7 · 回报 §3.3 + **§4 一行**（子项写「Wave 2 验收」） |
 
 **勿**再 patch agent/gateway；**勿**等 Cursor 重复交付 07～09。
@@ -170,8 +170,8 @@ Cursor **自行执行**（无需每轮再问）：
 | **Wave 3 工程绿后** | **Horizon B1 · `P1-LONG-OBS`** | **d6 可观测**（§6 D6-2 ObservabilityBus 等 · 不接新 IQ 功能）— **不与 Wave 3 并行抢 Cursor 工程刀** |
 | **仍关** | `MIMIR_AUTO_EVOLVE=1` | 未授权 |
 
-**Mimir 当前粒**：**IQ-EVO-14**（Wave 3 末 rubric；待 11～13 工程绿）。  
-**Cursor 当前粒**：Wave 3 **11～13** [x]；下一粒 **IQ-EVO-14**（Mimir rubric 复评 #2）→ 再开 **Horizon B1** §16。
+**Mimir 当前粒**：**Horizon B1** — **OBS-B1-02**（运维面板化）+ **OBS-B1-03**（#10 monitoring）。  
+**Cursor 当前粒**：**OBS-B1-01** [x] ADR-007 defer；Wave 3 **10～14** [x]（14 = 4.3 documented exception）。
 
 ### （新留言写在此下）
 
@@ -275,6 +275,8 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-26 | **IQ-EVO-12** | **Cursor** | prompt `SESSION_SEARCH_GUIDANCE` search-first（MUST session_search before answer）；contract wave3 |
 | 2026-05-26 | **IQ-EVO-13** | **Cursor** | 生产 AUTO_ANALYSIS rollout 门闩：`docs/ops/MIMIR_AUTO_ANALYSIS_ROLLOUT.md` · runtime/path-contract · **勿开** AUTO_EVOLVE；7d `list_analysis_artifacts.sh` |
 | 2026-05-26 | **IQ-EVO-13 ops** | **刘哥授权·Cursor** | `$MIMIR_AETHER_HOME/.env` 确认 `MIMIR_AUTO_ANALYSIS=1`（无 AUTO_EVOLVE）· Gateway 硬重启 **PID 326974** · `/health` ok · 7d artifacts **97** 条 |
+| 2026-05-26 | **IQ-EVO-14** | **Mimir** | rubric 复评 #2 4.1→**4.3**（#3 反馈+1.0 生产默认 · #7 上下文 7.5→8.0 触顶 · #10 闭环+0.5）；距 5.5 差 1.2；瓶颈 #1 学习能力 2.0 |
+| 2026-05-26 | **OBS-B1-01** | **Cursor** | ADR-007 ObservabilityBus **defer**；保留 `record_tool_call` 扇出；tier0 contract |
 
 ---
 
