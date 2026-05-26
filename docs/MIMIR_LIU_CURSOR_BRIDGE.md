@@ -216,16 +216,23 @@ Cursor **自行执行**（无需每轮再问）：
 - `gateway/session_mixin.py` 的 `_load_session` 会加载全部历史消息
 - `context_compressor` 只在 session 过长时触发 TRUNCATE，不是主动裁剪
 
+### 2026-05-26 — 刘哥拍板：**开 IQ Wave 5**（§15 · Unified Plan **1b**）
+
+| 顺序 | 轨道 | 说明 |
+|------|------|------|
+| **现在** | **§15 Wave 5** IQ-EVO-20～25 | 有界 AutoTuner · Top-3 阈值 · `MIMIR_AUTO_TUNER=1`（默认关，staging 冒烟） |
+| **下一** | **IQ-EVO-26** | Mimir rubric 复评 + closeout |
+| **仍关** | `MIMIR_AUTO_EVOLVE=1` · **1c** DecisionRing/Compressor 全量学习 | 未授权 |
+
+**依赖**：`MIMIR_FEEDBACK_COLLECTOR=1`（生产已开）→ `feedback_events.jsonl` → AutoTuner。
+
 ### 2026-05-26 — **§15 Wave 4 [x]** + §17 验收（刘哥签收）
 
 | 项 | 状态 |
 |----|------|
-| **Wave 4 工程** | IQ-EVO-15～18 · main `42da9c0` · tier0 **433+2** |
-| **Wave 4 验收** | **刘哥签收** · IQ-EVO-19 · rubric **4.5/10** documented exception · closeout `p2-long-iqevo-wave4-closeout.md` |
-| **生产** | `$MIMIR_AETHER_HOME/.env` **`MIMIR_FEEDBACK_COLLECTOR=1`** · Gateway **PID 356976** · `/health` ok |
-| **§17 飞书** | /new ✅ · `mimir_ops` health_check ✅ · context_usage ✅（见 §4 末行） |
-| **下一** | Wave 5 / Unified Plan **1b** / 新 Horizon — **待刘哥拍板** |
-| **仍关** | `MIMIR_AUTO_EVOLVE=1` · 阈值自改 | 未授权 |
+| **Wave 4** | rubric **4.5/10** · closeout `p2-long-iqevo-wave4-closeout.md` |
+| **§17 飞书** | /new ✅ · `mimir_ops` ✅ · context_usage ✅ |
+| **生产** | `MIMIR_FEEDBACK_COLLECTOR=1` |
 
 ### 2026-05-26 — 刘哥拍板：下一 Horizon = **`P1-LONG-AUTONOMY`**（§17）
 

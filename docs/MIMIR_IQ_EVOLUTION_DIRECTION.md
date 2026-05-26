@@ -5,7 +5,7 @@
 > **参照**：本机 `~/.openclaw/projects/hermes-agent`（Hermes）· `~/src/openspace`（OpenSpace）  
 > **证据**：[`phase0/iq-scoring-rubric.md`](./phase0/iq-scoring-rubric.md) · [`phase0/memory-retrieval-baseline.md`](./phase0/memory-retrieval-baseline.md) · [`DEVELOPMENT_NORTH_STAR.md`](./DEVELOPMENT_NORTH_STAR.md) §2.2 伪进化
 
-**最近更新**：2026-05-19 · 刘哥身份定调（智能体 ≠ 传话桶）
+**最近更新**：2026-05-26 · Wave 6 合格智能体颗粒方案（backlog §15 · [`phase0/p2-long-iqevo-wave6-qualified-agent.md`](./phase0/p2-long-iqevo-wave6-qualified-agent.md)）
 
 ---
 
@@ -47,11 +47,25 @@
 
 | 维度 | Mimir | Hermes（参照） | OpenSpace（参照） |
 |------|:-----:|:--------------:|:-----------------:|
-| **智商**（会用记忆/工具/模型） | **~3.8/10** | **~8/10** | **~6/10**（非全 Agent） |
+| **智商**（会用记忆/工具/模型） | **4.5/10**（[`iq-scoring-rubric.md`](./phase0/iq-scoring-rubric.md) · Wave 4 后） | **~8/10** | **~6/10**（非全 Agent） |
 | **进化**（会自己变好） | **~5/10** | **~8.5/10** | **~9/10**（技能层） |
-| **工程可回归**（tier0） | **强（3xx+2）** | 中上 | 不适用 |
+| **工程可回归**（tier0） | **强（4xx+2）** | 中上 | 不适用 |
 
-**一句话**：我能按 Ralph 契约稳定干活，但**还不聪明**，也**还没形成可测的进化闭环**。
+**一句话**：我能按 Ralph 契约稳定干活，但**还不聪明**（距合格线 **5.5** 差 **1.0**），也**还没形成可测的进化闭环**。
+
+### 1.5 合格智能体检查表（≠ 传话筒）
+
+> **执行颗粒**：backlog **§15 Wave 6**（IQ-EVO-27～39）· 计划真源见 [`phase0/p2-long-iqevo-wave6-qualified-agent.md`](./phase0/p2-long-iqevo-wave6-qualified-agent.md)。**ISSUES #12** 仅方向锚点，不拆 Active。
+
+| # | 检查项 | 合格线 | 对应 Wave 6 |
+|---|--------|--------|-------------|
+| Q1 | Rubric 加权总分 | **≥5.5** 或 documented exception | IQ-EVO-38 |
+| Q2 | 历史类问题先 `session_search` | 3 场景冒烟 + 7d 使用率有基线 | IQ-EVO-29～31 |
+| Q3 | 进化可测 | `run_evolution_eval` 周常 JSON 环比 | IQ-EVO-37 |
+| Q4 | 工具质量可见 | top5 ok% / degraded 周常一行 | IQ-EVO-36 |
+| Q5 | 反馈→行为（非只写日志） | JSONL +（Wave 5）tuned_thresholds 或 prompt 只读摘要 | IQ-EVO-35、Wave 5 |
+| Q6 | 学习/意图不造假 | #1/#8 诚实；离线 intent MVP，不宣称 Predictor 已上线 | IQ-EVO-32～34 |
+| Q7 | 纪律 | tier0 绿 **≠** 智商；禁止无证据「已进化」 | §1.4、§3.2 |
 
 ### 1.2 智商 — 主要不足
 
@@ -198,7 +212,8 @@
 | 文件 | 作用 |
 |------|------|
 | [`MIMIR_EXEC_BACKLOG.md`](./MIMIR_EXEC_BACKLOG.md) **§15** | **执行顺序** — Mimir 认第一条 `[ ]` |
-| [`MIMIR_ISSUES.md`](./MIMIR_ISSUES.md) **#12** | **方向锚点**（非 P0 bug）— 卡住记 Active |
+| [`MIMIR_ISSUES.md`](./MIMIR_ISSUES.md) **#12** | **方向锚点**（非 P0）→ §15 **Wave 6** 第一条 `[ ]`；卡住才进 Active |
+| [`phase0/p2-long-iqevo-wave6-qualified-agent.md`](./phase0/p2-long-iqevo-wave6-qualified-agent.md) | **合格智能体** 颗粒真源（13 粒 IQ-EVO-27～39） |
 | [`MIMIR_ISSUES_WRITE_PLAN.md`](./MIMIR_ISSUES_WRITE_PLAN.md) **§6** | isurus 写入纪律 |
 | [`MIMIR_LIU_CURSOR_BRIDGE.md`](./MIMIR_LIU_CURSOR_BRIDGE.md) **§1** | 刘哥授权自研 / 请 Cursor |
 

@@ -170,10 +170,29 @@ Closeout: [`docs/phase0/p2-long-sem-closeout.md`](../phase0/p2-long-sem-closeout
 
 ---
 
-## 10. Revision log
+## 10. AutoTuner（IQ-EVO Wave 5 · bounded 1b）
+
+| Env | Default | Effect |
+|-----|---------|--------|
+| `MIMIR_AUTO_TUNER` | `0` | `1` → after pipeline close, bounded nudge to Top-3 thresholds |
+
+**Requires:** `MIMIR_FEEDBACK_COLLECTOR=1` (feedback JSONL input).
+
+**Outputs:** `data/tuned_thresholds.json` · `data/tune_audit.jsonl`
+
+**Keys:** `compressor.threshold_percent` · `degeneration.loop_detection.threshold` · `tool_quality.degraded_threshold`
+
+**Does not:** enable `MIMIR_AUTO_EVOLVE` or rewrite `degeneration_guard.json` on disk.
+
+**Plan:** [`docs/phase0/p2-long-iqevo-wave5.md`](../phase0/p2-long-iqevo-wave5.md)
+
+---
+
+## 11. Revision log
 
 | Date | Note |
 |------|------|
+| 2026-05-26 | Wave 5: `MIMIR_AUTO_TUNER` + tuned_thresholds (§10) |
 | 2026-05-26 | Wave 4: `MIMIR_FEEDBACK_COLLECTOR` + feedback_events.jsonl (§9) |
 | 2026-05-26 | §17: `mimir_ops` + context_usage snapshot + `/new` docs |
 | 2026-05-26 | SEM-07: semantic baseline + eval gate + §7 |

@@ -156,6 +156,16 @@ def close_execution_pipeline(
     except Exception:
         pass
 
+    try:
+        from agent.auto_tuner import run_tune_after_pipeline_close
+
+        result["tune_changes"] = run_tune_after_pipeline_close(
+            result,
+            session_id=session_id or "",
+        )
+    except Exception:
+        pass
+
     return result
 
 

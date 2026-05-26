@@ -281,8 +281,15 @@ class ToolQualityManager:
             return True
         return False
 
-    def get_degraded_tools(self, threshold: float = 0.5) -> List[Tuple[str, float]]:
+    def get_degraded_tools(self, threshold: Optional[float] = None) -> List[Tuple[str, float]]:
         """Return tools below the quality threshold for evolution attention."""
+        if threshold is None:
+            try:
+                from agent.tuned_thresholds import get_tuned_float
+
+                threshold = get_tuned_float("tool_quality.degraded_threshold")
+            except Exception:
+                threshold = 0.5
         degraded = []
         for key, rec in self._records.items():
             if rec.total_calls >= 3 and rec.quality_score < threshold:

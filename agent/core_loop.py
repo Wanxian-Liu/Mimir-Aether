@@ -388,10 +388,16 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
         )
 
         # MimirAether 自研上下文压缩器（context_length 构造即正确，不依赖事后修正）
+        try:
+            from agent.tuned_thresholds import get_tuned_float
+
+            _threshold_percent = get_tuned_float("compressor.threshold_percent")
+        except Exception:
+            _threshold_percent = 0.50
         self.compressor = MimirContextCompressor(
             model=model,
             context_length=int(self._context_length or 1048576),
-            threshold_percent=0.50,  # 500K主动压缩, 1M硬天花板
+            threshold_percent=_threshold_percent,  # Wave 5: bounded override or 0.50 default
             protect_first_n=3,
             protect_last_n=6,
             tail_token_budget=4000,

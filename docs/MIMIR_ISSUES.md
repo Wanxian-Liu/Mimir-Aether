@@ -11,6 +11,7 @@
 | # | 日期 | 来源 | 描述 | 严重度 | 状态 | Backlog |
 |---|------|------|------|--------|------|---------|
 | 3 | 2026-05-16 | CLARIFY_BASELINE §4 | 记忆落盘三条入口未统一（mimicore public/、skill_curator、llm-wiki/obsidian）— 设计债，见 ADR | 中 | deferred | [adr/002-memory-write-paths.md](./adr/002-memory-write-paths.md) |
+| 12 | 2026-05-26 | 刘哥 IQ/合格智能体 | **方向锚点**：智商+进化+「非传话筒」— **非 P0**；执行见 §15 **Wave 6** IQ-EVO-28 起第一条 `[ ]` | 低 | direction | [§15 Wave 6](./MIMIR_EXEC_BACKLOG.md) · [wave6 plan](./phase0/p2-long-iqevo-wave6-qualified-agent.md) |
 
 ---
 

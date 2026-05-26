@@ -143,7 +143,15 @@ _DEFAULT_CONFIG = {
 def _get_config_section(key: str) -> dict:
     config = _load_guard_config()
     signals = config.get("degeneration_signals", {}) or _DEFAULT_CONFIG["degeneration_signals"]
-    return signals.get(key, _DEFAULT_CONFIG["degeneration_signals"].get(key, {}))
+    section = dict(signals.get(key, _DEFAULT_CONFIG["degeneration_signals"].get(key, {})))
+    if key == "loop_detection" and "threshold" in section:
+        try:
+            from agent.tuned_thresholds import get_tuned_int
+
+            section["threshold"] = get_tuned_int("degeneration.loop_detection.threshold")
+        except Exception:
+            pass
+    return section
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

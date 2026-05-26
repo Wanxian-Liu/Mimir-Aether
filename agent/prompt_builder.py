@@ -126,7 +126,13 @@ def build_tool_quality_guidance() -> str:
         from agent.tool_quality import ToolQualityManager
 
         qm = ToolQualityManager(enable_persistence=True)
-        degraded = qm.get_degraded_tools(threshold=0.5)[:8]
+        try:
+            from agent.tuned_thresholds import get_tuned_float
+
+            _tq_threshold = get_tuned_float("tool_quality.degraded_threshold")
+        except Exception:
+            _tq_threshold = 0.5
+        degraded = qm.get_degraded_tools(threshold=_tq_threshold)[:8]
         if not degraded:
             return ""
         lines = [
