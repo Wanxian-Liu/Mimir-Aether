@@ -274,6 +274,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-26 | **IQ-EVO-11** | **Cursor** | hybrid 生产默认 + Chroma 增量 upsert（`MIMIR_CHROMA_INCREMENTAL`）；tier0 **382+2**；main **f593f7d** |
 | 2026-05-26 | **IQ-EVO-12** | **Cursor** | prompt `SESSION_SEARCH_GUIDANCE` search-first（MUST session_search before answer）；contract wave3 |
 | 2026-05-26 | **IQ-EVO-13** | **Cursor** | 生产 AUTO_ANALYSIS rollout 门闩：`docs/ops/MIMIR_AUTO_ANALYSIS_ROLLOUT.md` · runtime/path-contract · **勿开** AUTO_EVOLVE；7d `list_analysis_artifacts.sh` |
+| 2026-05-26 | **IQ-EVO-13 ops** | **刘哥授权·Cursor** | `$MIMIR_AETHER_HOME/.env` 确认 `MIMIR_AUTO_ANALYSIS=1`（无 AUTO_EVOLVE）· Gateway 硬重启 **PID 326974** · `/health` ok · 7d artifacts **97** 条 |
 
 ---
 
