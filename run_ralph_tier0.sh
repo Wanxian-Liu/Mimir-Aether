@@ -141,6 +141,7 @@ python3 -m pytest -q \
   tests/contract/test_horizon_sem_sem04.py \
   tests/contract/test_horizon_sem_sem05.py \
   tests/contract/test_horizon_sem_sem06.py \
+  tests/contract/test_horizon_sem_sem07.py \
   tests/tools/test_sem05_smoke.py \
   tests/contract/test_iqevo06_closeout.py \
   tests/contract/test_horizon_iqevo_wave2.py \

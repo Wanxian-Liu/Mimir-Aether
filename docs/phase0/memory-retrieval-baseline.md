@@ -74,6 +74,6 @@
 ```
 
 - 跑 20-query 基准（`run_memory_retrieval_benchmark.py`）→ 写入 `$MIMIR_AETHER_HOME/data/evolution_eval/memory-retrieval-<UTC>.json` 与 `memory-retrieval-latest.json`
-- 对比冻结基线 [`memory-retrieval-benchmark-20260524.json`](./memory-retrieval-benchmark-20260524.json)（`compare_memory_retrieval_baseline.py`）
-- **通过**：`like_hit_rate` ≥ max(50%, 基线 − 5pp)；FTS 不低于基线 − 5pp（有 `fts_db` 时）；**SEM-04 起** 若基线含 `semantic_hit_rate` 则当前不低于基线 − 5pp（Chroma 索引缺失且基线有 semantic 则 fail）
+- 对比冻结基线 [`memory-retrieval-benchmark-20260526.json`](./memory-retrieval-benchmark-20260526.json)（`compare_memory_retrieval_baseline.py`；legacy [`20260524`](./memory-retrieval-benchmark-20260524.json) 无 semantic 门）
+- **通过**：`like_hit_rate` ≥ max(50%, 基线 − 5pp)；FTS 不低于基线 − 5pp（有 `fts_db` 时）；**SEM-07 起** 若基线含 `semantic_hit_rate` 则当前不低于基线 − 5pp（Chroma 索引缺失且基线有 semantic 则 fail）
 - **非 tier0 门禁**（依赖本机 `sessions_search.db`）；契约测见 `tests/contract/test_evolution_eval_ievo04.py`

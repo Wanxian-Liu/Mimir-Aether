@@ -24,6 +24,16 @@
 | SEM-04 | benchmark + compare semantic | [x] |
 | SEM-05 | tier0 manifest + smoke | [x] |
 | SEM-06 | 本结案 + MAINLINE + GH #32 | [x] |
+| SEM-07 | 生产硬化：semantic 基线冻结 + IEVO-04 门 + ops | [x] 2026-05-26 |
+
+## SEM-07（2026-05-26 · 刘哥 Horizon A 续跑）
+
+| 项 | 状态 |
+|----|------|
+| Chroma **增量** upsert | [x] **IQ-EVO-11** · `MIMIR_CHROMA_INCREMENTAL` |
+| 冻结基线 | [`memory-retrieval-benchmark-20260526.json`](./memory-retrieval-benchmark-20260526.json) · `semantic_hit_rate` **1.0**（hash embed · 本机已索引 DB） |
+| IEVO-04 默认基线 | `run_evolution_eval.sh` → **20260526**（启用 semantic 回归门） |
+| 生产 backend | 仍 **`hybrid`**；升级路径 **`SESSION_SEARCH_BACKEND=semantic_hybrid`** + 可选 `MIMIR_EMBED_MODEL` |
 
 ## 语义 query 子集（#6–#13）
 
@@ -42,7 +52,7 @@ Benchmark 输出字段：`like_semantic_heavy_hit_rate` · `semantic_semantic_he
 
 | 已交付 | 余量（可续 icebox / follow-up） |
 |--------|----------------------------------|
-| Chroma persist + backfill · semantic / semantic_hybrid · 20-query benchmark 第三腿 · tier0 契约 | Gateway **增量** Chroma upsert（batch/async，非 SEM 阻塞项）· 生产 embed 模型选型与 CJK 质量验收 · ADR-002 跨会话注入（**非**本波） |
+| Chroma persist + backfill · semantic / semantic_hybrid · 20-query benchmark 第三腿 · tier0 契约 · **SEM-07** 基线 + eval 门 | 生产 **CJK paraphrase** 验收（`MIMIR_EMBED_MODEL`）· ADR-002 跨会话注入（**非**本波） |
 
 **建议**：刘哥确认后 **comment/close #32** 并链到本文件；余量开新 issue 或 icebox。
 

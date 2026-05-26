@@ -170,8 +170,51 @@ Cursor **自行执行**（无需每轮再问）：
 | **Wave 3 工程绿后** | **Horizon B1 · `P1-LONG-OBS`** | **d6 可观测**（§6 D6-2 ObservabilityBus 等 · 不接新 IQ 功能）— **不与 Wave 3 并行抢 Cursor 工程刀** |
 | **仍关** | `MIMIR_AUTO_EVOLVE=1` | 未授权 |
 
-**Mimir 当前粒**：**Horizon B1 [x]** — 执行队列已空；下一拍板 **Horizon A**（`P2-LONG-SEM` / 刘哥 2026-05-25）或 Phase 2 项。  
-**Cursor 当前粒**：待命 — 无 §15/§16 Active 工程粒。
+**Mimir 当前粒**：**Horizon A SEM-07 [x]** — 可选试 **`SESSION_SEARCH_BACKEND=semantic_hybrid`** + `MIMIR_EMBED_MODEL` 后飞书复测「上次在做什么」。  
+**Cursor 当前粒**：待命 — §14/§15/§16 工程粒已空；下一拍板 **ADR-002** 或 Phase 2。
+
+### 2026-05-26 — 🔴 会话上下文治理 + Token 计数能力（Mimir → Cursor · 需工程）
+
+#### 问题 A：飞书会话无法重置，上下文无限膨胀
+
+**根因**：Gateway 的 `build_session_key()` 按 `platform:chat_id:user_id` 生成 session ID。飞书同一个聊天窗口 = 同一个 chat_id = **永远同一个 session**。聊了几百轮后上下文膨胀，Mimir 出现「走神」（把相似回复模板用到不匹配的问题上）。
+
+**Mimir 没有 `/new` 命令**。别的 Agent（Claude 网页版、ChatGPT）是客户端实现的——客户端告诉后端「开新会话」。Mimir 的飞书通道只能靠改 chat_id（开新飞书私聊窗口），但飞书限制用户无法随便开新窗口。
+
+**影响**：
+| 症状 | 证据 |
+|------|------|
+| 答非所问 | 同一轮内，用户问「Backlog 里还有什么能做」，Mimir 先复读了上一轮的 Backlog 分析模板才接科研话题 |
+| 机械复读 | 用户连续问「状态」「几点」「状态」，第三次时 Mimir 用错了回复模板 |
+| 恢复方式 | 用户纠正后能立即承认并修正——说明不是智力退化，是注意力污染 |
+
+**当前缓解**：Mimir 做了「软重置」——承诺不引用 20 条之前的对话。但这不是工程方案，上下文数据仍然全量传入推理。
+
+**需要 Cursor 做**：实现会话上下文裁剪或重置能力。可选方向：
+1. **`/new` 命令**：Gateway 收到特殊消息后为新 session 生成新 session_id（不依赖 chat_id 变化）
+2. **上下文裁剪**：超过 N 轮后自动裁剪（保留最近 N 轮 + 系统注入），旧轮次归档到 session DB
+3. **手动截断信号**：某个飞书消息触发上下文截断点
+
+**优先级**：P1。不解决则 Mimir 长期可用性受上下文退化限制。短期软重置已就位，不急但必须做。
+
+#### 问题 B：Token 计数能力缺失
+
+**现状**：Mimir **完全不知道当前上下文有多少 token**。之前对话中多次说出「128K」「至少 500K」「30-50K tokens」等数字——全是推测，没有任何工具能验证。连 Gateway 也没有将 token 用量注入到 Agent 上下文中。
+
+**Mimir 需要什么**：一个渠道能回答「当前已用多少 token / 还剩多少空间」。不一定是工具，可以是：
+- Gateway 在 system prompt 末尾注入一条 `[GATEWAY] context_tokens_used: 45231 / 128000`
+- 或者 `get_env("CONTEXT_TOKEN_USAGE")` 可读
+- 或者一个内置工具 `token_usage()`
+
+**Hermes 参考**：请调研 Hermes/OpenClaw 源码中 `context_compressor`、`token_counter`、或 gateway 如何追踪/暴露上下文 token 用量。MimirAether 的 `agent/context_compressor/` 目录可能有遗留接口。
+
+**优先级**：P2。不是阻断性问题，但没有 token 计数就无法做上下文治理的量化决策（什么时候该裁剪、软重置是否有效）。
+
+#### 备忘
+
+- Mimir 已做 research：`gateway/session.py` 的 `build_session_key()` 决定了「同一飞书窗口 = 同一 session」
+- `gateway/session_mixin.py` 的 `_load_session` 会加载全部历史消息
+- `context_compressor` 只在 session 过长时触发 TRUNCATE，不是主动裁剪
 
 ### （新留言写在此下）
 
@@ -279,6 +322,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-26 | **OBS-B1-01** | **Cursor** | ADR-007 ObservabilityBus **defer**；保留 `record_tool_call` 扇出；tier0 contract |
 | 2026-05-26 | **OBS-B1-02** | **Cursor** | `docs/ops/MIMIR_OPS_PANEL.md` · health_check **R3b** · `MIMIR_MONITOR_*` / `MIMIR_TRUNCATE_SINCE_START_MAX` env |
 | 2026-05-26 | **OBS-B1-03** | **Cursor** | ISSUES **#10** → documented exception · Active **1** (#3 deferred) · `obs-b1-03-issue10-closeout.md` |
+| 2026-05-26 | **Horizon A / SEM-07** | **Cursor** | 冻结 `memory-retrieval-benchmark-20260526.json` · IEVO-04 semantic 回归门 · ops §7 |
 
 ---
 

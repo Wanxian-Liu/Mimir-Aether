@@ -1,0 +1,204 @@
+{
+  "frozen_at": "2026-05-26",
+  "frozen_by": "OBS-B1 follow-up SEM-07",
+  "embed_backend": "hash",
+  "notes": "Indexed production home; hash embed (tier0 default). Enable semantic regression gate in IEVO-04. Optional: MIMIR_EMBED_MODEL + SESSION_SEARCH_BACKEND=semantic_hybrid for CJK paraphrase.",
+  "queries": 20,
+  "like_db": "/home/rayliu/.mimiraether/data/sessions_search.db",
+  "fts_db": "/home/rayliu/.mimiraether/data/fts5_search.db",
+  "semantic_chroma_dir": "/home/rayliu/.mimiraether/data/chroma_sessions",
+  "like_hit_rate": 1.0,
+  "fts_hit_rate": 0.5,
+  "semantic_hit_rate": 1.0,
+  "like_p50_ms": 2.85,
+  "like_p99_ms": 5.54,
+  "fts_p50_ms": 0.41,
+  "fts_p99_ms": 2.79,
+  "semantic_p50_ms": 7.93,
+  "semantic_p99_ms": 9.13,
+  "semantic_heavy_query_count": 8,
+  "like_semantic_heavy_hit_rate": 1.0,
+  "semantic_semantic_heavy_hit_rate": 1.0,
+  "rows": [
+    {
+      "query": "persistent.json 截断",
+      "like_hits": 4,
+      "like_ms": 1.3882570201531053,
+      "fts_hits": 2,
+      "fts_ms": 0.6212049920577556,
+      "semantic_hits": 5,
+      "semantic_ms": 82.78188001713715
+    },
+    {
+      "query": "tool call 格式 DeepSeek",
+      "like_hits": 3,
+      "like_ms": 1.0996519995387644,
+      "fts_hits": 5,
+      "fts_ms": 0.5606410268228501,
+      "semantic_hits": 7,
+      "semantic_ms": 8.176092989742756
+    },
+    {
+      "query": "run_ralph_tier0",
+      "like_hits": 15,
+      "like_ms": 2.2379560105036944,
+      "fts_hits": 19,
+      "fts_ms": 1.6521959914825857,
+      "semantic_hits": 7,
+      "semantic_ms": 8.4867809782736
+    },
+    {
+      "query": "MIMIR_AETHER_HOME",
+      "like_hits": 15,
+      "like_ms": 1.4550630003213882,
+      "fts_hits": 13,
+      "fts_ms": 1.1185659968759865,
+      "semantic_hits": 4,
+      "semantic_ms": 7.534629025030881
+    },
+    {
+      "query": "237+2",
+      "like_hits": 2,
+      "like_ms": 3.3103239838965237,
+      "fts_hits": 0,
+      "fts_ms": 0.2962809812743217,
+      "semantic_hits": 6,
+      "semantic_ms": 7.614589994773269
+    },
+    {
+      "query": "架构方案 琬弦",
+      "like_hits": 12,
+      "like_ms": 7.543724990682676,
+      "fts_hits": 0,
+      "fts_ms": 0.23166800383478403,
+      "semantic_hits": 4,
+      "semantic_ms": 7.8950409952085465
+    },
+    {
+      "query": "Gateway 崩溃怎么恢复",
+      "like_hits": 1,
+      "like_ms": 3.902886004652828,
+      "fts_hits": 0,
+      "fts_ms": 0.22889298270456493,
+      "semantic_hits": 9,
+      "semantic_ms": 8.009928016690537
+    },
+    {
+      "query": "跨会话记忆 上次在做什么",
+      "like_hits": 1,
+      "like_ms": 5.138202977832407,
+      "fts_hits": 0,
+      "fts_ms": 0.2688489912543446,
+      "semantic_hits": 3,
+      "semantic_ms": 8.045324997510761
+    },
+    {
+      "query": "压缩 上下文 重叠",
+      "like_hits": 2,
+      "like_ms": 5.5431899963878095,
+      "fts_hits": 0,
+      "fts_ms": 0.2756610047072172,
+      "semantic_hits": 6,
+      "semantic_ms": 7.917805021861568
+    },
+    {
+      "query": "智商评分 rubric",
+      "like_hits": 6,
+      "like_ms": 0.9541159961372614,
+      "fts_hits": 4,
+      "fts_ms": 0.5405530100688338,
+      "semantic_hits": 6,
+      "semantic_ms": 7.320644013816491
+    },
+    {
+      "query": "memory leak session",
+      "like_hits": 1,
+      "like_ms": 2.968427987070754,
+      "fts_hits": 0,
+      "fts_ms": 0.364239007467404,
+      "semantic_hits": 5,
+      "semantic_ms": 7.437024003593251
+    },
+    {
+      "query": "FTS5 semantic search",
+      "like_hits": 2,
+      "like_ms": 2.836978994309902,
+      "fts_hits": 0,
+      "fts_ms": 0.22962401271797717,
+      "semantic_hits": 7,
+      "semantic_ms": 7.894669979577884
+    },
+    {
+      "query": "CrossSessionMemory save",
+      "like_hits": 4,
+      "like_ms": 0.8606690098531544,
+      "fts_hits": 2,
+      "fts_ms": 0.48197200521826744,
+      "semantic_hits": 6,
+      "semantic_ms": 7.725239003775641
+    },
+    {
+      "query": "2026-05-20 IR",
+      "like_hits": 8,
+      "like_ms": 1.0663580032996833,
+      "fts_hits": 5,
+      "fts_ms": 0.6944040069356561,
+      "semantic_hits": 6,
+      "semantic_ms": 7.618597010150552
+    },
+    {
+      "query": "last_session_end",
+      "like_hits": 4,
+      "like_ms": 0.9141000045929104,
+      "fts_hits": 3,
+      "fts_ms": 0.42345101246610284,
+      "semantic_hits": 7,
+      "semantic_ms": 7.336543989367783
+    },
+    {
+      "query": "session_id feishu",
+      "like_hits": 2,
+      "like_ms": 2.8726260061375797,
+      "fts_hits": 0,
+      "fts_ms": 0.2385720144957304,
+      "semantic_hits": 4,
+      "semantic_ms": 7.94972397852689
+    },
+    {
+      "query": "IR-20260520",
+      "like_hits": 15,
+      "like_ms": 2.1622419881168753,
+      "fts_hits": 5,
+      "fts_ms": 2.7885980089195073,
+      "semantic_hits": 5,
+      "semantic_ms": 8.621686982223764
+    },
+    {
+      "query": "E-008 cli shim",
+      "like_hits": 1,
+      "like_ms": 3.435510996496305,
+      "fts_hits": 0,
+      "fts_ms": 0.27708400739356875,
+      "semantic_hits": 5,
+      "semantic_ms": 8.218161994591355
+    },
+    {
+      "query": "JEPA",
+      "like_hits": 15,
+      "like_ms": 3.328888997202739,
+      "fts_hits": 8,
+      "fts_ms": 4.074611002579331,
+      "semantic_hits": 4,
+      "semantic_ms": 7.965744007378817
+    },
+    {
+      "query": "EV-A03 memory benchmark",
+      "like_hits": 1,
+      "like_ms": 4.102072998648509,
+      "fts_hits": 0,
+      "fts_ms": 0.40210102451965213,
+      "semantic_hits": 4,
+      "semantic_ms": 9.12944701849483
+    }
+  ]
+}

@@ -395,7 +395,7 @@ Read docs/MIMIR_EXEC_BACKLOG.md §11；P1-LONG-MEM 已结案。工程下一条�
 | **P2-LONG-IQEVO** | 智商/进化 Wave 1–3 | [`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) | Wave 1–3 **[x]**（§15 · IQ-EVO-14 = 4.3 documented exception） |
 | **Horizon B1** | **`P1-LONG-OBS`** · d6 可观测 | **§16** | **[x] 2026-05-26** OBS-B1-01～03 |
 
-**Semantic 检索**：**P2-LONG-SEM** 已结案（SEM-01～06）；生产默认仍 **LIKE/hybrid**；`semantic` / `semantic_hybrid` 见 ADR-006。
+**Semantic 检索**：**P2-LONG-SEM** 已结案（SEM-01～07）；生产默认 **`hybrid`**（IQ-EVO-11）；可选 **`semantic_hybrid`** + `MIMIR_EMBED_MODEL` 见 ADR-006 · [`MIMIR_OPS_PANEL.md`](./ops/MIMIR_OPS_PANEL.md) §7。
 
 ---
 
@@ -577,8 +577,9 @@ MIMIR_AETHER_HOME=~/.mimiraether。运维：MW-D01～D11 / health / TRUNCATE sin
 | **SEM-04** | 基准 + eval 扩展 semantic 腿 | benchmark JSON 含 `semantic_hit_rate`；compare 逻辑 | [x] 2026-05-19 |
 | **SEM-05** | tier0 回归 ≥3 | contract + smoke | [x] 2026-05-19 |
 | **SEM-06** | 结案 + MAINLINE + GH #32 | 语义 query 子集 ≥ LIKE 或 documented 例外 | [x] 2026-05-19 |
+| **SEM-07** | **生产硬化**：冻结 semantic 基线 + IEVO-04 回归门 + 运维文档（IQ-EVO-11 增量已合） | Cursor | `memory-retrieval-benchmark-20260526.json`；eval 默认新基线 | [x] 2026-05-26 |
 
-**§14 波次状态**：SEM-01～06 **全 [x]** · 结案 [`p2-long-sem-closeout.md`](./phase0/p2-long-sem-closeout.md) · GH **#32** 待刘哥 comment/close。
+**§14 波次状态**：SEM-01～07 **全 [x]** · 结案 [`p2-long-sem-closeout.md`](./phase0/p2-long-sem-closeout.md) · GH **#32** 待刘哥 comment/close。
 
 **Cursor 新窗一句**
 

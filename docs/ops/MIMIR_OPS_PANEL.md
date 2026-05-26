@@ -109,8 +109,34 @@ grep -i timeout "$H/logs/watchdog.log" 2>/dev/null | tail -5 || true
 
 ---
 
-## 7. Revision log
+## 7. Semantic session search（Horizon A · P2-LONG-SEM）
+
+| Step | Command |
+|------|---------|
+| Backfill Chroma（一次性或修复） | `MIMIR_AETHER_HOME=~/.mimiraether python3 scripts/backfill_chroma_sessions.py` |
+| 20-query 基准 | `MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_memory_retrieval_benchmark.py` |
+| 周常 eval + 回归门 | `MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh` |
+
+| Env | Default | Notes |
+|-----|---------|-------|
+| **`SESSION_SEARCH_BACKEND`** | **`hybrid`** | Production: FTS5→LIKE. Optional upgrade: **`semantic_hybrid`** (Chroma→hybrid). |
+| **`MIMIR_CHROMA_INCREMENTAL`** | **`1`** | Upsert on `sessions_search` write (IQ-EVO-11). Set `0` to disable. |
+| **`MIMIR_EMBED_MODEL`** | (unset → hash) | e.g. `paraphrase-multilingual-MiniLM-L12-v2` for CJK paraphrase; requires `sentence-transformers`. |
+
+Smoke:
+
+```bash
+MIMIR_AETHER_HOME=~/.mimiraether SESSION_SEARCH_BACKEND=semantic_hybrid \
+  python3 -c "from tools.session_search_tool import session_search; print(session_search('跨会话记忆', limit=3))"
+```
+
+Closeout: [`docs/phase0/p2-long-sem-closeout.md`](../phase0/p2-long-sem-closeout.md) · ADR-006.
+
+---
+
+## 8. Revision log
 
 | Date | Note |
 |------|------|
+| 2026-05-26 | SEM-07: semantic baseline + eval gate + §7 |
 | 2026-05-26 | OBS-B1-02: ops panel + R3b + monitor env overrides |

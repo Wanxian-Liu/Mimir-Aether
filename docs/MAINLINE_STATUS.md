@@ -9,7 +9,7 @@
 | **更新人** | Cursor（进度问询 · Wave 3 收尾） |
 | **仓库根（真源）** | `~/src/MimirAether` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁 **393+2**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
-| **本轮摘要** | **Horizon B1 [x]**（OBS-B1-01～03）· §15/§16 执行队列 **空** · ISSUES Active **1** · tier0 **410+2**。 |
+| **本轮摘要** | **Horizon A SEM-07 [x]**（semantic 基线 + eval 门）· §14/§15/§16 **空** · tier0 **417+2**。 |
 
 ---
 
