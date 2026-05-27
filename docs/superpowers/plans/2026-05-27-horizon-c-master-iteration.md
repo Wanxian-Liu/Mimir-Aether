@@ -164,10 +164,10 @@
 
 **Deliverable（仅文档 + 可选 spike，无生产默认切换）：**
 
-- [ ] `docs/proposals/p3-cross-session-retrieval.md`：三层注入（核心全量 / Top-N / RAG）
-- [ ] 对照 Hermes 注入策略（`hermes-comparison-detailed.md`）
-- [ ] 与 **ADR-002** 关系一节 → 提交刘哥 **Gate ADR-002**
-- [ ] backlog `[x]` · **不** 改 `SESSION_SEARCH_BACKEND` 生产默认
+- [x] `docs/proposals/p3-cross-session-retrieval.md`：三层注入（核心全量 / Top-N / RAG）
+- [x] 对照 Hermes 注入策略（`hermes-comparison-detailed.md`）
+- [x] 与 **ADR-002** 关系一节 → 提交刘哥 **Gate ADR-002**
+- [x] backlog `[x]` · **不** 改 `SESSION_SEARCH_BACKEND` 生产默认
 
 ---
 
@@ -220,7 +220,7 @@
 | 11 | [ ] | | TQM/SCH |
 | 12 | [ ] | | P1 抛光 |
 | 13 | [x] | | ToolRanker |
-| 14 | [ ] | | P3 调研 |
+| 14 | [x] | | P3 调研 |
 | 15+ | [ ] | | icebox |
 
 ---

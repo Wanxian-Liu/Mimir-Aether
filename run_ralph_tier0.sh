@@ -188,6 +188,7 @@ python3 -m pytest -q \
   tests/contract/test_horizon_os_rev_01.py \
   tests/agent/test_tool_ranker.py \
   tests/contract/test_horizon_os_tool_srch_01.py \
+  tests/contract/test_horizon_p3_xsr_01.py \
   tests/agent/test_conversation_nudges.py \
   tests/agent/test_persistent_single_writer_ind05.py
 

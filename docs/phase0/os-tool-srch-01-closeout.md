@@ -39,4 +39,4 @@ Expect top hit **`read_file`** (tool). Benign `Failed to parse frontmatter` line
 
 ## Next
 
-- **P3-XSR-01** — cross-session retrieval proposal (Wave 14 · doc-only)
+- **P3-XSR-01** — [x] see `p3-xsr-01-closeout.md`
