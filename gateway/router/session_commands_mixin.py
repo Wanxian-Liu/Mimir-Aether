@@ -41,19 +41,14 @@ class SessionCommandsMixin:
         
         # Get existing session key
         session_key = self._session_key_for_source(source)
-        
-        # Flush memories in the background (fire-and-forget) so the user
-        # gets the "Session reset!" response immediately.
-        try:
-            old_entry = self.session_store._entries.get(session_key)
-            if old_entry:
-                _flush_task = asyncio.create_task(
-                    self._async_flush_memories(old_entry.session_id, session_key)
-                )
-                self._background_tasks.add(_flush_task)
-                _flush_task.add_done_callback(self._background_tasks.discard)
-        except Exception as e:
-            logger.debug("Gateway memory flush on reset failed: %s", e)
+        old_entry = self.session_store._entries.get(session_key)
+
+        # Grain A: await memory flush before reset so /new does not drop unsaved turns.
+        if old_entry:
+            await self._await_flush_memories_for_manual_reset(
+                old_entry.session_id,
+                session_key,
+            )
         # Close tool resources on the old agent (terminal sandboxes, browser
         # daemons, background processes) before evicting from cache.
         # Guard with getattr because test fixtures may skip __init__.

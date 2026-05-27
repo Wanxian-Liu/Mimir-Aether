@@ -154,6 +154,7 @@ python3 -m pytest -q \
   tests/contract/test_horizon_iqevo_wave5.py \
   tests/contract/test_horizon_iqevo_wave6.py \
   tests/contract/test_horizon_iqevo_wave7_1c.py \
+  tests/contract/test_horizon_iqevo_wave7_intent.py \
   tests/tools/test_wave6_evidence.py \
   tests/tools/test_session_search_usage_baseline.py \
   tests/tools/test_label_intent_offline.py \

@@ -364,10 +364,14 @@ class CallersMixin:
         """
         messages = []
 
-        # 系统提示（单字符串，非多block）
+        # 系统提示（单字符串，非多block）+ 可选 IQ-EVO-47 intent 块
+        system_content = self.system_prompt
+        intent_block = getattr(self, "_intent_context_block", "") or ""
+        if intent_block:
+            system_content = f"{system_content}\n\n{intent_block}"
         messages.append({
             "role": "system",
-            "content": self.system_prompt,
+            "content": system_content,
         })
 
         # 检测是否需要reasoning_content传播(DeepSeek V4 Pro等模型需要)

@@ -705,6 +705,26 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
 
         effective_user_message = message_text
 
+        # IQ-EVO-47: per-turn intent hint (rule-based MVP; env MIMIR_INTENT_PREDICTOR)
+        self._intent_prediction = None
+        self._intent_context_block = ""
+        try:
+            from .intent_predictor import predict_and_format
+
+            self._intent_prediction, self._intent_context_block = predict_and_format(
+                effective_user_message
+            )
+            if self._intent_prediction:
+                logger.info(
+                    "[IntentPredictor] intent=%s complexity=%s search=%s block_cheap=%s",
+                    self._intent_prediction.intent,
+                    self._intent_prediction.complexity,
+                    self._intent_prediction.prefer_session_search,
+                    self._intent_prediction.block_cheap_route,
+                )
+        except Exception as e:
+            logger.debug("IntentPredictor skipped: %s", e)
+
         # 添加用户消息到历史(使用 @ 展开后的最终文本)
         self.conversation_history.append(Message(
             role=MessageRole.USER,

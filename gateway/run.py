@@ -659,6 +659,43 @@ class GatewayRunner(VoiceMixin, CronMixin, HealthMixin, SessionMixin, RouterMixi
             session_key,
         )
 
+    @staticmethod
+    def _reset_flush_timeout_sec() -> float:
+        """Max wait for /new|/reset memory flush before proceeding (grain A)."""
+        raw = os.environ.get("MIMIR_RESET_FLUSH_TIMEOUT_SEC", "90").strip()
+        try:
+            return max(5.0, float(raw))
+        except ValueError:
+            return 90.0
+
+    async def _await_flush_memories_for_manual_reset(
+        self,
+        old_session_id: str,
+        session_key: Optional[str] = None,
+    ) -> None:
+        """Block /new|/reset until pre-reset memory flush finishes or times out."""
+        if not old_session_id:
+            return
+        timeout = self._reset_flush_timeout_sec()
+        try:
+            await asyncio.wait_for(
+                self._async_flush_memories(old_session_id, session_key),
+                timeout=timeout,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(
+                "Pre-reset memory flush timed out after %.0fs (session=%s); "
+                "proceeding with reset",
+                timeout,
+                old_session_id,
+            )
+        except Exception as e:
+            logger.warning(
+                "Pre-reset memory flush failed for session %s: %s",
+                old_session_id,
+                e,
+            )
+
     def _create_adapter(
         self, 
         platform: Platform, 

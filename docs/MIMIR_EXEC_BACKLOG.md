@@ -1,6 +1,6 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-05-27（**Wave 7 [x]** · rubric **4.9** exception · **IQ-EVO-47** 可选未开）  
+> **最近更新**：2026-05-27（**Wave 7 [x]** · **IQ-EVO-47** Intent MVP · GH open **#21/#22** icebox）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5  
 > **规则**：**刘哥** — 新 Cursor 窗粘贴 handoff 对应 §N；**Cursor** — backlog §15 第一条 `[ ]` 至 Wave 6 结案。Mimir 飞书只读回报。§11 / §2 / Phase 0 **只读**。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
@@ -331,20 +331,21 @@ Mimir 冒烟回报
 - **当前执行源**：**§15 Wave 7 [x]** — closeout [`p2-long-iqevo-wave7-closeout.md`](./phase0/p2-long-iqevo-wave7-closeout.md) · rubric **4.9/10** exception。下一条可选 **IQ-EVO-47** 或 Horizon B1（§16）。
 - **勿**：提交 `data/persistent.json`；重做 E-001～E-012。
 
-### 9.1 未完成项盘点（2026-05-25）
+### 9.1 未完成项盘点（2026-05-27）
 
 | 桶 | 数量 | 说明 |
 |----|------|------|
-| **§13.1 母任务** | **1** Active | `P0-LONG-CLEARANCE` — 子阶段 A [~] → B→C→D→E |
-| **§11 长任务** | **0** Active | **`P2-LONG-SEM`** [x] · **`P2-LONG-IQEVO`** Wave 1+2 工程 [x] |
-| **§6 Phase 2 候选** | **6** `[ ]` | 已并入 **CLR-D / CLR-E**；勿单独开队列 |
+| **§13.1 母任务** | **0** Active | `P0-LONG-CLEARANCE` **全子阶段 [x]** |
+| **§11 长任务** | **0** Active | **`P2-LONG-SEM`** [x] · **Wave 7 IQ-EVO** [x] |
+| **§15 下一粒** | — | **IQ-EVO-47** [x]；下一 Horizon B1（§16）或 rubric 复评 |
+| **§6 Phase 2 候选** | **6** `[ ]` | 归档只读；已并入 CLR-D/E |
 | **§8 工程 icebox** | **4** 条 | 已并入 **CLR-C**（`P2-LONG-STAB`） |
-| **Gateway 十条** | **~4** 待工程 | CLR-C 结案；#9 待 **CLR-B** 飞书复验 |
-| **GitHub open** | **3** | #21 #22 icebox · #32 phase-2 |
-| **Active P0** | **0** | #10 **monitoring**（非 P0） |
+| **Gateway 十条** | **~1** 运维 | #9 代码 [x]；**CLR-B** 飞书复验 deferred |
+| **GitHub open** | **2** | **#21 #22** icebox（2026-05-27 已 refresh comment；**#32 #34 #35 closed**） |
+| **Active P0 GH** | **0** | — |
 | **搁置** | **1** | EV-VISION-DEFER（识图） |
 
-**对策不变**：只认 **§13.1 第一条 `[ ]` 子阶段**；子阶段内只认该段 **第一条 `[ ]` 子项**。
+**对策**：智商/进化认 **§15 + bridge**；GH 只跟踪 bug/icebox/里程碑。**勿**为 IQ-EVO 粒重复开 issue。
 
 ---
 
@@ -534,7 +535,7 @@ MIMIR_AETHER_HOME=~/.mimiraether。只做 §13 或 §12.1 第一条 [ ] 一颗�
 
 | masterplan §0 | 进度 |
 |---------------|------|
-| D1 GH ≤6 | ✅ **3 open**（#21 #22 icebox · #32 phase-2） |
+| D1 GH ≤6 | ✅ **2 open**（#21 #22 icebox · #32/#34/#35 closed 2026-05-27） |
 | D2 Active 无 P0 | ✅ Active **2**（#3 deferred · #10 monitoring） |
 | D3 Gateway 十条 | ✅ **STAB-07**（2026-05-25） |
 | D4 §13 无 `[ ]` | ✅ **P0-LONG-CLEARANCE** 全子阶段 `[x]` |
@@ -579,7 +580,7 @@ MIMIR_AETHER_HOME=~/.mimiraether。运维：MW-D01～D11 / health / TRUNCATE sin
 | **SEM-06** | 结案 + MAINLINE + GH #32 | 语义 query 子集 ≥ LIKE 或 documented 例外 | [x] 2026-05-19 |
 | **SEM-07** | **生产硬化**：冻结 semantic 基线 + IEVO-04 回归门 + 运维文档（IQ-EVO-11 增量已合） | Cursor | `memory-retrieval-benchmark-20260526.json`；eval 默认新基线 | [x] 2026-05-26 |
 
-**§14 波次状态**：SEM-01～07 **全 [x]** · 结案 [`p2-long-sem-closeout.md`](./phase0/p2-long-sem-closeout.md) · GH **#32** 待刘哥 comment/close。
+**§14 波次状态**：SEM-01～07 **全 [x]** · 结案 [`p2-long-sem-closeout.md`](./phase0/p2-long-sem-closeout.md) · GH **#32** **closed** 2026-05-27。
 
 **Cursor 新窗一句**
 
@@ -773,7 +774,7 @@ Read backlog §15 Wave 5。IQ-EVO-21～25；tier0 + evolution_log。
 | IQ-EVO-44 | 1c Compressor 有界 | Cursor | [x] 2026-05-27 · C1–C6 · 1C-04/05 · tier0 **462+2** |
 | IQ-EVO-45 | 1c contract + closeout | Cursor | [x] 2026-05-27 · 1C-01～07 · tier0 **3×466+2** · `p2-long-iqevo-wave7-1c-closeout.md` |
 | IQ-EVO-46 | rubric #6 + Wave 7 closeout | Mimir+Cursor | [x] 2026-05-27 · **4.9/10** exception · `p2-long-iqevo-wave7-closeout.md` |
-| IQ-EVO-47 | Intent MVP（可选） | Cursor | [ ] |
+| IQ-EVO-47 | Intent MVP（规则 Predictor + prompt/路由） | Cursor | [x] 2026-05-27 · `intent_predictor.py` · closeout `iqevo-47-intent-mvp-closeout.md` |
 | IQ-EVO-48 | 软失败 + suggestion 兜底 | Cursor | [x] 2026-05-27 · infer_tool_success · fallback fix · tier0 **472+2** |
 
 **§15 Wave 7 状态**：IQ-EVO-40～46 + DOC-01 **全 [x]** · rubric **4.9/10** documented exception（距 5.5 差 0.6）· 1c closeout [`p2-long-iqevo-wave7-1c-closeout.md`](./phase0/p2-long-iqevo-wave7-1c-closeout.md)

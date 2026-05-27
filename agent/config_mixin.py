@@ -171,6 +171,17 @@ class ConfigMixin:
 
         # Smart routing: 检查是否可以使用便宜模型
         route_label = None
+        intent_pred = getattr(self, "_intent_prediction", None)
+        if intent_pred and getattr(intent_pred, "block_cheap_route", False):
+            return {
+                "api_key": self._get_api_key(),
+                "base_url": self._get_model_base_url(),
+                "is_anthropic": any(
+                    x in model_name.lower() for x in ["anthropic", "claude"]
+                ),
+                "model_name": model_name,
+                "route_label": "intent_predictor: block cheap route",
+            }
         if user_message:
             try:
                 routing_cfg = getattr(self, '_smart_routing_config', None)

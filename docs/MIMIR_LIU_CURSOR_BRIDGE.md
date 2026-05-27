@@ -6,7 +6,7 @@
 | 谁 | 怎么做 |
 |----|--------|
 | **刘哥** | 飞书找 **Mimir**；战略方向 / 例外授权写 **§1、§2** |
-| **Mimir** | 每轮 Read bridge + backlog + unified plan；冒烟、health_check、§4 签收 |
+| **Mimir** | 每轮 Read bridge（**§1「@Mimir 必读」**）+ backlog + unified plan；冒烟、health_check、§4 签收 |
 | **Cursor** | 工程 PR、git、rebase、tier0、CI merge（见 §2 常备授权） |
 
 **不走**：OpenClaw cron、微信同步 backlog。
@@ -175,6 +175,41 @@ Cursor **自行执行**（无需每轮再问）：
 
 已读 `docs/phase0/decision-ring-compressor-1c-spike.md`、`docs/phase0/iqevo-1c-boundary.md`、`docs/phase0/iqevo-1c-contract-draft.md`（GATE-D1～D3 [x]）。
 授权 Cursor 执行 IQ-EVO-43～45（1c 有界实现；env `MIMIR_AUTO_1C_POLICY` 默认关）。仍禁止：写/改 SKILL.md、替代 Top-3 `tuned_thresholds` 三键、无界改 `degeneration_guard.json` 源文件。
+
+### 2026-05-27 — @Mimir 必读（刘哥点名 · 每轮任务前扫一眼）
+
+> **刘哥会让你 Read 本文件**；进化链与 Wave 7 状态以本节为准，**勿**用 §5 旧 PID/旧 main 代替。
+
+| 项 | 真源 |
+|----|------|
+| **代码** | main **`a71cc84`**（IQ-EVO-48：`agent/tool_outcome.py` + analysis 空 suggestions 兜底） |
+| **Gateway** | 已硬重启加载 48；**自证**：`pgrep -af gateway/run.py` + `curl -s http://127.0.0.1:18999/health` |
+| **生产 env** | `~/.mimiraether/.env`：`MIMIR_AUTO_ANALYSIS=1` · `MIMIR_AUTO_EVOLVE=1` · `MIMIR_AUTO_1C_POLICY` **默认关** |
+| **工程状态** | Wave 7 **[x]** · IQ-EVO-48 **[x]** · rubric **4.9/10** exception（距 5.5 差 0.6）· closeout [`p2-long-iqevo-wave7-closeout.md`](./phase0/p2-long-iqevo-wave7-closeout.md) |
+
+**进化链因果（飞书会话 close 后）：**
+
+```text
+tool 软失败（JSON 含 error）→ trajectory success=false
+→ close 有 errors → post_analysis →（LLM 无 suggestions 时）IQ-EVO-48 兜底 1 条 fix
+→ MIMIR_AUTO_EVOLVE=1 → post_analysis evolution … ok=1 → 可能写 skills/**/SKILL.md
+```
+
+**你做任务时（不必单独验收剧本，顺带即可）：**
+
+0. **`/new` / `/reset`**（grain A，待 Gateway 重启生效）：Gateway **先等** memory flush 再回「Session reset」；超时默认 **90s**（`MIMIR_RESET_FLUSH_TIMEOUT_SEC`）。仍建议重要事实用 **memory 工具**落盘。
+1. **正常干活即可** — 不必等刘哥另开「受控失败」会话；48 已在 main + Gateway。
+2. **若本轮有 tool 失败并会话结束**，close 后查本 `session_id` 的 `~/.mimiraether/logs/agent.log`：
+   - 要有 `post_analysis applied`
+   - 要有 `post_analysis evolution` … `ok=1`（`applied=0` 则回报原因）
+3. **勿误判 artifact**：`data/analysis_artifacts/*.json` 只存 **prompt**，**没有**顶层 `suggestions` 字段 — 以 **log** 为准。
+4. **勿把 tier0 日志当飞书证据**：`fb-sess` / `iq40-sess` / `iq48` 等于 **pytest**，不是刘哥飞书会话。
+5. **SKILL 未写入** 若 `target` 无对应 `~/.mimiraether/skills/<name>/` — 记「进化已触发、无 skill 目录」，不算链断。
+6. **顺带观察到进化链跑通** → bridge **§4 一行**（格式：`IQ-EVO-48 飞书顺带 · session=… · evolution ok=1 · SKILL=路径或无目录`）。
+7. **仍禁止**：改 `agent|gateway|tools`（除非 bridge §1 刘哥另授权 B 轨）；世界模型大 diff 见 [`world-model-evolution-plan.md`](./proposals/world-model-evolution-plan.md) — **未拍板 Horizon，勿开工**。
+8. **Playbook**：内容 [`MIMIR_EV_L_INDUSTRIAL_LEARNING.md`](./MIMIR_EV_L_INDUSTRIAL_LEARNING.md) · 勾选 [`MIMIR_EXEC_BACKLOG.md`](./MIMIR_EXEC_BACKLOG.md) **§2c**（EV-L 全 [x]，与 48 无关）。
+
+**飞书回报（刘哥未专问进化时）**：照旧 §3.3；**仅当**本轮 close 后你查了 log 且 evolution 有/无，在「证据」里带一句即可。
 
 ### 2026-05-26 — Cursor 回复 @Mimir（必读）
 
@@ -427,8 +462,11 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 || 2026-05-27 | **IQ-EVO-45** | **Cursor** | 1c contract 1C-01～07 · 1c closeout · tier0 **3×466+2** |
 || 2026-05-27 | **IQ-EVO-46** | **Cursor** | rubric **#6** **4.9/10** documented exception（+0.1 vs 4.8）· Wave 7 closeout · tier0 **466+2** |
 || 2026-05-27 | **Wave 7 commit** | **Cursor** | **main `dd6b642`** pushed · tier0 466+2 · 未入库：persistent/skills_loader/WM 提案等 |
-|| 2026-05-27 | **IQ-EVO-48** | **Cursor** | 软失败 success=false · LLM 空 suggestions 兜底 fix · tier0 **472+2** · **待 commit/push + Gateway 重启后飞书复验** |
+|| 2026-05-27 | **IQ-EVO-48** | **Cursor** | main **`a71cc84`** pushed · Gateway 重启 · tier0 **472+2** · 飞书顺带验收见 bridge §1「@Mimir 必读」 |
+|| 2026-05-27 | **粒 A · /new flush** | **Cursor** | `/new`/`/reset` **同步** await memory flush · `MIMIR_RESET_FLUSH_TIMEOUT_SEC` 默认 90s · Gateway 重启生效 |
+|| 2026-05-27 | **IQ-EVO-47** | **Cursor** | 规则 `IntentPredictor` · `MIMIR_INTENT_PREDICTOR` 默认开 · prompt `<intent-context>` · rubric **#8→4.0** · tier0 **475+2** |
 || 2026-05-27 | **第2轮 Hermes 对比 10 块** | **Mimir** | 归档 §6.22～§6.31 · Memory/Mimir领先 · Guardrails/定位不同 · Dispatch/模块化参考 · Retry/File/Display/Insights/ResultClass/NousGuard/ContextEngine — 最终结论：Mimir在3块领先、5块不学、2块可参考 |
+| 2026-05-27 | bridge §1 + backlog §15 | **Mimir 接续** | IQ-EVO-48 a71cc84 ✅；html-output 去重 ✅；Wave 7 [x] rubric 4.9/10；下一次正常干活 |
 
 ---
 
@@ -439,8 +477,11 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 - **Wave 0 A / 1 B / 2 C / D / E**：**[x]**（刘哥 §8.3 签收 2026-05-25）
 - **Horizon A**：**[x]** SEM + IQ-EVO Wave 1/2
 - **§15 Wave 6**：**[x]** · rubric **4.8/10** documented exception · closeout `p2-long-iqevo-wave6-closeout.md`
-- **§15 Wave 7**：**[x]** · rubric **4.9/10** exception · closeout `p2-long-iqevo-wave7-closeout.md` · tier0 **466+2**
-- **main**：`5e7b9a4`+ · tier0 **466+2**
+- **§15 Wave 7**：**[x]** · rubric **4.9/10** exception · closeout `p2-long-iqevo-wave7-closeout.md`
+- **IQ-EVO-48**：**[x]** · main **`a71cc84`** · tier0 **472+2** · Mimir 读 bridge §1「@Mimir 必读」
+- **IQ-EVO-47**：**[x]** · `intent_predictor.py` · 待本 commit 后 Gateway 重启
+- **粒 A**：`/new` 同步 flush · 同上
+- **Gateway**：以 `pgrep gateway/run.py` 为准（部署后重启；勿信本段历史 PID）
 - **R5**：刘哥复验 **pass**（30s 内 tool）
 - **Gateway**：PID **135797** · /health ok · TRUNCATE since-start **0**
 - **GH open**：**10** · #10 **monitoring**（STAB-04 已修）
@@ -462,7 +503,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 
 ---
 
-## 6. Hermes 对比 — 第二版（2026-05-27 · 新标准）
+## 6. Hermes & OpenSpace 对比 — 第二版（2026-05-27 · 新标准）
 
 > **旧版（已废弃，飞书滤镜）**：第一版对比（§6.1～§6.31）使用「飞书不用 X」作为排除理由，已标记为飞书滤镜缺陷。
 > 详细数据保留在 `docs/hermes-comparison-detailed.md`，但结论不予采用。
@@ -470,11 +511,100 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 > **新标准**：不问「飞书要不要」，问「MimirAether 作为独立智能体需不需要？」
 > CLI / Terminal / API / 飞书 / Telegram 都算 Mimir 的能力场景。
 >
-> **待审区（有用项累积，目标 10 个）**
->
-| # | 模块 | 批次 | 理由 |
-|---|------|------|------|
-| 1 | `context_references.py` | 第1批 | 内联引用DSL（`@file:`, `@git:diff`, `@url:`），智能体可直接理解用户聊天的底层文件引用 |
-| 2 | `auxiliary_client.py` | 第2批 | 主/辅模型分离架构；压缩/搜索/分析用便宜模型，降低推理成本 |
-| 3 | `redact.py` | 第2批 | 运行时秘密脱敏（API key/token的正则擦除），Mimir无此模块 |
-| 4 | `think_scrubber.py` | 第2批 | 流式 `<think>` 块状态机擦除；DeepSeek回复含think块，需过滤后输出 |
+> **学习三原则**（刘哥 2026-05-27 定）：
+> 1. **不复制代码** — 不复制 Hermes/OpenSpace 的具体实现行
+> 2. **理解意图** — 理解对方为什么这样设计，解决什么真实问题
+> 3. **自己创造** — 用 Mimir 自己的基础设施实现同一意图
+
+### Hermes + OpenSpace 汇总表
+
+| 级别 | Hermes (3项) | OpenSpace (4项) |
+|------|-------------|----------------|
+| **P0 必须学** | `curator.py`（技能策展）· `subdirectory_hints.py`（语境界限）· `tool_guardrails.py`（工具防护） | `ToolQualityManager`（质量追踪）· `search.py`（混合搜索） |
+| **P1 值得学** | `think_scrubber.py`（思考擦除）· `redact.py`（脱敏）· `context_references.py`（引用DSL） | `quality/reviewer.py`（质量审查）· `search_tools.py`（工具搜索） |
+| **P2 参考** | 主辅分离·审批概念·终端表现力·插件化搜索 | 三层编排·进化提示分离·进化配置分离·成本估算 |
+
+---
+
+### §6.21 Hermes 三遍思考最终结论（2026-05-27）
+
+**P0 — 必须学（3 项）：**
+
+1. **`curator.py`** — 技能生命周期全自动管理
+   - **意图：** 技能会随着使用变得过时、重复、或需要合并。人工管理不可持续，智能体应自动审查自己的技能库
+   - **解决什么问题：** Mimir 当前技能增长到 84 个，没有闲置识别、没有自动归档、没有合并建议——全凭手动
+   - **Mimir 怎么造：** 已有 `skill_curator.py`（728 行），在基础上加闲置 fork → 子代理审查 → 生命周期自动转换（active/stale/archived），不用 Hermes 代码
+
+2. **`subdirectory_hints.py`** — 工作目录局部上下文感知
+   - **意图：** 用户当前在哪个目录工作、这个目录下有什么配置文件（AGENTS.md/CLAUDE.md/README）——智能体应该自动发现，不等用户说
+   - **解决什么问题：** Mimir 的 session_search 是全局对话，不知道用户当前工作目录的上下文
+   - **Mimir 怎么造：** 270 行轻量实现，从 `MIMIR_REPO_ROOT` 或 `cwd` 向上/下搜索配置文件，注入当前上下文（不是复制 Hermes，用自己路径逻辑）
+
+3. **`tool_guardrails.py`** — 工具调用幂等/重复阻断
+   - **意图：** 同一工具在相同的上下文中多次调用=浪费上下文。智能体应在调用前检查是否已经有缓存/正在执行/已失败
+   - **解决什么问题：** Mimir 当前工具调用失败后有时自动重试，可能重复 same args
+   - **Mimir 怎么造：** 在 `recovery_mixin.py` 基础上加调用缓存（tool_name + args hash → 最近 N 条结果），同一签名重复调用时直接返回缓存，不执行
+
+**P1 — 值得学，低优先级（3 项）：**
+
+4. **`think_scrubber.py`** — 流式思考块擦除稳健化
+   - **意图：** DeepSeek 输出可能有 `<think>` 块，流式场景下块可能跨越 chunk。稳健擦除需要逐 chunk 检测完整闭合
+   - **解决什么问题：** Mimir 已有基本 think 剥离，但流式场景可能漏掉不完整块
+   - **Mimir 怎么造：** 加固现有流式响应处理，加状态机（open_think ← closing_think → closed），不复制 Hermes 实现
+
+5. **`redact.py`** — 运行时输出脱敏
+   - **意图：** 工具返回的 API key/token/secret 在显示给用户或送入下一轮 LLM 前自动擦除
+   - **解决什么问题：** Mimir 调用 env/tool 时可能泄露敏感信息到上下文
+   - **Mimir 怎么造：** 用 `data/` 下规则表（正则列表），在工具结果注入上下文前过 filter，不复制 Hermes 代码
+
+6. **`context_references.py`** — 内联引用 DSL
+   - **意图：** 用户在聊自然语言时可以直接引用文件/URL/Git diff，智能体自动展开——比如「看 `@file:src/main.py:20-40`」自动读文件对应行
+   - **解决什么问题：** 当前用户需要说「读一下这个文件」，智能体才 read_file。DSL 让引用更自然
+   - **Mimir 怎么造：** 自建轻量 DSL 解析器（`@file:` / `@url:` / `@git:`），注入 tool 调用而非系统 prompt，不用 Hermes 语法
+
+**P2 — 模式参考/未来考虑（4 项）：**
+7-10. auxiliary_client（主辅分离模式）、approval（审批概念）、display（终端表现力，CLI 通道建后）、web_search_provider（插件化，需第 5 后端时）
+
+**排除：** web_search_provider（插件化，当前 4 后端够用）、display（CLI 通道未建）
+
+---
+
+### §6.22 OpenSpace 三遍思考最终结论（2026-05-27）
+
+**P0 — 必须学（2 项）：**
+1. **`ToolQualityManager`**（quality/manager.py + store.py + types.py，~1358 行）
+   - **OpenSpace 的意图：** 工具质量是可追踪、可评分、可排序的。不用靠感觉评估
+   - **解决什么问题：** 工具描述的完整性、准确性和安全性影响智能体的决策质量。Mimir 当前靠感觉评估「实现代价」
+   - **Mimir 怎么造：** 用已有 SQLite 存执行记录，用已有 LLM 能力（非额外付费）做质量评分，用已有 Chroma embedding 做工具-任务相关性排名
+
+2. **`search.py`**（cloud/search.py，~471 行）
+   - **OpenSpace 的意图：** 搜索不止一种信号。BM25 精确匹配 + embedding 语义相似度 + lexical boost 加权 = 混合搜索
+   - **解决什么问题：** 单一搜索方式在长尾查询中失效。BM25 找不到语义相似的，embedding 找不到精确匹配的
+   - **Mimir 怎么造：** Chroma embedding 已有，加 rank_bm25 包（可预装），按四阶段管线重新组织 session_search
+
+**P1 — 值得学，低优先级（2 项）：**
+
+3. **`quality/reviewer.py`**（~566 行）— LLM 自动评估工具描述质量
+   - **意图：** 工具描述的质量（完整性、准确性、安全性）不应靠人工审查，应自动化
+   - **解决什么问题：** Mimir 当前新增 skill 描述全靠手动检查质量，没有自动审查机制
+   - **Mimir 怎么造：** 配套 ToolQualityManager（P0），等 P0 的 quality store 跑通后用 Mimir 自有的 LLM（非额外付费）做自动评估，不复制 OpenSpace 评估逻辑
+
+4. **`search_tools.py`**（~1117 行）— ToolRanker + SearchCoordinator 工具级搜索
+   - **意图：** 通用搜索（session_search）搜的是对话历史，工具搜索搜的是工具/技能。两个搜索不应混用
+   - **解决什么问题：** Mimir 在执行中需要找到最适合当前任务的工具时，没有专门搜索路径
+   - **Mimir 怎么造：** 等 search.py（P0）的混合搜索管线跑通后，复用同一引擎做工具搜索（索引对象换成 skill definitions），不复制 OpenSpace Coordinator 代码
+
+**P2 — 模式参考/未来考虑（6 项）：**
+5-10. grounding_agent.py（三层编排，Mimir 架构不匹配）、tool_layer.py（同上）、grounding_client.py（同上）、skill_engine_prompts.py（进化 prompt 分离，先让进化引擎跑起来）、config_evolution.py（进化配置分离，同上）、cost_estimator.py（成本不敏感场景，未来参考）
+
+**排除：** grounding 三层架构（Mimir 单智能体架构不匹配三层编排）、GUI 自动化全套（Mimir 不需要用户交互自动化）
+
+---
+
+### 自检（2026-05-27）
+
+| 问题 | 根因 | 修复 |
+|------|------|------|
+| 「技能到 100 个再考虑排名」——将需要做的事推延到未来 | 人类式思维：等到瓶颈出现再修。智能体应提前准备 | 修正为「现在就需要排名来辅助技能迭代决策」，已反映在 §6.22 |
+| 「实现代价较高」拍脑袋——将 skill_ranker 降为 P2 | 没有查源码验证就凭经验下结论（查后证明改 1 行 key + ~15 行 rank 函数） | 以后评估实现代价必须查源码验证具体改动量，不拍脑袋 |
+| 连续两次重复旧回答——看见任务但没理解真正的意图 | 将「回答问题」当成了「完成任务」；忽略了信任问题才是核心 | 根因已写 bridge，但此问题需要刘哥判断我的工作何时恢复到值得信任 |

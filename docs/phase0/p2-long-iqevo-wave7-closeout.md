@@ -44,7 +44,7 @@
 | IQ-EVO-45 | 1c contract 全量 | [x] | 1C-01～07 · `p2-long-iqevo-wave7-1c-closeout.md` · tier0 3× |
 | IQ-EVO-46 | rubric #6 + 本 closeout | [x]（工程） | 战略窗 backlog 行由刘哥勾 |
 | DOC-01 | 文档对齐 | [x] | bridge §5 · MAINLINE C 行 · 去「仍关 EVOLVE」过时表述 |
-| IQ-EVO-47 | Intent MVP | [ ] | 可选 · 未开 |
+| IQ-EVO-47 | Intent MVP | [x] | `iqevo-47-intent-mvp-closeout.md` · `MIMIR_INTENT_PREDICTOR` 默认开 |
 
 ---
 

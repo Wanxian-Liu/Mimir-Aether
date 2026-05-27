@@ -1,10 +1,10 @@
 # EV-Q03 — IntentPredictor 审计（2026-05-24）
 
-> `agent/intent_predictor.py` / `IntentPredictor` **仍不存在**。勿与 **`intent_action_guard`**（133 行）混淆。
+> **IQ-EVO-47（2026-05-27）**：`agent/intent_predictor.py` — 规则 MVP（`IntentPrediction` + `predict()`），env `MIMIR_INTENT_PREDICTOR` 默认开。非 ML 全量分类器。勿与 **`intent_action_guard`** 混淆。
 
 ## 摘要
 
-- **方案 §6.2 分类器 v2**：代码 **0%**（无 `class.*IntentPredictor`、无 intent 路由）。
+- **方案 §6.2 分类器 v2**：**部分** — 规则 MVP + prompt/便宜路由守卫；无 ML 训练路由。
 - **现有**：`intent_action_guard` — 规则 nudge（`MAX_INTENT_NUDGES=2`），接 **`agent_loop`** turn 末，非意图分类。
 - **安全向**：`prompt_builder.scan_context_content`、tool_guard — 与预测无关（[agent-core map](./agent-core-responsibility-map.md)）。
 
