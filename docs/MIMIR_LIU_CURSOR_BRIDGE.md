@@ -469,6 +469,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 || 2026-05-27 | **第2轮 Hermes 对比 10 块** | **Mimir** | 归档 §6.22～§6.31 · Memory/Mimir领先 · Guardrails/定位不同 · Dispatch/模块化参考 · Retry/File/Display/Insights/ResultClass/NousGuard/ContextEngine — 最终结论：Mimir在3块领先、5块不学、2块可参考 |
 | 2026-05-27 | bridge §1 + backlog §15 | **Mimir 接续** | IQ-EVO-48 a71cc84 ✅；html-output 去重 ✅；Wave 7 [x] rubric 4.9/10；下一次正常干活 |
 | 2026-05-27 | **Bridge §6→§18 + Wave 9** | **Cursor** | §6→backlog §18 · Wave 9 [x] · main **`72947ef`** pushed · tier0 **488+2** · 下一粒 **HERM-CUR-02**（§18.2）· **Gateway 重启待做** |
+| 2026-05-27 | **OPS-DEPLOY-W9 + HERM-CUR-02** | **Cursor** | Gateway **PID 513180** · `/health` ok · skill_curator lifecycle + close hook · tier0 **497+2** · 工作区 **`632bff5`** · 下一粒 **HERM-TGR-02** · §19.1 **1/15** · 综合 **~48%** |
 
 ---
 

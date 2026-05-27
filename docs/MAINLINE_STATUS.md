@@ -9,7 +9,7 @@
 | **更新人** | Cursor（§19 主队列 + Horizon C 主迭代计划） |
 | **仓库根（真源）** | `~/src/MimirAether` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁 **466+2**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
-| **本轮摘要** | Bridge §6→§18 [x] · Wave 9 [x] · **执行源 → backlog §19.1** · 主计划 [`2026-05-27-horizon-c-master-iteration.md`](./superpowers/plans/2026-05-27-horizon-c-master-iteration.md) · tier0 **488+2** · 下一工程粒 **HERM-CUR-02**（Wave 10）。 |
+| **本轮摘要** | §19.1 **1/15** · §19.2 **1/5** · **HERM-CUR-02** + **OPS-DEPLOY-W9** [x] · 综合 WM **~48%** · tier0 **497+2** · 下一粒 **HERM-TGR-02**（工作区未 push）。 |
 
 ---
 

@@ -13,9 +13,11 @@ MimirAether Skill Curator — 技能生命周期管理
 """
 
 import logging
+import os
+import threading
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from agent import persistent_store
 
@@ -56,20 +58,59 @@ def _parse_frontmatter(content: str) -> dict:
     return {}
 
 
-def _discover_skills() -> List[Tuple[str, Path, dict]]:
-    """
-    扫描 skills/ 下所有 SKILL.md。
+def _collect_skill_roots() -> List[Path]:
+    """Repo skills/ plus MIMIR home and configured external dirs (HERM-CUR-02)."""
+    roots: List[Path] = []
+    seen: set[Path] = set()
 
-    Returns: [(name, dir, frontmatter), ...]
-    """
+    def _add(path: Path) -> None:
+        try:
+            resolved = path.resolve()
+        except OSError:
+            return
+        if resolved in seen or not path.is_dir():
+            return
+        seen.add(resolved)
+        roots.append(path)
+
+    _add(SKILLS_ROOT)
+    try:
+        from agent.mimir_constants import get_skills_dir
+
+        _add(get_skills_dir())
+    except Exception:
+        pass
+    try:
+        from agent.skill_utils import get_external_skills_dirs
+
+        for ext in get_external_skills_dirs():
+            _add(ext)
+    except Exception:
+        pass
+    return roots
+
+
+def _discover_skills_in_root(root: Path) -> List[Tuple[str, Path, dict]]:
+    """Scan one skills root (category/skill or flat skill dir)."""
     results: List[Tuple[str, Path, dict]] = []
-    if not SKILLS_ROOT.is_dir():
+    if not root.is_dir():
         return results
 
-    for item in sorted(SKILLS_ROOT.iterdir()):
-        if not item.is_dir() or item.name.startswith(".") or item.name in ("__pycache__", "modules", "data"):
+    skip_names = {"__pycache__", "modules", "data", DORMANT_DIR}
+
+    for item in sorted(root.iterdir()):
+        if not item.is_dir() or item.name.startswith(".") or item.name in skip_names:
             continue
-        # 一级目录下的二级目录（如 mimiraether/mimiraether-tool-triggers）
+        direct_skill = item / SKILL_FILENAME
+        if direct_skill.exists():
+            try:
+                content = direct_skill.read_text(encoding="utf-8")
+                fm = _parse_frontmatter(content)
+                name = str(fm.get("name", item.name))
+                results.append((name, item, fm))
+            except OSError:
+                pass
+            continue
         for sub in sorted(item.iterdir()):
             if not sub.is_dir() or sub.name.startswith("."):
                 continue
@@ -79,12 +120,122 @@ def _discover_skills() -> List[Tuple[str, Path, dict]]:
             try:
                 content = skill_file.read_text(encoding="utf-8")
                 fm = _parse_frontmatter(content)
-                name = fm.get("name", sub.name)
+                name = str(fm.get("name", sub.name))
                 results.append((name, sub, fm))
             except OSError:
                 continue
-
     return results
+
+
+def _discover_skills() -> List[Tuple[str, Path, dict]]:
+    """
+    扫描所有技能根目录下的 SKILL.md。
+
+    Returns: [(name, dir, frontmatter), ...]
+    """
+    by_name: Dict[str, Tuple[str, Path, dict]] = {}
+    for root in _collect_skill_roots():
+        for name, skill_dir, fm in _discover_skills_in_root(root):
+            if name not in by_name:
+                by_name[name] = (name, skill_dir, fm)
+    return list(by_name.values())
+
+
+def scan_all_skills() -> List[dict]:
+    """Full lifecycle scan across all skill roots (HERM-CUR-02)."""
+    return scan_skills()
+
+
+def build_lifecycle_report(
+    skills: List[dict],
+    buckets: Dict[str, List[dict]],
+    actions_data: Optional[dict] = None,
+) -> str:
+    """Markdown lifecycle report capped at 2KB for logs / mimir_ops."""
+    if actions_data is None:
+        actions_data = curator_actions()
+    summary = actions_data.get("summary", {})
+    lines = [
+        "# Skill Curator lifecycle pass",
+        "",
+        f"- total: {len(skills)}",
+        f"- fresh: {len(buckets.get('fresh', []))}",
+        f"- stale: {len(buckets.get('stale', []))}",
+        f"- dormant: {len(buckets.get('dormant', []))}",
+        f"- archived registry (`.dormant/`): see `{DORMANT_DIR}/`",
+        "",
+        "## Merge / review suggestions",
+    ]
+    for action in actions_data.get("actions", [])[:25]:
+        lines.append(
+            f"- **{action.get('action')}** `{action.get('name')}`: {action.get('reason')}"
+        )
+    if not actions_data.get("actions"):
+        lines.append("- (none)")
+    text = "\n".join(lines)
+    encoded = text.encode("utf-8")
+    if len(encoded) > 2048:
+        text = encoded[:2000].decode("utf-8", errors="ignore") + "\n…(truncated)"
+    return text
+
+
+def run_lifecycle_pass() -> Dict[str, Any]:
+    """
+    Periodic lifecycle scan: all skill roots, persist skill_usage hints, emit report.
+    """
+    skills = scan_skills()
+    usage = _get_usage()
+    updated = dict(usage)
+    for row in skills:
+        name = row["name"]
+        last = row.get("last_touched")
+        if name and last and last != "unknown" and name not in updated:
+            updated[name] = str(last)
+    if updated != usage:
+        _set_usage(updated)
+
+    buckets = assess_staleness(skills)
+    actions_data = curator_actions()
+    report_md = build_lifecycle_report(skills, buckets, actions_data)
+    logger.info("skill_curator lifecycle pass (%d skills)\n%s", len(skills), report_md)
+
+    return {
+        "total": len(skills),
+        "stale": buckets.get("stale", []),
+        "dormant": buckets.get("dormant", []),
+        "report_md": report_md,
+        "actions_summary": actions_data.get("summary", {}),
+    }
+
+
+def schedule_skill_curator_lifecycle_pass(
+    *,
+    session_id: str = "",
+    task_name: str = "",
+) -> None:
+    """Fire-and-forget lifecycle pass when MIMIR_SKILL_CURATOR_ON_CLOSE=1."""
+    if os.environ.get("MIMIR_SKILL_CURATOR_ON_CLOSE", "").strip().lower() not in (
+        "1",
+        "true",
+        "yes",
+    ):
+        return
+
+    def _worker() -> None:
+        try:
+            run_lifecycle_pass()
+        except Exception as exc:
+            logger.warning(
+                "skill_curator lifecycle pass failed session_id=%s: %s",
+                session_id,
+                exc,
+            )
+
+    threading.Thread(
+        target=_worker,
+        daemon=True,
+        name="skill-curator-lifecycle",
+    ).start()
 
 
 # ── Usage Tracking ──────────────────────────────────────────────────────────
@@ -148,6 +299,7 @@ def scan_skills() -> List[dict]:
             try:
                 last_dt = datetime.fromisoformat(last_ts)
                 days_since = (now - last_dt).days
+                last_touched = last_dt.isoformat()
             except ValueError:
                 days_since = None
                 last_touched = last_ts
@@ -714,6 +866,10 @@ def detailed_report() -> str:
 __all__ = [
     "touch_skill",
     "scan_skills",
+    "scan_all_skills",
+    "run_lifecycle_pass",
+    "build_lifecycle_report",
+    "schedule_skill_curator_lifecycle_pass",
     "assess_staleness",
     "capsulize_and_dormant",
     "revive_skill",

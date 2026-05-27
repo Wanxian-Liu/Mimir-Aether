@@ -419,11 +419,16 @@ class MimirAgentLoop:
             )
             from agent.jepa_session_hook import schedule_post_close_jepa_cycle
             from agent.post_close_analysis import schedule_post_close_analysis
+            from agent.skill_curator import schedule_skill_curator_lifecycle_pass
 
             task = task_name or self.task_id
             result = close_execution_pipeline(
                 task_name=task,
                 session_id=self.task_id,
+            )
+            schedule_skill_curator_lifecycle_pass(
+                session_id=self.task_id,
+                task_name=task,
             )
             schedule_post_close_analysis(
                 result,

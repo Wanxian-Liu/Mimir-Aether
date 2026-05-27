@@ -54,23 +54,12 @@
 
 **现状：** `skill_curator.py` 已有 fresh/stale/dormant 阈值（30/60 天）；缺 **自动周期扫描**、**合并建议输出**、**archived 目录约定** 的 tier0 契约。
 
-- [ ] **Step 1:** 写失败测 — `scan_all_skills()` 返回 stale 列表（mock SKILL 目录 + persistent 条目）
-
-```python
-def test_scan_marks_stale_after_threshold(tmp_path, monkeypatch):
-    # freeze time; touch skill meta last_used > 30d → status stale
-    ...
-```
-
-- [ ] **Step 2:** `pytest tests/agent/test_skill_curator_lifecycle.py -v` → FAIL
-
-- [ ] **Step 3:** 实现 `run_lifecycle_pass()`：扫描 `skills/` + `USER_SKILLS_DIR`；写 persistent `skill_usage`；生成 **markdown 报告**（≤2KB）供 log 或 `mimir_ops`
-
-- [ ] **Step 4:** 在 session close 或 `MIMIR_SKILL_CURATOR_ON_CLOSE=1` 时 fire-and-forget 调用（默认关，单测开）
-
-- [ ] **Step 5:** contract 测 + `run_ralph_tier0.sh` PASS
-
-- [ ] **Step 6:** closeout + commit `feat(agent): HERM-CUR-02 skill curator lifecycle pass`
+- [x] **Step 1:** 写失败测 — `scan_all_skills()` 返回 stale 列表（mock SKILL 目录 + persistent 条目）
+- [x] **Step 2:** `pytest tests/agent/test_skill_curator_lifecycle.py -v` → FAIL → PASS
+- [x] **Step 3:** 实现 `run_lifecycle_pass()` + `build_lifecycle_report`
+- [x] **Step 4:** `MIMIR_SKILL_CURATOR_ON_CLOSE` + `schedule_skill_curator_lifecycle_pass` in close pipeline
+- [x] **Step 5:** contract 测 + tier0 **497+2** PASS
+- [ ] **Step 6:** commit `feat(agent): HERM-CUR-02 skill curator lifecycle pass`（工作区待 commit）
 
 ### Task 2: HERM-TGR-02 — tool cache 观测
 

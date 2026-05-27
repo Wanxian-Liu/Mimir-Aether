@@ -902,7 +902,7 @@ Read backlog §17 P1-LONG-AUTONOMY 第一条 [ ]。
 
 | ID | 优先级 | 任务 | 意图摘要 | 状态 |
 |----|--------|------|----------|------|
-| **HERM-CUR-02** | P0 | skill_curator **生命周期** — stale/archived/合并建议 | 84+ 技能需自动闲置治理 | [ ] |
+| **HERM-CUR-02** | P0 | skill_curator **生命周期** — stale/archived/合并建议 | 84+ 技能需自动闲置治理 | [x] |
 | **HERM-SDH-02** | P0 | subdirectory hints **系统 prompt 层**（可选） | 除 tool 结果外，cwd 变更时注入 | [ ] |
 | **HERM-TGR-02** | P0 | 工具缓存 **观测** — log/metrics 命中率 | 验证 TGR-01 有效 | [ ] |
 | **OS-TQM-02** | P0 | ToolQualityManager **默认接线** + tier0 契约 | prompt_builder 已部分用 | [ ] |
@@ -919,7 +919,7 @@ Read backlog §17 P1-LONG-AUTONOMY 第一条 [ ]。
 | **GH-ICE-21-22** | icebox | D5/D6 余债 | #21 #22 | [ ] |
 | **CLR-B-FEISHU** | 运维 | Gateway #9 / 空表头飞书复验 | deferred | [ ] |
 
-**§18.2 状态**：**HERM-CUR-02** 为默认 **下一工程粒**（刘哥未另拍板时）
+**§18.2 状态**：**HERM-TGR-02** 为默认 **下一工程粒**（刘哥未另拍板时）
 
 **Cursor 新窗一句**
 
@@ -956,11 +956,11 @@ Read bridge §1「@Mimir 必读」+ backlog §18（勿再扫 bridge §6 大表�
 
 ### 19.1 工程轨（Cursor · 与 §18.2 同序）
 
-> **下一粒默认**：**HERM-CUR-02**（Wave 10 · 见主计划 Task 1）
+> **下一粒默认**：**HERM-TGR-02**（Wave 10 · 见主计划 Task 2）
 
 | Wave | ID | 优先级 | 任务 | 状态 | 计划章 |
 |------|-----|--------|------|------|--------|
-| **10** | **HERM-CUR-02** | P0 | skill_curator 生命周期：stale/dormant/归档/合并建议 + 周期钩子 | [ ] | §Wave 10 |
+| **10** | **HERM-CUR-02** | P0 | skill_curator 生命周期：stale/dormant/归档/合并建议 + 周期钩子 | [x] | §Wave 10 |
 | **10** | **HERM-TGR-02** | P0 | 只读 tool cache 命中率 log/metrics | [ ] | §Wave 10 |
 | **10** | **HERM-SDH-02** | P0 | subdirectory hints 进 system prompt（cwd 变更） | [ ] | §Wave 10 |
 | **11** | **OS-TQM-02** | P0 | ToolQualityManager 默认接线 + tier0 契约 | [ ] | §Wave 11 |
@@ -976,7 +976,7 @@ Read bridge §1「@Mimir 必读」+ backlog §18（勿再扫 bridge §6 大表�
 | **—** | **ENGINE-P3W-01** | P2 | P3-0 persistent 单写者实现（ADR-001 已有） | [ ] | 随 §19.3 ADR-002 |
 | **—** | **ENGINE-GW-01** | P2 | Gateway 十条余项 | [ ] | `GATEWAY_STABILITY_BACKLOG.md` |
 
-**§19.1 状态**：**0/15** 工程粒完成（**0%**）· 综合世界模型进度 **~41%**（见 [`world-model-agent-handoff.md`](./superpowers/plans/2026-05-27-world-model-agent-handoff.md) §2）
+**§19.1 状态**：**1/15** 工程粒完成（**~6.7%**）· 综合世界模型进度 **~48%**（见 [`world-model-agent-handoff.md`](./superpowers/plans/2026-05-27-world-model-agent-handoff.md) §2）
 
 **Cursor 新窗一句**
 
@@ -989,7 +989,7 @@ Read docs/superpowers/plans/2026-05-27-horizon-c-master-iteration.md + backlog �
 
 | ID | Owner | 任务 | 成功标准 | 状态 |
 |----|-------|------|----------|------|
-| **OPS-DEPLOY-W9** | Cursor | Wave 9 + 粒 B **Gateway 硬重启** + `/health` | bridge §1 自证 PID；Mimir 可复验 | [ ] |
+| **OPS-DEPLOY-W9** | Cursor | Wave 9 + 粒 B **Gateway 硬重启** + `/health` | bridge §1 自证 PID；Mimir 可复验 | [x] |
 | **OPS-IQ-SMOKE-49** | Mimir | `/new` 后 cross-session 含 key_decisions 一句 | 飞书截图或 log；§3.3 | [ ] |
 | **CLR-B-FEISHU** | 刘哥 | Gateway #9 / 空表头飞书复验 | 无新 230099 | [ ] |
 | **OPS-MW-REFRESH** | Mimir | 每周 MW-D01/D02/D07 轻量刷新 | bridge §4 或无新 P0 | [ ] |
