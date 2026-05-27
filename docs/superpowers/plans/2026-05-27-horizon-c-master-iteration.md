@@ -68,11 +68,11 @@
 - Modify: `agent/exec_mixin.py`（可选 debug log）
 - Create: `tests/agent/test_tool_call_cache_metrics.py`
 
-- [ ] **Step 1:** 测 `get_stats()` → `{hits, misses, size}`
+- [x] **Step 1:** 测 `get_stats()` → `{hits, misses, size}`
 
-- [ ] **Step 2:** 实现计数器；`MIMIR_TOOL_CACHE_LOG=1` 时 info 级单行
+- [x] **Step 2:** 实现计数器；`MIMIR_TOOL_CACHE_LOG=1` 时 info 级单行
 
-- [ ] **Step 3:** tier0 + commit `feat(agent): HERM-TGR-02 tool cache metrics`
+- [ ] **Step 3:** commit `feat(agent): HERM-TGR-02 tool cache metrics`（工作区待 commit）
 
 ### Task 3: HERM-SDH-02 — hints 进 system prompt
 

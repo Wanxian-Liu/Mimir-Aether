@@ -4,11 +4,16 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import time
 from typing import Any, Dict, Optional, Tuple
 
+logger = logging.getLogger(__name__)
+
 _CACHE: Dict[str, Tuple[float, str]] = {}
+_HITS = 0
+_MISSES = 0
 _MAX_ENTRIES = 64
 _DEFAULT_TTL_SEC = 300
 
@@ -51,6 +56,56 @@ def should_cache_tool(tool_name: str) -> bool:
     return _enabled() and (tool_name or "") in _READ_ONLY_TOOLS
 
 
+def _log_enabled() -> bool:
+    return os.environ.get("MIMIR_TOOL_CACHE_LOG", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
+def get_stats() -> Dict[str, int]:
+    return {"hits": _HITS, "misses": _MISSES, "size": len(_CACHE)}
+
+
+def reset_stats() -> None:
+    global _HITS, _MISSES
+    _HITS = 0
+    _MISSES = 0
+
+
+def clear_cache() -> None:
+    _CACHE.clear()
+
+
+def _record_hit() -> None:
+    global _HITS
+    _HITS += 1
+    _maybe_log_line()
+
+
+def _record_miss() -> None:
+    global _MISSES
+    _MISSES += 1
+    _maybe_log_line()
+
+
+def _maybe_log_line() -> None:
+    if not _log_enabled():
+        return
+    stats = get_stats()
+    total = stats["hits"] + stats["misses"]
+    rate = (stats["hits"] / total) if total else 0.0
+    logger.info(
+        "tool_call_cache hits=%d misses=%d size=%d hit_rate=%.2f",
+        stats["hits"],
+        stats["misses"],
+        stats["size"],
+        rate,
+    )
+
+
 def _cache_key(tool_name: str, arguments: Any) -> str:
     if isinstance(arguments, str):
         args_blob = arguments
@@ -69,11 +124,14 @@ def get_cached(tool_name: str, arguments: Any) -> Optional[str]:
     key = _cache_key(tool_name, arguments)
     entry = _CACHE.get(key)
     if not entry:
+        _record_miss()
         return None
     ts, content = entry
     if time.time() - ts > _ttl_sec():
         _CACHE.pop(key, None)
+        _record_miss()
         return None
+    _record_hit()
     return content
 
 

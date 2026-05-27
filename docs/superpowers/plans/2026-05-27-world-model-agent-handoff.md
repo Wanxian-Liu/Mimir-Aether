@@ -21,9 +21,9 @@
 
 | 层级 | 含义 | 完成度 | 说明 |
 |------|------|:------:|------|
-| **A. 工程底座** | 能跑、能回归、能运维（CLEARANCE 8/8 · M0–M6 · tier0 **497+2**） | **~88%** | 余：Gateway 十条零星 · TRUNCATE 历史噪声 |
+| **A. 工程底座** | 能跑、能回归、能运维（CLEARANCE 8/8 · M0–M6 · tier0 **505+2**） | **~88%** | 余：Gateway 十条零星 · TRUNCATE 历史噪声 |
 | **B. IQ/SEM/Autonomy** | §15 Wave1–8 · §14 SEM · §17 AUTO · §18 Wave9 | **100%** | 本阶段已结案 |
-| **C. Horizon C §19.1** | 11+4 工程粒（Wave10→15+） | **~6.7%** | **1/15** `[x]`（HERM-CUR-02） |
+| **C. Horizon C §19.1** | 11+4 工程粒（Wave10→15+） | **~13.3%** | **2/15** `[x]`（CUR-02 · TGR-02） |
 | **D. §19.2 运维验收** | 部署/冒烟/eval | **20%** | **1/5** `[x]`（OPS-DEPLOY-W9） |
 | **E. 世界模型提案** | `world-model-evolution-plan` Phase0–3 | **~22%** | 仅有 guard/记忆/curator **基础设施**；无预测器·VoE→学习·分层规划 **合约** |
 | **F. 行为 rubric** | 相对 Hermes 日常聪明度 | **4.9/10** | 距战役目标 **5.5** 差 **0.6**（需 G-RUBRIC-55 拍板） |
@@ -37,22 +37,22 @@
 
 | 项 | 计算 |
 |----|------|
-| 代入 | 0.25×88 + 0.15×100 + 0.25×6.7 + 0.05×20 + 0.25×22 + 0.05×49 |
-| **综合** | **≈ 48%** |
+| 代入 | 0.25×88 + 0.15×100 + 0.25×13.3 + 0.05×20 + 0.25×22 + 0.05×49 |
+| **综合** | **≈ 50%** |
 
 **读法：**
 
-- **~48%**（自 **~41%** 起跳）= Horizon C 首粒 + Wave9 部署生效；离终局仍约 **一半**（与 `MAINLINE_STATUS.md` §6 一致）。
+- **~50%** = Wave10 前两粒（curator + tool cache 观测）已落地；离终局仍约 **一半**（与 `MAINLINE_STATUS.md` §6 一致）。
 - **下一程涨分最快**：完成 **Horizon C Wave10–11**（+C）+ 推动 **P3-XSR / ADR-002**（为世界模型注入/预测铺路）+ **WM Phase0 拍板**（+E）。
 
 ### 2.3 §19 可勾选进度（执行用）
 
 | 桶 | 完成 | 总数 | % |
 |----|:----:|:----:|---:|
-| §19.1 工程轨 | 1 | 15 | ~6.7% |
+| §19.1 工程轨 | 2 | 15 | ~13.3% |
 | §19.2 运维轨 | 1 | 5 | 20% |
 | §19.3 拍板轨 | 0 | 5 | 0%（刘哥） |
-| **§19 可执行合计** | **2** | **20** | **10%** |
+| **§19 可执行合计** | **3** | **20** | **15%** |
 
 每完成 1 粒工程项：**§19.1 进度 +6.7%**（1/15）。  
 Wave 10 全完成（3 粒）：**+20%** §19.1。
@@ -61,12 +61,12 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 
 ## 3. 我从哪开始（Cursor 决策 · 2026-05-27 更新）
 
-**已完成：** OPS-DEPLOY-W9 [x] · HERM-CUR-02 [x]（tier0 **497+2** · Gateway PID **513180**）
+**已完成：** OPS-DEPLOY-W9 [x] · HERM-CUR-02 [x]（`4714b92`）· HERM-TGR-02 [x]（tier0 **505+2** · 工作区待 commit）
 
 **下一粒（顺序）：**
 
-1. **Wave 10 · Task 2 · `HERM-TGR-02`** — tool cache 命中率观测（`tool_call_cache.py` + 可选 log）
-2. **Wave 10 · Task 3 · `HERM-SDH-02`** — **等 TGR-02 commit/merge 后**再开（`prompt_builder` 与 `exec_mixin` 分工清晰，避免同 PR 冲突）
+1. **commit TGR-02**（路径 A 第二粒）→ 干净 main
+2. **Wave 10 · Task 3 · `HERM-SDH-02`** — `prompt_builder` + `MIMIR_SUBDIR_HINTS_IN_SYSTEM`（TGR merge 后）
 
 **合并策略：** 建议 **每粒一 commit**（`feat(agent): HERM-TGR-02 …`）；Wave 10 三粒全 [x] 后可 squash 或保持三 commit 推 main。
 
@@ -85,7 +85,7 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 1. 先 Read skill：superpowers:using-superpowers（若可用）→ superpowers:executing-plans
 2. 再 Read 计划（全文）：docs/superpowers/plans/2026-05-27-horizon-c-master-iteration.md
 3. 再 Read handoff：docs/superpowers/plans/2026-05-27-world-model-agent-handoff.md §2–§3
-4. 再 Read 真源：docs/MIMIR_EXEC_BACKLOG.md §19.1 第一条 [ ]（当前应为 **HERM-TGR-02**）
+4. 再 Read 真源：docs/MIMIR_EXEC_BACKLOG.md §19.1 第一条 [ ]（当前应为 **HERM-SDH-02**）
 5. 执行方式：superpowers:subagent-driven-development（推荐）或 executing-plans；每 Task 末用 verification-before-completion（必须跑 ./run_ralph_tier0.sh 再声称完成）
 6. 大改动前可选：superpowers:using-git-worktrees 隔离分支
 7. 每粒结束：record_m6_evolution.sh → backlog [x] → bridge §4 一行 → 触达 agent 则写 Gateway 重启说明
@@ -93,11 +93,10 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 【北星】docs/DEVELOPMENT_NORTH_STAR.md — Parity（tier0）+ Evolution（evolution_log）。世界模型愿景：docs/proposals/world-model-evolution-plan.md（Phase0 未拍板前只读，不写大 diff）。
 
 【本窗目标 — 按序】
-A) Wave 10 Task 2：**HERM-TGR-02** — 主计划 Task 2 Step 1–3（TDD → tier0 → closeout）
-B) （可选本窗）Task 3 **HERM-SDH-02** — 仅当 TGR-02 已 commit
-C) 回报：§19.1 x/15 · 综合 %（handoff §2.2）· git SHA · tier0 · 下一粒 ID
+A) Wave 10 Task 3：**HERM-SDH-02** — 主计划 Task 3（TDD → tier0 → closeout）
+B) 回报：§19.1 x/15 · 综合 %（handoff §2.2）· git SHA · tier0 · 下一粒 ID
 
-【已结案勿重做】OPS-DEPLOY-W9 · HERM-CUR-02（见 bridge §4 2026-05-27 行）
+【已结案勿重做】OPS-DEPLOY-W9 · HERM-CUR-02（`4714b92`）· HERM-TGR-02（待 commit 或已 push）
 
 【禁止】提交 data/persistent.json · 未授权 MIMIR_AUTO_EVOLVE 生产切换 · 与 Wave10 混做 WM Phase0 · force push main
 
