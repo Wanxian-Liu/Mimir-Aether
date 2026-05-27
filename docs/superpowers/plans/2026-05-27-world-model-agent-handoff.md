@@ -42,7 +42,7 @@
 
 **读法：**
 
-- **~78%** = **P3-XSR-03** L3 RAG flag 已勾；下一工程粒 **ENGINE-WS-01**（§19.1 第一条 `[ ]`）。
+- **~80%** = **ENGINE-WS-01** 已勾（STAB-01/06 证据）；下一 **ENGINE-ROLLBACK-01**（§19.1 第一条 `[ ]`）。
 - **下一程涨分最快**：完成 **Horizon C Wave10–11**（+C）+ 推动 **P3-XSR / ADR-002**（为世界模型注入/预测铺路）+ **WM Phase0 拍板**（+E）。
 
 ### 2.3 §19 可勾选进度（执行用）
@@ -63,7 +63,7 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 
 **已完成：** P3-XSR-01/02/03 [x] · commits `fada2d6`/`bff2160` · tier0 **619+2**
 
-**下一粒：** **ENGINE-WS-01** · **P3-XSR-03** L3 已勾（2026-05-27）
+**下一粒：** **ENGINE-ROLLBACK-01** · **ENGINE-WS-01** 已勾（2026-05-27）
 
 **合并策略：** 每粒一 commit；排除 `data/persistent.json`。
 
@@ -82,7 +82,7 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 
 【真源】backlog §19.1 · `p3-xsr-03-closeout.md`
 
-【默认下一工程粒】ENGINE-WS-01（WebSocket 推理阻塞心跳）
+【默认下一工程粒】ENGINE-ROLLBACK-01（进化回滚护栏）
 
 【基线 main】bff2160 · §19.1 13/17 · tier0 619+2 · L3 默认关
 

@@ -489,7 +489,10 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-27 | **P3-XSR-01** | **Cursor** | `docs/proposals/p3-cross-session-retrieval.md` L1/L2/L3 + Hermes + G-ADR-002 · 无代码 · tier0 **590+2** · base **`6112f38`** · 下一粒 **ENGINE-WS-01** / Gate · §19.1 **11/15** · **~73%** |
 | 2026-05-27 | **P3-XSR-02** | **Cursor** | L2 `cross_session_retrieval` + `<retrieved-sessions>` · `/new`+reset 一次性预取 · tier0 **+2** agent tests · base **`99ac4f1`** · Gateway **要** · 下一粒 **P3-XSR-03** · §19.1 **12/16** · **~76%** |
 | 2026-05-27 | **P3-XSR-03** | **Cursor** | L3 `MIMIR_CROSS_SESSION_RAG` 默认关 · `session_search_prefetch` RRF 与 L2 合并 · base **`c3dfdc0`** · 下一粒 **ENGINE-WS-01** · §19.1 **13/17** · **~78%** |
-
+| 2026-05-27 | **ENGINE-WS-01** | **Cursor** | STAB-01/06 证据结案 · 无新 gateway 代码 · contract `test_horizon_engine_ws_01` · base **`6aba91f`** · Gateway **不必重启** · 下一粒 **ENGINE-ROLLBACK-01** · §19.1 **14/17** · **~80%** |
+| 2026-05-27 | **MI-AWAY-00** | **Mimir** | 开局签收：已读 bridge §1 + §19.6 全文；PID 595933；SHA 6aba91f；evidence §00 → §19.6 **1/16** |
+| 2026-05-27 | **MI-AWAY-01** | **Mimir** | Gateway health OK · error_rate=0.0435 · P95=1210ms · PID 595933 稳定 → §19.6 **2/16** |
+|
 ---
 
 ## 5. Mimir 进度笔记

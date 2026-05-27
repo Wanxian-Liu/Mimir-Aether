@@ -919,7 +919,7 @@ Read backlog §17 P1-LONG-AUTONOMY 第一条 [ ]。
 | **GH-ICE-21-22** | icebox | D5/D6 余债 | #21 #22 | [ ] |
 | **CLR-B-FEISHU** | 运维 | Gateway #9 / 空表头飞书复验 | deferred | [ ] |
 
-**§18.2 状态**：**P3-XSR-03** 已勾（2026-05-27）· 下一工程粒 **ENGINE-WS-01**（§19.1 第一条 `[ ]`）
+**§18.2 状态**：**ENGINE-WS-01** 已勾（2026-05-27）· 下一工程粒 **ENGINE-ROLLBACK-01**（§19.1 第一条 `[ ]`）
 
 **Cursor 新窗一句**
 
@@ -956,7 +956,7 @@ Read bridge §1「@Mimir 必读」+ backlog §18（勿再扫 bridge §6 大表�
 
 ### 19.1 工程轨（Cursor · 与 §18.2 同序）
 
-> **下一粒默认**：**ENGINE-WS-01**（§19.1 第一条 `[ ]`）· L3 已结案见 `p3-xsr-03-closeout.md`
+> **下一粒默认**：**ENGINE-ROLLBACK-01**（§19.1 第一条 `[ ]`）· WS 心跳已结案见 `engine-ws-01-closeout.md`
 
 | Wave | ID | 优先级 | 任务 | 状态 | 计划章 |
 |------|-----|--------|------|------|--------|
@@ -973,12 +973,12 @@ Read bridge §1「@Mimir 必读」+ backlog §18（勿再扫 bridge §6 大表�
 | **14** | **P3-XSR-01** | 调研 | 跨会话 RAG / 分层注入（§8 P3-CROSS） | [x] | §Wave 14 |
 | **15** | **P3-XSR-02** | P1 | L2：`session_search` 预取注入 prompt（cap） | [x] 2026-05-27 · closeout | 提案 §6 · G-ADR G1 |
 | **15** | **P3-XSR-03** | P1 | L3：`MIMIR_CROSS_SESSION_RAG` 默认关 · 与 L2 合并注入 | [x] 2026-05-27 · closeout | 提案 §6 · G-ADR G2 |
-| **—** | **ENGINE-WS-01** | P2 | WebSocket 推理阻塞心跳（§8） | [ ] | §Wave 15+ |
+| **—** | **ENGINE-WS-01** | P2 | WebSocket 推理阻塞心跳（§8） | [x] 2026-05-27 · closeout · STAB-01/06 证据 | §Wave 15+ |
 | **—** | **ENGINE-ROLLBACK-01** | P2 | 自修回滚护栏（§8） | [ ] | §Wave 15+ |
 | **—** | **ENGINE-P3W-01** | P2 | P3-0 persistent 单写者实现（ADR-001 已有） | [ ] | 随 §19.3 ADR-002 |
 | **—** | **ENGINE-GW-01** | P2 | Gateway 十条余项 | [ ] | `GATEWAY_STABILITY_BACKLOG.md` |
 
-**§19.1 状态**：**13/17** 工程粒完成（**~76%**）· **P3-XSR-03** 已勾 · 下一 **ENGINE-WS-01** · 综合 **~78%**（见 handoff §2）
+**§19.1 状态**：**14/17** 工程粒完成（**~82%**）· **ENGINE-WS-01** 已勾 · 下一 **ENGINE-ROLLBACK-01** · 综合 **~80%**（见 handoff §2）
 
 **Cursor 新窗一句**
 
@@ -1066,8 +1066,8 @@ Read docs/superpowers/plans/2026-05-27-horizon-c-master-iteration.md + backlog �
 
 | ID | 主题 | 做什么 | 成功标准 | 状态 |
 |----|------|--------|----------|------|
-| **MI-AWAY-00** | 开局 | Read bridge §1 + 本节；填 evidence 卷表头（日期·PID·`git rev-parse --short HEAD`） | evidence §00 非空 | [ ] |
-| **MI-AWAY-01** | Gateway | `curl -s http://127.0.0.1:18999/health`；`pgrep -af 'gateway/run.py'` | /health ok；有 PID | [ ] |
+| **MI-AWAY-00** | 开局 | Read bridge §1 + 本节；填 evidence 卷表头（日期·PID·`git rev-parse --short HEAD`） | evidence §00 非空 | [x] 2026-05-27 |
+| **MI-AWAY-01** | Gateway | `curl -s http://127.0.0.1:18999/health`；`pgrep -af 'gateway/run.py'` | /health ok；有 PID | [x] 2026-05-27 |
 | **MI-AWAY-02** | 健康脚本 | `~/src/MimirAether/scripts/mimir_health_check.sh --quick` | READY 或 evidence 记失败行；**TRUNCATE since-start** 数字 | [ ] |
 | **MI-AWAY-03** | ERROR | `grep ERROR ~/.mimiraether/logs/agent.log \| tail -30` | top3 主题；无新 P0 写「无新 P0」 | [ ] |
 | **MI-AWAY-04** | 飞书码 | `grep -E '230099\|200907' ~/.mimiraether/logs/*.log \| tail -10` | 有/无新 230099 | [ ] |
@@ -1083,7 +1083,7 @@ Read docs/superpowers/plans/2026-05-27-horizon-c-master-iteration.md + backlog �
 | **MI-AWAY-14** | GH 只读 | `gh issue list --state open --limit 15` | #17–19 是否 closed；#20–22 仍 open → evidence | [ ] |
 | **MI-AWAY-15** | 汇总 | 飞书发 **MI-AWAY-00～14 勾选表** + TRUNCATE + PID；bridge §4 汇总一行 | 本节全 `[x]`；刘哥一眼能读 | [ ] |
 
-**§19.6 状态**：**0/16** · 证据卷 [`phase0/mimir-away-evidence.md`](./phase0/mimir-away-evidence.md)
+**§19.6 状态**：**2/16** · 证据卷 [`phase0/mimir-away-evidence.md`](./phase0/mimir-away-evidence.md)
 
 #### 19.6.2 刘哥回来后 · Cursor 审计清单（勿由 Mimir 自签）
 
