@@ -27,6 +27,14 @@ REFERENCE_PATTERN = re.compile(
     rf"(?<![\w/])@(?:(?P<simple>diff|staged)\b|(?P<kind>file|folder|git|url):(?P<value>{_QUOTED_REFERENCE_VALUE}(?::\d+(?:-\d+)?)?|\S+))"
 )
 
+# Feishu/Lark doc links in natural language (no @url: prefix required).
+FEISHU_URL_PATTERN = re.compile(
+    r"https?://"
+    r"(?:[a-zA-Z0-9-]+\.)*(?:feishu\.cn|larksuite\.com)"
+    r"/(?:docx|wiki|sheets|base|minutes|mindnote|file|drive/folder)/[A-Za-z0-9]+",
+    re.IGNORECASE,
+)
+
 # 敏感目录
 _SENSITIVE_HOME_DIRS = (".ssh", ".aws", ".gnupg", ".kube", ".docker", ".azure", ".config/gh")
 
@@ -197,7 +205,54 @@ def parse_context_references(message: str) -> List[ContextReference]:
             line_end=line_end,
         ))
 
+    return _merge_context_references(refs, parse_feishu_natural_references(message))
+
+
+def parse_feishu_natural_references(message: str) -> List[ContextReference]:
+    """Parse Feishu/Lark document URLs from plain user text (HERM-CTX-02)."""
+    refs: List[ContextReference] = []
+    if not message:
+        return refs
+    for match in FEISHU_URL_PATTERN.finditer(message):
+        url = _strip_trailing_punctuation(match.group(0))
+        refs.append(
+            ContextReference(
+                raw=match.group(0),
+                kind="feishu",
+                target=url,
+                start=match.start(),
+                end=match.end(),
+            )
+        )
     return refs
+
+
+def _spans_overlap(a: ContextReference, b: ContextReference) -> bool:
+    return not (a.end <= b.start or b.end <= a.start)
+
+
+def _merge_context_references(
+    primary: List[ContextReference],
+    extra: List[ContextReference],
+) -> List[ContextReference]:
+    if not extra:
+        return primary
+    merged = list(primary)
+    for ref in extra:
+        if any(_spans_overlap(ref, existing) for existing in primary):
+            continue
+        merged.append(ref)
+    merged.sort(key=lambda r: r.start)
+    return merged
+
+
+def message_has_context_references(message: str) -> bool:
+    """True when message may need @ or Feishu NL reference preprocessing."""
+    if not message:
+        return False
+    if "@" in message:
+        return True
+    return FEISHU_URL_PATTERN.search(message) is not None
 
 
 def _remove_reference_tokens(message: str, refs: List[ContextReference]) -> str:
@@ -315,6 +370,8 @@ async def _expand_reference_async(
         except Exception as e:
             warning = f"git status failed: {e}"
 
+    elif ref.kind == "feishu":
+        warning, block = _expand_feishu_reference(ref)
     elif ref.kind == "url":
         # URL内容
         if url_fetcher:
@@ -327,6 +384,16 @@ async def _expand_reference_async(
             warning = f"URL fetching not configured: {ref.target}"
 
     return warning, block
+
+
+def _expand_feishu_reference(ref: ContextReference) -> tuple[Optional[str], Optional[str]]:
+    """Stub expansion for Feishu doc links (fetch via lark-doc / platform tools)."""
+    block = (
+        f"🔗 Feishu document link\n"
+        f"URL: {ref.target}\n"
+        "Use lark-doc skill or Feishu integration to load document body when needed."
+    )
+    return None, block
 
 
 def _expand_reference(
@@ -421,6 +488,8 @@ def _expand_reference(
         except Exception as e:
             warning = f"git status failed: {e}"
 
+    elif ref.kind == "feishu":
+        warning, block = _expand_feishu_reference(ref)
     elif ref.kind == "url":
         if url_fetcher:
             try:

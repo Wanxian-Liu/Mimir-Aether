@@ -909,7 +909,7 @@ Read backlog §17 P1-LONG-AUTONOMY 第一条 [ ]。
 | **OS-SCH-02** | P0 | session_search **BM25+语义融合排序**（若 hybrid 不足） | 对标 OpenSpace search.py | [x] |
 | **HERM-SCR-01** | P1 | think 流式擦除状态机加固 | 不完整 thinking 块 | [x] |
 | **HERM-RED-02** | P1 | 脱敏规则表运维化 / 扩展 | 规则在 data/ | [x] |
-| **HERM-CTX-02** | P1 | context_references **飞书自然语言** 冒烟 | DSL 已存在 | [ ] |
+| **HERM-CTX-02** | P1 | context_references **飞书自然语言** 冒烟 | DSL 已存在 | [x] |
 | **OS-REV-01** | P1 | quality/reviewer 自动评 skill 描述 | 依赖 OS-TQM-02 | [ ] |
 | **OS-TOOL-SRCH-01** | P1 | 工具级搜索（ToolRanker） | 依赖 OS-SCH-02 | [ ] |
 | **P3-XSR-01** | 调研 | 跨会话 RAG / 分层注入 | §11 `P3-CROSS-SESSION-RETRIEVAL` | [ ] |
@@ -919,7 +919,7 @@ Read backlog §17 P1-LONG-AUTONOMY 第一条 [ ]。
 | **GH-ICE-21-22** | icebox | D5/D6 余债 | #21 #22 | [ ] |
 | **CLR-B-FEISHU** | 运维 | Gateway #9 / 空表头飞书复验 | deferred | [ ] |
 
-**§18.2 状态**：**HERM-CTX-02** 为默认 **下一工程粒**（刘哥未另拍板时）
+**§18.2 状态**：**OS-REV-01** 为默认 **下一工程粒**（刘哥未另拍板时）
 
 **Cursor 新窗一句**
 
@@ -956,7 +956,7 @@ Read bridge §1「@Mimir 必读」+ backlog §18（勿再扫 bridge §6 大表�
 
 ### 19.1 工程轨（Cursor · 与 §18.2 同序）
 
-> **下一粒默认**：**HERM-CTX-02**（Wave 12 · 见主计划 Task 8）
+> **下一粒默认**：**OS-REV-01**（Wave 12 · 见主计划 Task 9）
 
 | Wave | ID | 优先级 | 任务 | 状态 | 计划章 |
 |------|-----|--------|------|------|--------|
@@ -967,7 +967,7 @@ Read bridge §1「@Mimir 必读」+ backlog §18（勿再扫 bridge §6 大表�
 | **11** | **OS-SCH-02** | P0 | session_search BM25+语义融合排序（hybrid 不足时） | [x] | §Wave 11 |
 | **12** | **HERM-SCR-01** | P1 | think 流式擦除状态机加固 | [x] | §Wave 12 |
 | **12** | **HERM-RED-02** | P1 | 脱敏规则表运维化 | [x] | §Wave 12 |
-| **12** | **HERM-CTX-02** | P1 | context_references 飞书自然语言冒烟 | [ ] | §Wave 12 |
+| **12** | **HERM-CTX-02** | P1 | context_references 飞书自然语言冒烟 | [x] | §Wave 12 |
 | **12** | **OS-REV-01** | P1 | quality reviewer 评 skill 描述（依赖 TQM-02） | [ ] | §Wave 12 |
 | **13** | **OS-TOOL-SRCH-01** | P1 | 工具级搜索 ToolRanker（依赖 SCH-02） | [ ] | §Wave 13 |
 | **14** | **P3-XSR-01** | 调研 | 跨会话 RAG / 分层注入（§8 P3-CROSS） | [ ] | §Wave 14 |
@@ -976,7 +976,7 @@ Read bridge §1「@Mimir 必读」+ backlog §18（勿再扫 bridge §6 大表�
 | **—** | **ENGINE-P3W-01** | P2 | P3-0 persistent 单写者实现（ADR-001 已有） | [ ] | 随 §19.3 ADR-002 |
 | **—** | **ENGINE-GW-01** | P2 | Gateway 十条余项 | [ ] | `GATEWAY_STABILITY_BACKLOG.md` |
 
-**§19.1 状态**：**7/15** 工程粒完成（**46.7%**）· 综合世界模型进度 **~58%**（见 [`world-model-agent-handoff.md`](./superpowers/plans/2026-05-27-world-model-agent-handoff.md) §2）
+**§19.1 状态**：**8/15** 工程粒完成（**53.3%**）· 综合世界模型进度 **~59%**（见 [`world-model-agent-handoff.md`](./superpowers/plans/2026-05-27-world-model-agent-handoff.md) §2）
 
 **Cursor 新窗一句**
 

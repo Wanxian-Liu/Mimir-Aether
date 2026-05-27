@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "grain": "HERM-CTX-02",
+  "description": "One Feishu natural-language reference smoke case (no @url: prefix).",
+  "case": {
+    "user_message": "请根据飞书文档 https://example.feishu.cn/docx/SmokeDocToken123 总结要点",
+    "expected_kinds": ["feishu"],
+    "expected_expansion_contains": ["Feishu document link", "SmokeDocToken123"]
+  }
+}

@@ -132,3 +132,4 @@ Append-only. Newest rows at the **bottom**. See `**docs/M6_EVOLUTION.md`** for r
 | 20260527T054343Z_1dfcf57-dirty | 2026-05-27T05:43:43Z | 1dfcf57-dirty | ./run_ralph_tier0.sh | 0 | OS-SCH-02: semantic_hybrid RRF fusion (FTS BM25 + Chroma); MIMIR_SESSION_SEARCH_FUSION default on; tier0 531+2 |
 | 20260527T060330Z_22add39-dirty | 2026-05-27T06:03:30Z | 22add39-dirty | ./run_ralph_tier0.sh | 0 | HERM-SCR-01: StreamingThinkScrubber stream+final strip; callers_mixin wire; tier0 542+2 |
 | 20260527T062705Z_6a8fa50-dirty | 2026-05-27T06:27:05Z | 6a8fa50-dirty | ./run_ralph_tier0.sh | 0 | HERM-RED-02: ops redact_rules.json load/apply; redact.py hook; tier0 555+2 |
+| 20260527T065101Z_5413b42-dirty | 2026-05-27T06:51:01Z | 5413b42-dirty | ./run_ralph_tier0.sh | 0 | HERM-CTX-02: Feishu NL URL context refs; message_has_context_references; tier0 566+2 |

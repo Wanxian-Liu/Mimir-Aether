@@ -693,20 +693,28 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
         # 学习自Hermes: @引用展开
         # 展开 @file:xxx, @folder:xxx 等引用
         message_text = fenced_msg.content
-        if "@" in message_text:
-            try:
-                from .context_references import preprocess_context_references
+        try:
+            from .context_references import (
+                message_has_context_references,
+                preprocess_context_references,
+            )
+
+            if message_has_context_references(message_text):
                 ref_result = preprocess_context_references(
                     message_text,
                     cwd=os.getcwd(),
-                    context_length=self._context_length or 128000
+                    context_length=self._context_length or 128000,
                 )
                 if ref_result.references:
-                    logger.info(f"@引用展开: {len(ref_result.references)}个引用, {ref_result.injected_tokens} tokens")
+                    logger.info(
+                        "@引用展开: %s个引用, %s tokens",
+                        len(ref_result.references),
+                        ref_result.injected_tokens,
+                    )
                     if ref_result.expanded:
                         message_text = ref_result.message
-            except Exception as e:
-                logger.debug(f"@引用展开失败: {e}")
+        except Exception as e:
+            logger.debug(f"@引用展开失败: {e}")
 
         effective_user_message = message_text
 

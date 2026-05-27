@@ -160,11 +160,14 @@ class InboundPrepMixin:
             if not found_in_history:
                 message_text = f'[Replying to: "{reply_snippet}"]\n\n{message_text}'
 
-        if "@" in message_text:
-            try:
-                from agent.context_references import preprocess_context_references_async
-                from agent.model_metadata import get_model_context_length
+        try:
+            from agent.context_references import (
+                message_has_context_references,
+                preprocess_context_references_async,
+            )
+            from agent.model_metadata import get_model_context_length
 
+            if message_has_context_references(message_text):
                 _msg_cwd = os.environ.get("MESSAGING_CWD", os.path.expanduser("~"))
                 _msg_ctx_len = get_model_context_length(
                     self._model,
@@ -186,7 +189,7 @@ class InboundPrepMixin:
                     return None
                 if _ctx_result.expanded:
                     message_text = _ctx_result.message
-            except Exception as exc:
-                logger.debug("@ context reference expansion failed: %s", exc)
+        except Exception as exc:
+            logger.debug("@ context reference expansion failed: %s", exc)
 
         return message_text

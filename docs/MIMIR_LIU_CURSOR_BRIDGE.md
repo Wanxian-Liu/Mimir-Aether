@@ -475,7 +475,8 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-27 | **OS-TQM-02** | **Cursor** | `MIMIR_TOOL_QUALITY` 默认 on · pipeline/registry/prompt 三处接线 · tier0 **522+2** · base **`8efa4eb`** dirty · 下一粒 **OS-SCH-02** · §19.1 **4/15** · 综合 **~53%** |
 | 2026-05-27 | **OS-SCH-02** | **Cursor** | RRF fusion · tier0 **531+2** · main **`d83d68a`** |
 | 2026-05-27 | **HERM-SCR-01** | **Cursor** | 流式 think 擦除 · tier0 **542+2** · main **`78456e5`** |
-| 2026-05-27 | **HERM-RED-02** | **Cursor** | `redact_rules.json` + `agent/redact_rules.py` · tier0 **555+2** · **`6a8fa50` dirty** · Gateway **不必**（改 agent 加载；新进程读规则）· 下一粒 **HERM-CTX-02** · §19.1 **7/15** · **~58%** |
+| 2026-05-27 | **HERM-RED-02** | **Cursor** | `redact_rules.json` · tier0 **555+2** · main **`5413b42`** |
+| 2026-05-27 | **HERM-CTX-02** | **Cursor** | 飞书 NL doc URL → `kind=feishu` · gateway/core 触发 · tier0 **566+2** · **`5413b42` dirty** · **Gateway 硬重启建议** · 下一粒 **OS-REV-01** · §19.1 **8/15** · **~59%** |
 
 ---
 
