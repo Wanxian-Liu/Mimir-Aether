@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import threading
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +19,48 @@ _ANALYSIS_SYSTEM = (
 
 def _env_truthy(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in ("1", "true", "yes")
+
+
+def _has_fix_or_deprecate_suggestions(suggestions: List[Any]) -> bool:
+    return any(getattr(s, "action", None) in ("fix", "deprecate") for s in suggestions)
+
+
+def maybe_fallback_evolution_suggestions(
+    analysis: Any,
+    pipeline_result: Dict[str, Any],
+) -> Any:
+    """When LLM returns no fix/deprecate but pipeline has errors, add one fix suggestion."""
+    from agent.post_analysis import EvolutionSuggestion
+
+    if _has_fix_or_deprecate_suggestions(analysis.suggestions):
+        return analysis
+
+    errors = pipeline_result.get("errors") or []
+    if not errors:
+        return analysis
+
+    first = errors[0]
+    if isinstance(first, dict):
+        tool_name = (
+            first.get("tool_name")
+            or first.get("tool")
+            or first.get("name")
+            or "unknown"
+        )
+    else:
+        tool_name = "unknown"
+
+    analysis.suggestions.append(
+        EvolutionSuggestion(
+            target=str(tool_name),
+            action="fix",
+            reason="iqevo-48 fallback: pipeline errors without LLM suggestions",
+            priority=3,
+            confidence=0.5,
+            suggested_changes="Review tool failure and update skill guidance.",
+        )
+    )
+    return analysis
 
 
 def _pipeline_has_analysis_signal(pipeline_result: Dict[str, Any]) -> bool:
@@ -94,6 +136,7 @@ def run_post_analysis_sync(
         analysis = apply_analysis_to_pipeline(
             raw, session_id=session_id, task_name=task_name
         )
+        analysis = maybe_fallback_evolution_suggestions(analysis, pipeline_result)
         logger.info(
             "post_analysis applied session_id=%s task=%s",
             session_id,
@@ -191,4 +234,5 @@ def schedule_post_close_analysis(
 __all__ = [
     "run_post_analysis_sync",
     "schedule_post_close_analysis",
+    "maybe_fallback_evolution_suggestions",
 ]

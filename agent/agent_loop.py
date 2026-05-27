@@ -317,9 +317,17 @@ class MimirAgentLoop:
                                 "[%s] turn %d: %s took %.1fs (pool q=%d)",
                                 self.task_id[:8], turn + 1, tname, telapsed, pool_q,
                             )
-                        self._record_tool(tname, args, success=True,
-                                          duration_ms=telapsed * 1000,
-                                          result_summary=str(tool_result)[:200])
+                        from agent.tool_outcome import infer_tool_success
+
+                        ok, err_msg = infer_tool_success(str(tool_result))
+                        self._record_tool(
+                            tname,
+                            args,
+                            success=ok,
+                            error_message=err_msg,
+                            duration_ms=telapsed * 1000,
+                            result_summary=str(tool_result)[:200],
+                        )
                     except Exception as e:
                         telapsed = _time.monotonic() - t0
                         tool_result = json.dumps({

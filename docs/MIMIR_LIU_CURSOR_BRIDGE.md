@@ -426,6 +426,8 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 || 2026-05-27 | **IQ-EVO-44** | **Cursor** | Compressor C1–C6 · core_loop 1b+1c · 1C-04/05 · tier0 **462+2** |
 || 2026-05-27 | **IQ-EVO-45** | **Cursor** | 1c contract 1C-01～07 · 1c closeout · tier0 **3×466+2** |
 || 2026-05-27 | **IQ-EVO-46** | **Cursor** | rubric **#6** **4.9/10** documented exception（+0.1 vs 4.8）· Wave 7 closeout · tier0 **466+2** |
+|| 2026-05-27 | **Wave 7 commit** | **Cursor** | **main `dd6b642`** pushed · tier0 466+2 · 未入库：persistent/skills_loader/WM 提案等 |
+|| 2026-05-27 | **IQ-EVO-48** | **Cursor** | 软失败 success=false · LLM 空 suggestions 兜底 fix · tier0 **472+2** · **待 commit/push + Gateway 重启后飞书复验** |
 || 2026-05-27 | **第2轮 Hermes 对比 10 块** | **Mimir** | 归档 §6.22～§6.31 · Memory/Mimir领先 · Guardrails/定位不同 · Dispatch/模块化参考 · Retry/File/Display/Insights/ResultClass/NousGuard/ContextEngine — 最终结论：Mimir在3块领先、5块不学、2块可参考 |
 
 ---

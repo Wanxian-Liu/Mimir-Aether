@@ -199,6 +199,63 @@ def test_post_analysis_skips_evolution_when_auto_evolve_off(tmp_path, monkeypatc
     assert (skill_dir / "SKILL.md").read_text(encoding="utf-8") == "# before\n"
 
 
+def test_post_analysis_fallback_suggestion_when_llm_empty(tmp_path, monkeypatch):
+    """IQ-EVO-48: errors + empty LLM suggestions → one fix fallback → evolution."""
+    monkeypatch.setenv("MIMIR_AETHER_HOME", str(tmp_path))
+    monkeypatch.setenv("MIMIR_AUTO_ANALYSIS", "1")
+    monkeypatch.setenv("MIMIR_AUTO_EVOLVE", "1")
+
+    skills_dir = tmp_path / "skills"
+    skill_dir = skills_dir / "fallback-evolve-skill"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("# before fallback\n", encoding="utf-8")
+    monkeypatch.setattr("mimir_constants.get_skills_dir", lambda: skills_dir)
+
+    traj = tmp_path / "data" / "trajectories" / "fb-sess.jsonl"
+    traj.parent.mkdir(parents=True)
+    traj.write_text(
+        json.dumps(
+            {
+                "type": "session_start",
+                "task_name": "iq48",
+                "session_id": "fb-sess",
+                "start_time": "2026-05-26T00:00:00Z",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    analysis_payload = {
+        "summary": "no suggestions from model",
+        "overall_rating": 4,
+        "tool_issues": [],
+        "suggestions": [],
+    }
+    mock_response = MagicMock()
+    mock_response.choices = [
+        MagicMock(message=MagicMock(content=json.dumps(analysis_payload)))
+    ]
+
+    pipeline_result = {
+        "errors": [{"tool_name": "fallback-evolve-skill", "message": "fail"}],
+        "trajectory_path": str(traj),
+        "quality_report": {},
+    }
+
+    from agent.post_close_analysis import run_post_analysis_sync
+
+    with patch("agent.auxiliary_client.call_llm", return_value=mock_response):
+        reason = run_post_analysis_sync(
+            pipeline_result,
+            task_name="iq48",
+            session_id="fb-sess",
+        )
+
+    assert reason is None
+    assert (skill_dir / "SKILL.md").read_text(encoding="utf-8") != "# before fallback\n"
+
+
 def test_schedule_post_close_analysis_spawns_thread(monkeypatch):
     monkeypatch.setenv("MIMIR_AUTO_ANALYSIS", "1")
     called = []

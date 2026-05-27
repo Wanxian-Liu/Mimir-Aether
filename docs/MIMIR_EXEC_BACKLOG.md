@@ -774,6 +774,7 @@ Read backlog §15 Wave 5。IQ-EVO-21～25；tier0 + evolution_log。
 | IQ-EVO-45 | 1c contract + closeout | Cursor | [x] 2026-05-27 · 1C-01～07 · tier0 **3×466+2** · `p2-long-iqevo-wave7-1c-closeout.md` |
 | IQ-EVO-46 | rubric #6 + Wave 7 closeout | Mimir+Cursor | [x] 2026-05-27 · **4.9/10** exception · `p2-long-iqevo-wave7-closeout.md` |
 | IQ-EVO-47 | Intent MVP（可选） | Cursor | [ ] |
+| IQ-EVO-48 | 软失败 + suggestion 兜底 | Cursor | [x] 2026-05-27 · infer_tool_success · fallback fix · tier0 **472+2** |
 
 **§15 Wave 7 状态**：IQ-EVO-40～46 + DOC-01 **全 [x]** · rubric **4.9/10** documented exception（距 5.5 差 0.6）· 1c closeout [`p2-long-iqevo-wave7-1c-closeout.md`](./phase0/p2-long-iqevo-wave7-1c-closeout.md)
 

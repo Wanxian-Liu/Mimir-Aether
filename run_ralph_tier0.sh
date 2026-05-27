@@ -162,6 +162,7 @@ python3 -m pytest -q \
   tests/agent/test_auto_tuner_wave5.py \
   tests/tools/test_chroma_incremental.py \
   tests/agent/test_post_close_analysis.py \
+  tests/agent/test_tool_outcome.py \
   tests/agent/test_conversation_nudges.py \
   tests/agent/test_persistent_single_writer_ind05.py
 
