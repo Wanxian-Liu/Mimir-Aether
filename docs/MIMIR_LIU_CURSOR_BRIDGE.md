@@ -468,7 +468,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 || 2026-05-27 | **IQ-EVO-49 粒 B** | **Cursor** | `key_decisions`/`learned_patterns` 注入 cross-session · tier0 **481+2** · Gateway 重启后 `/new` 冒烟 |
 || 2026-05-27 | **第2轮 Hermes 对比 10 块** | **Mimir** | 归档 §6.22～§6.31 · Memory/Mimir领先 · Guardrails/定位不同 · Dispatch/模块化参考 · Retry/File/Display/Insights/ResultClass/NousGuard/ContextEngine — 最终结论：Mimir在3块领先、5块不学、2块可参考 |
 | 2026-05-27 | bridge §1 + backlog §15 | **Mimir 接续** | IQ-EVO-48 a71cc84 ✅；html-output 去重 ✅；Wave 7 [x] rubric 4.9/10；下一次正常干活 |
-| 2026-05-27 | **Bridge §6→§18 + Wave 9** | **Cursor** | §6 任务表迁 backlog §18 · Wave 9 [x]（CTX-B02/SDH-01/TGR-01/SKILLS-USER-01）· tier0 **488+2** · 下一粒 **HERM-CUR-02**（§18.2）· **工作区未 commit** |
+| 2026-05-27 | **Bridge §6→§18 + Wave 9** | **Cursor** | §6→backlog §18 · Wave 9 [x] · main **`72947ef`** pushed · tier0 **488+2** · 下一粒 **HERM-CUR-02**（§18.2）· **Gateway 重启待做** |
 
 ---
 
