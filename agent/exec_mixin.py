@@ -427,6 +427,17 @@ class ExecMixin:
             from model_tools import coerce_tool_args
             arguments = coerce_tool_args(func_name, arguments)
 
+            from agent.tool_call_cache import get_cached, set_cached, should_cache_tool
+
+            if should_cache_tool(func_name):
+                cached = get_cached(func_name, arguments)
+                if cached is not None:
+                    return ToolResult(
+                        tool_call_id=tool_call_id,
+                        content="[cached read-only result]\n" + cached,
+                        is_error=False,
+                    )
+
             # ── self_evolution IC 安全门 ──
             # 轻量级：只查 PROTECTED_FILES（不初始化引擎、不做AST解析），
             # 每次工具调用 <1ms。完整 pre_action_check 留给 evolution_guard。
@@ -535,9 +546,18 @@ class ExecMixin:
             except Exception:
                 pass
 
+            content = str(result)
+            if should_cache_tool(func_name):
+                set_cached(func_name, arguments, content)
+            tracker = getattr(self, "_subdirectory_hints", None)
+            if tracker is not None:
+                hints = tracker.check_tool_call(func_name, arguments)
+                if hints:
+                    content = content + "\n\n" + hints
+
             return ToolResult(
                 tool_call_id=tool_call_id,
-                content=str(result),
+                content=content,
                 is_error=False
             )
         except Exception as e:

@@ -1,6 +1,7 @@
 # MimirAether Strategic Planner — HWM 分层规划战略层
 
-**来源**: HWM (2604.03208) §2.3 Top-Down Hierarchical Planning | Session 75+
+**来源**: HWM (2604.03208) §2.3 Top-Down Hierarchical Planning | Session 75+  
+**补充方法（2026-05-27 Mimir自研）**：三遍思考法 — 第1遍给出初始结论（不设防），第2遍质疑每个选择（找反例），第3遍对比前两遍得出真正答案。用于方向性决策（"该学什么"/"该修什么"/"该怎么做"），防止第一直觉片面。使用例：bridge §6.21 Hermes 20块最终结论。
 **核心原理**: 单层规划在长视界任务中预测误差累积 + 搜索空间指数爆炸。解决方案：战略层(阶段分解) + 战术层(Pipeline执行) + 共享任务表示。
 
 ---

@@ -157,6 +157,8 @@ python3 -m pytest -q \
   tests/contract/test_horizon_iqevo_wave7_intent.py \
   tests/agent/test_cross_session_grain_b.py \
   tests/contract/test_horizon_iqevo_wave8_grain_b.py \
+  tests/agent/test_bridge_wave9.py \
+  tests/contract/test_horizon_bridge_wave9.py \
   tests/tools/test_wave6_evidence.py \
   tests/tools/test_session_search_usage_baseline.py \
   tests/tools/test_label_intent_offline.py \

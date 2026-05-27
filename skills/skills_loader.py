@@ -32,6 +32,13 @@ logger = logging.getLogger(__name__)
 SKILLS_DIR = Path(__file__).parent
 SKILL_FILENAME = "SKILL.md"
 
+# 用户创建的技能位于 agent home 侧（与 skill_manager_tool.py 对齐）
+try:
+    from mimiraether_constants import get_mimiraether_home
+    USER_SKILLS_DIR = get_mimiraether_home() / "skills"
+except ImportError:
+    USER_SKILLS_DIR = Path.home() / ".mimiraether" / "skills"
+
 # Frontmatter限制（与Hermes一致）
 MAX_NAME_LENGTH = 64
 MAX_DESCRIPTION_LENGTH = 1024
@@ -63,6 +70,26 @@ def _parse_frontmatter(content: str) -> Tuple[Dict[str, Any], str]:
     return {}, content
 
 
+def _search_dir_for_skill(search_dir: Path, name: str) -> Optional[Path]:
+    """在单个目录中递归搜索 skill（最多 2 层嵌套）"""
+    for item in search_dir.iterdir():
+        if not item.is_dir():
+            continue
+        # 直接匹配
+        if item.name == name:
+            return item
+        # 嵌套匹配（如 github/github-issues）
+        for subitem in item.iterdir():
+            if subitem.is_dir() and subitem.name == name:
+                return subitem
+            # 再嵌套一层
+            if subitem.is_dir():
+                for subsubitem in subitem.iterdir():
+                    if subsubitem.is_dir() and subsubitem.name == name:
+                        return subsubitem
+    return None
+
+
 def _get_skill_dir(name: str) -> Optional[Path]:
     """
     根据skill名称查找skill目录
@@ -73,21 +100,19 @@ def _get_skill_dir(name: str) -> Optional[Path]:
     Returns:
         skill目录Path或None
     """
-    # 遍历skills目录查找
-    for item in SKILLS_DIR.iterdir():
-        if item.is_dir():
-            # 直接匹配
-            if item.name == name:
-                return item
-            # 嵌套匹配（如 github/github-issues）
-            for subitem in item.iterdir():
-                if subitem.is_dir() and subitem.name == name:
-                    return subitem
-                # 再嵌套一层
-                if subitem.is_dir():
-                    for subsubitem in subitem.iterdir():
-                        if subsubitem.is_dir() and subsubitem.name == name:
-                            return subsubitem
+    # 1. 先搜 built-in（repo 侧）
+    result = _search_dir_for_skill(SKILLS_DIR, name)
+    if result:
+        return result
+    
+    # 2. 再搜 user-created（agent home 侧）
+    if USER_SKILLS_DIR.exists():
+        result = _search_dir_for_skill(USER_SKILLS_DIR, name)
+        if result:
+            return result
+    
+    # 3. 再搜 dormant（curator revive 扩展点）
+    #    （预留：将来 curator 可将存档技能归入此处）
     return None
 
 
@@ -143,19 +168,11 @@ def _load_skill_metadata(skill_dir: Path) -> Optional[Dict[str, Any]]:
     }
 
 
-def skills_list(category: str = None) -> List[Dict[str, Any]]:
-    """
-    列出所有可用的skill（只返回元数据，token高效）
-    
-    Args:
-        category: 可选，按分类过滤
-        
-    Returns:
-        skill元数据列表
-    """
+def _scan_dir_for_skills(search_dir: Path, category: str = None) -> List[Dict[str, Any]]:
+    """扫描单个目录中的所有skill"""
     results = []
     
-    for item in SKILLS_DIR.iterdir():
+    for item in search_dir.iterdir():
         if not item.is_dir():
             continue
         
@@ -179,7 +196,7 @@ def skills_list(category: str = None) -> List[Dict[str, Any]]:
             results.append(skill_meta)
     
     # 也检查顶级skill目录
-    for item in SKILLS_DIR.iterdir():
+    for item in search_dir.iterdir():
         if not item.is_dir():
             continue
         if item.name in ["modules", "__pycache__"]:
@@ -191,6 +208,29 @@ def skills_list(category: str = None) -> List[Dict[str, Any]]:
             if skill_meta:
                 if not category or skill_meta.get("category") == category:
                     results.append(skill_meta)
+    
+    return results
+
+
+def skills_list(category: str = None) -> List[Dict[str, Any]]:
+    """
+    列出所有可用的skill（只返回元数据，token高效）
+    
+    Args:
+        category: 可选，按分类过滤
+        
+    Returns:
+        skill元数据列表
+    """
+    results = _scan_dir_for_skills(SKILLS_DIR, category)
+    
+    # 合并用户侧技能（去重：同名只取 repo 侧优先）
+    if USER_SKILLS_DIR.exists():
+        user_skills = _scan_dir_for_skills(USER_SKILLS_DIR, category)
+        existing_names = {s["name"] for s in results}
+        for skill in user_skills:
+            if skill["name"] not in existing_names:
+                results.append(skill)
     
     return results
 
@@ -240,20 +280,11 @@ def skill_view(name: str, file_path: str = None) -> Dict[str, Any]:
     }
 
 
-def get_skills_by_category() -> Dict[str, List[Tuple[str, str]]]:
-    """
-    按分类获取所有skill（用于构建system prompt）
-    
-    Returns:
-        {
-            "github": [("github-issues", "..."), ("github-pr-workflow", "...")],
-            "data-science": [("jupyter-live-kernel", "...")],
-            ...
-        }
-    """
+def _scan_dir_by_category(search_dir: Path) -> Dict[str, List[Tuple[str, str]]]:
+    """扫描单个目录按分类返回skill元数据"""
     skills_by_category: Dict[str, List[Tuple[str, str]]] = {}
     
-    for item in SKILLS_DIR.iterdir():
+    for item in search_dir.iterdir():
         if not item.is_dir() or item.name in ["modules", "__pycache__"]:
             continue
         
@@ -279,6 +310,36 @@ def get_skills_by_category() -> Dict[str, List[Tuple[str, str]]]:
                     )
     
     return skills_by_category
+
+
+def get_skills_by_category() -> Dict[str, List[Tuple[str, str]]]:
+    """
+    按分类获取所有skill（用于构建system prompt）
+    
+    Returns:
+        {
+            "github": [("github-issues", "..."), ("github-pr-workflow", "...")],
+            "data-science": [("jupyter-live-kernel", "...")],
+            ...
+        }
+    """
+    result = _scan_dir_by_category(SKILLS_DIR)
+    
+    # 合并用户侧（去重：同名只取 repo 侧优先）
+    if USER_SKILLS_DIR.exists():
+        user_categories = _scan_dir_by_category(USER_SKILLS_DIR)
+        # 获取 repo 侧所有 skill name 集合
+        repo_names = set()
+        for skills in result.values():
+            for name, _ in skills:
+                repo_names.add(name)
+        # 合并用户侧不重复的
+        for cat, skills in user_categories.items():
+            for name, desc in skills:
+                if name not in repo_names:
+                    result.setdefault(cat, []).append((name, desc))
+    
+    return result
 
 
 def build_skills_prompt() -> str:

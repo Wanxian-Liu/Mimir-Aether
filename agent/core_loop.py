@@ -368,6 +368,11 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
         self.conversation_history: List[Message] = []
         self.max_history_length = 200  # 对齐 1M 上下文 (200条×~5K=~1M tokens)
 
+        from agent.subdirectory_hints import SubdirectoryHintTracker
+
+        _hint_root = os.environ.get("MIMIR_REPO_ROOT") or os.getcwd()
+        self._subdirectory_hints = SubdirectoryHintTracker(working_dir=_hint_root)
+
         # 初始化凭证池(先于compressor — 获取context_length需要API key/base_url)
         self._credential_pool: Optional[CredentialPool] = None
         self._init_credential_pool()

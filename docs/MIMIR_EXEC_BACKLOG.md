@@ -1,6 +1,6 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-05-27（**Wave 8 IQ-EVO-49 粒 B [x]** · GH open **#21/#22** icebox）  
+> **最近更新**：2026-05-27（**§18 Bridge 迁入** · Wave 9 三项 [x] · 执行源 **§18.2**）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5  
 > **规则**：**刘哥** — 新 Cursor 窗粘贴 handoff 对应 §N；**Cursor** — backlog §15 第一条 `[ ]` 至 Wave 6 结案。Mimir 飞书只读回报。§11 / §2 / Phase 0 **只读**。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
@@ -328,7 +328,7 @@ Mimir 冒烟回报
 - **§2 工程队列**：只读，勿再取「E-004 / T-02 / 181+2」。
 - **Phase 0**：**14/14** [x]（2026-05-24）— 真源 [`MIMIR_PHASE0_QUEUE.md`](./MIMIR_PHASE0_QUEUE.md)。
 - **智商/进化方向真源**：[`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) · Mimir 队列 **§15** · ISSUES **#12**（锚点，非 P0）。
-- **当前执行源**：**§15 Wave 8 [x]**（IQ-EVO-49 粒 B）— closeout [`iqevo-49-grain-b-cross-session-closeout.md`](./phase0/iqevo-49-grain-b-cross-session-closeout.md) · Wave 7 rubric **4.9/10** exception · 下一拍板：rubric 复评 / P3 调研 / 刘哥新 Horizon。
+- **当前执行源**：**§18.2 Bridge Wave 9** — bridge §6/§1 工程项已迁入；**只认 §18.2 第一条 `[ ]`**。§15 Wave 8 [x]。
 - **勿**：提交 `data/persistent.json`；重做 E-001～E-012。
 
 ### 9.1 未完成项盘点（2026-05-27）
@@ -337,7 +337,8 @@ Mimir 冒烟回报
 |----|------|------|
 | **§13.1 母任务** | **0** Active | `P0-LONG-CLEARANCE` **全子阶段 [x]** |
 | **§11 长任务** | **0** Active | **`P2-LONG-SEM`** [x] · **Wave 7 IQ-EVO** [x] |
-| **§15 下一粒** | **0** Active | **IQ-EVO-49** [x]；Mimir 待 `/new` 冒烟；下一拍板见 §9 续跑 |
+| **§15 下一粒** | **0** Active | Wave 8 [x] |
+| **§18 下一粒** | **见 §18.2** | Bridge Hermes/OpenSpace + 会话治理债 |
 | **§6 Phase 2 候选** | **6** `[ ]` | 归档只读；已并入 CLR-D/E |
 | **§8 工程 icebox** | **4** 条 | 已并入 **CLR-C**（`P2-LONG-STAB`） |
 | **Gateway 十条** | **~1** 运维 | #9 代码 [x]；**CLR-B** 飞书复验 deferred |
@@ -856,4 +857,79 @@ Read bridge §1「@Mimir 必读」+ backlog §15 IQ-EVO-49。
 Read backlog §17 P1-LONG-AUTONOMY 第一条 [ ]。
 实现 mimir_ops + session reset pending + context_usage snapshot；tier0 + evolution_log。
 勿开 AUTO_EVOLVE / 勿改 semantic 生产默认。
+```
+
+---
+
+## 18. Bridge 技术债与学习队列（2026-05-27 · 自 `MIMIR_LIU_CURSOR_BRIDGE.md` §6/§1 迁入）
+
+> **bridge 角色**：§1 只保留**授权/定调/@Mimir 必读**；§6 **任务表已迁本 §**；详细论证见 [`hermes-comparison-detailed.md`](./hermes-comparison-detailed.md) · [`proposals/world-model-evolution-plan.md`](./proposals/world-model-evolution-plan.md)。  
+> **学习三原则**（刘哥 2026-05-27）：不复制代码 · 理解意图 · Mimir 自造。  
+> **规则**：只认 **§18.2 第一条 `[ ]`**；每粒 tier0；勿与未拍板 Horizon（世界模型大 diff）混做。
+
+### 18.0 已具备 / 已结案（勿重复开粒）
+
+| ID | 说明 | 证据 |
+|----|------|------|
+| **BRIDGE-CTX-A01** | `/new`/`/reset` + 同步 flush | §17 AUTO-02 · 粒 A |
+| **BRIDGE-CTX-A02** | cross-session `key_decisions` 注入 | IQ-EVO-49 |
+| **BRIDGE-CTX-B01** | `last_context_usage.json` 快照 | §17 AUTO-04 |
+| **HERM-RED** | 输出脱敏 | `agent/redact.py` · file_tools |
+| **HERM-CTX** | 引用 DSL | `agent/context_references.py` · core_loop |
+| **HERM-TGR-base** | 工具风险分级 | `agent/tool_guard.py` |
+| **HERM-CUR-base** | 技能策展基础 | `agent/skill_curator.py` |
+| **OS-TQM-base** | 工具质量追踪 | `agent/tool_quality.py` |
+| **OS-SCH-base** | hybrid / semantic 检索 | P2-LONG-SEM · IQ-EVO-11 |
+| **HERM-SDH-code** | 子目录 hint 模块 | `agent/subdirectory_hints.py`（曾未接线） |
+
+### 18.1 Wave 9 — Bridge 清空冲刺（2026-05-27）
+
+| ID | 任务 | Owner | 成功标准 | 状态 |
+|----|------|------|----------|------|
+| **BRIDGE-CTX-B02** | **Token 用量注入 prompt** — `MIMIR_CONTEXT_USAGE_IN_PROMPT` | Cursor | `_build_context_usage_hint` 进 cross-session；单测 | [x] 2026-05-27 |
+| **HERM-SDH-01** | **接线 SubdirectoryHintTracker** — tool 结果追加 AGENTS/CLAUDE | Cursor | core_loop 初始化 + exec_mixin 追加 hints | [x] 2026-05-27 |
+| **HERM-TGR-01** | **只读工具调用短缓存** — `MIMIR_TOOL_CALL_CACHE` | Cursor | `agent/tool_call_cache.py` + exec_mixin | [x] 2026-05-27 |
+| **SKILLS-USER-01** | **skills_loader 合并 runtime home 技能** | Cursor | `USER_SKILLS_DIR` 扫描 + 去重 | [x] 2026-05-27 |
+| **BRIDGE-W9-close** | 结案 + tier0 | Cursor | `bridge-wave9-closeout.md` | [x] 2026-05-27 |
+
+**§18.1 状态**：Wave 9 **全 [x]**
+
+### 18.2 Horizon C — Hermes / OpenSpace 学习（执行源）
+
+> **来源**：bridge §6.21 / §6.22 三遍思考 · P0 优先
+
+| ID | 优先级 | 任务 | 意图摘要 | 状态 |
+|----|--------|------|----------|------|
+| **HERM-CUR-02** | P0 | skill_curator **生命周期** — stale/archived/合并建议 | 84+ 技能需自动闲置治理 | [ ] |
+| **HERM-SDH-02** | P0 | subdirectory hints **系统 prompt 层**（可选） | 除 tool 结果外，cwd 变更时注入 | [ ] |
+| **HERM-TGR-02** | P0 | 工具缓存 **观测** — log/metrics 命中率 | 验证 TGR-01 有效 | [ ] |
+| **OS-TQM-02** | P0 | ToolQualityManager **默认接线** + tier0 契约 | prompt_builder 已部分用 | [ ] |
+| **OS-SCH-02** | P0 | session_search **BM25+语义融合排序**（若 hybrid 不足） | 对标 OpenSpace search.py | [ ] |
+| **HERM-SCR-01** | P1 | think 流式擦除状态机加固 | 不完整 thinking 块 | [ ] |
+| **HERM-RED-02** | P1 | 脱敏规则表运维化 / 扩展 | 规则在 data/ | [ ] |
+| **HERM-CTX-02** | P1 | context_references **飞书自然语言** 冒烟 | DSL 已存在 | [ ] |
+| **OS-REV-01** | P1 | quality/reviewer 自动评 skill 描述 | 依赖 OS-TQM-02 | [ ] |
+| **OS-TOOL-SRCH-01** | P1 | 工具级搜索（ToolRanker） | 依赖 OS-SCH-02 | [ ] |
+| **P3-XSR-01** | 调研 | 跨会话 RAG / 分层注入 | §11 `P3-CROSS-SESSION-RETRIEVAL` | [ ] |
+| **ADR-002-impl** | 拍板 | ADR-002 **写入路径** 实现（非 spike） | `adr-002-write-spike.md` 已有 | [ ] |
+| **WM-HORIZON-01** | 拍板 | 世界模型提案 Phase 0 | `world-model-evolution-plan.md` | [ ] |
+| **IQ-RUBRIC-55** | 产品 | rubric **≥5.5** 行为证据 | 现 4.9 exception | [ ] |
+| **GH-ICE-21-22** | icebox | D5/D6 余债 | #21 #22 | [ ] |
+| **CLR-B-FEISHU** | 运维 | Gateway #9 / 空表头飞书复验 | deferred | [ ] |
+
+**§18.2 状态**：**HERM-CUR-02** 为默认 **下一工程粒**（刘哥未另拍板时）
+
+**Cursor 新窗一句**
+
+```text
+Read backlog §18.2 第一条 [ ]。
+来源 bridge §6 已迁 backlog；详论见 docs/hermes-comparison-detailed.md。
+每粒 tier0 + evolution_log；勿开未授权 AUTO_EVOLVE / semantic 生产切换。
+```
+
+**Mimir 新窗一句**
+
+```text
+Read bridge §1「@Mimir 必读」+ backlog §18（勿再扫 bridge §6 大表）。
+工程认 §18.2 第一条 [ ]；回报 §3.3 + bridge §4 一行。
 ```

@@ -1072,6 +1072,39 @@ def _append_recent_memory_rows(
         parts.extend(lines)
 
 
+def _build_context_usage_hint() -> str:
+    """Last LLM context usage snapshot for prompt (bridge §1 problem B / AUTO-04)."""
+    if os.environ.get("MIMIR_CONTEXT_USAGE_IN_PROMPT", "1").strip().lower() in (
+        "0",
+        "false",
+        "no",
+        "off",
+    ):
+        return ""
+    try:
+        from agent.context_usage_snapshot import read_context_usage_snapshot
+
+        snap = read_context_usage_snapshot()
+    except Exception:
+        return ""
+    if not snap:
+        return ""
+    total = int(snap.get("total_tokens") or snap.get("prompt_tokens") or 0)
+    threshold = int(snap.get("threshold_tokens") or 0)
+    if total <= 0 and threshold <= 0:
+        return ""
+    parts = [f"上下文 token: {total}"]
+    if threshold > 0:
+        parts.append(f"压缩阈值: {threshold}")
+    mc = snap.get("message_count")
+    if mc:
+        parts.append(f"消息数: {mc}")
+    model = (snap.get("model") or "").strip()
+    if model:
+        parts.append(f"模型: {model}")
+    return "[context-usage] " + " · ".join(parts)
+
+
 def _build_cross_session_context() -> str:
     """Core fields from runtime-home persistent + NEXT_SESSION (ADR-002 injection slice)."""
     import json
@@ -1134,6 +1167,10 @@ def _build_cross_session_context() -> str:
                     parts.append(f.read()[: min(500, remaining)])
         except Exception:
             pass
+
+    usage = _build_context_usage_hint()
+    if usage:
+        parts.append(usage)
 
     if not parts:
         return ""
