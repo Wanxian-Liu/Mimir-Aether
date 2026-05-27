@@ -505,6 +505,16 @@ class AgentMixin:
                 if consume_session_reset_pending(session_key):
                     apply_session_reset_on_runner(self, session_key)
                     history = []
+                    try:
+                        from agent.cross_session_retrieval import (
+                            request_cross_session_prefetch,
+                        )
+
+                        request_cross_session_prefetch(
+                            session_key, reason="session_reset_pending"
+                        )
+                    except Exception:
+                        pass
             except Exception as _reset_err:
                 logger.debug("Pending session reset skipped: %s", _reset_err)
 

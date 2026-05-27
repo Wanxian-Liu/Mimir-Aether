@@ -1317,6 +1317,12 @@ def build_system_prompt(
     if cross_ctx:
         sections.insert(0, cross_ctx)
 
+    from agent.cross_session_retrieval import build_retrieved_sessions_context
+
+    retrieved_ctx = build_retrieved_sessions_context()
+    if retrieved_ctx:
+        sections.insert(0, retrieved_ctx)
+
     auto_prompt = _build_auto_load_skills_prompt(skills_dirs=skills_dirs)
     if auto_prompt:
         sections.append(auto_prompt)
@@ -1413,6 +1419,12 @@ def build_system_prompt_parts(
     cross_ctx = _build_cross_session_context()
     if cross_ctx:
         volatile_sections.append(cross_ctx)
+
+    from agent.cross_session_retrieval import build_retrieved_sessions_context
+
+    retrieved_ctx = build_retrieved_sessions_context()
+    if retrieved_ctx:
+        volatile_sections.append(retrieved_ctx)
     
     return {
         "stable": "\n\n".join(s for s in stable_sections if s),

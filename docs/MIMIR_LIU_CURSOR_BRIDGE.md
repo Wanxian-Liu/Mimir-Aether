@@ -480,6 +480,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-27 | **OS-REV-01** | **Cursor** | `skill_description_reviewer` + curator lifecycle hook · tier0 **578+2** · **`ac29465` dirty** · Gateway **不必** · 下一粒 **OS-TOOL-SRCH-01** · §19.1 **9/15** · **~61%** |
 | 2026-05-27 | **OS-TOOL-SRCH-01** | **Cursor** | `tool_ranker` + `tool_search` registry · RRF 复用 SCH-02 · tier0 **588+2** · base **`3b04452`** · Gateway **不必** · 下一粒 **P3-XSR-01** · §19.1 **10/15** · **~67%** |
 | 2026-05-27 | **P3-XSR-01** | **Cursor** | `docs/proposals/p3-cross-session-retrieval.md` L1/L2/L3 + Hermes + G-ADR-002 · 无代码 · tier0 **590+2** · base **`6112f38`** · 下一粒 **ENGINE-WS-01** / Gate · §19.1 **11/15** · **~73%** |
+| 2026-05-27 | **P3-XSR-02** | **Cursor** | L2 `cross_session_retrieval` + `<retrieved-sessions>` · `/new`+reset 一次性预取 · tier0 **+2** agent tests · base **`99ac4f1`** · Gateway **要** · 下一粒 **P3-XSR-03** · §19.1 **12/16** · **~76%** |
 
 ---
 

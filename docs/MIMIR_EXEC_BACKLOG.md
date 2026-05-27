@@ -919,7 +919,7 @@ Read backlog §17 P1-LONG-AUTONOMY 第一条 [ ]。
 | **GH-ICE-21-22** | icebox | D5/D6 余债 | #21 #22 | [ ] |
 | **CLR-B-FEISHU** | 运维 | Gateway #9 / 空表头飞书复验 | deferred | [ ] |
 
-**§18.2 状态**：**G-ADR-002** 已勾（2026-05-27）· 下一工程粒 **P3-XSR-02**（L2）
+**§18.2 状态**：**P3-XSR-02** 已勾（2026-05-27）· 下一工程粒 **P3-XSR-03**（L3）或 **ENGINE-WS-01**
 
 **Cursor 新窗一句**
 
@@ -956,7 +956,7 @@ Read bridge §1「@Mimir 必读」+ backlog §18（勿再扫 bridge §6 大表�
 
 ### 19.1 工程轨（Cursor · 与 §18.2 同序）
 
-> **下一粒默认**：**P3-XSR-02**（L2 预取注入 · G-ADR-002 已勾）· 其后 ENGINE-WS-01 等 P2 粒
+> **下一粒默认**：**P3-XSR-03**（L3 RAG flag 默认关）或 **ENGINE-WS-01** · L2 已结案见 `p3-xsr-02-closeout.md`
 
 | Wave | ID | 优先级 | 任务 | 状态 | 计划章 |
 |------|-----|--------|------|------|--------|
@@ -971,13 +971,13 @@ Read bridge §1「@Mimir 必读」+ backlog §18（勿再扫 bridge §6 大表�
 | **12** | **OS-REV-01** | P1 | quality reviewer 评 skill 描述（依赖 TQM-02） | [x] | §Wave 12 |
 | **13** | **OS-TOOL-SRCH-01** | P1 | 工具级搜索 ToolRanker（依赖 SCH-02） | [x] | §Wave 13 |
 | **14** | **P3-XSR-01** | 调研 | 跨会话 RAG / 分层注入（§8 P3-CROSS） | [x] | §Wave 14 |
-| **15** | **P3-XSR-02** | P1 | L2：`session_search` 预取注入 prompt（cap） | [ ] | 提案 §6 · G-ADR G1 |
+| **15** | **P3-XSR-02** | P1 | L2：`session_search` 预取注入 prompt（cap） | [x] 2026-05-27 · closeout | 提案 §6 · G-ADR G1 |
 | **—** | **ENGINE-WS-01** | P2 | WebSocket 推理阻塞心跳（§8） | [ ] | §Wave 15+ |
 | **—** | **ENGINE-ROLLBACK-01** | P2 | 自修回滚护栏（§8） | [ ] | §Wave 15+ |
 | **—** | **ENGINE-P3W-01** | P2 | P3-0 persistent 单写者实现（ADR-001 已有） | [ ] | 随 §19.3 ADR-002 |
 | **—** | **ENGINE-GW-01** | P2 | Gateway 十条余项 | [ ] | `GATEWAY_STABILITY_BACKLOG.md` |
 
-**§19.1 状态**：**11/16** 工程粒完成（**69%**）· **G-ADR-002** 已勾 · 下一 **P3-XSR-02** · 综合 **~73%**（见 handoff §2）
+**§19.1 状态**：**12/16** 工程粒完成（**75%**）· **P3-XSR-02** 已勾 · 下一 **P3-XSR-03** / ENGINE-WS-01 · 综合 **~76%**（见 handoff §2）
 
 **Cursor 新窗一句**
 
