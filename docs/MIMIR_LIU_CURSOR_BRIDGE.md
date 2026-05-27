@@ -197,7 +197,7 @@ tool 软失败（JSON 含 error）→ trajectory success=false
 
 **你做任务时（不必单独验收剧本，顺带即可）：**
 
-0. **`/new` / `/reset`**（grain A，待 Gateway 重启生效）：Gateway **先等** memory flush 再回「Session reset」；超时默认 **90s**（`MIMIR_RESET_FLUSH_TIMEOUT_SEC`）。仍建议重要事实用 **memory 工具**落盘。
+0. **`/new` / `/reset`**（粒 A）：Gateway **先等** memory flush 再回「Session reset」；超时默认 **90s**（`MIMIR_RESET_FLUSH_TIMEOUT_SEC`）。**粒 B（IQ-EVO-49）**：首条 prompt 注入 `persistent.json` 最近 **key_decisions** / **learned_patterns** — 部署后重启 Gateway 生效。
 1. **正常干活即可** — 不必等刘哥另开「受控失败」会话；48 已在 main + Gateway。
 2. **若本轮有 tool 失败并会话结束**，close 后查本 `session_id` 的 `~/.mimiraether/logs/agent.log`：
    - 要有 `post_analysis applied`
@@ -465,6 +465,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 || 2026-05-27 | **IQ-EVO-48** | **Cursor** | main **`a71cc84`** pushed · Gateway 重启 · tier0 **472+2** · 飞书顺带验收见 bridge §1「@Mimir 必读」 |
 || 2026-05-27 | **粒 A · /new flush** | **Cursor** | `/new`/`/reset` **同步** await memory flush · `MIMIR_RESET_FLUSH_TIMEOUT_SEC` 默认 90s · Gateway 重启生效 |
 || 2026-05-27 | **IQ-EVO-47** | **Cursor** | 规则 `IntentPredictor` · `MIMIR_INTENT_PREDICTOR` 默认开 · prompt `<intent-context>` · rubric **#8→4.0** · tier0 **475+2** |
+|| 2026-05-27 | **IQ-EVO-49 粒 B** | **Cursor** | `key_decisions`/`learned_patterns` 注入 cross-session · tier0 **481+2** · Gateway 重启后 `/new` 冒烟 |
 || 2026-05-27 | **第2轮 Hermes 对比 10 块** | **Mimir** | 归档 §6.22～§6.31 · Memory/Mimir领先 · Guardrails/定位不同 · Dispatch/模块化参考 · Retry/File/Display/Insights/ResultClass/NousGuard/ContextEngine — 最终结论：Mimir在3块领先、5块不学、2块可参考 |
 | 2026-05-27 | bridge §1 + backlog §15 | **Mimir 接续** | IQ-EVO-48 a71cc84 ✅；html-output 去重 ✅；Wave 7 [x] rubric 4.9/10；下一次正常干活 |
 

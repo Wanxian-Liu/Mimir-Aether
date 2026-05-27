@@ -1,6 +1,6 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-05-27（**Wave 7 [x]** · **IQ-EVO-47** Intent MVP · GH open **#21/#22** icebox）  
+> **最近更新**：2026-05-27（**Wave 8 IQ-EVO-49 粒 B [x]** · GH open **#21/#22** icebox）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5  
 > **规则**：**刘哥** — 新 Cursor 窗粘贴 handoff 对应 §N；**Cursor** — backlog §15 第一条 `[ ]` 至 Wave 6 结案。Mimir 飞书只读回报。§11 / §2 / Phase 0 **只读**。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
@@ -328,7 +328,7 @@ Mimir 冒烟回报
 - **§2 工程队列**：只读，勿再取「E-004 / T-02 / 181+2」。
 - **Phase 0**：**14/14** [x]（2026-05-24）— 真源 [`MIMIR_PHASE0_QUEUE.md`](./MIMIR_PHASE0_QUEUE.md)。
 - **智商/进化方向真源**：[`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) · Mimir 队列 **§15** · ISSUES **#12**（锚点，非 P0）。
-- **当前执行源**：**§15 Wave 7 [x]** — closeout [`p2-long-iqevo-wave7-closeout.md`](./phase0/p2-long-iqevo-wave7-closeout.md) · rubric **4.9/10** exception。下一条可选 **IQ-EVO-47** 或 Horizon B1（§16）。
+- **当前执行源**：**§15 Wave 8 [x]**（IQ-EVO-49 粒 B）— closeout [`iqevo-49-grain-b-cross-session-closeout.md`](./phase0/iqevo-49-grain-b-cross-session-closeout.md) · Wave 7 rubric **4.9/10** exception · 下一拍板：rubric 复评 / P3 调研 / 刘哥新 Horizon。
 - **勿**：提交 `data/persistent.json`；重做 E-001～E-012。
 
 ### 9.1 未完成项盘点（2026-05-27）
@@ -337,7 +337,7 @@ Mimir 冒烟回报
 |----|------|------|
 | **§13.1 母任务** | **0** Active | `P0-LONG-CLEARANCE` **全子阶段 [x]** |
 | **§11 长任务** | **0** Active | **`P2-LONG-SEM`** [x] · **Wave 7 IQ-EVO** [x] |
-| **§15 下一粒** | — | **IQ-EVO-47** [x]；下一 Horizon B1（§16）或 rubric 复评 |
+| **§15 下一粒** | **0** Active | **IQ-EVO-49** [x]；Mimir 待 `/new` 冒烟；下一拍板见 §9 续跑 |
 | **§6 Phase 2 候选** | **6** `[ ]` | 归档只读；已并入 CLR-D/E |
 | **§8 工程 icebox** | **4** 条 | 已并入 **CLR-C**（`P2-LONG-STAB`） |
 | **Gateway 十条** | **~1** 运维 | #9 代码 [x]；**CLR-B** 飞书复验 deferred |
@@ -777,12 +777,42 @@ Read backlog §15 Wave 5。IQ-EVO-21～25；tier0 + evolution_log。
 | IQ-EVO-47 | Intent MVP（规则 Predictor + prompt/路由） | Cursor | [x] 2026-05-27 · `intent_predictor.py` · closeout `iqevo-47-intent-mvp-closeout.md` |
 | IQ-EVO-48 | 软失败 + suggestion 兜底 | Cursor | [x] 2026-05-27 · infer_tool_success · fallback fix · tier0 **472+2** |
 
-**§15 Wave 7 状态**：IQ-EVO-40～46 + DOC-01 **全 [x]** · rubric **4.9/10** documented exception（距 5.5 差 0.6）· 1c closeout [`p2-long-iqevo-wave7-1c-closeout.md`](./phase0/p2-long-iqevo-wave7-1c-closeout.md)
+**§15 Wave 7 状态**：IQ-EVO-40～48 + DOC-01 **全 [x]** · rubric **4.9/10** documented exception（距 5.5 差 0.6）· 1c closeout [`p2-long-iqevo-wave7-1c-closeout.md`](./phase0/p2-long-iqevo-wave7-1c-closeout.md)
 
-**刘哥 / Cursor 新窗一句**
+**刘哥 / Cursor 新窗一句（Wave 7 已结案）**
 
 ```text
-Read docs/superpowers/plans/2026-05-26-wave7-gate-cd-handoff.md §0 + 下一粒 §N（从 §40 起，勿跳序）。
+Read docs/phase0/p2-long-iqevo-wave7-closeout.md · 下一工程粒见 backlog §15 Wave 8 IQ-EVO-49（粒 B）。
+```
+
+### §15 Wave 8 — 跨会话续传（粒 B · `/new` 后失忆 · 2026-05-27）
+
+> **背景**：粒 A 保证 `/new` 前 **flush** 落盘；粒 B 保证 **首条 prompt** 能带上磁盘里已有决策/模式，而不只靠 `objective` / `pending_tasks` / `NEXT_SESSION.md` 薄切片。  
+> **前置**：粒 A **[x]**（`gateway/run.py` 同步 flush · `MIMIR_RESET_FLUSH_TIMEOUT_SEC`）· IQ-EVO-09 ADR-002 cap **[x]**。  
+> **真源**：`agent/prompt_builder._build_cross_session_context` · `persistent.json` → `memory.key_decisions` / `memory.learned_patterns`（与 `CrossSessionMemory` 同路径 `$MIMIR_AETHER_HOME/data/`）。  
+> **规则**：只认 **本表第一条 `[ ]`**；每粒 `./run_ralph_tier0.sh`；**禁止**默认开 `semantic_hybrid` / 无授权 `MIMIR_AUTO_EVOLVE=1`；**勿**与 P3 全量 RAG 调研混做（见 §11 `P3-CROSS-SESSION-RETRIEVAL`）。
+
+| ID | 任务 | Owner | 成功标准 | 状态 |
+|----|------|------|----------|------|
+| **IQ-EVO-49** | **粒 B** — `_build_cross_session_context` 注入 **最近 key_decisions + learned_patterns**（有界） | Cursor | ① 从 runtime `persistent.json` 读取 `memory.key_decisions`（默认最近 **5** 条）与 `learned_patterns`（默认最近 **3** 条），写入 `<cross-session-context>`；② 仍遵守 `MIMIR_CROSS_SESSION_MAX_CHARS` / `_cross_session_max_chars()`，超长截断；③ 单测覆盖「有 decisions 时 prompt 含决策摘要」+ 空盘不报错；④ contract 入 tier0；⑤ closeout `docs/phase0/iqevo-49-grain-b-cross-session-closeout.md`；⑥ Mimir：`/new` 后首条能复述**上一轮已落盘**的关键决策（飞书或 log 一句证据） | [x] 2026-05-27 · closeout · tier0 |
+
+**§15 Wave 8 状态**：**IQ-EVO-49** **[x]** · Mimir 待飞书 `/new` + 关键决策复述冒烟
+
+**Cursor 新窗一句**
+
+```text
+Read backlog §15 Wave 8 · 只做 IQ-EVO-49（粒 B）。
+扩展 prompt_builder._build_cross_session_context：注入 memory.key_decisions + learned_patterns（有界，ADR-002 cap 内）。
+tier0 + evolution_log；勿开 P3 RAG / 勿改 semantic 生产默认。
+Mimir 验收：/new 后首条是否带上轮关键决策。
+```
+
+**Mimir 新窗一句**
+
+```text
+Read bridge §1「@Mimir 必读」+ backlog §15 IQ-EVO-49。
+粒 A 已 [x]；粒 B 工程由 Cursor 做。你可在 49 合入后：/new → 问「上次关键决策是什么」→ bridge §4 一行证据。
+勿 push agent|gateway|tools（除非 bridge §1 B 轨授权）。
 ```
 
 ---

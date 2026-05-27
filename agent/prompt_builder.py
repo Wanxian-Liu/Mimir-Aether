@@ -1028,6 +1028,50 @@ def _cross_session_max_chars() -> int:
         return 2000
 
 
+def _cross_session_list_limit(env_key: str, default: int) -> int:
+    raw = os.environ.get(env_key, str(default)).strip()
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        return default
+
+
+def _memory_row_text(item, primary_key: str) -> str:
+    if isinstance(item, dict):
+        val = item.get(primary_key) or item.get("text") or item.get("content")
+        if val is not None and str(val).strip():
+            return str(val).strip()
+        return str(item)[:200]
+    if item is None:
+        return ""
+    return str(item).strip()
+
+
+def _append_recent_memory_rows(
+    parts: list[str],
+    rows: list,
+    *,
+    label: str,
+    primary_key: str,
+    limit: int,
+    row_max: int = 120,
+) -> None:
+    if limit <= 0 or not rows or not isinstance(rows, list):
+        return
+    tail = rows[-limit:]
+    lines: list[str] = []
+    for item in tail:
+        text = _memory_row_text(item, primary_key)
+        if not text:
+            continue
+        if len(text) > row_max:
+            text = text[: row_max - 1] + "…"
+        lines.append(f"- {text}")
+    if lines:
+        parts.append(f"{label}({len(lines)}):")
+        parts.extend(lines)
+
+
 def _build_cross_session_context() -> str:
     """Core fields from runtime-home persistent + NEXT_SESSION (ADR-002 injection slice)."""
     import json
@@ -1043,6 +1087,7 @@ def _build_cross_session_context() -> str:
             with open(path, encoding="utf-8") as f:
                 state = json.load(f)
             progress = state.get("progress") if isinstance(state.get("progress"), dict) else {}
+            memory = state.get("memory") if isinstance(state.get("memory"), dict) else {}
             curator_nudge = state.get("curator_nudge", "")
             last_end = state.get("last_session_end", "")
             session_count = state.get("session_count", 0)
@@ -1058,6 +1103,22 @@ def _build_cross_session_context() -> str:
                 parts.append(f"待办({len(pending)}): {preview}")
             if milestones:
                 parts.append(f"近期里程碑: {len(milestones)} 项")
+            decisions = memory.get("key_decisions")
+            patterns = memory.get("learned_patterns")
+            _append_recent_memory_rows(
+                parts,
+                decisions if isinstance(decisions, list) else [],
+                label="关键决策",
+                primary_key="decision",
+                limit=_cross_session_list_limit("MIMIR_CROSS_SESSION_DECISIONS_MAX", 5),
+            )
+            _append_recent_memory_rows(
+                parts,
+                patterns if isinstance(patterns, list) else [],
+                label="学到模式",
+                primary_key="pattern",
+                limit=_cross_session_list_limit("MIMIR_CROSS_SESSION_PATTERNS_MAX", 3),
+            )
             if last_end:
                 parts.append(f"上次会话结束: {last_end}")
             parts.append(f"会话计数: {session_count}")
