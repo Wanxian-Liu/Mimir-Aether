@@ -61,11 +61,11 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 
 ## 3. 我从哪开始（Cursor 决策 · 2026-05-27 更新）
 
-**已完成：** Wave 11 [x]（TQM · SCH）· **HERM-SCR-01** [x]（流式 think 擦除 · tier0 **542+2** · 工作区 **`22add39` dirty**）
+**已完成：** Wave 11–12 首粒 [x]（TQM · SCH · **SCR `78456e5`**）· tier0 **542+2**
 
-**下一粒：** **HERM-RED-02**（Wave 12 Task 7）— redact rules ops
+**下一粒：** **HERM-RED-02**（Wave 12 Task 7）— `data/redact_rules.json` 运维化 / 扩展
 
-**合并策略：** 建议 **每粒一 commit**；SCR-01 待刘哥 **`commit SCR-01`**（排除 `data/persistent.json`）。
+**合并策略：** 每粒一 commit（`commit RED-02`）；排除 `data/persistent.json`。
 
 **禁止：** WM Phase0 · ADR-002 实现 · rubric 5.5 空喊
 
@@ -73,49 +73,33 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 
 ## 4. 新 Cursor 窗 · 粘贴提示词（Superpowers 强制）
 
-**整段复制到新 Agent 窗（当前粒：HERM-SCR-01）：**
+**整段复制到新 Agent 窗（当前粒：HERM-RED-02）：**
 
 ```text
 【角色】Cursor 工程 · MimirAether · 主线：依托 LLM 的世界模型智能体（非传话桶）。
 
-【Superpowers — 必须按顺序执行，不得跳过】
-1. Read skill：superpowers:using-superpowers（建立 skill 使用纪律）
-2. Read skill：superpowers:executing-plans（或 subagent-driven-development — 二选一，本粒推荐后者）
-3. Read skill：superpowers:test-driven-development — 状态机先写失败测再实现
-4. Read skill：superpowers:systematic-debugging — 流式边界 bug 时先用，禁止无证据改码
-5. Read skill：superpowers:verification-before-completion — 声称完成前必须 ./run_ralph_tier0.sh 全绿
-6. Read skill：superpowers:finishing-a-development-branch — 收尾时给用户 merge/PR 选项（路径 A 仍用 commit SCR-01）
+【Superpowers — 必须按顺序执行】
+1. superpowers:using-superpowers
+2. superpowers:subagent-driven-development（或 executing-plans）
+3. superpowers:test-driven-development — 脱敏规则先测后实现
+4. superpowers:verification-before-completion — ./run_ralph_tier0.sh 全绿再声称完成
+5. superpowers:finishing-a-development-branch — 收尾；路径 A：commit RED-02
 
-【真源文档 — Read 后再动代码】
-- 主计划 Wave 12 Task 6：docs/superpowers/plans/2026-05-27-horizon-c-master-iteration.md（HERM-SCR-01 行）
-- Handoff 仪表盘：docs/superpowers/plans/2026-05-27-world-model-agent-handoff.md §2–§3
-- Backlog 第一条 [ ]：docs/MIMIR_EXEC_BACKLOG.md §19.1（应为 HERM-SCR-01）
-- Hermes 对标：docs/hermes-comparison-detailed.md §2.17 think_scrubber.py（流式 partial tag 状态机）
-- 北星：docs/DEVELOPMENT_NORTH_STAR.md · WM 愿景只读：docs/proposals/world-model-evolution-plan.md
+【真源 — Read 后再编码】
+- 主计划 Wave 12 Task 7：docs/superpowers/plans/2026-05-27-horizon-c-master-iteration.md（HERM-RED-02）
+- Backlog §19.1 第一条 [ ]：docs/MIMIR_EXEC_BACKLOG.md（应为 HERM-RED-02）
+- Hermes 对标：docs/hermes-comparison-detailed.md §2.16 redact.py
+- 安全：docs/SECURITY.md · 北星：docs/DEVELOPMENT_NORTH_STAR.md
 
-【本粒目标 · HERM-SCR-01】
-问题：流式输出上对 thinking 块用 per-chunk 正则会在标签被 delta 切开时漏擦/多擦；终态有 callers_mixin._strip_think_blocks，流式路径 _fire_stream_delta 尚未状态机化。
-成功标准（可验证）：
-1. 新增 agent/think_scrubber.py（或等价模块）：增量 feed(delta)→可见文本；支持 <think>、<thinking>、<REASONING_SCRATCHPAD> 及不完整开闭标签
-2. 接线：agent/callers_mixin.py 流式路径（_fire_stream_delta 及关联 LLM stream 消费点）；终态 _strip_think_blocks 可与 scrubber.flush 对齐或复用
-3. 单测：tests/agent/test_think_scrubber.py — partial tag、跨 chunk、EOF flush、嵌套/空块
-4. 契约：tests/contract/test_horizon_herm_scr_01.py + 登记 run_ralph_tier0.sh
-5. closeout：docs/phase0/herm-scr-01-closeout.md
-6. ./run_ralph_tier0.sh 全绿后再回报
+【本粒 · HERM-RED-02】
+目标：运行时秘密脱敏规则可运维（`data/redact_rules.json` 或等价）+ 文档；对齐现有 error_sanitize / 日志路径，最小接线。
+成功标准：规则文件可加载 · 单测覆盖典型 key/token 擦除 · contract + tier0 · docs/phase0/herm-red-02-closeout.md
 
-【实现约束】
-- 最小 diff：不顺手重构 core_loop；只触达流式 think 擦除相关路径
-- 不复制 Hermes 整文件；对齐行为（状态机语义），风格跟 Mimir 现有 agent/
-- 触达 agent/ → 收尾写明 Gateway 是否需硬重启（本粒预期：需要，因 core_loop/callers 流式）
+【收尾】record_m6_evolution.sh → backlog [x] → bridge §4 → commit RED-02（不含 data/persistent.json）
 
-【每粒收尾 checklist】
-record_m6_evolution.sh → backlog [x] → bridge §4 一行 → 刘哥要单粒 commit 时说 commit SCR-01（排除 data/persistent.json）
+【已推 main】SCR 78456e5 · SCH d83d68a · tier0 542+2 · §19.1 6/15 · ~56%
 
-【已推 main · 勿回退】
-SCH d83d68a · TQM e20ae1d · tier0 531+2 · §19.1 5/15（~55%）· 下一粒完成后 6/15
-
-【禁止】
-提交 data/persistent.json · WM Phase0 大 diff · ADR-002 实现 · 未授权 MIMIR_AUTO_EVOLVE / 生产 semantic 切换 · force push main · 与 HERM-RED-02/CTX-02 混做
+【禁止】persistent.json · WM Phase0 · ADR-002 · 与 CTX-02/REV-01 混做 · force push main
 
 【仓库】~/src/MimirAether · MIMIR_AETHER_HOME=~/.mimiraether
 ```
