@@ -8,8 +8,8 @@
 | **最近更新** | 2026-05-27 |
 | **更新人** | Cursor（§19 主队列 + Horizon C 主迭代计划） |
 | **仓库根（真源）** | `~/src/MimirAether` |
-| **可选校验** | `./run_ralph_tier0.sh`（门禁 **522+2**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
-| **本轮摘要** | **OS-SCH-02 [x]**（RRF fusion）· §19.1 **5/15** · tier0 **531+2** · 综合 WM **~55%** · main **`d83d68a`** · 下一粒 **HERM-SCR-01**。 |
+| **可选校验** | `./run_ralph_tier0.sh`（门禁 **542+2**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
+| **本轮摘要** | **HERM-SCR-01 [x]**（流式 think scrubber）· §19.1 **6/15** · tier0 **542+2** · 综合 WM **~56%** · main 见最新 SHA · 下一粒 **HERM-RED-02** · Gateway 硬重启建议。 |
 
 ---
 
