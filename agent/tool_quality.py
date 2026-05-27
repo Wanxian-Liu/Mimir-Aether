@@ -25,6 +25,52 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 
+def tool_quality_enabled() -> bool:
+    """Default on (OS-TQM-02): session recording + registry ranking."""
+    return os.environ.get("MIMIR_TOOL_QUALITY", "1").strip().lower() not in (
+        "0",
+        "false",
+        "no",
+        "off",
+    )
+
+
+def tool_quality_prompt_enabled() -> bool:
+    """Degraded-tool read-only block in system prompt (same gate as tracking)."""
+    return tool_quality_enabled()
+
+
+def format_degraded_tools_guidance(
+    degraded: List[Tuple[str, float]],
+) -> str:
+    if not degraded:
+        return ""
+    lines = [
+        "# Tool quality signals (read-only · OS-TQM-02)",
+        "Production telemetry shows low success rates for these tools. "
+        "Prefer alternatives or verify carefully; do not assume they are reliable:",
+    ]
+    for name, score in degraded:
+        lines.append(f"- {name}: quality_score={score:.2f}")
+    return "\n".join(lines)
+
+
+def order_tool_names_by_quality(tool_names: set) -> List[str]:
+    """Rank tool schemas for LLM: higher quality_score first (degraded last)."""
+    if not tool_quality_enabled() or not tool_names:
+        return sorted(tool_names)
+    try:
+        qm = ToolQualityManager(enable_persistence=True)
+        scores = {name: score for name, score in qm.rank_tools()}
+    except Exception:
+        return sorted(tool_names)
+
+    def sort_key(name: str) -> tuple:
+        return (-scores.get(name, 1.0), name)
+
+    return sorted(tool_names, key=sort_key)
+
+
 def _get_db_path() -> Path:
     home = os.getenv("MIMIR_AETHER_HOME", os.path.expanduser("~/.mimiraether"))
     data_dir = Path(home) / "data"

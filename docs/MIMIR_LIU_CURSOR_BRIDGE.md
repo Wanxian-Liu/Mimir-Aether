@@ -471,7 +471,8 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-27 | **Bridge §6→§18 + Wave 9** | **Cursor** | §6→backlog §18 · Wave 9 [x] · main **`72947ef`** pushed · tier0 **488+2** · 下一粒 **HERM-CUR-02**（§18.2）· **Gateway 重启待做** |
 | 2026-05-27 | **OPS-DEPLOY-W9 + HERM-CUR-02** | **Cursor** | Gateway **PID 513180** · `/health` ok · skill_curator lifecycle + close hook · tier0 **497+2** · main **`4714b92`** · 下一粒 **HERM-TGR-02** |
 | 2026-05-27 | **HERM-TGR-02** | **Cursor** | `get_stats` hits/misses/size · `MIMIR_TOOL_CACHE_LOG` · tier0 **505+2** · main **`9beb056`** 一带 |
-| 2026-05-27 | **HERM-SDH-02 · Wave10 收口** | **Cursor** | `prompt_block` + `MIMIR_SUBDIR_HINTS_IN_SYSTEM`（默认关）· context tier · tier0 **513+2** · base **`9beb056`** dirty · 下一粒 **OS-TQM-02** · §19.1 **3/15** · 综合 **~51%** |
+| 2026-05-27 | **HERM-SDH-02 · Wave10 收口** | **Cursor** | `prompt_block` + `MIMIR_SUBDIR_HINTS_IN_SYSTEM`（默认关）· tier0 **513+2** · main **`8efa4eb`** |
+| 2026-05-27 | **OS-TQM-02** | **Cursor** | `MIMIR_TOOL_QUALITY` 默认 on · pipeline/registry/prompt 三处接线 · tier0 **522+2** · base **`8efa4eb`** dirty · 下一粒 **OS-SCH-02** · §19.1 **4/15** · 综合 **~53%** |
 
 ---
 

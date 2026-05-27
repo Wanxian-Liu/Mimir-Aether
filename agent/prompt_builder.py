@@ -162,10 +162,16 @@ def build_analysis_artifact_guidance() -> str:
 
 
 def build_tool_quality_guidance() -> str:
-    """Read-only degraded-tool hints from persisted tool_quality.db (IQ-EVO-17)."""
+    """Read-only degraded-tool hints from persisted tool_quality.db (IQ-EVO-17 / OS-TQM-02)."""
     try:
-        from agent.tool_quality import ToolQualityManager
+        from agent.tool_quality import (
+            ToolQualityManager,
+            format_degraded_tools_guidance,
+            tool_quality_prompt_enabled,
+        )
 
+        if not tool_quality_prompt_enabled():
+            return ""
         qm = ToolQualityManager(enable_persistence=True)
         try:
             from agent.tuned_thresholds import get_tuned_float
@@ -174,16 +180,7 @@ def build_tool_quality_guidance() -> str:
         except Exception:
             _tq_threshold = 0.5
         degraded = qm.get_degraded_tools(threshold=_tq_threshold)[:8]
-        if not degraded:
-            return ""
-        lines = [
-            "# Tool quality signals (read-only · IQ-EVO Wave 4)",
-            "Production telemetry shows low success rates for these tools. "
-            "Prefer alternatives or verify carefully; do not assume they are reliable:",
-        ]
-        for name, score in degraded:
-            lines.append(f"- {name}: quality_score={score:.2f}")
-        return "\n".join(lines)
+        return format_degraded_tools_guidance(degraded)
     except Exception:
         return ""
 

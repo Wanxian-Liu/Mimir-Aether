@@ -129,7 +129,13 @@ class ToolRegistry:
         """
         result = []
         check_results: Dict[Callable, bool] = {}
-        for name in sorted(tool_names):
+        try:
+            from agent.tool_quality import order_tool_names_by_quality
+
+            ordered_names = order_tool_names_by_quality(set(tool_names))
+        except Exception:
+            ordered_names = sorted(tool_names)
+        for name in ordered_names:
             entry = self._tools.get(name)
             if not entry:
                 continue

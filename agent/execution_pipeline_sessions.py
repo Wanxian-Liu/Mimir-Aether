@@ -14,7 +14,7 @@ from threading import Lock
 from typing import Dict, List, Optional, TYPE_CHECKING
 
 from .execution_recorder import ExecutionRecorder
-from .tool_quality import ToolQualityManager
+from .tool_quality import ToolQualityManager, tool_quality_enabled
 
 if TYPE_CHECKING:
     from .post_analysis import EvolutionSuggestion
@@ -61,7 +61,8 @@ def start_execution_pipeline(
             _current_session_id.set(sid)
             return existing.recorder
 
-        quality_mgr = ToolQualityManager(enable_persistence=True) if enable_quality else None
+        use_quality = enable_quality and tool_quality_enabled()
+        quality_mgr = ToolQualityManager(enable_persistence=True) if use_quality else None
         recorder = ExecutionRecorder(task_name=task_name, session_id=sid)
         _sessions[sid] = _PipelineSession(
             recorder=recorder,
