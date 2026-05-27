@@ -152,9 +152,9 @@
 
 **Files:** 新模块 `agent/tool_ranker.py` 或 `tools/tool_search.py` · 注册到 registry · 单测
 
-- [ ] 从 `skills_list` + tool schema 建索引
-- [ ] `session_search` 模式复用（不复制 OpenSpace 代码）
-- [ ] tier0 契约：≥3 断言
+- [x] 从 `skills_list` + tool schema 建索引
+- [x] `session_search` 模式复用（不复制 OpenSpace 代码）
+- [x] tier0 契约：≥3 断言
 
 ---
 
@@ -219,7 +219,7 @@
 | 10 | [ ] | | CUR/TGR/SDH |
 | 11 | [ ] | | TQM/SCH |
 | 12 | [ ] | | P1 抛光 |
-| 13 | [ ] | | ToolRanker |
+| 13 | [x] | | ToolRanker |
 | 14 | [ ] | | P3 调研 |
 | 15+ | [ ] | | icebox |
 

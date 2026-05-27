@@ -478,6 +478,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-27 | **HERM-RED-02** | **Cursor** | `redact_rules.json` · tier0 **555+2** · main **`5413b42`** |
 | 2026-05-27 | **HERM-CTX-02** | **Cursor** | 飞书 NL context refs · main **`ac29465`** |
 | 2026-05-27 | **OS-REV-01** | **Cursor** | `skill_description_reviewer` + curator lifecycle hook · tier0 **578+2** · **`ac29465` dirty** · Gateway **不必** · 下一粒 **OS-TOOL-SRCH-01** · §19.1 **9/15** · **~61%** |
+| 2026-05-27 | **OS-TOOL-SRCH-01** | **Cursor** | `tool_ranker` + `tool_search` registry · RRF 复用 SCH-02 · tier0 **588+2** · base **`3b04452`** · Gateway **不必** · 下一粒 **P3-XSR-01** · §19.1 **10/15** · **~67%** |
 
 ---
 

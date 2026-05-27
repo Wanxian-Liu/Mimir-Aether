@@ -41,6 +41,8 @@ _MIMIR_CORE_TOOLS = [
     "todo", "memory",
     # Session history search
     "session_search",
+    # Tool/skill discovery (ToolRanker)
+    "tool_search",
     # Clarifying questions
     "clarify",
     # Code execution + delegation
@@ -159,6 +161,12 @@ TOOLSETS: Dict[str, dict] = {
     "session_search": {
         "description": "Search and recall past conversations",
         "tools": ["session_search"],
+        "includes": [],
+    },
+
+    "tool_search": {
+        "description": "Search tools and skills by keyword or intent",
+        "tools": ["tool_search"],
         "includes": [],
     },
 

@@ -33,4 +33,4 @@ python3 -c "from agent.skill_description_reviewer import run_description_review_
 
 ## Next
 
-- **OS-TOOL-SRCH-01** — ToolRanker / tool-level search
+- **OS-TOOL-SRCH-01** — [x] see `os-tool-srch-01-closeout.md`

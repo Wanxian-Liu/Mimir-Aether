@@ -911,7 +911,7 @@ Read backlog §17 P1-LONG-AUTONOMY 第一条 [ ]。
 | **HERM-RED-02** | P1 | 脱敏规则表运维化 / 扩展 | 规则在 data/ | [x] |
 | **HERM-CTX-02** | P1 | context_references **飞书自然语言** 冒烟 | DSL 已存在 | [x] |
 | **OS-REV-01** | P1 | quality/reviewer 自动评 skill 描述 | 依赖 OS-TQM-02 | [x] |
-| **OS-TOOL-SRCH-01** | P1 | 工具级搜索（ToolRanker） | 依赖 OS-SCH-02 | [ ] |
+| **OS-TOOL-SRCH-01** | P1 | 工具级搜索（ToolRanker） | 依赖 OS-SCH-02 | [x] |
 | **P3-XSR-01** | 调研 | 跨会话 RAG / 分层注入 | §11 `P3-CROSS-SESSION-RETRIEVAL` | [ ] |
 | **ADR-002-impl** | 拍板 | ADR-002 **写入路径** 实现（非 spike） | `adr-002-write-spike.md` 已有 | [ ] |
 | **WM-HORIZON-01** | 拍板 | 世界模型提案 Phase 0 | `world-model-evolution-plan.md` | [ ] |
@@ -919,7 +919,7 @@ Read backlog §17 P1-LONG-AUTONOMY 第一条 [ ]。
 | **GH-ICE-21-22** | icebox | D5/D6 余债 | #21 #22 | [ ] |
 | **CLR-B-FEISHU** | 运维 | Gateway #9 / 空表头飞书复验 | deferred | [ ] |
 
-**§18.2 状态**：**OS-TOOL-SRCH-01** 为默认 **下一工程粒**（刘哥未另拍板时）
+**§18.2 状态**：**P3-XSR-01** 为默认 **下一工程粒**（刘哥未另拍板时）
 
 **Cursor 新窗一句**
 
@@ -956,7 +956,7 @@ Read bridge §1「@Mimir 必读」+ backlog §18（勿再扫 bridge §6 大表�
 
 ### 19.1 工程轨（Cursor · 与 §18.2 同序）
 
-> **下一粒默认**：**OS-TOOL-SRCH-01**（Wave 13 · 见主计划）
+> **下一粒默认**：**P3-XSR-01**（Wave 14 · 见主计划）
 
 | Wave | ID | 优先级 | 任务 | 状态 | 计划章 |
 |------|-----|--------|------|------|--------|
@@ -969,14 +969,14 @@ Read bridge §1「@Mimir 必读」+ backlog §18（勿再扫 bridge §6 大表�
 | **12** | **HERM-RED-02** | P1 | 脱敏规则表运维化 | [x] | §Wave 12 |
 | **12** | **HERM-CTX-02** | P1 | context_references 飞书自然语言冒烟 | [x] | §Wave 12 |
 | **12** | **OS-REV-01** | P1 | quality reviewer 评 skill 描述（依赖 TQM-02） | [x] | §Wave 12 |
-| **13** | **OS-TOOL-SRCH-01** | P1 | 工具级搜索 ToolRanker（依赖 SCH-02） | [ ] | §Wave 13 |
+| **13** | **OS-TOOL-SRCH-01** | P1 | 工具级搜索 ToolRanker（依赖 SCH-02） | [x] | §Wave 13 |
 | **14** | **P3-XSR-01** | 调研 | 跨会话 RAG / 分层注入（§8 P3-CROSS） | [ ] | §Wave 14 |
 | **—** | **ENGINE-WS-01** | P2 | WebSocket 推理阻塞心跳（§8） | [ ] | §Wave 15+ |
 | **—** | **ENGINE-ROLLBACK-01** | P2 | 自修回滚护栏（§8） | [ ] | §Wave 15+ |
 | **—** | **ENGINE-P3W-01** | P2 | P3-0 persistent 单写者实现（ADR-001 已有） | [ ] | 随 §19.3 ADR-002 |
 | **—** | **ENGINE-GW-01** | P2 | Gateway 十条余项 | [ ] | `GATEWAY_STABILITY_BACKLOG.md` |
 
-**§19.1 状态**：**9/15** 工程粒完成（**60%**）· 综合世界模型进度 **~61%**（见 [`world-model-agent-handoff.md`](./superpowers/plans/2026-05-27-world-model-agent-handoff.md) §2）
+**§19.1 状态**：**10/15** 工程粒完成（**67%**）· 综合世界模型进度 **~67%**（见 [`world-model-agent-handoff.md`](./superpowers/plans/2026-05-27-world-model-agent-handoff.md) §2）
 
 **Cursor 新窗一句**
 

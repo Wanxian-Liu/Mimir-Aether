@@ -60,6 +60,7 @@ CONFIGURABLE_TOOLSETS = [
     ("todo",            "📋 Task Planning",             "todo"),
     ("memory",          "💾 Memory",                    "persistent memory across sessions"),
     ("session_search",  "🔎 Session Search",            "search past conversations"),
+    ("tool_search",     "🔧 Tool Search",               "search tools and skills by intent"),
     ("clarify",         "❓ Clarifying Questions",      "clarify"),
     ("delegation",      "👥 Task Delegation",           "delegate_task"),
     ("cronjob",         "⏰ Cron Jobs",                 "create/list/update/pause/resume/run, with optional attached skills"),
