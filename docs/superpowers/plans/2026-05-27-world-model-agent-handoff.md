@@ -61,9 +61,9 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 
 ## 3. 我从哪开始（Cursor 决策 · 2026-05-27 更新）
 
-**已完成：** Wave 10 三粒实现 [x]（`4714b92` CUR · `9beb056` TGR · SDH 工作区待 commit）· tier0 **513+2**
+**已完成：** Wave 10 [x]（CUR/TGR/SDH）· **OS-TQM-02** `e20ae1d` · tier0 **522+2**
 
-**下一粒：** **OS-TQM-02**（Wave 11 Task 4）— 在 **`commit SDH-02`** 推干净 main 后开
+**下一粒：** **OS-SCH-02**（Wave 11 Task 5）— session_search BM25 + 语义融合排序
 
 **合并策略：** 建议 **每粒一 commit**（`feat(agent): HERM-TGR-02 …`）；Wave 10 三粒全 [x] 后可 squash 或保持三 commit 推 main。
 
@@ -82,7 +82,7 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 1. 先 Read skill：superpowers:using-superpowers（若可用）→ superpowers:executing-plans
 2. 再 Read 计划（全文）：docs/superpowers/plans/2026-05-27-horizon-c-master-iteration.md
 3. 再 Read handoff：docs/superpowers/plans/2026-05-27-world-model-agent-handoff.md §2–§3
-4. 再 Read 真源：docs/MIMIR_EXEC_BACKLOG.md §19.1 第一条 [ ]（当前应为 **OS-TQM-02**）
+4. 再 Read 真源：docs/MIMIR_EXEC_BACKLOG.md §19.1 第一条 [ ]（当前应为 **OS-SCH-02**）
 5. 执行方式：superpowers:subagent-driven-development（推荐）或 executing-plans；每 Task 末用 verification-before-completion（必须跑 ./run_ralph_tier0.sh 再声称完成）
 6. 大改动前可选：superpowers:using-git-worktrees 隔离分支
 7. 每粒结束：record_m6_evolution.sh → backlog [x] → bridge §4 一行 → 触达 agent 则写 Gateway 重启说明
@@ -90,10 +90,10 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 【北星】docs/DEVELOPMENT_NORTH_STAR.md — Parity（tier0）+ Evolution（evolution_log）。世界模型愿景：docs/proposals/world-model-evolution-plan.md（Phase0 未拍板前只读，不写大 diff）。
 
 【本窗目标 — 按序】
-A) Wave 11 Task 4：**OS-TQM-02** — 主计划 Task 4（ToolQualityManager 接线）
+A) Wave 11 Task 5：**OS-SCH-02** — 主计划 Task 5（session_search BM25 + 语义融合）
 B) 回报：§19.1 x/15 · 综合 % · git SHA · tier0 · 下一粒 ID
 
-【Wave 10 已结案】CUR `4714b92` · TGR `9beb056` · SDH 待 commit
+【已推 main】TQM `e20ae1d` · Wave10 CUR/TGR/SDH · tier0 **522+2** · §19.1 **4/15**
 
 【禁止】提交 data/persistent.json · 未授权 MIMIR_AUTO_EVOLVE 生产切换 · 与 Wave10 混做 WM Phase0 · force push main
 

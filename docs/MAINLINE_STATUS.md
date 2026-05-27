@@ -8,8 +8,8 @@
 | **最近更新** | 2026-05-27 |
 | **更新人** | Cursor（§19 主队列 + Horizon C 主迭代计划） |
 | **仓库根（真源）** | `~/src/MimirAether` |
-| **可选校验** | `./run_ralph_tier0.sh`（门禁 **466+2**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
-| **本轮摘要** | **Wave 10 [x]**（CUR/TGR/SDH）· §19.1 **3/15** · tier0 **513+2** · 综合 WM **~51%** · main **`9beb056`** · SDH dirty 待 commit · 下一粒 **OS-TQM-02**（Wave 11）。 |
+| **可选校验** | `./run_ralph_tier0.sh`（门禁 **522+2**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
+| **本轮摘要** | **OS-TQM-02 [x]**（Wave 11）· §19.1 **4/15** · tier0 **522+2** · 综合 WM **~53%** · main **`e20ae1d`** · 下一粒 **OS-SCH-02**（BM25+语义融合）。 |
 
 ---
 
