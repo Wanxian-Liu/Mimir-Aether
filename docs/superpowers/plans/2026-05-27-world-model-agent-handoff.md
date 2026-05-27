@@ -42,7 +42,7 @@
 
 **读法：**
 
-- **~76%** = **P3-XSR-02** L2 预取已勾；下一工程粒 **P3-XSR-03**（L3）或 **ENGINE-WS-01**。
+- **~78%** = **P3-XSR-03** L3 RAG flag 已勾；下一工程粒 **ENGINE-WS-01**（§19.1 第一条 `[ ]`）。
 - **下一程涨分最快**：完成 **Horizon C Wave10–11**（+C）+ 推动 **P3-XSR / ADR-002**（为世界模型注入/预测铺路）+ **WM Phase0 拍板**（+E）。
 
 ### 2.3 §19 可勾选进度（执行用）
@@ -63,7 +63,7 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 
 **已完成：** Wave 13–14 [x] · TOOL-SRCH `6112f38` · P3-XSR `c7f4bc4` · tier0 **595+2**
 
-**下一粒：** **P3-XSR-03**（L3 RAG flag）或 **ENGINE-WS-01** · **P3-XSR-02** L2 已勾（2026-05-27）
+**下一粒：** **ENGINE-WS-01** · **P3-XSR-03** L3 已勾（2026-05-27）
 
 **合并策略：** 每粒一 commit；排除 `data/persistent.json`。
 
@@ -82,7 +82,7 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 
 【真源】backlog §19.1 · docs/proposals/p3-cross-session-retrieval.md §6（L2）
 
-【默认下一工程粒】P3-XSR-03（L3 semantic prefetch · flag 默认关）或 ENGINE-WS-01
+【默认下一工程粒】ENGINE-WS-01（WebSocket 推理阻塞心跳）
 
 【基线 main】99ac4f1 · §19.1 11/16 · G-ADR-002 ✅ · tier0 595+2
 

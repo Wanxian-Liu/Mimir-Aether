@@ -876,6 +876,48 @@ def _session_search_via_like(
 # 主搜索函数
 # ============================================================================
 
+def session_search_prefetch(
+    query: str,
+    db_path: Optional[str] = None,
+    limit: int = 5,
+    session_limit: int = 3,
+    *,
+    use_rag: bool = False,
+) -> List[Dict[str, Any]]:
+    """
+    Cross-session L2/L3 prefetch (P3-XSR-02/03).
+
+    When ``use_rag`` is True, try OS-SCH-02 RRF fusion over Chroma + lexical ranks
+    without changing ``SESSION_SEARCH_BACKEND`` for normal ``session_search`` calls.
+    """
+    fts_path = _default_fts5_db_path()
+    if (
+        use_rag
+        and session_search_fusion_enabled()
+        and _semantic_index_ready()
+    ):
+        try:
+            fusion_results = _session_search_via_fusion(
+                query,
+                db_path=db_path,
+                fts_db_path=fts_path,
+                limit=limit,
+                session_limit=session_limit,
+            )
+            if fusion_results:
+                return fusion_results
+        except Exception as exc:
+            logger.debug("session_search_prefetch fusion skipped: %s", exc)
+
+    return session_search(
+        query,
+        db_path=db_path,
+        limit=limit,
+        session_limit=session_limit,
+        use_llm=False,
+    )
+
+
 def session_search(
     query: str,
     db_path: Optional[str] = None,

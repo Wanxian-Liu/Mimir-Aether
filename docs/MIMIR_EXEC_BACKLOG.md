@@ -1,6 +1,6 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-05-27（**§19 主队列** · 世界模型 handoff · Wave 9 [x]）  
+> **最近更新**：2026-05-27（**§19.6 Mimir 离线自治轨** · §19 主队列 · Wave 9 [x]）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5  
 > **规则**：**只认 §19.1 工程轨第一条 `[ ]`**。新窗 handoff：[`superpowers/plans/2026-05-27-world-model-agent-handoff.md`](./superpowers/plans/2026-05-27-world-model-agent-handoff.md)。长期迭代：[`2026-05-27-horizon-c-master-iteration.md`](./superpowers/plans/2026-05-27-horizon-c-master-iteration.md)。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
@@ -15,7 +15,7 @@
 
 | 角色 | 做什么 | 不做什么 |
 |------|--------|----------|
-| **Mimir** | 冒烟、复现、飞书端到端、grep 日志、更新 ISSUES / 本表状态、外部检测四模块状态 | 改 `agent/`/`gateway/`/`mimir_cli/` 架构；删 `role=tool` 伪修复；填进化 19 存根 |
+| **Mimir** | 冒烟、复现、飞书端到端、grep 日志、更新 ISSUES / 本表状态、**§19.6 MI-AWAY-*** 离线粒、证据卷 | 改 `agent/`/`gateway/`/`mimir_cli/` 架构；删 `role=tool` 伪修复；填进化 19 存根 |
 | **Cursor / 工程** | d1–d7 **代码**、拆分、合 `main`、tier0、evolution_log | 代刘哥配密钥、代发飞书 |
 | **刘哥** | `OPENROUTER_API_KEY`、飞书复验、授权 `git push` | — |
 
@@ -919,7 +919,7 @@ Read backlog §17 P1-LONG-AUTONOMY 第一条 [ ]。
 | **GH-ICE-21-22** | icebox | D5/D6 余债 | #21 #22 | [ ] |
 | **CLR-B-FEISHU** | 运维 | Gateway #9 / 空表头飞书复验 | deferred | [ ] |
 
-**§18.2 状态**：**P3-XSR-02** 已勾（2026-05-27）· 下一工程粒 **P3-XSR-03**（L3）或 **ENGINE-WS-01**
+**§18.2 状态**：**P3-XSR-03** 已勾（2026-05-27）· 下一工程粒 **ENGINE-WS-01**（§19.1 第一条 `[ ]`）
 
 **Cursor 新窗一句**
 
@@ -949,14 +949,14 @@ Read bridge §1「@Mimir 必读」+ backlog §18（勿再扫 bridge §6 大表�
 | 角色 | 取任务 |
 |------|--------|
 | **Cursor 工程** | **§19.1** 从上到下 **第一条 `[ ]`** → 打开 §18.2 同 ID 行 → 跟 superpowers 计划对应 **Wave** |
-| **Mimir 运维** | **§19.2** 第一条 `[ ]`；**禁止** 抢 §19.1 代码粒 |
+| **Mimir 运维** | 刘哥离线：**§19.6** 第一条 `[ ]`；否则 **§19.2** 第一条 `[ ]`；**禁止** 抢 §19.1 代码粒 |
 | **刘哥** | **§19.3** 拍板项；拍板前工程轨 **跳过** 该行 |
 
 每粒结束：`./run_ralph_tier0.sh` → `record_m6_evolution.sh` → backlog `[x]` → bridge §4 一行 →（若触达 agent）Gateway 重启说明。
 
 ### 19.1 工程轨（Cursor · 与 §18.2 同序）
 
-> **下一粒默认**：**P3-XSR-03**（L3 RAG flag 默认关）或 **ENGINE-WS-01** · L2 已结案见 `p3-xsr-02-closeout.md`
+> **下一粒默认**：**ENGINE-WS-01**（§19.1 第一条 `[ ]`）· L3 已结案见 `p3-xsr-03-closeout.md`
 
 | Wave | ID | 优先级 | 任务 | 状态 | 计划章 |
 |------|-----|--------|------|------|--------|
@@ -972,12 +972,13 @@ Read bridge §1「@Mimir 必读」+ backlog §18（勿再扫 bridge §6 大表�
 | **13** | **OS-TOOL-SRCH-01** | P1 | 工具级搜索 ToolRanker（依赖 SCH-02） | [x] | §Wave 13 |
 | **14** | **P3-XSR-01** | 调研 | 跨会话 RAG / 分层注入（§8 P3-CROSS） | [x] | §Wave 14 |
 | **15** | **P3-XSR-02** | P1 | L2：`session_search` 预取注入 prompt（cap） | [x] 2026-05-27 · closeout | 提案 §6 · G-ADR G1 |
+| **15** | **P3-XSR-03** | P1 | L3：`MIMIR_CROSS_SESSION_RAG` 默认关 · 与 L2 合并注入 | [x] 2026-05-27 · closeout | 提案 §6 · G-ADR G2 |
 | **—** | **ENGINE-WS-01** | P2 | WebSocket 推理阻塞心跳（§8） | [ ] | §Wave 15+ |
 | **—** | **ENGINE-ROLLBACK-01** | P2 | 自修回滚护栏（§8） | [ ] | §Wave 15+ |
 | **—** | **ENGINE-P3W-01** | P2 | P3-0 persistent 单写者实现（ADR-001 已有） | [ ] | 随 §19.3 ADR-002 |
 | **—** | **ENGINE-GW-01** | P2 | Gateway 十条余项 | [ ] | `GATEWAY_STABILITY_BACKLOG.md` |
 
-**§19.1 状态**：**12/16** 工程粒完成（**75%**）· **P3-XSR-02** 已勾 · 下一 **P3-XSR-03** / ENGINE-WS-01 · 综合 **~76%**（见 handoff §2）
+**§19.1 状态**：**13/17** 工程粒完成（**~76%**）· **P3-XSR-03** 已勾 · 下一 **ENGINE-WS-01** · 综合 **~78%**（见 handoff §2）
 
 **Cursor 新窗一句**
 
@@ -1040,3 +1041,66 @@ Read docs/superpowers/plans/2026-05-27-horizon-c-master-iteration.md + backlog �
 | **世界模型** | W13+ | WM Phase 0（若拍板） | spike closeout |
 
 详任务分解 → **superpowers 主计划**。
+
+### 19.6 Mimir 离线自治轨（刘哥离开 · 非 §19.1 工程粒）
+
+> **用途**：刘哥离席期间，Mimir **逐粒**做完可勾选项；Cursor 不在时 **不接** §19.1 代码粒。刘哥回来后由 **Cursor 审计** `docs/phase0/mimir-away-evidence.md` + 本节 `[x]`，修补矛盾/漏项。  
+> **与 §19.1 关系**：**16 粒工程**仍归 Cursor；本节 **不替代** P3-XSR-03 / ENGINE-*。  
+> **自完善（可控）**：仅 **观察 + 文档 + 飞书行为**（进化 eval、先 search 再答、进化链 log）；**禁止 B 轨改码**（见 [`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) §3.1）。
+
+#### 19.6.0 铁律（违反即停手记 ISSUES）
+
+| 允许 | 禁止 |
+|------|------|
+| `curl` / `pgrep` / `grep` log / 只读 `python3 -c` 冒烟 | `git push` · 改 `agent/` `gateway/` `tools/` `mimir_cli/` |
+| 飞书端到端（刘哥会话） | Gateway **连续**硬重启（>1 次/日除非 health 失败） |
+| 改 `docs/**`、bridge §4、**本节状态**、[`mimir-away-evidence.md`](./phase0/mimir-away-evidence.md) | 提交 `{repo}/data/persistent.json` · 泄露 `.env` 密钥 |
+| 改 `GATEWAY_STABILITY_BACKLOG.md` **状态列/日期**（只读 grep 后一句） | 改 `SESSION_SEARCH_BACKEND` / 生产 `.env` 开关（刘哥未在场） |
+| 提案轨：写 `docs/proposals/` 草稿（可选，非必须） | WM Phase0 · P3-XSR-03 · ADR-002 实现 |
+
+**每粒收尾（四步）**：① evidence 文件追加一节 → ② 本节该行 `[x]` + 日期 → ③ bridge §4 **一行** → ④ 飞书可选一句（末粒汇总必发）。
+
+**回报**：[`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) **§3.3**（子项写 `MI-AWAY-xx`）。
+
+#### 19.6.1 任务表（从上到下只做第一条 `[ ]`）
+
+| ID | 主题 | 做什么 | 成功标准 | 状态 |
+|----|------|--------|----------|------|
+| **MI-AWAY-00** | 开局 | Read bridge §1 + 本节；填 evidence 卷表头（日期·PID·`git rev-parse --short HEAD`） | evidence §00 非空 | [ ] |
+| **MI-AWAY-01** | Gateway | `curl -s http://127.0.0.1:18999/health`；`pgrep -af 'gateway/run.py'` | /health ok；有 PID | [ ] |
+| **MI-AWAY-02** | 健康脚本 | `~/src/MimirAether/scripts/mimir_health_check.sh --quick` | READY 或 evidence 记失败行；**TRUNCATE since-start** 数字 | [ ] |
+| **MI-AWAY-03** | ERROR | `grep ERROR ~/.mimiraether/logs/agent.log \| tail -30` | top3 主题；无新 P0 写「无新 P0」 | [ ] |
+| **MI-AWAY-04** | 飞书码 | `grep -E '230099\|200907' ~/.mimiraether/logs/*.log \| tail -10` | 有/无新 230099 | [ ] |
+| **MI-AWAY-05** | 检索 CLI | `SESSION_SEARCH_BACKEND=hybrid` + `session_search('IR-20260520', limit=3)`（§12 MW-D05 同命令） | 无 SQL 异常；有/无 hit 均可 | [ ] |
+| **MI-AWAY-06** | L1 记忆 | `_build_cross_session_context()` 只读（**runtime** `MIMIR_AETHER_HOME`） | 输出摘要 200 字；**不**读 repo `data/persistent.json` | [ ] |
+| **MI-AWAY-07** | IQ 冒烟 | 飞书 **`/new`** 后问一句需 **key_decisions** 的问题 | 回复含 cross-session / key_decisions；截图或 log 行 | [ ] |
+| **MI-AWAY-08** | L2 冒烟 | Read `p3-xsr-02-closeout.md`；`/new` 后有 objective 时问「与当前目标相关的上次会话」 | log 或回复侧证 L2（`<retrieved-sessions>` / prefetch）；无 objective 则记「跳过」 | [ ] |
+| **MI-AWAY-09** | 进化数字 | `MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh` | JSON 路径 + ok%/计数写入 evidence | [ ] |
+| **MI-AWAY-10** | 进化链观察 | 飞书完成 **1 票**可 close 的小任务 → grep 该 `session_id` 的 `post_analysis evolution` | `ok=1` / `applied=0`+原因 / **未触发**（三选一如实） | [ ] |
+| **MI-AWAY-11** | 先搜再答 | 飞书 **3 问**：「上次 IR-20260520」「key_decisions 有啥」「最近 evolution 干啥了」 | 每问：log 是否出现 `session_search`（是/否） | [ ] |
+| **MI-AWAY-12** | Gateway 十条 | Read `GATEWAY_STABILITY_BACKLOG.md`；#2 #9 各 grep log **一行** | 状态列日期→今天；**只改 docs** | [ ] |
+| **MI-AWAY-13** | 文档对账 | 核对 §19.1 表 [x] 与 `git log --oneline -20`；读 `MAINLINE_STATUS.md` | 矛盾写 evidence；**仅**可改 MAINLINE「最近更新」+ 一行事实 | [ ] |
+| **MI-AWAY-14** | GH 只读 | `gh issue list --state open --limit 15` | #17–19 是否 closed；#20–22 仍 open → evidence | [ ] |
+| **MI-AWAY-15** | 汇总 | 飞书发 **MI-AWAY-00～14 勾选表** + TRUNCATE + PID；bridge §4 汇总一行 | 本节全 `[x]`；刘哥一眼能读 | [ ] |
+
+**§19.6 状态**：**0/16** · 证据卷 [`phase0/mimir-away-evidence.md`](./phase0/mimir-away-evidence.md)
+
+#### 19.6.2 刘哥回来后 · Cursor 审计清单（勿由 Mimir 自签）
+
+| 步 | 动作 |
+|----|------|
+| 1 | Read evidence 全文 + 本节是否 **16/16 [x]** |
+| 2 | 抽检 MI-AWAY-07/08/11 飞书/log 是否真满足 §3.2 证据门 |
+| 3 | 对照 §19.2：MI-AWAY-07 通过 → 可将 **OPS-IQ-SMOKE-49** 标 `[x]`（附 evidence 指针） |
+| 4 | 发现伪完成 / 生产 env 被改 → ISSUES + 必要时回滚 `.env` |
+| 5 | bridge §4：`MI-AWAY 审计 · pass/fix · …` |
+
+#### 19.6.3 Mimir 飞书/新窗一句（刘哥离开期间）
+
+```text
+刘哥离席：只做 backlog §19.6 第一条 [ ]（MI-AWAY-*）。
+仓库 ~/src/MimirAether · MIMIR_AETHER_HOME=~/.mimiraether。
+每粒：evidence 一节 + §19.6 [x] + bridge §4 一行；回报方向文档 §3.3（子项 MI-AWAY-xx）。
+禁止 push / 禁止改 agent|gateway|tools|mimir_cli / 禁止动生产 .env 与 persistent.json。
+末粒 MI-AWAY-15 飞书发总表。
+```

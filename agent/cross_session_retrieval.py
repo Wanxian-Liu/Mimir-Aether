@@ -1,4 +1,4 @@
-"""P3-XSR-02: L2 cross-session retrieval prefetch into system prompt."""
+"""P3-XSR-02/03: L2/L3 cross-session retrieval prefetch into system prompt."""
 
 from __future__ import annotations
 
@@ -15,6 +15,12 @@ logger = logging.getLogger(__name__)
 def cross_session_retrieval_enabled() -> bool:
     raw = os.environ.get("MIMIR_CROSS_SESSION_RETRIEVAL", "1").strip().lower()
     return raw not in ("0", "false", "no", "off")
+
+
+def cross_session_rag_enabled() -> bool:
+    """L3 semantic RAG prefetch (P3-XSR-03). Default off — independent of L2."""
+    raw = os.environ.get("MIMIR_CROSS_SESSION_RAG", "0").strip().lower()
+    return raw in ("1", "true", "yes", "on")
 
 
 def _prefetch_pending_path() -> Path:
@@ -210,15 +216,55 @@ def format_retrieved_sessions(
     return "<retrieved-sessions>\n" + body + "\n</retrieved-sessions>"
 
 
+def run_prefetch_search(
+    query: str,
+    *,
+    use_rag: Optional[bool] = None,
+    search_fn: Any = None,
+    prefetch_fn: Any = None,
+) -> List[Dict[str, Any]]:
+    """
+    L2/L3 merged prefetch search.
+
+    ``use_rag`` defaults to ``cross_session_rag_enabled()``. When True and Chroma
+    is ready, uses RRF fusion; otherwise same path as L2 ``session_search``.
+    """
+    rag = cross_session_rag_enabled() if use_rag is None else bool(use_rag)
+    limit = _messages_per_session()
+    session_limit = _session_limit()
+
+    if search_fn is not None:
+        return search_fn(
+            query,
+            limit=limit,
+            session_limit=session_limit,
+            use_llm=False,
+        )
+
+    if prefetch_fn is None:
+        from tools.session_search_tool import session_search_prefetch
+
+        prefetch_fn = session_search_prefetch
+
+    return prefetch_fn(
+        query,
+        limit=limit,
+        session_limit=session_limit,
+        use_rag=rag,
+    )
+
+
 def build_retrieved_sessions_context(
     *,
     session_key: Optional[str] = None,
     search_fn: Any = None,
+    prefetch_fn: Any = None,
+    use_rag: Optional[bool] = None,
 ) -> str:
     """
-    L2 prefetch: run session_search once after session reset when queued.
+    L2/L3 prefetch: run search once after session reset when queued.
 
-    ``search_fn`` is injectable for tests (defaults to ``session_search``).
+    Injectable ``search_fn`` / ``prefetch_fn`` for tests.
     """
     if not cross_session_retrieval_enabled():
         return ""
@@ -231,20 +277,15 @@ def build_retrieved_sessions_context(
     if not query:
         return ""
 
-    if search_fn is None:
-        from tools.session_search_tool import session_search
-
-        search_fn = session_search
-
     try:
-        results = search_fn(
+        results = run_prefetch_search(
             query,
-            limit=_messages_per_session(),
-            session_limit=_session_limit(),
-            use_llm=False,
+            use_rag=use_rag,
+            search_fn=search_fn,
+            prefetch_fn=prefetch_fn,
         )
     except Exception as exc:
-        logger.debug("L2 cross-session prefetch skipped: %s", exc)
+        logger.debug("cross-session prefetch skipped: %s", exc)
         return ""
 
     if not isinstance(results, list):

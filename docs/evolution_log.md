@@ -137,3 +137,4 @@ Append-only. Newest rows at the **bottom**. See `**docs/M6_EVOLUTION.md`** for r
 | 20260527T074040Z_3b04452-dirty | 2026-05-27T07:40:40Z | 3b04452-dirty | ./run_ralph_tier0.sh | 0 | OS-TOOL-SRCH-01: tool_ranker + tool_search (registry+skills index, RRF lexical+quality); tier0 588+2; metrics: n/a |
 | 20260527T080919Z_c7f4bc4-dirty | 2026-05-27T08:09:19Z | c7f4bc4-dirty | ./run_ralph_tier0.sh | 0 | P3-XSR-01: p3-cross-session-retrieval proposal L1/L2/L3 + contract; G-ADR-002 gate in backlog §19.3.1; tier0 595+2; metrics: n/a |
 | 20260527T082505Z_e46f920-dirty | 2026-05-27T08:25:05Z | e46f920-dirty | ./run_ralph_tier0.sh | 0 | P3-XSR-02 L2 cross_session_retrieval prefetch into prompt; /new+reset queue; tier0 605+2; metrics: n/a |
+| 20260527T083928Z_c3dfdc0-dirty | 2026-05-27T08:39:28Z | c3dfdc0-dirty | ./run_ralph_tier0.sh | 0 | P3-XSR-03 MIMIR_CROSS_SESSION_RAG default off; session_search_prefetch RRF merge with L2; tier0 619+2; metrics: n/a |

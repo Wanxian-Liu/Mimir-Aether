@@ -15,6 +15,13 @@
 
 ## 1. 刘哥 → Mimir / Cursor（你编辑）
 
+### 2026-05-27 — 刘哥离席 · Mimir 只做 §19.6
+
+- **队列**：[`MIMIR_EXEC_BACKLOG.md`](./MIMIR_EXEC_BACKLOG.md) **§19.6**（`MI-AWAY-00`～`15`）— **非** §19.1 工程 16 粒。
+- **证据卷**：[`phase0/mimir-away-evidence.md`](./phase0/mimir-away-evidence.md) · 每粒追加一节。
+- **自完善**：进化 eval、飞书「先 search 再答」三连问、进化链 log 观察 — **提案轨 A**，**禁止**改 `agent|gateway|tools`。
+- **Cursor**：刘哥回来后审计 §19.6.2，不抢跑 §19.1 除非刘哥另说。
+
 ### 2026-05-20 — 策略（已读）
 
 - 识图 **搁置**；**DeepSeek-only**，不配 OpenRouter。
@@ -481,6 +488,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-27 | **OS-TOOL-SRCH-01** | **Cursor** | `tool_ranker` + `tool_search` registry · RRF 复用 SCH-02 · tier0 **588+2** · base **`3b04452`** · Gateway **不必** · 下一粒 **P3-XSR-01** · §19.1 **10/15** · **~67%** |
 | 2026-05-27 | **P3-XSR-01** | **Cursor** | `docs/proposals/p3-cross-session-retrieval.md` L1/L2/L3 + Hermes + G-ADR-002 · 无代码 · tier0 **590+2** · base **`6112f38`** · 下一粒 **ENGINE-WS-01** / Gate · §19.1 **11/15** · **~73%** |
 | 2026-05-27 | **P3-XSR-02** | **Cursor** | L2 `cross_session_retrieval` + `<retrieved-sessions>` · `/new`+reset 一次性预取 · tier0 **+2** agent tests · base **`99ac4f1`** · Gateway **要** · 下一粒 **P3-XSR-03** · §19.1 **12/16** · **~76%** |
+| 2026-05-27 | **P3-XSR-03** | **Cursor** | L3 `MIMIR_CROSS_SESSION_RAG` 默认关 · `session_search_prefetch` RRF 与 L2 合并 · base **`c3dfdc0`** · 下一粒 **ENGINE-WS-01** · §19.1 **13/17** · **~78%** |
 
 ---
 
