@@ -45,6 +45,26 @@ _COMMAND_TOOLS = {"terminal"}
 # Prevents scanning all the way to / for deeply nested paths.
 _MAX_ANCESTOR_WALK = 5
 
+# Immediate child dirs scanned for system-prompt tier (HERM-SDH-02).
+_MAX_SYSTEM_PROMPT_SUBDIRS = 12
+
+
+def subdir_hints_in_system_enabled() -> bool:
+    return os.environ.get("MIMIR_SUBDIR_HINTS_IN_SYSTEM", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
+def build_subdirectory_hints_system_block(cwd: Optional[str] = None) -> str:
+    """Optional system-prompt block for first-level subdirectory hint files."""
+    if not subdir_hints_in_system_enabled():
+        return ""
+    return SubdirectoryHintTracker(working_dir=cwd).prompt_block()
+
+
 class SubdirectoryHintTracker:
     """Track which directories the agent visits and load hints on first access.
 
@@ -87,6 +107,23 @@ class SubdirectoryHintTracker:
             return None
 
         return "\n\n" + "\n\n".join(all_hints)
+
+    def prompt_block(self) -> str:
+        """Load hint files from immediate child directories for system prompt injection."""
+        sections: list[str] = []
+        try:
+            children = sorted(
+                p for p in self.working_dir.iterdir() if p.is_dir() and not p.name.startswith(".")
+            )
+        except OSError:
+            return ""
+        for child in children[:_MAX_SYSTEM_PROMPT_SUBDIRS]:
+            hint = self._load_hints_for_directory(child)
+            if hint:
+                sections.append(hint)
+        if not sections:
+            return ""
+        return "<subdirectory-hints>\n" + "\n\n".join(sections) + "\n</subdirectory-hints>"
 
     def _extract_directories(
         self, tool_name: str, args: Dict[str, Any]

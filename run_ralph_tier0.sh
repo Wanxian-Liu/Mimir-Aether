@@ -172,6 +172,8 @@ python3 -m pytest -q \
   tests/contract/test_horizon_herm_cur_02.py \
   tests/agent/test_tool_call_cache_metrics.py \
   tests/contract/test_horizon_herm_tgr_02.py \
+  tests/agent/test_subdirectory_hints_prompt.py \
+  tests/contract/test_horizon_herm_sdh_02.py \
   tests/agent/test_conversation_nudges.py \
   tests/agent/test_persistent_single_writer_ind05.py
 

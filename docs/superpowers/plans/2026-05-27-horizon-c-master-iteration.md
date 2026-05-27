@@ -81,11 +81,11 @@
 - Modify: `agent/subdirectory_hints.py`
 - Create: `tests/agent/test_subdirectory_hints_prompt.py`
 
-- [ ] **Step 1:** 测 `build_system_prompt_parts()` 在 cwd 含 `AGENTS.md` 时含 hint 段
+- [x] **Step 1:** 测 `build_system_prompt_parts()` 在 cwd 含 `AGENTS.md` 时含 hint 段
 
-- [ ] **Step 2:** `SubdirectoryHintTracker.prompt_block()` + env `MIMIR_SUBDIR_HINTS_IN_SYSTEM`（默认关）
+- [x] **Step 2:** `SubdirectoryHintTracker.prompt_block()` + env `MIMIR_SUBDIR_HINTS_IN_SYSTEM`（默认关）
 
-- [ ] **Step 3:** tier0 + closeout `herm-sdh-02-closeout.md`
+- [ ] **Step 3:** commit `feat(agent): HERM-SDH-02` · closeout `herm-sdh-02-closeout.md`（工作区待 commit）
 
 **Wave 10 出口：** §19.1 前三行 `[x]` · tier0 计数递增 · evolution_log 3 行
 

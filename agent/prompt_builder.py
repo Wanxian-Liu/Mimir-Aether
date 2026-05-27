@@ -1299,11 +1299,16 @@ def build_system_prompt(
     if artifact_guidance:
         sections.append(artifact_guidance)
     
-    # 8. 上下文文件
+    # 8. 上下文文件 + 可选子目录 hint（HERM-SDH-02 · 默认关）
     if include_context:
         context_prompt = build_context_files_prompt(cwd)
         if context_prompt:
             sections.append(context_prompt)
+    from agent.subdirectory_hints import build_subdirectory_hints_system_block
+
+    subdir_hints = build_subdirectory_hints_system_block(cwd)
+    if subdir_hints:
+        sections.append(subdir_hints)
     
     # 9. 技能索引
     if include_skills:
@@ -1395,6 +1400,11 @@ def build_system_prompt_parts(
         context_prompt = build_context_files_prompt(cwd)
         if context_prompt:
             context_sections.append(context_prompt)
+    from agent.subdirectory_hints import build_subdirectory_hints_system_block
+
+    subdir_hints = build_subdirectory_hints_system_block(cwd)
+    if subdir_hints:
+        context_sections.append(subdir_hints)
     
     # ── volatile tier ──
     tq_guidance = build_tool_quality_guidance()

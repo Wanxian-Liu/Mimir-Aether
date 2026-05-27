@@ -903,7 +903,7 @@ Read backlog §17 P1-LONG-AUTONOMY 第一条 [ ]。
 | ID | 优先级 | 任务 | 意图摘要 | 状态 |
 |----|--------|------|----------|------|
 | **HERM-CUR-02** | P0 | skill_curator **生命周期** — stale/archived/合并建议 | 84+ 技能需自动闲置治理 | [x] |
-| **HERM-SDH-02** | P0 | subdirectory hints **系统 prompt 层**（可选） | 除 tool 结果外，cwd 变更时注入 | [ ] |
+| **HERM-SDH-02** | P0 | subdirectory hints **系统 prompt 层**（可选） | 除 tool 结果外，cwd 变更时注入 | [x] |
 | **HERM-TGR-02** | P0 | 工具缓存 **观测** — log/metrics 命中率 | 验证 TGR-01 有效 | [x] |
 | **OS-TQM-02** | P0 | ToolQualityManager **默认接线** + tier0 契约 | prompt_builder 已部分用 | [ ] |
 | **OS-SCH-02** | P0 | session_search **BM25+语义融合排序**（若 hybrid 不足） | 对标 OpenSpace search.py | [ ] |
@@ -919,7 +919,7 @@ Read backlog §17 P1-LONG-AUTONOMY 第一条 [ ]。
 | **GH-ICE-21-22** | icebox | D5/D6 余债 | #21 #22 | [ ] |
 | **CLR-B-FEISHU** | 运维 | Gateway #9 / 空表头飞书复验 | deferred | [ ] |
 
-**§18.2 状态**：**HERM-SDH-02** 为默认 **下一工程粒**（刘哥未另拍板时）
+**§18.2 状态**：**OS-TQM-02** 为默认 **下一工程粒**（刘哥未另拍板时）
 
 **Cursor 新窗一句**
 
@@ -956,13 +956,13 @@ Read bridge §1「@Mimir 必读」+ backlog §18（勿再扫 bridge §6 大表�
 
 ### 19.1 工程轨（Cursor · 与 §18.2 同序）
 
-> **下一粒默认**：**HERM-SDH-02**（Wave 10 · 见主计划 Task 3）
+> **下一粒默认**：**OS-TQM-02**（Wave 11 · 见主计划）
 
 | Wave | ID | 优先级 | 任务 | 状态 | 计划章 |
 |------|-----|--------|------|------|--------|
 | **10** | **HERM-CUR-02** | P0 | skill_curator 生命周期：stale/dormant/归档/合并建议 + 周期钩子 | [x] | §Wave 10 |
 | **10** | **HERM-TGR-02** | P0 | 只读 tool cache 命中率 log/metrics | [x] | §Wave 10 |
-| **10** | **HERM-SDH-02** | P0 | subdirectory hints 进 system prompt（cwd 变更） | [ ] | §Wave 10 |
+| **10** | **HERM-SDH-02** | P0 | subdirectory hints 进 system prompt（cwd 变更） | [x] | §Wave 10 |
 | **11** | **OS-TQM-02** | P0 | ToolQualityManager 默认接线 + tier0 契约 | [ ] | §Wave 11 |
 | **11** | **OS-SCH-02** | P0 | session_search BM25+语义融合排序（hybrid 不足时） | [ ] | §Wave 11 |
 | **12** | **HERM-SCR-01** | P1 | think 流式擦除状态机加固 | [ ] | §Wave 12 |
@@ -976,7 +976,7 @@ Read bridge §1「@Mimir 必读」+ backlog §18（勿再扫 bridge §6 大表�
 | **—** | **ENGINE-P3W-01** | P2 | P3-0 persistent 单写者实现（ADR-001 已有） | [ ] | 随 §19.3 ADR-002 |
 | **—** | **ENGINE-GW-01** | P2 | Gateway 十条余项 | [ ] | `GATEWAY_STABILITY_BACKLOG.md` |
 
-**§19.1 状态**：**2/15** 工程粒完成（**~13.3%**）· 综合世界模型进度 **~50%**（见 [`world-model-agent-handoff.md`](./superpowers/plans/2026-05-27-world-model-agent-handoff.md) §2）
+**§19.1 状态**：**3/15** 工程粒完成（**20%**）· **Wave 10 工程轨已收口** · 综合世界模型进度 **~51%**（见 [`world-model-agent-handoff.md`](./superpowers/plans/2026-05-27-world-model-agent-handoff.md) §2）
 
 **Cursor 新窗一句**
 

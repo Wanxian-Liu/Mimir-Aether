@@ -127,3 +127,4 @@ Append-only. Newest rows at the **bottom**. See `**docs/M6_EVOLUTION.md`** for r
 | 20260527T035158Z_71940ce-dirty | 2026-05-27T03:51:58Z | 71940ce-dirty | ./run_ralph_tier0.sh | 0 | Bridge §6→backlog §18; Wave 9 context-usage prompt, SDH wiring, read-only tool cache, USER_SKILLS_DIR; tier0 488+2 |
 | 20260527T042417Z_632bff5-dirty | 2026-05-27T04:24:17Z | 632bff5-dirty | ./run_ralph_tier0.sh | 0 | OPS-DEPLOY-W9: gateway hard restart PID 513180 /health ok; HERM-CUR-02: skill_curator lifecycle scan/report + close hook MIMIR_SKILL_CURATOR_ON_CLOSE + tier0 497+2 |
 | 20260527T044505Z_4714b92-dirty | 2026-05-27T04:45:05Z | 4714b92-dirty | ./run_ralph_tier0.sh | 0 | HERM-TGR-02: tool_call_cache get_stats hits/misses/size + MIMIR_TOOL_CACHE_LOG; tier0 505+2 |
+| 20260527T045820Z_9beb056-dirty | 2026-05-27T04:58:20Z | 9beb056-dirty | ./run_ralph_tier0.sh | 0 | HERM-SDH-02: subdirectory hints system prompt block MIMIR_SUBDIR_HINTS_IN_SYSTEM; Wave10 exit; tier0 513+2 |
