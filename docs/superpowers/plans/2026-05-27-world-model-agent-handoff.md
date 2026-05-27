@@ -49,19 +49,19 @@
 
 | 桶 | 完成 | 总数 | % |
 |----|:----:|:----:|---:|
-| §19.1 工程轨 | 11 | 16 | 69% |
+| §19.1 工程轨 | 13 | 17 | 76% |
 | §19.2 运维轨 | 1 | 5 | 20% |
 | §19.3 拍板轨 | 1 | 5 | 20%（**G-ADR-002** ✅） |
 | **§19 可执行合计** | **10** | **20** | **50%** |
 
-每完成 1 粒工程项：**§19.1 进度 +6.25%**（1/16）。  
+每完成 1 粒工程项：**§19.1 进度约 +5.9%**（1/17）。  
 Wave 10 全完成（3 粒）：**+20%** §19.1。
 
 ---
 
 ## 3. 我从哪开始（Cursor 决策 · 2026-05-27 更新）
 
-**已完成：** Wave 13–14 [x] · TOOL-SRCH `6112f38` · P3-XSR `c7f4bc4` · tier0 **595+2**
+**已完成：** P3-XSR-01/02/03 [x] · commits `fada2d6`/`bff2160` · tier0 **619+2**
 
 **下一粒：** **ENGINE-WS-01** · **P3-XSR-03** L3 已勾（2026-05-27）
 
@@ -80,11 +80,11 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 
 【Superpowers】using-superpowers → verification-before-completion
 
-【真源】backlog §19.1 · docs/proposals/p3-cross-session-retrieval.md §6（L2）
+【真源】backlog §19.1 · `p3-xsr-03-closeout.md`
 
 【默认下一工程粒】ENGINE-WS-01（WebSocket 推理阻塞心跳）
 
-【基线 main】99ac4f1 · §19.1 11/16 · G-ADR-002 ✅ · tier0 595+2
+【基线 main】bff2160 · §19.1 13/17 · tier0 619+2 · L3 默认关
 
 【禁止】改 SESSION_SEARCH 生产默认 · WM Phase0 · persistent.json commit
 
