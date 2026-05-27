@@ -15,15 +15,15 @@
 
 ---
 
-## 2. 完成度仪表盘（2026-05-27 · HERM-CTX-02 收口 · tier0 **566+2** · base **5413b42**）
+## 2. 完成度仪表盘（2026-05-27 · OS-REV-01 收口 · tier0 **578+2** · base **ac29465**）
 
 ### 2.1 分层完成度
 
 | 层级 | 含义 | 完成度 | 说明 |
 |------|------|:------:|------|
-| **A. 工程底座** | 能跑、能回归、能运维（CLEARANCE 8/8 · M0–M6 · tier0 **566+2**） | **~88%** | 余：Gateway 十条零星 · TRUNCATE 历史噪声 |
+| **A. 工程底座** | 能跑、能回归、能运维（CLEARANCE 8/8 · M0–M6 · tier0 **578+2**） | **~88%** | 余：Gateway 十条零星 · TRUNCATE 历史噪声 |
 | **B. IQ/SEM/Autonomy** | §15 Wave1–8 · §14 SEM · §17 AUTO · §18 Wave9 | **100%** | 本阶段已结案 |
-| **C. Horizon C §19.1** | 11+4 工程粒（Wave10→15+） | **53.3%** | **8/15** `[x]` |
+| **C. Horizon C §19.1** | 11+4 工程粒（Wave10→15+） | **60%** | **9/15** `[x]` |
 | **D. §19.2 运维验收** | 部署/冒烟/eval | **20%** | **1/5** `[x]`（OPS-DEPLOY-W9） |
 | **E. 世界模型提案** | `world-model-evolution-plan` Phase0–3 | **~22%** | 仅有 guard/记忆/curator **基础设施**；无预测器·VoE→学习·分层规划 **合约** |
 | **F. 行为 rubric** | 相对 Hermes 日常聪明度 | **4.9/10** | 距战役目标 **5.5** 差 **0.6**（需 G-RUBRIC-55 拍板） |
@@ -37,22 +37,22 @@
 
 | 项 | 计算 |
 |----|------|
-| 代入 | 0.25×88 + 0.15×100 + 0.25×53.3 + 0.05×20 + 0.25×22 + 0.05×49 |
-| **综合** | **≈ 59%** |
+| 代入 | 0.25×88 + 0.15×100 + 0.25×60 + 0.05×20 + 0.25×22 + 0.05×49 |
+| **综合** | **≈ 61%** |
 
 **读法：**
 
-- **~59%** = **HERM-CTX-02** 飞书自然语言 doc 链接引用；下一粒 **OS-REV-01**。
+- **~61%** = **OS-REV-01** skill 描述质量 reviewer；下一粒 **OS-TOOL-SRCH-01**。
 - **下一程涨分最快**：完成 **Horizon C Wave10–11**（+C）+ 推动 **P3-XSR / ADR-002**（为世界模型注入/预测铺路）+ **WM Phase0 拍板**（+E）。
 
 ### 2.3 §19 可勾选进度（执行用）
 
 | 桶 | 完成 | 总数 | % |
 |----|:----:|:----:|---:|
-| §19.1 工程轨 | 8 | 15 | 53.3% |
+| §19.1 工程轨 | 9 | 15 | 60% |
 | §19.2 运维轨 | 1 | 5 | 20% |
 | §19.3 拍板轨 | 0 | 5 | 0%（刘哥） |
-| **§19 可执行合计** | **9** | **20** | **45%** |
+| **§19 可执行合计** | **10** | **20** | **50%** |
 
 每完成 1 粒工程项：**§19.1 进度 +6.7%**（1/15）。  
 Wave 10 全完成（3 粒）：**+20%** §19.1。
@@ -61,9 +61,9 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 
 ## 3. 我从哪开始（Cursor 决策 · 2026-05-27 更新）
 
-**已完成：** Wave 12 [x]（SCR · RED **`5413b42`** · CTX 工作区 dirty）· tier0 **566+2**
+**已完成：** Wave 12 [x]（… · CTX `ac29465` · **REV** 工作区 dirty）· tier0 **578+2**
 
-**下一粒：** **OS-REV-01**（Wave 12 Task 9）
+**下一粒：** **OS-TOOL-SRCH-01**（Wave 13）
 
 **合并策略：** 每粒一 commit；排除 `data/persistent.json`。
 
@@ -71,20 +71,20 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 
 ---
 
-## 4. 新 Cursor 窗 · 粘贴提示词（Superpowers 强制）
+## 4. 执行窗口 · 粘贴提示词（Superpowers 强制）
 
-**整段复制到新 Agent 窗（当前粒：OS-REV-01 · base `5413b42`+）：**
+**整段复制到执行窗口（当前粒：OS-TOOL-SRCH-01 · base `ac29465`+）：**
 
 ```text
-【角色】Cursor 工程 · MimirAether · 世界模型智能体主线
+【角色】Cursor 执行窗口 · MimirAether · 单粒 OS-TOOL-SRCH-01
 
-【Superpowers】using-superpowers → subagent-driven-development → TDD → verification-before-completion → commit REV-01
+【Superpowers】using-superpowers → TDD → verification-before-completion → commit TOOL-SRCH-01
 
-【真源】主计划 Task 9 · backlog §19.1 第一条 [ ]（OS-REV-01）· handoff §2–§3
+【真源】主计划 Wave 13 · backlog §19.1 第一条 [ ] · handoff §2–§3
 
-【本粒】quality/reviewer 自动评 skill 描述（依赖 TQM-02）；contract + tier0 + closeout
+【本粒】工具级搜索 ToolRanker（依赖 OS-SCH-02）；contract + tier0 + closeout
 
-【已推 main】RED 5413b42 · CTX 待 commit · tier0 566+2 · §19.1 8/15 · ~59%
+【已推 main】REV 待 commit · tier0 578+2 · §19.1 9/15 · ~61%
 
 【禁止】persistent.json · WM Phase0 · ADR-002
 

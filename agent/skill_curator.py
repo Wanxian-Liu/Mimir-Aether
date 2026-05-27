@@ -150,6 +150,8 @@ def build_lifecycle_report(
     skills: List[dict],
     buckets: Dict[str, List[dict]],
     actions_data: Optional[dict] = None,
+    *,
+    description_review: Optional[dict] = None,
 ) -> str:
     """Markdown lifecycle report capped at 2KB for logs / mimir_ops."""
     if actions_data is None:
@@ -172,6 +174,11 @@ def build_lifecycle_report(
         )
     if not actions_data.get("actions"):
         lines.append("- (none)")
+    if description_review:
+        from agent.skill_description_reviewer import format_description_review_section
+
+        lines.append("")
+        lines.append(format_description_review_section(description_review))
     text = "\n".join(lines)
     encoded = text.encode("utf-8")
     if len(encoded) > 2048:
@@ -196,16 +203,35 @@ def run_lifecycle_pass() -> Dict[str, Any]:
 
     buckets = assess_staleness(skills)
     actions_data = curator_actions()
-    report_md = build_lifecycle_report(skills, buckets, actions_data)
+    description_review: Optional[dict] = None
+    try:
+        from agent.skill_description_reviewer import (
+            review_discovered_skills,
+            save_description_review_report,
+            skill_description_review_enabled,
+        )
+
+        if skill_description_review_enabled():
+            description_review = review_discovered_skills(_discover_skills())
+            save_description_review_report(description_review)
+    except Exception as exc:
+        logger.warning("skill_description_review pass failed: %s", exc)
+
+    report_md = build_lifecycle_report(
+        skills, buckets, actions_data, description_review=description_review
+    )
     logger.info("skill_curator lifecycle pass (%d skills)\n%s", len(skills), report_md)
 
-    return {
+    result: Dict[str, Any] = {
         "total": len(skills),
         "stale": buckets.get("stale", []),
         "dormant": buckets.get("dormant", []),
         "report_md": report_md,
         "actions_summary": actions_data.get("summary", {}),
     }
+    if description_review is not None:
+        result["description_review"] = description_review
+    return result
 
 
 def schedule_skill_curator_lifecycle_pass(

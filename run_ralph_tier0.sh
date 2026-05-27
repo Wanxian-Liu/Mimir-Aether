@@ -184,6 +184,8 @@ python3 -m pytest -q \
   tests/contract/test_horizon_herm_red_02.py \
   tests/agent/test_context_references_feishu.py \
   tests/contract/test_horizon_herm_ctx_02.py \
+  tests/agent/test_skill_description_reviewer.py \
+  tests/contract/test_horizon_os_rev_01.py \
   tests/agent/test_conversation_nudges.py \
   tests/agent/test_persistent_single_writer_ind05.py
 
