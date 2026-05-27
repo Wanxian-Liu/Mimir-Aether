@@ -15,15 +15,15 @@
 
 ---
 
-## 2. 完成度仪表盘（2026-05-27 · HERM-SCR-01 收口 · tier0 **542+2**）
+## 2. 完成度仪表盘（2026-05-27 · HERM-RED-02 收口 · tier0 **555+2**）
 
 ### 2.1 分层完成度
 
 | 层级 | 含义 | 完成度 | 说明 |
 |------|------|:------:|------|
-| **A. 工程底座** | 能跑、能回归、能运维（CLEARANCE 8/8 · M0–M6 · tier0 **542+2**） | **~88%** | 余：Gateway 十条零星 · TRUNCATE 历史噪声 |
+| **A. 工程底座** | 能跑、能回归、能运维（CLEARANCE 8/8 · M0–M6 · tier0 **555+2**） | **~88%** | 余：Gateway 十条零星 · TRUNCATE 历史噪声 |
 | **B. IQ/SEM/Autonomy** | §15 Wave1–8 · §14 SEM · §17 AUTO · §18 Wave9 | **100%** | 本阶段已结案 |
-| **C. Horizon C §19.1** | 11+4 工程粒（Wave10→15+） | **40%** | **6/15** `[x]` |
+| **C. Horizon C §19.1** | 11+4 工程粒（Wave10→15+） | **46.7%** | **7/15** `[x]` |
 | **D. §19.2 运维验收** | 部署/冒烟/eval | **20%** | **1/5** `[x]`（OPS-DEPLOY-W9） |
 | **E. 世界模型提案** | `world-model-evolution-plan` Phase0–3 | **~22%** | 仅有 guard/记忆/curator **基础设施**；无预测器·VoE→学习·分层规划 **合约** |
 | **F. 行为 rubric** | 相对 Hermes 日常聪明度 | **4.9/10** | 距战役目标 **5.5** 差 **0.6**（需 G-RUBRIC-55 拍板） |
@@ -37,22 +37,22 @@
 
 | 项 | 计算 |
 |----|------|
-| 代入 | 0.25×88 + 0.15×100 + 0.25×40 + 0.05×20 + 0.25×22 + 0.05×49 |
-| **综合** | **≈ 56%** |
+| 代入 | 0.25×88 + 0.15×100 + 0.25×46.7 + 0.05×20 + 0.25×22 + 0.05×49 |
+| **综合** | **≈ 58%** |
 
 **读法：**
 
-- **~56%** = Wave 11 收口 + **HERM-SCR-01** 流式 think 擦除；下一粒 **HERM-RED-02**。
+- **~58%** = **HERM-RED-02** 运维化 `redact_rules.json`；下一粒 **HERM-CTX-02**。
 - **下一程涨分最快**：完成 **Horizon C Wave10–11**（+C）+ 推动 **P3-XSR / ADR-002**（为世界模型注入/预测铺路）+ **WM Phase0 拍板**（+E）。
 
 ### 2.3 §19 可勾选进度（执行用）
 
 | 桶 | 完成 | 总数 | % |
 |----|:----:|:----:|---:|
-| §19.1 工程轨 | 6 | 15 | 40% |
+| §19.1 工程轨 | 7 | 15 | 46.7% |
 | §19.2 运维轨 | 1 | 5 | 20% |
 | §19.3 拍板轨 | 0 | 5 | 0%（刘哥） |
-| **§19 可执行合计** | **7** | **20** | **35%** |
+| **§19 可执行合计** | **8** | **20** | **40%** |
 
 每完成 1 粒工程项：**§19.1 进度 +6.7%**（1/15）。  
 Wave 10 全完成（3 粒）：**+20%** §19.1。
@@ -61,11 +61,11 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 
 ## 3. 我从哪开始（Cursor 决策 · 2026-05-27 更新）
 
-**已完成：** Wave 11–12 首粒 [x]（TQM · SCH · **SCR `78456e5`**）· tier0 **542+2**
+**已完成：** Wave 11–12 [x]（… · SCR · **RED** 工作区 dirty）· tier0 **555+2**
 
-**下一粒：** **HERM-RED-02**（Wave 12 Task 7）— `data/redact_rules.json` 运维化 / 扩展
+**下一粒：** **HERM-CTX-02**（Wave 12 Task 8）— 飞书 cross-session 冒烟
 
-**合并策略：** 每粒一 commit（`commit RED-02`）；排除 `data/persistent.json`。
+**合并策略：** 每粒一 commit（`commit RED-02` / `commit CTX-02`）；排除 `data/persistent.json`。
 
 **禁止：** WM Phase0 · ADR-002 实现 · rubric 5.5 空喊
 
@@ -73,33 +73,22 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 
 ## 4. 新 Cursor 窗 · 粘贴提示词（Superpowers 强制）
 
-**整段复制到新 Agent 窗（当前粒：HERM-RED-02）：**
+**整段复制到新 Agent 窗（当前粒：HERM-CTX-02）：**
 
 ```text
 【角色】Cursor 工程 · MimirAether · 主线：依托 LLM 的世界模型智能体（非传话桶）。
 
-【Superpowers — 必须按顺序执行】
-1. superpowers:using-superpowers
-2. superpowers:subagent-driven-development（或 executing-plans）
-3. superpowers:test-driven-development — 脱敏规则先测后实现
-4. superpowers:verification-before-completion — ./run_ralph_tier0.sh 全绿再声称完成
-5. superpowers:finishing-a-development-branch — 收尾；路径 A：commit RED-02
+【Superpowers】using-superpowers → subagent-driven-development → TDD → verification-before-completion → finishing-a-development-branch（commit CTX-02）
 
-【真源 — Read 后再编码】
-- 主计划 Wave 12 Task 7：docs/superpowers/plans/2026-05-27-horizon-c-master-iteration.md（HERM-RED-02）
-- Backlog §19.1 第一条 [ ]：docs/MIMIR_EXEC_BACKLOG.md（应为 HERM-RED-02）
-- Hermes 对标：docs/hermes-comparison-detailed.md §2.16 redact.py
-- 安全：docs/SECURITY.md · 北星：docs/DEVELOPMENT_NORTH_STAR.md
+【真源】主计划 Task 8 · backlog §19.1 第一条 [ ]（HERM-CTX-02）· handoff §2–§3
 
-【本粒 · HERM-RED-02】
-目标：运行时秘密脱敏规则可运维（`data/redact_rules.json` 或等价）+ 文档；对齐现有 error_sanitize / 日志路径，最小接线。
-成功标准：规则文件可加载 · 单测覆盖典型 key/token 擦除 · contract + tier0 · docs/phase0/herm-red-02-closeout.md
+【本粒 · HERM-CTX-02】飞书 1 条自然语言 context_references 冒烟（DSL 已存在）；contract + tier0 + closeout
 
-【收尾】record_m6_evolution.sh → backlog [x] → bridge §4 → commit RED-02（不含 data/persistent.json）
+【收尾】record_m6 → backlog [x] → bridge §4 → commit CTX-02（不含 persistent.json）
 
-【已推 main】SCR 78456e5 · SCH d83d68a · tier0 542+2 · §19.1 6/15 · ~56%
+【已推/待推】RED-02 工作区 dirty · tier0 555+2 · §19.1 7/15 · ~58%
 
-【禁止】persistent.json · WM Phase0 · ADR-002 · 与 CTX-02/REV-01 混做 · force push main
+【禁止】persistent.json · WM Phase0 · ADR-002 · 与 RED/REV 混做
 
 【仓库】~/src/MimirAether · MIMIR_AETHER_HOME=~/.mimiraether
 ```

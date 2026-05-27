@@ -167,7 +167,9 @@ def redact_sensitive_text(text: str) -> str:
         return phone[:4] + "****" + phone[-4:]
     text = _SIGNAL_PHONE_RE.sub(_redact_phone, text)
 
-    return text
+    from agent.redact_rules import apply_loaded_rules
+
+    return apply_loaded_rules(text)
 
 
 class RedactingFormatter(logging.Formatter):

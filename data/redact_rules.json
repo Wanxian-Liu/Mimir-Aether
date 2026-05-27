@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "description": "Ops-editable extras merged after agent/redact.py built-ins. Copy to $MIMIR_AETHER_HOME/data/redact_rules.json to override.",
+  "regex_patterns": [],
+  "query_param_names": [
+    "api_key",
+    "apikey",
+    "access_token",
+    "auth_token",
+    "password",
+    "secret"
+  ],
+  "json_field_names": [
+    "client_secret",
+    "private_key",
+    "refresh_token"
+  ]
+}

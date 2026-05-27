@@ -474,7 +474,8 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-27 | **HERM-SDH-02 · Wave10 收口** | **Cursor** | `prompt_block` + `MIMIR_SUBDIR_HINTS_IN_SYSTEM`（默认关）· tier0 **513+2** · main **`8efa4eb`** |
 | 2026-05-27 | **OS-TQM-02** | **Cursor** | `MIMIR_TOOL_QUALITY` 默认 on · pipeline/registry/prompt 三处接线 · tier0 **522+2** · base **`8efa4eb`** dirty · 下一粒 **OS-SCH-02** · §19.1 **4/15** · 综合 **~53%** |
 | 2026-05-27 | **OS-SCH-02** | **Cursor** | RRF fusion · tier0 **531+2** · main **`d83d68a`** |
-| 2026-05-27 | **HERM-SCR-01** | **Cursor** | `StreamingThinkScrubber` 流式状态机 · `callers_mixin` 接线 · tier0 **542+2** · base **`22add39`** dirty · **Gateway 硬重启建议** · 下一粒 **HERM-RED-02** · §19.1 **6/15** · 综合 **~56%** |
+| 2026-05-27 | **HERM-SCR-01** | **Cursor** | 流式 think 擦除 · tier0 **542+2** · main **`78456e5`** |
+| 2026-05-27 | **HERM-RED-02** | **Cursor** | `redact_rules.json` + `agent/redact_rules.py` · tier0 **555+2** · **`6a8fa50` dirty** · Gateway **不必**（改 agent 加载；新进程读规则）· 下一粒 **HERM-CTX-02** · §19.1 **7/15** · **~58%** |
 
 ---
 
