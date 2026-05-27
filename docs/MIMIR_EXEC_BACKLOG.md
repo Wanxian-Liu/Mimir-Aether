@@ -919,7 +919,7 @@ Read backlog §17 P1-LONG-AUTONOMY 第一条 [ ]。
 | **GH-ICE-21-22** | icebox | D5/D6 余债 | #21 #22 | [ ] |
 | **CLR-B-FEISHU** | 运维 | Gateway #9 / 空表头飞书复验 | deferred | [ ] |
 
-**§18.2 状态**：**ENGINE-WS-01** 为 §19.1 下一 **工程粒**（icebox；刘哥未另拍板时可先做 Gate **G-ADR-002**）
+**§18.2 状态**：**G-ADR-002** 已勾（2026-05-27）· 下一工程粒 **P3-XSR-02**（L2）
 
 **Cursor 新窗一句**
 
@@ -956,7 +956,7 @@ Read bridge §1「@Mimir 必读」+ backlog §18（勿再扫 bridge §6 大表�
 
 ### 19.1 工程轨（Cursor · 与 §18.2 同序）
 
-> **下一粒默认**：**ENGINE-WS-01**（Wave 15+ · 见主计划）
+> **下一粒默认**：**P3-XSR-02**（L2 预取注入 · G-ADR-002 已勾）· 其后 ENGINE-WS-01 等 P2 粒
 
 | Wave | ID | 优先级 | 任务 | 状态 | 计划章 |
 |------|-----|--------|------|------|--------|
@@ -971,12 +971,13 @@ Read bridge §1「@Mimir 必读」+ backlog §18（勿再扫 bridge §6 大表�
 | **12** | **OS-REV-01** | P1 | quality reviewer 评 skill 描述（依赖 TQM-02） | [x] | §Wave 12 |
 | **13** | **OS-TOOL-SRCH-01** | P1 | 工具级搜索 ToolRanker（依赖 SCH-02） | [x] | §Wave 13 |
 | **14** | **P3-XSR-01** | 调研 | 跨会话 RAG / 分层注入（§8 P3-CROSS） | [x] | §Wave 14 |
+| **15** | **P3-XSR-02** | P1 | L2：`session_search` 预取注入 prompt（cap） | [ ] | 提案 §6 · G-ADR G1 |
 | **—** | **ENGINE-WS-01** | P2 | WebSocket 推理阻塞心跳（§8） | [ ] | §Wave 15+ |
 | **—** | **ENGINE-ROLLBACK-01** | P2 | 自修回滚护栏（§8） | [ ] | §Wave 15+ |
 | **—** | **ENGINE-P3W-01** | P2 | P3-0 persistent 单写者实现（ADR-001 已有） | [ ] | 随 §19.3 ADR-002 |
 | **—** | **ENGINE-GW-01** | P2 | Gateway 十条余项 | [ ] | `GATEWAY_STABILITY_BACKLOG.md` |
 
-**§19.1 状态**：**11/15** 工程粒完成（**73%**）· 综合世界模型进度 **~73%**（见 [`world-model-agent-handoff.md`](./superpowers/plans/2026-05-27-world-model-agent-handoff.md) §2）
+**§19.1 状态**：**11/16** 工程粒完成（**69%**）· **G-ADR-002** 已勾 · 下一 **P3-XSR-02** · 综合 **~73%**（见 handoff §2）
 
 **Cursor 新窗一句**
 
@@ -997,11 +998,11 @@ Read docs/superpowers/plans/2026-05-27-horizon-c-master-iteration.md + backlog �
 
 ### 19.3 拍板轨（刘哥决策 · 工程暂停）
 
-> **P3-XSR-01** 已结案（[`p3-cross-session-retrieval.md`](./proposals/p3-cross-session-retrieval.md)）。**L2/L3 实现** 等下表 **G-ADR-002** 勾选；未勾前勿开 P3-XSR-02/03。
+> **P3-XSR-01** 已结案（[`p3-cross-session-retrieval.md`](./proposals/p3-cross-session-retrieval.md)）。**G-ADR-002** 已于 **2026-05-27** 勾选（刘哥授权）→ 可开 **P3-XSR-02**（L2）。
 
 | ID | 决策问题 | 选项摘要 | 解锁工程 |
 |----|----------|----------|----------|
-| **G-ADR-002** | P3 跨会话 **L2/L3 注入**（提案 §5） | **三选一勾选** → §19.3.1 | P3-XSR-02 · P3-XSR-03 · 与下项联动 |
+| **G-ADR-002** | P3 跨会话 **L2/L3 注入**（提案 §5） | **已勾** G1+G2+G3 · §19.3.1 · 2026-05-27 | **P3-XSR-02** · P3-XSR-03 · ENGINE-P3W-01 |
 | **ADR-002-impl** | cross-session **写入路径** Facade | spike 已有；全路径实现 | **ENGINE-P3W-01**（建议 **L2→L3 后再做**，见 G3） |
 | **WM-HORIZON-01** | 世界模型 Phase 0 | 读 `world-model-evolution-plan.md` Phase 0 | 独立 Wave，勿混 Horizon C |
 | **IQ-RUBRIC-55** | rubric ≥5.5 达标战役 | 行为证据清单 vs 继续 exception | §15 续 Wave · 非单 PR |
@@ -1012,11 +1013,11 @@ Read docs/superpowers/plans/2026-05-27-horizon-c-master-iteration.md + backlog �
 
 | 勾 | 决策点 |
 |:--:|--------|
-| [ ] | **G1 — L2**：批准新会话自动 `session_search` 预取进 prompt（带字符 cap；无 query 源则不空转） |
-| [ ] | **G2 — L3**：批准语义 RAG 预取（**独立 flag，默认关**；`MIMIR_CROSS_SESSION_RAG=0` 时等同仅 L2） |
-| [ ] | **G3 — 顺序**：实施顺序 **L2 → L3 → ENGINE-P3W-01**（写路径 Facade）OK |
+| [x] | **G1 — L2**：批准新会话自动 `session_search` 预取进 prompt（带字符 cap；无 query 源则不空转） |
+| [x] | **G2 — L3**：批准语义 RAG 预取（**独立 flag，默认关**；`MIMIR_CROSS_SESSION_RAG=0` 时等同仅 L2） |
+| [x] | **G3 — 顺序**：实施顺序 **L2 → L3 → ENGINE-P3W-01**（写路径 Facade）OK |
 
-**未勾前禁止：** 改 `SESSION_SEARCH_BACKEND` 生产默认 · P3-XSR-02/03 实现 · WM Phase0 大 diff。
+**已勾后允许：** **P3-XSR-02**（L2）→ **P3-XSR-03**（L3，flag 默认关）→ **ENGINE-P3W-01**。**仍禁止：** 未授权改 `SESSION_SEARCH_BACKEND` 生产默认 · WM Phase0 大 diff。
 
 ### 19.4 Icebox 与外部引用
 

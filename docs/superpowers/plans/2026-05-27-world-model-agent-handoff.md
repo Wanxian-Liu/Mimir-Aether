@@ -42,19 +42,19 @@
 
 **读法：**
 
-- **~73%** = **P3-XSR-01** 跨会话分层注入提案；下一粒 **ENGINE-WS-01**（icebox）或等 **G-ADR-002**。
+- **~73%** = **P3-XSR-01** 提案 + **G-ADR-002** 已勾；下一工程粒 **P3-XSR-02**（L2）。
 - **下一程涨分最快**：完成 **Horizon C Wave10–11**（+C）+ 推动 **P3-XSR / ADR-002**（为世界模型注入/预测铺路）+ **WM Phase0 拍板**（+E）。
 
 ### 2.3 §19 可勾选进度（执行用）
 
 | 桶 | 完成 | 总数 | % |
 |----|:----:|:----:|---:|
-| §19.1 工程轨 | 11 | 15 | 73% |
+| §19.1 工程轨 | 11 | 16 | 69% |
 | §19.2 运维轨 | 1 | 5 | 20% |
-| §19.3 拍板轨 | 0 | 5 | 0%（刘哥） |
+| §19.3 拍板轨 | 1 | 5 | 20%（**G-ADR-002** ✅） |
 | **§19 可执行合计** | **10** | **20** | **50%** |
 
-每完成 1 粒工程项：**§19.1 进度 +6.7%**（1/15）。  
+每完成 1 粒工程项：**§19.1 进度 +6.25%**（1/16）。  
 Wave 10 全完成（3 粒）：**+20%** §19.1。
 
 ---
@@ -63,7 +63,7 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 
 **已完成：** Wave 13–14 [x] · TOOL-SRCH `6112f38` · P3-XSR `c7f4bc4` · tier0 **595+2**
 
-**下一粒：** **ENGINE-WS-01**（P2）· **实现向** 等刘哥 **§19.3.1 G-ADR-002** 勾选后再开 P3-XSR-02
+**下一粒：** **P3-XSR-02**（L2 预取）· **G-ADR-002** G1+G2+G3 已勾（2026-05-27）
 
 **合并策略：** 每粒一 commit；排除 `data/persistent.json`。
 
@@ -73,20 +73,20 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 
 ## 4. 执行窗口 · 粘贴提示词（Superpowers 强制）
 
-**整段复制到执行窗口（刘哥 G-ADR-002 勾选前 · 勿开 P3-XSR-02）：**
+**整段复制到执行窗口：**
 
 ```text
 【角色】Cursor 执行窗口 · MimirAether
 
 【Superpowers】using-superpowers → verification-before-completion
 
-【真源】backlog §19.3.1 G-ADR-002（刘哥勾选）· docs/proposals/p3-cross-session-retrieval.md
+【真源】backlog §19.1 · docs/proposals/p3-cross-session-retrieval.md §6（L2）
 
-【默认下一工程粒】ENGINE-WS-01（P2）；若 G1✅ 则改做 P3-XSR-02
+【默认下一工程粒】P3-XSR-02（L2 session_search 预取注入 · cap）
 
-【基线 main】c7f4bc4 · §19.1 11/15 · tier0 595+2
+【基线 main】99ac4f1 · §19.1 11/16 · G-ADR-002 ✅ · tier0 595+2
 
-【禁止】未勾 G-ADR-002 即改 SESSION_SEARCH 默认 / P3-XSR-02 / WM / persistent.json
+【禁止】改 SESSION_SEARCH 生产默认 · WM Phase0 · persistent.json commit
 
 【仓库】~/src/MimirAether · MIMIR_AETHER_HOME=~/.mimiraether
 ```
