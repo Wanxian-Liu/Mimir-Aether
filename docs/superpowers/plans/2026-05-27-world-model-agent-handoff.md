@@ -21,9 +21,9 @@
 
 | 层级 | 含义 | 完成度 | 说明 |
 |------|------|:------:|------|
-| **A. 工程底座** | 能跑、能回归、能运维（CLEARANCE 8/8 · M0–M6 · tier0 **522+2**） | **~88%** | 余：Gateway 十条零星 · TRUNCATE 历史噪声 |
+| **A. 工程底座** | 能跑、能回归、能运维（CLEARANCE 8/8 · M0–M6 · tier0 **531+2**） | **~88%** | 余：Gateway 十条零星 · TRUNCATE 历史噪声 |
 | **B. IQ/SEM/Autonomy** | §15 Wave1–8 · §14 SEM · §17 AUTO · §18 Wave9 | **100%** | 本阶段已结案 |
-| **C. Horizon C §19.1** | 11+4 工程粒（Wave10→15+） | **~26.7%** | **4/15** `[x]` |
+| **C. Horizon C §19.1** | 11+4 工程粒（Wave10→15+） | **~33.3%** | **5/15** `[x]` |
 | **D. §19.2 运维验收** | 部署/冒烟/eval | **20%** | **1/5** `[x]`（OPS-DEPLOY-W9） |
 | **E. 世界模型提案** | `world-model-evolution-plan` Phase0–3 | **~22%** | 仅有 guard/记忆/curator **基础设施**；无预测器·VoE→学习·分层规划 **合约** |
 | **F. 行为 rubric** | 相对 Hermes 日常聪明度 | **4.9/10** | 距战役目标 **5.5** 差 **0.6**（需 G-RUBRIC-55 拍板） |
@@ -37,19 +37,19 @@
 
 | 项 | 计算 |
 |----|------|
-| 代入 | 0.25×88 + 0.15×100 + 0.25×26.7 + 0.05×20 + 0.25×22 + 0.05×49 |
-| **综合** | **≈ 53%** |
+| 代入 | 0.25×88 + 0.15×100 + 0.25×33.3 + 0.05×20 + 0.25×22 + 0.05×49 |
+| **综合** | **≈ 55%** |
 
 **读法：**
 
-- **~53%** = Wave 10 收口 + **OS-TQM-02** 默认接线；下一粒 **OS-SCH-02**（检索融合）。
+- **~55%** = Wave 11 收口（TQM + **OS-SCH-02** RRF 检索融合）；下一粒 **HERM-SCR-01**（Wave 12）。
 - **下一程涨分最快**：完成 **Horizon C Wave10–11**（+C）+ 推动 **P3-XSR / ADR-002**（为世界模型注入/预测铺路）+ **WM Phase0 拍板**（+E）。
 
 ### 2.3 §19 可勾选进度（执行用）
 
 | 桶 | 完成 | 总数 | % |
 |----|:----:|:----:|---:|
-| §19.1 工程轨 | 4 | 15 | ~26.7% |
+| §19.1 工程轨 | 5 | 15 | ~33.3% |
 | §19.2 运维轨 | 1 | 5 | 20% |
 | §19.3 拍板轨 | 0 | 5 | 0%（刘哥） |
 | **§19 可执行合计** | **5** | **20** | **25%** |
@@ -61,9 +61,9 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 
 ## 3. 我从哪开始（Cursor 决策 · 2026-05-27 更新）
 
-**已完成：** Wave 10 [x]（CUR/TGR/SDH）· **OS-TQM-02** `e20ae1d` · tier0 **522+2**
+**已完成：** Wave 11 [x]（TQM `e20ae1d` · SCH 工作区）· tier0 **531+2**
 
-**下一粒：** **OS-SCH-02**（Wave 11 Task 5）— session_search BM25 + 语义融合排序
+**下一粒：** **HERM-SCR-01**（Wave 12 Task 6）— think 流式擦除状态机
 
 **合并策略：** 建议 **每粒一 commit**（`feat(agent): HERM-TGR-02 …`）；Wave 10 三粒全 [x] 后可 squash 或保持三 commit 推 main。
 
@@ -82,7 +82,7 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 1. 先 Read skill：superpowers:using-superpowers（若可用）→ superpowers:executing-plans
 2. 再 Read 计划（全文）：docs/superpowers/plans/2026-05-27-horizon-c-master-iteration.md
 3. 再 Read handoff：docs/superpowers/plans/2026-05-27-world-model-agent-handoff.md §2–§3
-4. 再 Read 真源：docs/MIMIR_EXEC_BACKLOG.md §19.1 第一条 [ ]（当前应为 **OS-SCH-02**）
+4. 再 Read 真源：docs/MIMIR_EXEC_BACKLOG.md §19.1 第一条 [ ]（当前应为 **HERM-SCR-01**）
 5. 执行方式：superpowers:subagent-driven-development（推荐）或 executing-plans；每 Task 末用 verification-before-completion（必须跑 ./run_ralph_tier0.sh 再声称完成）
 6. 大改动前可选：superpowers:using-git-worktrees 隔离分支
 7. 每粒结束：record_m6_evolution.sh → backlog [x] → bridge §4 一行 → 触达 agent 则写 Gateway 重启说明
@@ -90,10 +90,10 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 【北星】docs/DEVELOPMENT_NORTH_STAR.md — Parity（tier0）+ Evolution（evolution_log）。世界模型愿景：docs/proposals/world-model-evolution-plan.md（Phase0 未拍板前只读，不写大 diff）。
 
 【本窗目标 — 按序】
-A) Wave 11 Task 5：**OS-SCH-02** — 主计划 Task 5（session_search BM25 + 语义融合）
+A) Wave 12 Task 6：**HERM-SCR-01** — think 流式擦除状态机加固
 B) 回报：§19.1 x/15 · 综合 % · git SHA · tier0 · 下一粒 ID
 
-【已推 main】TQM `e20ae1d` · Wave10 CUR/TGR/SDH · tier0 **522+2** · §19.1 **4/15**
+【已推 main】TQM `e20ae1d` · docs `1dfcf57` · tier0 **531+2** · §19.1 **5/15**（SCH 待 commit）
 
 【禁止】提交 data/persistent.json · 未授权 MIMIR_AUTO_EVOLVE 生产切换 · 与 Wave10 混做 WM Phase0 · force push main
 

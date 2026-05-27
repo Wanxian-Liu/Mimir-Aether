@@ -473,6 +473,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-27 | **HERM-TGR-02** | **Cursor** | `get_stats` hits/misses/size · `MIMIR_TOOL_CACHE_LOG` · tier0 **505+2** · main **`9beb056`** 一带 |
 | 2026-05-27 | **HERM-SDH-02 · Wave10 收口** | **Cursor** | `prompt_block` + `MIMIR_SUBDIR_HINTS_IN_SYSTEM`（默认关）· tier0 **513+2** · main **`8efa4eb`** |
 | 2026-05-27 | **OS-TQM-02** | **Cursor** | `MIMIR_TOOL_QUALITY` 默认 on · pipeline/registry/prompt 三处接线 · tier0 **522+2** · base **`8efa4eb`** dirty · 下一粒 **OS-SCH-02** · §19.1 **4/15** · 综合 **~53%** |
+| 2026-05-27 | **OS-SCH-02** | **Cursor** | `semantic_hybrid` RRF fusion（FTS BM25 + Chroma）· `MIMIR_SESSION_SEARCH_FUSION` 默认 on · tier0 **531+2** · 下一粒 **HERM-SCR-01** · §19.1 **5/15** · 综合 **~55%** |
 
 ---
 

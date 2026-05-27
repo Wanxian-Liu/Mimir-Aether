@@ -9,7 +9,7 @@
 | **更新人** | Cursor（§19 主队列 + Horizon C 主迭代计划） |
 | **仓库根（真源）** | `~/src/MimirAether` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁 **522+2**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
-| **本轮摘要** | **OS-TQM-02 [x]**（Wave 11）· §19.1 **4/15** · tier0 **522+2** · 综合 WM **~53%** · main **`e20ae1d`** · 下一粒 **OS-SCH-02**（BM25+语义融合）。 |
+| **本轮摘要** | **OS-SCH-02** 工作区完成（RRF fusion）· §19.1 **5/15** · tier0 **531+2** · 综合 WM **~55%** · 下一粒 **HERM-SCR-01** · SCH 待 commit。 |
 
 ---
 

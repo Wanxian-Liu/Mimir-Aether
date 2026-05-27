@@ -129,3 +129,4 @@ Append-only. Newest rows at the **bottom**. See `**docs/M6_EVOLUTION.md`** for r
 | 20260527T044505Z_4714b92-dirty | 2026-05-27T04:45:05Z | 4714b92-dirty | ./run_ralph_tier0.sh | 0 | HERM-TGR-02: tool_call_cache get_stats hits/misses/size + MIMIR_TOOL_CACHE_LOG; tier0 505+2 |
 | 20260527T045820Z_9beb056-dirty | 2026-05-27T04:58:20Z | 9beb056-dirty | ./run_ralph_tier0.sh | 0 | HERM-SDH-02: subdirectory hints system prompt block MIMIR_SUBDIR_HINTS_IN_SYSTEM; Wave10 exit; tier0 513+2 |
 | 20260527T051538Z_8efa4eb-dirty | 2026-05-27T05:15:38Z | 8efa4eb-dirty | ./run_ralph_tier0.sh | 0 | OS-TQM-02: MIMIR_TOOL_QUALITY default on; record_tool_call + registry order + degraded prompt; tier0 522+2 |
+| 20260527T054343Z_1dfcf57-dirty | 2026-05-27T05:43:43Z | 1dfcf57-dirty | ./run_ralph_tier0.sh | 0 | OS-SCH-02: semantic_hybrid RRF fusion (FTS BM25 + Chroma); MIMIR_SESSION_SEARCH_FUSION default on; tier0 531+2 |

@@ -18,7 +18,7 @@ import re
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Set, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
@@ -441,6 +441,34 @@ class SessionSearchDB:
 # ============================================================================
 
 _DEFAULT_SESSION_SEARCH_BACKEND = "hybrid"
+_DEFAULT_FUSION_RRF_K = 60
+
+
+def session_search_fusion_enabled() -> bool:
+    """RRF merge of lexical (FTS5/LIKE) + semantic ranks for ``semantic_hybrid``."""
+    raw = os.environ.get("MIMIR_SESSION_SEARCH_FUSION", "1").strip().lower()
+    return raw not in ("0", "false", "no", "off")
+
+
+def rank_fusion_rrf(
+    rank_lists: Mapping[str, Sequence[str]],
+    *,
+    k: int = _DEFAULT_FUSION_RRF_K,
+) -> List[Tuple[str, float]]:
+    """
+    Reciprocal Rank Fusion across named rankers (lexical BM25/FTS + semantic).
+
+    Each list is session_ids best-first. Score(session) = sum 1/(k+rank).
+    """
+    scores: Dict[str, float] = {}
+    for ranked_ids in rank_lists.values():
+        if not ranked_ids:
+            continue
+        for rank, session_id in enumerate(ranked_ids, start=1):
+            if not session_id:
+                continue
+            scores[session_id] = scores.get(session_id, 0.0) + 1.0 / (k + rank)
+    return sorted(scores.items(), key=lambda item: (-item[1], item[0]))
 
 
 def get_session_search_backend() -> str:
@@ -601,6 +629,215 @@ def _session_search_via_semantic(
     return processed
 
 
+def _session_result_from_messages(
+    session_id: str,
+    messages: List[Dict[str, Any]],
+    query: str,
+    *,
+    source: str = "unknown",
+    started_at: Any = None,
+    title: str = "Untitled",
+) -> Optional[Dict[str, Any]]:
+    if not messages:
+        return None
+    conversation = _format_conversation(messages)
+    truncated = _truncate_around_matches(conversation, query)
+    summary = simple_summarize(truncated, query)
+    return {
+        "session_id": session_id,
+        "source": source,
+        "started_at": _format_timestamp(started_at),
+        "title": title,
+        "summary": summary,
+        "message_count": len(messages),
+    }
+
+
+def _lexical_ranked_session_ids(
+    query: str,
+    *,
+    fts_db_path: str,
+    db_path: Optional[str],
+    cap: int,
+) -> List[str]:
+    """FTS5 BM25 session order when available; else LIKE session order."""
+    if Path(fts_db_path).exists():
+        from tools.fts5_search.engine import FTS5SearchEngine, SearchOptions
+
+        engine = FTS5SearchEngine(fts_db_path)
+        try:
+            resp = engine.search(
+                SearchOptions(
+                    query=query,
+                    limit=cap,
+                    use_cache=False,
+                    highlight=False,
+                )
+            )
+        finally:
+            engine.close()
+        ranked = sorted(resp.results, key=lambda r: r.score, reverse=True)
+        return [r.session_id for r in ranked[:cap] if r.session_id]
+
+    db = SessionSearchDB(db_path)
+    like_rows = db.search(query, limit=5, session_limit=cap)
+    return [row["session_id"] for row in like_rows if row.get("session_id")]
+
+
+def _semantic_ranked_session_ids(query: str, *, cap: int) -> List[str]:
+    try:
+        from tools.chroma_session_indexer import query_session_messages
+    except ImportError:
+        return []
+
+    try:
+        hits = query_session_messages(query, limit=max(cap * 5, cap))
+    except Exception as exc:
+        logger.warning("Chroma semantic rank failed: %s", exc)
+        return []
+
+    ordered: List[str] = []
+    seen: Set[str] = set()
+    for hit in sorted(hits, key=lambda h: float(h.get("distance") or 1.0)):
+        meta = hit.get("metadata") or {}
+        sid = str(meta.get("session_id") or "")
+        if not sid or sid in seen:
+            continue
+        seen.add(sid)
+        ordered.append(sid)
+        if len(ordered) >= cap:
+            break
+    return ordered
+
+
+def _group_chroma_hits_by_session(
+    hits: List[Dict[str, Any]],
+    *,
+    per_session_limit: int,
+) -> Dict[str, List[Dict[str, Any]]]:
+    sessions: Dict[str, List[Dict[str, Any]]] = {}
+    for hit in hits:
+        meta = hit.get("metadata") or {}
+        sid = str(meta.get("session_id") or "")
+        if not sid:
+            continue
+        bucket = sessions.setdefault(sid, [])
+        if len(bucket) >= per_session_limit:
+            continue
+        bucket.append(
+            {
+                "role": meta.get("role") or "unknown",
+                "content": (hit.get("content") or "")[:500],
+                "tool_name": meta.get("tool_name"),
+                "timestamp": meta.get("timestamp"),
+            }
+        )
+    return sessions
+
+
+def _messages_for_session_from_db(
+    db: SessionSearchDB,
+    session_id: str,
+    query: str,
+    limit: int,
+) -> List[Dict[str, Any]]:
+    terms = _search_terms(query)
+    conn = sqlite3.connect(db.db_path)
+    try:
+        if terms:
+            msg_where, msg_params = _like_and_clause("content", terms)
+            sql = f"""
+                SELECT role, content, tool_name, timestamp
+                FROM messages
+                WHERE session_id = ? AND {msg_where}
+                ORDER BY timestamp
+                LIMIT ?
+            """
+            params: Tuple[Any, ...] = (session_id, *msg_params, limit)
+        else:
+            sql = """
+                SELECT role, content, tool_name, timestamp
+                FROM messages
+                WHERE session_id = ?
+                ORDER BY timestamp DESC
+                LIMIT ?
+            """
+            params = (session_id, limit)
+        cursor = conn.execute(sql, params)
+        messages: List[Dict[str, Any]] = []
+        for role, content, tool_name, timestamp in cursor.fetchall():
+            if content:
+                messages.append(
+                    {
+                        "role": role,
+                        "content": content[:500],
+                        "tool_name": tool_name,
+                        "timestamp": timestamp,
+                    }
+                )
+        return messages
+    finally:
+        conn.close()
+
+
+def _session_search_via_fusion(
+    query: str,
+    *,
+    db_path: Optional[str],
+    fts_db_path: str,
+    limit: int,
+    session_limit: int,
+) -> List[Dict[str, Any]]:
+    """BM25/FTS lexical rank + Chroma semantic rank merged with RRF (OS-SCH-02)."""
+    cap = max(session_limit * 3, session_limit)
+    lexical = _lexical_ranked_session_ids(
+        query, fts_db_path=fts_db_path, db_path=db_path, cap=cap
+    )
+    semantic: List[str] = []
+    chroma_by_session: Dict[str, List[Dict[str, Any]]] = {}
+    if _semantic_index_ready():
+        semantic = _semantic_ranked_session_ids(query, cap=cap)
+        try:
+            from tools.chroma_session_indexer import query_session_messages
+
+            chroma_hits = query_session_messages(
+                query, limit=max(limit * session_limit, session_limit)
+            )
+            chroma_by_session = _group_chroma_hits_by_session(
+                chroma_hits, per_session_limit=limit
+            )
+        except Exception as exc:
+            logger.warning("Chroma message fetch for fusion failed: %s", exc)
+
+    if not lexical and not semantic:
+        return []
+
+    if lexical and semantic:
+        fused = rank_fusion_rrf({"lexical": lexical, "semantic": semantic})
+        session_order = [sid for sid, _score in fused]
+    else:
+        session_order = semantic or lexical
+
+    db = SessionSearchDB(db_path)
+    processed: List[Dict[str, Any]] = []
+    for sid in session_order[:session_limit]:
+        messages = chroma_by_session.get(sid) or _messages_for_session_from_db(
+            db, sid, query, limit
+        )
+        info = db.get_session_info(sid) or {}
+        row = _session_result_from_messages(
+            sid,
+            messages,
+            query,
+            source=str(info.get("source") or "unknown"),
+            started_at=info.get("started_at"),
+            title=str(info.get("title") or "Untitled"),
+        )
+        if row:
+            processed.append(row)
+    return processed
+
+
 def _session_search_via_like(
     query: str,
     *,
@@ -662,6 +899,21 @@ def session_search(
     backend = get_session_search_backend()
     fts_path = _default_fts5_db_path()
 
+    if (
+        backend == "semantic_hybrid"
+        and session_search_fusion_enabled()
+        and (_semantic_index_ready() or Path(fts_path).exists())
+    ):
+        fusion_results = _session_search_via_fusion(
+            query,
+            db_path=db_path,
+            fts_db_path=fts_path,
+            limit=limit,
+            session_limit=session_limit,
+        )
+        if fusion_results:
+            return fusion_results
+
     if backend in ("semantic", "semantic_hybrid") and _semantic_index_ready():
         semantic_results = _session_search_via_semantic(
             query,
@@ -712,7 +964,8 @@ SESSION_SEARCH_SCHEMA = {
     "name": "session_search",
     "description": (
         "Search stored session messages (local SQLite / optional Chroma semantic index). "
-        "Set SESSION_SEARCH_BACKEND=fts5|hybrid|semantic|semantic_hybrid. "
+        "Set SESSION_SEARCH_BACKEND=fts5|hybrid|semantic|semantic_hybrid "
+        "(semantic_hybrid uses RRF fusion when MIMIR_SESSION_SEARCH_FUSION=1). "
         "Use when the user refers to past work across sessions."
     ),
     "parameters": {
