@@ -77,30 +77,25 @@ class CallersMixin:
         """检查是否有流式输出的消费者"""
         return self.stream_callback is not None
 
-    def _strip_think_blocks(self, content: str) -> str:
-        """
-        去除Think/Reasoning Block
+    def _get_stream_think_scrubber(self):
+        from agent.think_scrubber import StreamingThinkScrubber
 
-        学习自Hermes _strip_think_blocks:
-        - 去除<think>...</think>格式
-        - 去除<thinking>...</thinking>格式
-        - 去除<reasoning>...</reasoning>格式
-        - 去除其他变体
-        """
-        import re
-        # 去除<think>...</think>格式
-        content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
-        # 去除<thinking>...</thinking>格式
-        content = re.sub(r'<thinking>.*?</thinking>', '', content, flags=re.DOTALL | re.IGNORECASE)
-        # 去除<reasoning>...</reasoning>格式
-        content = re.sub(r'<reasoning>.*?</reasoning>', '', content, flags=re.DOTALL)
-        # 去除<REASONING_SCRATCHPAD>...</REASONING_SCRATCHPAD>格式
-        content = re.sub(r'<REASONING_SCRATCHPAD>.*?</REASONING_SCRATCHPAD>', '', content, flags=re.DOTALL)
-        # 去除<thought>...</thought>格式
-        content = re.sub(r'<thought>.*?</thought>', '', content, flags=re.DOTALL | re.IGNORECASE)
-        # 去除所有Think/Reasoning标签
-        content = re.sub(r'</?(?:think|thinking|reasoning|thought|REASONING_SCRATCHPAD)>', '', content, flags=re.IGNORECASE)
-        return content
+        scrubber = getattr(self, "_stream_think_scrubber", None)
+        if scrubber is None:
+            scrubber = StreamingThinkScrubber()
+            self._stream_think_scrubber = scrubber
+        return scrubber
+
+    def _reset_stream_think_scrubber(self) -> None:
+        scrubber = getattr(self, "_stream_think_scrubber", None)
+        if scrubber is not None:
+            scrubber.reset()
+
+    def _strip_think_blocks(self, content: str) -> str:
+        """Remove thinking/reasoning blocks (HERM-SCR-01 · shared with stream scrubber)."""
+        from agent.think_scrubber import strip_think_blocks
+
+        return strip_think_blocks(content)
 
     def _extract_reasoning_from_response(self, response: Dict) -> Optional[str]:
         """
@@ -194,6 +189,8 @@ class CallersMixin:
         import time
 
         start = time.monotonic()
+        self._reset_stream_think_scrubber()
+        think_scrubber = self._get_stream_think_scrubber()
 
         payload = {
             "model": model,
@@ -272,7 +269,9 @@ class CallersMixin:
                             content_parts.append(text)
                             # 如果没有累积的工具调用,流式输出
                             if not tool_calls_acc:
-                                self._fire_stream_delta(text)
+                                visible = think_scrubber.feed(text)
+                                if visible:
+                                    self._fire_stream_delta(visible)
 
                         # 处理工具调用
                         if 'tool_calls' in delta:
@@ -298,6 +297,11 @@ class CallersMixin:
                     # 构建响应
                     content = ''.join(content_parts)
                     tool_calls = list(tool_calls_acc.values()) if tool_calls_acc else None
+
+                    if not tool_calls_acc:
+                        tail = think_scrubber.flush()
+                        if tail:
+                            self._fire_stream_delta(tail)
 
                     return {
                         'content': content,

@@ -178,6 +178,8 @@ python3 -m pytest -q \
   tests/contract/test_horizon_os_tqm_02.py \
   tests/tools/test_session_search_fusion_rank.py \
   tests/contract/test_horizon_os_sch_02.py \
+  tests/agent/test_think_scrubber.py \
+  tests/contract/test_horizon_herm_scr_01.py \
   tests/agent/test_conversation_nudges.py \
   tests/agent/test_persistent_single_writer_ind05.py
 
