@@ -61,7 +61,7 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 
 ## 3. 我从哪开始（Cursor 决策 · 2026-05-27 更新）
 
-**已完成：** Wave 11 [x]（TQM `e20ae1d` · SCH 工作区）· tier0 **531+2**
+**已完成：** Wave 11 [x]（TQM `e20ae1d` · SCH `d83d68a`）· tier0 **531+2**
 
 **下一粒：** **HERM-SCR-01**（Wave 12 Task 6）— think 流式擦除状态机
 
@@ -93,7 +93,7 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 A) Wave 12 Task 6：**HERM-SCR-01** — think 流式擦除状态机加固
 B) 回报：§19.1 x/15 · 综合 % · git SHA · tier0 · 下一粒 ID
 
-【已推 main】TQM `e20ae1d` · docs `1dfcf57` · tier0 **531+2** · §19.1 **5/15**（SCH 待 commit）
+【已推 main】SCH `d83d68a` · TQM `e20ae1d` · tier0 **531+2** · §19.1 **5/15**
 
 【禁止】提交 data/persistent.json · 未授权 MIMIR_AUTO_EVOLVE 生产切换 · 与 Wave10 混做 WM Phase0 · force push main
 
