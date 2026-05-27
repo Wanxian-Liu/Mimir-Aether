@@ -1,8 +1,8 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-05-27（**§18 Bridge 迁入** · Wave 9 三项 [x] · 执行源 **§18.2**）  
+> **最近更新**：2026-05-27（**§19 主队列** · §18 迁入完成 · Wave 9 [x]）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5  
-> **规则**：**刘哥** — 新 Cursor 窗粘贴 handoff 对应 §N；**Cursor** — backlog §15 第一条 `[ ]` 至 Wave 6 结案。Mimir 飞书只读回报。§11 / §2 / Phase 0 **只读**。  
+> **规则**：**只认 §19.1 工程轨第一条 `[ ]`**（详表 §18.2 不变，§19 为汇总索引）。长期迭代见 [`superpowers/plans/2026-05-27-horizon-c-master-iteration.md`](./superpowers/plans/2026-05-27-horizon-c-master-iteration.md)。Mimir：**§19.2** 运维轨。§2 / §11 / Phase 0 **只读**。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
 > **勿提交**：`data/persistent.json`（runtime 镜像）。
 
@@ -328,7 +328,7 @@ Mimir 冒烟回报
 - **§2 工程队列**：只读，勿再取「E-004 / T-02 / 181+2」。
 - **Phase 0**：**14/14** [x]（2026-05-24）— 真源 [`MIMIR_PHASE0_QUEUE.md`](./MIMIR_PHASE0_QUEUE.md)。
 - **智商/进化方向真源**：[`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) · Mimir 队列 **§15** · ISSUES **#12**（锚点，非 P0）。
-- **当前执行源**：**§18.2 Bridge Wave 9** — bridge §6/§1 工程项已迁入；**只认 §18.2 第一条 `[ ]`**。§15 Wave 8 [x]。
+- **当前执行源**：**§19 主队列** — 工程 **§19.1** 第一条 `[ ]`（与 §18.2 同序）；长期波次见 superpowers 主计划。§15 Wave 8 [x] · §18.1 Wave 9 [x]。
 - **勿**：提交 `data/persistent.json`；重做 E-001～E-012。
 
 ### 9.1 未完成项盘点（2026-05-27）
@@ -338,9 +338,11 @@ Mimir 冒烟回报
 | **§13.1 母任务** | **0** Active | `P0-LONG-CLEARANCE` **全子阶段 [x]** |
 | **§11 长任务** | **0** Active | **`P2-LONG-SEM`** [x] · **Wave 7 IQ-EVO** [x] |
 | **§15 下一粒** | **0** Active | Wave 8 [x] |
-| **§18 下一粒** | **见 §18.2** | Bridge Hermes/OpenSpace + 会话治理债 |
-| **§6 Phase 2 候选** | **6** `[ ]` | 归档只读；已并入 CLR-D/E |
-| **§8 工程 icebox** | **4** 条 | 已并入 **CLR-C**（`P2-LONG-STAB`） |
+| **§19 工程轨** | **见 §19.1** | **唯一取任务入口**（§18.2 为明细真源） |
+| **§19 拍板轨** | **4** | ADR-002 / 世界模型 / rubric 5.5 / D5-ADR |
+| **§19 运维轨** | **1+** | CLR-B-FEISHU + Gateway 十条余债 |
+| **§6 Phase 2 候选** | **1** `[ ]` | D5-ADR → **§19.3** |
+| **§8 工程 icebox** | **4** 条 | 已迁入 **§19.4** |
 | **Gateway 十条** | **~1** 运维 | #9 代码 [x]；**CLR-B** 飞书复验 deferred |
 | **GitHub open** | **2** | **#21 #22** icebox（2026-05-27 已 refresh comment；**#32 #34 #35 closed**） |
 | **Active P0 GH** | **0** | — |
@@ -931,5 +933,96 @@ Read backlog §18.2 第一条 [ ]。
 
 ```text
 Read bridge §1「@Mimir 必读」+ backlog §18（勿再扫 bridge §6 大表）。
-工程认 §18.2 第一条 [ ]；回报 §3.3 + bridge §4 一行。
+工程认 §19.1（=§18.2）第一条 [ ]；回报 §3.3 + bridge §4 一行。
 ```
+
+---
+
+## 19. 主执行队列（2026-05-27 · 全仓待办汇总）
+
+> **用途**：把 §8 / §18 / bridge / Gateway / GH icebox **收敛到一张表**；执行时仍按 **§18.2 颗粒 ID** 与 closeout 文档。  
+> **长期路线图**：[`docs/superpowers/plans/2026-05-27-horizon-c-master-iteration.md`](./superpowers/plans/2026-05-27-horizon-c-master-iteration.md)（Wave 10～15 · 约 10–12 周）。  
+> **北星**：Parity（tier0）+ Evolution（`evolution_log`）；未拍板项 **不得** 与工程轨并行开工。
+
+### 19.0 怎么读（一条规则）
+
+| 角色 | 取任务 |
+|------|--------|
+| **Cursor 工程** | **§19.1** 从上到下 **第一条 `[ ]`** → 打开 §18.2 同 ID 行 → 跟 superpowers 计划对应 **Wave** |
+| **Mimir 运维** | **§19.2** 第一条 `[ ]`；**禁止** 抢 §19.1 代码粒 |
+| **刘哥** | **§19.3** 拍板项；拍板前工程轨 **跳过** 该行 |
+
+每粒结束：`./run_ralph_tier0.sh` → `record_m6_evolution.sh` → backlog `[x]` → bridge §4 一行 →（若触达 agent）Gateway 重启说明。
+
+### 19.1 工程轨（Cursor · 与 §18.2 同序）
+
+> **下一粒默认**：**HERM-CUR-02**（Wave 10 · 见主计划 Task 1）
+
+| Wave | ID | 优先级 | 任务 | 状态 | 计划章 |
+|------|-----|--------|------|------|--------|
+| **10** | **HERM-CUR-02** | P0 | skill_curator 生命周期：stale/dormant/归档/合并建议 + 周期钩子 | [ ] | §Wave 10 |
+| **10** | **HERM-TGR-02** | P0 | 只读 tool cache 命中率 log/metrics | [ ] | §Wave 10 |
+| **10** | **HERM-SDH-02** | P0 | subdirectory hints 进 system prompt（cwd 变更） | [ ] | §Wave 10 |
+| **11** | **OS-TQM-02** | P0 | ToolQualityManager 默认接线 + tier0 契约 | [ ] | §Wave 11 |
+| **11** | **OS-SCH-02** | P0 | session_search BM25+语义融合排序（hybrid 不足时） | [ ] | §Wave 11 |
+| **12** | **HERM-SCR-01** | P1 | think 流式擦除状态机加固 | [ ] | §Wave 12 |
+| **12** | **HERM-RED-02** | P1 | 脱敏规则表运维化 | [ ] | §Wave 12 |
+| **12** | **HERM-CTX-02** | P1 | context_references 飞书自然语言冒烟 | [ ] | §Wave 12 |
+| **12** | **OS-REV-01** | P1 | quality reviewer 评 skill 描述（依赖 TQM-02） | [ ] | §Wave 12 |
+| **13** | **OS-TOOL-SRCH-01** | P1 | 工具级搜索 ToolRanker（依赖 SCH-02） | [ ] | §Wave 13 |
+| **14** | **P3-XSR-01** | 调研 | 跨会话 RAG / 分层注入（§8 P3-CROSS） | [ ] | §Wave 14 |
+| **—** | **ENGINE-WS-01** | P2 | WebSocket 推理阻塞心跳（§8） | [ ] | §Wave 15+ |
+| **—** | **ENGINE-ROLLBACK-01** | P2 | 自修回滚护栏（§8） | [ ] | §Wave 15+ |
+| **—** | **ENGINE-P3W-01** | P2 | P3-0 persistent 单写者实现（ADR-001 已有） | [ ] | 随 §19.3 ADR-002 |
+| **—** | **ENGINE-GW-01** | P2 | Gateway 十条余项 | [ ] | `GATEWAY_STABILITY_BACKLOG.md` |
+
+**§19.1 状态**：**0/N** 工程粒完成（Wave 10 起）
+
+**Cursor 新窗一句**
+
+```text
+Read docs/superpowers/plans/2026-05-27-horizon-c-master-iteration.md + backlog §19.1 第一条 [ ]。
+每粒 tier0 + evolution_log；勿开未拍板 WM / ADR-002 大 diff。
+```
+
+### 19.2 运维与验收轨（Mimir + 刘哥）
+
+| ID | Owner | 任务 | 成功标准 | 状态 |
+|----|-------|------|----------|------|
+| **OPS-DEPLOY-W9** | Cursor | Wave 9 + 粒 B **Gateway 硬重启** + `/health` | bridge §1 自证 PID；Mimir 可复验 | [ ] |
+| **OPS-IQ-SMOKE-49** | Mimir | `/new` 后 cross-session 含 key_decisions 一句 | 飞书截图或 log；§3.3 | [ ] |
+| **CLR-B-FEISHU** | 刘哥 | Gateway #9 / 空表头飞书复验 | 无新 230099 | [ ] |
+| **OPS-MW-REFRESH** | Mimir | 每周 MW-D01/D02/D07 轻量刷新 | bridge §4 或无新 P0 | [ ] |
+| **OPS-EVAL-WEEKLY** | Mimir | `run_evolution_eval.sh` + 贴 JSON 路径 | exit 0；非 simulated | [ ] |
+
+### 19.3 拍板轨（刘哥决策 · 工程暂停）
+
+| ID | 决策问题 | 选项摘要 | 解锁工程 |
+|----|----------|----------|----------|
+| **ADR-002-impl** | cross-session / 写入路径策略 | spike 已有；是否实现全路径 | ENGINE-P3W-01 · 注入策略 |
+| **WM-HORIZON-01** | 世界模型 Phase 0 | 读 `world-model-evolution-plan.md` Phase 0 | 独立 Wave，勿混 Horizon C |
+| **IQ-RUBRIC-55** | rubric ≥5.5 达标战役 | 行为证据清单 vs 继续 exception | §15 续 Wave · 非单 PR |
+| **D5-ADR** | d5 双架构 ADR 定稿 | 仅文档 vs 影响代码 | §6 d5 收口 |
+| **EV-VISION-DEFER** | 识图 / OpenRouter | 维持搁置 vs 恢复 | M-002 路径 |
+
+### 19.4 Icebox 与外部引用
+
+| 来源 | 项 | 说明 |
+|------|-----|------|
+| GitHub | **#21 #22** | D5/D6 余债 · **GH-ICE-21-22** |
+| §8 已迁入 | ENGINE-* | 见 §19.1 表末 |
+| 论证归档 | `hermes-comparison-detailed.md` | bridge §6 全文 |
+| 世界模型 | `proposals/world-model-evolution-plan.md` | 拍板后开 WM-HORIZON-01 |
+
+### 19.5 长期波次日历（摘要）
+
+| 阶段 | 周次 | 目标 | 出口标准 |
+|------|------|------|----------|
+| **0 部署** | W0 | Wave 9/粒 B 生产生效 | OPS-DEPLOY-W9 [x] |
+| **Horizon C** | W1–W4 | Wave 10–12 · P0 工程 | §19.1 至 OS-SCH-02 [x] |
+| **Horizon C+** | W5–W6 | Wave 12–13 · P1 抛光 | SCR/RED/CTX/REV/TOOL-SRCH |
+| **记忆战略** | W7–W8 | P3-XSR 调研 + ADR-002 拍板 | 方案 doc + 刘哥签字 |
+| **智商战役** | W9–12 | rubric 5.5 证据（若拍板） | 方向文档 §1.1 更新 |
+| **世界模型** | W13+ | WM Phase 0（若拍板） | spike closeout |
+
+详任务分解 → **superpowers 主计划**。

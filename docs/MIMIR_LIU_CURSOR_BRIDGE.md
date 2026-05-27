@@ -185,7 +185,7 @@ Cursor **自行执行**（无需每轮再问）：
 | **代码** | main 含 **IQ-EVO-49 粒 B** + **§18 Wave 9**（context 用量注入 · subdirectory hints · 只读 tool cache）— `git log -1` 自证 |
 | **Gateway** | 部署后硬重启；**自证**：`pgrep -af gateway/run.py` + `curl -s http://127.0.0.1:18999/health` |
 | **生产 env** | `~/.mimiraether/.env`：`MIMIR_AUTO_ANALYSIS=1` · `MIMIR_AUTO_EVOLVE=1` · `MIMIR_AUTO_1C_POLICY` **默认关** |
-| **工程状态** | §15 Wave 7/8 **[x]** · **任务队列 → backlog §18.2**（勿再扫本文件 §6 大表）· rubric **4.9/10** exception |
+| **工程状态** | §15 Wave 7/8 **[x]** · **任务队列 → backlog §19.1**（§18.2 明细）· 主计划 [`2026-05-27-horizon-c-master-iteration.md`](./superpowers/plans/2026-05-27-horizon-c-master-iteration.md) · rubric **4.9/10** exception |
 
 **进化链因果（飞书会话 close 后）：**
 
@@ -507,7 +507,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 
 ## 6. Hermes & OpenSpace 学习（已迁 backlog · 2026-05-27）
 
-> **任务真源**：[`MIMIR_EXEC_BACKLOG.md`](./MIMIR_EXEC_BACKLOG.md) **§18**（§18.0 已结案 · **§18.2 第一条 `[ ]`** = 下一工程粒）。  
+> **任务真源**：[`MIMIR_EXEC_BACKLOG.md`](./MIMIR_EXEC_BACKLOG.md) **§19**（工程 **§19.1** 第一条 `[ ]` = 下一粒；明细 **§18.2**）。长期波次：[`superpowers/plans/2026-05-27-horizon-c-master-iteration.md`](./superpowers/plans/2026-05-27-horizon-c-master-iteration.md)。  
 > **论证全文**：[`hermes-comparison-detailed.md`](./hermes-comparison-detailed.md)（含旧版 §6.1～§6.31 归档，飞书滤镜已废弃）。  
 > **学习三原则**：不复制代码 · 理解意图 · Mimir 自造。
 

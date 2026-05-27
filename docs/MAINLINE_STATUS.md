@@ -6,10 +6,10 @@
 | 字段 | 值 |
 |------|-----|
 | **最近更新** | 2026-05-27 |
-| **更新人** | 战略窗（IQ-EVO-46 签收 · Wave 7 结案） |
+| **更新人** | Cursor（§19 主队列 + Horizon C 主迭代计划） |
 | **仓库根（真源）** | `~/src/MimirAether` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁 **466+2**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
-| **本轮摘要** | **§15 Wave 7 [x]** · Gate C/D · 1c · rubric **4.9/10** exception（距 5.5 差 **0.6**）· tier0 **466+2** · 下一可选 **IQ-EVO-47** 或 Horizon 拍板。 |
+| **本轮摘要** | Bridge §6→§18 [x] · Wave 9 [x] · **执行源 → backlog §19.1** · 主计划 [`2026-05-27-horizon-c-master-iteration.md`](./superpowers/plans/2026-05-27-horizon-c-master-iteration.md) · tier0 **488+2** · 下一工程粒 **HERM-CUR-02**（Wave 10）。 |
 
 ---
 
@@ -51,11 +51,12 @@
 
 ## 4. 近期焦点（可改）
 
-0. **IR-20260520 结案（2026-05-20）**：工程已合入本地 main；Mimir **T-02～T-11**；Cursor **E-004**；见 `MIMIR_HANDOFF_20260520.md`。
-1. **稳定性冲刺（2026-05-19）**：Mimir 按 `MIMIR_EXEC_BACKLOG` M1–M8 冒烟；工程项见 `GATEWAY_STABILITY_BACKLOG.md`。
-2. **真源树**：提交与推送在 `~/src/MimirAether`；勿与 `MIMIR_AETHER_HOME` 混淆。
-3. **维持 M6 绿**：受保护路径合入不长期漏记。
-4. **维持 B/C/∞ 绿**：各阶段 checklist §执行记录续更。
+0. **Horizon C 主迭代（2026-05-27）**：唯一取任务 **`MIMIR_EXEC_BACKLOG.md` §19.1**；波次计划 **`docs/superpowers/plans/2026-05-27-horizon-c-master-iteration.md`**（W0 部署 → Wave 10～15+）。
+1. **IR-20260520 结案（2026-05-20）**：工程已合入本地 main；Mimir **T-02～T-11**；Cursor **E-004**；见 `MIMIR_HANDOFF_20260520.md`。
+2. **稳定性冲刺（2026-05-19）**：Mimir 按 `MIMIR_EXEC_BACKLOG` M1–M8 冒烟；工程项见 `GATEWAY_STABILITY_BACKLOG.md`。
+3. **真源树**：提交与推送在 `~/src/MimirAether`；勿与 `MIMIR_AETHER_HOME` 混淆。
+4. **维持 M6 绿**：受保护路径合入不长期漏记。
+5. **维持 B/C/∞ 绿**：各阶段 checklist §执行记录续更。
 
 ---
 
