@@ -1,8 +1,8 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-05-27（**§19 主队列** · §18 迁入完成 · Wave 9 [x]）  
+> **最近更新**：2026-05-27（**§19 主队列** · 世界模型 handoff · Wave 9 [x]）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5  
-> **规则**：**只认 §19.1 工程轨第一条 `[ ]`**（详表 §18.2 不变，§19 为汇总索引）。长期迭代见 [`superpowers/plans/2026-05-27-horizon-c-master-iteration.md`](./superpowers/plans/2026-05-27-horizon-c-master-iteration.md)。Mimir：**§19.2** 运维轨。§2 / §11 / Phase 0 **只读**。  
+> **规则**：**只认 §19.1 工程轨第一条 `[ ]`**。新窗 handoff：[`superpowers/plans/2026-05-27-world-model-agent-handoff.md`](./superpowers/plans/2026-05-27-world-model-agent-handoff.md)。长期迭代：[`2026-05-27-horizon-c-master-iteration.md`](./superpowers/plans/2026-05-27-horizon-c-master-iteration.md)。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
 > **勿提交**：`data/persistent.json`（runtime 镜像）。
 
@@ -976,7 +976,7 @@ Read bridge §1「@Mimir 必读」+ backlog §18（勿再扫 bridge §6 大表�
 | **—** | **ENGINE-P3W-01** | P2 | P3-0 persistent 单写者实现（ADR-001 已有） | [ ] | 随 §19.3 ADR-002 |
 | **—** | **ENGINE-GW-01** | P2 | Gateway 十条余项 | [ ] | `GATEWAY_STABILITY_BACKLOG.md` |
 
-**§19.1 状态**：**0/N** 工程粒完成（Wave 10 起）
+**§19.1 状态**：**0/15** 工程粒完成（**0%**）· 综合世界模型进度 **~41%**（见 [`world-model-agent-handoff.md`](./superpowers/plans/2026-05-27-world-model-agent-handoff.md) §2）
 
 **Cursor 新窗一句**
 
