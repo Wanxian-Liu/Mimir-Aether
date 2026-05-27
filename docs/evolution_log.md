@@ -135,3 +135,4 @@ Append-only. Newest rows at the **bottom**. See `**docs/M6_EVOLUTION.md`** for r
 | 20260527T065101Z_5413b42-dirty | 2026-05-27T06:51:01Z | 5413b42-dirty | ./run_ralph_tier0.sh | 0 | HERM-CTX-02: Feishu NL URL context refs; message_has_context_references; tier0 566+2 |
 | 20260527T071331Z_ac29465-dirty | 2026-05-27T07:13:31Z | ac29465-dirty | ./run_ralph_tier0.sh | 0 | OS-REV-01: skill_description_reviewer + curator lifecycle; tier0 578+2 |
 | 20260527T074040Z_3b04452-dirty | 2026-05-27T07:40:40Z | 3b04452-dirty | ./run_ralph_tier0.sh | 0 | OS-TOOL-SRCH-01: tool_ranker + tool_search (registry+skills index, RRF lexical+quality); tier0 588+2; metrics: n/a |
+| 20260527T080919Z_c7f4bc4-dirty | 2026-05-27T08:09:19Z | c7f4bc4-dirty | ./run_ralph_tier0.sh | 0 | P3-XSR-01: p3-cross-session-retrieval proposal L1/L2/L3 + contract; G-ADR-002 gate in backlog §19.3.1; tier0 595+2; metrics: n/a |

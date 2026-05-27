@@ -61,9 +61,9 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 
 ## 3. 我从哪开始（Cursor 决策 · 2026-05-27 更新）
 
-**已完成：** Wave 14 [x] · **P3-XSR-01** · base **`6112f38`** · tier0 **590+2**
+**已完成：** Wave 13–14 [x] · TOOL-SRCH `6112f38` · P3-XSR `c7f4bc4` · tier0 **595+2**
 
-**下一粒：** **ENGINE-WS-01**（Wave 15+）或刘哥 **G-ADR-002** 拍板后 P3-XSR-02 实现
+**下一粒：** **ENGINE-WS-01**（P2）· **实现向** 等刘哥 **§19.3.1 G-ADR-002** 勾选后再开 P3-XSR-02
 
 **合并策略：** 每粒一 commit；排除 `data/persistent.json`。
 
@@ -73,20 +73,20 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 
 ## 4. 执行窗口 · 粘贴提示词（Superpowers 强制）
 
-**整段复制到执行窗口（当前粒：OS-TOOL-SRCH-01 · base `ac29465`+）：**
+**整段复制到执行窗口（刘哥 G-ADR-002 勾选前 · 勿开 P3-XSR-02）：**
 
 ```text
-【角色】Cursor 执行窗口 · MimirAether · 单粒 OS-TOOL-SRCH-01
+【角色】Cursor 执行窗口 · MimirAether
 
-【Superpowers】using-superpowers → TDD → verification-before-completion → commit TOOL-SRCH-01
+【Superpowers】using-superpowers → verification-before-completion
 
-【真源】主计划 Wave 13 · backlog §19.1 第一条 [ ] · handoff §2–§3
+【真源】backlog §19.3.1 G-ADR-002（刘哥勾选）· docs/proposals/p3-cross-session-retrieval.md
 
-【本粒】工具级搜索 ToolRanker（依赖 OS-SCH-02）；contract + tier0 + closeout
+【默认下一工程粒】ENGINE-WS-01（P2）；若 G1✅ 则改做 P3-XSR-02
 
-【已推 main】REV 待 commit · tier0 578+2 · §19.1 9/15 · ~61%
+【基线 main】c7f4bc4 · §19.1 11/15 · tier0 595+2
 
-【禁止】persistent.json · WM Phase0 · ADR-002
+【禁止】未勾 G-ADR-002 即改 SESSION_SEARCH 默认 / P3-XSR-02 / WM / persistent.json
 
 【仓库】~/src/MimirAether · MIMIR_AETHER_HOME=~/.mimiraether
 ```

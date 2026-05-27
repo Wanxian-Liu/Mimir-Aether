@@ -997,13 +997,26 @@ Read docs/superpowers/plans/2026-05-27-horizon-c-master-iteration.md + backlog �
 
 ### 19.3 拍板轨（刘哥决策 · 工程暂停）
 
+> **P3-XSR-01** 已结案（[`p3-cross-session-retrieval.md`](./proposals/p3-cross-session-retrieval.md)）。**L2/L3 实现** 等下表 **G-ADR-002** 勾选；未勾前勿开 P3-XSR-02/03。
+
 | ID | 决策问题 | 选项摘要 | 解锁工程 |
 |----|----------|----------|----------|
-| **ADR-002-impl** | cross-session / 写入路径策略 | spike 已有；是否实现全路径 | ENGINE-P3W-01 · 注入策略 |
+| **G-ADR-002** | P3 跨会话 **L2/L3 注入**（提案 §5） | **三选一勾选** → §19.3.1 | P3-XSR-02 · P3-XSR-03 · 与下项联动 |
+| **ADR-002-impl** | cross-session **写入路径** Facade | spike 已有；全路径实现 | **ENGINE-P3W-01**（建议 **L2→L3 后再做**，见 G3） |
 | **WM-HORIZON-01** | 世界模型 Phase 0 | 读 `world-model-evolution-plan.md` Phase 0 | 独立 Wave，勿混 Horizon C |
 | **IQ-RUBRIC-55** | rubric ≥5.5 达标战役 | 行为证据清单 vs 继续 exception | §15 续 Wave · 非单 PR |
 | **D5-ADR** | d5 双架构 ADR 定稿 | 仅文档 vs 影响代码 | §6 d5 收口 |
 | **EV-VISION-DEFER** | 识图 / OpenRouter | 维持搁置 vs 恢复 | M-002 路径 |
+
+#### 19.3.1 G-ADR-002 勾选（刘哥 · 真源 [`p3-cross-session-retrieval.md`](./proposals/p3-cross-session-retrieval.md) §5）
+
+| 勾 | 决策点 |
+|:--:|--------|
+| [ ] | **G1 — L2**：批准新会话自动 `session_search` 预取进 prompt（带字符 cap；无 query 源则不空转） |
+| [ ] | **G2 — L3**：批准语义 RAG 预取（**独立 flag，默认关**；`MIMIR_CROSS_SESSION_RAG=0` 时等同仅 L2） |
+| [ ] | **G3 — 顺序**：实施顺序 **L2 → L3 → ENGINE-P3W-01**（写路径 Facade）OK |
+
+**未勾前禁止：** 改 `SESSION_SEARCH_BACKEND` 生产默认 · P3-XSR-02/03 实现 · WM Phase0 大 diff。
 
 ### 19.4 Icebox 与外部引用
 
