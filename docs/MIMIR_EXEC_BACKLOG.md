@@ -914,7 +914,7 @@ Read backlog §17 P1-LONG-AUTONOMY 第一条 [ ]。
 | **OS-TOOL-SRCH-01** | P1 | 工具级搜索（ToolRanker） | 依赖 OS-SCH-02 | [x] |
 | **P3-XSR-01** | 调研 | 跨会话 RAG / 分层注入 | §11 `P3-CROSS-SESSION-RETRIEVAL` | [x] |
 | **ADR-002-impl** | 拍板 | ADR-002 **写入路径** 实现（非 spike） | `adr-002-write-spike.md` 已有 | [ ] |
-| **WM-HORIZON-01** | 拍板 | 世界模型提案 Phase 0 | `world-model-evolution-plan.md` | [ ] |
+| **WM-HORIZON-01** | 拍板 | 世界模型提案 Phase 0 | `world-model-evolution-plan.md` | [x] 2026-05-31 · Wave B closeout |
 | **IQ-RUBRIC-55** | 产品 | rubric **≥5.5** 行为证据 | 现 4.9 exception | [ ] |
 | **GH-ICE-21-22** | icebox | D5/D6 余债 | #21 #22 | [ ] |
 | **CLR-B-FEISHU** | 运维 | Gateway #9 / 空表头飞书复验 | deferred | [ ] |
@@ -1007,7 +1007,7 @@ Read docs/superpowers/plans/2026-05-27-horizon-c-master-iteration.md + backlog �
 |----|----------|----------|----------|
 | **G-ADR-002** | P3 跨会话 **L2/L3 注入**（提案 §5） | **已勾** G1+G2+G3 · §19.3.1 · 2026-05-27 | **P3-XSR-02** · P3-XSR-03 · ENGINE-P3W-01 |
 | **ADR-002-impl** | cross-session **写入路径** Facade | spike 已有；全路径实现 | **ENGINE-P3W-01**（建议 **L2→L3 后再做**，见 G3） |
-| **WM-HORIZON-01** | 世界模型 Phase 0 | 读 `world-model-evolution-plan.md` Phase 0 | 独立 Wave，勿混 Horizon C |
+| **WM-HORIZON-01** | 世界模型 Phase 0 | 读 `world-model-evolution-plan.md` Phase 0 | [x] 2026-05-31 · `wm-phase0-spike-closeout.md` |
 | **IQ-RUBRIC-55** | rubric ≥5.5 达标战役 | 行为证据清单 vs 继续 exception | §15 续 Wave · 非单 PR |
 | **D5-ADR** | d5 双架构 ADR 定稿 | 仅文档 vs 影响代码 | §6 d5 收口 |
 | **EV-VISION-DEFER** | 识图 / OpenRouter | 维持搁置 vs 恢复 | M-002 路径 |
@@ -1176,7 +1176,7 @@ Read bridge §1「@Mimir 必读」+ backlog §20.2 第一条 [ ]。
 |----|------|------|------|
 | **ADR-002-impl** | cross-session 写入 Facade 全路径 | **ENGINE-P3W-01** | [x] 2026-05-28 · 授权 Phase2 MemoryWriteFacade（`adr-002-impl-gate-brief.md`） |
 | **IQ-RUBRIC-55** | rubric **≥5.5** 行为证据战役 vs 继续 4.9 exception | §20.4 Wave A | [ ] |
-| **WM-HORIZON-01** | 世界模型 Phase 0（独立 Wave） | §20.4 Wave B | [ ] |
+| **WM-HORIZON-01** | 世界模型 Phase 0（独立 Wave） | §20.4 Wave B | [x] 2026-05-31 · closeout `wm-phase0-spike-closeout.md` |
 | **D5-ADR** | d5 双架构 ADR 定稿 | §6 收口 | [ ] |
 | **EV-VISION-DEFER** | 识图 / OpenRouter | M-002 | [ ] 维持搁置 |
 
@@ -1187,7 +1187,9 @@ Read bridge §1「@Mimir 必读」+ backlog §20.2 第一条 [ ]。
 | Wave | 条件 | 内容 | 出口 |
 |------|------|------|------|
 | **A · IQ 5.5** | **IQ-RUBRIC-55** ✅ | 方向文档 §1.5 检查表 · 7d `session_search` 使用率 · 进化链 ok% 周常 · 飞书行为 3 场景 | rubric ≥5.5 或更新 exception 理由 |
-| **B · WM Phase0** | **WM-HORIZON-01** ✅ | `world-model-evolution-plan.md` Phase 0 spike only | closeout · **禁止** 与 Horizon C 工程混 PR |
+| **B · WM Phase0** | **WM-HORIZON-01** ✅ | `world-model-evolution-plan.md` Phase 0 spike only | [x] closeout · **禁止** 与 Horizon C 工程混 PR |
+
+**Wave B 工程粒**：[`phase0/wave-b-execution-plan.md`](./phase0/wave-b-execution-plan.md) · WB-B00～B03 [x]
 
 ### 20.5 Icebox（不抢 §20.1/§20.2）
 
