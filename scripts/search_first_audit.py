@@ -15,19 +15,12 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from agent.search_first_guard import (
+    EXPLICIT_CROSS_SESSION_RE,
+    RECALL_RE,
+    exclude_user_message,
+)
 from mimir_constants import get_mimir_home
-
-RECALL_RE = re.compile(
-    r"(上次|之前|历史|还记得|继续|查一下|查历史|world model|世界模型|IR-|decision|偏好|preference)",
-    re.I,
-)
-
-EXPLICIT_CROSS_SESSION_RE = re.compile(
-    r"(上次|之前(?:聊|说|做|提到|发|的)?|历史(?:决策|记录|对话|会话)|跨会话|"
-    r"查(?:一下)?历史|还记得|我们之前|prior\s+(?:session|conversation)|"
-    r"earlier\s+decision|IR-\d)",
-    re.I,
-)
 
 TOOL_CALL_RE = re.compile(r'"name"\s*:\s*"session_search"|session_search\s*\(')
 
@@ -47,33 +40,7 @@ class AuditRow:
 
 def exclude_reason(content: str) -> str:
     """False-positive classes excluded from filtered violation rate (WA-A06)."""
-    text = (content or "").strip()
-    if not text:
-        return "empty"
-    if len(text) > 500 or re.search(r"[┌└│├─┤╭╮╯╰]", text):
-        return "user_paste_block"
-    if re.search(
-        r"(放入\s*Bridge|写入\s*Bridge|bridge\s*§|MIMIR_LIU_CURSOR_BRIDGE)",
-        text,
-        re.I,
-    ):
-        return "bridge_write_task"
-    if re.search(r"已经\s*new|/new\s*了|新对话.*继续", text, re.I):
-        return "fresh_session_continue"
-    if re.search(r"(刚刚聊|刚才聊|刚才说|刚才放|刚才的理解|this session)", text, re.I):
-        return "same_session_recall"
-    if re.match(r"继续(?:离席|入库|执行|推进|做|检查)", text):
-        return "task_continuation"
-    if re.search(r"(之前(?:所有)?给你发的|深度思考一遍.*之前)", text, re.I):
-        return "same_session_synthesis"
-    if re.search(r"(我给你|我发给你|如下(?:是)?|总结如下|被蒸馏过的)", text, re.I):
-        return "user_provides_material"
-    if re.search(r"世界模型|world model|JEPA|杨立昆", text, re.I):
-        if not EXPLICIT_CROSS_SESSION_RE.search(text):
-            return "topic_discussion_no_recall_ask"
-    if RECALL_RE.search(text) and not EXPLICIT_CROSS_SESSION_RE.search(text):
-        return "broad_recall_not_explicit"
-    return ""
+    return exclude_user_message(content)
 
 
 def _load_turns(path: Path) -> List[Dict[str, Any]]:

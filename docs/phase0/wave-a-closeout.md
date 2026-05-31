@@ -8,6 +8,7 @@
 | ID | 状态 | 要点 |
 |----|:----:|------|
 | WA-A00～A06 | [x] | 基线 · eval · tool_quality · search 基线/审计 · prompt+audit 加固 |
+| WA-A06.1 | [x] | 跨会话 **search-first 工具守卫**（`search_first_guard.py` · tier0 +9 tests） |
 | WA-A07 | [x] | intent 接线证据 → [`wave-a-intent-nudge-evidence.md`](./wave-a-intent-nudge-evidence.md) |
 | WA-A08 | [x] | memory nudge 已在 MimirAgentLoop；`.env` interval=10；生产 log 行 |
 | WA-A09 | [x] | 飞书 3 场景 **0P/1部分** → [`iqevo-30`](./iqevo-30-feishu-smoke-evidence.md) |
@@ -34,7 +35,6 @@
 
 ## 建议后续（非 Wave A 范围）
 
-- **A06.1**：跨会话句 **工具守卫**（先 search 再答）— 独立 PR  
 - **Wave B**：WM Phase0 spike（`world-model-evolution-plan.md`）· **禁止** 与 Horizon C 混 PR  
 - **Q5**：对齐 `MIMIR_FEEDBACK_COLLECTOR` 与 gateway `.env`
 
