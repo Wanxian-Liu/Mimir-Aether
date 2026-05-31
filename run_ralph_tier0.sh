@@ -194,6 +194,7 @@ python3 -m pytest -q \
   tests/agent/test_cross_session_retrieval_l3.py \
   tests/contract/test_horizon_p3_xsr_03.py \
   tests/contract/test_horizon_engine_ws_01.py \
+  tests/contract/test_horizon_engine_rollback_01.py \
   tests/agent/test_conversation_nudges.py \
   tests/agent/test_persistent_single_writer_ind05.py
 

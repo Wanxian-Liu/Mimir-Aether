@@ -513,13 +513,14 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-27 | **MI-AWAY-08** | **Mimir** | L2 侧证通过 · 飞书未见 `<retrieved-sessions>` → §19.6 **15/16** |
 | 2026-05-27 | **MI-AWAY-15** | **Mimir** | 离席 16/16 汇总 · evidence 卷齐 → §19.6 **16/16** |
 | 2026-05-28 | **§20 队列 v2** | **Cursor** | bridge+backlog 合并 · 工程 **14/17** 剩 3 粒 · Mimir 运维 **§20.2** · MI-AWAY 归档 |
+| 2026-05-28 | **ENGINE-ROLLBACK-01** | **Cursor** | STAB-05 证据结案 · 无新代码 · contract `test_horizon_engine_rollback_01` · base **`bb238cf`** · Gateway **不必** · §20.1 **1/3** · 下一 **ENGINE-P3W-01**（§20.3 ADR-002-impl） |
 
 ---
 
 ## 5. Mimir 进度笔记
 
-- **main**：`24c6c2c`（MI-AWAY docs）· 工程基线 **`b6ed761`**（ENGINE-WS-01）· tier0 **625+2 PASS**
-- **Horizon C 工程**：**14/17 [x]** · 下一粒 **ENGINE-ROLLBACK-01**（§20.1）
+- **main**：`bb238cf`（§20 队列 v2）· 工程基线 **`b6ed761`** + **ENGINE-ROLLBACK-01** 本地 · tier0 **630+2 PASS**
+- **Horizon C 工程**：**15/17 [x]** · §20.1 **1/3** · 下一粒 **ENGINE-P3W-01**（阻塞 **ADR-002-impl** §20.3）
 - **离席轨**：**MI-AWAY 16/16 [x]** · 飞书 L2 块待 **OPS-L2-FEISHU-01**
 - **拍板阻塞**：**ADR-002-impl** · **IQ-RUBRIC-55** · **WM-HORIZON-01**（§20.3）
 - **身份（2026-05-19）**：Mimir **是智能体**（loop+tools+memory），**不是** DeepSeek 传话桶 — bridge §1

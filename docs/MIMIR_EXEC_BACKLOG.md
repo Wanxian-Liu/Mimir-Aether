@@ -1135,16 +1135,16 @@ Mimir §20.2 运维（单线，含 MI-AWAY 后续 2 粒）
 
 | 序 | ID | 任务 | 成功标准 | 状态 | 备注 |
 |:--:|-----|------|----------|------|------|
-| 1 | **ENGINE-ROLLBACK-01** | 进化回滚护栏 **验收结案** | STAB-05 已有 `evolution_rollback`；补 closeout + horizon contract；无缺口则 **无新代码** | [ ] | 对标 `engine-ws-01-closeout` 模式 |
+| 1 | **ENGINE-ROLLBACK-01** | 进化回滚护栏 **验收结案** | STAB-05 已有 `evolution_rollback`；补 closeout + horizon contract；无缺口则 **无新代码** | [x] 2026-05-28 · closeout · STAB-05 证据 | 对标 `engine-ws-01-closeout` 模式 |
 | 2 | **ENGINE-P3W-01** | ADR-002 **写路径** Facade（persistent 单写者） | spike + G3 顺序；tier0；`docs/phase0/engine-p3w-01-closeout.md` | [ ] | 依赖 **ADR-002-impl** 拍板（§20.3） |
 | 3 | **ENGINE-GW-01** | Gateway 稳定性 **总结案** | `GATEWAY_STABILITY_BACKLOG.md` 十条 + STAB 映射；无新 P0 | [ ] | STAB-07 已标完成；本粒=文档+契约 |
 
-**§20.1 进度**：**0/3** · Horizon C 工程总 **14/17（82%）**
+**§20.1 进度**：**1/3** · Horizon C 工程总 **15/17（~88%）**
 
 **Cursor 新窗一句**
 
 ```text
-Read backlog §20.1 第一条 [ ] + bridge §4 末行（ENGINE-WS-01 已勾）。
+Read backlog §20.1 第一条 [ ] + bridge §4 末行（ENGINE-ROLLBACK-01 已勾 → 下一 ENGINE-P3W-01 需 §20.3）。
 git pull · 基线 b6ed761 · 每粒 ./run_ralph_tier0.sh + evolution_log（若触达 agent/gateway/tools）。
 禁止 WM Phase0 大 diff · 勿改 SESSION_SEARCH 生产默认 · 勿 commit persistent.json。
 ```
