@@ -486,6 +486,50 @@ class MemoryStore:
 # Knowledge Discovery - Pipeline: Extract → Deduplicate → Score
 # =============================================================================
 
+def _discover_knowledge_fallback(
+    texts: List[str],
+    store: Optional["MemoryStore"],
+    *,
+    memory_md_goals: Optional[List[str]] = None,
+    current_task: str = "",
+) -> Dict[str, Any]:
+    """Keyword scan of MEMORY/USER when ML discovery components are unavailable (IQ-MEM-01)."""
+    del memory_md_goals  # reserved for future scoring
+    task_tokens = {
+        t.lower()
+        for t in re.split(r"[^\w\u4e00-\u9fff]+", (current_task or "") + " ".join(texts[:3]))
+        if len(t) >= 3
+    }
+    candidates: List[Dict[str, Any]] = []
+    if store:
+        for entry in list(store.memory_entries) + list(store.user_entries):
+            text = getattr(entry, "text", None) or str(entry)
+            if not text:
+                continue
+            lower = text.lower()
+            if task_tokens and not any(tok in lower for tok in task_tokens):
+                continue
+            candidates.append(
+                {
+                    "content": text[:500],
+                    "source": "memory_fallback",
+                    "confidence": 0.55,
+                }
+            )
+    return {
+        "success": True,
+        "mode": "fallback_keyword",
+        "candidates": candidates[:10],
+        "skipped": [],
+        "stats": {
+            "extracted": len(candidates),
+            "deduplicated": len(candidates),
+            "scored": len(candidates),
+            "candidates": len(candidates),
+        },
+    }
+
+
 def discover_knowledge(
     texts: List[str],
     store: Optional["MemoryStore"],
@@ -509,13 +553,12 @@ def discover_knowledge(
       - skipped: list of entries that didn't pass the threshold
     """
     if not KnowledgeExtractor or not KnowledgeDeduplicator or not ImportanceScorer:
-        return {
-            "success": False,
-            "error": "Knowledge discovery components not available.",
-            "candidates": [],
-            "skipped": [],
-            "stats": {},
-        }
+        return _discover_knowledge_fallback(
+            texts,
+            store,
+            memory_md_goals=memory_md_goals,
+            current_task=current_task,
+        )
 
     # --- Get existing memories for novelty/relevance scoring ---
     existing_memories = []
