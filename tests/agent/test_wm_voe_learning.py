@@ -23,6 +23,7 @@ _REQUIRED_FIELDS = {
 def test_append_surprise_event_writes_jsonl(tmp_path, monkeypatch):
     monkeypatch.setenv("MIMIR_WM_VOE_LEARNING", "1")
     out = tmp_path / "surprise_events.jsonl"
+    index = tmp_path / "learned_surprises.json"
     append_surprise_event(
         expected="command success",
         actual="command failed",
@@ -30,6 +31,7 @@ def test_append_surprise_event_writes_jsonl(tmp_path, monkeypatch):
         context_snapshot={"session_id": "s1"},
         guard_message="🔴 SURPRISE_DETECTED: outcome reversal — expected 'x' but got 'y'.",
         path=out,
+        learned_path=index,
     )
     lines = out.read_text(encoding="utf-8").strip().splitlines()
     assert len(lines) == 1
@@ -46,9 +48,14 @@ def test_append_surprise_event_writes_jsonl(tmp_path, monkeypatch):
 def test_run_checks_hook_writes_once_when_enabled(tmp_path, monkeypatch):
     monkeypatch.setenv("MIMIR_WM_VOE_LEARNING", "1")
     out = tmp_path / "events.jsonl"
+    index = tmp_path / "learned_surprises.json"
     monkeypatch.setattr(
         "agent.wm_voe_learning.default_surprise_events_path",
         lambda: out,
+    )
+    monkeypatch.setattr(
+        "agent.wm_voe_learning.default_learned_surprises_path",
+        lambda: index,
     )
     guard = DegenerationGuard()
     report = guard.run_checks(expected_vs_actual=("operation success", "operation failed"))
@@ -59,9 +66,14 @@ def test_run_checks_hook_writes_once_when_enabled(tmp_path, monkeypatch):
 def test_run_checks_hook_no_write_when_disabled(tmp_path, monkeypatch):
     monkeypatch.setenv("MIMIR_WM_VOE_LEARNING", "0")
     out = tmp_path / "events.jsonl"
+    index = tmp_path / "learned_surprises.json"
     monkeypatch.setattr(
         "agent.wm_voe_learning.default_surprise_events_path",
         lambda: out,
+    )
+    monkeypatch.setattr(
+        "agent.wm_voe_learning.default_learned_surprises_path",
+        lambda: index,
     )
     guard = DegenerationGuard()
     guard.run_checks(expected_vs_actual=("operation success", "operation failed"))
@@ -71,9 +83,10 @@ def test_run_checks_hook_no_write_when_disabled(tmp_path, monkeypatch):
 def test_append_twice_produces_two_lines(tmp_path, monkeypatch):
     monkeypatch.setenv("MIMIR_WM_VOE_LEARNING", "1")
     out = tmp_path / "surprise_events.jsonl"
+    index = tmp_path / "learned_surprises.json"
     msg = "🔴 SURPRISE_DETECTED: outcome reversal — expected 'a' but got 'b'."
     for _ in range(2):
-        append_surprise_event("success", "failed", "outcome reversal", {}, msg, path=out)
+        append_surprise_event("success", "failed", "outcome reversal", {}, msg, path=out, learned_path=index)
     assert len(out.read_text(encoding="utf-8").strip().splitlines()) == 2
 
 

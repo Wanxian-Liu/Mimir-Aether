@@ -515,6 +515,11 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-28 | **§20 队列 v2** | **Cursor** | bridge+backlog 合并 · 工程 **14/17** 剩 3 粒 · Mimir 运维 **§20.2** · MI-AWAY 归档 |
 | 2026-05-28 | **ADR-002-impl + P3W + GW-01** | **Cursor** | Gate brief → 拍板 · `memory_write_facade` · GW 十条总结案 · §20.1 **3/3** · Horizon **17/17** |
 | 2026-05-28 | **ENGINE-ROLLBACK-01** | **Cursor** | STAB-05 证据结案 · 无新代码 · contract `test_horizon_engine_rollback_01` · base **`bb238cf`** · Gateway **不必** · §20.1 **1/3** · 下一 **ENGINE-P3W-01**（§20.3 ADR-002-impl） |
+| 2026-06-01 | **WM-P11-04** | **Cursor** | Phase 1.1 closeout → `wm-phase11-closeout.md` · tier0 **665 PASS** · env 默认 off · plan §3.1 闭环 |
+| 2026-06-01 | **WM-P11-03** | **Cursor** | recall 前置 · 2nd pair CLEAN · JSONL 1 行 · tier0 **665 PASS** · next **WM-P11-04** |
+| 2026-06-01 | **WM-P11-02** | **Cursor** | `wm_learning_context` on surprise · `MIMIR_WM_VOE_REPLAN_CTX` 默认 0 · tier0 **663 PASS** · next **WM-P11-03** |
+| 2026-06-01 | **WM-P11-01** | **Cursor** | `learned_surprises.json` lookup/record + JSONL dual-write · tier0 **661 PASS** · M6 已记 · next **WM-P11-02** |
+| 2026-06-01 | **WM-P11-00** | **Cursor** | Phase 1.1 scope locked → `docs/phase0/wm-phase11-scope.md` · next **WM-P11-01** recall index |
 | 2026-05-27 | **OPS-L2-FEISHU-01** | **Cursor** | Feishu `/new` L2：session_key 对齐 MIMIR/approval · dotenv 后 re-bind · tier0 **641+2** · **Gateway 需重启** · closeout `ops-l2-feishu-01-closeout.md` |
 
 ---

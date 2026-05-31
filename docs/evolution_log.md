@@ -143,3 +143,7 @@ Append-only. Newest rows at the **bottom**. See `**docs/M6_EVOLUTION.md`** for r
 | 20260531T131352Z_905bfd3-dirty | 2026-05-31T13:13:52Z | 905bfd3-dirty | ./run_ralph_tier0.sh | 0 | OPS-L2-FEISHU-01: session_key MIMIR/approval alignment + dotenv re-bind; Feishu L2 prefetch tests; tier0 645 PASS; metrics: n/a |
 | 20260531T162814Z_b5e30c2-dirty | 2026-05-31T16:28:14Z | b5e30c2-dirty | ./run_ralph_tier0.sh | 0 | WB-B01 world_model_spike rule MVP; tier0 654 PASS |
 | 20260531T163339Z_b5e30c2-dirty | 2026-05-31T16:33:39Z | b5e30c2-dirty | ./run_ralph_tier0.sh | 0 | WB-B02 VoE surprise→JSONL + guard hook; tier0 659 PASS |
+| 20260531T174811Z_0789ee1-dirty | 2026-05-31T17:48:11Z | 0789ee1-dirty | ./run_ralph_tier0.sh | 0 | WM-P11-01 VoE learned_surprises index + dual-write; tier0 661 PASS |
+| 20260531T175841Z_0789ee1-dirty | 2026-05-31T17:58:41Z | 0789ee1-dirty | ./run_ralph_tier0.sh | 0 | WM-P11-02 replan wm_learning_context; tier0 663 PASS |
+| 20260531T180411Z_0789ee1-dirty | 2026-05-31T18:04:11Z | 0789ee1-dirty | ./run_ralph_tier0.sh | 0 | WM-P11-03 VoE recall suppresses 2nd surprise; tier0 665 PASS |
+| 20260531T181425Z_0789ee1-dirty | 2026-05-31T18:14:25Z | 0789ee1-dirty | ./run_ralph_tier0.sh | 0 | WM-P11-04 Phase1.1 closeout; plan §3.1 recall+replan; tier0 665 PASS |
