@@ -123,7 +123,7 @@ rg 'apply_evolution_from_analysis|SkillEvolutionPipeline' agent/execution_pipeli
 | Role | Decision | Date |
 |------|----------|------|
 | Engineering (Cursor) | Path A canonical; B/C/D non-default as above | 2026-05-19 |
-| 刘哥 | Accept ADR-008 for production policy | _pending sign-off_ |
+| 刘哥 | Accept ADR-008: Path A production canonical; B/C/D non-default | 2026-05-31 |
 
 ---
 

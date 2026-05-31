@@ -1,6 +1,6 @@
 # D5-ADR — §6 d5 收口
 
-> **日期**：2026-05-19  
+> **日期**：2026-05-19（工程）· **刘哥签收** 2026-05-31  
 > **ADR**：[ADR-008: Evolution canonical path](../adr/008-evolution-canonical-path.md)  
 > **验证**：`./run_ralph_tier0.sh`（含 `test_d5_adr_evolution_canonical`）
 
@@ -13,9 +13,9 @@
 | D5-1 | 禁 `simulated:true` | [x] IEVO-01 |
 | D5-2 | 单通路 FIX 写 SKILL | [x] E-009 |
 | D5-3 | evolution pytest tier0 | [x] IEVO-02 |
-| **D5-ADR** | 双架构 ADR 定稿 | **[x] ADR-008** |
+| **D5-ADR** | 双架构 ADR 定稿 | **[x] ADR-008 · 刘哥签收 2026-05-31** |
 
-**d5 进度**：**6/6 [x]** — §6 收口完成。
+**d5 进度**：**6/6 [x]** — §6 收口完成 · §20.3 拍板闭合。
 
 ## 路径裁定（摘要）
 

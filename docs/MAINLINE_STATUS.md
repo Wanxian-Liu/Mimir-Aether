@@ -5,11 +5,11 @@
 
 | 字段 | 值 |
 |------|-----|
-| **最近更新** | 2026-05-19 |
-| **更新人** | Cursor（D5-ADR 定稿） |
+| **最近更新** | 2026-05-31 |
+| **更新人** | 刘哥（D5-ADR 签收）+ Cursor |
 | **仓库根（真源）** | `~/src/MimirAether` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁 **679**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
-| **本轮摘要** | **D5-ADR 收口** · ADR-008 进化真源 · §6 d5 **6/6** · tier0 污染隔离已推 · 生产 ok% 仍 P3-12 观测 · **CLR-B-FEISHU** 待刘哥 |
+| **本轮摘要** | **D5-ADR 刘哥签收** · ADR-008 路径 A 生产真源 · §6/§20.3 闭合 · 生产 ok% 仍 P3-12 观测 · **CLR-B-FEISHU** 待刘哥 |
 
 ---
 
@@ -81,6 +81,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-31 | **D5-ADR 刘哥签收**：ADR-008 路径 A 为生产进化真源；§20.3 拍板闭合。 |
 | 2026-05-19 | **D5-ADR 收口**：ADR-008 生产进化真源 · §6 d5 6/6 · closeout `d5-adr-closeout.md`。 |
 | 2026-06-01 | **IQ-RUBRIC-55 Phase3 收官**：~5.1+exception · P3-11 deprecate/CAPTURED · closeout `iq-55-phase3-closeout.md`。 |
 | 2026-06-01 | **IQ-RUBRIC-55 Phase3 立项**（刘哥开 Phase3）：§20.3/§20.4 · execution-plan · 不含 1c 生产。 |
