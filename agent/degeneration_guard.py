@@ -438,9 +438,14 @@ class DegenerationGuard:
                     exp, act = expected_vs_actual
                     label = surprise_label_from_guard_message(surprise_msg)
                     if is_wm_voe_replan_ctx_enabled():
-                        report.details["wm_learning_context"] = format_wm_learning_context(
-                            exp, act, label
-                        )
+                        ctx = format_wm_learning_context(exp, act, label)
+                        report.details["wm_learning_context"] = ctx
+                        try:
+                            from agent.wm_voe_learning import set_pending_wm_learning_context
+
+                            set_pending_wm_learning_context(ctx)
+                        except Exception as exc:
+                            logger.warning("WM VoE pending context failed: %s", exc)
                     if is_wm_voe_learning_enabled():
                         append_surprise_event(exp, act, label, {}, surprise_msg)
                 except Exception as exc:
