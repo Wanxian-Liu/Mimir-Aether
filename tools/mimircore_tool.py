@@ -86,10 +86,10 @@ def _resolve_mimicore_import_dir() -> Path:
 
 
 def _get_capsules_publish_dir() -> Path:
-    """Canonical 胶囊发布目录（HTML）。"""
-    from mimir_constants import get_mimir_home
+    """Canonical 胶囊发布目录（HTML）· ADR-002 path A via MemoryWriteFacade."""
+    from agent.memory_write_facade import get_capsules_dir
 
-    return get_mimir_home() / "memory" / "capsules"
+    return get_capsules_dir()
 
 
 def _ensure_mimircore_importable() -> None:
@@ -178,8 +178,9 @@ def _publish_capsule_html(
     capsule_type: str,
 ) -> str:
     """写入 memory/capsules/*.html；返回 publish_status 片段。"""
+    from agent.memory_write_facade import write_capsule_html
+
     publish_dir = _get_capsules_publish_dir()
-    publish_dir.mkdir(parents=True, exist_ok=True)
 
     title = _title_from_input(input_text)
     title_slug = _title_slug(title)
@@ -207,7 +208,7 @@ def _publish_capsule_html(
         capsule_type=cap_type_str,
         extra_meta=extra,
     )
-    filepath.write_text(page, encoding="utf-8")
+    write_capsule_html(filepath=filepath, html=page)
     return f"published: {filename}"
 
 

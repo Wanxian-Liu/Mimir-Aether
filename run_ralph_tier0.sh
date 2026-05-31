@@ -195,6 +195,9 @@ python3 -m pytest -q \
   tests/contract/test_horizon_p3_xsr_03.py \
   tests/contract/test_horizon_engine_ws_01.py \
   tests/contract/test_horizon_engine_rollback_01.py \
+  tests/agent/test_memory_write_facade_p3w.py \
+  tests/contract/test_horizon_engine_p3w_01.py \
+  tests/contract/test_horizon_engine_gw_01.py \
   tests/agent/test_conversation_nudges.py \
   tests/agent/test_persistent_single_writer_ind05.py
 

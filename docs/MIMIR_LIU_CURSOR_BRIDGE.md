@@ -18,7 +18,7 @@
 ### 2026-05-28 — 刘哥在席 · 队列改 §20
 
 - **唯一入口**：backlog **§20**（bridge §4 + §19 签收已归档）。
-- **Cursor**：**§20.1** 第一条 `[ ]` = **ENGINE-ROLLBACK-01**（STAB-05 验收结案，对标 WS-01）。
+- **Cursor**：**§20.1 工程轨 3/3 已勾**；日常粒见 **§20.4**（IQ 5.5 / WM）或 **§20.2** 运维。
 - **Mimir**：**§20.2** 第一条 `[ ]` = **OPS-L2-FEISHU-01**（MI-AWAY-08 后续：飞书 `/new` 未见 `<retrieved-sessions>`）。
 - **§19.6 MI-AWAY**：**16/16 [x]** · commit **`24c6c2c`** · 证据 [`phase0/mimir-away-evidence.md`](./phase0/mimir-away-evidence.md)。
 - **拍板**：**§20.3**（**ADR-002-impl** 勾前勿开 **ENGINE-P3W-01**）。
@@ -513,6 +513,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-27 | **MI-AWAY-08** | **Mimir** | L2 侧证通过 · 飞书未见 `<retrieved-sessions>` → §19.6 **15/16** |
 | 2026-05-27 | **MI-AWAY-15** | **Mimir** | 离席 16/16 汇总 · evidence 卷齐 → §19.6 **16/16** |
 | 2026-05-28 | **§20 队列 v2** | **Cursor** | bridge+backlog 合并 · 工程 **14/17** 剩 3 粒 · Mimir 运维 **§20.2** · MI-AWAY 归档 |
+| 2026-05-28 | **ADR-002-impl + P3W + GW-01** | **Cursor** | Gate brief → 拍板 · `memory_write_facade` · GW 十条总结案 · §20.1 **3/3** · Horizon **17/17** |
 | 2026-05-28 | **ENGINE-ROLLBACK-01** | **Cursor** | STAB-05 证据结案 · 无新代码 · contract `test_horizon_engine_rollback_01` · base **`bb238cf`** · Gateway **不必** · §20.1 **1/3** · 下一 **ENGINE-P3W-01**（§20.3 ADR-002-impl） |
 
 ---
@@ -520,9 +521,9 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 ## 5. Mimir 进度笔记
 
 - **main**：`bb238cf`（§20 队列 v2）· 工程基线 **`b6ed761`** + **ENGINE-ROLLBACK-01** 本地 · tier0 **630+2 PASS**
-- **Horizon C 工程**：**15/17 [x]** · §20.1 **1/3** · 下一粒 **ENGINE-P3W-01**（阻塞 **ADR-002-impl** §20.3）
+- **Horizon C 工程**：**17/17 [x]** · §20.1 **3/3** · P3W + GW-01 已结案
 - **离席轨**：**MI-AWAY 16/16 [x]** · 飞书 L2 块待 **OPS-L2-FEISHU-01**
-- **拍板阻塞**：**ADR-002-impl** · **IQ-RUBRIC-55** · **WM-HORIZON-01**（§20.3）
+- **拍板阻塞**：**IQ-RUBRIC-55** · **WM-HORIZON-01**（§20.3）；**ADR-002-impl** ✅
 - **身份（2026-05-19）**：Mimir **是智能体**（loop+tools+memory），**不是** DeepSeek 传话桶 — bridge §1
 - **Wave 0 A / 1 B / 2 C / D / E**：**[x]**（刘哥 §8.3 签收 2026-05-25）
 - **Horizon A**：**[x]** SEM + IQ-EVO Wave 1/2

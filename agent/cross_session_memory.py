@@ -37,7 +37,7 @@ from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from pathlib import Path
 
-from agent.persistent_store import get_persistent_path, save_merged
+from agent.memory_write_facade import get_persistent_path, save_persistent_merged
 
 
 # 持久化文件路径（随 MIMIR_AETHER_HOME 解析；与 persistent_store 一致）
@@ -169,7 +169,7 @@ class CrossSessionMemory:
         """保存持久化记忆（单写者锁 + 磁盘合并，ADR-001）。"""
         self._data["last_session_end"] = datetime.now(timezone.utc).isoformat()
         self.file_path = get_persistent_path()
-        ok = save_merged(
+        ok = save_persistent_merged(
             self._data,
             CrossSessionMemory.merge_disk_into_memory,
             self.file_path,

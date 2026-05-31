@@ -1,6 +1,6 @@
 # ADR-002: 记忆写入路径统一（stub）
 
-> **状态**: deferred（仅文档 stub，无实现排期）  
+> **状态**: Phase2 最小实现（ENGINE-P3W-01 · `agent/memory_write_facade.py`）；全路径合并层仍迭代中  
 > **日期**: 2026-05-24  
 > **来源**: ISSUES #3 | CLARIFY_BASELINE §4 | Prompt 1 收口
 

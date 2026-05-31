@@ -19,7 +19,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from agent import persistent_store
+from agent import memory_write_facade as mwf
 
 logger = logging.getLogger(__name__)
 
@@ -269,7 +269,7 @@ def schedule_skill_curator_lifecycle_pass(
 def _get_usage() -> Dict[str, str]:
     """从 persistent.json 读取 skill_usage 段。读取失败时返回空 dict。"""
     try:
-        data = persistent_store.load()
+        data = mwf.load_persistent()
         return data.get("skill_usage", {})
     except RuntimeError as e:
         logger.warning("Cannot track skill usage: %s", e)
@@ -279,7 +279,7 @@ def _get_usage() -> Dict[str, str]:
 def _set_usage(usage: Dict[str, str]) -> None:
     """写入 skill_usage 到 persistent.json。读取/写入失败时仅记录日志。"""
     try:
-        persistent_store.read_modify_write(
+        mwf.write_persistent_mutator(
             lambda data: data.__setitem__("skill_usage", usage)
         )
     except (RuntimeError, ValueError) as e:
@@ -388,7 +388,7 @@ def _get_dormant_root() -> Path:
 def _get_dormant_registry() -> dict:
     """从 persistent.json 读取 dormant_skills 段。读取失败时返回空 dict。"""
     try:
-        data = persistent_store.load()
+        data = mwf.load_persistent()
         return data.get("dormant_skills", {})
     except RuntimeError as e:
         logger.warning("Cannot read dormant registry: %s", e)
@@ -398,7 +398,7 @@ def _get_dormant_registry() -> dict:
 def _save_dormant_registry(registry: dict) -> None:
     """写入 dormant_skills 到 persistent.json。失败时仅记录日志。"""
     try:
-        persistent_store.read_modify_write(
+        mwf.write_persistent_mutator(
             lambda data: data.__setitem__("dormant_skills", registry)
         )
     except (RuntimeError, ValueError) as e:

@@ -1,8 +1,8 @@
 # §20.3 勾选建议 — ADR-002-impl（解锁 ENGINE-P3W-01）
 
 > **读者**：刘哥 · **日期**：2026-05-28  
-> **状态**：待拍板 · backlog §20.3 行 **ADR-002-impl** 仍为 `[ ]`  
-> **Cursor**：ENGINE-P3W-01 **未开工**（Gate 未过）
+> **状态**：**已拍板** 2026-05-28 · §20.3 **ADR-002-impl** `[x]`  
+> **Cursor**：ENGINE-P3W-01 **已结案** · `engine-p3w-01-closeout.md`
 
 ---
 

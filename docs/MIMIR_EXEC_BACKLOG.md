@@ -1,6 +1,6 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-05-28（**§20 执行队列 v2** · Horizon C 工程 14/17 · MI-AWAY 16/16 已归档）  
+> **最近更新**：2026-05-28（**§20.1 工程轨 3/3 [x]** · P3W + GW-01 · ADR-002-impl 已勾）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5  
 > **规则**：**只认 §20 第一条 `[ ]`（按角色列）**。历史 §19.1/§19.6 只读归档。Handoff：[`world-model-agent-handoff.md`](./superpowers/plans/2026-05-27-world-model-agent-handoff.md)。主计划：[`horizon-c-master-iteration.md`](./superpowers/plans/2026-05-27-horizon-c-master-iteration.md)。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
@@ -1136,10 +1136,10 @@ Mimir §20.2 运维（单线，含 MI-AWAY 后续 2 粒）
 | 序 | ID | 任务 | 成功标准 | 状态 | 备注 |
 |:--:|-----|------|----------|------|------|
 | 1 | **ENGINE-ROLLBACK-01** | 进化回滚护栏 **验收结案** | STAB-05 已有 `evolution_rollback`；补 closeout + horizon contract；无缺口则 **无新代码** | [x] 2026-05-28 · closeout · STAB-05 证据 | 对标 `engine-ws-01-closeout` 模式 |
-| 2 | **ENGINE-P3W-01** | ADR-002 **写路径** Facade（persistent 单写者） | spike + G3 顺序；tier0；`docs/phase0/engine-p3w-01-closeout.md` | [ ] | 依赖 **ADR-002-impl** 拍板（§20.3） |
-| 3 | **ENGINE-GW-01** | Gateway 稳定性 **总结案** | `GATEWAY_STABILITY_BACKLOG.md` 十条 + STAB 映射；无新 P0 | [ ] | STAB-07 已标完成；本粒=文档+契约 |
+| 2 | **ENGINE-P3W-01** | ADR-002 **写路径** Facade（persistent 单写者） | spike + G3 顺序；tier0；`docs/phase0/engine-p3w-01-closeout.md` | [x] 2026-05-28 · `memory_write_facade` | ADR-002-impl ✅ |
+| 3 | **ENGINE-GW-01** | Gateway 稳定性 **总结案** | `GATEWAY_STABILITY_BACKLOG.md` 十条 + STAB 映射；无新 P0 | [x] 2026-05-28 · closeout · 无新代码 | STAB-07 已标完成 |
 
-**§20.1 进度**：**1/3** · Horizon C 工程总 **15/17（~88%）**
+**§20.1 进度**：**3/3 [x]** · Horizon C 工程总 **17/17（100%）**
 
 **Cursor 新窗一句**
 
@@ -1174,7 +1174,7 @@ Read bridge §1「@Mimir 必读」+ backlog §20.2 第一条 [ ]。
 
 | ID | 决策 | 解锁 | 状态 |
 |----|------|------|------|
-| **ADR-002-impl** | cross-session 写入 Facade 全路径 | **ENGINE-P3W-01** | [ ] |
+| **ADR-002-impl** | cross-session 写入 Facade 全路径 | **ENGINE-P3W-01** | [x] 2026-05-28 · 授权 Phase2 MemoryWriteFacade（`adr-002-impl-gate-brief.md`） |
 | **IQ-RUBRIC-55** | rubric **≥5.5** 行为证据战役 vs 继续 4.9 exception | §20.4 Wave A | [ ] |
 | **WM-HORIZON-01** | 世界模型 Phase 0（独立 Wave） | §20.4 Wave B | [ ] |
 | **D5-ADR** | d5 双架构 ADR 定稿 | §6 收口 | [ ] |
