@@ -144,8 +144,17 @@ def run_post_analysis_sync(
         )
         try:
             from agent.execution_pipeline import apply_evolution_from_analysis
+            from agent.synthetic_sessions import evolution_allowed_for_session
 
-            evo_results = apply_evolution_from_analysis(analysis)
+            if not evolution_allowed_for_session(session_id):
+                logger.debug(
+                    "post_analysis evolution skipped (synthetic session, production home) "
+                    "session_id=%s",
+                    session_id,
+                )
+                evo_results = []
+            else:
+                evo_results = apply_evolution_from_analysis(analysis)
             if evo_results:
                 ok_n = sum(1 for r in evo_results if r.success)
                 logger.info(

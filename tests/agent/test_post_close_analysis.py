@@ -164,6 +164,53 @@ def test_post_analysis_evolution_after_close_without_session(tmp_path, monkeypat
     assert "# after async" in (skill_dir / "SKILL.md").read_text(encoding="utf-8")
 
 
+def test_post_analysis_skips_evolution_on_production_home(monkeypatch, tmp_path):
+    """Synthetic iq40 session must not apply evolution when home is ~/.mimiraether."""
+    prod = Path.home() / ".mimiraether"
+    monkeypatch.setenv("MIMIR_AETHER_HOME", str(prod))
+    monkeypatch.setenv("HERMES_HOME", str(prod))
+    monkeypatch.setenv("MIMIR_AUTO_ANALYSIS", "1")
+    monkeypatch.setenv("MIMIR_AUTO_EVOLVE", "1")
+
+    pipeline_result = {
+        "errors": [{"tool_name": "read_file", "message": "fail"}],
+        "trajectory_path": str(tmp_path / "missing-traj.jsonl"),
+        "quality_report": {},
+    }
+    analysis_payload = {
+        "summary": "x",
+        "overall_rating": 5,
+        "tool_issues": [],
+        "suggestions": [
+            {
+                "target": "read_file",
+                "action": "fix",
+                "reason": "r",
+                "suggested_changes": "c",
+                "priority": 1,
+                "confidence": 0.9,
+            }
+        ],
+    }
+    mock_response = MagicMock()
+    mock_response.choices = [
+        MagicMock(message=MagicMock(content=json.dumps(analysis_payload)))
+    ]
+
+    from agent.post_close_analysis import run_post_analysis_sync
+
+    with patch("agent.auxiliary_client.call_llm", return_value=mock_response):
+        with patch(
+            "agent.execution_pipeline.apply_evolution_from_analysis"
+        ) as mock_evo:
+            run_post_analysis_sync(
+                pipeline_result,
+                task_name="iq40",
+                session_id="iq40-sess",
+            )
+            mock_evo.assert_not_called()
+
+
 def test_post_analysis_skips_evolution_when_auto_evolve_off(tmp_path, monkeypatch):
     monkeypatch.setenv("MIMIR_AETHER_HOME", str(tmp_path))
     monkeypatch.setenv("MIMIR_AUTO_ANALYSIS", "1")

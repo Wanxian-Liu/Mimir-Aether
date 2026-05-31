@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from agent.synthetic_sessions import is_synthetic_session_id
 from mimir_constants import get_mimir_home
 
 _EVOLUTION_RE = re.compile(
@@ -27,8 +28,6 @@ _ENV_KEYS = (
     "MIMIR_FEEDBACK_COLLECTOR",
     "MIMIR_AUTO_1C_POLICY",
 )
-# Tier0 / contract sessions pollute production logs when home is shared.
-_TEST_SESSION_PREFIXES = ("iq07-", "iq40-", "fb-sess", "iqevo")
 
 
 def _parse_env(home: Path) -> Dict[str, str]:
@@ -45,11 +44,6 @@ def _parse_env(home: Path) -> Dict[str, str]:
         if key in _ENV_KEYS:
             out[key] = val.strip().strip('"').strip("'")
     return out
-
-
-def _is_test_session(session_id: str) -> bool:
-    sid = (session_id or "").lower()
-    return any(sid.startswith(p) or sid == p.rstrip("-") for p in _TEST_SESSION_PREFIXES)
 
 
 def scan_agent_log(
@@ -81,7 +75,7 @@ def scan_agent_log(
             pass
         if ts is not None and ts < cutoff:
             continue
-        if exclude_test_sessions and _is_test_session(session_id):
+        if exclude_test_sessions and is_synthetic_session_id(session_id):
             continue
         lines_all.append(
             {
