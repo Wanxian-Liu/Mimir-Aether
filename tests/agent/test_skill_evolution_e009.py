@@ -23,6 +23,48 @@ def test_normalize_evolution_action_aliases():
     assert normalize_evolution_action("derive") == "derived"
     assert normalize_evolution_action("capture") == "captured"
     assert normalize_evolution_action("fix") == "fix"
+    assert normalize_evolution_action("deprecate") == "deprecate"
+
+
+def test_fix_without_skill_dir_falls_back_to_captured():
+    tmp = tempfile.mkdtemp()
+    skills_dir = Path(tmp)
+    suggestion = EvolutionSuggestion(
+        target="unknown-tool",
+        action="fix",
+        reason="tool errors",
+        suggested_changes="# Guidance\n\nUse session_search first.\n",
+        priority=3,
+        confidence=0.7,
+    )
+    pipeline = SkillEvolutionPipeline(require_confirmation=False)
+    results = asyncio.run(
+        pipeline.evolve_from_suggestions([suggestion], skills_dir)
+    )
+    assert len(results) == 1
+    assert results[0].success is True
+    assert results[0].action == EvolutionAction.CAPTURED
+    assert (skills_dir / "unknown-tool" / "SKILL.md").is_file()
+
+
+def test_evolve_from_suggestions_deprecate_succeeds_without_skill_write():
+    tmp = tempfile.mkdtemp()
+    skills_dir = Path(tmp)
+    suggestion = EvolutionSuggestion(
+        target="broken-tool",
+        action="deprecate",
+        reason="consistently failing",
+        priority=2,
+        confidence=0.9,
+    )
+    pipeline = SkillEvolutionPipeline(require_confirmation=False)
+    results = asyncio.run(
+        pipeline.evolve_from_suggestions([suggestion], skills_dir)
+    )
+    assert len(results) == 1
+    assert results[0].success is True
+    assert results[0].action == EvolutionAction.DEPRECATE
+    assert results[0].changes_applied == 0
 
 
 def test_evolve_from_suggestions_fix_writes_skill_md():

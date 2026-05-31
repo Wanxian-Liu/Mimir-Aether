@@ -1,6 +1,6 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-05-31（刘哥拍板 **IQ-RUBRIC-55** + **WM-HORIZON-01** · §20.4 Wave A/B 开跑）  
+> **最近更新**：2026-06-01（**IQ-RUBRIC-55-PHASE3** 收官 · ~5.1+exception · tier0 **676**）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5  
 > **规则**：**只认 §20 第一条 `[ ]`（按角色列）**。历史 §19.1/§19.6 只读归档。Handoff：[`world-model-agent-handoff.md`](./superpowers/plans/2026-05-27-world-model-agent-handoff.md)。主计划：[`horizon-c-master-iteration.md`](./superpowers/plans/2026-05-27-horizon-c-master-iteration.md)。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
@@ -1156,11 +1156,11 @@ git pull · 基线 b6ed761 · 每粒 ./run_ralph_tier0.sh + evolution_log（若�
 | 序 | ID | Owner | 任务 | 成功标准 | 状态 |
 |:--:|-----|-------|------|----------|------|
 | 1 | **OPS-L2-FEISHU-01** | Mimir+Cursor | **飞书 `/new` 路径 L2 预取**（MI-AWAY-08 后续） | 复现：Feishu reset 后 log/上下文见 `<retrieved-sessions>` 或记 ISSUES + 最小 gateway/agent 修复粒 | [x] | 2026-05-27 Cursor：session_key 对齐 MIMIR/approval；dotenv 后 re-bind；tier0 + closeout |
-| 2 | **OPS-MW-REFRESH** | Mimir | 每周 MW-D01/D02/D07 | bridge §4 或无新 P0 | [ ] |
-| 3 | **OPS-EVAL-WEEKLY** | Mimir | `run_evolution_eval.sh` + JSON 路径 | exit 0；非 simulated | [ ] |
+| 2 | **OPS-MW-REFRESH** | Mimir | 每周 MW-D01/D02/D07 | bridge §4 或无新 P0 | [x] 2026-06-01 · Phase3 |
+| 3 | **OPS-EVAL-WEEKLY** | Mimir | `run_evolution_eval.sh` + JSON 路径 | exit 0；非 simulated | [x] 2026-06-01 · 3× · Phase3 P3-00 |
 | 4 | **CLR-B-FEISHU** | 刘哥 | Gateway #9 / 空表头飞书复验 | 无新 230099 | [ ] |
 
-**§20.2 进度**：**1/4**（OPS-L2-FEISHU-01 **[x]** 2026-05-27；OPS-IQ-SMOKE-49 已由 MI-AWAY-07 闭环 **[x]**）
+**§20.2 进度**：**3/4**（CLR-B 待刘哥）
 
 **Mimir 新窗一句**
 
@@ -1176,6 +1176,8 @@ Read bridge §1「@Mimir 必读」+ backlog §20.2 第一条 [ ]。
 |----|------|------|------|
 | **ADR-002-impl** | cross-session 写入 Facade 全路径 | **ENGINE-P3W-01** | [x] 2026-05-28 · 授权 Phase2 MemoryWriteFacade（`adr-002-impl-gate-brief.md`） |
 | **IQ-RUBRIC-55** | rubric **≥5.5** 行为证据战役 vs 继续 4.9 exception | §20.4 Wave A | [x] 2026-05-31 · Wave A closeout（4.9+exception） |
+| **IQ-RUBRIC-55-PHASE2-A** | Phase2 三轨收官：**5.0 + exception**（不追本战役 ≥5.5） | Phase3 | [x] 2026-06-01 · 刘哥拍板 A · [`iq-55-phase2-closeout.md`](./phase0/iq-55-phase2-closeout.md) |
+| **IQ-RUBRIC-55-PHASE3** | 冲 **≥5.5** 或 exception · **#1 ok% + eval** · **不含 1c 生产** | §20.4 Phase3 粒表 | [x] 2026-06-01 · 刘哥开 Phase3 · [`iq-55-phase3-execution-plan.md`](./phase0/iq-55-phase3-execution-plan.md) |
 | **WM-HORIZON-01** | 世界模型 Phase 0（独立 Wave） | §20.4 Wave B | [x] 2026-05-31 · closeout `wm-phase0-spike-closeout.md` (#36) |
 | **D5-ADR** | d5 双架构 ADR 定稿 | §6 收口 | [ ] |
 | **EV-VISION-DEFER** | 识图 / OpenRouter | M-002 | [ ] 维持搁置 |
@@ -1186,7 +1188,8 @@ Read bridge §1「@Mimir 必读」+ backlog §20.2 第一条 [ ]。
 
 | Wave | 条件 | 内容 | 出口 |
 |------|------|------|------|
-| **A · IQ 5.5** | **IQ-RUBRIC-55** ✅ | 方向文档 §1.5 检查表 · 7d `session_search` 使用率 · 进化链 ok% 周常 · 飞书行为 3 场景 | rubric ≥5.5 或更新 exception 理由 |
+| **A · IQ 5.5** | **IQ-RUBRIC-55** ✅ · **Phase2** ✅ | WA-A00～A12 + Q5/IDX/MEM/WM 三轨（#40–#42）· 飞书 3P | **[x] 2026-06-01** · **5.0 + exception**（刘哥拍板 A） |
+| **C · IQ Phase3** | **IQ-RUBRIC-55-PHASE3** ✅ | IQ-P3-00～31 · 进化 ok% + eval · **无 1c 生产** | **[x] 2026-06-01** · **~5.1 + exception** · [`iq-55-phase3-closeout.md`](./phase0/iq-55-phase3-closeout.md) |
 | **B · WM Phase0** | **WM-HORIZON-01** ✅ | `world-model-evolution-plan.md` Phase 0 spike only | [x] closeout · **禁止** 与 Horizon C 工程混 PR |
 
 **Wave A 工程粒（按序）**：[`phase0/wave-a-execution-plan.md`](./phase0/wave-a-execution-plan.md) · **默认 Cursor 新窗** WA-A00～A12（**仅 A09a** 刘哥飞书发话）

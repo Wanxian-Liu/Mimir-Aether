@@ -75,4 +75,23 @@
 
 **Phase2 加权：** 在 4.875 基线上 +0.16 ≈ **5.04 → 记 5.0**（诚实，**未达 5.5**）· exception 续期 → [`iq-55-phase2-closeout.md`](./iq-55-phase2-closeout.md)。
 
-**下一复评：** ≥5.5 需 #1 生产默认进化 + 周常 eval 抬 ok 率，或刘哥 §20.3 接受 **5.0 + exception** 档位。
+**战役 A 收官（2026-06-01 · 刘哥拍板）：** Phase2 出口 **5.0 + exception** · 本战役**不再追 ≥5.5** → [`iq-55-phase2-closeout.md`](./iq-55-phase2-closeout.md)。
+
+**Phase3（2026-06-01 · 刘哥开战役 C）：**
+
+| 项 | 标准 |
+|----|------|
+| **拍板** | §20.3 **IQ-RUBRIC-55-PHASE3** ✅ · **不含** `MIMIR_AUTO_1C_POLICY=1` 生产 |
+| **#1 证据** | `post_analysis evolution` **ok%**（P3-00 vs P3-12）+ `run_evolution_eval.sh` 周常 **exit 0** · **非** env 已开 alone |
+| **#8** | 维持飞书 **3P** · 不宣称 ML Intent |
+| **出口** | 加权 **≥5.5** 或 [`iq-55-phase3-closeout.md`](./iq-55-phase3-closeout.md) **exception** |
+
+**Phase3 复评（2026-06-01 · IQ-P3-31）：**
+
+| 变化 | 现评 | Δ 加权 | 依据 |
+|------|:--:|:------:|------|
+| #1 学习能力 | **4.0** | +0.075 | P3-11 deprecate/CAPTURED/skills_root · **无** 部署后 ok% 达标 |
+| #10 数据闭环 | **5.6** | — | eval 3× + 基线脚本 |
+| 其他 | 同 Phase2 | — | 3P 维持 · 无 1c 生产 |
+
+**Phase3 加权：** **~5.1** · **未达 5.5** · exception 续期 → [`iq-55-phase3-closeout.md`](./iq-55-phase3-closeout.md)

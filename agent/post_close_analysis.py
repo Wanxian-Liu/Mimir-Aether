@@ -147,12 +147,24 @@ def run_post_analysis_sync(
 
             evo_results = apply_evolution_from_analysis(analysis)
             if evo_results:
+                ok_n = sum(1 for r in evo_results if r.success)
                 logger.info(
                     "post_analysis evolution session_id=%s applied=%s ok=%s",
                     session_id,
                     len(evo_results),
-                    sum(1 for r in evo_results if r.success),
+                    ok_n,
                 )
+                if ok_n < len(evo_results):
+                    for r in evo_results:
+                        if not r.success and r.error:
+                            logger.info(
+                                "post_analysis evolution detail session_id=%s "
+                                "target=%s action=%s error=%s",
+                                session_id,
+                                r.target,
+                                getattr(r.action, "value", r.action),
+                                (r.error or "")[:200],
+                            )
         except Exception as exc:
             logger.warning(
                 "post_analysis evolution failed session_id=%s: %s",

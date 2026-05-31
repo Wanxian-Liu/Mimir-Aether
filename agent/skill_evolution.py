@@ -39,6 +39,7 @@ class EvolutionAction(str, Enum):
     FIX = "fix"           # In-place repair
     DERIVED = "derived"   # Create enhanced version (new dir)
     CAPTURED = "captured" # Create new skill from pattern
+    DEPRECATE = "deprecate"  # Tool/skill marked degraded (IQ-P3-11; no SKILL write)
 
 
 _ACTION_ALIASES = {
@@ -60,6 +61,7 @@ class EvolutionContext:
     suggestion: EvolutionSuggestion
     skill_dir: Optional[Path] = None
     skill_content: str = ""
+    skills_root: Optional[Path] = None
     recent_analyses: List[ExecutionAnalysis] = field(default_factory=list)
     tool_quality_report: Dict[str, Any] = field(default_factory=dict)
     max_retries: int = 3
@@ -267,7 +269,18 @@ class SkillEvolutionPipeline:
         for s in suggestions:
             skill_dir = None
             skill_content = ""
-            action = EvolutionAction(normalize_evolution_action(s.action))
+            try:
+                action = EvolutionAction(normalize_evolution_action(s.action))
+            except ValueError:
+                results.append(
+                    EvolutionResult(
+                        success=False,
+                        action=EvolutionAction.FIX,
+                        target=s.target,
+                        error=f"Unsupported evolution action: {s.action!r}",
+                    )
+                )
+                continue
 
             # Resolve skill directory for FIX/DERIVED
             if action in (EvolutionAction.FIX, EvolutionAction.DERIVED):
@@ -277,12 +290,18 @@ class SkillEvolutionPipeline:
                     skill_md = candidate / "SKILL.md"
                     if skill_md.exists():
                         skill_content = skill_md.read_text(encoding="utf-8")
+                elif action == EvolutionAction.FIX and (
+                    s.suggested_changes or s.reason
+                ):
+                    # IQ-P3-11: tool-name targets without a skill dir → capture new skill
+                    action = EvolutionAction.CAPTURED
 
             ctx = EvolutionContext(
                 action=action,
                 suggestion=s,
                 skill_dir=skill_dir,
                 skill_content=skill_content[:12000],
+                skills_root=skills_dir,
                 recent_analyses=recent_analyses or [],
                 tool_quality_report=self._quality_mgr.get_report() if self._quality_mgr else {},
             )
@@ -490,6 +509,26 @@ class SkillEvolutionPipeline:
                 diff=diff_text,
                 duration_ms=(time.monotonic() - start) * 1000,
             )
+        elif ctx.action == EvolutionAction.DEPRECATE:
+            # DEPRECATE: quality flag only (apply_analysis already flagged); no SKILL write.
+            if self._quality_mgr is not None:
+                try:
+                    self._quality_mgr.flag_llm_issue(ctx.suggestion.target)
+                except Exception as exc:
+                    return EvolutionResult(
+                        success=False,
+                        action=ctx.action,
+                        target=ctx.suggestion.target,
+                        error=f"deprecate flag failed: {exc}",
+                        duration_ms=(time.monotonic() - start) * 1000,
+                    )
+            return EvolutionResult(
+                success=True,
+                action=ctx.action,
+                target=ctx.suggestion.target,
+                changes_applied=0,
+                duration_ms=(time.monotonic() - start) * 1000,
+            )
         elif ctx.action == EvolutionAction.CAPTURED:
             # CAPTURED: create new skill from pattern — generate SKILL.md + write to disk
             new_content = ctx.suggestion.suggested_changes or ctx.suggestion.reason
@@ -505,6 +544,8 @@ class SkillEvolutionPipeline:
             # Determine skills base directory (whitelist: must stay under skills_dir)
             if ctx.skill_dir is not None:
                 skills_base = ctx.skill_dir.parent
+            elif ctx.skills_root is not None:
+                skills_base = ctx.skills_root
             else:
                 from mimir_constants import get_mimir_home
 

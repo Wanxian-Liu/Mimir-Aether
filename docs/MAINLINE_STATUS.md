@@ -5,11 +5,11 @@
 
 | 字段 | 值 |
 |------|-----|
-| **最近更新** | 2026-05-27 |
-| **更新人** | Cursor（§19 主队列 + Horizon C 主迭代计划） |
+| **最近更新** | 2026-06-01 |
+| **更新人** | Cursor（IQ 5.5 Phase3 立项） |
 | **仓库根（真源）** | `~/src/MimirAether` |
-| **可选校验** | `./run_ralph_tier0.sh`（门禁 **595+2**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
-| **本轮摘要** | **P3-XSR-01 [x]**（分层注入提案）· §19.1 **11/15** · tier0 **595+2** · main **`c7f4bc4`** · **等刘哥 G-ADR-002**（§19.3.1）再开 L2/L3 · 下一工程粒 **ENGINE-WS-01**。 |
+| **可选校验** | `./run_ralph_tier0.sh`（门禁 **674**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
+| **本轮摘要** | **IQ Phase3 收官** · **~5.1 + exception** · P3-11 进化链修复 · tier0 **676** · eval 3× · 飞书 3P 维持 · 生产 ok% **部署后复测** |
 
 ---
 
@@ -81,6 +81,9 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-06-01 | **IQ-RUBRIC-55 Phase3 收官**：~5.1+exception · P3-11 deprecate/CAPTURED · closeout `iq-55-phase3-closeout.md`。 |
+| 2026-06-01 | **IQ-RUBRIC-55 Phase3 立项**（刘哥开 Phase3）：§20.3/§20.4 · execution-plan · 不含 1c 生产。 |
+| 2026-06-01 | **IQ-RUBRIC-55 Phase2 战役 A 收官**（刘哥拍板）：5.0+exception · #40–#42 · 飞书 3P。 |
 | 2026-05-27 | **MI-AWAY-13**：文档对账 · §19.1 [x] 与 git log 一致 · HEAD **b6ed761**（+4 vs MAINLINE 原 c7f4bc4）· §19.6 **9/16**。 |
 | 2026-05-26 | **OBS-B1-01**：ADR-007 ObservabilityBus defer；Wave 3 **14 [x]**；tier0 **398+2**。 |
 | 2026-05-26 | **进度**：执行队列 **4 粒**（14 + B1×3）；CLEARANCE **8/8**；Wave 3 Cursor **11～13 [x]**；tier0 **393+2**。 |
