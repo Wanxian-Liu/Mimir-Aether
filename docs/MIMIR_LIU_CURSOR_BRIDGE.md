@@ -537,6 +537,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-06-01 | **WA-A07～A12** | **Cursor** | intent+nudge 证据 · memory nudge log · evolution ok **24/46** · tier0 **648** · gateway **21329** · **Wave A closeout** rubric **4.9** exception · 下一 **Wave B** 或 **A06.1** |
 | 2026-06-01 | **IQ-55-PHASE3** | **Cursor** | Phase3 **closeout** · **~5.1+exception** · P3-11 evolution fix · tier0 **676** · eval 3× · deploy后复测 ok% |
 | 2026-06-01 | **IQ-55-PHASE3** | **刘哥拍板** | **开 Phase3** · #1 ok%+eval · 无 1c 生产 · plan `iq-55-phase3-execution-plan.md` |
+| 2026-05-19 | **D5-ADR** | **Cursor** | ADR-008 evolution canonical path · §6 d5 **6/6** · `d5-adr-closeout.md` · tier0 +`test_d5_adr_evolution_canonical` · GH **#21** close 余量→icebox |
 | 2026-06-01 | **IQ-55-PHASE2-A** | **刘哥拍板** | 战役 **A 收官** · **5.0 + exception** · PR #40–#42 merged · Mimir：deploy+backfill **done** |
 | 2026-06-01 | **IQ-55-PHASE2** | **Cursor+刘哥** | 三轨闭合 · 飞书 ③ **PASS** traj `16e3735611f87e85` · Q2 **3P** · rubric **~5.0** · closeout `iq-55-phase2-closeout.md` |
 | 2026-05-19 | **WA-A06.1** | **Cursor** | PR **#39** merge `1121d63` · guard 默认 **1** · tier0 **674 PASS** · gateway 重启 · 飞书 ①② **PASS** · ③ **部分**（`cc8c544a` 3×session_search 未接上 ensure_single_gateway 线程）· **2P+1部分** |
@@ -558,7 +559,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
   - ❌ session_prefetch_pending 键与 consume 不一致；零 log 命中 `<retrieved-sessions>`
   - **根因**：`_session_key_from_env()` 仅读 HERMES；`load_dotenv(override=True)` 在 agent init 前覆盖 session env
 - **大战役（§20.4）**：**Wave A · IQ 5.5** + **Wave B · WM Phase0** — 刘哥 **2026-05-31** 拍板开跑；§20.3 **IQ-RUBRIC-55** / **WM-HORIZON-01** ✅
-- **拍板仍 [ ]**：**D5-ADR** · **EV-VISION-DEFER**（维持搁置）
+- **拍板仍 [ ]**：**EV-VISION-DEFER**（维持搁置）· **D5-ADR** ADR-008 工程 [x]（刘哥表内签收 _pending_）
 - **身份（2026-05-19）**：Mimir **是智能体**（loop+tools+memory），**不是** DeepSeek 传话桶 — bridge §1
 - **Wave 0 A / 1 B / 2 C / D / E**：**[x]**（刘哥 §8.3 签收 2026-05-25）
 - **Horizon A**：**[x]** SEM + IQ-EVO Wave 1/2

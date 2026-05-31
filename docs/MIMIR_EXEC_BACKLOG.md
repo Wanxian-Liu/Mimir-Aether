@@ -259,7 +259,7 @@ Mimir 冒烟回报
 - **P0-4 mixin**：**[x]** → **E-003** committed
 - P1/P2：见 wiki，未排进统一队列（按需单独立项）
 
-### d5 — 自修/进化 · 未启动
+### d5 — 自修/进化 · 已收口
 
 | ID | 任务 | 状态 |
 |----|------|------|
@@ -268,7 +268,7 @@ Mimir 冒烟回报
 | D5-1 | `simulated: true` | [x] 2026-05-25 · IEVO-01 |
 | D5-2 | 单通路 FIX 写 SKILL | [x] E-009 |
 | D5-3 | 测试 | [x] 2026-05-25 · IEVO-02 |
-| D5-ADR | 双架构决策（仅 ADR） | [ ] |
+| D5-ADR | 双架构决策（仅 ADR） | [x] 2026-05-19 · [`adr/008-evolution-canonical-path.md`](./adr/008-evolution-canonical-path.md) · [`d5-adr-closeout.md`](./phase0/d5-adr-closeout.md) |
 
 ### d6 — 可观测性 · 未启动
 
@@ -341,7 +341,7 @@ Mimir 冒烟回报
 | **§19 工程轨** | **见 §19.1** | **唯一取任务入口**（§18.2 为明细真源） |
 | **§19 拍板轨** | **4** | ADR-002 / 世界模型 / rubric 5.5 / D5-ADR |
 | **§19 运维轨** | **1+** | CLR-B-FEISHU + Gateway 十条余债 |
-| **§6 Phase 2 候选** | **1** `[ ]` | D5-ADR → **§19.3** |
+| **§6 Phase 2 候选** | **0** | D5-ADR → [x] ADR-008 |
 | **§8 工程 icebox** | **4** 条 | 已迁入 **§19.4** |
 | **Gateway 十条** | **~1** 运维 | #9 代码 [x]；**CLR-B** 飞书复验 deferred |
 | **GitHub open** | **2** | **#21 #22** icebox（2026-05-27 已 refresh comment；**#32 #34 #35 closed**） |
@@ -1179,7 +1179,7 @@ Read bridge §1「@Mimir 必读」+ backlog §20.2 第一条 [ ]。
 | **IQ-RUBRIC-55-PHASE2-A** | Phase2 三轨收官：**5.0 + exception**（不追本战役 ≥5.5） | Phase3 | [x] 2026-06-01 · 刘哥拍板 A · [`iq-55-phase2-closeout.md`](./phase0/iq-55-phase2-closeout.md) |
 | **IQ-RUBRIC-55-PHASE3** | 冲 **≥5.5** 或 exception · **#1 ok% + eval** · **不含 1c 生产** | §20.4 Phase3 粒表 | [x] 2026-06-01 · 刘哥开 Phase3 · [`iq-55-phase3-execution-plan.md`](./phase0/iq-55-phase3-execution-plan.md) |
 | **WM-HORIZON-01** | 世界模型 Phase 0（独立 Wave） | §20.4 Wave B | [x] 2026-05-31 · closeout `wm-phase0-spike-closeout.md` (#36) |
-| **D5-ADR** | d5 双架构 ADR 定稿 | §6 收口 | [ ] |
+| **D5-ADR** | d5 双架构 ADR 定稿 | §6 收口 | [x] 2026-05-19 · ADR-008 · 刘哥签收 _pending_ |
 | **EV-VISION-DEFER** | 识图 / OpenRouter | M-002 | [ ] 维持搁置 |
 
 **已勾不再列**：**G-ADR-002**（L2/L3/P3W 顺序）→ 见 §19.3.1

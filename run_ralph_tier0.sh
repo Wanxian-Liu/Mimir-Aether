@@ -131,6 +131,7 @@ python3 -m pytest -q \
   tests/agent/test_ievo05_monitor_insights_regression.py \
   tests/contract/test_monitor_insights_ievo05.py \
   tests/contract/test_ievo06_wave_e_closeout.py \
+  tests/contract/test_d5_adr_evolution_canonical.py \
   tests/contract/test_clearance_done.py \
   tests/contract/test_horizon_sem_sem01.py \
   tests/contract/test_horizon_sem_sem02.py \

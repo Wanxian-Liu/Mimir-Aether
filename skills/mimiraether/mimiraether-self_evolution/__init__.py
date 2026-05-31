@@ -1,6 +1,9 @@
 """
 MimirAether Self Evolution Skill
 集成三环闭环引擎 (已从 mimicore 提取)
+
+Non-canonical evolution path (ADR-008 path C). Not wired to Gateway post-close;
+production SKILL writes use agent/skill_evolution via MIMIR_AUTO_EVOLVE.
 """
 
 import sys

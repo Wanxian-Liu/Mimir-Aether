@@ -1,6 +1,10 @@
 """
 Skill Evolution Engine — FIX/DERIVED/CAPTURED evolution with apply-retry.
 
+Production canonical path for automated SKILL.md writes (ADR-008): only via
+``apply_evolution_from_analysis`` after post-close analysis when
+``MIMIR_AUTO_EVOLVE=1``. JEPA and mimicore/evolve are non-canonical.
+
 Opt-in: set env MIMIR_AUTO_ANALYSIS=1 to enable automated skill evolution.
 Without it, build_confirmation_prompt/parse_confirmation are no-ops.
 

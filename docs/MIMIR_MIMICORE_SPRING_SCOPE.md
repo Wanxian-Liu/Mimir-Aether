@@ -122,7 +122,7 @@ flowchart LR
 | [`cli.py`](../cli.py)、[`api_service.py`](../api_service.py) → `mimicore.config.model_defaults` | **迁出到 MA** | 默认模型解析迁入 `agent/` 或 `mimir_constants`；子模块 `config/` 降级为可选 |
 | [`scripts/smoke_mimir_home.sh`](../scripts/smoke_mimir_home.sh) | **迁出到 MA** | smoke 使用 MA 侧 `get_model()` |
 | [`acp_adapter/session.py`](../acp_adapter/session.py)、[`acp_adapter/server.py`](../acp_adapter/server.py) | **迁出到 MA** | 配置/版本不依赖泉 `gateway` 配置树 |
-| [`skills/mimiraether/mimiraether-self-evolution/`](../skills/mimiraether/mimiraether-self-evolution/__init__.py)、[`activate_self_evolution.py`](../activate_self_evolution.py) | **保留在泉** | `mimicore.evolve.*`；进化审计见 M6，**非**第二主 agent |
+| [`skills/mimiraether/mimiraether-self-evolution/`](../skills/mimiraether/mimiraether-self-evolution/__init__.py)、[`activate_self_evolution.py`](../activate_self_evolution.py) | **保留在泉** | `mimicore.evolve.*` · **ADR-008 path C**（非 Gateway 生产真源）；生产 SKILL 写见 [`adr/008-evolution-canonical-path.md`](./adr/008-evolution-canonical-path.md) |
 | [`tools/delegate_tool.py`](../tools/delegate_tool.py) 硬编码 `../mimicore/config/config.yaml` | **迁出到 MA** | 应读 `$MIMIR_AETHER_HOME/config.yaml`；**禁止**以子模块 gateway 配置为真源 |
 | `test_fix_2_dangerous_cmd.py`、`test_fix_3_fence.py` | **归档测试（legacy）** | 引用 `mini_agent` / `gateway`；理清期不扩新测 |
 | [`docs/MIMIR_RUNTIME_CONTRACT.md`](./MIMIR_RUNTIME_CONTRACT.md) smoke 示例 `mimicore.config.model_defaults` | **迁出到 MA** | 文档示例随 MA 配置迁移更新（非 T04 范围） |

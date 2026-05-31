@@ -138,7 +138,13 @@ async def activate_skill_self_research():
 
 def main():
     global args
-    
+
+    logger.warning(
+        "Non-canonical evolution path (ADR-008 path C). "
+        "Production SKILL writes use post_close → skill_evolution (MIMIR_AUTO_EVOLVE). "
+        "Run only with explicit human intent."
+    )
+
     parser = argparse.ArgumentParser(description="MimirAether 三环闭环激活器")
     parser.add_argument("--loop", action="store_true", help="持续运行模式")
     parser.add_argument("--verbose", action="store_true", help="详细输出")

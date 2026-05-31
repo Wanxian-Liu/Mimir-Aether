@@ -2,6 +2,9 @@
 """
 MimirAether 学一段+进化一段 持续8小时版
 
+Not the Gateway evolution SoT (ADR-008 path D). Batch research script only;
+production skill writes use post_close → skill_evolution.
+
 - 学完一个Hermes模块 → 用大模型生成MimirAether需要的代码 → 写入文件
 - 直接调用API，不依赖MimirAether自身
 
