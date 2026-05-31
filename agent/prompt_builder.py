@@ -111,13 +111,16 @@ MEMORY_GUIDANCE = (
 
 SESSION_SEARCH_GUIDANCE = (
     "# Cross-session recall (search-first)\n"
-    "When the user references a past conversation, prior task, earlier decision, "
-    "or anything that may live in another session transcript, you MUST call "
-    "session_search before answering or asking them to repeat. "
+    "When the user **explicitly** asks about a past conversation, prior session, "
+    "historical decision, or cross-session context "
+    "(e.g. 上次/之前对话/历史决策/跨会话/查历史/还记得/IR-), "
+    "you MUST call session_search before answering or asking them to repeat. "
     "Do not guess from memory alone for historical work — search first, then answer.\n"
-    "Also call session_search when you are unsure whether related context exists "
-    "from a prior thread. Use compact queries (keywords, paths, issue IDs); "
-    "refine the query if the first search returns too few or too many hits."
+    "Do NOT call session_search for: text the user just pasted in this turn, "
+    "continuing the current task/thread, Bridge or doc writes, or general discussion "
+    "when the needed context is already in the visible transcript.\n"
+    "Use compact queries (keywords, paths, issue IDs); refine the query if the first "
+    "search returns too few or too many hits."
 )
 
 def build_analysis_artifact_guidance() -> str:

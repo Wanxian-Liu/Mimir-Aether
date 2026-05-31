@@ -160,6 +160,7 @@ python3 -m pytest -q \
   tests/agent/test_bridge_wave9.py \
   tests/contract/test_horizon_bridge_wave9.py \
   tests/tools/test_wave6_evidence.py \
+  tests/tools/test_search_first_audit.py \
   tests/tools/test_session_search_usage_baseline.py \
   tests/tools/test_label_intent_offline.py \
   tests/agent/test_analysis_artifact_guidance.py \

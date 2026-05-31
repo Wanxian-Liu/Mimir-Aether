@@ -190,6 +190,12 @@ class MimirAgentLoop:
             mem_nudge = maybe_memory_nudge_message(turn)
             if mem_nudge:
                 messages.append({"role": "user", "content": mem_nudge})
+                logger.info(
+                    "[%s] turn %d: memory nudge (interval=%s)",
+                    self.task_id[:8],
+                    turn + 1,
+                    os.environ.get("MIMIR_MEMORY_NUDGE_INTERVAL", "10"),
+                )
             skill_nudge = maybe_skill_nudge_message(turn, tool_calls_so_far)
             if skill_nudge:
                 messages.append({"role": "user", "content": skill_nudge})

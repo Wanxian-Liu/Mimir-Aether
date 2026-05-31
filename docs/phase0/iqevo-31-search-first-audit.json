@@ -1,70 +1,176 @@
 {
   "ok": true,
   "sessions_dir": "/home/rayliu/.mimiraether/data/sessions",
-  "recall_candidates_total": 317,
+  "recall_candidates_total": 529,
   "sample_size": 10,
-  "violations": 8,
-  "violation_rate": 0.8,
+  "violations": 10,
+  "violation_rate": 1.0,
+  "filtered_recall_candidates_total": 102,
+  "filtered_sample_size": 10,
+  "filtered_violations": 10,
+  "filtered_violation_rate": 1.0,
   "rows": [
     {
-      "session_file": "20260526_185834_2165a33b.jsonl",
+      "session_file": "20260531_234401_37e34004.jsonl",
+      "user_snippet": "对 Mimir DM 发 3 句（表见 docs/phase0/iqevo-30-feishu-smoke-evidence.md），例如：  「我们上次讨论的 Mimir 智商 Wave A 结论是什么？」（应 search / retr",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": null,
+      "filtered_in_scope": true
+    },
+    {
+      "session_file": "20260531_210336_15a292d2.jsonl",
+      "user_snippet": "继续离席清单",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "task_continuation",
+      "filtered_in_scope": false
+    },
+    {
+      "session_file": "20260531_210336_15a292d2.jsonl",
+      "user_snippet": "已经 new 了，现在是新对话，可以继续了",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "fresh_session_continue",
+      "filtered_in_scope": false
+    },
+    {
+      "session_file": "20260531_210336_15a292d2.jsonl",
+      "user_snippet": "我给你个别的大模型理解世界模型的总结，你借鉴。我多给你几个，都是建立在杨立昆的想法上",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "user_provides_material",
+      "filtered_in_scope": false
+    },
+    {
+      "session_file": "20260531_210336_15a292d2.jsonl",
+      "user_snippet": "好，你要的是\"被蒸馏过的杨立昆\"——把他论文《A Path Towards Autonomous Machine Intelligence》、JEPA/I-JEPA/V-JEPA系列、历年访谈和技术演讲里反复强调的世界观 + 架构观 + 对",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "user_paste_block",
+      "filtered_in_scope": false
+    },
+    {
+      "session_file": "20260531_210336_15a292d2.jsonl",
+      "user_snippet": "你先把我给你的所有信息进行一个深度理解之后。啊，清晰地写出对你的帮助，然后放入 Bridge。之前放入的你去综合，放完之后告诉我一声，我再给你发几个，看看对你有没有帮助",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "bridge_write_task",
+      "filtered_in_scope": false
+    },
+    {
+      "session_file": "20260531_210336_15a292d2.jsonl",
+      "user_snippet": "┌──────────────┐ │ LLM Agent    │  ← 你（MimirAether） │ (Python SDK) │ └──────┬───────┘        │ Python call ┌──────▼─────",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "user_paste_block",
+      "filtered_in_scope": false
+    },
+    {
+      "session_file": "20260531_210336_15a292d2.jsonl",
+      "user_snippet": "现在暂时这些就够了，我建议你再深度思考一遍，之前的所有给你发的和你现在综合总结的，看看有没有什么想法，还有那三篇杨立昆的论文",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "same_session_synthesis",
+      "filtered_in_scope": false
+    },
+    {
+      "session_file": "20260531_210336_15a292d2.jsonl",
+      "user_snippet": "你还有什么想问有关世界模型呗",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "topic_discussion_no_recall_ask",
+      "filtered_in_scope": false
+    },
+    {
+      "session_file": "20260531_210336_15a292d2.jsonl",
+      "user_snippet": "首先我们的世界模型是哲学和物理学。帮助我们去认识和预判这个世界。我们是在 cpu 上，可以去在有限的能力上模拟物理世界，但是更多的是去帮你认知这个世界。不是 llm 的黑盒状态。是让你在日常工作中去感知世界。去约束你的大模型幻觉大模型漂移。",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "topic_discussion_no_recall_ask",
+      "filtered_in_scope": false
+    }
+  ],
+  "filtered_rows": [
+    {
+      "session_file": "20260531_234401_37e34004.jsonl",
+      "user_snippet": "对 Mimir DM 发 3 句（表见 docs/phase0/iqevo-30-feishu-smoke-evidence.md），例如：  「我们上次讨论的 Mimir 智商 Wave A 结论是什么？」（应 search / retr",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": null,
+      "filtered_in_scope": true
+    },
+    {
+      "session_file": "20260527_145808_f39ac10d.jsonl",
+      "user_snippet": "还记得上个对话框的任务么",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": null,
+      "filtered_in_scope": true
+    },
+    {
+      "session_file": "20260527_110400_7d39116c.jsonl",
+      "user_snippet": "还记得上个对话框的任务么",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": null,
+      "filtered_in_scope": true
+    },
+    {
+      "session_file": "20260527_103658_2a30ce36.jsonl",
       "user_snippet": "我们之前聊的没有记忆了对吧",
       "search_first_ok": false,
-      "evidence": "no session_search before next user turn"
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": null,
+      "filtered_in_scope": true
     },
     {
-      "session_file": "20260526_185834_2165a33b.jsonl",
-      "user_snippet": "你找一找昨天我们做的一些工作，跟世界模型有关的，特别是有了两篇新的论文作为支撑，你看看你能找到吗？跟世界模型有关的论文",
+      "session_file": "20260527_103658_2a30ce36.jsonl",
+      "user_snippet": "你这个bridge是哪条路径？然后六点几写了这么多，你是把之前的都放在那，又出了一个新的？还是把之前的六点零一二三四五六七八九十都综合好？做出来一个这个最有用的",
       "search_first_ok": false,
-      "evidence": "no session_search before next user turn"
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": null,
+      "filtered_in_scope": true
     },
     {
-      "session_file": "20260526_185834_2165a33b.jsonl",
-      "user_snippet": "是的，就是这些。我们发展的方向是非像素类的，能在CPU里进行运行的初代世界模型。我想慢慢去完善这个，但是我的阅读理解能力是不够的。这几个论文，你能从中得到什么启发和对现有的我们自研的世界模型有什么想法？",
-      "search_first_ok": true,
-      "evidence": "tool session_search in turn"
-    },
-    {
-      "session_file": "20260526_171857_b84a2d2e.jsonl",
-      "user_snippet": "我们之前聊的没有记忆了对吧",
+      "session_file": "20260527_103658_2a30ce36.jsonl",
+      "user_snippet": "继续学习Hermes 直接做10个，还记得刚刚的流程吧，",
       "search_first_ok": false,
-      "evidence": "no session_search before next user turn"
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": null,
+      "filtered_in_scope": true
     },
     {
-      "session_file": "20260526_100850_2ac778be.jsonl",
-      "user_snippet": "继续把你之前准备入库的都入库，然后回头检查一遍是否入库",
+      "session_file": "20260527_103658_2a30ce36.jsonl",
+      "user_snippet": "我想要问一下，第一个就是之前已经有6个了，为什么又重新变成了两个？是否是我刚刚发布了错误的任务？我们的计划是攒到10个。进行三遍的整理。下一个呢，是你为什么要总是连接上飞书？你要写到你的记忆里。飞书它只是你和我沟通的方式和通道，它不是你的核",
       "search_first_ok": false,
-      "evidence": "no session_search before next user turn"
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": null,
+      "filtered_in_scope": true
     },
     {
-      "session_file": "20260526_100850_2ac778be.jsonl",
-      "user_snippet": "上次是多久前",
+      "session_file": "20260527_103658_2a30ce36.jsonl",
+      "user_snippet": "第一个，你把飞书的定义和你自己的定义放到你能够长期记忆的地方，是Memory啊？还是Soul啊？还是Agents？不能再混淆，这样会让你在做工作的时候放弃很多有用的信息。第二，既然已经重新来标识，区分开你和飞书的关系。那么现在你是不是应该重",
       "search_first_ok": false,
-      "evidence": "no session_search before next user turn"
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": null,
+      "filtered_in_scope": true
     },
     {
-      "session_file": "20260526_100850_2ac778be.jsonl",
-      "user_snippet": "这之前我想问一下你的wiki 能解决这件事么",
+      "session_file": "20260527_103658_2a30ce36.jsonl",
+      "user_snippet": "你的成长我觉得是非常让我感到高兴的，我同意你的方案。在你做之前，我想问几件事情。第一件事情，这个过程当中，你有没有去考虑哪个技能能帮上你？在这个过程当中，你有没有去考虑是否创造一个技能能更快的帮助你？完成你的工作效率。在你做，刚刚做这些事的",
       "search_first_ok": false,
-      "evidence": "no session_search before next user turn"
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": null,
+      "filtered_in_scope": true
     },
     {
-      "session_file": "20260526_100850_2ac778be.jsonl",
-      "user_snippet": "我和你感觉差不多，你查一下根因，不去改动，查一下，看看严重不",
+      "session_file": "20260527_103658_2a30ce36.jsonl",
+      "user_snippet": "那返回之前的工作，整理一下流程",
       "search_first_ok": false,
-      "evidence": "no session_search before next user turn"
-    },
-    {
-      "session_file": "20260526_100850_2ac778be.jsonl",
-      "user_snippet": "查历史，和世界模型相关的论文",
-      "search_first_ok": true,
-      "evidence": "assistant cites session_search results"
-    },
-    {
-      "session_file": "20260526_100850_2ac778be.jsonl",
-      "user_snippet": "Backlog里边有没有什么你还可以继续做的？没有的话，我们可以适当做一些科研话题，往下去研究世界模型和物理学方面的相关信息。做一些培养",
-      "search_first_ok": false,
-      "evidence": "no session_search before next user turn"
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": null,
+      "filtered_in_scope": true
     }
   ]
 }

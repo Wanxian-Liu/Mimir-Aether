@@ -9,4 +9,26 @@
 | **用户偏好 / 记忆** | 「我们之前聊的没有记忆了对吧」 | **N**（用 persistent） | `20260526_185834_2165a33b.jsonl` · 助理说明可用 session_search 找回 · **弱**：未实际调用 |
 | **上次决策 / 工作** | 「找一找昨天…世界模型…论文」 | **部分 Y** | 同文件后续轮次有 search；首问轮 JSONL 无 tool 行 → **documented gap** |
 
-**Gate A4 判定：** 3 行证据齐备 · 1 条明确 pass · 1 条 partial · 改进项记入 Wave 6 #8 意图/行为（非阻塞 A 档）。
+**Gate A4 判定（2026-05-26 档）：** 3 行证据齐备 · 1 条明确 pass · 1 条 partial · 改进项记入 Wave 6 #8 意图/行为（非阻塞 A 档）。
+
+---
+
+## WA-A09 · 飞书 3 场景复测（2026-05-31 · 刘哥探针 · Mimir 自报 + log）
+
+| # | 测试句 | 预期 | **结果** | 证据 |
+|---|--------|------|:--------:|------|
+| ① | 我们上次讨论的 Mimir 智商 Wave A 结论是什么？ | `session_search` → retrieved | **FAIL** | `agent.log` **0** 次 `session_search`；用 `read_file` 读文件非搜历史会话 |
+| ② | 我偏好你先查历史再回答，还记得吗？ | 偏好持久 + search-first | **FAIL** | 无 memory 写操作；偏好未持久化 |
+| ③ | 继续昨天 gateway 单实例那件事 | `session_search` 找会话 | **部分** | 靠 `<cross-session-context>` 注入识别 OPS-L2，**非**主动 `session_search` |
+
+**根因（一致）**：肌肉记忆是「读当前文件/上下文」，不是先 `session_search`。与 WA-A05 审计、Q2 **部分** 一致。
+
+**工程跟进（勿重做 WA-A02）**：
+
+| 缺口 | 粒 | Owner |
+|------|-----|-------|
+| ① 不触发 search | **WA-A06 已合代码** → 需 **gateway 重启** + 复测；仍 FAIL 则 **A06.1** 守卫 | Cursor |
+| ② 偏好未写入 | **WA-A08** nudge / memory | Cursor |
+| ③ 只靠注入 | A09 已证 · 抬分靠 **A07/A08** + 复测 ① | Cursor + 刘哥复测 |
+
+**WA-A09 判定：** 3 场景 **0 pass / 1 partial** → Q2 维持 **部分**；不抬 rubric。
