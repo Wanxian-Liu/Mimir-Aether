@@ -518,6 +518,15 @@ def _append_transcript_dict_to_session_db(db: Any, session_id: str, message: Dic
     tool_calls = message.get("tool_calls")
     tool_call_id = message.get("tool_call_id")
     reasoning = message.get("reasoning")
+    source = "gateway"
+    if message.get("role") == "session_meta":
+        platform = message.get("platform")
+        if isinstance(platform, str) and platform.strip():
+            source = platform.strip().lower()
+    try:
+        db.ensure_session(session_id, source=source)
+    except Exception as e:
+        logger.debug("Session DB ensure_session failed: %s", e)
     db.append_message(
         session_id=session_id,
         role=role,
