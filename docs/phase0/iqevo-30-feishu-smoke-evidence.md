@@ -32,3 +32,39 @@
 | ③ 只靠注入 | A09 已证 · 抬分靠 **A07/A08** + 复测 ① | Cursor + 刘哥复测 |
 
 **WA-A09 判定：** 3 场景 **0 pass / 1 partial** → Q2 维持 **部分**；不抬 rubric。
+
+---
+
+## WA-A09 ① 复测 · A06.1 后（2026-06-01 · 飞书 DM）
+
+**前置：** PR **#39** merge `1121d63` · gateway 重启（`ensure_single_gateway.sh` · PID 39393）· `MIMIR_SEARCH_FIRST_GUARD` 默认 1。
+
+| # | 测试句 | 预期 | **结果** | 证据 |
+|---|--------|------|:--------:|------|
+| ① | 我们上次讨论的 Mimir 智商 Wave A 结论是什么？ | 首轮 `session_search` | **PASS** | trajectory `data/trajectories/2026-05-31/94ab78b400af988f.jsonl` · **step 1** `session_search`（query=`Mimir 智商 Wave A 结论`）· 会话 `20260531_234401_37e34004.jsonl` 03:28:50 |
+
+**对比 WA-A09（00:07）：** 同场景 **FAIL**（0× `session_search`）→ 复测 **PASS**。② 见下节；③ 仍待测。
+
+**Q2 注：** 单点 ① PASS 不足以把 Q2 升为全 PASS；② memory、③ L2-only 仍按上表。Rubric 仍 **4.9 + exception**（见 `wave-a-closeout.md`）。
+
+---
+
+## WA-A09 ② 复测 · A06.1 后（2026-06-01 · 飞书 DM）
+
+| # | 测试句 | 预期 | **结果** | 证据 |
+|---|--------|------|:--------:|------|
+| ② | 我偏好你先查历史再回答，还记得吗 | memory 检索 + 确认 search-first | **PASS** | traj `7f9b3e3b5469e892.jsonl`：**step1** `memory` discover（组件不可用）→ **step2** `session_search` → **step3** `memory` **add** 写入 search-first 偏好；会话 03:46 回复承认此前未落盘、现已存 |
+
+**对比 WA-A09（00:07）：** ② **FAIL**（无 memory 写）→ 复测 **PASS**。③ 见下节。
+
+---
+
+## WA-A09 ③ 复测 · A06.1 后（2026-06-01 · 飞书 DM）
+
+| # | 测试句 | 预期 | **结果** | 证据 |
+|---|--------|------|:--------:|------|
+| ③ | 继续昨天 gateway 单实例那件事（用户输入含 typo `Getaway`） | `session_search` → 续作摘要 + 引用 `ensure_single_gateway.sh` | **部分** | traj `cc8c544aef6815d8.jsonl`：**step1–3** 均为 `session_search`（query 含 ensure_single_gateway）→ step4 `search_files` agent.log 0 条；回复 03:48 诚实「未找到昨天单实例会话」，列举 L2/PID 7458/gateway_restart，**未**引用 `ensure_single_gateway.sh` · 首轮检索命中 `20260531_234401`（当轮 IQ 冒烟会话，非历史 OPS 线程） |
+
+**对比 WA-A09（00:07）：** ③ **部分**（仅靠 L2 注入、0× `session_search`）→ 复测 **行为升级**（主动 3× search）· **内容仍部分**（索引/召回未接上真实「单实例」线程）。
+
+**A06.1 后 3 场景汇总：** ① **PASS** · ② **PASS** · ③ **部分**（2P + 1 部分）· Q2 由「0 pass」升为「2 pass + 1 partial」；rubric 总分仍 **4.9 + exception**（见 `wave-a-closeout.md`）。
