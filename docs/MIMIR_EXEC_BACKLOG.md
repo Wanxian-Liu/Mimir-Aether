@@ -3,6 +3,7 @@
 > **最近更新**：2026-06-01（**IQ-RUBRIC-55-PHASE3** 收官 · ~5.1+exception · tier0 **676**）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5  
 > **规则**：**只认 §20 第一条 `[ ]`（按角色列）**。历史 §19.1/§19.6 只读归档。Handoff：[`world-model-agent-handoff.md`](./superpowers/plans/2026-05-27-world-model-agent-handoff.md)。主计划：[`horizon-c-master-iteration.md`](./superpowers/plans/2026-05-27-horizon-c-master-iteration.md)。  
+> **Mimir 运维合一清单**（含提示词 · π-agent 学习）：[`MIMIR_TASK_QUEUE.md`](./MIMIR_TASK_QUEUE.md)。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
 > **勿提交**：`data/persistent.json`（runtime 镜像）。
 
@@ -1165,9 +1166,9 @@ git pull · 基线 b6ed761 · 每粒 ./run_ralph_tier0.sh + evolution_log（若�
 **Mimir 新窗一句**
 
 ```text
-Read bridge §1「@Mimir 必读」+ backlog §20.2 第一条 [ ]。
-回报 MIMIR_IQ_EVOLUTION_DIRECTION §3.3；每粒 bridge §4 一行。
-禁止 push · 禁止改 agent|gateway|tools（OPS-L2 若需代码：记 ISSUES，交 Cursor §20.1 子粒）。
+Read docs/MIMIR_TASK_QUEUE.md §0 开场白 + §2 第一条 [ ]。
+再读 bridge §1「@Mimir 必读」；回报 §3.3；每粒 bridge §4 一行。
+禁止 push · 禁止改 agent|gateway|tools（要代码：记 ISSUES，交 Cursor §20.1）。
 ```
 
 ### 20.3 拍板轨（刘哥 · 未勾前工程暂停对应行）

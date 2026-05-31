@@ -15,6 +15,12 @@
 
 ## 1. 刘哥 → Mimir / Cursor（你编辑）
 
+### 2026-05-31 — Mimir 任务清单（Cursor 流量不足）
+
+- **真源**：[`docs/MIMIR_TASK_QUEUE.md`](./MIMIR_TASK_QUEUE.md) — bridge/backlog/issues 未竟项合并；**Mimir 只认该文件 §2 第一条 `[ ]`**。
+- **含**：周常 eval/ok% · CLR-B 预检与刘哥飞书话术 · 智商冒烟 · **π-agent 只读学习 PI-L01～06**（`~/.openclaw/projects/pi-agent`）。
+- **Cursor**：继续 §20.1 / ISSUES 工程；勿与 Mimir 抢队列。
+
 ### 2026-05-31 — 刘哥签收 · D5-ADR / ADR-008
 
 - **§20.3 [x]**：**D5-ADR** — 接受 **路径 A**（`post_close` → `skill_evolution`）为生产 SKILL 写真源；**JEPA / mimicore 三环 / learn_and_evolve_8h** 维持非默认。

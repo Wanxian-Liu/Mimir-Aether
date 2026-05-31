@@ -6,10 +6,10 @@
 | 字段 | 值 |
 |------|-----|
 | **最近更新** | 2026-05-31 |
-| **更新人** | 刘哥（D5-ADR 签收）+ Cursor |
+| **更新人** | Cursor（Mimir 任务清单） |
 | **仓库根（真源）** | `~/src/MimirAether` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁 **679**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
-| **本轮摘要** | **D5-ADR 刘哥签收** · ADR-008 路径 A 生产真源 · §6/§20.3 闭合 · 生产 ok% 仍 P3-12 观测 · **CLR-B-FEISHU** 待刘哥 |
+| **本轮摘要** | **D5-ADR 刘哥签收** · [`MIMIR_TASK_QUEUE.md`](./MIMIR_TASK_QUEUE.md) 三源合一（Mimir 自驱 + π-agent 只读课） · ok% P3-12 · **CLR-B** 待刘哥飞书 |
 
 ---
 
