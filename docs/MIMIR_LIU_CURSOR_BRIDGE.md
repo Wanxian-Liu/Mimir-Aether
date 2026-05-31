@@ -19,14 +19,14 @@
 
 - **唯一入口**：backlog **§20**（bridge §4 + §19 签收已归档）。
 - **Cursor**：**§20.1 工程轨 3/3 已勾**；日常粒见 **§20.4**（IQ 5.5 / WM）或 **§20.2** 运维。
-- **Mimir**：**§20.2** 第一条 `[ ]` = **OPS-L2-FEISHU-01**（MI-AWAY-08 后续：飞书 `/new` 未见 `<retrieved-sessions>`）。
+- **Mimir**：**§20.2** 第一条 **OPS-L2-FEISHU-01 [x]**（2026-05-27）；下一条 **OPS-MW-REFRESH**。
 - **§19.6 MI-AWAY**：**16/16 [x]** · commit **`24c6c2c`** · 证据 [`phase0/mimir-away-evidence.md`](./phase0/mimir-away-evidence.md)。
 - **拍板**：**§20.3**（**ADR-002-impl** 勾前勿开 **ENGINE-P3W-01**）。
 
 ### 2026-05-27 — 刘哥离席 · Mimir 只做 §19.6（已结束）
 
 - **证据卷**：[`phase0/mimir-away-evidence.md`](./phase0/mimir-away-evidence.md) · §19.6 **16/16**。
-- **遗留**：见 **§20.2 OPS-L2-FEISHU-01**、**OPS-SEARCH-HABIT**（MI-AWAY-11 仅 1/3 先搜再答）。
+- **遗留**：见 **OPS-SEARCH-HABIT**（MI-AWAY-11 仅 1/3 先搜再答）；§20.2 **OPS-MW-REFRESH** 等。
 
 ### 2026-05-20 — 策略（已读）
 
@@ -515,6 +515,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-28 | **§20 队列 v2** | **Cursor** | bridge+backlog 合并 · 工程 **14/17** 剩 3 粒 · Mimir 运维 **§20.2** · MI-AWAY 归档 |
 | 2026-05-28 | **ADR-002-impl + P3W + GW-01** | **Cursor** | Gate brief → 拍板 · `memory_write_facade` · GW 十条总结案 · §20.1 **3/3** · Horizon **17/17** |
 | 2026-05-28 | **ENGINE-ROLLBACK-01** | **Cursor** | STAB-05 证据结案 · 无新代码 · contract `test_horizon_engine_rollback_01` · base **`bb238cf`** · Gateway **不必** · §20.1 **1/3** · 下一 **ENGINE-P3W-01**（§20.3 ADR-002-impl） |
+| 2026-05-27 | **OPS-L2-FEISHU-01** | **Cursor** | Feishu `/new` L2：session_key 对齐 MIMIR/approval · dotenv 后 re-bind · tier0 **641+2** · **Gateway 需重启** · closeout `ops-l2-feishu-01-closeout.md` |
 
 ---
 
@@ -522,7 +523,11 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 
 - **main**：`bb238cf`（§20 队列 v2）· 工程基线 **`b6ed761`** + **ENGINE-ROLLBACK-01** 本地 · tier0 **630+2 PASS**
 - **Horizon C 工程**：**17/17 [x]** · §20.1 **3/3** · P3W + GW-01 已结案
-- **离席轨**：**MI-AWAY 16/16 [x]** · 飞书 L2 块待 **OPS-L2-FEISHU-01**
+- **离席轨**：**MI-AWAY 16/16 [x]** · **OPS-L2-FEISHU-01**：**[x] 2026-05-27** — session_key 对齐（MIMIR/approval + dotenv 后 re-bind）；closeout `ops-l2-feishu-01-closeout.md`；**Gateway 需重启**
+  
+  **原证据**（2026-05-31 21:03，修复前）：
+  - ❌ session_prefetch_pending 键与 consume 不一致；零 log 命中 `<retrieved-sessions>`
+  - **根因**：`_session_key_from_env()` 仅读 HERMES；`load_dotenv(override=True)` 在 agent init 前覆盖 session env
 - **拍板阻塞**：**IQ-RUBRIC-55** · **WM-HORIZON-01**（§20.3）；**ADR-002-impl** ✅
 - **身份（2026-05-19）**：Mimir **是智能体**（loop+tools+memory），**不是** DeepSeek 传话桶 — bridge §1
 - **Wave 0 A / 1 B / 2 C / D / E**：**[x]**（刘哥 §8.3 签收 2026-05-25）

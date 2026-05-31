@@ -10,6 +10,7 @@
 
 | # | 日期 | 来源 | 描述 | 严重度 | 状态 | Backlog |
 |---|------|------|------|--------|------|---------|
+| 13 | 2026-05-31 | OPS-L2-FEISHU-01 | L2 `<retrieved-sessions>` `/new` 后未注入：session_key 与 gateway 不一致 + dotenv 覆盖 HERMES | 中 | closed | OPS-L2-FEISHU-01 |
 | 3 | 2026-05-16 | CLARIFY_BASELINE §4 | 记忆落盘三条入口未统一（mimicore public/、skill_curator、llm-wiki/obsidian）— 设计债，见 ADR | 中 | deferred | [adr/002-memory-write-paths.md](./adr/002-memory-write-paths.md) |
 
 ---

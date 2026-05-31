@@ -1155,12 +1155,12 @@ git pull · 基线 b6ed761 · 每粒 ./run_ralph_tier0.sh + evolution_log（若�
 
 | 序 | ID | Owner | 任务 | 成功标准 | 状态 |
 |:--:|-----|-------|------|----------|------|
-| 1 | **OPS-L2-FEISHU-01** | Mimir+Cursor | **飞书 `/new` 路径 L2 预取**（MI-AWAY-08 后续） | 复现：Feishu reset 后 log/上下文见 `<retrieved-sessions>` 或记 ISSUES + 最小 gateway/agent 修复粒 | [ ] | 08 侧证通过但飞书未见块 |
+| 1 | **OPS-L2-FEISHU-01** | Mimir+Cursor | **飞书 `/new` 路径 L2 预取**（MI-AWAY-08 后续） | 复现：Feishu reset 后 log/上下文见 `<retrieved-sessions>` 或记 ISSUES + 最小 gateway/agent 修复粒 | [x] | 2026-05-27 Cursor：session_key 对齐 MIMIR/approval；dotenv 后 re-bind；tier0 + closeout |
 | 2 | **OPS-MW-REFRESH** | Mimir | 每周 MW-D01/D02/D07 | bridge §4 或无新 P0 | [ ] |
 | 3 | **OPS-EVAL-WEEKLY** | Mimir | `run_evolution_eval.sh` + JSON 路径 | exit 0；非 simulated | [ ] |
 | 4 | **CLR-B-FEISHU** | 刘哥 | Gateway #9 / 空表头飞书复验 | 无新 230099 | [ ] |
 
-**§20.2 进度**：**0/4**（OPS-IQ-SMOKE-49 已由 MI-AWAY-07 闭环 **[x]**）
+**§20.2 进度**：**1/4**（OPS-L2-FEISHU-01 **[x]** 2026-05-27；OPS-IQ-SMOKE-49 已由 MI-AWAY-07 闭环 **[x]**）
 
 **Mimir 新窗一句**
 

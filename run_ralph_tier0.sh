@@ -195,6 +195,8 @@ python3 -m pytest -q \
   tests/contract/test_horizon_p3_xsr_03.py \
   tests/contract/test_horizon_engine_ws_01.py \
   tests/contract/test_horizon_engine_rollback_01.py \
+  tests/agent/test_cross_session_retrieval_feishu.py \
+  tests/contract/test_horizon_ops_l2_feishu_01.py \
   tests/agent/test_memory_write_facade_p3w.py \
   tests/contract/test_horizon_engine_p3w_01.py \
   tests/contract/test_horizon_engine_gw_01.py \

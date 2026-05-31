@@ -140,3 +140,4 @@ Append-only. Newest rows at the **bottom**. See `**docs/M6_EVOLUTION.md`** for r
 | 20260527T083928Z_c3dfdc0-dirty | 2026-05-27T08:39:28Z | c3dfdc0-dirty | ./run_ralph_tier0.sh | 0 | P3-XSR-03 MIMIR_CROSS_SESSION_RAG default off; session_search_prefetch RRF merge with L2; tier0 619+2; metrics: n/a |
 | 20260527T085735Z_6aba91f-dirty | 2026-05-27T08:57:35Z | 6aba91f-dirty | ./run_ralph_tier0.sh | 0 | ENGINE-WS-01 closeout: STAB-01/06 evidence, contract test_horizon_engine_ws_01; no gateway code change; tier0 625+2; metrics: n/a |
 | 20260531T124024Z_4c60b5a-dirty | 2026-05-31T12:40:24Z | 4c60b5a-dirty | ./run_ralph_tier0.sh | 0 | ENGINE-P3W-01 MemoryWriteFacade (ADR-002); ENGINE-GW-01 gateway ten-item closeout; tier0 639+2 PASS |
+| 20260531T131352Z_905bfd3-dirty | 2026-05-31T13:13:52Z | 905bfd3-dirty | ./run_ralph_tier0.sh | 0 | OPS-L2-FEISHU-01: session_key MIMIR/approval alignment + dotenv re-bind; Feishu L2 prefetch tests; tier0 645 PASS; metrics: n/a |

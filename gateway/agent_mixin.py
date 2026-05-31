@@ -963,6 +963,14 @@ class AgentMixin:
 
             turn_route = self._resolve_turn_agent_config(message, model, runtime_kwargs)
 
+            # Re-bind session identity after load_dotenv(override=True) and before
+            # agent init (system prompt may consume cross-session prefetch here).
+            os.environ["HERMES_SESSION_KEY"] = session_key or ""
+            os.environ["MIMIR_SESSION_KEY"] = session_key or ""
+            from tools.approval import set_current_session_key
+
+            set_current_session_key(session_key or "")
+
             # Check agent cache — reuse the AIAgent from the previous message
             # in this session to preserve the frozen system prompt and tool
             # schemas for prompt cache hits.

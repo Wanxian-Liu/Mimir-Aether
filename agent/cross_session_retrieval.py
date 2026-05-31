@@ -100,7 +100,28 @@ def _messages_per_session() -> int:
 
 
 def _session_key_from_env() -> str:
-    return (os.environ.get("HERMES_SESSION_KEY") or "").strip()
+    """Resolve session_key for prefetch consume — align with gateway session context."""
+    try:
+        from gateway.session_context import get_session_env
+
+        key = get_session_env("MIMIR_SESSION_KEY", "").strip()
+        if key:
+            return key
+    except Exception:
+        pass
+    try:
+        from tools.approval import get_current_session_key
+
+        key = get_current_session_key("").strip()
+        if key and key != "default":
+            return key
+    except Exception:
+        pass
+    for name in ("MIMIR_SESSION_KEY", "HERMES_SESSION_KEY"):
+        key = (os.environ.get(name) or "").strip()
+        if key:
+            return key
+    return ""
 
 
 def _load_persistent_state() -> Dict[str, Any]:
