@@ -412,6 +412,19 @@ class DegenerationGuard:
                 report.signal = DegenerationSignal.SURPRISE_DETECTED
                 report.warnings.append(surprise_msg)
                 report.details["surprise"] = surprise_msg
+                try:
+                    from agent.wm_voe_learning import (
+                        append_surprise_event,
+                        is_wm_voe_learning_enabled,
+                        surprise_label_from_guard_message,
+                    )
+                    if is_wm_voe_learning_enabled():
+                        exp, act = expected_vs_actual
+                        append_surprise_event(
+                            exp, act, surprise_label_from_guard_message(surprise_msg), {}, surprise_msg
+                        )
+                except Exception as exc:
+                    logger.warning("WM VoE learning hook failed: %s", exc)
                 return report  # 🔴 立即返回
 
         # ⚠️ 级别
