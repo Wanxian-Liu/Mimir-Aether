@@ -181,6 +181,35 @@ class ExecMixin:
                 for tc in tool_calls
             ]
 
+        from agent.search_first_guard import block_tool_reason
+
+        prebuilt: Dict[int, ToolResult] = {}
+        to_run: List[tuple[int, Dict]] = []
+        for idx, tool_call in enumerate(tool_calls):
+            tool_name = _get_tool_name(tool_call) or ""
+            block_msg = block_tool_reason(tool_name, self.conversation_history)
+            if block_msg:
+                tid = _get_tool_id(tool_call) or "unknown"
+                prebuilt[idx] = ToolResult(
+                    tool_call_id=tid,
+                    content=f"Error: {block_msg}",
+                    is_error=True,
+                )
+                self._tool_errors.append(ToolError(
+                    turn=turn,
+                    tool_name=tool_name or "unknown",
+                    arguments=str(_get_tool_arguments(tool_call))[:200],
+                    error=block_msg,
+                    tool_result=f"Error: {block_msg}",
+                ))
+                logger.warning(
+                    "search-first guard blocked tool=%s turn=%s",
+                    tool_name,
+                    turn,
+                )
+            else:
+                to_run.append((idx, tool_call))
+
         results = []
 
         async def execute_with_semaphore(tool_call: Dict) -> ToolResult:
@@ -239,17 +268,24 @@ class ExecMixin:
                         is_error=True
                     )
 
-        # 并发执行所有工具(受 semaphore 限制)
-        tasks = [execute_with_semaphore(tc) for tc in tool_calls]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        # 并发执行允许的工具(受 semaphore 限制)
+        run_results: Dict[int, Any] = {}
+        if to_run:
+            tasks = [execute_with_semaphore(tc) for _, tc in to_run]
+            gathered = await asyncio.gather(*tasks, return_exceptions=True)
+            for (idx, tool_call), result in zip(to_run, gathered):
+                run_results[idx] = (tool_call, result)
 
-        # 处理结果
+        # 处理结果（保持与 tool_calls 顺序一致）
         processed_results = []
-        for i, result in enumerate(results):
+        for i in range(len(tool_calls)):
+            if i in prebuilt:
+                processed_results.append(prebuilt[i])
+                continue
+            tool_call, result = run_results[i]
             if isinstance(result, Exception):
                 err_name = type(result).__name__
                 err_msg = str(result)
-                tool_call = tool_calls[i]
                 tool_name = _get_tool_name(tool_call) or 'unknown'
                 
                 # 记录详细日志但不暴露给LLM

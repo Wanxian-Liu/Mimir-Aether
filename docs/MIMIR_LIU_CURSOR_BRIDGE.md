@@ -535,6 +535,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-31 | **WA-A04 + WA-A05** | **Cursor** | **WA-A04** session_search_7d：**total=0** · rate=**null** · `~/.mimiraether/data/ops/session_search_baseline_7d.json` · **WA-A05** search_first_audit：**violation_rate=100%**（10/10）· candidates=528 · `iqevo-31-search-first-audit.md` |
 | 2026-05-31 | **WA-A09** | **Mimir+刘哥** | 飞书3：**0P/1部分** · ①② FAIL（无 session_search/无 memory 写）· ③ cross-session 注入非主动 search · 下一 **A07+A08** · **勿重做 A02** |
 | 2026-06-01 | **WA-A07～A12** | **Cursor** | intent+nudge 证据 · memory nudge log · evolution ok **24/46** · tier0 **648** · gateway **21329** · **Wave A closeout** rubric **4.9** exception · 下一 **Wave B** 或 **A06.1** |
+| 2026-05-19 | **WA-A06.1** | **Cursor** | `search_first_guard.py` · `MIMIR_SEARCH_FIRST_GUARD` 默认 **1** · exec 预阻非 search 工具 · loop 文本 nudge×2 · audit 共享排除 · tier0 **674 PASS** · **Gateway 需重启** · 飞书复测 ① |
 | 2026-06-01 | **WB-B03** | **Cursor** | WM Phase0 spike closeout → `docs/phase0/wm-phase0-spike-closeout.md` · tier0 **659 PASS** · 生产 env 默认 off |
 | 2026-06-01 | **WB-B02** | **Cursor** | VoE learning JSONL `wm_voe_learning.py` + `degeneration_guard` hook · env 默认 0 · tier0 **659 PASS** · M6 已记 · next **WB-B03** |
 | 2026-06-01 | **WB-B01** | **Cursor** | predictor MVP `agent/world_model_spike.py` + 6 tests · tier0 **654 PASS** · M6 已记 · next **WB-B02** |

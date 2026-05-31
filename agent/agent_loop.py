@@ -38,6 +38,12 @@ from .intent_action_guard import (
     guard_enabled,
     should_block_text_only_finish,
 )
+from .search_first_guard import (
+    MAX_SEARCH_FIRST_NUDGES,
+    build_nudge_message as build_search_first_nudge,
+    guard_enabled as search_first_guard_enabled,
+    should_block_text_only_finish as should_block_search_first_finish,
+)
 # 统一类型: 从 types.py 导入 (Phase 3 M1)
 from .types import AgentLoopToolError as ToolError, AgentLoopResult as AgentResult
 
@@ -173,6 +179,7 @@ class MimirAgentLoop:
             pass
 
         intent_nudges = 0
+        search_first_nudges = 0
         tool_calls_so_far = 0
 
         for turn in range(self.max_turns):
@@ -377,6 +384,26 @@ class MimirAgentLoop:
                 if _reasoning:
                     msg_dict["reasoning_content"] = _reasoning
                 messages.append(msg_dict)
+
+                if (
+                    search_first_guard_enabled()
+                    and search_first_nudges < MAX_SEARCH_FIRST_NUDGES
+                    and should_block_search_first_finish(
+                        messages,
+                        content or "",
+                        has_tool_schemas=bool(self.tool_schemas),
+                    )
+                ):
+                    search_first_nudges += 1
+                    messages.append({"role": "user", "content": build_search_first_nudge()})
+                    logger.warning(
+                        "[%s] turn %d: search-first guard nudge %d/%d",
+                        self.task_id[:8],
+                        turn + 1,
+                        search_first_nudges,
+                        MAX_SEARCH_FIRST_NUDGES,
+                    )
+                    continue
 
                 block_finish = (
                     guard_enabled()

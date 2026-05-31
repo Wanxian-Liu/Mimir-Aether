@@ -82,6 +82,7 @@ def test_record_or_lookup_increments_hit_count(tmp_path, monkeypatch):
 def test_replan_context_surprise_has_learning_context(monkeypatch):
     monkeypatch.setenv("MIMIR_WM_VOE_REPLAN_CTX", "1")
     monkeypatch.setenv("MIMIR_WM_VOE_LEARNING", "0")
+    monkeypatch.setenv("MIMIR_WM_VOE_RECALL", "0")
     from agent.degeneration_guard import DegenerationGuard
 
     report = DegenerationGuard().run_checks(
@@ -97,6 +98,7 @@ def test_replan_context_surprise_has_learning_context(monkeypatch):
 
 def test_replan_context_env_zero_no_field(monkeypatch):
     monkeypatch.setenv("MIMIR_WM_VOE_REPLAN_CTX", "0")
+    monkeypatch.setenv("MIMIR_WM_VOE_RECALL", "0")
     from agent.degeneration_guard import DegenerationGuard
 
     report = DegenerationGuard().run_checks(

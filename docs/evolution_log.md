@@ -149,3 +149,4 @@ Append-only. Newest rows at the **bottom**. See `**docs/M6_EVOLUTION.md`** for r
 | 20260531T175841Z_0789ee1-dirty | 2026-05-31T17:58:41Z | 0789ee1-dirty | ./run_ralph_tier0.sh | 0 | WM-P11-02 replan wm_learning_context; tier0 663 PASS |
 | 20260531T180411Z_0789ee1-dirty | 2026-05-31T18:04:11Z | 0789ee1-dirty | ./run_ralph_tier0.sh | 0 | WM-P11-03 VoE recall suppresses 2nd surprise; tier0 665 PASS |
 | 20260531T181425Z_0789ee1-dirty | 2026-05-31T18:14:25Z | 0789ee1-dirty | ./run_ralph_tier0.sh | 0 | WM-P11-04 Phase1.1 closeout; plan §3.1 recall+replan; tier0 665 PASS |
+| 20260531T192310Z_4fdc614-dirty | 2026-05-31T19:23:10Z | 4fdc614-dirty | ./run_ralph_tier0.sh | 0 | WA-A06.1 search-first tool guard: search_first_guard.py, exec_mixin block, agent_loop nudge, audit shared exclusions; tier0 +test_search_first_guard (674 pass); metrics: n/a |
