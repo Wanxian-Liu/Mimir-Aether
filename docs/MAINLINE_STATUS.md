@@ -81,6 +81,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-27 | **MI-AWAY-13**：文档对账 · §19.1 [x] 与 git log 一致 · HEAD **b6ed761**（+4 vs MAINLINE 原 c7f4bc4）· §19.6 **9/16**。 |
 | 2026-05-26 | **OBS-B1-01**：ADR-007 ObservabilityBus defer；Wave 3 **14 [x]**；tier0 **398+2**。 |
 | 2026-05-26 | **进度**：执行队列 **4 粒**（14 + B1×3）；CLEARANCE **8/8**；Wave 3 Cursor **11～13 [x]**；tier0 **393+2**。 |
 | 2026-05-26 | **刘哥拍板**：先 **IQ-EVO Wave 3** · 再 **Horizon B1**（`P1-LONG-OBS`/d6）；bridge §1 + backlog §15/§16。 |

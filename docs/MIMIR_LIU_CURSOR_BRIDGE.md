@@ -492,7 +492,21 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-27 | **ENGINE-WS-01** | **Cursor** | STAB-01/06 证据结案 · 无新 gateway 代码 · contract `test_horizon_engine_ws_01` · base **`6aba91f`** · Gateway **不必重启** · 下一粒 **ENGINE-ROLLBACK-01** · §19.1 **14/17** · **~80%** |
 | 2026-05-27 | **MI-AWAY-00** | **Mimir** | 开局签收：已读 bridge §1 + §19.6 全文；PID 595933；SHA 6aba91f；evidence §00 → §19.6 **1/16** |
 | 2026-05-27 | **MI-AWAY-01** | **Mimir** | Gateway health OK · error_rate=0.0435 · P95=1210ms · PID 595933 稳定 → §19.6 **2/16** |
-|
+| 2026-05-27 | **MI-AWAY-02** | **Mimir** | 健康脚本 READY · TRUNCATE since-start **0** · error_rate=0.0333 → §19.6 **3/16** |
+| 2026-05-27 | **MI-AWAY-03** | **Mimir** | ERROR 扫：agent.log 0 · **无新 P0** → §19.6 **4/16** |
+| 2026-05-27 | **MI-AWAY-04** | **Mimir** | 飞书码：无新 230099（旧记录 05-16～17）→ §19.6 **5/16** |
+| 2026-05-27 | **MI-AWAY-05** | **Mimir** | hybrid `session_search` **3 hits** → §19.6 **6/16** |
+| 2026-05-27 | **MI-AWAY-06** | **Mimir** | L1 cross-session runtime OK · 未读 repo persistent → §19.6 **7/16** |
+| 2026-05-27 | **MI-AWAY-09** | **Mimir** | evolution_eval pass · 无退化 → §19.6 **8/16** |
+| 2026-05-27 | **MI-AWAY-12** | **Mimir** | Gateway 十条 #2/#9 稳定 · 状态列→2026-05-27 → §19.6 **9/16** |
+| 2026-05-27 | **MI-AWAY-13** | **Mimir** | §19.1 与 git log 一致 · HEAD b6ed761 → §19.6 **10/16** |
+| 2026-05-27 | **MI-AWAY-14** | **Mimir** | GH #17–20 closed · #21–22 open → §19.6 **11/16** |
+| 2026-05-27 | **MI-AWAY-11** | **Mimir** | 先搜再答 1/3 session_search → §19.6 **12/16** |
+| 2026-05-27 | **MI-AWAY-10** | **Mimir** | evolution applied=1 ok=0 → §19.6 **13/16** |
+| 2026-05-27 | **MI-AWAY-07** | **Mimir** | `/new` key_decisions 5 条 ✅ → §19.6 **14/16** · OPS-IQ-SMOKE-49 |
+| 2026-05-27 | **MI-AWAY-08** | **Mimir** | L2 侧证通过 · 飞书未见 `<retrieved-sessions>` → §19.6 **15/16** |
+| 2026-05-27 | **MI-AWAY-15** | **Mimir** | 离席 16/16 汇总 · evidence 卷齐 → §19.6 **16/16** |
+
 ---
 
 ## 5. Mimir 进度笔记

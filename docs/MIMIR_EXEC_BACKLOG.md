@@ -992,7 +992,7 @@ Read docs/superpowers/plans/2026-05-27-horizon-c-master-iteration.md + backlog �
 | ID | Owner | 任务 | 成功标准 | 状态 |
 |----|-------|------|----------|------|
 | **OPS-DEPLOY-W9** | Cursor | Wave 9 + 粒 B **Gateway 硬重启** + `/health` | bridge §1 自证 PID；Mimir 可复验 | [x] |
-| **OPS-IQ-SMOKE-49** | Mimir | `/new` 后 cross-session 含 key_decisions 一句 | 飞书截图或 log；§3.3 | [ ] |
+| **OPS-IQ-SMOKE-49** | Mimir | `/new` 后 cross-session 含 key_decisions 一句 | 飞书截图或 log；§3.3 · evidence MI-AWAY-07 | [x] 2026-05-27 |
 | **CLR-B-FEISHU** | 刘哥 | Gateway #9 / 空表头飞书复验 | 无新 230099 | [ ] |
 | **OPS-MW-REFRESH** | Mimir | 每周 MW-D01/D02/D07 轻量刷新 | bridge §4 或无新 P0 | [ ] |
 | **OPS-EVAL-WEEKLY** | Mimir | `run_evolution_eval.sh` + 贴 JSON 路径 | exit 0；非 simulated | [ ] |
@@ -1068,22 +1068,22 @@ Read docs/superpowers/plans/2026-05-27-horizon-c-master-iteration.md + backlog �
 |----|------|--------|----------|------|
 | **MI-AWAY-00** | 开局 | Read bridge §1 + 本节；填 evidence 卷表头（日期·PID·`git rev-parse --short HEAD`） | evidence §00 非空 | [x] 2026-05-27 |
 | **MI-AWAY-01** | Gateway | `curl -s http://127.0.0.1:18999/health`；`pgrep -af 'gateway/run.py'` | /health ok；有 PID | [x] 2026-05-27 |
-| **MI-AWAY-02** | 健康脚本 | `~/src/MimirAether/scripts/mimir_health_check.sh --quick` | READY 或 evidence 记失败行；**TRUNCATE since-start** 数字 | [ ] |
-| **MI-AWAY-03** | ERROR | `grep ERROR ~/.mimiraether/logs/agent.log \| tail -30` | top3 主题；无新 P0 写「无新 P0」 | [ ] |
-| **MI-AWAY-04** | 飞书码 | `grep -E '230099\|200907' ~/.mimiraether/logs/*.log \| tail -10` | 有/无新 230099 | [ ] |
-| **MI-AWAY-05** | 检索 CLI | `SESSION_SEARCH_BACKEND=hybrid` + `session_search('IR-20260520', limit=3)`（§12 MW-D05 同命令） | 无 SQL 异常；有/无 hit 均可 | [ ] |
-| **MI-AWAY-06** | L1 记忆 | `_build_cross_session_context()` 只读（**runtime** `MIMIR_AETHER_HOME`） | 输出摘要 200 字；**不**读 repo `data/persistent.json` | [ ] |
-| **MI-AWAY-07** | IQ 冒烟 | 飞书 **`/new`** 后问一句需 **key_decisions** 的问题 | 回复含 cross-session / key_decisions；截图或 log 行 | [ ] |
-| **MI-AWAY-08** | L2 冒烟 | Read `p3-xsr-02-closeout.md`；`/new` 后有 objective 时问「与当前目标相关的上次会话」 | log 或回复侧证 L2（`<retrieved-sessions>` / prefetch）；无 objective 则记「跳过」 | [ ] |
-| **MI-AWAY-09** | 进化数字 | `MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh` | JSON 路径 + ok%/计数写入 evidence | [ ] |
-| **MI-AWAY-10** | 进化链观察 | 飞书完成 **1 票**可 close 的小任务 → grep 该 `session_id` 的 `post_analysis evolution` | `ok=1` / `applied=0`+原因 / **未触发**（三选一如实） | [ ] |
-| **MI-AWAY-11** | 先搜再答 | 飞书 **3 问**：「上次 IR-20260520」「key_decisions 有啥」「最近 evolution 干啥了」 | 每问：log 是否出现 `session_search`（是/否） | [ ] |
-| **MI-AWAY-12** | Gateway 十条 | Read `GATEWAY_STABILITY_BACKLOG.md`；#2 #9 各 grep log **一行** | 状态列日期→今天；**只改 docs** | [ ] |
-| **MI-AWAY-13** | 文档对账 | 核对 §19.1 表 [x] 与 `git log --oneline -20`；读 `MAINLINE_STATUS.md` | 矛盾写 evidence；**仅**可改 MAINLINE「最近更新」+ 一行事实 | [ ] |
-| **MI-AWAY-14** | GH 只读 | `gh issue list --state open --limit 15` | #17–19 是否 closed；#20–22 仍 open → evidence | [ ] |
-| **MI-AWAY-15** | 汇总 | 飞书发 **MI-AWAY-00～14 勾选表** + TRUNCATE + PID；bridge §4 汇总一行 | 本节全 `[x]`；刘哥一眼能读 | [ ] |
+| **MI-AWAY-02** | 健康脚本 | `~/src/MimirAether/scripts/mimir_health_check.sh --quick` | READY 或 evidence 记失败行；**TRUNCATE since-start** 数字 | [x] 2026-05-27 |
+| **MI-AWAY-03** | ERROR | `grep ERROR ~/.mimiraether/logs/agent.log \\| tail -30` | top3 主题；无新 P0 写「无新 P0」 | [x] 2026-05-27 |
+| **MI-AWAY-04** | 飞书码 | `grep -E '230099\\|200907' ~/.mimiraether/logs/*.log \\| tail -10` | 有/无新 230099 | [x] 2026-05-27 |
+| **MI-AWAY-05** | 检索 CLI | `SESSION_SEARCH_BACKEND=hybrid` + `session_search('IR-20260520', limit=3)`（§12 MW-D05 同命令） | 无 SQL 异常；有/无 hit 均可 | [x] 2026-05-27 |
+| **MI-AWAY-06** | L1 记忆 | `_build_cross_session_context()` 只读（**runtime** `MIMIR_AETHER_HOME`） | 输出摘要 200 字；**不**读 repo `data/persistent.json` | [x] 2026-05-27 |
+| **MI-AWAY-07** | IQ 冒烟 | 飞书 **`/new`** 后问一句需 **key_decisions** 的问题 | 回复含 cross-session / key_decisions；截图或 log 行 | [x] 2026-05-27 |
+| **MI-AWAY-08** | L2 冒烟 | Read `p3-xsr-02-closeout.md`；`/new` 后有 objective 时问「与当前目标相关的上次会话」 | log 或回复侧证 L2（`<retrieved-sessions>` / prefetch）；无 objective 则记「跳过」 | [x] 2026-05-27 |
+| **MI-AWAY-09** | 进化数字 | `MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh` | JSON 路径 + ok%/计数写入 evidence | [x] 2026-05-27 |
+| **MI-AWAY-10** | 进化链观察 | 飞书完成 **1 票**可 close 的小任务 → grep 该 `session_id` 的 `post_analysis evolution` | `ok=1` / `applied=0`+原因 / **未触发**（三选一如实） | [x] 2026-05-27 |
+| **MI-AWAY-11** | 先搜再答 | 飞书 **3 问**：「上次 IR-20260520」「key_decisions 有啥」「最近 evolution 干啥了」 | 每问：log 是否出现 `session_search`（是/否） | [x] 2026-05-27 |
+| **MI-AWAY-12** | Gateway 十条 | Read `GATEWAY_STABILITY_BACKLOG.md`；#2 #9 各 grep log **一行** | 状态列日期→今天；**只改 docs** | [x] 2026-05-27 |
+| **MI-AWAY-13** | 文档对账 | 核对 §19.1 表 [x] 与 `git log --oneline -20`；读 `MAINLINE_STATUS.md` | 矛盾写 evidence；**仅**可改 MAINLINE「最近更新」+ 一行事实 | [x] 2026-05-27 |
+| **MI-AWAY-14** | GH 只读 | `gh issue list --state open --limit 15` | #17–19 是否 closed；#20–22 仍 open → evidence | [x] 2026-05-27 |
+| **MI-AWAY-15** | 汇总 | 飞书发 **MI-AWAY-00～14 勾选表** + TRUNCATE + PID；bridge §4 汇总一行 | 本节全 `[x]`；刘哥一眼能读 | [x] 2026-05-27 |
 
-**§19.6 状态**：**2/16** · 证据卷 [`phase0/mimir-away-evidence.md`](./phase0/mimir-away-evidence.md)
+ **§19.6 状态**：**16/16 ✅ 全部完成** · 证据卷 [`phase0/mimir-away-evidence.md`](./phase0/mimir-away-evidence.md)
 
 #### 19.6.2 刘哥回来后 · Cursor 审计清单（勿由 Mimir 自签）
 
