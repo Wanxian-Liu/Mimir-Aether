@@ -21,17 +21,17 @@
 | # | 状态 |
 |---|------|
 | Q1 | **4.9** + exception（未达 5.5） |
-| Q2 | **部分** — 离线 eval 优 · A06.1 后飞书 **2P+1部分**（① `94ab78b` ② `7f9b3e3b` ③ `cc8c544a` 行为 search-first、③ 召回未接上 ensure_single_gateway） |
+| Q2 | **部分**（Path A 档）· Phase2 后飞书 **3P** — ③ `16e3735611f87e85` 见 [`iq-55-phase2-closeout.md`](./iq-55-phase2-closeout.md) |
 | Q3 | **PASS** — evolution_eval 周常 155907Z |
 | Q4 | **PASS** — tool_quality_weekly 已跑 |
-| Q5 | **待验证** — feedback JSONL 仍缺 |
+| Q5 | **PASS** — [`iq-q5-production-closeout.md`](./iq-q5-production-closeout.md) · env + JSONL |
 | Q6–Q7 | **PASS** |
 
 ## 未达 5.5 的原因（诚实 · 2026-06-01 Path A）
 
 1. **#1 学习能力**：进化链 log ~52% ok；`memory` discover 仍报组件不可用（② 靠 add 落盘）。  
 2. **#8 意图 + 召回**：guard 改善 **先搜再答**（①② PASS）；③ **索引/会话内容**未命中「单实例」线程，非再堆 guard 能解。  
-3. **审计基线**：`session_search_baseline_7d` total=0（state.db）；历史 JSONL 义务句违例率仍高 — 抬分靠周常 eval + 索引/Q5，非 Wave A 工程粒。
+3. **审计基线**：Phase2 回填后 7d `total_sessions=17`；③ 已于 Phase2 签收 PASS — 见 [`iq-idx-closeout.md`](./iq-idx-closeout.md)。
 
 ## A06.1 飞书复测摘要（PR #39 · `1121d63`）
 

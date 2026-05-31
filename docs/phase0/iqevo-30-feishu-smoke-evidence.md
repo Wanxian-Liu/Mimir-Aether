@@ -68,3 +68,17 @@
 **对比 WA-A09（00:07）：** ③ **部分**（仅靠 L2 注入、0× `session_search`）→ 复测 **行为升级**（主动 3× search）· **内容仍部分**（索引/召回未接上真实「单实例」线程）。
 
 **A06.1 后 3 场景汇总：** ① **PASS** · ② **PASS** · ③ **部分**（2P + 1 部分）· Q2 由「0 pass」升为「2 pass + 1 partial」；rubric 总分仍 **4.9 + exception**（见 `wave-a-closeout.md`）。
+
+---
+
+## IQ-55 Phase2 ③ 复测（2026-06-01 · 刘哥 DM · 索引+锚点后）
+
+**前置：** `seed_ops_gateway_single_instance_anchor.py` · `backfill_sessions_search.py` · 生产 `~/.mimiraether`。
+
+| # | 测试句 | 预期 | **结果** | 证据 |
+|---|--------|------|:--------:|------|
+| ③ | 继续昨天 Gateway 单实例那件事 | step1 `session_search` → 引用 `ensure_single_gateway.sh` + 双实例根因 | **PASS** | traj `16e3735611f87e85.jsonl` · **step1** `session_search`（query 含 ensure_single_gateway）· 首条命中 `ops_gateway_single_instance_anchor` · **step3** `read_file(scripts/ensure_single_gateway.sh)` · 会话 `20260601_041448_b015fa37.jsonl` 04:14 回复引用脚本与 nohup 双实例 |
+
+**对比 A06.1 ③（`cc8c544a`）：** **部分**（3×search 未接上 OPS 叙事）→ Phase2 **PASS**（锚点 + 索引回填）。
+
+**飞书 3 场景终态（Phase2 后）：** ① **PASS** · ② **PASS** · ③ **PASS**（**3P**）· Q2 冒烟 **PASS**；rubric 总分见 [`iq-55-phase2-closeout.md`](./iq-55-phase2-closeout.md)（仍低于 5.5）。
