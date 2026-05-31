@@ -203,7 +203,8 @@ python3 -m pytest -q \
   tests/agent/test_conversation_nudges.py \
   tests/agent/test_persistent_single_writer_ind05.py \
   tests/agent/test_world_model_spike.py \
-  tests/agent/test_wm_voe_learning.py
+  tests/agent/test_wm_voe_learning.py \
+  tests/agent/test_wm_voe_learning_p11.py
 
 echo "=== Ralph Tier-1: Gate3 Core E2E (mocked LLM) ==="
 python3 -m pytest -q agent/test_tier1_e2e_agent.py
