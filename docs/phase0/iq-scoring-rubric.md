@@ -64,4 +64,15 @@
 
 **Wave A 复评（2026-06-01 · WA-A11）：** 工程粒 A00～A12 闭合；**总分仍 4.9**（未虚标 5.5）。#8 接线见 [`wave-a-intent-nudge-evidence.md`](./wave-a-intent-nudge-evidence.md)；生产 Q2 见 [`iqevo-30`](./iqevo-30-feishu-smoke-evidence.md) **FAIL**。exception 续期 → [`wave-a-closeout.md`](./wave-a-closeout.md)。
 
-**下一复评：** ≥5.5 需生产 search-first **行为过线** + #1 肌肉记忆，或刘哥接受新 exception 档位。
+**IQ 5.5 Phase2 复评（2026-06-01 · 三轨汇合）：**
+
+| 变化 | 现评 | Δ 加权 | 依据 |
+|------|:--:|:------:|------|
+| #3 反馈收集 | **5.5** | +0.05 | Q5 生产 JSONL + env · [`iq-q5-production-closeout.md`](./iq-q5-production-closeout.md) |
+| #8 意图理解 | **4.5** | +0.10 | 飞书 3P（③ traj `16e3735611f87e85`）· 仍非 ML IntentPredictor 全量 |
+| #10 数据闭环 | **5.6** | +0.01 | state.db 回填 + search 索引 + baseline 可审计 |
+| #1/#2 等 | 不变 | — | 进化 ok 率、生产默认 1c 未本轨解决 |
+
+**Phase2 加权：** 在 4.875 基线上 +0.16 ≈ **5.04 → 记 5.0**（诚实，**未达 5.5**）· exception 续期 → [`iq-55-phase2-closeout.md`](./iq-55-phase2-closeout.md)。
+
+**下一复评：** ≥5.5 需 #1 生产默认进化 + 周常 eval 抬 ok 率，或刘哥 §20.3 接受 **5.0 + exception** 档位。

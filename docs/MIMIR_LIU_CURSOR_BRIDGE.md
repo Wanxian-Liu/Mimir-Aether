@@ -535,6 +535,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-31 | **WA-A04 + WA-A05** | **Cursor** | **WA-A04** session_search_7d：**total=0** · rate=**null** · `~/.mimiraether/data/ops/session_search_baseline_7d.json` · **WA-A05** search_first_audit：**violation_rate=100%**（10/10）· candidates=528 · `iqevo-31-search-first-audit.md` |
 | 2026-05-31 | **WA-A09** | **Mimir+刘哥** | 飞书3：**0P/1部分** · ①② FAIL（无 session_search/无 memory 写）· ③ cross-session 注入非主动 search · 下一 **A07+A08** · **勿重做 A02** |
 | 2026-06-01 | **WA-A07～A12** | **Cursor** | intent+nudge 证据 · memory nudge log · evolution ok **24/46** · tier0 **648** · gateway **21329** · **Wave A closeout** rubric **4.9** exception · 下一 **Wave B** 或 **A06.1** |
+| 2026-06-01 | **IQ-55-PHASE2** | **Cursor+刘哥** | 三轨闭合 · 飞书 ③ **PASS** traj `16e3735611f87e85` · Q2 **3P** · rubric **~5.0** exception 续期 · closeout `iq-55-phase2-closeout.md` |
 | 2026-05-19 | **WA-A06.1** | **Cursor** | PR **#39** merge `1121d63` · guard 默认 **1** · tier0 **674 PASS** · gateway 重启 · 飞书 ①② **PASS** · ③ **部分**（`cc8c544a` 3×session_search 未接上 ensure_single_gateway 线程）· **2P+1部分** |
 | 2026-06-01 | **WB-B03** | **Cursor** | WM Phase0 spike closeout → `docs/phase0/wm-phase0-spike-closeout.md` · tier0 **659 PASS** · 生产 env 默认 off |
 | 2026-06-01 | **WB-B02** | **Cursor** | VoE learning JSONL `wm_voe_learning.py` + `degeneration_guard` hook · env 默认 0 · tier0 **659 PASS** · M6 已记 · next **WB-B03** |

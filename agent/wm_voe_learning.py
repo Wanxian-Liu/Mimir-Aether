@@ -102,6 +102,34 @@ def format_wm_learning_context(
     return _learning_hint(expected, actual, surprise_label)
 
 
+_pending_wm_learning_context: str = ""
+
+
+def set_pending_wm_learning_context(text: str) -> None:
+    """Queue VoE learning text for the next model call (WM-P11-OPS)."""
+    global _pending_wm_learning_context
+    _pending_wm_learning_context = (text or "").strip()
+
+
+def pop_wm_learning_context_block_for_prompt() -> str:
+    """Consume pending VoE context once; empty when replan ctx env is off."""
+    global _pending_wm_learning_context
+    if not is_wm_voe_replan_ctx_enabled():
+        _pending_wm_learning_context = ""
+        return ""
+    block = _pending_wm_learning_context
+    _pending_wm_learning_context = ""
+    if not block:
+        return ""
+    return f"<wm-voe-learning>\n{block}\n</wm-voe-learning>"
+
+
+def reset_pending_wm_learning_context_for_test() -> None:
+    """Test helper."""
+    global _pending_wm_learning_context
+    _pending_wm_learning_context = ""
+
+
 def lookup_learned_surprise(
     expected: str,
     actual: str,
