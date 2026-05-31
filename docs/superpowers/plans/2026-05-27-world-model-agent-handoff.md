@@ -1,6 +1,6 @@
 # 世界模型智能体 · 新窗 Handoff（刘哥 → Cursor / Mimir）
 
-> **创建**：2026-05-27 · **真源**：`docs/MIMIR_EXEC_BACKLOG.md` §19 · [`2026-05-27-horizon-c-master-iteration.md`](./2026-05-27-horizon-c-master-iteration.md) · [`world-model-evolution-plan.md`](../proposals/world-model-evolution-plan.md)
+> **创建**：2026-05-27 · **更新**：2026-05-28 · **真源**：`docs/MIMIR_EXEC_BACKLOG.md` **§20** · [`horizon-c-master-iteration.md`](./2026-05-27-horizon-c-master-iteration.md) · [`world-model-evolution-plan.md`](../proposals/world-model-evolution-plan.md)
 
 ---
 
@@ -61,9 +61,9 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 
 ## 3. 我从哪开始（Cursor 决策 · 2026-05-27 更新）
 
-**已完成：** P3-XSR-01/02/03 [x] · commits `fada2d6`/`bff2160` · tier0 **619+2**
+**已完成：** P3-XSR-01/02/03 [x] · ENGINE-WS-01 [x] · MI-AWAY 16/16 [x] · main docs **`24c6c2c`** · 工程基线 **`b6ed761`** · tier0 **625+2**
 
-**下一粒：** **ENGINE-ROLLBACK-01** · **ENGINE-WS-01** 已勾（2026-05-27）
+**下一粒：** **§20.1 ENGINE-ROLLBACK-01**（STAB-05 验收结案）
 
 **合并策略：** 每粒一 commit；排除 `data/persistent.json`。
 
@@ -80,11 +80,11 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 
 【Superpowers】using-superpowers → verification-before-completion
 
-【真源】backlog §19.1 · `p3-xsr-03-closeout.md`
+【真源】backlog §20.1 · `engine-ws-01-closeout.md`
 
-【默认下一工程粒】ENGINE-ROLLBACK-01（进化回滚护栏）
+【默认下一工程粒】ENGINE-ROLLBACK-01（STAB-05 验收结案）
 
-【基线 main】bff2160 · §19.1 13/17 · tier0 619+2 · L3 默认关
+【基线】b6ed761 · §20.1 0/3 · Horizon 14/17 · tier0 625+2 · L3 默认关
 
 【禁止】改 SESSION_SEARCH 生产默认 · WM Phase0 · persistent.json commit
 
@@ -96,18 +96,15 @@ Wave 10 全完成（3 粒）：**+20%** §19.1。
 ## 5. 新 Mimir 窗 · 粘贴提示词（运维轨 · Superpowers 轻量）
 
 ```text
-【角色】Mimir 运维 · 不抢 §19.1 代码。
+【角色】Mimir 运维 · 不抢 §20.1 代码。
 
-【必读】bridge §1「@Mimir 必读」+ backlog §19.2 第一条 [ ]。
+【必读】bridge §1「@Mimir 必读」+ backlog §20.2 第一条 [ ]。
 
-【Superpowers】Read superpowers:verification-before-completion — 无 log/health 证据不得宣称 smoke pass。
+【Superpowers】verification-before-completion — 无 log/health 证据不得宣称 pass。
 
-【本窗】
-1) OPS-IQ-SMOKE-49：/new 后问 key_decisions 是否在 cross-session 出现
-2) OPS-EVAL-WEEKLY：MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh
-3) 回报：MIMIR_IQ_EVOLUTION_DIRECTION.md §3.3 模板 + bridge §4 一行
+【本窗】OPS-L2-FEISHU-01：飞书 /new 路径是否出现 <retrieved-sessions>（MI-AWAY-08 后续）
 
-【禁止】改 agent/gateway/tools · git push
+【禁止】改 agent/gateway/tools · git push（若需代码 → ISSUES → Cursor §20.1）
 ```
 
 ---

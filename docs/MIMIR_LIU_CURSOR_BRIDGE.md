@@ -15,12 +15,18 @@
 
 ## 1. 刘哥 → Mimir / Cursor（你编辑）
 
-### 2026-05-27 — 刘哥离席 · Mimir 只做 §19.6
+### 2026-05-28 — 刘哥在席 · 队列改 §20
 
-- **队列**：[`MIMIR_EXEC_BACKLOG.md`](./MIMIR_EXEC_BACKLOG.md) **§19.6**（`MI-AWAY-00`～`15`）— **非** §19.1 工程 16 粒。
-- **证据卷**：[`phase0/mimir-away-evidence.md`](./phase0/mimir-away-evidence.md) · 每粒追加一节。
-- **自完善**：进化 eval、飞书「先 search 再答」三连问、进化链 log 观察 — **提案轨 A**，**禁止**改 `agent|gateway|tools`。
-- **Cursor**：刘哥回来后审计 §19.6.2，不抢跑 §19.1 除非刘哥另说。
+- **唯一入口**：backlog **§20**（bridge §4 + §19 签收已归档）。
+- **Cursor**：**§20.1** 第一条 `[ ]` = **ENGINE-ROLLBACK-01**（STAB-05 验收结案，对标 WS-01）。
+- **Mimir**：**§20.2** 第一条 `[ ]` = **OPS-L2-FEISHU-01**（MI-AWAY-08 后续：飞书 `/new` 未见 `<retrieved-sessions>`）。
+- **§19.6 MI-AWAY**：**16/16 [x]** · commit **`24c6c2c`** · 证据 [`phase0/mimir-away-evidence.md`](./phase0/mimir-away-evidence.md)。
+- **拍板**：**§20.3**（**ADR-002-impl** 勾前勿开 **ENGINE-P3W-01**）。
+
+### 2026-05-27 — 刘哥离席 · Mimir 只做 §19.6（已结束）
+
+- **证据卷**：[`phase0/mimir-away-evidence.md`](./phase0/mimir-away-evidence.md) · §19.6 **16/16**。
+- **遗留**：见 **§20.2 OPS-L2-FEISHU-01**、**OPS-SEARCH-HABIT**（MI-AWAY-11 仅 1/3 先搜再答）。
 
 ### 2026-05-20 — 策略（已读）
 
@@ -506,12 +512,16 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-27 | **MI-AWAY-07** | **Mimir** | `/new` key_decisions 5 条 ✅ → §19.6 **14/16** · OPS-IQ-SMOKE-49 |
 | 2026-05-27 | **MI-AWAY-08** | **Mimir** | L2 侧证通过 · 飞书未见 `<retrieved-sessions>` → §19.6 **15/16** |
 | 2026-05-27 | **MI-AWAY-15** | **Mimir** | 离席 16/16 汇总 · evidence 卷齐 → §19.6 **16/16** |
+| 2026-05-28 | **§20 队列 v2** | **Cursor** | bridge+backlog 合并 · 工程 **14/17** 剩 3 粒 · Mimir 运维 **§20.2** · MI-AWAY 归档 |
 
 ---
 
 ## 5. Mimir 进度笔记
 
-- **main**：`b55fa98` · tier0 **368+2** · **`P0-LONG-CLEARANCE` [x]** · **`P2-LONG-SEM` [x]**
+- **main**：`24c6c2c`（MI-AWAY docs）· 工程基线 **`b6ed761`**（ENGINE-WS-01）· tier0 **625+2 PASS**
+- **Horizon C 工程**：**14/17 [x]** · 下一粒 **ENGINE-ROLLBACK-01**（§20.1）
+- **离席轨**：**MI-AWAY 16/16 [x]** · 飞书 L2 块待 **OPS-L2-FEISHU-01**
+- **拍板阻塞**：**ADR-002-impl** · **IQ-RUBRIC-55** · **WM-HORIZON-01**（§20.3）
 - **身份（2026-05-19）**：Mimir **是智能体**（loop+tools+memory），**不是** DeepSeek 传话桶 — bridge §1
 - **Wave 0 A / 1 B / 2 C / D / E**：**[x]**（刘哥 §8.3 签收 2026-05-25）
 - **Horizon A**：**[x]** SEM + IQ-EVO Wave 1/2
@@ -544,7 +554,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 
 ## 6. Hermes & OpenSpace 学习（已迁 backlog · 2026-05-27）
 
-> **任务真源**：[`MIMIR_EXEC_BACKLOG.md`](./MIMIR_EXEC_BACKLOG.md) **§19**（工程 **§19.1** 第一条 `[ ]` = 下一粒；明细 **§18.2**）。长期波次：[`superpowers/plans/2026-05-27-horizon-c-master-iteration.md`](./superpowers/plans/2026-05-27-horizon-c-master-iteration.md)。  
+> **任务真源**：[`MIMIR_EXEC_BACKLOG.md`](./MIMIR_EXEC_BACKLOG.md) **§20**（**§20.1** Cursor · **§20.2** Mimir · **§20.3** 刘哥）。§19/§18 只读归档。长期波次：[`horizon-c-master-iteration.md`](./superpowers/plans/2026-05-27-horizon-c-master-iteration.md)。  
 > **论证全文**：[`hermes-comparison-detailed.md`](./hermes-comparison-detailed.md)（含旧版 §6.1～§6.31 归档，飞书滤镜已废弃）。  
 > **学习三原则**：不复制代码 · 理解意图 · Mimir 自造。
 

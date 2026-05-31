@@ -1,8 +1,8 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-05-27（**§19.6 Mimir 离线自治轨** · §19 主队列 · Wave 9 [x]）  
+> **最近更新**：2026-05-28（**§20 执行队列 v2** · Horizon C 工程 14/17 · MI-AWAY 16/16 已归档）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5  
-> **规则**：**只认 §19.1 工程轨第一条 `[ ]`**。新窗 handoff：[`superpowers/plans/2026-05-27-world-model-agent-handoff.md`](./superpowers/plans/2026-05-27-world-model-agent-handoff.md)。长期迭代：[`2026-05-27-horizon-c-master-iteration.md`](./superpowers/plans/2026-05-27-horizon-c-master-iteration.md)。  
+> **规则**：**只认 §20 第一条 `[ ]`（按角色列）**。历史 §19.1/§19.6 只读归档。Handoff：[`world-model-agent-handoff.md`](./superpowers/plans/2026-05-27-world-model-agent-handoff.md)。主计划：[`horizon-c-master-iteration.md`](./superpowers/plans/2026-05-27-horizon-c-master-iteration.md)。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
 > **勿提交**：`data/persistent.json`（runtime 镜像）。
 
@@ -799,7 +799,7 @@ Read docs/phase0/p2-long-iqevo-wave7-closeout.md · 下一工程粒见 backlog �
 |----|------|------|----------|------|
 | **IQ-EVO-49** | **粒 B** — `_build_cross_session_context` 注入 **最近 key_decisions + learned_patterns**（有界） | Cursor | ① 从 runtime `persistent.json` 读取 `memory.key_decisions`（默认最近 **5** 条）与 `learned_patterns`（默认最近 **3** 条），写入 `<cross-session-context>`；② 仍遵守 `MIMIR_CROSS_SESSION_MAX_CHARS` / `_cross_session_max_chars()`，超长截断；③ 单测覆盖「有 decisions 时 prompt 含决策摘要」+ 空盘不报错；④ contract 入 tier0；⑤ closeout `docs/phase0/iqevo-49-grain-b-cross-session-closeout.md`；⑥ Mimir：`/new` 后首条能复述**上一轮已落盘**的关键决策（飞书或 log 一句证据） | [x] 2026-05-27 · closeout · tier0 |
 
-**§15 Wave 8 状态**：**IQ-EVO-49** **[x]** · Mimir 待飞书 `/new` + 关键决策复述冒烟
+**§15 Wave 8 状态**：**IQ-EVO-49** **[x]** · OPS-IQ-SMOKE-49 **[x]**（MI-AWAY-07 证据）
 
 **Cursor 新窗一句**
 
@@ -946,11 +946,13 @@ Read bridge §1「@Mimir 必读」+ backlog §18（勿再扫 bridge §6 大表�
 
 ### 19.0 怎么读（一条规则）
 
+> **2026-05-28 起**：执行入口改 **§20**；本节 §19 为归档与签收记录。
+
 | 角色 | 取任务 |
 |------|--------|
-| **Cursor 工程** | **§19.1** 从上到下 **第一条 `[ ]`** → 打开 §18.2 同 ID 行 → 跟 superpowers 计划对应 **Wave** |
-| **Mimir 运维** | 刘哥离线：**§19.6** 第一条 `[ ]`；否则 **§19.2** 第一条 `[ ]`；**禁止** 抢 §19.1 代码粒 |
-| **刘哥** | **§19.3** 拍板项；拍板前工程轨 **跳过** 该行 |
+| **Cursor 工程** | **§20.1** 第一条 `[ ]` |
+| **Mimir 运维** | **§20.2** 第一条 `[ ]` |
+| **刘哥** | **§20.3** 拍板；未勾前 **§20.1** 对应行 **不得** 开工 |
 
 每粒结束：`./run_ralph_tier0.sh` → `record_m6_evolution.sh` → backlog `[x]` → bridge §4 一行 →（若触达 agent）Gateway 重启说明。
 
@@ -1104,3 +1106,101 @@ Read docs/superpowers/plans/2026-05-27-horizon-c-master-iteration.md + backlog �
 禁止 push / 禁止改 agent|gateway|tools|mimir_cli / 禁止动生产 .env 与 persistent.json。
 末粒 MI-AWAY-15 飞书发总表。
 ```
+
+---
+
+## 20. 执行队列 v2（2026-05-28 · bridge §4 + backlog 合并）
+
+> **目的**：Horizon C 工程粒 **14/17** 已勾；离席 **MI-AWAY 16/16** 已勾。本节只列 **剩下要做的事**，避免 §18/§19/§15/bridge §5 多入口打架。  
+> **签收**：每粒结束 → tier0（工程）→ `record_m6_evolution.sh`（触达 agent/gateway/tools）→ bridge §4 一行 → 本表 `[x]`。
+
+### 20.0 一张图（谁干什么）
+
+```text
+刘哥 §20.3 拍板 ──解锁──► Cursor §20.1 工程（单线 3 粒）
+Mimir §20.2 运维（单线，含 MI-AWAY 后续 2 粒）
+§20.4 大战役（IQ 5.5 / WM）── 刘哥勾了再开，不进 §20.1
+§20.5 icebox（#21 #22）── 不抢主线
+```
+
+| 角色 | 规则 |
+|------|------|
+| **Cursor** | 只认 **§20.1** 第一条 `[ ]`；与 bridge §2 常备授权一致 |
+| **Mimir** | 只认 **§20.2** 第一条 `[ ]`；**禁止** push / 改 `agent|gateway|tools|mimir_cli` |
+| **刘哥** | **§20.3**；飞书 **CLR-B-FEISHU** 在 §20.2 |
+
+### 20.1 工程轨（Cursor · 单线 · 建议顺序）
+
+> **基线**：`b6ed761`（ENGINE-WS-01）· tier0 **625+2** · P3 L2/L3 已落地 · G-ADR-002 已勾
+
+| 序 | ID | 任务 | 成功标准 | 状态 | 备注 |
+|:--:|-----|------|----------|------|------|
+| 1 | **ENGINE-ROLLBACK-01** | 进化回滚护栏 **验收结案** | STAB-05 已有 `evolution_rollback`；补 closeout + horizon contract；无缺口则 **无新代码** | [ ] | 对标 `engine-ws-01-closeout` 模式 |
+| 2 | **ENGINE-P3W-01** | ADR-002 **写路径** Facade（persistent 单写者） | spike + G3 顺序；tier0；`docs/phase0/engine-p3w-01-closeout.md` | [ ] | 依赖 **ADR-002-impl** 拍板（§20.3） |
+| 3 | **ENGINE-GW-01** | Gateway 稳定性 **总结案** | `GATEWAY_STABILITY_BACKLOG.md` 十条 + STAB 映射；无新 P0 | [ ] | STAB-07 已标完成；本粒=文档+契约 |
+
+**§20.1 进度**：**0/3** · Horizon C 工程总 **14/17（82%）**
+
+**Cursor 新窗一句**
+
+```text
+Read backlog §20.1 第一条 [ ] + bridge §4 末行（ENGINE-WS-01 已勾）。
+git pull · 基线 b6ed761 · 每粒 ./run_ralph_tier0.sh + evolution_log（若触达 agent/gateway/tools）。
+禁止 WM Phase0 大 diff · 勿改 SESSION_SEARCH 生产默认 · 勿 commit persistent.json。
+```
+
+### 20.2 运维轨（Mimir · 单线）
+
+> **MI-AWAY 已归档**：[`phase0/mimir-away-evidence.md`](./phase0/mimir-away-evidence.md) · §19.6 **16/16** · bridge §4 `MI-AWAY-*`
+
+| 序 | ID | Owner | 任务 | 成功标准 | 状态 |
+|:--:|-----|-------|------|----------|------|
+| 1 | **OPS-L2-FEISHU-01** | Mimir+Cursor | **飞书 `/new` 路径 L2 预取**（MI-AWAY-08 后续） | 复现：Feishu reset 后 log/上下文见 `<retrieved-sessions>` 或记 ISSUES + 最小 gateway/agent 修复粒 | [ ] | 08 侧证通过但飞书未见块 |
+| 2 | **OPS-MW-REFRESH** | Mimir | 每周 MW-D01/D02/D07 | bridge §4 或无新 P0 | [ ] |
+| 3 | **OPS-EVAL-WEEKLY** | Mimir | `run_evolution_eval.sh` + JSON 路径 | exit 0；非 simulated | [ ] |
+| 4 | **CLR-B-FEISHU** | 刘哥 | Gateway #9 / 空表头飞书复验 | 无新 230099 | [ ] |
+
+**§20.2 进度**：**0/4**（OPS-IQ-SMOKE-49 已由 MI-AWAY-07 闭环 **[x]**）
+
+**Mimir 新窗一句**
+
+```text
+Read bridge §1「@Mimir 必读」+ backlog §20.2 第一条 [ ]。
+回报 MIMIR_IQ_EVOLUTION_DIRECTION §3.3；每粒 bridge §4 一行。
+禁止 push · 禁止改 agent|gateway|tools（OPS-L2 若需代码：记 ISSUES，交 Cursor §20.1 子粒）。
+```
+
+### 20.3 拍板轨（刘哥 · 未勾前工程暂停对应行）
+
+| ID | 决策 | 解锁 | 状态 |
+|----|------|------|------|
+| **ADR-002-impl** | cross-session 写入 Facade 全路径 | **ENGINE-P3W-01** | [ ] |
+| **IQ-RUBRIC-55** | rubric **≥5.5** 行为证据战役 vs 继续 4.9 exception | §20.4 Wave A | [ ] |
+| **WM-HORIZON-01** | 世界模型 Phase 0（独立 Wave） | §20.4 Wave B | [ ] |
+| **D5-ADR** | d5 双架构 ADR 定稿 | §6 收口 | [ ] |
+| **EV-VISION-DEFER** | 识图 / OpenRouter | M-002 | [ ] 维持搁置 |
+
+**已勾不再列**：**G-ADR-002**（L2/L3/P3W 顺序）→ 见 §19.3.1
+
+### 20.4 大战役（Gate 后 · 非 §20.1 日常粒）
+
+| Wave | 条件 | 内容 | 出口 |
+|------|------|------|------|
+| **A · IQ 5.5** | **IQ-RUBRIC-55** ✅ | 方向文档 §1.5 检查表 · 7d `session_search` 使用率 · 进化链 ok% 周常 · 飞书行为 3 场景 | rubric ≥5.5 或更新 exception 理由 |
+| **B · WM Phase0** | **WM-HORIZON-01** ✅ | `world-model-evolution-plan.md` Phase 0 spike only | closeout · **禁止** 与 Horizon C 工程混 PR |
+
+### 20.5 Icebox（不抢 §20.1/§20.2）
+
+| ID | 说明 |
+|----|------|
+| **GH-ICE-21-22** | GitHub #21 D5 余债 · #22 D6 可观测 |
+| **§18.2 遗留行** | `ADR-002-impl` / `WM-HORIZON-01` / `IQ-RUBRIC-55` 与 §20.3 同义，以 **§20.3** 为准 |
+
+### 20.6 归档（勿再取「第一条 [ ]」）
+
+| 区块 | 状态 |
+|------|------|
+| §19.1 Horizon C 工程 | **14/17 [x]**（至 ENGINE-WS-01） |
+| §19.6 MI-AWAY | **16/16 [x]** |
+| §15 Wave 1–8 | **[x]** |
+| bridge §4 | 历史签收；新工作只追加行 |
