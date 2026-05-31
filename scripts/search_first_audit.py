@@ -22,6 +22,13 @@ RECALL_RE = re.compile(
     re.I,
 )
 
+EXPLICIT_CROSS_SESSION_RE = re.compile(
+    r"(上次|之前(?:聊|说|做|提到|发|的)?|历史(?:决策|记录|对话|会话)|跨会话|"
+    r"查(?:一下)?历史|还记得|我们之前|prior\s+(?:session|conversation)|"
+    r"earlier\s+decision|IR-\d)",
+    re.I,
+)
+
 TOOL_CALL_RE = re.compile(r'"name"\s*:\s*"session_search"|session_search\s*\(')
 
 
@@ -31,6 +38,42 @@ class AuditRow:
     user_snippet: str
     searched_before_answer: bool
     evidence: str
+    exclude_reason: str = ""
+
+    @property
+    def filtered_in_scope(self) -> bool:
+        return not self.exclude_reason
+
+
+def exclude_reason(content: str) -> str:
+    """False-positive classes excluded from filtered violation rate (WA-A06)."""
+    text = (content or "").strip()
+    if not text:
+        return "empty"
+    if len(text) > 500 or re.search(r"[┌└│├─┤╭╮╯╰]", text):
+        return "user_paste_block"
+    if re.search(
+        r"(放入\s*Bridge|写入\s*Bridge|bridge\s*§|MIMIR_LIU_CURSOR_BRIDGE)",
+        text,
+        re.I,
+    ):
+        return "bridge_write_task"
+    if re.search(r"已经\s*new|/new\s*了|新对话.*继续", text, re.I):
+        return "fresh_session_continue"
+    if re.search(r"(刚刚聊|刚才聊|刚才说|刚才放|刚才的理解|this session)", text, re.I):
+        return "same_session_recall"
+    if re.match(r"继续(?:离席|入库|执行|推进|做|检查)", text):
+        return "task_continuation"
+    if re.search(r"(之前(?:所有)?给你发的|深度思考一遍.*之前)", text, re.I):
+        return "same_session_synthesis"
+    if re.search(r"(我给你|我发给你|如下(?:是)?|总结如下|被蒸馏过的)", text, re.I):
+        return "user_provides_material"
+    if re.search(r"世界模型|world model|JEPA|杨立昆", text, re.I):
+        if not EXPLICIT_CROSS_SESSION_RE.search(text):
+            return "topic_discussion_no_recall_ask"
+    if RECALL_RE.search(text) and not EXPLICIT_CROSS_SESSION_RE.search(text):
+        return "broad_recall_not_explicit"
+    return ""
 
 
 def _load_turns(path: Path) -> List[Dict[str, Any]]:
@@ -87,10 +130,18 @@ def audit_session(path: Path) -> List[AuditRow]:
                 user_snippet=snippet,
                 searched_before_answer=searched,
                 evidence=evidence or "no session_search before next user turn",
+                exclude_reason=exclude_reason(content),
             )
         )
         i += 1
     return out
+
+
+def _violation_rate(rows: List[AuditRow]) -> Optional[float]:
+    if not rows:
+        return None
+    violations = sum(1 for r in rows if not r.searched_before_answer)
+    return round(violations / len(rows), 4)
 
 
 def run_audit(*, sessions_dir: Path, limit: int = 10) -> Dict[str, Any]:
@@ -102,25 +153,43 @@ def run_audit(*, sessions_dir: Path, limit: int = 10) -> Dict[str, Any]:
     all_rows: List[AuditRow] = []
     for path in files:
         all_rows.extend(audit_session(path))
-    # newest recall-like turns first (by file mtime order)
     sample = all_rows[:limit]
-    violations = [r for r in sample if not r.searched_before_answer]
-    rate = round(len(violations) / len(sample), 4) if sample else None
+    filtered_rows = [r for r in all_rows if r.filtered_in_scope]
+    filtered_sample = filtered_rows[:limit]
     return {
         "ok": True,
         "sessions_dir": str(sessions_dir),
         "recall_candidates_total": len(all_rows),
         "sample_size": len(sample),
-        "violations": len(violations),
-        "violation_rate": rate,
+        "violations": sum(1 for r in sample if not r.searched_before_answer),
+        "violation_rate": _violation_rate(sample),
+        "filtered_recall_candidates_total": len(filtered_rows),
+        "filtered_sample_size": len(filtered_sample),
+        "filtered_violations": sum(
+            1 for r in filtered_sample if not r.searched_before_answer
+        ),
+        "filtered_violation_rate": _violation_rate(filtered_sample),
         "rows": [
             {
                 "session_file": r.session_file,
                 "user_snippet": r.user_snippet,
                 "search_first_ok": r.searched_before_answer,
                 "evidence": r.evidence,
+                "exclude_reason": r.exclude_reason or None,
+                "filtered_in_scope": r.filtered_in_scope,
             }
             for r in sample
+        ],
+        "filtered_rows": [
+            {
+                "session_file": r.session_file,
+                "user_snippet": r.user_snippet,
+                "search_first_ok": r.searched_before_answer,
+                "evidence": r.evidence,
+                "exclude_reason": r.exclude_reason or None,
+                "filtered_in_scope": r.filtered_in_scope,
+            }
+            for r in filtered_sample
         ],
     }
 

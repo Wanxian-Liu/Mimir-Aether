@@ -583,3 +583,4 @@ class ModelCommandsMixin:
             f"✅ Home channel set to **{chat_name}** (ID: {chat_id}).\n"
             f"Cron jobs and cross-platform messages will be delivered here."
         )
+

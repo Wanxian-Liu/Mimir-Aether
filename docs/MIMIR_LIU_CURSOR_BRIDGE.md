@@ -15,13 +15,19 @@
 
 ## 1. 刘哥 → Mimir / Cursor（你编辑）
 
+### 2026-05-31 — 刘哥拍板 · Wave A + Wave B 开跑
+
+- **§20.3 [x]**：**IQ-RUBRIC-55**（§20.4 **Wave A · IQ 5.5**）· **WM-HORIZON-01**（§20.4 **Wave B · WM Phase0 spike**）。
+- **Cursor**：大战役 **独立 PR**；**禁止** Wave A/B 与 Horizon C / OPS 混在同一 PR。
+- **Mimir**：Wave A 行为证据（§1.5 检查表 · 7d `session_search` · 飞书 3 场景）；Wave B 只读/spike 证据，先读 [`world-model-evolution-plan.md`](./proposals/world-model-evolution-plan.md) + handoff §7。
+
 ### 2026-05-28 — 刘哥在席 · 队列改 §20
 
 - **唯一入口**：backlog **§20**（bridge §4 + §19 签收已归档）。
 - **Cursor**：**§20.1 工程轨 3/3 已勾**；日常粒见 **§20.4**（IQ 5.5 / WM）或 **§20.2** 运维。
 - **Mimir**：**§20.2** 第一条 **OPS-L2-FEISHU-01 [x]**（2026-05-27）；下一条 **OPS-MW-REFRESH**。
 - **§19.6 MI-AWAY**：**16/16 [x]** · commit **`24c6c2c`** · 证据 [`phase0/mimir-away-evidence.md`](./phase0/mimir-away-evidence.md)。
-- **拍板**：**§20.3**（**ADR-002-impl** 勾前勿开 **ENGINE-P3W-01**）。
+- **拍板**：**ADR-002-impl** ✅（2026-05-28）；**IQ-RUBRIC-55** / **WM-HORIZON-01** → 见上 **2026-05-31**。
 
 ### 2026-05-27 — 刘哥离席 · Mimir 只做 §19.6（已结束）
 
@@ -385,6 +391,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 
 | 时间 | 已读 bridge+backlog | 本轮 ID | 结果一句话 |
 |------|---------------------|---------|------------|
+| 2026-05-31 | Wave A plan + behavior-report | **WA-A00** | Q1=4.9 Q2=部分(0sess) Q3=PASS Q4=待运行 Q5=待验证 · 下一 **WA-A03** |
 | 2026-05-20 | backlog §2b | **EV-M01～M13** | d1–d7 回报；TRUNCATE=19；T-03 [~] |
 | 2026-05-23 | E-004 / E-005 | **WIN-1/4** | PR #6 #7 merged → main |
 | 2026-05-23 | JEPA | **WIN-5** | rebase；tier0 3×181+2；@ ae8a5c7 |
@@ -521,6 +528,18 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-06-01 | **WM-P11-01** | **Cursor** | `learned_surprises.json` lookup/record + JSONL dual-write · tier0 **661 PASS** · M6 已记 · next **WM-P11-02** |
 | 2026-06-01 | **WM-P11-00** | **Cursor** | Phase 1.1 scope locked → `docs/phase0/wm-phase11-scope.md` · next **WM-P11-01** recall index |
 | 2026-05-27 | **OPS-L2-FEISHU-01** | **Cursor** | Feishu `/new` L2：session_key 对齐 MIMIR/approval · dotenv 后 re-bind · tier0 **641+2** · **Gateway 需重启** · closeout `ops-l2-feishu-01-closeout.md` |
+| 2026-05-31 | **IQ-RUBRIC-55 + WM-HORIZON-01** | **刘哥** | §20.3 双勾 · 开 **§20.4 Wave A**（rubric≥5.5 战役）与 **Wave B**（WM Phase0 spike only）· 并行允许 · PR 须分轨 |
+| 2026-05-31 | **双 gateway + Wave A** | **Cursor** | 杀残留 6909/7264 等 · `ensure_single_gateway.sh` · **PID 7458** · health ok · Wave A 成绩单 `phase0/wave-a-behavior-report-20260531.md`（rubric **4.9** 续 exception） |
+| 2026-05-31 | **WA-A02** | **Cursor** | evolution_eval **exit=0** · latest=`~/.mimiraether/data/evolution_eval/memory-retrieval-latest.json` · compare=`memory-retrieval-compare-20260531T155907Z.json` **pass** · **LIKE=1.0** · **FTS=0.5** · **semantic=1.0** |
+| 2026-05-31 | **WA-A03** | **Cursor** | tool_quality_weekly exit=0 · top5=list_capsules/process/set_strategy/get_capsule_by_id/rl_list_environments ok%=1.0（各 calls=1）· 下一 **WA-A04/A05** |
+| 2026-05-31 | **WA-A04 + WA-A05** | **Cursor** | **WA-A04** session_search_7d：**total=0** · rate=**null** · `~/.mimiraether/data/ops/session_search_baseline_7d.json` · **WA-A05** search_first_audit：**violation_rate=100%**（10/10）· candidates=528 · `iqevo-31-search-first-audit.md` |
+| 2026-05-31 | **WA-A09** | **Mimir+刘哥** | 飞书3：**0P/1部分** · ①② FAIL（无 session_search/无 memory 写）· ③ cross-session 注入非主动 search · 下一 **A07+A08** · **勿重做 A02** |
+| 2026-06-01 | **WA-A07～A12** | **Cursor** | intent+nudge 证据 · memory nudge log · evolution ok **24/46** · tier0 **648** · gateway **21329** · **Wave A closeout** rubric **4.9** exception · 下一 **Wave B** 或 **A06.1** |
+| 2026-06-01 | **WB-B03** | **Cursor** | WM Phase0 spike closeout → `docs/phase0/wm-phase0-spike-closeout.md` · tier0 **659 PASS** · 生产 env 默认 off |
+| 2026-06-01 | **WB-B02** | **Cursor** | VoE learning JSONL `wm_voe_learning.py` + `degeneration_guard` hook · env 默认 0 · tier0 **659 PASS** · M6 已记 · next **WB-B03** |
+| 2026-06-01 | **WB-B01** | **Cursor** | predictor MVP `agent/world_model_spike.py` + 6 tests · tier0 **654 PASS** · M6 已记 · next **WB-B02** |
+| 2026-06-01 | **WB-B00** | **Cursor** | WM Phase0 spike scope locked → `docs/phase0/wm-phase0-spike-scope.md` · next **WB-B01** predictor MVP |
+| 2026-05-31 | **WA-A06** | **Cursor** | search-first 加固：prompt 显式跨会话 MUST search · audit 排除 9 类假阳 · **filtered_violation_rate=100%**（10/10）· filtered_n=**102**/528 · tier0 **648 PASS** · M6 已记 |
 
 ---
 
@@ -533,7 +552,8 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
   **原证据**（2026-05-31 21:03，修复前）：
   - ❌ session_prefetch_pending 键与 consume 不一致；零 log 命中 `<retrieved-sessions>`
   - **根因**：`_session_key_from_env()` 仅读 HERMES；`load_dotenv(override=True)` 在 agent init 前覆盖 session env
-- **拍板阻塞**：**IQ-RUBRIC-55** · **WM-HORIZON-01**（§20.3）；**ADR-002-impl** ✅
+- **大战役（§20.4）**：**Wave A · IQ 5.5** + **Wave B · WM Phase0** — 刘哥 **2026-05-31** 拍板开跑；§20.3 **IQ-RUBRIC-55** / **WM-HORIZON-01** ✅
+- **拍板仍 [ ]**：**D5-ADR** · **EV-VISION-DEFER**（维持搁置）
 - **身份（2026-05-19）**：Mimir **是智能体**（loop+tools+memory），**不是** DeepSeek 传话桶 — bridge §1
 - **Wave 0 A / 1 B / 2 C / D / E**：**[x]**（刘哥 §8.3 签收 2026-05-25）
 - **Horizon A**：**[x]** SEM + IQ-EVO Wave 1/2
@@ -546,6 +566,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 - **R5**：刘哥复验 **pass**（30s 内 tool）
 - **Gateway**：PID **135797** · /health ok · TRUNCATE since-start **0**
 - **GH open**：**10** · #10 **monitoring**（STAB-04 已修）
+- **OPS-MW-REFRESH 2026-05-31**：4 PASS / 0 FAIL · 9 dispatch boom（已知 feishu） · 230099=0
 
 ### MW-D11 勾选表（2026-05-25 · W0-06）
 

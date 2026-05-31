@@ -75,6 +75,11 @@ def _classify_intent(text: str) -> Tuple[str, float]:
     return "general", 0.4
 
 
+# ── P0: 续执行/接力 强制 block_cheap ──
+# 当用户说"继续"或类似接力语时，不允许 LLM 跳过工具验证直接回答问题。
+_CONTINUE_PATTERNS = re.compile(r"(?i)继续|接着|cont|resume|继续离席|new 了|新对话|再做|再做下去|继续完成")
+
+
 def predict(user_message: str) -> IntentPrediction:
     intent, confidence = _classify_intent(user_message)
     complexity = _estimate_complexity(user_message)
@@ -82,6 +87,12 @@ def predict(user_message: str) -> IntentPrediction:
         intent in ("code", "debug", "ops") and complexity != "simple"
     )
     block_cheap = complexity == "complex" or intent in ("code", "debug", "ops")
+
+    # P0 override: 续执行时强制走工具验证 + 搜历史
+    if _CONTINUE_PATTERNS.search(user_message):
+        block_cheap = True
+        prefer_search = True
+
     return IntentPrediction(
         intent=intent,
         complexity=complexity,

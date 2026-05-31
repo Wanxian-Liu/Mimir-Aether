@@ -62,4 +62,6 @@
 - [`p2-long-iqevo-wave7-1c-closeout.md`](./p2-long-iqevo-wave7-1c-closeout.md) · `tests/contract/test_horizon_iqevo_wave7_1c.py`
 - bridge §4 · IQ-EVO-40～45 evolution_log 行
 
-**下一复评：** ≥5.5 需 #1/#8 实质抬升，或刘哥接受新 exception 档位。
+**Wave A 复评（2026-06-01 · WA-A11）：** 工程粒 A00～A12 闭合；**总分仍 4.9**（未虚标 5.5）。#8 接线见 [`wave-a-intent-nudge-evidence.md`](./wave-a-intent-nudge-evidence.md)；生产 Q2 见 [`iqevo-30`](./iqevo-30-feishu-smoke-evidence.md) **FAIL**。exception 续期 → [`wave-a-closeout.md`](./wave-a-closeout.md)。
+
+**下一复评：** ≥5.5 需生产 search-first **行为过线** + #1 肌肉记忆，或刘哥接受新 exception 档位。
