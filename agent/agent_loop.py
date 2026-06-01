@@ -38,6 +38,10 @@ from .intent_action_guard import (
     guard_enabled,
     should_block_text_only_finish,
 )
+from .intent_predictor import (
+    predictor_enabled as intent_predictor_enabled,
+    predict_and_format as intent_predict_and_format,
+)
 from .search_first_guard import (
     MAX_SEARCH_FIRST_NUDGES,
     build_nudge_message as build_search_first_nudge,
@@ -214,6 +218,25 @@ class MimirAgentLoop:
             skill_nudge = maybe_skill_nudge_message(turn, tool_calls_so_far)
             if skill_nudge:
                 messages.append({"role": "user", "content": skill_nudge})
+
+            # Intent predictor context: inject <intent-context> metadata (turn 0 only)
+            if turn == 0 and intent_predictor_enabled():
+                try:
+                    _user_text = last_user_text(messages) or ""
+                    if _user_text:
+                        _pred, _ctx = intent_predict_and_format(_user_text)
+                        if _ctx:
+                            messages.append({"role": "user", "content": _ctx})
+                            logger.info(
+                                "[%s] turn %d: intent-context injected (intent=%s)",
+                                self.task_id[:8], turn + 1,
+                                _pred.intent if _pred else "none",
+                            )
+                except Exception as _exc:
+                    logger.warning(
+                        "[%s] intent predictor skipped: %s",
+                        self.task_id[:8], _exc,
+                    )
 
             # Meta-cognition: scenario → skill_view (turn 0 only, once per user message)
             if turn == 0:

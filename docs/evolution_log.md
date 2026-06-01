@@ -169,3 +169,4 @@ Append-only. Newest rows at the **bottom**. See `**docs/M6_EVOLUTION.md`** for r
 | manual_m6_20260601T084623Z | 2026-06-01T08:46:23Z | 9e6306c-dirty | N/A (doc only) | 0 | SELF-17: closeout M1~M6 — 元认知 2→5/10, 6/6 PASS, 自律链全部 [x] |
 | 20260601T135550Z_c5de84e-dirty | 2026-06-01T13:55:50Z | c5de84e-dirty | ./run_ralph_tier0.sh | 0 | IQ-17 plan + Liu approvals; preemptive search_first_guard satisfied + suspended no model banner; tier0 681 |
 | 20260601T160722Z_0b2306d-dirty | 2026-06-01T16:07:22Z | 0b2306d-dirty | ./run_ralph_tier0.sh | 0 | IQ-31/32/33/34: WM predictor inject agent_loop; intent low-confidence fallback; IQ33 contract tests; tier0 681 |
+| 20260601T162829Z_1068717 | 2026-06-01T16:28:29Z | 1068717 | ./run_ralph_tier0.sh | 0 | BRAIN-01: intent predictor context injected into agent_loop turn0 |
