@@ -102,57 +102,116 @@ def get_log_evolution_count() -> dict:
         return {"error": str(e)}
 
 
+def _parse_session_date(fn: Path) -> float:
+    """Extract timestamp from session JSONL filename (YYYYMMDD_HHMMSS.jsonl)."""
+    parts = fn.stem.split("_")
+    if len(parts) >= 1 and len(parts[0]) == 8:
+        try:
+            return datetime.strptime(parts[0], "%Y%m%d").timestamp()
+        except ValueError:
+            pass
+    return fn.stat().st_mtime
+
+
+def _iter_recent_jsonl() -> list[Path]:
+    """Return JSONL files from sessions/ dir that are <7d old."""
+    if not SESSIONS_DIR.is_dir():
+        return []
+    cutoff = time.time() - 7 * 86400
+    result = []
+    for fn in SESSIONS_DIR.iterdir():
+        if not fn.name.endswith(".jsonl"):
+            continue
+        ts = _parse_session_date(fn)
+        if ts >= cutoff:
+            result.append(fn)
+    return result
+
+
+def _count_text_markers(files: list[Path], markers: tuple[str, ...]) -> dict:
+    """Count occurrences of text markers across given JSONL files."""
+    total = 0
+    files_with_hits = set()
+    for fn in files:
+        text = fn.read_text(encoding="utf-8", errors="replace")
+        file_hits = sum(line.count(m) for m in markers for line in text.splitlines())
+        if file_hits:
+            files_with_hits.add(fn.name)
+        total += file_hits
+    return {"total_hits": total, "files_with_hits": len(files_with_hits)}
+
+
+def _count_tool_calls(files: list[Path], tool_name: str) -> dict:
+    """Count tool call occurrences across given JSONL files."""
+    total = 0
+    files_with_hits = set()
+    for fn in files:
+        text = fn.read_text(encoding="utf-8", errors="replace")
+        file_hits = 0
+        for line in text.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            tc = obj.get("tool_calls")
+            if not tc:
+                continue
+            for call in tc:
+                fn_name = call.get("function", {}).get("name", "")
+                if fn_name == tool_name:
+                    file_hits += 1
+        if file_hits:
+            files_with_hits.add(fn.name)
+        total += file_hits
+    return {"total_calls": total, "sessions_with_calls": len(files_with_hits)}
+
+
+def get_session_search_7d() -> dict:
+    """Count session_search tool calls in session JSONL from last 7 days."""
+    files = _iter_recent_jsonl()
+    if not files:
+        return {"total_calls": 0, "sessions_with_calls": 0, "sessions_7d": 0}
+    result = _count_tool_calls(files, "session_search")
+    result["sessions_7d"] = len(files)
+    return result
+
+
+def get_nudge_metrics() -> dict:
+    """Count [MIMIR_MEMORY_NUDGE] and [MIMIR_SKILL_NUDGE] in session JSONL."""
+    files = _iter_recent_jsonl()
+    if not files:
+        return {"memory_nudges": {"total_hits": 0}, "skill_nudges": {"total_hits": 0},
+                "sessions_7d": 0}
+    mem = _count_text_markers(files, ("[MIMIR_MEMORY_NUDGE]",))
+    skill = _count_text_markers(files, ("[MIMIR_SKILL_NUDGE]",))
+    return {
+        "memory_nudges": mem,
+        "skill_nudges": skill,
+        "sessions_7d": len(files),
+    }
+
+
+def get_intent_metrics() -> dict:
+    """Count intent-context markers in session JSONL from last 7 days."""
+    files = _iter_recent_jsonl()
+    if not files:
+        return {"total_hits": 0, "sessions_with_hits": 0, "sessions_7d": 0}
+    result = _count_text_markers(files, ("<intent-context>",))
+    result["sessions_7d"] = len(files)
+    return result
+
+
 def get_skill_view_7d() -> dict:
     """Count skill_view tool calls in session JSONL files from last 7 days."""
-    if not SESSIONS_DIR.is_dir():
-        return {"sessions_7d": 0, "skill_view_calls_7d": 0, "error": "sessions dir not found"}
-    cutoff = time.time() - 7 * 86400
-    total_sessions = 0
-    total_calls = 0
-    sessions_with_calls = set()
-    try:
-        for fn in SESSIONS_DIR.iterdir():
-            if not fn.name.endswith(".jsonl"):
-                continue
-            # Parse date from filename: 20260601_220153.jsonl
-            parts = fn.stem.split("_")
-            if len(parts) >= 1 and len(parts[0]) == 8:
-                try:
-                    ts = datetime.strptime(parts[0], "%Y%m%d").timestamp()
-                except ValueError:
-                    ts = fn.stat().st_mtime
-            else:
-                ts = fn.stat().st_mtime
-            if ts < cutoff:
-                continue
-            total_sessions += 1
-            session_calls = 0
-            text = fn.read_text(encoding="utf-8", errors="replace")
-            for line in text.splitlines():
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    obj = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                tc = obj.get("tool_calls")
-                if not tc:
-                    continue
-                for call in tc:
-                    fn_name = call.get("function", {}).get("name", "")
-                    if fn_name == "skill_view":
-                        session_calls += 1
-            if session_calls > 0:
-                sessions_with_calls.add(fn.name)
-            total_calls += session_calls
-        return {
-            "sessions_7d": total_sessions,
-            "skill_view_calls_7d": total_calls,
-            "sessions_with_skill_view": len(sessions_with_calls),
-        }
-    except OSError as e:
-        return {"sessions_7d": 0, "skill_view_calls_7d": 0, "error": str(e)}
+    files = _iter_recent_jsonl()
+    if not files:
+        return {"sessions_7d": 0, "skill_view_calls_7d": 0}
+    result = _count_tool_calls(files, "skill_view")
+    result["sessions_7d"] = len(files)
+    return result
 
 
 def snapshot(out_path: Path = OPS_DIR / "brain-metrics-latest.json") -> dict:
@@ -162,6 +221,9 @@ def snapshot(out_path: Path = OPS_DIR / "brain-metrics-latest.json") -> dict:
         "persistent": get_persistent_metrics(),
         "evolution": get_evolution_metrics(),
         "evolution_log": get_log_evolution_count(),
+        "session_search_7d": get_session_search_7d(),
+        "nudge": get_nudge_metrics(),
+        "intent": get_intent_metrics(),
         "skill_view_7d": get_skill_view_7d(),
         "context": get_context_metrics(),
         "tool_quality": get_tool_quality_metrics(),
@@ -203,11 +265,28 @@ if __name__ == "__main__":
     print(f"  ok / fail / total:      {el['ok_count']}/{el['fail_count']}/{el['evolution_lines_total']}")
     print(f"  ok% (log):              {el['ok_pct']}%")
 
+    ss = data.get("session_search_7d", {})
+    print(f"\n🔍 Session Search (7d)")
+    print(f"  Sessions scanned:       {ss.get('sessions_7d', '?')}")
+    print(f"  session_search calls:   {ss.get('total_calls', '?')}")
+    print(f"  Sessions w/ calls:      {ss.get('sessions_with_calls', '?')}")
+
+    nm = data.get("nudge", {})
+    print(f"\n🔔 Nudge Count (7d)")
+    print(f"  Sessions scanned:       {nm.get('sessions_7d', '?')}")
+    print(f"  Memory nudges:          {nm.get('memory_nudges', {}).get('total_hits', '?')}")
+    print(f"  Skill nudges:           {nm.get('skill_nudges', {}).get('total_hits', '?')}")
+
+    im = data.get("intent", {})
+    print(f"\n🎯 Intent Predictor (7d)")
+    print(f"  Sessions scanned:       {im.get('sessions_7d', '?')}")
+    print(f"  <intent-context> hits:  {im.get('total_hits', '?')}")
+
     sv = data.get("skill_view_7d", {})
     print(f"\n📖 Skill View (7d)")
     print(f"  Sessions scanned:       {sv.get('sessions_7d', '?')}")
-    print(f"  skill_view calls:       {sv.get('skill_view_calls_7d', '?')}")
-    print(f"  Sessions w/ skill_view: {sv.get('sessions_with_skill_view', '?')}")
+    print(f"  skill_view calls:       {sv.get('total_calls', '?')}")
+    print(f"  Sessions w/ calls:      {sv.get('sessions_with_calls', '?')}")
 
     print(f"\n💻 Context (last known)")
     print(f"  Prompt tokens:          {ctx['prompt_tokens']}")
