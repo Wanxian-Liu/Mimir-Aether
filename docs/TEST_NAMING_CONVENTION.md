@@ -47,10 +47,17 @@ test_<what>_<condition>_<expected>
 
 ## CI Ratchet
 
+覆盖率 ratchet 策略（ENG-WF-11）：
+
+| 阶段 | 目标 | 节奏 |
+|:----:|:----:|:----:|
+| **基线** | 21% | 首基线（2026-06-01） |
+| **+5% 爬升** | 26% → 31% → 35% | 每季度爬 5% |
+| **封顶** | 35% | 不设更高目标（覆盖价值递减） |
+
 ```
-# 在 tier0 Gate1 中追加：
-# 覆盖率 >= 基线（如 15% → 定期提高）
-pytest --cov=agent --cov-fail-under=15 --cov-append tests/
+# tier0 Gate1 中使用（随阶段修改 fail-under）：
+pytest --cov=agent --cov-fail-under=21 --cov-append tests/
 ```
 
 ## 防再发
