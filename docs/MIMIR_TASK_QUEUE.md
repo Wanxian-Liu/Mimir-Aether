@@ -2,10 +2,10 @@
 
 > **读者**：Mimir（主执行）· 刘哥（拍板/飞书）· Cursor（工程轨，本清单 **不含** §20.1 写码粒）  
 > **目的**：Cursor 流量不足时，Mimir 按 **单线第一条 `[ ]`** 自驱运维、证据与只读学习；避免 bridge/backlog/issues 三处真源漂移。  
-> **真源优先级**：**§11 IQ #17**（有可执行 `[ ]`）> **§12 ENG-WF 工程链**（IQ 仅剩 BLOCK 或 §11 全 [x]）> **§10**（仅 SELF-LOOP `[ ]`）> §9（已闭合）> §6.1 周常 > §2/§3 归档 > backlog §20  
+> **真源优先级**：**§11 IQ #17**（有可执行 `[ ]`）> **§12 ENG-WF**（全 [x] 则跳过）> **§13 MW 心愿单**（刘哥 2026-06-02 拍板）> **§10**（仅 SELF-LOOP `[ ]`）> §9 · §6.1 周常 > §2/§3 · backlog §20  
 > **分工契约**：[`MIMIR_PRIMARY_EXECUTOR.md`](./MIMIR_PRIMARY_EXECUTOR.md)（Mimir 全做 · Cursor 只复核合 main）
 
-**最近更新**：2026-06-02 · **§11 IQ-17 执行闭合**（IQ-14·CLR-B [x]）· 主链 → **§12 ENG-WF**
+**最近更新**：2026-06-02 · **§12 ENG-WF 全 [x]** · 主链 → **§13 MW 心愿单**（Mimir 最想做的 6 项）
 
 ---
 
@@ -14,7 +14,7 @@
 ```text
 你是 Mimir 运维轨。本轮开始前必读（顺序）：
 
-0) ./scripts/mimir_iq17_run_next.sh --dry-run → 若有可执行 IQ 粒，走 §11；否则 ./scripts/mimir_eng_run_next.sh --dry-run → §12
+0) mimir_iq17_run_next → §11；否则 mimir_eng_run_next → §12；否则 mimir_wish_run_next → §13
 1) ~/.openclaw/workspace/CLAUDE.md — 行为准则（Think/Simplicity/Surgical/Goal-Driven）
 2) ~/src/MimirAether/AGENTS.md — 仓库 vs MIMIR_AETHER_HOME、Ralph、M6
 3) §11 或 §12 第一条 [ ] 的真源计划（IQ17_EXECUTION_PLAN 或 MIMIR_ENGINEERING_WORKFLOW.md）
@@ -377,10 +377,30 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 
 ---
 
+## 13. 心愿单链（MW · Mimir 主执行 · 2026-06-02 刘哥拍板）
+
+> **真源**：[`MIMIR_WISHLIST_WORKFLOW.md`](./MIMIR_WISHLIST_WORKFLOW.md) · **下一粒**：`./scripts/mimir_wish_run_next.sh --dry-run`  
+> **拍板**：P0/P1/P2 无 🔴 项 Mimir 可做；**WM-B5 LLM 预测器** 仍不做；env **默认关**
+
+| ID | 优先级 | 任务 | Owner | 状态 |
+|----|:------:|------|-------|------|
+| **MW-00** | P0 | 验收 IQ-31/32/33/34 已在 `a0dc323`（勿重复实现） | Mimir | [ ] |
+| **MW-01** | P0 | search_first_guard 接线审计（已接则 closeout） | Mimir | [ ] |
+| **MW-02** | P1 | 并行只读工具 `parallel_dispatcher`（IQ-41） | Mimir | [ ] |
+| **MW-03** | P1 | 工具调度平台无关薄层（IQ-41 升华） | Mimir | [ ] |
+| **MW-04** | P2 | `MIMIR_NUDGE_INTERVAL` 周期 nudge（IQ-40） | Mimir | [ ] |
+| **MW-05** | P2 | `ic_advisor` 扩大替代建议（非 ISSUES #4） | Mimir | [ ] |
+| **MW-90** | — | mw-wishlist-closeout | Mimir | [ ] |
+
+**刘哥仅运维（不进 Mimir 代码粒）**：`MW-00` 后按 `mw-00-prod-env.md` 开 `MIMIR_WM_PREDICTOR=1` + gateway 重启。
+
+---
+
 ## 7. 修订日志
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-06-02 | §13 MW 心愿单链 + `MIMIR_WISHLIST_WORKFLOW.md` + `mimir_wish_run_next.sh`（刘哥拍板 Mimir 六诉求） |
 | 2026-06-02 | IQ-14 [x] · CLR-B [x] · `iq17-feishu-smoke.md` + `clr-b-feishu-closeout.md`（Cursor 文档对齐） |
 | 2026-06-01 | §12 ENG-WF 工程工作流（`MIMIR_ENGINEERING_WORKFLOW.md` + `mimir_eng_run_next.sh`）· IQ 后默认主链 |
 | 2026-06-01 | §11 IQ #17 执行链（`MIMIR_IQ17_EXECUTION_PLAN.md`）· 优先级高于 §10 LOOP |

@@ -3,17 +3,14 @@
 > **状态**：建议表（供 Cursor 额度恢复后参考）  
 > **来源**：IQ #17 Phase1 执行中发现的余债 + 未做项
 
-## P0: 待合入（IQ-31/32/33/34 P1 工程）
+## P0: IQ-31/32/33/34 — **已合 main**（`a0dc323` · 2026-06-01）
 
-| ID | 文件 | 行数 | 风险 | 依赖 | 说明 |
-|----|------|:----:|:----:|:----:|------|
-| **IQ-31** | `agent/agent_loop.py` | ~+20 | 🟡 | 无 | WM B4 预测器接 agent_loop |
-| **IQ-32** | `agent/intent_predictor.py` | +5 | 🟢 | 无 | 置信度 < 0.5 弱提示 |
-| **IQ-32** | `tests/agent/test_intent_predictor.py` | ~+40 | 🟢 | 无 | 4 tests |
-| **IQ-33** | `tests/agent/test_iq33_non_redundant_nudges.py` | ~+40 | 🟢 | IQ-31/32 合入后 | 契约测 |
-| **IQ-31/32/33** | **全部汇总** | **~+105** | 🟡 | 无 | 见 `docs/mimir-handoff/IQ-34/` |
+| ID | 状态 | 说明 |
+|----|:----:|------|
+| **IQ-31～34** | ✅ | 代码在 `main`；HANDOFF 在 `docs/mimir-handoff/IQ-31/`～`34/` |
+| **下一拍** | — | **TASK_QUEUE §13 MW-00** 验收 + 刘哥开 `MIMIR_WM_PREDICTOR=1`（见 `mw-00-prod-env.md`） |
 
-**建议**：Cursor 在一个 PR 合入，tier0 验证。
+~~勿再开「+105 行」实现 PR。~~
 
 ## P1: WM B5（需刘哥拍板）
 

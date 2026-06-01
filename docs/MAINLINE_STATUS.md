@@ -9,7 +9,7 @@
 | **更新人** | Cursor（ENG-WF 复核 + IQ-14/CLR-B 文档） |
 | **仓库根（真源）** | `~/src/MimirAether` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁 **696+2**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
-| **本轮摘要** | **§12 ENG-WF 收官**（Mimir `ba347ce` · Cursor 补 ENG-WF-12 测 + tier0 **696/4**）· §11 IQ 执行粒闭合 · IQ-12 RECALL 仍暂缓 |
+| **本轮摘要** | **§13 MW 心愿单**（Mimir 六诉求 · 刘哥拍板）· §12 ENG-WF 收官 · IQ-12 RECALL 仍暂缓 |
 
 ---
 

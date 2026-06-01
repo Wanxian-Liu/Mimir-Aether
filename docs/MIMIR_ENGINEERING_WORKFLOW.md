@@ -15,17 +15,17 @@
   ./scripts/mimir_iq17_run_next.sh --dry-run
 
   若 NEXT_TASK=IQ-xx 且非 BLOCK → 先做完 §11（MIMIR_IQ17_EXECUTION_PLAN.md），再回来看 §12。
-  若 NEXT_TASK=NONE，或仅剩 IQ-12 / IQ-14 且 iq17-liu-decisions 已拍板但刘哥未验收 → 跑本链：
-
-  ./scripts/mimir_eng_run_next.sh --dry-run
+  若 NEXT_TASK=NONE → ./scripts/mimir_eng_run_next.sh --dry-run
+  若仍为 NONE → ./scripts/mimir_wish_run_next.sh --dry-run   # §13 心愿单
 ```
 
 | 顺序 | 真源 | 说明 |
 |:----:|------|------|
 | 1 | **§11 IQ-17** | 仍有 `[ ]` 且非纯 BLOCK 时 **必须先 IQ** |
-| 2 | **§12 ENG-WF**（本文） | IQ 收尾或 IQ 仅剩刘哥 BLOCK 时 **主链** |
-| 3 | **§10 SELF-LOOP** | 每周一次，不与 ENG-WF 混在同一轮 |
-| 4 | **§6.1 周常** | M-WEEKLY-01～03，每周 1 次 |
+| 2 | **§12 ENG-WF**（本文） | §11 仅剩 BLOCK 时 |
+| 3 | **§13 MW** | [`MIMIR_WISHLIST_WORKFLOW.md`](./MIMIR_WISHLIST_WORKFLOW.md) · §12 全 [x] 后 |
+| 4 | **§10 SELF-LOOP** | 每周一次 |
+| 5 | **§6.1 周常** | M-WEEKLY-01～03 |
 
 **BLOCK 粒纪律**：见 §12 表「BLOCK」列 — Mimir **不得**假装完成；bridge §4 写 `SKIP <ID> reason=…`，**立刻** `./scripts/mimir_eng_run_next.sh` 取下一粒。
 
