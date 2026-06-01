@@ -588,7 +588,8 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-06-01 | **IQ-55-PHASE3** | **刘哥拍板** | **开 Phase3** · #1 ok%+eval · 无 1c 生产 · plan `iq-55-phase3-execution-plan.md` |
 | 2026-05-31 | **D5-ADR 签收** | **刘哥** | ADR-008 路径 A 生产真源 · B/C/D 非默认 · §20.3 拍板闭合 |
 | 2026-05-19 | **D5-ADR** | **Cursor** | ADR-008 evolution canonical path · §6 d5 **6/6** · `d5-adr-closeout.md` · tier0 +`test_d5_adr_evolution_canonical` · GH **#21** close 余量→icebox |
-| 2026-06-01 | **ENG-PI06-01** | **Mimir→Cursor** | HANDOFF ready → **merged** · `FauxLlmProvider` + `harness` fixture · 9 工具测 PASS · tier0 **681** · 下一 **ENG-SF-01** |
+| 2026-06-01 | **ENG-SF-01** | **Mimir→Cursor** | preemptive search-first nudge（`agent_loop`）· audit 跳过 guard 标记 · tier0 **681** · **Gateway 硬重启** 后飞书复验「还记得任务么」· 下一 **ENG-EVO-01** |
+| 2026-06-01 | **ENG-PI06-01** | **Mimir→Cursor** | HANDOFF ready → **merged** · `FauxLlmProvider` + `harness` fixture · 9 工具测 PASS · tier0 **681** |
 | 2026-06-01 | **IQ-55-PHASE2-A** | **刘哥拍板** | 战役 **A 收官** · **5.0 + exception** · PR #40–#42 merged · Mimir：deploy+backfill **done** |
 | 2026-06-01 | **IQ-55-PHASE2** | **Cursor+刘哥** | 三轨闭合 · 飞书 ③ **PASS** traj `16e3735611f87e85` · Q2 **3P** · rubric **~5.0** · closeout `iq-55-phase2-closeout.md` |
 | 2026-05-19 | **WA-A06.1** | **Cursor** | PR **#39** merge `1121d63` · guard 默认 **1** · tier0 **674 PASS** · gateway 重启 · 飞书 ①② **PASS** · ③ **部分**（`cc8c544a` 3×session_search 未接上 ensure_single_gateway 线程）· **2P+1部分** |
