@@ -296,7 +296,7 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 | **SELF-11** | C | preemptive search | [x] |
 | **SELF-12** | C | nudge 契约 | [x] |
 | **SELF-13** | C | search-first 审计 | [x] |
-| **SELF-14** | C | VoE + WM | [ ] |
+| **SELF-14** | C | VoE + WM | [x] |
 | **SELF-15** | C | evolution eval | [ ] |
 | **SELF-16** | C | rubric | [ ] |
 | **SELF-17** | C | closeout M1～M6 | [ ] |
