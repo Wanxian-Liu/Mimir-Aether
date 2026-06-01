@@ -291,7 +291,7 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 | **SELF-06** | A | 禁止等继续（文档） | [x] |
 | **SELF-07** | A | mimir_self_run_next.sh | [x] |
 | **SELF-08** | B | monitor 真/假阳性 | [x] |
-| **SELF-09** | B | memory 固化冲动 | [ ] |
+| **SELF-09** | B | memory 固化冲动 | [x] |
 | **SELF-10** | B | FEEDBACK / AUTO_EVOLVE | [ ] |
 | **SELF-11** | C | preemptive search | [ ] |
 | **SELF-12** | C | nudge 契约 | [ ] |
