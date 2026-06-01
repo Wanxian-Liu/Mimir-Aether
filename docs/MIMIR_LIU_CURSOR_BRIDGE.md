@@ -11,6 +11,30 @@
 
 **不走**：OpenClaw cron、微信同步 backlog。
 
+### @Cursor 方向纠正（2026-06-01）— 刘哥圈定
+
+飞书只是刘哥和 Mimir 沟通的工具，不是 Mimir 的产品形态。进化目标是 **MimirAether 自身能力**，不是适配飞书平台。
+
+#### 之前的错误
+Mimir 学 pi-agent 时，用"飞书不需要 X"作为不改架构的理由。这是错的。飞书只是终端窗口，就像终端一样——Mimir 的能力应该独立于平台。
+
+#### pi-agent 真正教了 Mimir 什么
+pi-agent 的事件驱动、并行工具、steer/followUp、会话分支、分层规划、多 provider 路由——这些是 **Mimir 应该自己拥有的能力**。不是"平台不需要"，是"Mimir 能力上缺了这个"。
+
+#### Mimir 的方向
+1. **并行工具执行** — 多工具并发，用户不用等串行
+2. **事件驱动** — agent 循环内实时推送，不限平台
+3. **steer/followUp** — 主动调度子任务，非被动响应
+4. **会话分支探索** — 多条路径并行探索
+5. **分层规划合约** — 任务分解 + 反馈链
+6. **多模型按任务路由** — 复杂→强模型，简单→快模型
+7. **世界模型** — 已有代码（Phase 0 + 1.1），全部 env 门控默认关，需逐步启用
+
+#### 纪律
+- 禁止在提案/工程决策中说"飞书不需要 X"
+- 新能力评估标准：**MimirAether 本身**是否因此更强，而非"哪个平台能用"
+- ISSUES #16 为此方向锚点
+
 ---
 
 ## 1. 刘哥 → Mimir / Cursor（你编辑）
@@ -29,6 +53,19 @@
 | **轨 A 默认** | 运维、证据、只读学习（含 **π-agent** `~/.openclaw/projects/pi-agent`，**禁止**整库复制进 Mimir） |
 | **轨 B** | 改 `agent|gateway|tools|mimir_cli` 须本节刘哥 **另条** 授权或记 ISSUES → Cursor **§20.1** |
 | **禁止** | `git push --force` 到 main · 提交 `data/persistent.json` · **EV-VISION** · 未授权 WM 大改 |
+
+### 2026-06-01 — IQ #17 执行链（Cursor 编排 · Mimir 主执行）
+
+- **真源**：[`MIMIR_IQ17_EXECUTION_PLAN.md`](./MIMIR_IQ17_EXECUTION_PLAN.md) · **TASK_QUEUE §11**（优先于 §10 LOOP）
+- **Mimir**：从 **IQ-00** 起；**IQ-05** 发拍板表后，未决项跳过依赖粒
+- **Cursor**：PREREQ 合入（preemptive↔guard · suspended 模型块）· 恢复额度后复核 handoff
+- **刘哥**：复制计划 §9 开场到飞书；填 [`iq17-liu-decisions.md`](./phase0/iq17-liu-decisions.md)
+
+### 2026-05-19 — IQ #17 刘哥拍板（全部确认）
+
+- **登记**：[`iq17-liu-decisions.md`](./phase0/iq17-liu-decisions.md) — D16/A/WM-Q1/Q3/C/D/E/F 已填
+- **Mimir**：§11 从 **IQ-00** 执行；IQ-04～06 已 [x]
+- **刘哥运维**：gateway shell 重启 · WM B1 加 `MIMIR_WM_VOE_LEARNING=1`（见拍板表）
 
 ### 2026-06-01 — 刘哥拍板 · 自我完善链（元认知 2→5+）
 

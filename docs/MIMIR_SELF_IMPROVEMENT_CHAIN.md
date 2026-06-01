@@ -45,7 +45,7 @@ git pull → 读本 ID → 实现 → tier0 → record_m6（若改 agent/gateway
 
 | ID | 摘要 |
 |----|------|
-| **SELF-00** | baseline.md + gateway + tier0 |
+| **SELF-00** | baseline.md + health check（非飞书内 restart）+ tier0 |
 | **SELF-01** | 路由 3 场景冒烟 + smoke.md |
 | **SELF-02** | 扩展 skill_scenario_router |
 | **SELF-03** | audit_skill_usage.py |
@@ -72,7 +72,7 @@ git pull → 读本 ID → 实现 → tier0 → record_m6（若改 agent/gateway
 ### SELF-00
 
 ```text
-SELF-00：Read 本文件 §2。pull · ensure_single_gateway · tier0。
+SELF-00：Read 本文件 §2。pull · `curl -sf localhost:18999/health`（勿在飞书 turn 内 restart gateway）· tier0。
 写 docs/phase0/self-improvement-baseline.md（元认知2/10、执行器8/10、78技能、等继续12次）。
 commit push · [x] · 禁止问继续。
 ```
@@ -106,7 +106,9 @@ TASK_QUEUE §10 第一条 [ ] 起，做到 SELF-17。
 · 评估/进步 → 先 self-audit + brain_metrics_snapshot
 · 每粒 [x] 后立刻下一粒，禁止问「要不要继续」
 · tier0 绿 → push origin main
-· Gateway：MIMIR_AETHER_HOME=~/.mimiraether ./scripts/ensure_single_gateway.sh
+· Gateway：**飞书会话内禁止**跑 `ensure_single_gateway.sh`（会杀掉当前 gateway、任务中断）。
+  仅在本机 shell、无进行中飞书对话时：`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/ensure_single_gateway.sh`
+  或改 agent 后由刘哥/Cursor 在 shell 重启。
 
 从 SELF-00 开始。
 ```

@@ -197,7 +197,9 @@ SESSION_AUTONOMY_GUIDANCE = (
     "before the next turn, or mimir_ops(action='context_usage') for the last "
     "reported prompt_tokens / context_length (not guesses). "
     "For production health: mimir_ops(action='health_check'). "
-    "gateway_restart requires human env MIMIR_OPS_ALLOW_GATEWAY_RESTART=1 and confirm=true."
+    "gateway_restart requires human env MIMIR_OPS_ALLOW_GATEWAY_RESTART=1 and confirm=true. "
+    "Never run ensure_single_gateway.sh or any gateway restart from inside an active "
+    "Feishu/gateway turn — it kills this process and suspends the user's session."
 )
 
 SKILLS_GUIDANCE = (

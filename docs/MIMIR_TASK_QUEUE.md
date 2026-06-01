@@ -2,7 +2,7 @@
 
 > **读者**：Mimir（主执行）· 刘哥（拍板/飞书）· Cursor（工程轨，本清单 **不含** §20.1 写码粒）  
 > **目的**：Cursor 流量不足时，Mimir 按 **单线第一条 `[ ]`** 自驱运维、证据与只读学习；避免 bridge/backlog/issues 三处真源漂移。  
-> **真源优先级**：**§10 大脑自治链**（有 `[ ]` 时）> §9（已闭合）> §6.1 周常 > §2/§3 归档 > backlog §20  
+> **真源优先级**：**§11 IQ #17 链**（有 `[ ]` 时）> **§10 大脑自治**（仅 SELF-LOOP `[ ]`）> §9（已闭合）> §6.1 周常 > §2/§3 归档 > backlog §20  
 > **分工契约**：[`MIMIR_PRIMARY_EXECUTOR.md`](./MIMIR_PRIMARY_EXECUTOR.md)（Mimir 全做 · Cursor 只复核合 main）
 
 **最近更新**：2026-06-01 · **§10 大脑自治链** 开启（刘哥全自治 · 含 commit/push）
@@ -282,7 +282,7 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 
 | ID | 波次 | 任务 | 状态 |
 |----|------|------|------|
-|| **SELF-00** | A | baseline + gateway + tier0 | [x] |
+| **SELF-00** | A | baseline + gateway + tier0 | [x] |
 | **SELF-01** | A | 路由冒烟 3 场景 | [x] |
 | **SELF-02** | A | 扩展 skill_scenario_router | [x] |
 | **SELF-03** | A | audit_skill_usage.py | [x] |
@@ -304,10 +304,50 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 
 ---
 
+## 11. IQ #17 提升链（Mimir 主执行 · Cursor 指挥）
+
+> **真源**：[`MIMIR_IQ17_EXECUTION_PLAN.md`](./MIMIR_IQ17_EXECUTION_PLAN.md) · **ISSUES** #17 · **下一粒**：`./scripts/mimir_iq17_run_next.sh --dry-run`  
+> **纪律**：只认第一条 `[ ]`；未拍板项见 `docs/phase0/iq17-liu-decisions.md`；**禁止**飞书内 restart gateway
+
+| ID | 波次 | 任务 | 状态 |
+|----|------|------|------|
+| **IQ-00** | 0 | 读真源 + pull + health | [ ] |
+| **IQ-00B** | 0 | Cursor PREREQ 登记 | [ ] |
+| **IQ-01** | 0 | tier0 基线 | [ ] |
+| **IQ-02** | 0 | 验证 SELF-11 已部署 | [ ] |
+| **IQ-03** | 0 | iq17-baseline.md | [ ] |
+| **IQ-04** | 1 | #16 方向 bridge 一行 | [x] |
+| **IQ-05** | 1 | 拍板表 + 飞书 @刘哥 | [x] |
+| **IQ-06** | 1 | 同步 ISSUES #16/#17 | [x] |
+| **IQ-10** | 2 | A prompt 先搜再答 | [ ] |
+| **IQ-11** | 2 | WM B1 VoE LEARNING | [ ] |
+| **IQ-12** | 2 | WM B2 RECALL | [ ] |
+| **IQ-13** | 2 | C AUTO_EVOLVE | [ ] |
+| **IQ-14** | 2 | 飞书冒烟 3 场景 | [ ] |
+| **IQ-15** | 2 | search_first 审计复跑 | [ ] |
+| **IQ-20** | 3 | brain_metrics 观察 | [ ] |
+| **IQ-21** | 3 | evolution eval | [ ] |
+| **IQ-22** | 3 | WM 日志检查 | [ ] |
+| **IQ-23** | 3 | skill_view 7d 审计 | [ ] |
+| **IQ-24** | 3 | 观察窗 bridge 周报 | [ ] |
+| **IQ-25** | 3 | （可选）metrics 7d 字段 | [ ] |
+| **IQ-30** | 4 | WM B3 REPLAN_CTX | [ ] |
+| **IQ-31** | 4 | WM B4 预测器接线 | [ ] |
+| **IQ-32** | 4 | D intent fallback | [ ] |
+| **IQ-33** | 4 | D 与 preemptive 契约测 | [ ] |
+| **IQ-34** | 4 | P1 handoff 汇总 tier0 | [ ] |
+| **IQ-40** | 5 | E nudge 设计稿 | [ ] |
+| **IQ-41** | 5 | F 并行工具设计稿 | [ ] |
+| **IQ-42** | 5 | Cursor backlog 建议表 | [ ] |
+| **IQ-45** | 6 | iq17-closeout + IQ-M1～M6 | [ ] |
+
+---
+
 ## 7. 修订日志
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-06-01 | §11 IQ #17 执行链（`MIMIR_IQ17_EXECUTION_PLAN.md`）· 优先级高于 §10 LOOP |
 | 2026-06-01 | §10 大脑自治链 BRAIN-00～10 + LOOP · 全自治 push |
 | 2026-06-01 | §9 主执行轨 · MIMIR_PRIMARY_EXECUTOR · ENG-* 改派 Mimir |
 | 2026-06-01 | §2/§3 全 [x] · 闭合模式 §6.1 · §1 快照更新 |

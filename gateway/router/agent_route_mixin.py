@@ -140,12 +140,15 @@ class AgentRouteMixin:
                             f"Use /resume to browse and restore a previous session.\n"
                             f"Adjust reset timing in config.yaml under session_reset."
                         )
-                        try:
-                            session_info = self._format_session_info()
-                            if session_info:
-                                notice = f"{notice}\n\n{session_info}"
-                        except Exception:
-                            pass
+                        # Suspended = gateway restart/crash mid-turn; model banner
+                        # is noise and reads like the agent "only reporting model".
+                        if reset_reason != "suspended":
+                            try:
+                                session_info = self._format_session_info()
+                                if session_info:
+                                    notice = f"{notice}\n\n{session_info}"
+                            except Exception:
+                                pass
                         await adapter.send(
                             source.chat_id, notice,
                             metadata=getattr(event, 'metadata', None),

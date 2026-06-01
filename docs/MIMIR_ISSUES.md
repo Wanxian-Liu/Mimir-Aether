@@ -9,9 +9,42 @@
 ## Active（≤3）
 
 | # | 日期 | 来源 | 描述 | 严重度 | 状态 | Backlog |
-|---|------|------|------|--------|------|---------|
-| 13 | 2026-05-31 | OPS-L2-FEISHU-01 | L2 `<retrieved-sessions>` `/new` 后未注入：session_key 与 gateway 不一致 + dotenv 覆盖 HERMES | 中 | closed | OPS-L2-FEISHU-01 |
-| 3 | 2026-05-16 | CLARIFY_BASELINE §4 | 记忆落盘三条入口未统一（mimicore public/、skill_curator、llm-wiki/obsidian）— 设计债，见 ADR | 中 | deferred | [adr/002-memory-write-paths.md](./adr/002-memory-write-paths.md) |
+|:--:|:----:|:----:|------|:------:|:----:|---------|
+| 16 | 2026-06-01 | DIRECTION | **方向纠正：飞书只是沟通工具，进化目标是 MimirAether 自身能力** — 学 pi-agent 不是学它的 UI/平台适配，是学它的能力。禁止用\"飞书不需要\"作为不改架构的理由。 | 高 | [x] 刘哥 2026-05-19 确认 | [bridge §@Cursor方向纠正](./MIMIR_LIU_CURSOR_BRIDGE.md) |
+| 17 | 2026-06-01 | IQ-RESEARCH | **IQ 提升综合计划** — rubric 4.9→5.5+。调研已完成；**执行真源** [`MIMIR_IQ17_EXECUTION_PLAN.md`](./MIMIR_IQ17_EXECUTION_PLAN.md) · 队列 **TASK_QUEUE §11**。Mimir 从 IQ-00 自驱；Cursor 复核 handoff + PREREQ。 | 高 | [ ] 执行中 | [`iq-improvement-research.md`](./proposals/iq-improvement-research.md) |
+
+---
+
+### #17 详细说明
+
+#### 刘哥的意愿
+> 1. Mimir 的 IQ 要往上提（当前 4.9/10，目标 5.5+）
+> 2. 飞书只是沟通工具，进化目标是 Mimir 自身能力
+> 3. 学 pi-agent 是学能力（并行、事件驱动、主动调度），不是学 UI/平台适配
+> 4. 先调研，再评估风险，最后逐个实现
+
+#### Mimir 的调研产出
+对应调研文档：[`docs/proposals/iq-improvement-research.md`](./proposals/iq-improvement-research.md)
+
+6 个方向按优先级排列：
+
+| 方向 | 风险 | 代码改动 | IQ 贡献 | 拍板人 |
+|:----:|:----:|:--------:|:-------:|:------:|
+| **A: 先搜再答肌肉记忆** | 🟢 低 | 0 行（prompt 加规则） | +0.3 | 刘哥 |
+| **B1-B2: 世界模型开门** | 🟢 低 | 0 行（env 开关） | +0.15 | 刘哥 |
+| **C: AUTO_EVOLVE 默认开** | 🟡 中 | 1 行（默认值） | +0.2 | 刘哥 |
+| **D: IntentPredictor** | 🔴 高 | ~210 行（新模块） | +0.5 | 刘哥批 scope |
+| **E: 对话内 nudge** | 🟡 中 | ~50 行 | ? | 需设计 |
+| **F: 并行工具执行** | 🟡 中 | ~100 行 | ? | 需设计 |
+
+#### 执行分工（2026-06-01 Cursor 编排完成）
+| 谁 | 做什么 |
+|----|--------|
+| **Mimir** | [`MIMIR_IQ17_EXECUTION_PLAN.md`](./MIMIR_IQ17_EXECUTION_PLAN.md) + **TASK_QUEUE §11** 第一条 `[ ]` → IQ-45 |
+| **刘哥** | §3 拍板模板（`iq17-liu-decisions.md`）· shell 改 `.env` / 重启 gateway · 飞书冒烟 IQ-14 |
+| **Cursor** | 合入 PREREQ（guard/suspended）· 复核 `docs/mimir-handoff/IQ-*` · D/F 大改 |
+
+拍板真源：[`docs/phase0/iq17-liu-decisions.md`](./phase0/iq17-liu-decisions.md)
 
 ---
 

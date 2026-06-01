@@ -18,6 +18,7 @@ from agent.search_first_guard import (
     guard_enabled,
     should_block_text_only_finish,
     block_tool_reason,
+    last_user_text,
     session_search_satisfied_since_last_user,
 )
 
@@ -201,3 +202,38 @@ class TestShouldBlockTextOnlyFinish:
             msgs, "你好！",
             has_tool_schemas=True,
         ) is False
+
+    def test_does_not_block_after_preemptive_search(self):
+        msgs = [
+            {"role": "user", "content": "还记得上次的任务么"},
+            {
+                "role": "user",
+                "content": "[preemptive-search] Queried sessions.\nmatches: 2",
+            },
+        ]
+        assert session_search_satisfied_since_last_user(msgs) is True
+        assert should_block_text_only_finish(
+            msgs, "上次的任务是 X",
+            has_tool_schemas=True,
+        ) is False
+
+
+# ========================================================================
+# last_user_text — skip injected nudges
+# ========================================================================
+
+class TestLastUserText:
+    def test_skips_preemptive_and_guard_messages(self):
+        msgs = [
+            {"role": "user", "content": "还记得上次的任务么"},
+            {"role": "user", "content": "[preemptive-search] Queried sessions."},
+            {"role": "user", "content": "[search-first-guard] must call session_search"},
+        ]
+        assert last_user_text(msgs) == "还记得上次的任务么"
+
+    def test_preemptive_satisfies_without_tool_call(self):
+        msgs = [
+            {"role": "user", "content": "还记得上次的任务么"},
+            {"role": "user", "content": "[preemptive-search] Queried sessions."},
+        ]
+        assert block_tool_reason("read_file", msgs) is None

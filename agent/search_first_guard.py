@@ -7,8 +7,24 @@ import re
 from typing import Any, Dict, List, Optional, Sequence
 
 _MARKER = "[search-first-guard]"
+PREEMPTIVE_MARKER = "[preemptive-search]"
 SESSION_SEARCH_TOOL = "session_search"
 MAX_SEARCH_FIRST_NUDGES = 2
+
+# Injected user-role messages (nudges / preemptive search) — not real user turns.
+_INJECTED_USER_PREFIXES = (
+    _MARKER,
+    PREEMPTIVE_MARKER,
+    "[MIMIR_SKILL_ROUTE_NUDGE]",
+    "[MIMIR_MEMORY_NUDGE]",
+    "[MIMIR_SKILL_NUDGE]",
+    "[intent-action-guard]",
+)
+
+
+def _is_injected_user_message(content: str) -> bool:
+    text = (content or "").strip()
+    return any(text.startswith(prefix) for prefix in _INJECTED_USER_PREFIXES)
 
 # Keep aligned with scripts/search_first_audit.py (WA-A06 exclusions).
 RECALL_RE = re.compile(
@@ -108,7 +124,7 @@ def last_user_text(messages: Sequence[Any]) -> str:
     for m in reversed(_normalize_messages(messages)):
         if m.get("role") == "user":
             content = m.get("content") or ""
-            if isinstance(content, str) and content.strip().startswith(_MARKER):
+            if isinstance(content, str) and _is_injected_user_message(content):
                 continue
             return content.strip() if isinstance(content, str) else str(content)
     return ""
@@ -133,18 +149,31 @@ def session_search_used_in_slice(messages: Sequence[Any]) -> bool:
     return False
 
 
+def preemptive_search_in_slice(messages: Sequence[Any]) -> bool:
+    for m in _normalize_messages(messages):
+        if m.get("role") != "user":
+            continue
+        content = str(m.get("content") or "").strip()
+        if content.startswith(PREEMPTIVE_MARKER):
+            return True
+    return False
+
+
 def session_search_satisfied_since_last_user(messages: Sequence[Any]) -> bool:
     norm = _normalize_messages(messages)
     last_user_idx = -1
     for i, m in enumerate(norm):
         if m.get("role") == "user":
             content = str(m.get("content") or "")
-            if content.strip().startswith(_MARKER):
+            if _is_injected_user_message(content):
                 continue
             last_user_idx = i
     if last_user_idx < 0:
         return False
-    return session_search_used_in_slice(norm[last_user_idx:])
+    slice_msgs = norm[last_user_idx:]
+    return session_search_used_in_slice(slice_msgs) or preemptive_search_in_slice(
+        slice_msgs
+    )
 
 
 def block_tool_reason(tool_name: str, messages: Sequence[Any]) -> Optional[str]:
