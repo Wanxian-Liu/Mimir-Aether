@@ -359,7 +359,7 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 | **ENG-WF-04** | 1 | 编造契约测 test_eng_wf_fabrication_guard.py | Mimir | [x] ✅ |
 | **ENG-WF-05** | 1 | tool result 优先级 / 测例 | Mimir | [x] ✅ |
 | **ENG-WF-06** | 1 | 波次 1 closeout | Mimir | [x] ✅ |
-| **ENG-WF-10** | 2 | coverage_baseline.sh + baseline md | Mimir | [ ] |
+| **ENG-WF-10** | 2 | coverage_baseline.sh + baseline md | Mimir | [x] ✅ |
 | **ENG-WF-11** | 2 | 覆盖率 ratchet 文档（非 50% 悬崖） | Mimir | [ ] |
 | **ENG-WF-12** | 2 | tool_registry cov ≥80% | Mimir | [ ] |
 | **ENG-WF-13** | 2 | search_first + credential 各 +3 测 | Mimir | [ ] |

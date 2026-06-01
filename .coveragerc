@@ -1,0 +1,6 @@
+[run]
+omit =
+    skills/*
+    optional-skills/*
+    mimicore/*
+    tests/*
