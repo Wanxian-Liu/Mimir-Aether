@@ -1,0 +1,136 @@
+"""
+Parallel tool dispatcher for MimirAether.
+
+Classifies tool calls as read-only (parallel-safe) or side-effect (must be serial),
+then dispatches accordingly.
+
+Usage:
+    dispatcher = ParallelToolDispatcher()
+    results = await dispatcher.dispatch_all(tool_calls, loop, executor, tool_dispatcher)
+"""
+
+import os
+import logging
+from typing import Any, Dict, List, Callable, Set
+
+logger = logging.getLogger(__name__)
+
+def parallel_tools_enabled() -> bool:
+    """Check if parallel tool dispatch is enabled (reads env at call time)."""
+    return os.environ.get("MIMIR_PARALLEL_TOOLS", "0") == "1"
+
+
+# Read-only tools (parallel-safe, no side effects)
+_READ_ONLY_TOOLS: Set[str] = {
+    "search_files",
+    "read_file",
+    "web_search",
+    "web_extract",
+    "browser_snapshot",
+    "browser_console",
+    "browser_get_images",
+    "get_capsule_by_id",
+    "list_capsules",
+    "skills_list",
+    "tool_search",
+    "session_search",
+    "vision_analyze",
+}
+
+
+def is_read_only(tool_name: str) -> bool:
+    """Check if a tool is read-only and safe for parallel execution."""
+    return tool_name in _READ_ONLY_TOOLS
+
+
+async def dispatch_all(
+    tool_calls: List[Dict[str, Any]],
+    loop: "asyncio.AbstractEventLoop",
+    executor: "concurrent.futures.ThreadPoolExecutor",
+    tool_dispatcher: Callable[[str, dict, str], str],
+    task_id: str = "",
+) -> List[Any]:
+    """Dispatch tool calls, running read-only tools in parallel.
+
+    Args:
+        tool_calls: List of normalized tool call dicts with keys:
+                    id, type, function.name, function.arguments
+        loop: asyncio event loop
+        executor: ThreadPoolExecutor for sync tool dispatcher
+        tool_dispatcher: Callable[[tool_name, args, task_id], str]
+        task_id: Session/task identifier for logging
+
+    Returns:
+        List of (tool_name, tool_call_id, raw_args, tool_result) tuples
+        in the same order as tool_calls.
+    """
+    # Classify
+    ro_indices: List[int] = []
+    serial_indices: List[int] = []
+    for i, tc in enumerate(tool_calls):
+        name = tc.get("function", {}).get("name", "")
+        if is_read_only(name):
+            ro_indices.append(i)
+        else:
+            serial_indices.append(i)
+
+    logger.info(
+        "[%s] parallel dispatch: %d read-only, %d serial (total %d)",
+        task_id[:8] if task_id else "", len(ro_indices), len(serial_indices),
+        len(tool_calls),
+    )
+
+    results: List[Any] = [None] * len(tool_calls)
+
+    # --- Execute read-only tools in parallel ---
+    if ro_indices:
+        import asyncio
+        ro_specs = [(i, tool_calls[i]) for i in ro_indices]
+
+        async def _run_one(idx: int, tc: dict) -> tuple:
+            name = tc.get("function", {}).get("name", "")
+            raw_args = tc.get("function", {}).get("arguments", "{}")
+            tid = tc.get("id", "")
+            try:
+                args = json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
+            except Exception:
+                args = {}
+            result = await loop.run_in_executor(
+                executor,
+                lambda n=name, a=args, tid=tid: tool_dispatcher(n, a, tid),
+            )
+            return (name, tid, raw_args, result)
+
+        ro_futures = [_run_one(i, tc) for i, tc in ro_specs]
+        ro_outcomes = await asyncio.gather(*ro_futures, return_exceptions=True)
+
+        for spec, outcome in zip(ro_specs, ro_outcomes):
+            idx = spec[0]
+            if isinstance(outcome, Exception):
+                logger.error("[%s] parallel tool %d failed: %s", task_id[:8] if task_id else "", idx, outcome)
+                results[idx] = (tool_calls[idx], outcome)
+            else:
+                results[idx] = outcome
+
+    # --- Execute serial tools one by one ---
+    for i in serial_indices:
+        tc = tool_calls[i]
+        name = tc.get("function", {}).get("name", "")
+        raw_args = tc.get("function", {}).get("arguments", "{}")
+        tid = tc.get("id", "")
+        try:
+            args = json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
+        except Exception:
+            args = {}
+        try:
+            import asyncio
+            result = await loop.run_in_executor(
+                executor,
+                lambda n=name, a=args, tid=tid: tool_dispatcher(n, a, tid),
+            )
+            results[i] = (name, tid, raw_args, result)
+        except Exception as e:
+            logger.error("[%s] serial tool %s failed: %s", task_id[:8] if task_id else "", name, e)
+            results[i] = (name, tid, raw_args, json.dumps({"error": f"{type(e).__name__}: {e}"}))
+
+    return results

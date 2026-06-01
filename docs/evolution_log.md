@@ -170,4 +170,5 @@ Append-only. Newest rows at the **bottom**. See `**docs/M6_EVOLUTION.md`** for r
 | 20260601T135550Z_c5de84e-dirty | 2026-06-01T13:55:50Z | c5de84e-dirty | ./run_ralph_tier0.sh | 0 | IQ-17 plan + Liu approvals; preemptive search_first_guard satisfied + suspended no model banner; tier0 681 |
 | 20260601T160722Z_0b2306d-dirty | 2026-06-01T16:07:22Z | 0b2306d-dirty | ./run_ralph_tier0.sh | 0 | IQ-31/32/33/34: WM predictor inject agent_loop; intent low-confidence fallback; IQ33 contract tests; tier0 681 |
 | 20260601T162829Z_1068717 | 2026-06-01T16:28:29Z | 1068717 | ./run_ralph_tier0.sh | 0 | BRAIN-01: intent predictor context injected into agent_loop turn0 |
-| 20260601T174255Z_ba347ce-dirty | 2026-06-01T17:42:55Z | ba347ce-dirty | ./run_ralph_tier0.sh | 0 | ENG-WF Cursor review: tool_registry +3 tests (85% cov); add MIMIR_ENGINEERING_WORKFLOW.md + mimir_eng_run_next.sh; tier0 696+2 |
+|| 20260601T174255Z_ba347ce-dirty | 2026-06-01T17:42:55Z | ba347ce-dirty | ./run_ralph_tier0.sh | 0 | ENG-WF Cursor review: tool_registry +3 tests (85% cov); add MIMIR_ENGINEERING_WORKFLOW.md + mimir_eng_run_next.sh; tier0 696+2 |
+|| 20260602T180800Z_c1a5b69-dirty | 2026-06-02T18:08:00Z | c1a5b69-dirty | ./run_ralph_tier0.sh | 0 | MW-02: parallel read-only tool dispatch (MIMIR_PARALLEL_TOOLS, default off); 11 tests; tier0 692/4 |

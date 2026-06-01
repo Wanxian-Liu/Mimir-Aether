@@ -398,113 +398,159 @@ class MimirAgentLoop:
 
                 # Use normalized calls for dispatch so missing `id` matches assistant.tool_calls
                 # (dict path in _tc_to_dict synthesizes call_<uuid> when id absent).
-                for tc in normalized:
-                    tname = _get_tc_name(tc)
-                    targs_raw = _get_tc_args(tc)
-                    tid = _get_tc_id(tc)
-
-                    if tname not in self.valid_tool_names:
-                        tr = json.dumps({"error": f"Unknown tool '{tname}'."})
-                        tool_errors.append(ToolError(
-                            turn=turn + 1, tool_name=tname,
-                            arguments=str(targs_raw)[:200],
-                            error=f"Unknown tool '{tname}'", tool_result=tr,
-                        ))
-                        messages.append({"role": "tool", "tool_call_id": tid, "content": tr})
-                        continue
-
-                    try:
-                        args = json.loads(targs_raw) if isinstance(targs_raw, str) else (targs_raw or {})
-                    except json.JSONDecodeError as e:
-                        tr = json.dumps({"error": f"Invalid JSON: {e}"})
-                        tool_errors.append(ToolError(
-                            turn=turn + 1, tool_name=tname,
-                            arguments=str(targs_raw)[:200],
-                            error=f"Invalid JSON: {e}", tool_result=tr,
-                        ))
-                        messages.append({"role": "tool", "tool_call_id": tid, "content": tr})
-                        continue
-
-                    try:
-                        t0 = _time.monotonic()
-                        loop = asyncio.get_event_loop()
-                        _tn, _ta, _tid = tname, args, self.task_id
-                        from agent.tool_event_emitter import (
-                            emit_tool_execution_end,
-                            emit_tool_execution_start,
-                        )
-
-                        emit_tool_execution_start(
-                            tname, args, session_id=self.task_id
-                        )
-                        tool_result = await loop.run_in_executor(
-                            _executor,
-                            lambda tn=_tn, ta=_ta, tid=_tid: self.tool_dispatcher(tn, ta, tid),
-                        )
-                        telapsed = _time.monotonic() - t0
-
-                        pool_q = _executor._work_queue.qsize()
-                        if telapsed > 30:
-                            logger.warning(
-                                "[%s] turn %d: %s took %.1fs (pool q=%d)",
-                                self.task_id[:8], turn + 1, tname, telapsed, pool_q,
+                # ---- Parallel dispatch (env MIMIR_PARALLEL_TOOLS=1) ----
+                if os.environ.get("MIMIR_PARALLEL_TOOLS", "0") == "1":
+                    from .parallel_dispatcher import dispatch_all as _parallel_dispatch_all
+                    _batch_results = await _parallel_dispatch_all(
+                        normalized, loop, _executor, self.tool_dispatcher, self.task_id,
+                    )
+                    for _br in _batch_results:
+                        if _br is None:
+                            continue
+                        tname, tid, raw_args, tool_result = _br
+                        try:
+                            t0 = _time.monotonic()
+                            from agent.tool_event_emitter import (
+                                emit_tool_execution_end,
+                                emit_tool_execution_start,
                             )
-                        from agent.tool_outcome import infer_tool_success
+                            emit_tool_execution_start(
+                                tname, {"raw_args": raw_args[:200]}, session_id=self.task_id,
+                            )
+                            telapsed = _time.monotonic() - t0
+                            from agent.tool_outcome import infer_tool_success
+                            ok, err_msg = infer_tool_success(str(tool_result))
+                            emit_tool_execution_end(
+                                tname, success=ok, duration_ms=telapsed * 1000,
+                                session_id=self.task_id, error=err_msg,
+                            )
+                            self._record_tool(
+                                tname, {"raw_args": raw_args[:200]}, success=ok,
+                                error_message=err_msg, duration_ms=telapsed * 1000,
+                                result_summary=str(tool_result)[:200],
+                            )
+                        except Exception:
+                            pass
+                        try:
+                            from tools.tool_result_storage import maybe_persist_tool_result
+                            from tools.terminal_tool import get_active_env
+                            tool_result = maybe_persist_tool_result(
+                                content=tool_result, tool_name=tname,
+                                tool_use_id=tid,
+                                env=get_active_env(self.task_id),
+                                config=self.budget_config,
+                            )
+                        except Exception:
+                            pass
+                        messages.append({"role": "tool", "tool_call_id": tid, "content": tool_result})
+                    tool_calls_so_far += len(normalized)
+                else:
+                    for tc in normalized:
+                        tname = _get_tc_name(tc)
+                        targs_raw = _get_tc_args(tc)
+                        tid = _get_tc_id(tc)
 
-                        ok, err_msg = infer_tool_success(str(tool_result))
-                        emit_tool_execution_end(
-                            tname,
-                            success=ok,
-                            duration_ms=telapsed * 1000,
-                            session_id=self.task_id,
-                            error=err_msg,
-                        )
-                        self._record_tool(
-                            tname,
-                            args,
-                            success=ok,
-                            error_message=err_msg,
-                            duration_ms=telapsed * 1000,
-                            result_summary=str(tool_result)[:200],
-                        )
-                    except Exception as e:
-                        telapsed = _time.monotonic() - t0
-                        tool_result = json.dumps({
-                            "error": f"{type(e).__name__}: {str(e)}"
-                        })
-                        tool_errors.append(ToolError(
-                            turn=turn + 1, tool_name=tname,
-                            arguments=str(targs_raw)[:200],
-                            error=f"{type(e).__name__}: {str(e)}",
-                            tool_result=tool_result,
-                        ))
-                        emit_tool_execution_end(
-                            tname,
-                            success=False,
-                            duration_ms=telapsed * 1000,
-                            session_id=self.task_id,
-                            error=str(e)[:500],
-                        )
-                        self._record_tool(tname, args, success=False,
-                                          error_message=str(e)[:500],
-                                          duration_ms=telapsed * 1000,
-                                          result_summary=str(tool_result)[:200])
+                        if tname not in self.valid_tool_names:
+                            tr = json.dumps({"error": f"Unknown tool '{tname}'."})
+                            tool_errors.append(ToolError(
+                                turn=turn + 1, tool_name=tname,
+                                arguments=str(targs_raw)[:200],
+                                error=f"Unknown tool '{tname}'", tool_result=tr,
+                            ))
+                            messages.append({"role": "tool", "tool_call_id": tid, "content": tr})
+                            continue
 
-                    # Budget control
-                    try:
-                        from tools.tool_result_storage import maybe_persist_tool_result
-                        from tools.terminal_tool import get_active_env
-                        tool_result = maybe_persist_tool_result(
-                            content=tool_result, tool_name=tname,
-                            tool_use_id=tid,
-                            env=get_active_env(self.task_id),
-                            config=self.budget_config,
-                        )
-                    except Exception:
-                        pass
+                        try:
+                            args = json.loads(targs_raw) if isinstance(targs_raw, str) else (targs_raw or {})
+                        except json.JSONDecodeError as e:
+                            tr = json.dumps({"error": f"Invalid JSON: {e}"})
+                            tool_errors.append(ToolError(
+                                turn=turn + 1, tool_name=tname,
+                                arguments=str(targs_raw)[:200],
+                                error=f"Invalid JSON: {e}", tool_result=tr,
+                            ))
+                            messages.append({"role": "tool", "tool_call_id": tid, "content": tr})
+                            continue
 
-                    messages.append({"role": "tool", "tool_call_id": tid, "content": tool_result})
+                        try:
+                            t0 = _time.monotonic()
+                            loop = asyncio.get_event_loop()
+                            _tn, _ta, _tid = tname, args, self.task_id
+                            from agent.tool_event_emitter import (
+                                emit_tool_execution_end,
+                                emit_tool_execution_start,
+                            )
 
+                            emit_tool_execution_start(
+                                tname, args, session_id=self.task_id
+                            )
+                            tool_result = await loop.run_in_executor(
+                                _executor,
+                                lambda tn=_tn, ta=_ta, tid=_tid: self.tool_dispatcher(tn, ta, tid),
+                            )
+                            telapsed = _time.monotonic() - t0
+
+                            pool_q = _executor._work_queue.qsize()
+                            if telapsed > 30:
+                                logger.warning(
+                                    "[%s] turn %d: %s took %.1fs (pool q=%d)",
+                                    self.task_id[:8], turn + 1, tname, telapsed, pool_q,
+                                )
+                            from agent.tool_outcome import infer_tool_success
+
+                            ok, err_msg = infer_tool_success(str(tool_result))
+                            emit_tool_execution_end(
+                                tname,
+                                success=ok,
+                                duration_ms=telapsed * 1000,
+                                session_id=self.task_id,
+                                error=err_msg,
+                            )
+                            self._record_tool(
+                                tname,
+                                args,
+                                success=ok,
+                                error_message=err_msg,
+                                duration_ms=telapsed * 1000,
+                                result_summary=str(tool_result)[:200],
+                            )
+                        except Exception as e:
+                            telapsed = _time.monotonic() - t0
+                            tool_result = json.dumps({
+                                "error": f"{type(e).__name__}: {str(e)}"
+                            })
+                            tool_errors.append(ToolError(
+                                turn=turn + 1, tool_name=tname,
+                                arguments=str(targs_raw)[:200],
+                                error=f"{type(e).__name__}: {str(e)}",
+                                tool_result=tool_result,
+                            ))
+                            emit_tool_execution_end(
+                                tname,
+                                success=False,
+                                duration_ms=telapsed * 1000,
+                                session_id=self.task_id,
+                                error=str(e)[:500],
+                            )
+                            self._record_tool(tname, args, success=False,
+                                              error_message=str(e)[:500],
+                                              duration_ms=telapsed * 1000,
+                                              result_summary=str(tool_result)[:200])
+
+                        # Budget control
+                        try:
+                            from tools.tool_result_storage import maybe_persist_tool_result
+                            from tools.terminal_tool import get_active_env
+                            tool_result = maybe_persist_tool_result(
+                                content=tool_result, tool_name=tname,
+                                tool_use_id=tid,
+                                env=get_active_env(self.task_id),
+                                config=self.budget_config,
+                            )
+                        except Exception:
+                            pass
+
+                        messages.append({"role": "tool", "tool_call_id": tid, "content": tool_result})
                 turn_elapsed = _time.monotonic() - turn_start
                 logger.info(
                     "[%s] turn %d: api=%.1fs, %d tools, total=%.1fs",

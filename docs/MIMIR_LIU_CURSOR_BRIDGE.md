@@ -630,6 +630,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-06-02 | **ENG-WF-01** | **刘哥+Cursor** | `mimiraether.service` **stop+disable** · inactive/disabled · 单实例 PID **183505** · `.venv` · `eng-wf-ops-gateway.md` |
 | 2026-06-02 | **IQ-14** | **Cursor+刘哥** | 飞书冒烟 **PASS** · `iq17-feishu-smoke.md` · IQ-55 3P 覆盖 · §11 [x] |
 | 2026-06-02 | **CLR-B** | **Cursor+刘哥** | 飞书复验 **PASS** · 230099=0 · `clr-b-feishu-closeout.md` · §20.2 **4/4** |
+| 2026-05-19 | **WM-B5** | **刘哥+Cursor** | **不做** LLM WM 预测器 · 保持规则 `MIMIR_WM_PREDICTOR` · [`wm-b5-llm-predictor-deferred.md`](./phase0/wm-b5-llm-predictor-deferred.md) |
 | 2026-06-02 | **MW 心愿单** | **刘哥拍板** | §13 **MW-00～05+90** · [`MIMIR_WISHLIST_WORKFLOW.md`](./MIMIR_WISHLIST_WORKFLOW.md) · P0 真相对齐（IQ-31～34 **已合** · search_first **已接**）· Mimir 主执行 |
 | 2026-06-02 | **ENG-WF-90 复核** | **Cursor** | Mimir 链 **§12 全 [x]** · 纠 ENG-WF-12 误 SKIP · `tool_registry` **85%**（+3 测）· tier0 **696/4** · 补提交 `MIMIR_ENGINEERING_WORKFLOW.md` + `mimir_eng_run_next.sh` |
 | 2026-06-01 | **IQ-55-PHASE3** | **刘哥拍板** | **开 Phase3** · #1 ok%+eval · 无 1c 生产 · plan `iq-55-phase3-execution-plan.md` |
@@ -726,3 +727,4 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 ||------|------|-------|------|
 || 2026-06-02 | **MW-00** | Mimir | 验收 IQ-31/32/33/34（`a0dc323`）✅ 13 tests passed · `mw-00-iq31-34-verify.md` · `mw-00-prod-env.md` |
 || 2026-06-02 | **MW-01** | Mimir | search_first_guard 接线审计 ✅ 已接线（3文件6点）· 42 tests passed · 无需补线 |
+|| 2026-06-02 | **MW-02** | Mimir | 并行只读工具分发 `agent/parallel_dispatcher.py` + `agent_loop.py` 接线 · 11 tests · tier0 692/4 · env 默认关 |
