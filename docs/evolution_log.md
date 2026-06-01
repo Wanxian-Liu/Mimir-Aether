@@ -165,3 +165,5 @@ Append-only. Newest rows at the **bottom**. See `**docs/M6_EVOLUTION.md`** for r
 | manual_m6_20260601T083616Z | 2026-06-01T08:36:16Z | a2ecf2c-dirty | ./run_ralph_tier0.sh | 0 | SELF-12: nudge contract tests — 28 tests for guard_enabled/exclude_user_message/cross_session_requires_search_first/block_tool_reason/should_block_text_only_finish; metrics: 677 passed, 4 known failures unchanged |
 
 | manual_m6_20260601T084428Z | 2026-06-01T08:44:28Z | 42cd6bd-dirty | ./run_ralph_tier0.sh | 0 | SELF-13: search-first audit — audit script enhanced with _PREEMPTIVE_MARKER recognition + regex fix + baseline doc; metrics: 677 passed, 4 known failures |
+
+| manual_m6_20260601T084623Z | 2026-06-01T08:46:23Z | 9e6306c-dirty | N/A (doc only) | 0 | SELF-17: closeout M1~M6 — 元认知 2→5/10, 6/6 PASS, 自律链全部 [x] |

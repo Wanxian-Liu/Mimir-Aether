@@ -299,7 +299,7 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 | **SELF-14** | C | VoE + WM | [x] |
 | **SELF-15** | C | evolution eval | [x] |
 | **SELF-16** | C | rubric | [x] |
-| **SELF-17** | C | closeout M1～M6 | [ ] |
+| **SELF-17** | C | closeout M1～M6 | [x] |
 | **SELF-LOOP** | D | 每周周报 | [ ] |
 
 ---
