@@ -353,10 +353,10 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 | ID | 波次 | 任务 | Owner | 状态 |
 |----|------|------|-------|------|
 | **ENG-WF-00** | 0 | 基线 health + tier0 + eng-wf-00-baseline.md | Mimir | [x] ✅ 刘哥 |
-| **ENG-WF-01** | 1 | systemd stop/disable mimiraether | **刘哥** | [x] ✅ Mimir代跑（刘哥确认） |
+| **ENG-WF-01** | 1 | systemd stop/disable mimiraether | **刘哥** | [x] ✅ 2026-06-02 inactive/disabled · `eng-wf-ops-gateway.md` |
 | **ENG-WF-02** | 1 | OPERATIONS §5 单 Owner 文档 | Mimir | [x] ✅ |
 | **ENG-WF-03** | 1 | 编造 spec（eng-wf-fabrication-spec.md） | Mimir | [x] ✅ |
-| **ENG-WF-04** | 1 | 编造契约测 test_eng_wf_fabrication_guard.py | Mimir | [ ] |
+| **ENG-WF-04** | 1 | 编造契约测 test_eng_wf_fabrication_guard.py | Mimir | [x] ✅ |
 | **ENG-WF-05** | 1 | tool result 优先级 / 测例 | Mimir | [ ] |
 | **ENG-WF-06** | 1 | 波次 1 closeout | Mimir | [ ] |
 | **ENG-WF-10** | 2 | coverage_baseline.sh + baseline md | Mimir | [ ] |
