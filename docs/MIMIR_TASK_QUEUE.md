@@ -22,6 +22,7 @@
 
 纪律：
 - **§10 大脑自治**（2026-06-01）：可改 agent|gateway|tools|tests；**每粒 commit+push**；见 BRAIN_AUTONOMY_CHAIN §2
+- **元认知**：`[MIMIR_SKILL_ROUTE_NUDGE]` → 必须先 `skill_view`；**禁止**等刘哥说「继续下一粒」
 - 禁止提交 data/persistent.json
 - 每粒结束：bridge §4 一行 +（若触达进化指标）更新 ~/.mimiraether/data/ops/ 下 JSON
 
@@ -292,6 +293,9 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 | **BRAIN-08** | W3 | rubric 自评 closeout | [ ] |
 | **BRAIN-09** | W3 | evolution eval 记录 | [ ] |
 | **BRAIN-10** | W3 | `mimir_brain_run_next.sh` + MAINLINE 更新 | [ ] |
+| **BRAIN-11** | W1.5 | 元认知 `skill_scenario_router` + gateway 重启 + 飞书自测 | [ ] |
+| **BRAIN-12** | W3 | `skill_view` 7d 指标进 brain-metrics JSON | [ ] |
+| **BRAIN-13** | W0 | 文档：禁止等「继续下一粒」；连续 2 粒自驱证据 | [ ] |
 | **BRAIN-LOOP** | 每周 | 指标快照 + eval；退化则新开 §10 行 | [ ] |
 
 **BRAIN-00 提示词**

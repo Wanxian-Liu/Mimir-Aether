@@ -47,6 +47,10 @@ from .search_first_guard import (
     session_search_satisfied_since_last_user,
     should_block_text_only_finish as should_block_search_first_finish,
 )
+from .skill_scenario_router import (
+    build_skill_route_nudge,
+    should_inject_skill_route_nudge,
+)
 # 统一类型: 从 types.py 导入 (Phase 3 M1)
 from .types import AgentLoopToolError as ToolError, AgentLoopResult as AgentResult
 
@@ -209,6 +213,19 @@ class MimirAgentLoop:
             skill_nudge = maybe_skill_nudge_message(turn, tool_calls_so_far)
             if skill_nudge:
                 messages.append({"role": "user", "content": skill_nudge})
+
+            # Meta-cognition: scenario → skill_view (turn 0 only, once per user message)
+            if turn == 0:
+                inject_route, route_skills = should_inject_skill_route_nudge(messages)
+                if inject_route:
+                    route_msg = build_skill_route_nudge(route_skills)
+                    messages.append({"role": "user", "content": route_msg})
+                    logger.info(
+                        "[%s] turn %d: skill-route nudge → %s",
+                        self.task_id[:8],
+                        turn + 1,
+                        route_skills,
+                    )
 
             # Preemptive search-first nudge: before LLM call, check if user message
             # requires cross-session search and hasn't been satisfied yet.

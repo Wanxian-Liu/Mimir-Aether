@@ -18,6 +18,8 @@
 | **世界模型（CPU spike）** | `MIMIR_WM_CONTEXT_SNAPSHOT=1` 时 log 有 snapshot 行；不宣称 GPU WM | BRAIN-05、06 |
 | **自治发布** | 每粒 `tier0` 绿 → `git commit` → `git push origin main`（hook 绿）→ bridge §4 | 每粒末尾 |
 | **自迭代** | 失败后同粒最多 **3** 轮修复；仍失败则 bridge 记 `BLOCKED` 并 **停链**（不跳号） | §2 纪律 |
+| **元认知** | 用户句匹配场景时 log 有 `skill-route nudge`；须出现 `skill_view`（非只靠 auto-load 3 个） | **BRAIN-11**（已实现路由） |
+| **不停等刘哥** | §10 某粒 `[x]` 后 **直接**开下一粒；禁止问「要不要继续」 | §2 + ship 技能文案 |
 
 **仍禁止（即使全自治）**：`git push --force` 到 main · commit `data/persistent.json` · **EV-VISION** · 未拍板 WM Phase1+ 大改（>200 行非本链 ID）· 删生产数据目录。
 
@@ -88,6 +90,9 @@
 | **BRAIN-08** | **Rubric 自评**：跑 `brain_metrics_snapshot` + eval · 写 `docs/phase0/brain-rubric-08.md`（加权分、距 5.5 差多少、下一 Wave 建议） | `docs/phase0/brain-rubric-08.md` | 文档含 Q1～Q7 对照表 | `docs(phase0): brain rubric self-assessment` |
 | **BRAIN-09** | **进化周常内化**：`run_evolution_eval.sh` + compare JSON · 写入 kickoff 对比 | 仅 docs/ops JSON 路径引用 | exit 0 · LIKE/FTS/semantic 三率 | `chore(ops): brain wave evolution eval record` |
 | **BRAIN-10** | **合拢与迭代入口**：新增 `scripts/mimir_brain_run_next.sh`（读 §10 第一条 [ ]、打印该 ID 提示词、跑 tier0、提示 commit message）· 更新 MAINLINE_STATUS 一行 | `scripts/mimir_brain_run_next.sh` · `docs/MAINLINE_STATUS.md` | `./scripts/mimir_brain_run_next.sh --dry-run` | `feat(scripts): brain run-next helper` |
+| **BRAIN-11** | **元认知路由**（已合代码则只补 closeout）：`agent/skill_scenario_router.py` + `agent_loop` turn0 注入 · `MIMIR_SKILL_ROUTE_NUDGE=1` | 见仓库 · `docs/phase0/brain-11-meta-cognition.md` | `pytest tests/agent/test_skill_scenario_router.py` · gateway 重启后问「你进步了吗」→ log 含 `skill-route` + `skill_view` | `feat(agent): skill scenario router nudge` |
+| **BRAIN-12** | **技能用量指标**：扩展 `brain_metrics_snapshot.py` — 7d `skill_view` 次数、按技能 top5、路由 nudge 次数 | `scripts/brain_metrics_snapshot.py` | JSON 含 `skill_view_7d` | `feat(ops): skill usage metrics in brain snapshot` |
+| **BRAIN-13** | **自治不停顿**：在 `MIMIR_TASK_QUEUE.md` §0 与 bridge §1 写死「禁止等继续」；自测连续 BRAIN-00→01 无中途提问 | docs only | bridge §4 记录连续 2 粒无停顿 | `docs: brain chain no-wait policy` |
 
 ### Wave 4 · 持续自迭代（链结束后每周）
 
@@ -113,6 +118,9 @@
 - 每粒末尾：./run_ralph_tier0.sh 绿 → record_m6（若触达 agent/gateway/tools）→ git push origin main
 - Gateway 用：MIMIR_AETHER_HOME=~/.mimiraether ./scripts/ensure_single_gateway.sh
 - 回报：MIMIR_IQ_EVOLUTION_DIRECTION §3.3 + bridge §4 一行（含 tier0 PASS 数、push sha）
+
+- 元认知：见 [MIMIR_SKILL_ROUTE_NUDGE] 时必须先 skill_view 所列技能，再动手
+- 节奏：某粒 [x] 后立刻做下一粒，禁止问「要不要继续」
 
 从 BRAIN-00 开始，直到 §10 全 [x] 或你声明 BLOCKED。不要问刘哥「要不要 push」——已授权。
 ```
