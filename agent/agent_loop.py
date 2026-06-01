@@ -159,6 +159,8 @@ class MimirAgentLoop:
         self.interrupt_check = interrupt_check or (lambda: False)
         # Optional execution pipeline (recording + quality tracking)
         self._recorder = None
+        # Interval nudge flag: once per session (MW-04)
+        self._interval_nudge_done = False
 
     async def run(self, messages: List[Dict[str, Any]]) -> AgentResult:
         """Execute the full agent loop.
@@ -317,6 +319,24 @@ class MimirAgentLoop:
                         self.task_id[:8],
                         _wm_exc,
                     )
+
+
+            # Interval nudge: every N turns (MW-04, env MIMIR_NUDGE_INTERVAL, default 3, 0=off)
+            _nudge_interval = int(os.environ.get("MIMIR_NUDGE_INTERVAL", "3"))
+            if (
+                _nudge_interval > 0
+                and turn > 0
+                and turn % _nudge_interval == 0
+                and not self._interval_nudge_done
+            ):
+                _interval_nudge = maybe_memory_nudge_message(turn) or maybe_skill_nudge_message(turn, tool_calls_so_far)
+                if _interval_nudge:
+                    messages.append({"role": "user", "content": _interval_nudge})
+                    logger.info(
+                        "[%s] turn %d: interval nudge (interval=%d)",
+                        self.task_id[:8], turn + 1, _nudge_interval,
+                    )
+                self._interval_nudge_done = True
 
             # --- Call model ---
             api_start = _time.monotonic()

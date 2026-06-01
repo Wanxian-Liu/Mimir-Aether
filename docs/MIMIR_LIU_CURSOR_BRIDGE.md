@@ -728,3 +728,4 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 || 2026-06-02 | **MW-00** | Mimir | 验收 IQ-31/32/33/34（`a0dc323`）✅ 13 tests passed · `mw-00-iq31-34-verify.md` · `mw-00-prod-env.md` |
 || 2026-06-02 | **MW-01** | Mimir | search_first_guard 接线审计 ✅ 已接线（3文件6点）· 42 tests passed · 无需补线 |
 || 2026-06-02 | **MW-02** | Mimir | 并行只读工具分发 `agent/parallel_dispatcher.py` + `agent_loop.py` 接线 · 11 tests · tier0 692/4 · env 默认关 |
+|| 2026-06-02 | **MW-03** | Mimir | 平台无关 `ToolDispatchContext`（`session_id/channel/workspace_root`）· 7 tests · tier0 692/4 |
