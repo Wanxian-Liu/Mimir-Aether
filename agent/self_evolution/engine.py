@@ -379,11 +379,19 @@ def ic_advisor(blocked_file: str) -> dict:
     blast_radius = len(deps.imported_by)
 
     blocked_dir = blocked_file.rsplit("/", 1)[0]
+    # Same-directory alternatives (narrow search)
     alternatives = []
     for fpath, info in sorted(state.files.items(), key=lambda x: len(x[1].imported_by)):
         if fpath == blocked_file:
             continue
-        if fpath.rsplit("/", 1)[0] != blocked_dir:
+        # If blocked_file has no dir component, blocked_dir == blocked_file itself;
+        # fall back to comparing directory prefix only.
+        fdir = fpath.rsplit("/", 1)[0]
+        if fdir == blocked_dir and blocked_dir != blocked_file:
+            pass  # same directory, keep
+        elif blocked_dir == blocked_file and "/" not in fpath:
+            pass  # both in root agent/ dir
+        else:
             continue
         result = engine.cost.evaluate([fpath])
         tc = result.tc_cost
@@ -392,6 +400,21 @@ def ic_advisor(blocked_file: str) -> dict:
             "tc": round(float(tc), 3),
             "blast_radius": len(info.imported_by),
         })
+
+    # Wider search: if no alternatives, expand to prompts/ and low-blast-radius files
+    if not alternatives:
+        for fpath, info in sorted(state.files.items(), key=lambda x: len(x[1].imported_by)):
+            if fpath == blocked_file:
+                continue
+            # Accept prompts/ directory or any file with blast_radius <= 1
+            if not fpath.startswith("prompts/") and len(info.imported_by) > 1:
+                continue
+            alternatives.append({
+                "file": fpath,
+                "tc": 0,  # not evaluating cost for wide search
+                "blast_radius": len(info.imported_by),
+            })
+        alternatives.sort(key=lambda x: x["blast_radius"])
 
     alternatives.sort(key=lambda x: x["tc"])
     top3 = alternatives[:3]
@@ -405,7 +428,10 @@ def ic_advisor(blocked_file: str) -> dict:
         if len(top3) > 1:
             suggestion += f" 备选: {', '.join(a['file'] for a in top3[1:])}"
     else:
-        suggestion = f"'{blocked_file}' 被 IC 拦截，同目录下无安全替代方案"
+        suggestion = (
+            f"'{blocked_file}' 被 IC 拦截，无安全替代文件。"
+            " 可考虑改 tests/ 对应文件 或 开 HANDOFF 文档征求意见。"
+        )
 
     return {
         "blocked": blocked_file,
