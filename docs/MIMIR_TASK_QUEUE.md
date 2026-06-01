@@ -283,7 +283,7 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 | ID | 波次 | 任务 | 状态 |
 |----|------|------|------|
 || **SELF-00** | A | baseline + gateway + tier0 | [x] |
-| **SELF-01** | A | 路由冒烟 3 场景 | [ ] |
+| **SELF-01** | A | 路由冒烟 3 场景 | [x] |
 | **SELF-02** | A | 扩展 skill_scenario_router | [ ] |
 | **SELF-03** | A | audit_skill_usage.py | [ ] |
 | **SELF-04** | A | brain_metrics_snapshot.py | [ ] |
