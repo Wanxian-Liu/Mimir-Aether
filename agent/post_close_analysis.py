@@ -165,14 +165,14 @@ def run_post_analysis_sync(
                 )
                 if ok_n < len(evo_results):
                     for r in evo_results:
-                        if not r.success and r.error:
+                        if not r.success:
                             logger.info(
                                 "post_analysis evolution detail session_id=%s "
                                 "target=%s action=%s error=%s",
                                 session_id,
                                 r.target,
                                 getattr(r.action, "value", r.action),
-                                (r.error or "")[:200],
+                                (r.error or "no error detail")[:200],
                             )
         except Exception as exc:
             logger.warning(
