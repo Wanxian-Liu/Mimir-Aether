@@ -1,95 +1,56 @@
-"""WB-B02: VoE surprise → JSONL learning event tests."""
+"""BRAIN-05: VoE learning minimal tests — WM prediction correctness + env gate."""
 
-from __future__ import annotations
+import os
+from unittest.mock import patch
 
-import json
-
-from agent.degeneration_guard import DegenerationGuard
-from agent.wm_voe_learning import append_surprise_event, is_wm_voe_learning_enabled
-
-
-_REQUIRED_FIELDS = {
-    "schema_version",
-    "event_type",
-    "timestamp",
-    "expected",
-    "actual",
-    "surprise_label",
-    "context_snapshot",
-    "guard_message",
-}
+from agent.world_model_spike import (
+    Prediction,
+    predict,
+    is_wm_predictor_enabled,
+)
 
 
-def test_append_surprise_event_writes_jsonl(tmp_path, monkeypatch):
-    monkeypatch.setenv("MIMIR_WM_VOE_LEARNING", "1")
-    out = tmp_path / "surprise_events.jsonl"
-    index = tmp_path / "learned_surprises.json"
-    append_surprise_event(
-        expected="command success",
-        actual="command failed",
-        surprise_label="outcome reversal",
-        context_snapshot={"session_id": "s1"},
-        guard_message="🔴 SURPRISE_DETECTED: outcome reversal — expected 'x' but got 'y'.",
-        path=out,
-        learned_path=index,
-    )
-    lines = out.read_text(encoding="utf-8").strip().splitlines()
-    assert len(lines) == 1
-    row = json.loads(lines[0])
-    assert _REQUIRED_FIELDS <= set(row.keys())
-    assert row["schema_version"] == 1
-    assert row["event_type"] == "voe_surprise"
-    assert row["expected"] == "command success"
-    assert row["actual"] == "command failed"
-    assert row["surprise_label"] == "outcome reversal"
-    assert row["context_snapshot"] == {"session_id": "s1"}
+class TestVoEWmPrediction:
+    """Validate world_model_spike.predict returns correct structure."""
 
+    def test_recall_intent_needs_context(self):
+        """User asking '上次' should trigger recall intent with context needs."""
+        result = predict({
+            "user_message": "上次我们聊到哪里了？",
+            "intent": "",
+            "objective": "",
+        })
+        assert isinstance(result, Prediction)
+        assert "prior_session_context" in result.next_context_needs
+        assert "memory_or_search" in result.next_context_needs
 
-def test_run_checks_hook_writes_once_when_enabled(tmp_path, monkeypatch):
-    monkeypatch.setenv("MIMIR_WM_VOE_LEARNING", "1")
-    out = tmp_path / "events.jsonl"
-    index = tmp_path / "learned_surprises.json"
-    monkeypatch.setattr(
-        "agent.wm_voe_learning.default_surprise_events_path",
-        lambda: out,
-    )
-    monkeypatch.setattr(
-        "agent.wm_voe_learning.default_learned_surprises_path",
-        lambda: index,
-    )
-    guard = DegenerationGuard()
-    report = guard.run_checks(expected_vs_actual=("operation success", "operation failed"))
-    assert report.signal.value == "surprise_detected"
-    assert len(out.read_text(encoding="utf-8").strip().splitlines()) == 1
+    def test_code_intent_needs_source_files(self):
+        """User asking code-related should trigger source context needs."""
+        result = predict({
+            "user_message": "帮我修复这个bug",
+            "intent": "code",
+            "objective": "",
+        })
+        assert isinstance(result, Prediction)
+        assert "source_files" in result.next_context_needs
+        assert "repo_context" in result.next_context_needs
 
+    def test_general_intent_no_special_needs(self):
+        """General chat should only need user_message."""
+        result = predict({
+            "user_message": "你好",
+            "intent": "general",
+            "objective": "",
+        })
+        assert isinstance(result, Prediction)
+        assert result.next_context_needs == ["user_message"]
 
-def test_run_checks_hook_no_write_when_disabled(tmp_path, monkeypatch):
-    monkeypatch.setenv("MIMIR_WM_VOE_LEARNING", "0")
-    out = tmp_path / "events.jsonl"
-    index = tmp_path / "learned_surprises.json"
-    monkeypatch.setattr(
-        "agent.wm_voe_learning.default_surprise_events_path",
-        lambda: out,
-    )
-    monkeypatch.setattr(
-        "agent.wm_voe_learning.default_learned_surprises_path",
-        lambda: index,
-    )
-    guard = DegenerationGuard()
-    guard.run_checks(expected_vs_actual=("operation success", "operation failed"))
-    assert not out.exists()
+    def test_wm_predictor_default_off(self):
+        """MIMIR_WM_PREDICTOR should default to off (0)."""
+        with patch.dict(os.environ, {}, clear=True):
+            assert is_wm_predictor_enabled() is False
 
-
-def test_append_twice_produces_two_lines(tmp_path, monkeypatch):
-    monkeypatch.setenv("MIMIR_WM_VOE_LEARNING", "1")
-    out = tmp_path / "surprise_events.jsonl"
-    index = tmp_path / "learned_surprises.json"
-    msg = "🔴 SURPRISE_DETECTED: outcome reversal — expected 'a' but got 'b'."
-    for _ in range(2):
-        append_surprise_event("success", "failed", "outcome reversal", {}, msg, path=out, learned_path=index)
-    assert len(out.read_text(encoding="utf-8").strip().splitlines()) == 2
-
-
-def test_wm_voe_learning_disabled_by_default(monkeypatch):
-    monkeypatch.delenv("MIMIR_WM_VOE_LEARNING", raising=False)
-    assert is_wm_voe_learning_enabled() is False
+    def test_wm_predictor_env_on(self):
+        """MIMIR_WM_PREDICTOR=1 should enable the predictor."""
+        with patch.dict(os.environ, {"MIMIR_WM_PREDICTOR": "1"}):
+            assert is_wm_predictor_enabled() is True

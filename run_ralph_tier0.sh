@@ -106,6 +106,8 @@ python3 -m pytest -q \
   tests/test_e008_task_runner_compat.py \
   tests/test_mimir_cli_chat_decouple.py \
   tests/agent/test_skill_evolution_e009.py \
+  tests/agent/test_conversation_nudges.py \
+  tests/agent/test_wm_voe_learning.py \
   tests/agent/test_evolution_loop_integration.py \
   tests/agent/test_e012_jepa_session_hook.py \
   tests/agent/test_intent_action_guard.py \
