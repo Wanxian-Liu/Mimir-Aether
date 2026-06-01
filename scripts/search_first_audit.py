@@ -24,6 +24,7 @@ from mimir_constants import get_mimir_home
 
 TOOL_CALL_RE = re.compile(r'"name"\s*:\s*"session_search"|session_search\s*\(')
 _SEARCH_FIRST_MARKER = "[search-first-guard]"
+_PREEMPTIVE_MARKER = "[preemptive-search]"
 
 
 @dataclass
@@ -77,6 +78,7 @@ def audit_session(path: Path) -> List[AuditRow]:
         while j < len(turns) and (
             turns[j].get("role") != "user"
             or str(turns[j].get("content", "")).strip().startswith(_SEARCH_FIRST_MARKER)
+            or str(turns[j].get("content", "")).strip().startswith(_PREEMPTIVE_MARKER)
         ):
             chunk = json.dumps(turns[j], ensure_ascii=False)
             if TOOL_CALL_RE.search(chunk) or (
@@ -85,6 +87,10 @@ def audit_session(path: Path) -> List[AuditRow]:
             ):
                 searched = True
                 evidence = "tool session_search in turn"
+                break
+            if str(turns[j].get("content", "")).strip().startswith(_PREEMPTIVE_MARKER):
+                searched = True
+                evidence = "preemptive session_search"
                 break
             if turns[j].get("role") == "assistant":
                 ac = (turns[j].get("content") or "")
