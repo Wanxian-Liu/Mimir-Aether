@@ -154,3 +154,4 @@ Append-only. Newest rows at the **bottom**. See `**docs/M6_EVOLUTION.md`** for r
 | 20260531T205627Z_bdf42ab | 2026-05-31T20:56:27Z | bdf42ab | ./run_ralph_tier0.sh | 0 | IQ-P3-11: DEPRECATE evolution action, FIX→CAPTURED fallback, skills_root; iq_p3 baseline script; tier0 676 PASS; metrics: prod_ok_pct_7d_ex_test=0 pre-deploy |
 | 20260531T212549Z_42dd1ab-dirty | 2026-05-31T21:25:49Z | 42dd1ab-dirty | ./run_ralph_tier0.sh | 0 | ADR-008 evolution canonical path; D5-ADR closeout; test_d5_adr_evolution_canonical; tier0 679 PASS; metrics: n/a |
 | 20260601T053330Z_8d80225-dirty | 2026-06-01T05:33:30Z | 8d80225-dirty | ./run_ralph_tier0.sh | 0 | ENG-SF-01: preemptive search-first nudge before model_call; audit skips guard marker; tier0 681 |
+| 20260601T062133Z_8a73e8f-dirty | 2026-06-01T06:21:33Z | 8a73e8f-dirty | ./run_ralph_tier0.sh | 0 | ENG-EVO-01: evolution detail log when r.error empty; tier0 681 |
