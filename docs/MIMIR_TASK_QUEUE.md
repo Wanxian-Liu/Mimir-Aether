@@ -2,7 +2,7 @@
 
 > **读者**：Mimir（主执行）· 刘哥（拍板/飞书）· Cursor（工程轨，本清单 **不含** §20.1 写码粒）  
 > **目的**：Cursor 流量不足时，Mimir 按 **单线第一条 `[ ]`** 自驱运维、证据与只读学习；避免 bridge/backlog/issues 三处真源漂移。  
-> **真源优先级**：**§11 IQ #17 链**（有 `[ ]` 时）> **§10 大脑自治**（仅 SELF-LOOP `[ ]`）> §9（已闭合）> §6.1 周常 > §2/§3 归档 > backlog §20  
+> **真源优先级**：**§11 IQ #17**（有可执行 `[ ]`）> **§12 ENG-WF 工程链**（IQ 仅剩 BLOCK 或 §11 全 [x]）> **§10**（仅 SELF-LOOP `[ ]`）> §9（已闭合）> §6.1 周常 > §2/§3 归档 > backlog §20  
 > **分工契约**：[`MIMIR_PRIMARY_EXECUTOR.md`](./MIMIR_PRIMARY_EXECUTOR.md)（Mimir 全做 · Cursor 只复核合 main）
 
 **最近更新**：2026-06-01 · **§10 大脑自治链** 开启（刘哥全自治 · 含 commit/push）
@@ -14,9 +14,10 @@
 ```text
 你是 Mimir 运维轨。本轮开始前必读（顺序）：
 
+0) ./scripts/mimir_iq17_run_next.sh --dry-run → 若有可执行 IQ 粒，走 §11；否则 ./scripts/mimir_eng_run_next.sh --dry-run → §12
 1) ~/.openclaw/workspace/CLAUDE.md — 行为准则（Think/Simplicity/Surgical/Goal-Driven）
 2) ~/src/MimirAether/AGENTS.md — 仓库 vs MIMIR_AETHER_HOME、Ralph、M6
-3) ~/src/MimirAether/docs/MIMIR_BRAIN_AUTONOMY_CHAIN.md + 本文件 §10 第一条 [ ]（无则 §6.1 周常）
+3) §11 或 §12 第一条 [ ] 的真源计划（IQ17_EXECUTION_PLAN 或 MIMIR_ENGINEERING_WORKFLOW.md）
 4) ~/src/MimirAether/docs/MIMIR_IQ_EVOLUTION_DIRECTION.md — §0、§3.2 证据类型、§3.3 回报模板
 5) ~/src/MimirAether/docs/MIMIR_LIU_CURSOR_BRIDGE.md — §1「@Mimir 必读」最新一段
 
@@ -343,10 +344,45 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 
 ---
 
+## 12. 工程工作流链（ENG-WF · Mimir 主执行）
+
+> **真源**：[`MIMIR_ENGINEERING_WORKFLOW.md`](./MIMIR_ENGINEERING_WORKFLOW.md) · 评估 [`output/2026-06-01-MIMIR评估与改造方向.md`](../output/2026-06-01-MIMIR评估与改造方向.md)  
+> **下一粒**：`./scripts/mimir_eng_run_next.sh --dry-run`  
+> **纪律**：只认第一条 **`[ ]` 且非 BLOCK`**；BLOCK 行 SKIP 并 bridge 记原因；做完 **立刻**下一粒
+
+| ID | 波次 | 任务 | Owner | 状态 |
+|----|------|------|-------|------|
+| **ENG-WF-00** | 0 | 基线 health + tier0 + eng-wf-00-baseline.md | Mimir | [x] ✅ 刘哥 |
+| **ENG-WF-01** | 1 | systemd stop/disable mimiraether | **刘哥** | [ ] BLOCK |
+| **ENG-WF-02** | 1 | OPERATIONS §5 单 Owner 文档 | Mimir | [ ] |
+| **ENG-WF-03** | 1 | 编造 spec（eng-wf-fabrication-spec.md） | Mimir | [ ] |
+| **ENG-WF-04** | 1 | 编造契约测 test_eng_wf_fabrication_guard.py | Mimir | [ ] |
+| **ENG-WF-05** | 1 | tool result 优先级 / 测例 | Mimir | [ ] |
+| **ENG-WF-06** | 1 | 波次 1 closeout | Mimir | [ ] |
+| **ENG-WF-10** | 2 | coverage_baseline.sh + baseline md | Mimir | [ ] |
+| **ENG-WF-11** | 2 | 覆盖率 ratchet 文档（非 50% 悬崖） | Mimir | [ ] |
+| **ENG-WF-12** | 2 | tool_registry cov ≥80% | Mimir | [ ] |
+| **ENG-WF-13** | 2 | search_first + credential 各 +3 测 | Mimir | [ ] |
+| **ENG-WF-14** | 2 | 波次 2 closeout + 覆盖率对比 | Mimir | [ ] |
+| **ENG-WF-20** | 3 | 上下文三套 inventory（只读） | Mimir | [ ] |
+| **ENG-WF-21** | 3 | turn_loop 抽 1 函数 + 单测 | Mimir | [ ] |
+| **ENG-WF-22** | 3 | FauxLlm 再迁 2 测 | Mimir | [ ] |
+| **ENG-WF-90** | 4 | eng-wf-closeout + ENG-WF-M1～M6 | Mimir | [ ] |
+
+**§11 剩余 BLOCK（不占 ENG-WF 下一粒）**
+
+| ID | 说明 |
+|----|------|
+| IQ-12 | 刘哥确认后 shell：`MIMIR_WM_VOE_RECALL=1` + gateway 重启 |
+| IQ-14 | 刘哥飞书冒烟一句（IQ 记忆验收） |
+
+---
+
 ## 7. 修订日志
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-06-01 | §12 ENG-WF 工程工作流（`MIMIR_ENGINEERING_WORKFLOW.md` + `mimir_eng_run_next.sh`）· IQ 后默认主链 |
 | 2026-06-01 | §11 IQ #17 执行链（`MIMIR_IQ17_EXECUTION_PLAN.md`）· 优先级高于 §10 LOOP |
 | 2026-06-01 | IQ-31/32/33/34 Cursor 合入（`a0dc323`）+ IQ-40/41 design + IQ-42 backlog + IQ-45 closeout · 4.9→5.2 |
 | 2026-06-01 | §10 大脑自治链 BRAIN-00～10 + LOOP · 全自治 push |
