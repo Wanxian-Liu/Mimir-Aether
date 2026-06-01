@@ -17,10 +17,10 @@ def _session_db(tmp_path):
     return SessionDB(db_path=tmp_path / "iev05_state.db")
 
 
-def test_insights_sql_aggregates_tool_call_count_from_sessions(tmp_path):
+def test_insights_sql_aggregates_tool_call_count_from_sessions(harness):
     from agent.insights import InsightsEngine
 
-    db = _session_db(tmp_path)
+    db = harness.db
     db.create_session("s-a", "cli", model="test-model")
     db.append_message(
         "s-a",
@@ -65,10 +65,10 @@ def test_insights_tool_breakdown_from_tool_name_and_assistant_json(tmp_path):
     assert by_name.get("write_file") == 1
 
 
-def test_insights_empty_sql_report_and_terminal_placeholder(tmp_path):
+def test_insights_empty_sql_report_and_terminal_placeholder(harness):
     from agent.insights import InsightsEngine
 
-    db = _session_db(tmp_path)
+    db = harness.db
     report = InsightsEngine(db).generate(days=7)
     assert report.empty is True
     assert report.total_tool_calls == 0
