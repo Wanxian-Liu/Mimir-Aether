@@ -389,8 +389,9 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 | **MW-02** | P1 | 并行只读工具 `parallel_dispatcher`（IQ-41） | Mimir | [x] ✅ |
 | **MW-03** | P1 | 工具调度平台无关薄层（IQ-41 升华） | Mimir | [x] ✅ |
 | **MW-04** | P2 | `MIMIR_NUDGE_INTERVAL` 周期 nudge（IQ-40） | Mimir | [x] ✅ |
-| **MW-05** | P2 | `ic_advisor` 扩大替代建议（非 ISSUES #4） | Mimir | [ ] |
-| **MW-90** | — | mw-wishlist-closeout | Mimir | [ ] |
+| **MW-05** | P2 | `ic_advisor` 扩大替代建议（非 ISSUES #4） | Mimir | [x] ✅ |
+| **MW-90** | — | mw-wishlist-closeout | Mimir | [x] ✅ |
+| **§13 心愿单 全部 ✅** | | | | |
 
 **刘哥仅运维（不进 Mimir 代码粒）**：`MW-00` 后按 `mw-00-prod-env.md` 开 `MIMIR_WM_PREDICTOR=1` + gateway 重启。
 
