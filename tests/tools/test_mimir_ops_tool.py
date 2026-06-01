@@ -1,4 +1,7 @@
-"""Unit tests for tools.mimir_ops_tool."""
+"""Unit tests for tools.mimir_ops_tool.
+
+Contains both original-style and harness-style tests.
+"""
 
 from __future__ import annotations
 
@@ -25,8 +28,29 @@ def test_gateway_restart_requires_confirm_and_env(monkeypatch):
     assert "MIMIR_OPS_ALLOW_GATEWAY_RESTART" in out2.get("error", "")
 
 
-def test_session_reset_pending_roundtrip(tmp_path, monkeypatch):
+# ---------------------------------------------------------------------------
+# Original style (inline monkeypatch)
+# ---------------------------------------------------------------------------
+
+def test_session_reset_pending_roundtrip_original(tmp_path, monkeypatch):
+    """Original: manual ops dir + monkeypatch."""
     ops_dir = tmp_path / "data" / "ops"
+    ops_dir.mkdir(parents=True)
+    monkeypatch.setattr(ops, "_ops_data_dir", lambda: ops_dir)
+    monkeypatch.setattr(ops, "_session_reset_pending_path", lambda: ops_dir / "session_reset_pending.json")
+
+    ops.request_session_reset("feishu:chat1:user1", reason="test")
+    assert ops.consume_session_reset_pending("feishu:chat1:user1") is True
+    assert ops.consume_session_reset_pending("feishu:chat1:user1") is False
+
+
+# ---------------------------------------------------------------------------
+# Harness style (tmp_path via harness, still uses monkeypatch for ops module)
+# ---------------------------------------------------------------------------
+
+def test_session_reset_pending_roundtrip(harness, monkeypatch):
+    """Harness style: harness provides isolated tmp_path, monkeypatch for ops module."""
+    ops_dir = harness.tmp_path / "data" / "ops"
     ops_dir.mkdir(parents=True)
     monkeypatch.setattr(ops, "_ops_data_dir", lambda: ops_dir)
     monkeypatch.setattr(ops, "_session_reset_pending_path", lambda: ops_dir / "session_reset_pending.json")

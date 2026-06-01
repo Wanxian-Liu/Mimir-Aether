@@ -227,7 +227,7 @@ cd ~/src/MimirAether && MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution
 
 | ID | 优先级 | 任务 | Mimir 交付 | Cursor 复核 | 状态 |
 |----|--------|------|------------|-------------|------|
-| **ENG-PI06-01** | P0 | **测试 Harness**（PI-L06 #1） | `tests/conftest.py` 工厂 + FauxLlm + 迁移 2～3 测例 · tier0 绿 · handoff | merge + M6 | [ ] |
+| **ENG-PI06-01** | P0 | **测试 Harness**（PI-L06 #1） | `tests/conftest.py` 工厂 + FauxLlm + 迁移 2～3 测例 · tier0 绿 · handoff | **Cursor merged** · tier0 **681** | [x] |
 | **ENG-SF-01** | P0 | **先搜再答**（Wave A WA-A05/A06） | 复跑 `iqevo-31` 审计或等价；prompt/守卫最小 diff · handoff | merge + 飞书复验建议 | [ ] |
 | **ENG-EVO-01** | P1 | **真实 session evolution ok=1** | 归因 1 条生产 `ok=0`；最小修复或 ISSUES 草案 · handoff | merge 若含代码 | [ ] |
 | **ENG-TOOL-01** | P2 | 工具执行事件流（PI-L06 #2） | pipeline emit + 文档 · handoff | merge | [ ] |
