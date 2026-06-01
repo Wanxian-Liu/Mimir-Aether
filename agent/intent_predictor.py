@@ -22,6 +22,8 @@ _COMPLEX_RE = re.compile(
 _CODE_BLOCK_RE = re.compile(r"```|`")
 _URL_RE = re.compile(r"https?://|www\.", re.IGNORECASE)
 
+_LOW_CONFIDENCE_THRESHOLD = 0.5
+
 _INTENT_PATTERNS: Tuple[Tuple[str, re.Pattern[str]], ...] = (
     ("debug", re.compile(r"(?i)debug|traceback|stack\s*trace|报错|异常|error\s*code")),
     ("code", re.compile(r"(?i)implement|refactor|patch|fix\s+|修复|实现|改代码|写代码|提交")),
@@ -108,6 +110,12 @@ def build_intent_context_block(prediction: IntentPrediction) -> str:
         f"intent={prediction.intent} complexity={prediction.complexity} "
         f"confidence={prediction.confidence:.2f}",
     ]
+    if prediction.confidence < _LOW_CONFIDENCE_THRESHOLD:
+        lines.append(
+            "(low-confidence prediction — treat as suggestion, not directive)"
+        )
+        lines.append("</intent-context>")
+        return "\n".join(lines)
     if prediction.prefer_session_search:
         lines.append(
             "Prefer session_search (or read_file) before answering from memory alone."

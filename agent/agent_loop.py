@@ -51,6 +51,7 @@ from .skill_scenario_router import (
     build_skill_route_nudge,
     should_inject_skill_route_nudge,
 )
+from .world_model_spike import is_wm_predictor_enabled, predict as wm_predict
 # 统一类型: 从 types.py 导入 (Phase 3 M1)
 from .types import AgentLoopToolError as ToolError, AgentLoopResult as AgentResult
 
@@ -260,6 +261,39 @@ class MimirAgentLoop:
                     + "\nUse these results to answer."
                 )
                 messages.append({"role": "user", "content": _nudge})
+
+            # WM predictor: advisory context (env MIMIR_WM_PREDICTOR, default off)
+            if turn == 0 and is_wm_predictor_enabled():
+                try:
+                    _wm_user = last_user_text(messages)
+                    _wm_pred = wm_predict(
+                        {
+                            "user_message": _wm_user or "",
+                            "intent": "",
+                            "objective": "",
+                        }
+                    )
+                    if _wm_pred.next_context_needs:
+                        _wm_block = (
+                            "<wm-prediction>\n"
+                            f"  expected_outcome: {_wm_pred.expected_outcome}\n"
+                            f"  next_context_needs: {', '.join(_wm_pred.next_context_needs)}\n"
+                            f"  applicable_skills: {', '.join(_wm_pred.applicable_skills)}\n"
+                            "</wm-prediction>"
+                        )
+                        messages.append({"role": "user", "content": _wm_block})
+                        logger.info(
+                            "[%s] turn %d: wm_prediction needs=%s",
+                            self.task_id[:8],
+                            turn + 1,
+                            _wm_pred.next_context_needs,
+                        )
+                except Exception as _wm_exc:
+                    logger.warning(
+                        "[%s] wm_prediction skipped: %s",
+                        self.task_id[:8],
+                        _wm_exc,
+                    )
 
             # --- Call model ---
             api_start = _time.monotonic()

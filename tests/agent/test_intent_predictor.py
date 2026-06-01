@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 
 from agent.intent_predictor import (
+    IntentPrediction,
     build_intent_context_block,
     predict,
     predict_and_format,
@@ -50,3 +51,36 @@ def test_predictor_disabled(monkeypatch):
 def test_predictor_enabled_default(monkeypatch):
     monkeypatch.delenv("MIMIR_INTENT_PREDICTOR", raising=False)
     assert predictor_enabled() is True
+
+
+def test_high_confidence_full_context():
+    pred = IntentPrediction(
+        intent="code",
+        complexity="complex",
+        confidence=0.75,
+        prefer_session_search=True,
+        block_cheap_route=True,
+    )
+    block = build_intent_context_block(pred)
+    assert "Grounded task:" in block
+    assert "low-confidence" not in block
+
+
+def test_low_confidence_lite_context():
+    pred = IntentPrediction(
+        intent="general",
+        complexity="simple",
+        confidence=0.4,
+        prefer_session_search=False,
+        block_cheap_route=False,
+    )
+    block = build_intent_context_block(pred)
+    assert "low-confidence prediction" in block
+    assert "Grounded task:" not in block
+
+
+def test_predict_and_format_low_confidence_general():
+    pred, block = predict_and_format("说说今天")
+    assert pred is not None
+    assert pred.confidence < 0.5
+    assert "low-confidence" in block
