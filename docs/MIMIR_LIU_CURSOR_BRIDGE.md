@@ -725,3 +725,4 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 || 日期 | ID | 执行者 | 摘要 |
 ||------|------|-------|------|
 || 2026-06-02 | **MW-00** | Mimir | 验收 IQ-31/32/33/34（`a0dc323`）✅ 13 tests passed · `mw-00-iq31-34-verify.md` · `mw-00-prod-env.md` |
+|| 2026-06-02 | **MW-01** | Mimir | search_first_guard 接线审计 ✅ 已接线（3文件6点）· 42 tests passed · 无需补线 |
