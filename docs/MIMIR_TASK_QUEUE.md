@@ -287,7 +287,7 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 | **SELF-02** | A | 扩展 skill_scenario_router | [x] |
 | **SELF-03** | A | audit_skill_usage.py | [x] |
 | **SELF-04** | A | brain_metrics_snapshot.py | [x] |
-| **SELF-05** | A | 更新 self-audit 技能 | [ ] |
+| **SELF-05** | A | 更新 self-audit 技能 | [x] |
 | **SELF-06** | A | 禁止等继续（文档） | [ ] |
 | **SELF-07** | A | mimir_self_run_next.sh | [ ] |
 | **SELF-08** | B | monitor 真/假阳性 | [ ] |
