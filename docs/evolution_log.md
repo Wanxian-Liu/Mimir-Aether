@@ -155,3 +155,4 @@ Append-only. Newest rows at the **bottom**. See `**docs/M6_EVOLUTION.md`** for r
 | 20260531T212549Z_42dd1ab-dirty | 2026-05-31T21:25:49Z | 42dd1ab-dirty | ./run_ralph_tier0.sh | 0 | ADR-008 evolution canonical path; D5-ADR closeout; test_d5_adr_evolution_canonical; tier0 679 PASS; metrics: n/a |
 | 20260601T053330Z_8d80225-dirty | 2026-06-01T05:33:30Z | 8d80225-dirty | ./run_ralph_tier0.sh | 0 | ENG-SF-01: preemptive search-first nudge before model_call; audit skips guard marker; tier0 681 |
 | 20260601T062133Z_8a73e8f-dirty | 2026-06-01T06:21:33Z | 8a73e8f-dirty | ./run_ralph_tier0.sh | 0 | ENG-EVO-01: evolution detail log when r.error empty; tier0 681 |
+| 20260601T064139Z_ce505c6-dirty | 2026-06-01T06:41:39Z | ce505c6-dirty | ./run_ralph_tier0.sh | 0 | ENG-TOOL-01: tool_event_emitter; MIMIR_TOOL_EVENTS default off; tier0 681 |
