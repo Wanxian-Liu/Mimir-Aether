@@ -6,8 +6,8 @@
 | 谁 | 怎么做 |
 |----|--------|
 | **刘哥** | 飞书找 **Mimir**；战略 / 拍板写 **§1**；飞书验收（CLR-B） |
-| **Mimir** | **主执行**（[`MIMIR_PRIMARY_EXECUTOR.md`](./MIMIR_PRIMARY_EXECUTOR.md)）：§9 任务 + 周常 + **M-ENG 写码**（禁 push）→ `docs/mimir-handoff/` |
-| **Cursor** | **复核合 main**（见 §2 常备授权）：HANDOFF ready → tier0 重跑 → commit/push/PR/M6；**不抢** §9 第一条 `[ ]` |
+| **Mimir** | **大脑自治**（[`MIMIR_BRAIN_AUTONOMY_CHAIN.md`](./MIMIR_BRAIN_AUTONOMY_CHAIN.md)）：§10 任务链 · **自 commit/push** · 无 HANDOFF 等待 |
+| **Cursor** | **待命**（2026-06-01）：不复核 §10；仅刘哥点名或 hook 红时介入 |
 
 **不走**：OpenClaw cron、微信同步 backlog。
 
@@ -28,14 +28,19 @@
 | **必读顺序** | `MIMIR_TASK_QUEUE.md` §0 → bridge 本节 → backlog §20.2（与清单冲突时以 **TASK_QUEUE §2** 为准） |
 | **轨 A 默认** | 运维、证据、只读学习（含 **π-agent** `~/.openclaw/projects/pi-agent`，**禁止**整库复制进 Mimir） |
 | **轨 B** | 改 `agent|gateway|tools|mimir_cli` 须本节刘哥 **另条** 授权或记 ISSUES → Cursor **§20.1** |
-| **禁止** | `git push` · 提交 `data/persistent.json` · 未恢复前做 **EV-VISION** / 生产开关擅自改 `.env` |
+| **禁止** | `git push --force` 到 main · 提交 `data/persistent.json` · **EV-VISION** · 未授权 WM 大改 |
 
-**队列已闭合（2026-06-01 · 复制给 Mimir）**
+### 2026-06-01 — 刘哥拍板 · 大脑自治（覆盖上表「禁 push」）
+
+- **真源**：[`MIMIR_BRAIN_AUTONOMY_CHAIN.md`](./MIMIR_BRAIN_AUTONOMY_CHAIN.md) + [`MIMIR_TASK_QUEUE.md`](./MIMIR_TASK_QUEUE.md) **§10**
+- **Mimir**：从 **BRAIN-00** 起逐粒执行；每粒 **tier0 绿 → commit → push origin main**；Cursor **不复核**
+- **复制开场**：见 `MIMIR_BRAIN_AUTONOMY_CHAIN.md` **§4** 整段
+
+**队列已闭合（2026-06-01 · 旧轨 · 仅当 §10 全 [x] 后适用）**
 
 ```text
-TASK_QUEUE §2/§3 已全部 [x]，勿再从头找 [ ]。
-本周若刘哥无新派：只跑周常三件套（M-WEEKLY-01 eval · 02 MW · 03 ok% 快照），各 bridge §4 一行。
-有新任务：等 bridge §1 或 backlog §20.2 新行；禁止 push · 禁止改 agent/gateway/tools。
+§10 大脑链未完成前：禁止做 §2 旧粒「凑工作量」。
+§10 全 [x] 后：周常 M-WEEKLY-01～03 + BRAIN-LOOP 周报。
 ```
 
 **刘哥新派单粒（仍适用）**
@@ -588,7 +593,8 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-06-01 | **IQ-55-PHASE3** | **刘哥拍板** | **开 Phase3** · #1 ok%+eval · 无 1c 生产 · plan `iq-55-phase3-execution-plan.md` |
 | 2026-05-31 | **D5-ADR 签收** | **刘哥** | ADR-008 路径 A 生产真源 · B/C/D 非默认 · §20.3 拍板闭合 |
 | 2026-05-19 | **D5-ADR** | **Cursor** | ADR-008 evolution canonical path · §6 d5 **6/6** · `d5-adr-closeout.md` · tier0 +`test_d5_adr_evolution_canonical` · GH **#21** close 余量→icebox |
-| 2026-06-01 | **ENG-TOOL-01** | **Mimir→Cursor** | `tool_event_emitter` + agent_loop start/end · `MIMIR_TOOL_EVENTS` 默认关 · 5 测例 · tier0 **681** · 下一 **ENG-CLI-01** |
+| 2026-06-01 | **ENG-CLI-01** | **Mimir→Cursor** | `--one-shot PROMPT` 非交互 CLI · 5 测例 · tier0 **681** · **§9 工程粒已清空**（仅周常/刘哥轨） |
+| 2026-06-01 | **ENG-TOOL-01** | **Mimir→Cursor** | `tool_event_emitter` + agent_loop start/end · `MIMIR_TOOL_EVENTS` 默认关 · tier0 **681** |
 | 2026-06-01 | **ENG-EVO-01** | **Mimir→Cursor** | 归因 session `9ee6d577` ok=0 · `post_close_analysis` detail 日志 · tier0 **681** |
 | 2026-06-01 | **ENG-SF-01** | **Mimir→Cursor** | preemptive search-first nudge（`agent_loop`）· audit 跳过 guard 标记 · tier0 **681** · **Gateway 硬重启** 后飞书复验 |
 | 2026-06-01 | **ENG-PI06-01** | **Mimir→Cursor** | HANDOFF ready → **merged** · `FauxLlmProvider` + `harness` fixture · 9 工具测 PASS · tier0 **681** |

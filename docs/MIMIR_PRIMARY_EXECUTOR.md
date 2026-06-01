@@ -1,7 +1,7 @@
 # Mimir 主执行 · Cursor 复核（2026-06-01 刘哥拍板）
 
-> **目的**：Cursor 流量不足时，**所有可执行任务默认由 Mimir 做完**；Cursor 只做 **方向对齐、diff 复核、小修、commit/push/PR、M6**。  
-> **队列入口**：[`MIMIR_TASK_QUEUE.md`](./MIMIR_TASK_QUEUE.md) **§9**（主执行轨）· 周常见该文档 **§6.1**。
+> **目的**：2026-06-01 起 **§10 大脑自治** — Mimir 自实现、自 tier0、**自 commit/push**；Cursor 待命。  
+> **队列入口**：[`MIMIR_TASK_QUEUE.md`](./MIMIR_TASK_QUEUE.md) **§10** · 契约 [`MIMIR_BRAIN_AUTONOMY_CHAIN.md`](./MIMIR_BRAIN_AUTONOMY_CHAIN.md)
 
 ---
 
@@ -44,7 +44,8 @@
 - 运行 `./run_ralph_tier0.sh`、`./scripts/run_evolution_eval.sh`
 - 写 `docs/phase0/*-closeout.md`、`docs/proposals/*`、`docs/mimir-handoff/*`
 
-**仍禁止**：`git push` · commit `data/persistent.json` · 无 closeout 的大重构（>200 行且非刘哥点名）
+**§10 大脑自治（2026-06-01 覆盖）**：允许 `git push origin main`（见 [`MIMIR_BRAIN_AUTONOMY_CHAIN.md`](./MIMIR_BRAIN_AUTONOMY_CHAIN.md)）。  
+**仍禁止**：`push --force` 到 main · commit `data/persistent.json` · 无 closeout 的大重构（>200 行且非 BRAIN-* ID）
 
 ---
 
@@ -96,4 +97,5 @@ Cursor 复核通过后：`git add` → commit → push → bridge §4 `CURSOR me
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-06-01 | §10 大脑全自治：Mimir commit/push · Cursor 不复核 |
 | 2026-06-01 | 初版：刘哥拍板 Mimir 主执行 · M-ENG 交付包 · Cursor 复核合 main |

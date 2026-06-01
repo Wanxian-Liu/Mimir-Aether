@@ -2,10 +2,10 @@
 
 > **读者**：Mimir（主执行）· 刘哥（拍板/飞书）· Cursor（工程轨，本清单 **不含** §20.1 写码粒）  
 > **目的**：Cursor 流量不足时，Mimir 按 **单线第一条 `[ ]`** 自驱运维、证据与只读学习；避免 bridge/backlog/issues 三处真源漂移。  
-> **真源优先级**：**§9 主执行轨**（有 `[ ]` 时）> §6.1 周常 > §2/§3 归档 > backlog §20  
+> **真源优先级**：**§10 大脑自治链**（有 `[ ]` 时）> §9（已闭合）> §6.1 周常 > §2/§3 归档 > backlog §20  
 > **分工契约**：[`MIMIR_PRIMARY_EXECUTOR.md`](./MIMIR_PRIMARY_EXECUTOR.md)（Mimir 全做 · Cursor 只复核合 main）
 
-**最近更新**：2026-06-01 · **§9 主执行轨** 开启（刘哥拍板）
+**最近更新**：2026-06-01 · **§10 大脑自治链** 开启（刘哥全自治 · 含 commit/push）
 
 ---
 
@@ -16,12 +16,12 @@
 
 1) ~/.openclaw/workspace/CLAUDE.md — 行为准则（Think/Simplicity/Surgical/Goal-Driven）
 2) ~/src/MimirAether/AGENTS.md — 仓库 vs MIMIR_AETHER_HOME、Ralph、M6
-3) ~/src/MimirAether/docs/MIMIR_PRIMARY_EXECUTOR.md + 本文件 §9 第一条 [ ]（无则 §6.1 周常）
+3) ~/src/MimirAether/docs/MIMIR_BRAIN_AUTONOMY_CHAIN.md + 本文件 §10 第一条 [ ]（无则 §6.1 周常）
 4) ~/src/MimirAether/docs/MIMIR_IQ_EVOLUTION_DIRECTION.md — §0、§3.2 证据类型、§3.3 回报模板
 5) ~/src/MimirAether/docs/MIMIR_LIU_CURSOR_BRIDGE.md — §1「@Mimir 必读」最新一段
 
 纪律：
-- **M-ENG**（2026-06-01 总授权）：可改 agent|gateway|tools|tests；做完 **docs/mimir-handoff/<ID>/** 交付包；**禁止 git push**
+- **§10 大脑自治**（2026-06-01）：可改 agent|gateway|tools|tests；**每粒 commit+push**；见 BRAIN_AUTONOMY_CHAIN §2
 - 禁止提交 data/persistent.json
 - 每粒结束：bridge §4 一行 +（若触达进化指标）更新 ~/.mimiraether/data/ops/ 下 JSON
 
@@ -273,10 +273,46 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 
 ---
 
+## 10. 大脑自治链（Mimir 全自治 · commit/push · 无 Cursor 复核）
+
+> **契约**：[`MIMIR_BRAIN_AUTONOMY_CHAIN.md`](./MIMIR_BRAIN_AUTONOMY_CHAIN.md) · 刘哥 2026-06-01 授权覆盖「禁 push」。  
+> **开场**：复制该文档 **§4** 整段到飞书。  
+> **纪律**：只认下表 **第一条 `[ ]`**；每粒 tier0 绿 → commit → `git push origin main` → 标 `[x]`。
+
+| ID | 波次 | 任务摘要 | 状态 |
+|----|------|----------|------|
+| **BRAIN-00** | W0 | kickoff 证据 + gateway 单实例 + tier0 基线 | [ ] |
+| **BRAIN-01** | W1 | Intent `prefer_session_search` → preemptive 检索 | [ ] |
+| **BRAIN-02** | W1 | 生产 FEEDBACK_COLLECTOR（.env 备份后追加，不 commit .env） | [ ] |
+| **BRAIN-03** | W1 | nudge 契约测加固 | [ ] |
+| **BRAIN-04** | W1 | `brain_metrics_snapshot.py` → ops JSON | [ ] |
+| **BRAIN-05** | W2 | VoE 学习路径证据 / 测例 | [ ] |
+| **BRAIN-06** | W2 | WM `context_snapshot` spike（env 默认 0） | [ ] |
+| **BRAIN-07** | W2 | search-first 审计 JSON | [ ] |
+| **BRAIN-08** | W3 | rubric 自评 closeout | [ ] |
+| **BRAIN-09** | W3 | evolution eval 记录 | [ ] |
+| **BRAIN-10** | W3 | `mimir_brain_run_next.sh` + MAINLINE 更新 | [ ] |
+| **BRAIN-LOOP** | 每周 | 指标快照 + eval；退化则新开 §10 行 | [ ] |
+
+**BRAIN-00 提示词**
+
+```text
+任务 BRAIN-00：Read docs/MIMIR_BRAIN_AUTONOMY_CHAIN.md §2 单粒循环。
+git pull --rebase origin main
+MIMIR_AETHER_HOME=~/.mimiraether ./scripts/ensure_single_gateway.sh
+./run_ralph_tier0.sh → 记下 PASS 数
+写 docs/phase0/brain-autonomy-kickoff.md（≤40 行：tier0、双 gateway 风险、FEEDBACK 是否开、session_search 粗算）
+commit + push origin main
+TASK_QUEUE §10 BRAIN-00 → [x]；bridge §4：BRAIN-00 done · tier0=… · push=…
+```
+
+---
+
 ## 7. 修订日志
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-06-01 | §10 大脑自治链 BRAIN-00～10 + LOOP · 全自治 push |
 | 2026-06-01 | §9 主执行轨 · MIMIR_PRIMARY_EXECUTOR · ENG-* 改派 Mimir |
 | 2026-06-01 | §2/§3 全 [x] · 闭合模式 §6.1 · §1 快照更新 |
 | 2026-05-31 | 初版：三源合并 · Mimir 队列 · π-agent 六周只读课 · 提示词块 |
