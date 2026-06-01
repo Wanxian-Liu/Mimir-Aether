@@ -160,3 +160,4 @@ Append-only. Newest rows at the **bottom**. See `**docs/M6_EVOLUTION.md`** for r
 | 20260601T073630Z_9ccc1b9 | 2026-06-01T07:36:30Z | 9ccc1b9 | ./run_ralph_tier0.sh | 0 | SELF chain: skill router + audit_skill_usage + brain_metrics_snapshot + self-improvement task docs; metrics: tier0 681 PASS |
 | 20260601T080700Z_bcbc249 | 2026-06-01T08:07:00Z | bcbc249 | ./run_ralph_tier0.sh | 0 | SELF-02: 扩展 skill_scenario_router +8 场景(TDD/prune/capsule/paralysis/smart_routing/checkpoint/context/degeneration) +9 测试 17/17; routes 12→20; tier0 677/4(pre-existing) |
 |
+| manual_m6_20260601T083356Z | 2026-06-01T08:33:56Z | fc5668c-dirty | ./run_ralph_tier0.sh | 0 | SELF-11: preemptive session_search — programmatic search replaces text nudge; session_search_prefetch() injects results before LLM call; metrics: 677 passed, 4 known failures unchanged |

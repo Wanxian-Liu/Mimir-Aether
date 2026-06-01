@@ -227,22 +227,39 @@ class MimirAgentLoop:
                         route_skills,
                     )
 
-            # Preemptive search-first nudge: before LLM call, check if user message
-            # requires cross-session search and hasn't been satisfied yet.
+            # Preemptive session_search: before LLM call, programmatically
+            # execute search when cross-session recall is needed.
+            # Instead of text-nudging (which the model often ignores), inject
+            # actual search results so the model has context to answer from.
             if (
                 search_first_guard_enabled()
-                and search_first_nudges < MAX_SEARCH_FIRST_NUDGES
                 and cross_session_requires_search_first(last_user_text(messages))
                 and not session_search_satisfied_since_last_user(messages)
             ):
                 search_first_nudges += 1
-                nudge = build_search_first_nudge()
-                messages.append({"role": "user", "content": nudge})
-                logger.warning(
-                    "[%s] turn %d: preemptive search-first nudge (%d/%d)",
-                    self.task_id[:8], turn + 1,
-                    search_first_nudges, MAX_SEARCH_FIRST_NUDGES,
+                from tools.session_search_tool import session_search_prefetch
+                user_text = last_user_text(messages)
+                _q = user_text[:200].strip()
+                logger.info(
+                    "[%s] turn %d: preemptive session_search for: %s",
+                    self.task_id[:8], turn + 1, _q[:80],
                 )
+                _search_results = []
+                try:
+                    _r = session_search_prefetch(_q, limit=3, session_limit=2)
+                    _search_results = _r if _r else []
+                except Exception as _exc:
+                    logger.warning("[%s] preemptive search failed: %s", self.task_id[:8], _exc)
+                _total = len(_search_results)
+                _sessions = len({x.get("session", "") for x in _search_results})
+                _nudge = (
+                    "[preemptive-search] Queried sessions."
+                    + "\nquery: " + str(_q[:120])
+                    + "\nmatches: " + str(_total) + ", sessions: " + str(_sessions)
+                    + "\nresults: " + json.dumps(_search_results, ensure_ascii=False)[:2000]
+                    + "\nUse these results to answer."
+                )
+                messages.append({"role": "user", "content": _nudge})
 
             # --- Call model ---
             api_start = _time.monotonic()
