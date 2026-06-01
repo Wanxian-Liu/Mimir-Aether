@@ -123,8 +123,22 @@ Production samples should live under the **same relative path** under your produ
 
 ---
 
-## 7. Revision log
+## 7. BRAIN chain integration (2026-06-01)
+
+The BRAIN autonomy chain (see [BRAIN_AUTONOMY_CHAIN.md](../MIMIR_BRAIN_AUTONOMY_CHAIN.md)) activates the following production env vars:
+
+| Var | Effect |
+|-----|--------|
+| `MIMIR_FEEDBACK_COLLECTOR=1` | Writes `feedback_events.jsonl` — required by AUTO_EVOLVE |
+| `MIMIR_WM_VOE_LEARNING=1` | VoE learning data collection (WM Phase 1) |
+| `MIMIR_WM_VOE_REPLAN_CTX=1` | VoE surprise triggers replan with context |
+| `MIMIR_INTENT_PREDICTOR=1` | Intent classification + `<intent-context>` injection |
+
+All four were **set in production `.env`** as part of BRAIN-00/01/02. No code change needed.
+
+## 8. Revision log
 
 | Date | Note |
 |------|------|
+| 2026-06-01 | §7 BRAIN chain integration — FEEDBACK_COLLECTOR + WM + INTENT_PREDICTOR enabled |
 | 2026-05-26 | IQ-EVO-13: production rollout gate + 7d artifact contract |
