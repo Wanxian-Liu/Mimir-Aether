@@ -18,6 +18,7 @@ PERSISTENT = MIMIR_HOME / "data" / "persistent.json"
 OPS_DIR = MIMIR_HOME / "data" / "ops"
 AGENT_LOG = MIMIR_HOME / "logs" / "agent.log"
 TOOL_QUALITY_DB = MIMIR_HOME / "data" / "tool_quality.db"
+SESSIONS_DIR = MIMIR_HOME / "data" / "sessions"
 
 
 def read_json(path: Path) -> dict:
@@ -101,6 +102,59 @@ def get_log_evolution_count() -> dict:
         return {"error": str(e)}
 
 
+def get_skill_view_7d() -> dict:
+    """Count skill_view tool calls in session JSONL files from last 7 days."""
+    if not SESSIONS_DIR.is_dir():
+        return {"sessions_7d": 0, "skill_view_calls_7d": 0, "error": "sessions dir not found"}
+    cutoff = time.time() - 7 * 86400
+    total_sessions = 0
+    total_calls = 0
+    sessions_with_calls = set()
+    try:
+        for fn in SESSIONS_DIR.iterdir():
+            if not fn.name.endswith(".jsonl"):
+                continue
+            # Parse date from filename: 20260601_220153.jsonl
+            parts = fn.stem.split("_")
+            if len(parts) >= 1 and len(parts[0]) == 8:
+                try:
+                    ts = datetime.strptime(parts[0], "%Y%m%d").timestamp()
+                except ValueError:
+                    ts = fn.stat().st_mtime
+            else:
+                ts = fn.stat().st_mtime
+            if ts < cutoff:
+                continue
+            total_sessions += 1
+            session_calls = 0
+            text = fn.read_text(encoding="utf-8", errors="replace")
+            for line in text.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                tc = obj.get("tool_calls")
+                if not tc:
+                    continue
+                for call in tc:
+                    fn_name = call.get("function", {}).get("name", "")
+                    if fn_name == "skill_view":
+                        session_calls += 1
+            if session_calls > 0:
+                sessions_with_calls.add(fn.name)
+            total_calls += session_calls
+        return {
+            "sessions_7d": total_sessions,
+            "skill_view_calls_7d": total_calls,
+            "sessions_with_skill_view": len(sessions_with_calls),
+        }
+    except OSError as e:
+        return {"sessions_7d": 0, "skill_view_calls_7d": 0, "error": str(e)}
+
+
 def snapshot(out_path: Path = OPS_DIR / "brain-metrics-latest.json") -> dict:
     result = {
         "generated_at": time.time(),
@@ -108,6 +162,7 @@ def snapshot(out_path: Path = OPS_DIR / "brain-metrics-latest.json") -> dict:
         "persistent": get_persistent_metrics(),
         "evolution": get_evolution_metrics(),
         "evolution_log": get_log_evolution_count(),
+        "skill_view_7d": get_skill_view_7d(),
         "context": get_context_metrics(),
         "tool_quality": get_tool_quality_metrics(),
     }
@@ -147,6 +202,12 @@ if __name__ == "__main__":
     print(f"\n📝 Evolution Log (all time)")
     print(f"  ok / fail / total:      {el['ok_count']}/{el['fail_count']}/{el['evolution_lines_total']}")
     print(f"  ok% (log):              {el['ok_pct']}%")
+
+    sv = data.get("skill_view_7d", {})
+    print(f"\n📖 Skill View (7d)")
+    print(f"  Sessions scanned:       {sv.get('sessions_7d', '?')}")
+    print(f"  skill_view calls:       {sv.get('skill_view_calls_7d', '?')}")
+    print(f"  Sessions w/ skill_view: {sv.get('sessions_with_skill_view', '?')}")
 
     print(f"\n💻 Context (last known)")
     print(f"  Prompt tokens:          {ctx['prompt_tokens']}")
