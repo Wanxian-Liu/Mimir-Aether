@@ -325,12 +325,12 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 || **IQ-13** | 2 | C AUTO_EVOLVE | [x] |
 | **IQ-14** | 2 | 飞书冒烟 3 场景 | [ ] BLOCK: 需刘哥飞书发话 |
 | **IQ-15** | 2 | search_first 审计复跑 | [x] |
-| **IQ-20** | 3 | brain_metrics 观察 | [ ] |
-| **IQ-21** | 3 | evolution eval | [ ] |
-| **IQ-22** | 3 | WM 日志检查 | [ ] |
-| **IQ-23** | 3 | skill_view 7d 审计 | [ ] |
-| **IQ-24** | 3 | 观察窗 bridge 周报 | [ ] |
-| **IQ-25** | 3 | （可选）metrics 7d 字段 | [ ] |
+|| **IQ-20** | 3 | brain_metrics 观察 | [x] |
+|| **IQ-21** | 3 | evolution eval | [x] |
+|| **IQ-22** | 3 | WM 日志检查 | [x] |
+|| **IQ-23** | 3 | skill_view 7d 审计 | [x] |
+|| **IQ-24** | 3 | 观察窗 bridge 周报 | [x] |
+|| **IQ-25** | 3 | brain_metrics 增 skill_view_7d | [x] 🚢 6397160 |
 | **IQ-30** | 4 | WM B3 REPLAN_CTX | [ ] |
 | **IQ-31** | 4 | WM B4 预测器接线 | [ ] |
 | **IQ-32** | 4 | D intent fallback | [ ] |
