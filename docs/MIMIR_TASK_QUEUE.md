@@ -332,10 +332,10 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 || **IQ-24** | 3 | 观察窗 bridge 周报 | [x] |
 || **IQ-25** | 3 | brain_metrics 增 skill_view_7d | [x] 🚢 6397160 |
 |   | **IQ-30** | 4 | WM B3 REPLAN_CTX | [x] 🚢 env by 刘哥 |
-|| **IQ-31** | 4 | WM B4 预测器接线 | [x] 🚢 handoff |
-|| **IQ-32** | 4 | D intent fallback | [x] 🚢 handoff |
-|| **IQ-33** | 4 | D 与 preemptive 契约测 | [x] 🚢 handoff |
-|| **IQ-34** | 4 | P1 handoff 汇总 tier0 | [x] 🚢 handoff |
+||| **IQ-31** | 4 | WM B4 预测器接线 | [x] 🚢 a0dc323 |
+||| **IQ-32** | 4 | D intent fallback | [x] 🚢 a0dc323 |
+||| **IQ-33** | 4 | D 与 preemptive 契约测 | [x] 🚢 a0dc323 |
+||| **IQ-34** | 4 | P1 handoff 汇总 tier0 | [x] 🚢 a0dc323 |
 || **IQ-40** | 5 | E nudge 设计稿 | [x] 🚢 design |
 || **IQ-41** | 5 | F 并行工具设计稿 | [x] 🚢 design |
 || **IQ-42** | 5 | Cursor backlog 建议表 | [x] 🚢 proposal |
@@ -348,7 +348,7 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 | 日期 | 摘要 |
 |------|------|
 | 2026-06-01 | §11 IQ #17 执行链（`MIMIR_IQ17_EXECUTION_PLAN.md`）· 优先级高于 §10 LOOP |
-| 2026-06-01 | IQ-31/32/33/34 P1 handoff + IQ-40/41 design + IQ-42 backlog + IQ-45 closeout · 4.9→5.2 |
+| 2026-06-01 | IQ-31/32/33/34 Cursor 合入（`a0dc323`）+ IQ-40/41 design + IQ-42 backlog + IQ-45 closeout · 4.9→5.2 |
 | 2026-06-01 | §10 大脑自治链 BRAIN-00～10 + LOOP · 全自治 push |
 | 2026-06-01 | §9 主执行轨 · MIMIR_PRIMARY_EXECUTOR · ENG-* 改派 Mimir |
 | 2026-06-01 | §2/§3 全 [x] · 闭合模式 §6.1 · §1 快照更新 |
