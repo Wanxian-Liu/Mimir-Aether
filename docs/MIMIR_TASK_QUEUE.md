@@ -284,8 +284,8 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 |----|------|------|------|
 || **SELF-00** | A | baseline + gateway + tier0 | [x] |
 | **SELF-01** | A | 路由冒烟 3 场景 | [x] |
-| **SELF-02** | A | 扩展 skill_scenario_router | [ ] |
-| **SELF-03** | A | audit_skill_usage.py | [ ] |
+| **SELF-02** | A | 扩展 skill_scenario_router | [x] |
+| **SELF-03** | A | audit_skill_usage.py | [x] |
 | **SELF-04** | A | brain_metrics_snapshot.py | [ ] |
 | **SELF-05** | A | 更新 self-audit 技能 | [ ] |
 | **SELF-06** | A | 禁止等继续（文档） | [ ] |
