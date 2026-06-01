@@ -14,6 +14,7 @@
 | D | 增强MVP / 暂缓 / Phase2 | **增强 MVP** | 2026-05-19 | IQ-32～34 |
 | E | 仅设计 / 暂缓 | **仅设计** | 2026-05-19 | IQ-40 |
 | F | 仅设计 / 暂缓 | **仅设计** | 2026-05-19 | IQ-41 |
+| **WM-Q5** | 做 B5 LLM WM / **不做** | **不做（保持现状）** | 2026-05-19 | 见 [`wm-b5-llm-predictor-deferred.md`](./wm-b5-llm-predictor-deferred.md) |
 
 **运维提醒（刘哥 shell，非飞书 turn）**
 

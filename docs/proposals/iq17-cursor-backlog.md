@@ -12,13 +12,14 @@
 
 ~~勿再开「+105 行」实现 PR。~~
 
-## P1: WM B5（需刘哥拍板）
+## P1: WM-B5 LLM 预测器 — **不做（已裁定）**
 
-| ID | 文件 | 行数 | 风险 | 依赖 | 说明 |
-|----|------|:----:|:----:|:----:|------|
-| **WM-B5** | `agent/world_model_spike.py` + `agent/llm_predictor.py` | ~+200 | 🔴 | WM-Q5 拍板 | LLM 级预测器，成本需控制 |
+| ID | 状态 | 真源 |
+|----|:----:|------|
+| **WM-B5** | **DEFERRED** | [`docs/phase0/wm-b5-llm-predictor-deferred.md`](../phase0/wm-b5-llm-predictor-deferred.md) |
 
-**当前**：刘哥未拍板，不实现。
+**刘哥 2026-05-19**：非原先目标功能；边际意义不大 → **保持现状**。禁止 `MIMIR_WM_LLM_PREDICTOR` / `llm_predictor.py`。  
+**若要 WM 出数据**：开步骤 1～4 env + **规则** `MIMIR_WM_PREDICTOR=1`（IQ-31），见 §13 **MW-00**。
 
 ## P2: 设计稿待实现
 

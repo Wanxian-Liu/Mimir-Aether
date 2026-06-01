@@ -14,7 +14,9 @@
 | 2 | 同场景第二次 **不 surprise**（recall） | `MIMIR_WM_VOE_RECALL=1` | 🟢 低 | 步骤 1 |
 | 3 | surprise 时 **学习上下文注入 replan** | `MIMIR_WM_VOE_REPLAN_CTX=1` | 🟡 中 | 步骤 1 |
 | 4 | 预测器 **接 agent_loop**（规则级→intent/skill_router） | `MIMIR_WM_PREDICTOR=1` | 🟡 中 | 步骤 1~3 |
-| 5 | 预测器升级为 **LLM 调用** | 新变量 `MIMIR_WM_LLM_PREDICTOR` | 🔴 高 | 步骤 4 |
+| 5 | 预测器升级为 **LLM 调用** | ~~`MIMIR_WM_LLM_PREDICTOR`~~ **不实现** | 🔴 | **搁置** — 见下文 |
+
+> **步骤 5 裁定（2026-05-19）**：**保持现状，不做。** 全文 [`docs/phase0/wm-b5-llm-predictor-deferred.md`](../phase0/wm-b5-llm-predictor-deferred.md)。非刘哥原先要的 pi-agent 能力；IQ 边际低；勿与步骤 4（规则 · IQ-31）混淆。
 
 ---
 
@@ -90,14 +92,27 @@ if is_wm_predictor_enabled():
 
 ---
 
-### 步骤 5: LLM 预测器（高风险，提案级）
+### 步骤 5: LLM 预测器 — **不实现（WM-B5 · 已裁定）**
 
-**需要新开发**：
-- 用 LLM 调用替代规则匹配，输出结构化的 `Prediction`。
-- 成本控制：只在 `intent != "chat"` 时调用。
-- 新 env flag `MIMIR_WM_LLM_PREDICTOR`，**默认关**。
+> **真源**：[`docs/phase0/wm-b5-llm-predictor-deferred.md`](../phase0/wm-b5-llm-predictor-deferred.md)  
+> **刘哥（2026-05-19）**：这不是之前想做的功能；若无特别大意义则保持现状。
 
-**不做**：详见前一方案 §6/§7 的明确不做清单。
+**原提案（仅供考古，勿实现）**：
+
+- 用 LLM 调用替代/增强规则 `world_model_spike.predict()`，输出结构化 `Prediction`。
+- 新 env `MIMIR_WM_LLM_PREDICTOR`（**禁止添加**）。
+
+**为何不做（摘要）**：
+
+1. **目标错位**：刘哥要的是并行工具、事件驱动、steer、多模型路由等（ISSUES #16 / §13 MW），不是 turn0 再多一次「LLM 读心」。
+2. **与 IQ-31 混淆**：步骤 4 / `a0dc323` 已是**规则**接线；「合 handoff」≠ B5。
+3. **边际低**：已有 `intent_predictor`（规则）、`search_first_guard`、`skill_scenario_router`、VoE B1～B3；再叠 LLM WM 易 **nudge 打架**、难复现、tier0 锁不住行为。
+4. **成本/延迟**：每会话多一次 API；应先观察 `MIMIR_WM_PREDICTOR=1`（规则）≥7 天再议任何升级。
+5. **优先替代**：§13 **MW-02** 并行工具、**MW-04** 周期 nudge、VoE 步骤 1～3、开规则预测器 env。
+
+**误开后果**：token↑、首包变慢、与现有意图层重复、难归因退化。
+
+**若未来重启**：须撤销 deferred 文档 + `iq17-liu-decisions` WM-Q5 + 成本上限 + 与 `intent_predictor` 的 cascade 契约。
 
 ---
 

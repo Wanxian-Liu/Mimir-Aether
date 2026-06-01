@@ -14,7 +14,7 @@
 | **IQ 起点** | rubric **4.9/10**（[`phase0/iq-scoring-rubric.md`](./phase0/iq-scoring-rubric.md)） |
 | **本链目标** | **≥5.2/10**（务实）；刘哥战略 **5.5+** 为 Horizon，本链不承诺一次到位 |
 | **本链主打** | **流程债**（A / B1–B3 / C 核实）+ **可测证据**；**D/E/F** 以设计 + 小步 MVP 为主 |
-| **不做** | WM B5 LLM 预测器 · 并行工具生产默认 · 无拍板改 `SESSION_SEARCH_BACKEND` · 飞书内 `ensure_single_gateway` |
+| **不做** | **WM-B5** LLM 预测器（[`wm-b5-llm-predictor-deferred.md`](./phase0/wm-b5-llm-predictor-deferred.md)）· 并行工具生产默认 · 无拍板改 `SESSION_SEARCH_BACKEND` · 飞书内 `ensure_single_gateway` |
 
 ### 0.1 与已完成工作的关系（禁止重复劳动）
 

@@ -380,7 +380,7 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 ## 13. 心愿单链（MW · Mimir 主执行 · 2026-06-02 刘哥拍板）
 
 > **真源**：[`MIMIR_WISHLIST_WORKFLOW.md`](./MIMIR_WISHLIST_WORKFLOW.md) · **下一粒**：`./scripts/mimir_wish_run_next.sh --dry-run`  
-> **拍板**：P0/P1/P2 无 🔴 项 Mimir 可做；**WM-B5 LLM 预测器** 仍不做；env **默认关**
+> **拍板**：P0/P1/P2 无 🔴 项 Mimir 可做；**WM-B5 永不做**（[`wm-b5-llm-predictor-deferred.md`](./phase0/wm-b5-llm-predictor-deferred.md)）；env **默认关**
 
 | ID | 优先级 | 任务 | Owner | 状态 |
 |----|:------:|------|-------|------|
