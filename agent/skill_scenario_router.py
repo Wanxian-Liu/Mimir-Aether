@@ -94,6 +94,46 @@ _SCENARIOS: List[Tuple[re.Pattern[str], List[str], str]] = [
         ["mimiraether-ship"],
         "task_chain",
     ),
+    (
+        re.compile(r"TDD|测试驱动|测试优先|RED.GREEN|先写测试|test.first", re.IGNORECASE),
+        ["mimiraether-test-driven-development"],
+        "tdd",
+    ),
+    (
+        re.compile(r"prune|清理技能|删除技能|空壳|无用技能|garbage.skill", re.IGNORECASE),
+        ["mimiraether-skill-prune"],
+        "prune",
+    ),
+    (
+        re.compile(r"胶囊|知识存档|produce_capsule|存知识|知识固化", re.IGNORECASE),
+        ["mimiraether-capsule-factory"],
+        "capsule",
+    ),
+    (
+        re.compile(r"分析瘫痪|时间盒|太快|太慢|paralysis|别分析了", re.IGNORECASE),
+        ["mimiraether-paralysis-break"],
+        "paralysis",
+    ),
+    (
+        re.compile(r"换模型|智能路由|cost.save|smart.route|模型选择", re.IGNORECASE),
+        ["mimiraether-smart-routing"],
+        "smart_routing",
+    ),
+    (
+        re.compile(r"回滚|恢复|checkpoint|保存状态|snapshot", re.IGNORECASE),
+        ["mimiraether-checkpoint"],
+        "checkpoint",
+    ),
+    (
+        re.compile(r"上下文超|context|compressor|超长|压缩", re.IGNORECASE),
+        ["mimiraether-context-compressor"],
+        "context",
+    ),
+    (
+        re.compile(r"退化|退步|比之前差|losing|degeneration", re.IGNORECASE),
+        ["mimiraether-degeneration-guard"],
+        "degeneration",
+    ),
 ]
 
 

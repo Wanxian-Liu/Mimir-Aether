@@ -157,3 +157,6 @@ Append-only. Newest rows at the **bottom**. See `**docs/M6_EVOLUTION.md`** for r
 | 20260601T062133Z_8a73e8f-dirty | 2026-06-01T06:21:33Z | 8a73e8f-dirty | ./run_ralph_tier0.sh | 0 | ENG-EVO-01: evolution detail log when r.error empty; tier0 681 |
 | 20260601T064139Z_ce505c6-dirty | 2026-06-01T06:41:39Z | ce505c6-dirty | ./run_ralph_tier0.sh | 0 | ENG-TOOL-01: tool_event_emitter; MIMIR_TOOL_EVENTS default off; tier0 681 |
 | 20260601T072444Z_ac65f7a-dirty | 2026-06-01T07:24:44Z | ac65f7a-dirty | ./run_ralph_tier0.sh | 0 | BRAIN-11 skill_scenario_router: turn-0 nudge maps user intent to skill_view (self-audit, root-cause, ship, etc.); metrics: tier0 681 PASS |
+| 20260601T073630Z_9ccc1b9 | 2026-06-01T07:36:30Z | 9ccc1b9 | ./run_ralph_tier0.sh | 0 | SELF chain: skill router + audit_skill_usage + brain_metrics_snapshot + self-improvement task docs; metrics: tier0 681 PASS |
+| 20260601T080700Z_bcbc249 | 2026-06-01T08:07:00Z | bcbc249 | ./run_ralph_tier0.sh | 0 | SELF-02: 扩展 skill_scenario_router +8 场景(TDD/prune/capsule/paralysis/smart_routing/checkpoint/context/degeneration) +9 测试 17/17; routes 12→20; tier0 677/4(pre-existing) |
+|

@@ -64,6 +64,46 @@ def test_recommend_evolution():
     assert "mimiraether-self_evolution" in recommend_skills("跑自我进化")
 
 
+def test_recommend_tdd():
+    s = recommend_skills("TDD 模式，先写测试")
+    assert "mimiraether-test-driven-development" in s
+
+
+def test_recommend_prune():
+    s = recommend_skills("清理无用的空壳技能")
+    assert "mimiraether-skill-prune" in s
+
+
+def test_recommend_capsule():
+    s = recommend_skills("把这个经验存成胶囊吧")
+    assert "mimiraether-capsule-factory" in s
+
+
+def test_recommend_paralysis():
+    s = recommend_skills("别分析了，太慢了直接做")
+    assert "mimiraether-paralysis-break" in s
+
+
+def test_recommend_smart_routing():
+    s = recommend_skills("帮我换模型节约 cost")
+    assert "mimiraether-smart-routing" in s
+
+
+def test_recommend_checkpoint():
+    s = recommend_skills("保存当前会话状态做 checkpoint")
+    assert "mimiraether-checkpoint" in s
+
+
+def test_recommend_context():
+    s = recommend_skills("上下文超长了帮我压缩")
+    assert "mimiraether-context-compressor" in s
+
+
+def test_recommend_degeneration():
+    s = recommend_skills("我感觉在退化，比之前差了")
+    assert "mimiraether-degeneration-guard" in s
+
+
 def test_disabled_via_env(monkeypatch):
     monkeypatch.setenv("MIMIR_SKILL_ROUTE_NUDGE", "0")
     assert skill_route_nudge_enabled() is False
