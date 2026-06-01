@@ -588,7 +588,8 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-06-01 | **IQ-55-PHASE3** | **刘哥拍板** | **开 Phase3** · #1 ok%+eval · 无 1c 生产 · plan `iq-55-phase3-execution-plan.md` |
 | 2026-05-31 | **D5-ADR 签收** | **刘哥** | ADR-008 路径 A 生产真源 · B/C/D 非默认 · §20.3 拍板闭合 |
 | 2026-05-19 | **D5-ADR** | **Cursor** | ADR-008 evolution canonical path · §6 d5 **6/6** · `d5-adr-closeout.md` · tier0 +`test_d5_adr_evolution_canonical` · GH **#21** close 余量→icebox |
-| 2026-06-01 | **ENG-EVO-01** | **Mimir→Cursor** | 归因 session `9ee6d577` ok=0 · `post_close_analysis` 失败必打 detail 日志 · tier0 **681** · 下一 **ENG-TOOL-01** |
+| 2026-06-01 | **ENG-TOOL-01** | **Mimir→Cursor** | `tool_event_emitter` + agent_loop start/end · `MIMIR_TOOL_EVENTS` 默认关 · 5 测例 · tier0 **681** · 下一 **ENG-CLI-01** |
+| 2026-06-01 | **ENG-EVO-01** | **Mimir→Cursor** | 归因 session `9ee6d577` ok=0 · `post_close_analysis` detail 日志 · tier0 **681** |
 | 2026-06-01 | **ENG-SF-01** | **Mimir→Cursor** | preemptive search-first nudge（`agent_loop`）· audit 跳过 guard 标记 · tier0 **681** · **Gateway 硬重启** 后飞书复验 |
 | 2026-06-01 | **ENG-PI06-01** | **Mimir→Cursor** | HANDOFF ready → **merged** · `FauxLlmProvider` + `harness` fixture · 9 工具测 PASS · tier0 **681** |
 | 2026-06-01 | **IQ-55-PHASE2-A** | **刘哥拍板** | 战役 **A 收官** · **5.0 + exception** · PR #40–#42 merged · Mimir：deploy+backfill **done** |

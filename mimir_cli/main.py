@@ -417,6 +417,27 @@ def _has_any_provider_configured() -> bool:
 
     return False
 
+def cmd_one_shot(args):
+    """Run a single prompt and print the result (--one-shot mode)."""
+    import asyncio
+
+    from agent.core_loop import MimirAetherAgent
+    from mimicore.config.model_defaults import get_model
+
+    model = getattr(args, "model", None) or get_model()
+    max_iterations = getattr(args, "max_turns", None) or 90
+
+    agent = MimirAetherAgent(
+        model=model,
+        max_iterations=int(max_iterations),
+        platform="cli",
+    )
+
+    result = asyncio.run(agent.run_conversation(str(args.one_shot)))
+    # Print only the response text — no banners, no decoration
+    print(result)
+
+
 def cmd_chat(args):
     """Run interactive chat CLI."""
     # Resolve --continue into --resume with the latest CLI session or by name
@@ -874,6 +895,10 @@ def main():
 
     if getattr(args, "version", False):
         cmd_version(args)
+        return
+
+    if getattr(args, "one_shot", None):
+        cmd_one_shot(args)
         return
 
     if (getattr(args, "resume", None) or getattr(args, "continue_last", None)) and args.command is None:

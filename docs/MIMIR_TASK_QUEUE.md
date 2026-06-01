@@ -230,8 +230,8 @@ cd ~/src/MimirAether && MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution
 | **ENG-PI06-01** | P0 | **测试 Harness**（PI-L06 #1） | `tests/conftest.py` 工厂 + FauxLlm + 迁移 2～3 测例 · tier0 绿 · handoff | **Cursor merged** · tier0 **681** | [x] |
 | **ENG-SF-01** | P0 | **先搜再答**（Wave A WA-A05/A06） | preemptive nudge + audit 脚本 · handoff | **Cursor merged** · tier0 **681** · **Gateway 需重启** | [x] |
 | **ENG-EVO-01** | P1 | **真实 session evolution ok=1** | 归因 ok=0 + detail 日志缺口修复 · handoff | **Cursor merged** · tier0 **681** | [x] |
-| **ENG-TOOL-01** | P2 | 工具执行事件流（PI-L06 #2） | `tool_event_emitter` + agent_loop hooks · handoff | **Cursor merged** · tier0 **686** | [x] |
-| **ENG-CLI-01** | P2 | CLI `--one-shot`（PI-L06 #3） | `mimir_cli` flag + 1 测例 · handoff | merge | [ ] |
+| **ENG-TOOL-01** | P2 | 工具执行事件流（PI-L06 #2） | `tool_event_emitter` + agent_loop hooks · handoff | **Cursor merged** · tier0 **681** | [x] |
+| **ENG-CLI-01** | P2 | CLI `--one-shot`（PI-L06 #3） | `cmd_one_shot` + 5 测例 · handoff | **Cursor merged** · tier0 **681** | [x] |
 | **ENG-ICE-22** | P3 | GH #22 文档 | `docs/proposals/d6-observability-defer.md`（若未写）· 无代码 | docs-only 可直接 [x] | [x] |
 
 **ENG-PI06-01 提示词**

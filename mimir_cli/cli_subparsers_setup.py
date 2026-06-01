@@ -23,6 +23,7 @@ def configure_parser_part1():
     Examples:
     mimir                        Start interactive chat
     mimir chat -q "Hello"        Single query mode
+    mimir --one-shot "Hello"     One-shot mode (print response only, for scripts)
     mimir -c                     Resume the most recent session
     mimir -c "my project"        Resume a session by name (latest in lineage)
     mimir --resume <session_id>  Resume a specific session by ID
@@ -98,6 +99,13 @@ def configure_parser_part1():
         action="store_true",
         default=False,
         help="Include the session ID in the agent's system prompt"
+    )
+    parser.add_argument(
+        "--one-shot",
+        metavar="PROMPT",
+        default=None,
+        help="Run a single prompt and print the result (no interactive loop). "
+             "Designed for script/CI integration."
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
