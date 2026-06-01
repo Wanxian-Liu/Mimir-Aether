@@ -113,6 +113,12 @@ tail -3 ~/.mimiraether/logs/agent.log
 - **环境文件与变量迁移**：OpenClaw 风格 env 与 `.env` 对齐见 [`GATEWAY_SYSTEMD_ENV.md`](./GATEWAY_SYSTEMD_ENV.md)；与 `start.sh`、systemd `EnvironmentFile=` 的配合见该文「操作步骤」。
 - **cron**：若用 cron 调健康检查或拉起脚本，同样把 `cd` 路径与解释器改成**你方** clone 与 venv；避免复制粘贴他人机器路径。
 
+### 5.1 单 Owner 纪律（Mimir 2026-06-01）
+
+- **禁止**：systemd 自启 + `ensure_single_gateway.sh` 并行（产生双进程竞争 18999 端口）
+- **唯一推荐**：`bash scripts/ensure_single_gateway.sh`（从 clone 根执行），每次手动启动
+- **现状**：`mimiraether.service` 已 stop+disable，systemd 不再管理 Gateway
+
 ---
 
 ## 相关链接

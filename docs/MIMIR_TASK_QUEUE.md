@@ -5,7 +5,7 @@
 > **真源优先级**：**§11 IQ #17**（有可执行 `[ ]`）> **§12 ENG-WF 工程链**（IQ 仅剩 BLOCK 或 §11 全 [x]）> **§10**（仅 SELF-LOOP `[ ]`）> §9（已闭合）> §6.1 周常 > §2/§3 归档 > backlog §20  
 > **分工契约**：[`MIMIR_PRIMARY_EXECUTOR.md`](./MIMIR_PRIMARY_EXECUTOR.md)（Mimir 全做 · Cursor 只复核合 main）
 
-**最近更新**：2026-06-01 · **§10 大脑自治链** 开启（刘哥全自治 · 含 commit/push）
+**最近更新**：2026-06-02 · **§11 IQ-17 执行闭合**（IQ-14·CLR-B [x]）· 主链 → **§12 ENG-WF**
 
 ---
 
@@ -47,7 +47,7 @@ Mimir **不运行** superpowers 子代理；把技能当 **检查清单** 读一
 | 来源 | 状态 | 说明 |
 |------|------|------|
 | **本清单 §2/§3** | **全部 [x]** | Mimir 批跑完成；勿再从头扫 §2 |
-| **backlog §20.2** | **3/4** | 仅剩 **CLR-B-FEISHU**（Owner **刘哥**）；Mimir 侧 M-OPS-* 已 [x] |
+| **backlog §20.2** | **4/4** | **CLR-B-FEISHU** [x] 2026-06-01 · `clr-b-feishu-closeout.md` |
 | **backlog §20.3** | **EV-VISION-DEFER** [ ] | 搁置，非 Mimir 任务 |
 | **backlog §20.1** | **3/3 [x]** | → **Cursor** / §20.4 / ISSUES |
 | **issues #22** | icebox | M-ICE-22 已文档化 defer |
@@ -263,7 +263,7 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 
 - **Mimir 运维轨**：§2 全部 **[x]** ✅（2026-06-01）  
 - **π 学习轨**：**PI-L06** + `docs/proposals/pi-learn-*.md` ✅  
-- **刘哥轨**：**CLR-B-FEISHU** — 若飞书已 PASS，请刘哥勾 backlog §20.2 第 4 行 `[x]`（本表 M-OPS-10 已为 [x]）
+- **刘哥轨**：**CLR-B-FEISHU** — **[x] 2026-06-01**（见 `docs/phase0/clr-b-feishu-closeout.md`）
 
 ### 6.1 队列闭合后 Mimir 做什么
 
@@ -324,7 +324,7 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 || **IQ-11** | 2 | WM B1 VoE LEARNING | [x] |
 || **IQ-12** | 2 | WM B2 RECALL | [ ] BLOCK: WM-Q2=每步问我+B1<3d, skip |
 || **IQ-13** | 2 | C AUTO_EVOLVE | [x] |
-| **IQ-14** | 2 | 飞书冒烟 3 场景 | [ ] BLOCK: 需刘哥飞书发话 |
+| **IQ-14** | 2 | 飞书冒烟 3 场景 | [x] 🚢 IQ-55 3P · `iq17-feishu-smoke.md` |
 | **IQ-15** | 2 | search_first 审计复跑 | [x] |
 || **IQ-20** | 3 | brain_metrics 观察 | [x] |
 || **IQ-21** | 3 | evolution eval | [x] |
@@ -353,8 +353,8 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 | ID | 波次 | 任务 | Owner | 状态 |
 |----|------|------|-------|------|
 | **ENG-WF-00** | 0 | 基线 health + tier0 + eng-wf-00-baseline.md | Mimir | [x] ✅ 刘哥 |
-| **ENG-WF-01** | 1 | systemd stop/disable mimiraether | **刘哥** | [ ] BLOCK |
-| **ENG-WF-02** | 1 | OPERATIONS §5 单 Owner 文档 | Mimir | [ ] |
+| **ENG-WF-01** | 1 | systemd stop/disable mimiraether | **刘哥** | [x] ✅ Mimir代跑（刘哥确认） |
+| **ENG-WF-02** | 1 | OPERATIONS §5 单 Owner 文档 | Mimir | [x] ✅ |
 | **ENG-WF-03** | 1 | 编造 spec（eng-wf-fabrication-spec.md） | Mimir | [ ] |
 | **ENG-WF-04** | 1 | 编造契约测 test_eng_wf_fabrication_guard.py | Mimir | [ ] |
 | **ENG-WF-05** | 1 | tool result 优先级 / 测例 | Mimir | [ ] |
@@ -369,12 +369,11 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 | **ENG-WF-22** | 3 | FauxLlm 再迁 2 测 | Mimir | [ ] |
 | **ENG-WF-90** | 4 | eng-wf-closeout + ENG-WF-M1～M6 | Mimir | [ ] |
 
-**§11 剩余 BLOCK（不占 ENG-WF 下一粒）**
+**§11 剩余 BLOCK（仅占 ENG-WF 下一粒之外的拍板项）**
 
 | ID | 说明 |
 |----|------|
-| IQ-12 | 刘哥确认后 shell：`MIMIR_WM_VOE_RECALL=1` + gateway 重启 |
-| IQ-14 | 刘哥飞书冒烟一句（IQ 记忆验收） |
+| IQ-12 | 刘哥确认后 shell：`MIMIR_WM_VOE_RECALL=1` + gateway 重启（WM-Q2=每步问我，**故意未开**） |
 
 ---
 
@@ -382,6 +381,7 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-06-02 | IQ-14 [x] · CLR-B [x] · `iq17-feishu-smoke.md` + `clr-b-feishu-closeout.md`（Cursor 文档对齐） |
 | 2026-06-01 | §12 ENG-WF 工程工作流（`MIMIR_ENGINEERING_WORKFLOW.md` + `mimir_eng_run_next.sh`）· IQ 后默认主链 |
 | 2026-06-01 | §11 IQ #17 执行链（`MIMIR_IQ17_EXECUTION_PLAN.md`）· 优先级高于 §10 LOOP |
 | 2026-06-01 | IQ-31/32/33/34 Cursor 合入（`a0dc323`）+ IQ-40/41 design + IQ-42 backlog + IQ-45 closeout · 4.9→5.2 |
