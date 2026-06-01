@@ -384,7 +384,7 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 
 | ID | 优先级 | 任务 | Owner | 状态 |
 |----|:------:|------|-------|------|
-| **MW-00** | P0 | 验收 IQ-31/32/33/34 已在 `a0dc323`（勿重复实现） | Mimir | [ ] |
+|| **MW-00** | P0 | 验收 IQ-31/32/33/34 已在 `a0dc323`（勿重复实现） | Mimir | [x] ✅ |
 | **MW-01** | P0 | search_first_guard 接线审计（已接则 closeout） | Mimir | [ ] |
 | **MW-02** | P1 | 并行只读工具 `parallel_dispatcher`（IQ-41） | Mimir | [ ] |
 | **MW-03** | P1 | 工具调度平台无关薄层（IQ-41 升华） | Mimir | [ ] |
