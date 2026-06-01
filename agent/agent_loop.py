@@ -338,6 +338,14 @@ class MimirAgentLoop:
                         t0 = _time.monotonic()
                         loop = asyncio.get_event_loop()
                         _tn, _ta, _tid = tname, args, self.task_id
+                        from agent.tool_event_emitter import (
+                            emit_tool_execution_end,
+                            emit_tool_execution_start,
+                        )
+
+                        emit_tool_execution_start(
+                            tname, args, session_id=self.task_id
+                        )
                         tool_result = await loop.run_in_executor(
                             _executor,
                             lambda tn=_tn, ta=_ta, tid=_tid: self.tool_dispatcher(tn, ta, tid),
@@ -353,6 +361,13 @@ class MimirAgentLoop:
                         from agent.tool_outcome import infer_tool_success
 
                         ok, err_msg = infer_tool_success(str(tool_result))
+                        emit_tool_execution_end(
+                            tname,
+                            success=ok,
+                            duration_ms=telapsed * 1000,
+                            session_id=self.task_id,
+                            error=err_msg,
+                        )
                         self._record_tool(
                             tname,
                             args,
@@ -372,6 +387,13 @@ class MimirAgentLoop:
                             error=f"{type(e).__name__}: {str(e)}",
                             tool_result=tool_result,
                         ))
+                        emit_tool_execution_end(
+                            tname,
+                            success=False,
+                            duration_ms=telapsed * 1000,
+                            session_id=self.task_id,
+                            error=str(e)[:500],
+                        )
                         self._record_tool(tname, args, success=False,
                                           error_message=str(e)[:500],
                                           duration_ms=telapsed * 1000,
