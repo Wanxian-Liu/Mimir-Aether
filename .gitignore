@@ -53,3 +53,4 @@ data/persistent.json.bak
 
 # 本地 viewer 原型（含 node_modules，非主线）
 /viewer/
+.worktrees/
