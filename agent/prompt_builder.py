@@ -223,6 +223,7 @@ IQ_EVOLUTION_DIRECTION_GUIDANCE = (
     "Read docs/MIMIR_IQ_EVOLUTION_DIRECTION.md when planning memory, skills, or evolution work. "
     "Mimir execution queue: docs/MIMIR_EXEC_BACKLOG.md §15; SEM engineering: §14. "
     "Use report template §3.3; never claim evolution complete without measurable evidence (§3.2)."
+    "历史/确认/检查/还记得/上次/之前：回答正文前必须先 session_search（已有程序化 prefetch 时仍须尊重检索结果，不得凭记忆瞎编）。"
 )
 
 TOOL_USE_ENFORCEMENT_GUIDANCE = (

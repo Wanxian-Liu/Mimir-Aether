@@ -311,15 +311,15 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 
 | ID | 波次 | 任务 | 状态 |
 |----|------|------|------|
-| **IQ-00** | 0 | 读真源 + pull + health | [ ] |
-| **IQ-00B** | 0 | Cursor PREREQ 登记 | [ ] |
-| **IQ-01** | 0 | tier0 基线 | [ ] |
-| **IQ-02** | 0 | 验证 SELF-11 已部署 | [ ] |
-| **IQ-03** | 0 | iq17-baseline.md | [ ] |
-| **IQ-04** | 1 | #16 方向 bridge 一行 | [x] |
-| **IQ-05** | 1 | 拍板表 + 飞书 @刘哥 | [x] |
-| **IQ-06** | 1 | 同步 ISSUES #16/#17 | [x] |
-| **IQ-10** | 2 | A prompt 先搜再答 | [ ] |
+|| **IQ-00** | 0 | 读真源 + pull + health | [x] |
+|| **IQ-00B** | 0 | Cursor PREREQ 登记 | [x] |
+|| **IQ-01** | 0 | tier0 基线 | [x] |
+|| **IQ-02** | 0 | 验证 SELF-11 已部署 | [x] |
+|| **IQ-03** | 0 | iq17-baseline.md | [x] |
+|| **IQ-04** | 1 | #16 方向 bridge 一行 | [x] |
+|| **IQ-05** | 1 | 拍板表 + 飞书 @刘哥 | [x] |
+|| **IQ-06** | 1 | 同步 ISSUES #16/#17 | [x] |
+|| **IQ-10** | 2 | A prompt 先搜再答 | [x] |
 | **IQ-11** | 2 | WM B1 VoE LEARNING | [ ] |
 | **IQ-12** | 2 | WM B2 RECALL | [ ] |
 | **IQ-13** | 2 | C AUTO_EVOLVE | [ ] |
