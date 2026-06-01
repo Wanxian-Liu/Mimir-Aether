@@ -14,7 +14,7 @@
 | 行为 | 例子 | 现有 Guard |
 |------|------|-----------|
 | **文字推迟** | "先看看 Playbook 当前状态。" | `intent_action_guard` ✅ 已拦截（`should_block_text_only_finish`） |
-| **编造** | "已用 read_file 核对 §2c，差异如下：…" 但无 tool_call+tool_result | **未拦截** ❌ |
+| **编造** | "已用 read_file 核对 §2c，差异如下：…" 但无 tool_call+tool_result | `intent_action_guard` 拦截「已完成/已读」类宣称（ENG-WF-04 契约测） |
 
 ### 检测逻辑
 
@@ -54,10 +54,10 @@ def test_allows_legitimate_tool_grounded_claim():
 
 ## Acceptance-3: 编造触发 nudge（非重复，对齐 IQ-33）
 
-当编造被检测到时，agent 注入一条 nudge 消息（含 `[fabrication-guard]` 标记），且该 nudge 与 preemptive nudge **不重复**（符合 IQ-33 契约）。
+当 guard 触发时，agent 注入 nudge（含 `[intent-action-guard]` 标记），且与 preemptive nudge **不重复**（符合 IQ-33 契约）。
 
 ```python
-def test_fabrication_nudge_not_redundant_with_preemptive():
+def test_fabrication_nudge_marker_differs_from_preemptive():
     """编造 nudge 标记 ≠ preemptive nudge 标记 → 不重复"""
     ...
 ```

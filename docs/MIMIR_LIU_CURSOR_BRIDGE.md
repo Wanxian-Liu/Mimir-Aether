@@ -627,6 +627,10 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-05-31 | **WA-A09** | **Mimir+刘哥** | 飞书3：**0P/1部分** · ①② FAIL（无 session_search/无 memory 写）· ③ cross-session 注入非主动 search · 下一 **A07+A08** · **勿重做 A02** |
 | 2026-06-01 | **WA-A07～A12** | **Cursor** | intent+nudge 证据 · memory nudge log · evolution ok **24/46** · tier0 **648** · gateway **21329** · **Wave A closeout** rubric **4.9** exception · 下一 **Wave B** 或 **A06.1** |
 | 2026-06-01 | **IQ-55-PHASE3** | **Cursor** | Phase3 **closeout** · **~5.1+exception** · P3-11 evolution fix · tier0 **676** · eval 3× · deploy后复测 ok% |
+| 2026-06-02 | **ENG-WF-01** | **刘哥+Cursor** | `mimiraether.service` **stop+disable** · inactive/disabled · 单实例 PID **183505** · `.venv` · `eng-wf-ops-gateway.md` |
+| 2026-06-02 | **IQ-14** | **Cursor+刘哥** | 飞书冒烟 **PASS** · `iq17-feishu-smoke.md` · IQ-55 3P 覆盖 · §11 [x] |
+| 2026-06-02 | **CLR-B** | **Cursor+刘哥** | 飞书复验 **PASS** · 230099=0 · `clr-b-feishu-closeout.md` · §20.2 **4/4** |
+| 2026-06-02 | **ENG-WF-90 复核** | **Cursor** | Mimir 链 **§12 全 [x]** · 纠 ENG-WF-12 误 SKIP · `tool_registry` **85%**（+3 测）· tier0 **696/4** · 补提交 `MIMIR_ENGINEERING_WORKFLOW.md` + `mimir_eng_run_next.sh` |
 | 2026-06-01 | **IQ-55-PHASE3** | **刘哥拍板** | **开 Phase3** · #1 ok%+eval · 无 1c 生产 · plan `iq-55-phase3-execution-plan.md` |
 | 2026-05-31 | **D5-ADR 签收** | **刘哥** | ADR-008 路径 A 生产真源 · B/C/D 非默认 · §20.3 拍板闭合 |
 | 2026-05-19 | **D5-ADR** | **Cursor** | ADR-008 evolution canonical path · §6 d5 **6/6** · `d5-adr-closeout.md` · tier0 +`test_d5_adr_evolution_canonical` · GH **#21** close 余量→icebox |

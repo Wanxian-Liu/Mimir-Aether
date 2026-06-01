@@ -49,7 +49,7 @@
 |----|------|
 | OPS-EVAL-WEEKLY | [x] 2026-06-01 · 3× exit 0 |
 | OPS-MW-REFRESH | [x] 2026-06-01 · TRUNCATE=0 · health quick 曾 timeout（网关进程在） |
-| CLR-B-FEISHU | [ ] 刘哥 · 可下一轮顺带 |
+| CLR-B-FEISHU | [x] 2026-06-02 · `clr-b-feishu-closeout.md` |
 
 ## 证据索引
 

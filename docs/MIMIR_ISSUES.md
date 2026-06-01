@@ -11,7 +11,7 @@
 | # | 日期 | 来源 | 描述 | 严重度 | 状态 | Backlog |
 |:--:|:----:|:----:|------|:------:|:----:|---------|
 | 16 | 2026-06-01 | DIRECTION | **方向纠正：飞书只是沟通工具，进化目标是 MimirAether 自身能力** — 学 pi-agent 不是学它的 UI/平台适配，是学它的能力。禁止用\"飞书不需要\"作为不改架构的理由。 | 高 | [x] 刘哥 2026-05-19 确认 | [bridge §@Cursor方向纠正](./MIMIR_LIU_CURSOR_BRIDGE.md) |
-| 17 | 2026-06-01 | IQ-RESEARCH | **IQ 提升综合计划** — rubric 4.9→5.5+。调研已完成；**执行真源** [`MIMIR_IQ17_EXECUTION_PLAN.md`](./MIMIR_IQ17_EXECUTION_PLAN.md) · 队列 **TASK_QUEUE §11**。Mimir 从 IQ-00 自驱；Cursor 复核 handoff + PREREQ。 | 高 | [ ] 执行中 | [`iq-improvement-research.md`](./proposals/iq-improvement-research.md) |
+| 17 | 2026-06-01 | IQ-RESEARCH | **IQ 提升综合计划** — Phase1 收官 4.9→5.2；**§11 执行粒闭合**（IQ-12 RECALL 仍按拍板暂缓）。下一工程链：**TASK_QUEUE §12** [`MIMIR_ENGINEERING_WORKFLOW.md`](./MIMIR_ENGINEERING_WORKFLOW.md)。 | 高 | [x] Phase1 闭合 | [`iq17-closeout.md`](./phase0/iq17-closeout.md) |
 
 ---
 

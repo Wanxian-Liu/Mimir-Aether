@@ -29,7 +29,7 @@
 |:--:|------|:----:|
 | ENG-WF-10 | coverage_baseline.sh + 基线 21% | ✅ `a9dcefa` |
 | ENG-WF-11 | 覆盖率 ratchet 策略 | ✅ `89ea5db` |
-| ENG-WF-12 | tool_registry cov ≥80% | ⏭️ 模块不存在 |
+| ENG-WF-12 | tool_registry cov ≥80% | ✅ 复核：`agent/tool_registry.py`（非 `tools/registry`） |
 | ENG-WF-13 | search_first_guard +5 测例 | ✅ `5a9de69` |
 
 ## 下一粒建议

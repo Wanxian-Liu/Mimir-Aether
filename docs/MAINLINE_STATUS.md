@@ -5,11 +5,11 @@
 
 | 字段 | 值 |
 |------|-----|
-| **最近更新** | 2026-06-01 |
-| **更新人** | Cursor（Mimir 任务清单） |
+| **最近更新** | 2026-06-02 |
+| **更新人** | Cursor（ENG-WF 复核 + IQ-14/CLR-B 文档） |
 | **仓库根（真源）** | `~/src/MimirAether` |
-| **可选校验** | `./run_ralph_tier0.sh`（门禁 **679**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
-| **本轮摘要** | **D5-ADR 刘哥签收** · [`MIMIR_TASK_QUEUE.md`](./MIMIR_TASK_QUEUE.md) 三源合一（Mimir 自驱 + π-agent 只读课） · ok% P3-12 · **CLR-B** 待刘哥飞书 |
+| **可选校验** | `./run_ralph_tier0.sh`（门禁 **696+2**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
+| **本轮摘要** | **§12 ENG-WF 收官**（Mimir `ba347ce` · Cursor 补 ENG-WF-12 测 + tier0 **696/4**）· §11 IQ 执行粒闭合 · IQ-12 RECALL 仍暂缓 |
 
 ---
 
@@ -78,6 +78,8 @@
 ---
 
 ## 5. 更新日志（倒序）
+
+| 2026-06-02 | ENG-WF §12 全 [x]（复核：tool_registry **85%** · 补真源 `MIMIR_ENGINEERING_WORKFLOW.md`）· tier0 **696/4** · IQ-14/CLR-B 文档闭合 |
 
 | 日期 | 摘要 |
 |------|------|

@@ -85,3 +85,35 @@ def test_tool_registry_unregister_removes_from_db(tmp_path):
     assert reg.get("gone") is None
     assert reg.list_all(enabled_only=False) == []
 
+
+def test_tool_registry_register_updates_duplicate_name(tmp_path):
+    """ENG-WF-12: IntegrityError path updates existing row."""
+    db_path = str(tmp_path / "tools.db")
+    reg = ToolRegistry(db_path=db_path)
+    assert reg.register(name="dup", category="a", description="v1") is True
+    assert reg.register(name="dup", category="b", description="v2") is True
+    row = reg.get("dup")
+    assert row is not None
+    assert row["category"] == "b"
+    assert row["description"] == "v2"
+
+
+def test_tool_registry_list_categories_and_filter(tmp_path):
+    db_path = str(tmp_path / "tools.db")
+    reg = ToolRegistry(db_path=db_path)
+    reg.register(name="f1", category="cat_a", description="d")
+    reg.register(name="f2", category="cat_b", description="d")
+    assert set(reg.list_categories()) == {"cat_a", "cat_b"}
+    only_a = reg.list_all(category="cat_a")
+    assert len(only_a) == 1 and only_a[0]["name"] == "f1"
+
+
+def test_tool_registry_enable_missing_returns_false(tmp_path):
+    db_path = str(tmp_path / "tools.db")
+    reg = ToolRegistry(db_path=db_path)
+    assert reg.enable("no_such_tool") is False
+    reg.register(name="x", category="t", description="d")
+    reg.close()
+    reg2 = ToolRegistry(db_path=db_path)
+    assert reg2.get("x") is not None
+

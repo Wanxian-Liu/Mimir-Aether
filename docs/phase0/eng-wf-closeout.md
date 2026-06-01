@@ -10,10 +10,10 @@
 | ID | 条件 | 验证 | 状态 |
 |:--:|------|------|:----:|
 | **M1** | systemd 不再 auto-restart 撞 18999 | ENG-WF-01: `systemctl --user stop + disable`，刘哥执行 | ✅ |
-| **M2** | 编造 spec + ≥3 契约测绿 | ENG-WF-03/04: `docs/eng-wf-fabrication-spec.md` + 3 tests (tier0) | ✅ |
+| **M2** | 编造 spec + ≥3 契约测绿 | ENG-WF-03/04: `phase0/eng-wf-fabrication-spec.md` + 3 tests (tier0) | ✅ |
 | **M3** | 覆盖率 baseline 文档化且可复跑 | `scripts/coverage_baseline.sh` → 基线 **21%** | ✅ |
-| **M4** | registry 模块 cov ≥80% | ENG-WF-12: **⏭️ SKIP** — `tools/registry` / `agent/tool_registry.py` 均不存在 | ⏭️ |
-| **M5** | 末粒含代码 → tier0 ≥681 | 末粒 `6b10686`（FauxLlm 迁测）→ tier0 **689/4** ✅ | ✅ |
+| **M4** | registry 模块 cov ≥80% | `agent/tool_registry.py` — 原误 SKIP；Cursor 复核补测后 ≥80% | ✅ |
+| **M5** | 末粒含 code → tier0 ≥681 | 末粒 `6b10686` + 复核 → tier0 **696/4** ✅ | ✅ |
 | **M6** | closeout 不夸大 | 见下方 ✅ | ✅ |
 
 ## 行覆盖现状
@@ -43,7 +43,7 @@
 | ENG-WF-06 | 波次 1 closeout | 📝 |
 | ENG-WF-10 | coverage_baseline.sh + 基线 21% | 🔧 |
 | ENG-WF-11 | 覆盖率 ratchet 策略 | 📝 |
-| ENG-WF-12 | tool_registry cov ≥80% | ⏭️ SKIP |
+| ENG-WF-12 | tool_registry cov ≥80% | ✅ 复核补测（`agent/test_tool_registry_api.py`） |
 | ENG-WF-13 | search_first_guard +5 测 | 🧪 |
 | ENG-WF-14 | 波次 2 closeout | 📝 |
 | ENG-WF-20 | 上下文三套 inventory | 📝 |

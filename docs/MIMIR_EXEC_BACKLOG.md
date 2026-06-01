@@ -918,7 +918,7 @@ Read backlog §17 P1-LONG-AUTONOMY 第一条 [ ]。
 | **WM-HORIZON-01** | 拍板 | 世界模型提案 Phase 0 | `world-model-evolution-plan.md` | [x] 2026-05-31 · Wave B closeout (#36) |
 | **IQ-RUBRIC-55** | 产品 | rubric **≥5.5** 行为证据 | 现 4.9 exception | [x] 2026-05-31 · §20.4 Wave A |
 | **GH-ICE-21-22** | icebox | D5/D6 余债 | #21 #22 | [ ] |
-| **CLR-B-FEISHU** | 运维 | Gateway #9 / 空表头飞书复验 | deferred | [ ] |
+| **CLR-B-FEISHU** | 运维 | Gateway #9 / 空表头飞书复验 | [`clr-b-feishu-closeout.md`](./phase0/clr-b-feishu-closeout.md) | [x] 2026-06-01 |
 
 **§18.2 状态**：**ENGINE-WS-01** 已勾（2026-05-27）· 下一工程粒 **ENGINE-ROLLBACK-01**（§19.1 第一条 `[ ]`）
 
@@ -996,9 +996,9 @@ Read docs/superpowers/plans/2026-05-27-horizon-c-master-iteration.md + backlog �
 |----|-------|------|----------|------|
 | **OPS-DEPLOY-W9** | Cursor | Wave 9 + 粒 B **Gateway 硬重启** + `/health` | bridge §1 自证 PID；Mimir 可复验 | [x] |
 | **OPS-IQ-SMOKE-49** | Mimir | `/new` 后 cross-session 含 key_decisions 一句 | 飞书截图或 log；§3.3 · evidence MI-AWAY-07 | [x] 2026-05-27 |
-| **CLR-B-FEISHU** | 刘哥 | Gateway #9 / 空表头飞书复验 | 无新 230099 | [ ] |
-| **OPS-MW-REFRESH** | Mimir | 每周 MW-D01/D02/D07 轻量刷新 | bridge §4 或无新 P0 | [ ] |
-| **OPS-EVAL-WEEKLY** | Mimir | `run_evolution_eval.sh` + 贴 JSON 路径 | exit 0；非 simulated | [ ] |
+| **CLR-B-FEISHU** | 刘哥 | Gateway #9 / 空表头飞书复验 | 无新 230099 | [x] 2026-06-01 · [`clr-b-feishu-closeout.md`](./phase0/clr-b-feishu-closeout.md) |
+| **OPS-MW-REFRESH** | Mimir | 每周 MW-D01/D02/D07 轻量刷新 | bridge §4 或无新 P0 | [x] 2026-06-01 |
+| **OPS-EVAL-WEEKLY** | Mimir | `run_evolution_eval.sh` + 贴 JSON 路径 | exit 0；非 simulated | [x] 2026-06-01 |
 
 ### 19.3 拍板轨（刘哥决策 · 工程暂停）
 
@@ -1158,9 +1158,9 @@ Mimir §20.2 运维周常 + §9 工程主执行
 | 1 | **OPS-L2-FEISHU-01** | Mimir+Cursor | **飞书 `/new` 路径 L2 预取**（MI-AWAY-08 后续） | 复现：Feishu reset 后 log/上下文见 `<retrieved-sessions>` 或记 ISSUES + 最小 gateway/agent 修复粒 | [x] | 2026-05-27 Cursor：session_key 对齐 MIMIR/approval；dotenv 后 re-bind；tier0 + closeout |
 | 2 | **OPS-MW-REFRESH** | Mimir | 每周 MW-D01/D02/D07 | bridge §4 或无新 P0 | [x] 2026-06-01 · Phase3 |
 | 3 | **OPS-EVAL-WEEKLY** | Mimir | `run_evolution_eval.sh` + JSON 路径 | exit 0；非 simulated | [x] 2026-06-01 · 3× · Phase3 P3-00 |
-| 4 | **CLR-B-FEISHU** | 刘哥 | Gateway #9 / 空表头飞书复验 | 无新 230099 | [ ] |
+| 4 | **CLR-B-FEISHU** | 刘哥 | Gateway #9 / 空表头飞书复验 | 无新 230099 | [x] 2026-06-01 · `clr-b-feishu-closeout.md` |
 
-**§20.2 进度**：**3/4**（CLR-B 待刘哥）
+**§20.2 进度**：**4/4** ✅（2026-06-01）
 
 **Mimir 新窗一句**
 
