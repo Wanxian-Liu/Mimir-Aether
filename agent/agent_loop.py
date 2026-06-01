@@ -41,7 +41,10 @@ from .intent_action_guard import (
 from .search_first_guard import (
     MAX_SEARCH_FIRST_NUDGES,
     build_nudge_message as build_search_first_nudge,
+    cross_session_requires_search_first,
     guard_enabled as search_first_guard_enabled,
+    last_user_text,
+    session_search_satisfied_since_last_user,
     should_block_text_only_finish as should_block_search_first_finish,
 )
 # 统一类型: 从 types.py 导入 (Phase 3 M1)
@@ -206,6 +209,23 @@ class MimirAgentLoop:
             skill_nudge = maybe_skill_nudge_message(turn, tool_calls_so_far)
             if skill_nudge:
                 messages.append({"role": "user", "content": skill_nudge})
+
+            # Preemptive search-first nudge: before LLM call, check if user message
+            # requires cross-session search and hasn't been satisfied yet.
+            if (
+                search_first_guard_enabled()
+                and search_first_nudges < MAX_SEARCH_FIRST_NUDGES
+                and cross_session_requires_search_first(last_user_text(messages))
+                and not session_search_satisfied_since_last_user(messages)
+            ):
+                search_first_nudges += 1
+                nudge = build_search_first_nudge()
+                messages.append({"role": "user", "content": nudge})
+                logger.warning(
+                    "[%s] turn %d: preemptive search-first nudge (%d/%d)",
+                    self.task_id[:8], turn + 1,
+                    search_first_nudges, MAX_SEARCH_FIRST_NUDGES,
+                )
 
             # --- Call model ---
             api_start = _time.monotonic()

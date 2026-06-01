@@ -23,6 +23,7 @@ from agent.search_first_guard import (
 from mimir_constants import get_mimir_home
 
 TOOL_CALL_RE = re.compile(r'"name"\s*:\s*"session_search"|session_search\s*\(')
+_SEARCH_FIRST_MARKER = "[search-first-guard]"
 
 
 @dataclass
@@ -73,7 +74,10 @@ def audit_session(path: Path) -> List[AuditRow]:
         searched = False
         evidence = ""
         j = i + 1
-        while j < len(turns) and turns[j].get("role") != "user":
+        while j < len(turns) and (
+            turns[j].get("role") != "user"
+            or str(turns[j].get("content", "")).strip().startswith(_SEARCH_FIRST_MARKER)
+        ):
             chunk = json.dumps(turns[j], ensure_ascii=False)
             if TOOL_CALL_RE.search(chunk) or (
                 turns[j].get("role") == "tool"
