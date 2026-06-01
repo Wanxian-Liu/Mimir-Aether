@@ -274,41 +274,33 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 
 ---
 
-## 10. 大脑自治链（Mimir 全自治 · commit/push · 无 Cursor 复核）
+## 10. 自我完善链（Mimir 全自治）
 
-> **契约**：[`MIMIR_BRAIN_AUTONOMY_CHAIN.md`](./MIMIR_BRAIN_AUTONOMY_CHAIN.md) · 刘哥 2026-06-01 授权覆盖「禁 push」。  
-> **开场**：复制该文档 **§4** 整段到飞书。  
-> **纪律**：只认下表 **第一条 `[ ]`**；每粒 tier0 绿 → commit → `git push origin main` → 标 `[x]`。
+> **真源**：[`MIMIR_SELF_IMPROVEMENT_CHAIN.md`](./MIMIR_SELF_IMPROVEMENT_CHAIN.md) · **§5 开场复制到飞书**  
+> **下一粒**：`./scripts/mimir_self_run_next.sh --dry-run`  
+> **纪律**：第一条 `[ ]` → 做完 **立刻**下一粒；**禁止**问「要不要继续」
 
-| ID | 波次 | 任务摘要 | 状态 |
-|----|------|----------|------|
-| **BRAIN-00** | W0 | kickoff 证据 + gateway 单实例 + tier0 基线 | [ ] |
-| **BRAIN-01** | W1 | Intent `prefer_session_search` → preemptive 检索 | [ ] |
-| **BRAIN-02** | W1 | 生产 FEEDBACK_COLLECTOR（.env 备份后追加，不 commit .env） | [ ] |
-| **BRAIN-03** | W1 | nudge 契约测加固 | [ ] |
-| **BRAIN-04** | W1 | `brain_metrics_snapshot.py` → ops JSON | [ ] |
-| **BRAIN-05** | W2 | VoE 学习路径证据 / 测例 | [ ] |
-| **BRAIN-06** | W2 | WM `context_snapshot` spike（env 默认 0） | [ ] |
-| **BRAIN-07** | W2 | search-first 审计 JSON | [ ] |
-| **BRAIN-08** | W3 | rubric 自评 closeout | [ ] |
-| **BRAIN-09** | W3 | evolution eval 记录 | [ ] |
-| **BRAIN-10** | W3 | `mimir_brain_run_next.sh` + MAINLINE 更新 | [ ] |
-| **BRAIN-11** | W1.5 | 元认知 `skill_scenario_router` + gateway 重启 + 飞书自测 | [ ] |
-| **BRAIN-12** | W3 | `skill_view` 7d 指标进 brain-metrics JSON | [ ] |
-| **BRAIN-13** | W0 | 文档：禁止等「继续下一粒」；连续 2 粒自驱证据 | [ ] |
-| **BRAIN-LOOP** | 每周 | 指标快照 + eval；退化则新开 §10 行 | [ ] |
-
-**BRAIN-00 提示词**
-
-```text
-任务 BRAIN-00：Read docs/MIMIR_BRAIN_AUTONOMY_CHAIN.md §2 单粒循环。
-git pull --rebase origin main
-MIMIR_AETHER_HOME=~/.mimiraether ./scripts/ensure_single_gateway.sh
-./run_ralph_tier0.sh → 记下 PASS 数
-写 docs/phase0/brain-autonomy-kickoff.md（≤40 行：tier0、双 gateway 风险、FEEDBACK 是否开、session_search 粗算）
-commit + push origin main
-TASK_QUEUE §10 BRAIN-00 → [x]；bridge §4：BRAIN-00 done · tier0=… · push=…
-```
+| ID | 波次 | 任务 | 状态 |
+|----|------|------|------|
+| **SELF-00** | A | baseline + gateway + tier0 | [ ] |
+| **SELF-01** | A | 路由冒烟 3 场景 | [ ] |
+| **SELF-02** | A | 扩展 skill_scenario_router | [ ] |
+| **SELF-03** | A | audit_skill_usage.py | [ ] |
+| **SELF-04** | A | brain_metrics_snapshot.py | [ ] |
+| **SELF-05** | A | 更新 self-audit 技能 | [ ] |
+| **SELF-06** | A | 禁止等继续（文档） | [ ] |
+| **SELF-07** | A | mimir_self_run_next.sh | [ ] |
+| **SELF-08** | B | monitor 真/假阳性 | [ ] |
+| **SELF-09** | B | memory 固化冲动 | [ ] |
+| **SELF-10** | B | FEEDBACK / AUTO_EVOLVE | [ ] |
+| **SELF-11** | C | preemptive search | [ ] |
+| **SELF-12** | C | nudge 契约 | [ ] |
+| **SELF-13** | C | search-first 审计 | [ ] |
+| **SELF-14** | C | VoE + WM | [ ] |
+| **SELF-15** | C | evolution eval | [ ] |
+| **SELF-16** | C | rubric | [ ] |
+| **SELF-17** | C | closeout M1～M6 | [ ] |
+| **SELF-LOOP** | D | 每周周报 | [ ] |
 
 ---
 

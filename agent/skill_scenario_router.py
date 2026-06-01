@@ -14,16 +14,21 @@ SKILL_VIEW_TOOL = "skill_view"
 # (pattern, skills, label) — first match wins per label; union all matching labels
 _SCENARIOS: List[Tuple[re.Pattern[str], List[str], str]] = [
     (
-        re.compile(
-            r"进步|变强|能力|自我|状态|净化|怎么样了|变好|meta|自评|audit",
-            re.IGNORECASE,
-        ),
+        re.compile(r"进步|变强|怎么样了|变好|净化|状态怎么样", re.IGNORECASE),
         ["mimiraether-self-audit"],
         "self_status",
     ),
     (
         re.compile(
-            r"debug|bug|失败|错误|根因|tier0|修复|fix|broken|exception|traceback",
+            r"评估|审计|自评|执行器|大脑|元认知|传话筒",
+            re.IGNORECASE,
+        ),
+        ["mimiraether-self-audit"],
+        "self_audit",
+    ),
+    (
+        re.compile(
+            r"debug|bug|失败|错误|根因|修复|fix|broken|exception|traceback|ENG-",
             re.IGNORECASE,
         ),
         ["mimiraether-root-cause-debugging"],
@@ -52,6 +57,34 @@ _SCENARIOS: List[Tuple[re.Pattern[str], List[str], str]] = [
         ),
         ["mimiraether-self_health_check"],
         "health",
+    ),
+    (
+        re.compile(
+            r"主执行|拍板|多步|分阶段|自我完善|SELF-\d+",
+            re.IGNORECASE,
+        ),
+        ["mimiraether-brainstorming", "mimiraether-strategic-planner"],
+        "multi_step",
+    ),
+    (
+        re.compile(r"自我进化|进化循环|改进系统|优化能力", re.IGNORECASE),
+        ["mimiraether-self_evolution"],
+        "evolution",
+    ),
+    (
+        re.compile(r"wiki|归档|learnings/|可复用知识", re.IGNORECASE),
+        ["mimiraether-wiki-auto-archive"],
+        "wiki",
+    ),
+    (
+        re.compile(r"固化|capsule|skill_manage|踩坑", re.IGNORECASE),
+        ["mimiraether-skill-solidify"],
+        "solidify",
+    ),
+    (
+        re.compile(r"Ralph|run_ralph|三门禁", re.IGNORECASE),
+        ["mimiraether-ralph-core"],
+        "ralph",
     ),
     (
         re.compile(

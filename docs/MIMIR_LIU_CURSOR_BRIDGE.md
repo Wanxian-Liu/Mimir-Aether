@@ -6,7 +6,7 @@
 | 谁 | 怎么做 |
 |----|--------|
 | **刘哥** | 飞书找 **Mimir**；战略 / 拍板写 **§1**；飞书验收（CLR-B） |
-| **Mimir** | **大脑自治**（[`MIMIR_BRAIN_AUTONOMY_CHAIN.md`](./MIMIR_BRAIN_AUTONOMY_CHAIN.md)）：§10 任务链 · **自 commit/push** · 无 HANDOFF 等待 |
+| **Mimir** | **自我完善链**（[`MIMIR_SELF_IMPROVEMENT_CHAIN.md`](./MIMIR_SELF_IMPROVEMENT_CHAIN.md)）：§10 SELF-00～17 · **自 commit/push** |
 | **Cursor** | **待命**（2026-06-01）：不复核 §10；仅刘哥点名或 hook 红时介入 |
 
 **不走**：OpenClaw cron、微信同步 backlog。
@@ -30,11 +30,11 @@
 | **轨 B** | 改 `agent|gateway|tools|mimir_cli` 须本节刘哥 **另条** 授权或记 ISSUES → Cursor **§20.1** |
 | **禁止** | `git push --force` 到 main · 提交 `data/persistent.json` · **EV-VISION** · 未授权 WM 大改 |
 
-### 2026-06-01 — 刘哥拍板 · 大脑自治（覆盖上表「禁 push」）
+### 2026-06-01 — 刘哥拍板 · 自我完善链（元认知 2→5+）
 
-- **真源**：[`MIMIR_BRAIN_AUTONOMY_CHAIN.md`](./MIMIR_BRAIN_AUTONOMY_CHAIN.md) + [`MIMIR_TASK_QUEUE.md`](./MIMIR_TASK_QUEUE.md) **§10**
-- **Mimir**：从 **BRAIN-00** 起逐粒执行；每粒 **tier0 绿 → commit → push origin main**；Cursor **不复核**
-- **复制开场**：见 `MIMIR_BRAIN_AUTONOMY_CHAIN.md` **§4** 整段
+- **真源**：[`MIMIR_SELF_IMPROVEMENT_CHAIN.md`](./MIMIR_SELF_IMPROVEMENT_CHAIN.md) · TASK_QUEUE **§10**
+- **Mimir**：**SELF-00** 起连续执行；**禁止**问「要不要继续」；收官 **SELF-17**（M1～M6）
+- **复制开场**：`MIMIR_SELF_IMPROVEMENT_CHAIN.md` **§5**
 
 **队列已闭合（2026-06-01 · 旧轨 · 仅当 §10 全 [x] 后适用）**
 

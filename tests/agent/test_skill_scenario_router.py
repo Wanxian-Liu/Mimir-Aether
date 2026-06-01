@@ -54,6 +54,16 @@ def test_satisfied_after_skill_view_tool():
     assert ok is False
 
 
+def test_recommend_multi_step():
+    s = recommend_skills("刘哥拍板主执行 SELF-02")
+    assert "mimiraether-brainstorming" in s
+    assert "mimiraether-strategic-planner" in s
+
+
+def test_recommend_evolution():
+    assert "mimiraether-self_evolution" in recommend_skills("跑自我进化")
+
+
 def test_disabled_via_env(monkeypatch):
     monkeypatch.setenv("MIMIR_SKILL_ROUTE_NUDGE", "0")
     assert skill_route_nudge_enabled() is False
