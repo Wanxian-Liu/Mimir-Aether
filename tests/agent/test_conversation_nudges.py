@@ -1,6 +1,7 @@
-"""IQ-EVO-08: in-loop memory/skill nudges."""
+"""BRAIN-03: contract tests for conversation nudges (memory + skill)."""
 
-from __future__ import annotations
+import os
+from unittest.mock import patch
 
 from agent.conversation_nudges import (
     MEMORY_NUDGE_MARKER,
@@ -10,22 +11,65 @@ from agent.conversation_nudges import (
 )
 
 
-def test_memory_nudge_every_tenth_turn(monkeypatch):
-    monkeypatch.setenv("MIMIR_MEMORY_NUDGE_INTERVAL", "10")
-    assert maybe_memory_nudge_message(0) is None
-    assert maybe_memory_nudge_message(9) and MEMORY_NUDGE_MARKER in maybe_memory_nudge_message(9)
+class TestMemoryNudge:
+    """maybe_memory_nudge_message — default interval 10."""
+
+    def test_turn_0_no_nudge(self):
+        """Turn 0 should never produce a memory nudge."""
+        assert maybe_memory_nudge_message(0) is None
+
+    def test_turn_9_triggers_memory_nudge(self):
+        """Turn 9 (0-indexed, 10th turn) should produce MEMORY_NUDGE_MARKER."""
+        result = maybe_memory_nudge_message(9)
+        assert result is not None
+        assert MEMORY_NUDGE_MARKER in result
+
+    def test_turn_19_triggers_memory_nudge(self):
+        """Turn 19 (20th turn) should also produce MEMORY_NUDGE_MARKER."""
+        result = maybe_memory_nudge_message(19)
+        assert result is not None
+        assert MEMORY_NUDGE_MARKER in result
+
+    def test_turn_5_no_nudge(self):
+        """Turn 5 (not a multiple of 10) should not produce a nudge."""
+        assert maybe_memory_nudge_message(5) is None
+
+    def test_interval_zero_disables(self):
+        """Interval=0 should suppress all memory nudges."""
+        with patch.dict(os.environ, {"MIMIR_MEMORY_NUDGE_INTERVAL": "0"}):
+            assert maybe_memory_nudge_message(9) is None
+            assert maybe_memory_nudge_message(99) is None
 
 
-def test_skill_nudge_requires_tool_calls(monkeypatch):
-    monkeypatch.setenv("MIMIR_SKILL_NUDGE_INTERVAL", "5")
-    monkeypatch.setenv("MIMIR_SKILL_NUDGE_MIN_TOOLS", "3")
-    assert maybe_skill_nudge_message(4, tool_calls_so_far=2) is None
-    msg = maybe_skill_nudge_message(4, tool_calls_so_far=5)
-    assert msg and SKILL_NUDGE_MARKER in msg
+class TestSkillNudge:
+    """maybe_skill_nudge_message — default interval 10, min_tools 3."""
 
+    def test_turn_0_no_nudge(self):
+        """Turn 0 should never produce a skill nudge."""
+        assert maybe_skill_nudge_message(0, 5) is None
 
-def test_nudge_interval_zero_disables(monkeypatch):
-    monkeypatch.setenv("MIMIR_MEMORY_NUDGE_INTERVAL", "0")
-    monkeypatch.setenv("MIMIR_SKILL_NUDGE_INTERVAL", "0")
-    assert maybe_memory_nudge_message(9) is None
-    assert maybe_skill_nudge_message(9, tool_calls_so_far=99) is None
+    def test_turn_9_too_few_tools(self):
+        """Turn 9 with 0 tools should not trigger (below min_tools)."""
+        result = maybe_skill_nudge_message(9, 0)
+        assert result is None
+
+    def test_turn_9_enough_tools_triggers(self):
+        """Turn 9 with 3+ tools should produce SKILL_NUDGE_MARKER."""
+        result = maybe_skill_nudge_message(9, 3)
+        assert result is not None
+        assert SKILL_NUDGE_MARKER in result
+
+    def test_turn_9_just_enough_tools(self):
+        """Turn 9 with exactly min_tools=3 should trigger."""
+        result = maybe_skill_nudge_message(9, 3)
+        assert result is not None
+
+    def test_custom_interval(self):
+        """Custom interval via env should shift trigger turn."""
+        with patch.dict(os.environ, {"MIMIR_SKILL_NUDGE_INTERVAL": "5", "MIMIR_SKILL_NUDGE_MIN_TOOLS": "1"}):
+            # Turn 4 (0-indexed, 5th turn) with 1 tool
+            result = maybe_skill_nudge_message(4, 1)
+            assert result is not None
+            assert SKILL_NUDGE_MARKER in result
+            # Turn 3 should not trigger
+            assert maybe_skill_nudge_message(3, 1) is None
