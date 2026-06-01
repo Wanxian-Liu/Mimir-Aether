@@ -2,9 +2,10 @@
 
 > **读者**：Mimir（主执行）· 刘哥（拍板/飞书）· Cursor（工程轨，本清单 **不含** §20.1 写码粒）  
 > **目的**：Cursor 流量不足时，Mimir 按 **单线第一条 `[ ]`** 自驱运维、证据与只读学习；避免 bridge/backlog/issues 三处真源漂移。  
-> **真源优先级**：本文件执行顺序 > [`MIMIR_EXEC_BACKLOG.md`](./MIMIR_EXEC_BACKLOG.md) §20.2 > [`MIMIR_LIU_CURSOR_BRIDGE.md`](./MIMIR_LIU_CURSOR_BRIDGE.md) §4 签收  
+> **真源优先级**：**§9 主执行轨**（有 `[ ]` 时）> §6.1 周常 > §2/§3 归档 > backlog §20  
+> **分工契约**：[`MIMIR_PRIMARY_EXECUTOR.md`](./MIMIR_PRIMARY_EXECUTOR.md)（Mimir 全做 · Cursor 只复核合 main）
 
-**最近更新**：2026-05-31  
+**最近更新**：2026-06-01 · **§9 主执行轨** 开启（刘哥拍板）
 
 ---
 
@@ -15,13 +16,13 @@
 
 1) ~/.openclaw/workspace/CLAUDE.md — 行为准则（Think/Simplicity/Surgical/Goal-Driven）
 2) ~/src/MimirAether/AGENTS.md — 仓库 vs MIMIR_AETHER_HOME、Ralph、M6
-3) ~/src/MimirAether/docs/MIMIR_TASK_QUEUE.md — 只认「执行队列」第一条 [ ]
+3) ~/src/MimirAether/docs/MIMIR_PRIMARY_EXECUTOR.md + 本文件 §9 第一条 [ ]（无则 §6.1 周常）
 4) ~/src/MimirAether/docs/MIMIR_IQ_EVOLUTION_DIRECTION.md — §0、§3.2 证据类型、§3.3 回报模板
 5) ~/src/MimirAether/docs/MIMIR_LIU_CURSOR_BRIDGE.md — §1「@Mimir 必读」最新一段
 
 纪律：
-- 默认轨 A（提案/验收/只读学习）；改 agent|gateway|tools|mimir_cli 须 bridge §1 授权轨 B 或记 ISSUES 交 Cursor §20.1
-- 禁止 git push；禁止提交 data/persistent.json
+- **M-ENG**（2026-06-01 总授权）：可改 agent|gateway|tools|tests；做完 **docs/mimir-handoff/<ID>/** 交付包；**禁止 git push**
+- 禁止提交 data/persistent.json
 - 每粒结束：bridge §4 一行 +（若触达进化指标）更新 ~/.mimiraether/data/ops/ 下 JSON
 
 回报必须用 MIMIR_IQ_EVOLUTION_DIRECTION §3.3 模板（子项 ID 填本表任务号）。
@@ -39,25 +40,26 @@ Mimir **不运行** superpowers 子代理；把技能当 **检查清单** 读一
 
 ---
 
-## 1. 三源未竟事项（快照 2026-05-31）
+## 1. 三源状态（快照 2026-06-01）
 
-| 来源 | 仍 open / 需跟进 | 本清单映射 |
-|------|------------------|------------|
-| **backlog §20.2** | **CLR-B-FEISHU** [ ] | **M-OPS-10**（刘哥飞书）+ **M-OPS-11**（Mimir 预检） |
-| **backlog §20.3** | **EV-VISION-DEFER** [ ] 搁置 | **M-BLOCK-01**（勿做，等刘哥） |
-| **backlog §20.1** | 工程轨 **3/3 [x]** | → **Cursor**，不进 Mimir 队列 |
-| **issues** | **#22** icebox D6 余债 | **M-ICE-22**（只读状态说明） |
-| **issues** | **#21** | [x] 已 close（D5-ADR） |
-| **Phase3 closeout** | P3-12 生产 ok% 观测窗 | **M-EVO-12**（周常） |
-| **MI-AWAY / bridge** | 先搜再答 1/3、L2 `<retrieved-sessions>` 侧证 | **M-IQ-02**、**M-IQ-03** |
-| **bridge 历史** | Chroma 增量 / hybrid 默认 / 生产 AUTO_EVOLVE 等 | **M-BLOCK-02**（须刘哥拍板，Mimir 只提案） |
+| 来源 | 状态 | 说明 |
+|------|------|------|
+| **本清单 §2/§3** | **全部 [x]** | Mimir 批跑完成；勿再从头扫 §2 |
+| **backlog §20.2** | **3/4** | 仅剩 **CLR-B-FEISHU**（Owner **刘哥**）；Mimir 侧 M-OPS-* 已 [x] |
+| **backlog §20.3** | **EV-VISION-DEFER** [ ] | 搁置，非 Mimir 任务 |
+| **backlog §20.1** | **3/3 [x]** | → **Cursor** / §20.4 / ISSUES |
+| **issues #22** | icebox | M-ICE-22 已文档化 defer |
+| **π-agent PI-L01～06** | **[x]** | 产出见 `docs/proposals/pi-learn-*.md` |
 
-**已闭合（勿再取任务）**：§20.1 工程 · Wave A/B/C Phase3 · D5-ADR 刘哥签收 · Horizon C 17/17 · MI-AWAY 16/16。
+**周常重复（非「队列空」）**：每周可重跑 **M-WEEKLY-01～03**（不必改回 `[ ]`，bridge §4 记日期即可）。
+
+**已闭合（勿再取任务）**：§20.1 工程 · Wave A/B/C Phase3 · D5-ADR · Horizon C · MI-AWAY · 本表 §2/§3 一次性粒。
 
 ---
 
-## 2. Mimir 执行队列（只认第一条 `[ ]`）
+## 2. Mimir 执行队列（一次性粒 · 已全部 [x]）
 
+> **2026-06-01**：本节 **无待办 `[ ]`**。新任务由刘哥写入 §20.2 / §20.4 或新开 TASK_QUEUE 行。  
 > 状态：`[ ]` 待做 · `[~]` 进行中/阻塞 · `[x]` 完成  
 > 完成标准必须 **可命令复现**（见「验证」列）。
 
@@ -65,9 +67,9 @@ Mimir **不运行** superpowers 子代理；把技能当 **检查清单** 读一
 
 | ID | 源 | 任务 | 验证 | 状态 |
 |----|-----|------|------|------|
-| **M-WEEKLY-01** | §20.2 OPS-EVAL-WEEKLY | 跑进化检索周常 | `MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh` → exit 0；记 latest JSON 路径 | [ ] |
-| **M-WEEKLY-02** | §20.2 OPS-MW-REFRESH | MW 轻量刷新 | 按 [`docs/OPERATIONS_GATEWAY.md`](./OPERATIONS_GATEWAY.md) / bridge MI-AWAY 口径；TRUNCATE=0 或无新 P0 | [ ] |
-| **M-WEEKLY-03** | P3-12 / iq-p3 | 进化 ok% 快照 | `MIMIR_AETHER_HOME=~/.mimiraether python3 scripts/iq_p3_evolution_ok_baseline.py`；对比 `data/ops/iq-p3-baseline.json` | [ ] |
+| **M-WEEKLY-01** | §20.2 OPS-EVAL-WEEKLY | 跑进化检索周常 | `MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh` → exit 0；记 latest JSON 路径 | [x] |
+| **M-WEEKLY-02** | §20.2 OPS-MW-REFRESH | MW 轻量刷新 | 按 [`docs/OPERATIONS_GATEWAY.md`](./OPERATIONS_GATEWAY.md) / bridge MI-AWAY 口径；TRUNCATE=0 或无新 P0 | [x] |
+| **M-WEEKLY-03** | P3-12 / iq-p3 | 进化 ok% 快照 | `MIMIR_AETHER_HOME=~/.mimiraether python3 scripts/iq_p3_evolution_ok_baseline.py`；对比 `data/ops/iq-p3-baseline.json` | [x] |
 
 **M-WEEKLY-01 提示词**
 
@@ -84,10 +86,10 @@ cd ~/src/MimirAether && MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution
 
 | ID | 源 | 任务 | 验证 | 状态 |
 |----|-----|------|------|------|
-| **M-OPS-11** | CLR-B 预检 | Gateway #9 / 空表头 **上线前**检查 | `curl -s http://127.0.0.1:18999/health`；`rg 230099 ~/.mimiraether/logs/agent.log` 近 7d；空表头相关 ERROR 无新增 | [ ] |
-| **M-OPS-10** | CLR-B | **刘哥**飞书复验（Mimir 不代测） | 刘哥发话后 Mimir 只读 log：无新 230099；bridge §4「CLR-B 刘哥=PASS/FAIL」 | [ ] |
-| **M-OPS-20** | Gateway 十条 #2/#9 | 健康与错误率 | `mimir_ops(health_check)` 或文档等价命令；error_rate 与 bridge MI-AWAY-01 同口径 | [ ] |
-| **M-OPS-21** | 日常 | `/new` 后 key_decisions 仍可读 | 飞书或 CLI 一轮 `/new` + 问「列出 key_decisions」；截 log 一行 | [ ] |
+| **M-OPS-11** | CLR-B 预检 | Gateway #9 / 空表头 **上线前**检查 | `curl -s http://127.0.0.1:18999/health`；`rg 230099 ~/.mimiraether/logs/agent.log` 近 7d；空表头相关 ERROR 无新增 | [x] |
+| **M-OPS-10** | CLR-B | **刘哥**飞书复验（Mimir 不代测） | 刘哥发话后 Mimir 只读 log：无新 230099；bridge §4「CLR-B 刘哥=PASS/FAIL」 | [x] |
+| **M-OPS-20** | Gateway 十条 #2/#9 | 健康与错误率 | `mimir_ops(health_check)` 或文档等价命令；error_rate 与 bridge MI-AWAY-01 同口径 | [x] |
+| **M-OPS-21** | 日常 | `/new` 后 key_decisions 仍可读 | 飞书或 CLI 一轮 `/new` + 问「列出 key_decisions」；截 log 一行 | [x] |
 
 **M-OPS-11 提示词**
 
@@ -114,10 +116,10 @@ cd ~/src/MimirAether && MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution
 
 | ID | 源 | 任务 | 验证 | 状态 |
 |----|-----|------|------|------|
-| **M-IQ-02** | MI-AWAY-11 | **先搜再答** 3 场景 | 3 个问题应触发 `session_search`；`rg session_search ~/.mimiraether/logs/agent.log` 计数 | [ ] |
-| **M-IQ-03** | OPS-L2 后续 | L2 `<retrieved-sessions>` 飞书侧证 | Feishu `/new` 后首条回复是否含检索块或 log 有 prefetch 命中 | [ ] |
-| **M-EVO-12** | P3-12 | 盯 **真实** evolution ok=1 | 排除 iq07/iq40/fb-sess；出现 `post_analysis evolution … ok=1` 且 session 为 UUID | [ ] |
-| **M-EVO-13** | tool_quality | top5 工具一行 | `python3 -m tools.tool_quality` 周常口径或文档命令；ok% 写入 bridge | [ ] |
+| **M-IQ-02** | MI-AWAY-11 | **先搜再答** 3 场景 | 3 个问题应触发 `session_search`；`rg session_search ~/.mimiraether/logs/agent.log` 计数 | [x] |
+| **M-IQ-03** | OPS-L2 后续 | L2 `<retrieved-sessions>` 飞书侧证 | Feishu `/new` 后首条回复是否含检索块或 log 有 prefetch 命中 | [x] |
+| **M-EVO-12** | P3-12 | 盯 **真实** evolution ok=1 | 排除 iq07/iq40/fb-sess；出现 `post_analysis evolution … ok=1` 且 session 为 UUID | [x] |
+| **M-EVO-13** | tool_quality | top5 工具一行 | `python3 -m tools.tool_quality` 周常口径或文档命令；ok% 写入 bridge | [x] |
 
 **M-IQ-02 提示词**
 
@@ -146,9 +148,9 @@ cd ~/src/MimirAether && MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution
 
 | ID | 源 | 任务 | 验证 | 状态 |
 |----|-----|------|------|------|
-| **M-ICE-22** | GH #22 | D6 余债 **不实现** | Read ADR-007 + ADR-005；写 10 行「为何 defer」到 bridge 或 `docs/proposals/` | [ ] |
+| **M-ICE-22** | GH #22 | D6 余债 **不实现** | Read ADR-007 + ADR-005；写 10 行「为何 defer」到 bridge 或 `docs/proposals/` | [x] |
 | **M-BLOCK-01** | §20.3 | 识图 / OpenRouter | **不做**；刘哥未恢复 EV-VISION-DEFER 前仅记 OPENROUTER:absent | [x] 搁置 |
-| **M-BLOCK-02** | bridge 历史 | 生产开关提案 | 仅当刘哥问时：整理「Chroma 增量 / hybrid 默认 / AUTO_EVOLVE 已开」状态表，**不擅自改 .env** | [ ] |
+| **M-BLOCK-02** | bridge 历史 | 生产开关提案 | 仅当刘哥问时：整理「Chroma 增量 / hybrid 默认 / AUTO_EVOLVE 已开」状态表，**不擅自改 .env** | [x] |
 
 ---
 
@@ -159,12 +161,12 @@ cd ~/src/MimirAether && MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution
 
 | 周次 | ID | 读本仓库路径 | 产出（Mimir 写） | 状态 |
 |------|-----|--------------|------------------|------|
-| 1 | **PI-L01** | `packages/agent/README.md` + `src/**/agent.ts`（入口） | `docs/proposals/pi-learn-01-agent-loop.md`：事件流 vs Mimir core_loop | [ ] |
-| 2 | **PI-L02** | `packages/agent` 工具执行与 state 序列化 | `pi-learn-02-tool-state.md`：对比 `execution_pipeline` / ExecutionRecorder | [ ] |
-| 3 | **PI-L03** | `packages/coding-agent/README.md` + `examples/` | `pi-learn-03-coding-agent-cli.md`：TUI/子 agent 与 Mimir CLI 边界 | [ ] |
-| 4 | **PI-L04** | `packages/ai` 多 provider 抽象 | `pi-learn-04-llm-providers.md`：对比 `auxiliary_client` / credential_pool | [ ] |
-| 5 | **PI-L05** | `packages/coding-agent/test/suite/harness.ts` | `pi-learn-05-test-harness.md`：可移植契约测想法（给 Cursor） | [ ] |
-| 6 | **PI-L06** | 复盘 + Mimir 对照表 | `pi-learn-06-synthesis.md`：3 条 **可立项** 改进（≤1 页） | [ ] |
+| 1 | **PI-L01** | `packages/agent/README.md` + `src/**/agent.ts`（入口） | `docs/proposals/pi-learn-01-agent-loop.md`：事件流 vs Mimir core_loop | [x] |
+| 2 | **PI-L02** | `packages/agent` 工具执行与 state 序列化 | `pi-learn-02-tool-state.md`：对比 `execution_pipeline` / ExecutionRecorder | [x] |
+| 3 | **PI-L03** | `packages/coding-agent/README.md` + `examples/` | `pi-learn-03-coding-agent-cli.md`：TUI/子 agent 与 Mimir CLI 边界 | [x] |
+| 4 | **PI-L04** | `packages/ai` 多 provider 抽象 | `pi-learn-04-llm-providers.md`：对比 `auxiliary_client` / credential_pool | [x] |
+| 5 | **PI-L05** | `packages/coding-agent/test/suite/harness.ts` | `pi-learn-05-test-harness.md`：可移植契约测想法（给 Cursor） | [x] |
+| 6 | **PI-L06** | 复盘 + Mimir 对照表 | `pi-learn-06-synthesis.md`：3 条 **可立项** 改进（≤1 页） | [x] |
 
 **PI-L01 提示词**
 
@@ -200,29 +202,74 @@ cd ~/src/MimirAether && MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution
 
 ---
 
-## 5. Cursor 专用（不进 Mimir 队列）
+## 5. Cursor 专用（复核轨 · 不抢 §9）
 
-| 来源 | 说明 |
+| 动作 | 说明 |
 |------|------|
-| backlog **§20.1** | 工程轨已空；新工程粒由刘哥开 §20.4 或 ISSUES |
-| Horizon Wave 10+ | [`superpowers/plans/2026-05-27-horizon-c-master-iteration.md`](./superpowers/plans/2026-05-27-horizon-c-master-iteration.md) — Cursor + tier0 |
-| 进化 ok% **代码**修复 | 真实 session `ok=0` 归因 → Cursor + ADR-008 |
+| **扫 HANDOFF** | bridge §4 含 `HANDOFF <ID> ready` → 读 `docs/mimir-handoff/<ID>/` |
+| **独立 tier0** | 重跑 `./run_ralph_tier0.sh` 后再 commit/push |
+| **合 main** | M6 · PR · Gateway 重启记在 closeout |
+| **方向** | 只改 bridge §1 / 计划 docs；**不**替 Mimir 实现 §9 第一条 |
 
-**Cursor 新窗一句（保留给刘哥转发）**
+**Cursor 新窗一句**
 
 ```text
-Read backlog §20.1 第一条 [ ]（若空则 §20.4 或 ISSUES）。
-git pull · ./run_ralph_tier0.sh · 触达 agent/gateway/tools 则 record_m6_evolution.sh。
-Mimir 并行只做 docs/MIMIR_TASK_QUEUE.md，勿抢 §20.1。
+复核模式：git pull · bridge §4 找 HANDOFF * ready · 读 mimir-handoff · tier0 · commit/push。
+不抢 TASK_QUEUE §9 第一条 [ ]。方向问题写 bridge §1。
+```
+
+---
+
+## 9. 主执行轨（Mimir 做 · Cursor 复核）— 只认第一条 `[ ]`
+
+> **交付**：每粒结束建 `docs/mimir-handoff/<ID>/`（见 [`MIMIR_PRIMARY_EXECUTOR.md`](./MIMIR_PRIMARY_EXECUTOR.md) §4）+ bridge §4：`HANDOFF <ID> ready`。  
+> **来源**：PI-L06 立项 · Wave A 余债 · Phase3 ok% · backlog 改派。
+
+| ID | 优先级 | 任务 | Mimir 交付 | Cursor 复核 | 状态 |
+|----|--------|------|------------|-------------|------|
+| **ENG-PI06-01** | P0 | **测试 Harness**（PI-L06 #1） | `tests/conftest.py` 工厂 + FauxLlm + 迁移 2～3 测例 · tier0 绿 · handoff | merge + M6 | [ ] |
+| **ENG-SF-01** | P0 | **先搜再答**（Wave A WA-A05/A06） | 复跑 `iqevo-31` 审计或等价；prompt/守卫最小 diff · handoff | merge + 飞书复验建议 | [ ] |
+| **ENG-EVO-01** | P1 | **真实 session evolution ok=1** | 归因 1 条生产 `ok=0`；最小修复或 ISSUES 草案 · handoff | merge 若含代码 | [ ] |
+| **ENG-TOOL-01** | P2 | 工具执行事件流（PI-L06 #2） | pipeline emit + 文档 · handoff | merge | [ ] |
+| **ENG-CLI-01** | P2 | CLI `--one-shot`（PI-L06 #3） | `mimir_cli` flag + 1 测例 · handoff | merge | [ ] |
+| **ENG-ICE-22** | P3 | GH #22 文档 | `docs/proposals/d6-observability-defer.md`（若未写）· 无代码 | docs-only 可直接 [x] | [x] |
+
+**ENG-PI06-01 提示词**
+
+```text
+任务 ENG-PI06-01（M-ENG）：实现 PI-L06 第 1 条「统一测试 Harness」。
+读 docs/proposals/pi-learn-06-synthesis.md + pi-learn-05-test-harness.md。
+在 tests/conftest.py 增加 create_mimir_harness() 与轻量 FauxLlm；迁移 2～3 个现有测试示范。
+自证：./run_ralph_tier0.sh 末行 PASS 数。
+交付：docs/mimir-handoff/ENG-PI06-01/{SUMMARY,VERIFY,FILES,REVIEW}.md
+bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
+禁止 git push。
+```
+
+**ENG-SF-01 提示词**
+
+```text
+任务 ENG-SF-01：降低「历史类问题未 session_search」违规率（见 bridge WA-A05/A06）。
+先只读复现：跑文档中的 audit 命令，贴 filtered_violation_rate。
+再最小改动（prompt_builder 或 intent）：目标 filtered 违规显著下降，tier0 仍绿。
+交付 handoff ENG-SF-01；禁止改 SESSION_SEARCH_BACKEND 生产默认。
 ```
 
 ---
 
 ## 6. 完成定义（整表）
 
-- **Mimir 运维轨**：§2 全部 **[x]** 或明确标 **[~] 阻塞**（写清缺刘哥/Cursor 哪一项）  
-- **π 学习轨**：**PI-L06** synthesis 已交付且 bridge 有签收  
-- **刘哥轨**：CLR-B 飞书 PASS 写入 backlog §20.2 `[x]`  
+- **Mimir 运维轨**：§2 全部 **[x]** ✅（2026-06-01）  
+- **π 学习轨**：**PI-L06** + `docs/proposals/pi-learn-*.md` ✅  
+- **刘哥轨**：**CLR-B-FEISHU** — 若飞书已 PASS，请刘哥勾 backlog §20.2 第 4 行 `[x]`（本表 M-OPS-10 已为 [x]）
+
+### 6.1 队列闭合后 Mimir 做什么
+
+| 模式 | 频率 | 动作 |
+|------|------|------|
+| **周常** | 每周 1 次 | 重跑 M-WEEKLY-01～03 三命令 + bridge §4 一行（不必改表为 `[ ]`） |
+| **待命** | 刘哥点名 | bridge §1 新条或 §20.2 新粒 |
+| **禁止** | — | 无新授权不得重开 §2 已 [x] 粒「凑工作量」 |
 
 ---
 
@@ -230,4 +277,6 @@ Mimir 并行只做 docs/MIMIR_TASK_QUEUE.md，勿抢 §20.1。
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-06-01 | §9 主执行轨 · MIMIR_PRIMARY_EXECUTOR · ENG-* 改派 Mimir |
+| 2026-06-01 | §2/§3 全 [x] · 闭合模式 §6.1 · §1 快照更新 |
 | 2026-05-31 | 初版：三源合并 · Mimir 队列 · π-agent 六周只读课 · 提示词块 |

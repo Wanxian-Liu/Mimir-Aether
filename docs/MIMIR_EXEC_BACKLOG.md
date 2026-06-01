@@ -3,7 +3,7 @@
 > **最近更新**：2026-06-01（**IQ-RUBRIC-55-PHASE3** 收官 · ~5.1+exception · tier0 **676**）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5  
 > **规则**：**只认 §20 第一条 `[ ]`（按角色列）**。历史 §19.1/§19.6 只读归档。Handoff：[`world-model-agent-handoff.md`](./superpowers/plans/2026-05-27-world-model-agent-handoff.md)。主计划：[`horizon-c-master-iteration.md`](./superpowers/plans/2026-05-27-horizon-c-master-iteration.md)。  
-> **Mimir 运维合一清单**（含提示词 · π-agent 学习）：[`MIMIR_TASK_QUEUE.md`](./MIMIR_TASK_QUEUE.md)。  
+> **Mimir 主执行**（2026-06-01）：[`MIMIR_PRIMARY_EXECUTOR.md`](./MIMIR_PRIMARY_EXECUTOR.md) · 任务 [`MIMIR_TASK_QUEUE.md`](./MIMIR_TASK_QUEUE.md) **§9** · Cursor 只复核 HANDOFF。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
 > **勿提交**：`data/persistent.json`（runtime 镜像）。
 
@@ -1118,17 +1118,17 @@ Read docs/superpowers/plans/2026-05-27-horizon-c-master-iteration.md + backlog �
 ### 20.0 一张图（谁干什么）
 
 ```text
-刘哥 §20.3 拍板 ──解锁──► Cursor §20.1 工程（单线 3 粒）
-Mimir §20.2 运维（单线，含 MI-AWAY 后续 2 粒）
-§20.4 大战役（IQ 5.5 / WM）── 刘哥勾了再开，不进 §20.1
-§20.5 icebox（#21 #22）── 不抢主线
+刘哥 §20.3 拍板 ──解锁──► TASK_QUEUE §9（Mimir 实现）──HANDOFF──► Cursor 复核合 main
+Mimir §20.2 运维周常 + §9 工程主执行
+§20.4 大战役已收口；新工程进 §9 或 ISSUES
+§20.5 icebox ── 不抢主线
 ```
 
 | 角色 | 规则 |
 |------|------|
-| **Cursor** | 只认 **§20.1** 第一条 `[ ]`；与 bridge §2 常备授权一致 |
-| **Mimir** | 只认 **§20.2** 第一条 `[ ]`；**禁止** push / 改 `agent|gateway|tools|mimir_cli` |
-| **刘哥** | **§20.3**；飞书 **CLR-B-FEISHU** 在 §20.2 |
+| **Mimir** | **§9 第一条 `[ ]`**（[`MIMIR_TASK_QUEUE.md`](./MIMIR_TASK_QUEUE.md)）；**M-ENG 可写码**；禁 push；交付 `docs/mimir-handoff/` |
+| **Cursor** | 扫 bridge **HANDOFF ready** → tier0 → commit/push/M6；**不抢** §9 第一条 |
+| **刘哥** | **§20.3**；飞书 **CLR-B**；战略写 bridge §1 |
 
 ### 20.1 工程轨（Cursor · 单线 · 建议顺序）
 
@@ -1145,9 +1145,8 @@ Mimir §20.2 运维（单线，含 MI-AWAY 后续 2 粒）
 **Cursor 新窗一句**
 
 ```text
-Read backlog §20.1 第一条 [ ] + bridge §4 末行（ENGINE-ROLLBACK-01 已勾 → 下一 ENGINE-P3W-01 需 §20.3）。
-git pull · 基线 b6ed761 · 每粒 ./run_ralph_tier0.sh + evolution_log（若触达 agent/gateway/tools）。
-禁止 WM Phase0 大 diff · 勿改 SESSION_SEARCH 生产默认 · 勿 commit persistent.json。
+复核模式：pull · bridge §4「HANDOFF * ready」· docs/mimir-handoff/<ID>/ · tier0 · commit/push/M6。
+不抢 TASK_QUEUE §9。方向只写 bridge §1。
 ```
 
 ### 20.2 运维轨（Mimir · 单线）
@@ -1166,9 +1165,8 @@ git pull · 基线 b6ed761 · 每粒 ./run_ralph_tier0.sh + evolution_log（若�
 **Mimir 新窗一句**
 
 ```text
-Read docs/MIMIR_TASK_QUEUE.md §0 开场白 + §2 第一条 [ ]。
-再读 bridge §1「@Mimir 必读」；回报 §3.3；每粒 bridge §4 一行。
-禁止 push · 禁止改 agent|gateway|tools（要代码：记 ISSUES，交 Cursor §20.1）。
+主执行：MIMIR_PRIMARY_EXECUTOR.md + TASK_QUEUE §9 第一条 [ ]。
+做完 handoff + HANDOFF ready（禁 push）。无 §9 则周常 M-WEEKLY-01～03。
 ```
 
 ### 20.3 拍板轨（刘哥 · 未勾前工程暂停对应行）

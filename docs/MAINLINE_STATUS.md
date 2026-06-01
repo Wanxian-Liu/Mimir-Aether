@@ -5,7 +5,7 @@
 
 | 字段 | 值 |
 |------|-----|
-| **最近更新** | 2026-05-31 |
+| **最近更新** | 2026-06-01 |
 | **更新人** | Cursor（Mimir 任务清单） |
 | **仓库根（真源）** | `~/src/MimirAether` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁 **679**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
@@ -81,7 +81,7 @@
 
 | 日期 | 摘要 |
 |------|------|
-| 2026-05-31 | **D5-ADR 刘哥签收**：ADR-008 路径 A 为生产进化真源；§20.3 拍板闭合。 |
+| 2026-06-01 | **M-WEEKLY-02 MW 轻量刷新**：tier0 **679**（675+4 L2/L3 known）；TRUNCATE=0；Gateway 64422 健康；无新 P0。 |
 | 2026-05-19 | **D5-ADR 收口**：ADR-008 生产进化真源 · §6 d5 6/6 · closeout `d5-adr-closeout.md`。 |
 | 2026-06-01 | **IQ-RUBRIC-55 Phase3 收官**：~5.1+exception · P3-11 deprecate/CAPTURED · closeout `iq-55-phase3-closeout.md`。 |
 | 2026-06-01 | **IQ-RUBRIC-55 Phase3 立项**（刘哥开 Phase3）：§20.3/§20.4 · execution-plan · 不含 1c 生产。 |

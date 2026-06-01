@@ -5,9 +5,9 @@
 
 | 谁 | 怎么做 |
 |----|--------|
-| **刘哥** | 飞书找 **Mimir**；战略方向 / 例外授权写 **§1、§2** |
-| **Mimir** | 每轮 Read bridge（**§1「@Mimir 必读」**）+ backlog + unified plan；冒烟、health_check、§4 签收 |
-| **Cursor** | 工程 PR、git、rebase、tier0、CI merge（见 §2 常备授权） |
+| **刘哥** | 飞书找 **Mimir**；战略 / 拍板写 **§1**；飞书验收（CLR-B） |
+| **Mimir** | **主执行**（[`MIMIR_PRIMARY_EXECUTOR.md`](./MIMIR_PRIMARY_EXECUTOR.md)）：§9 任务 + 周常 + **M-ENG 写码**（禁 push）→ `docs/mimir-handoff/` |
+| **Cursor** | **复核合 main**（见 §2 常备授权）：HANDOFF ready → tier0 重跑 → commit/push/PR/M6；**不抢** §9 第一条 `[ ]` |
 
 **不走**：OpenClaw cron、微信同步 backlog。
 
@@ -15,11 +15,48 @@
 
 ## 1. 刘哥 → Mimir / Cursor（你编辑）
 
-### 2026-05-31 — Mimir 任务清单（Cursor 流量不足）
+### @Mimir 必读（固定 · 每轮任务前扫一眼）
 
-- **真源**：[`docs/MIMIR_TASK_QUEUE.md`](./MIMIR_TASK_QUEUE.md) — bridge/backlog/issues 未竟项合并；**Mimir 只认该文件 §2 第一条 `[ ]`**。
-- **含**：周常 eval/ok% · CLR-B 预检与刘哥飞书话术 · 智商冒烟 · **π-agent 只读学习 PI-L01～06**（`~/.openclaw/projects/pi-agent`）。
-- **Cursor**：继续 §20.1 / ISSUES 工程；勿与 Mimir 抢队列。
+> **刘哥授权**：按清单 **自驱、逐步** 完成；**禁止** 一轮吞完全部 backlog/bridge/issues。  
+> **真源**：[`docs/MIMIR_TASK_QUEUE.md`](./MIMIR_TASK_QUEUE.md)（`git pull` 后读；当前含 commit **bf7b706+**）。
+
+| 规则 | 内容 |
+|------|------|
+| **取任务** | **TASK_QUEUE §2 已无 `[ ]`（2026-06-01 闭合）** → 周常见该文档 **§6.1**；新粒认 backlog **§20.2** 或 bridge 本节新条 |
+| **停手** | 一次性粒已做完；周常做完 **bridge §4 一行** 即可，无需「继续下一粒」除非刘哥新派 |
+| **回报** | [`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) **§3.3**（子项 ID = 任务号，如 `M-WEEKLY-01`）+ 本文件 **§4 一行** |
+| **必读顺序** | `MIMIR_TASK_QUEUE.md` §0 → bridge 本节 → backlog §20.2（与清单冲突时以 **TASK_QUEUE §2** 为准） |
+| **轨 A 默认** | 运维、证据、只读学习（含 **π-agent** `~/.openclaw/projects/pi-agent`，**禁止**整库复制进 Mimir） |
+| **轨 B** | 改 `agent|gateway|tools|mimir_cli` 须本节刘哥 **另条** 授权或记 ISSUES → Cursor **§20.1** |
+| **禁止** | `git push` · 提交 `data/persistent.json` · 未恢复前做 **EV-VISION** / 生产开关擅自改 `.env` |
+
+**队列已闭合（2026-06-01 · 复制给 Mimir）**
+
+```text
+TASK_QUEUE §2/§3 已全部 [x]，勿再从头找 [ ]。
+本周若刘哥无新派：只跑周常三件套（M-WEEKLY-01 eval · 02 MW · 03 ok% 快照），各 bridge §4 一行。
+有新任务：等 bridge §1 或 backlog §20.2 新行；禁止 push · 禁止改 agent/gateway/tools。
+```
+
+**刘哥新派单粒（仍适用）**
+
+```text
+本轮只做 <任务ID>，§3.3 + bridge §4 一行，做完停。
+```
+
+**推荐顺序（心里谱，非一次做完）**：`M-WEEKLY-01→03` → `M-OPS-11` → 刘哥飞书 `M-OPS-10` → `M-IQ-02` / `M-EVO-12` → 有空 `PI-L01`（π 学习单独一轮）。
+
+---
+
+### 2026-06-01 — 刘哥拍板 · Mimir 主执行 / Cursor 复核
+
+- **契约**：[`MIMIR_PRIMARY_EXECUTOR.md`](./MIMIR_PRIMARY_EXECUTOR.md) — Mimir 做 **§9**（含写码）；Cursor **HANDOFF** 复核、commit/push、M6。
+- **队列**：[`MIMIR_TASK_QUEUE.md`](./MIMIR_TASK_QUEUE.md) **§9** — 当前首粒 **ENG-PI06-01**（测试 Harness）。
+- **§2/§3 运维+π 学习**：已 [x]；周常仍 **M-WEEKLY-01～03**。
+
+### 2026-05-31 — Mimir 任务清单（初版 · 已并入 §9）
+
+- 一次性运维/学习粒已闭合；工程改 **§9 主执行轨**。
 
 ### 2026-05-31 — 刘哥签收 · D5-ADR / ADR-008
 
@@ -206,9 +243,10 @@ Cursor **自行执行**（无需每轮再问）：
 已读 `docs/phase0/decision-ring-compressor-1c-spike.md`、`docs/phase0/iqevo-1c-boundary.md`、`docs/phase0/iqevo-1c-contract-draft.md`（GATE-D1～D3 [x]）。
 授权 Cursor 执行 IQ-EVO-43～45（1c 有界实现；env `MIMIR_AUTO_1C_POLICY` 默认关）。仍禁止：写/改 SKILL.md、替代 Top-3 `tuned_thresholds` 三键、无界改 `degeneration_guard.json` 源文件。
 
-### 2026-05-27 — @Mimir 必读（刘哥点名 · 每轮任务前扫一眼）
+### 2026-05-27 — @Mimir 必读（历史 · 进化链与环境）
 
-> **刘哥会让你 Read 本文件**；进化链与 Wave 7 状态以本节为准，**勿**用 §5 旧 PID/旧 main 代替。
+> **队列与一粒一停**：见上文 **「@Mimir 必读（固定）」** + [`MIMIR_TASK_QUEUE.md`](./MIMIR_TASK_QUEUE.md)。  
+> 下列为 **进化链 / env / Gateway** 背景；**勿**用 §5 旧 PID/旧 main 代替当前部署。
 
 | 项 | 真源 |
 |----|------|
