@@ -361,8 +361,8 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 | **ENG-WF-06** | 1 | 波次 1 closeout | Mimir | [x] ✅ |
 | **ENG-WF-10** | 2 | coverage_baseline.sh + baseline md | Mimir | [x] ✅ |
 | **ENG-WF-11** | 2 | 覆盖率 ratchet 文档（非 50% 悬崖） | Mimir | [x] ✅ |
-| **ENG-WF-12** | 2 | tool_registry cov ≥80% | Mimir | [ ] |
-| **ENG-WF-13** | 2 | search_first + credential 各 +3 测 | Mimir | [ ] |
+| **ENG-WF-12** | 2 | tool_registry cov ≥80% | Mimir | ⏭️ SKIP — 模块不存在 |
+| **ENG-WF-13** | 2 | search_first + credential 各 +3 测 | Mimir | [x] ✅ |
 | **ENG-WF-14** | 2 | 波次 2 closeout + 覆盖率对比 | Mimir | [ ] |
 | **ENG-WF-20** | 3 | 上下文三套 inventory（只读） | Mimir | [ ] |
 | **ENG-WF-21** | 3 | turn_loop 抽 1 函数 + 单测 | Mimir | [ ] |
