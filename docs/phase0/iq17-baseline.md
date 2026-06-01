@@ -63,4 +63,9 @@ MIMIR_FEISHU_SESSION_RETRY=1
 
 ## 6. IQ-M2 初值（search-first 违规率）
 
-本粒尚未跑 audit（IQ-15 执行）。SELF-13 baseline: **100%** filtered_violation_rate。
+SELF-13 baseline: **100%** filtered_violation_rate
+IQ-15（2026-06-01）: **100%** filtered_violation_rate（20/20）
+
+**原因**：审计脚本仅识别 `session_search` 显式 tool call，不识别 preemptive 注入。
+preemptive search 已被 SELF-11 实现为跨会话检索机制，但 audit 脚本尚未更新。
+IQ-M2 目标 ≤40% 需 audit 脚本补 preemptive 识别后达成。

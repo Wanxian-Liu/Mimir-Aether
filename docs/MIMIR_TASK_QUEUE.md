@@ -320,11 +320,11 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 || **IQ-05** | 1 | 拍板表 + 飞书 @刘哥 | [x] |
 || **IQ-06** | 1 | 同步 ISSUES #16/#17 | [x] |
 || **IQ-10** | 2 | A prompt 先搜再答 | [x] |
-| **IQ-11** | 2 | WM B1 VoE LEARNING | [ ] |
-| **IQ-12** | 2 | WM B2 RECALL | [ ] |
-| **IQ-13** | 2 | C AUTO_EVOLVE | [ ] |
-| **IQ-14** | 2 | 飞书冒烟 3 场景 | [ ] |
-| **IQ-15** | 2 | search_first 审计复跑 | [ ] |
+|| **IQ-11** | 2 | WM B1 VoE LEARNING | [x] |
+|| **IQ-12** | 2 | WM B2 RECALL | [ ] BLOCK: WM-Q2=每步问我+B1<3d, skip |
+|| **IQ-13** | 2 | C AUTO_EVOLVE | [x] |
+| **IQ-14** | 2 | 飞书冒烟 3 场景 | [ ] BLOCK: 需刘哥飞书发话 |
+| **IQ-15** | 2 | search_first 审计复跑 | [x] |
 | **IQ-20** | 3 | brain_metrics 观察 | [ ] |
 | **IQ-21** | 3 | evolution eval | [ ] |
 | **IQ-22** | 3 | WM 日志检查 | [ ] |
