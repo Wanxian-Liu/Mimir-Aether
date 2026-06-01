@@ -364,7 +364,7 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 | **ENG-WF-12** | 2 | tool_registry cov ≥80% | Mimir | ⏭️ SKIP — 模块不存在 |
 | **ENG-WF-13** | 2 | search_first + credential 各 +3 测 | Mimir | [x] ✅ |
 | **ENG-WF-14** | 2 | 波次 2 closeout + 覆盖率对比 | Mimir | [x] ✅ |
-| **ENG-WF-20** | 3 | 上下文三套 inventory（只读） | Mimir | [ ] |
+| **ENG-WF-20** | 3 | 上下文三套 inventory（只读） | Mimir | [x] ✅ |
 | **ENG-WF-21** | 3 | turn_loop 抽 1 函数 + 单测 | Mimir | [ ] |
 | **ENG-WF-22** | 3 | FauxLlm 再迁 2 测 | Mimir | [ ] |
 | **ENG-WF-90** | 4 | eng-wf-closeout + ENG-WF-M1～M6 | Mimir | [ ] |
