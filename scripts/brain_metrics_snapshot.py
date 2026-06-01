@@ -1,109 +1,165 @@
 #!/usr/bin/env python3
-"""Aggregate brain metrics → data/ops/brain-metrics-latest.json."""
+"""Capture a point-in-time snapshot of agent brain metrics.
 
-from __future__ import annotations
+Outputs to stdout (JSON) and optionally writes to data/ops/brain-metrics-latest.json.
+"""
 
 import json
 import os
-import subprocess
+import re
+import sqlite3
 import sys
-import urllib.request
+import time
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict
 
-_FAKE = frozenset({"crash_tool", "orphan_tool"})
-
-
-def _home() -> Path:
-    return Path(
-        os.environ.get("MIMIR_AETHER_HOME")
-        or os.environ.get("HERMES_HOME")
-        or Path.home() / ".mimiraether"
-    )
+MIMIR_HOME = Path(os.environ.get("MIMIR_AETHER_HOME", "~/.mimiraether")).expanduser()
+PERSISTENT = MIMIR_HOME / "data" / "persistent.json"
+OPS_DIR = MIMIR_HOME / "data" / "ops"
+AGENT_LOG = MIMIR_HOME / "logs" / "agent.log"
+TOOL_QUALITY_DB = MIMIR_HOME / "data" / "tool_quality.db"
 
 
-def _repo() -> Path:
-    return Path(os.environ.get("MIMIR_REPO_ROOT", Path(__file__).resolve().parents[1]))
-
-
-def _health(port: int = 18999) -> Dict[str, Any]:
+def read_json(path: Path) -> dict:
     try:
-        with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=5) as r:
-            return json.loads(r.read().decode())
-    except Exception as e:
-        return {"status": "error", "error": str(e)}
-
-
-def _monitor(home: Path) -> Dict[str, Any]:
-    path = home / "data" / "monitor_alerts.json"
-    if not path.is_file():
-        return {"total": 0, "real": 0, "fake_positive": 0, "real_error_rate": 0.0}
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(path.read_text())
     except (OSError, json.JSONDecodeError):
-        return {"total": 0, "real": 0, "fake_positive": 0, "real_error_rate": 0.0}
-    alerts = raw if isinstance(raw, list) else raw.get("alerts", [])
-    fake = real = 0
-    by_tool: Dict[str, int] = {}
-    for a in alerts:
-        if not isinstance(a, dict):
-            continue
-        tool = str(a.get("tool_name") or a.get("tool") or "unknown")
-        by_tool[tool] = by_tool.get(tool, 0) + 1
-        if tool in _FAKE:
-            fake += 1
-        else:
-            real += 1
-    total = fake + real
+        return {}
+
+
+def get_persistent_metrics() -> dict:
+    data = read_json(PERSISTENT)
     return {
-        "total": total,
-        "fake_positive": fake,
-        "real": real,
-        "real_error_rate": round(real / total, 4) if total else 0.0,
-        "by_tool": by_tool,
+        "session_count": data.get("session_count", 0),
+        "skill_usage_count": len(data.get("skill_usage", {})),
+        "memory_entries": len(data.get("memory", {})) if isinstance(data.get("memory"), dict) else 0,
+        "user_memory_entries": len(data.get("user", {})) if isinstance(data.get("user"), dict) else 0,
+        "key_decisions_count": len(data.get("key_decisions", [])),
+        "completed_milestones_count": len(data.get("completed_milestones", [])),
     }
 
 
-def _sub(script: Path, home: Path) -> Dict[str, Any]:
-    if not script.is_file():
-        return {"error": f"missing {script.name}"}
-    env = {**os.environ, "MIMIR_AETHER_HOME": str(home)}
-    p = subprocess.run(
-        [sys.executable, str(script)],
-        cwd=str(_repo()),
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
-    if p.returncode != 0:
-        return {"error": (p.stderr or p.stdout or "")[-500:]}
+def get_evolution_metrics() -> dict:
+    baseline = read_json(OPS_DIR / "iq-p3-baseline.json")
+    evo_7d = baseline.get("evolution_7d", {})
+    evo_all = baseline.get("evolution_7d_including_tests", {})
+    return {
+        "ok_pct_7d": evo_7d.get("ok_pct", None),
+        "ok_lines_7d": evo_7d.get("ok_lines", 0),
+        "total_lines_7d": evo_7d.get("lines", 0),
+        "unique_sessions_7d": evo_7d.get("unique_sessions", 0),
+        "ok_pct_all": evo_all.get("ok_pct", None),
+        "baseline_generated_at": baseline.get("generated_at", None),
+    }
+
+
+def get_context_metrics() -> dict:
+    ctx = read_json(OPS_DIR / "last_context_usage.json")
+    return {
+        "prompt_tokens": ctx.get("prompt_tokens"),
+        "total_tokens": ctx.get("total_tokens"),
+        "message_count": ctx.get("message_count"),
+        "threshold_tokens": ctx.get("threshold_tokens"),
+        "model": ctx.get("model", "unknown"),
+    }
+
+
+def get_tool_quality_metrics() -> dict:
+    if not TOOL_QUALITY_DB.is_file():
+        return {"error": "tool_quality.db not found"}
     try:
-        return json.loads(p.stdout.strip().splitlines()[-1])
-    except (json.JSONDecodeError, IndexError):
-        return {"stdout": p.stdout[-1000:]}
+        conn = sqlite3.connect(str(TOOL_QUALITY_DB))
+        cur = conn.execute(
+            "SELECT tool_name, CAST(success_count AS REAL) / MAX(total_calls, 1) AS rate "
+            "FROM tool_quality ORDER BY total_calls DESC LIMIT 10"
+        )
+        top_by_calls = [{"tool": r[0], "success_rate": r[1]} for r in cur.fetchall()]
+        conn.close()
+        return {"top_tools_by_calls": top_by_calls}
+    except sqlite3.Error as e:
+        return {"error": str(e)}
 
 
-def main() -> int:
-    home = _home()
-    repo = _repo()
-    payload = {
-        "health": _health(int(os.environ.get("MIMIR_PORT", "18999"))),
-        "monitor_alerts": _monitor(home),
-        "skill_usage": _sub(repo / "scripts" / "audit_skill_usage.py", home),
-        "evolution_ok": _sub(repo / "scripts" / "iq_p3_evolution_ok_baseline.py", home),
-        "env": {
-            "MIMIR_FEEDBACK_COLLECTOR": os.environ.get("MIMIR_FEEDBACK_COLLECTOR", ""),
-            "MIMIR_AUTO_EVOLVE": os.environ.get("MIMIR_AUTO_EVOLVE", ""),
-            "MIMIR_SKILL_ROUTE_NUDGE": os.environ.get("MIMIR_SKILL_ROUTE_NUDGE", "1"),
-        },
+def get_log_evolution_count() -> dict:
+    """Count evolution ok=0 vs ok=1 lines in agent.log (recent 14d)."""
+    if not AGENT_LOG.is_file():
+        return {"error": "agent.log not found"}
+    try:
+        text = AGENT_LOG.read_text(encoding="utf-8", errors="replace")
+        lines = text.splitlines()
+        evo_lines = [l for l in lines if "post_analysis evolution" in l]
+        ok_count = sum(1 for l in evo_lines if " ok=1" in l)
+        fail_count = sum(1 for l in evo_lines if " ok=0" in l)
+        return {
+            "evolution_lines_total": len(evo_lines),
+            "ok_count": ok_count,
+            "fail_count": fail_count,
+            "ok_pct": round(ok_count / max(len(evo_lines), 1) * 100, 1),
+            "log_tail_lines": len(lines),
+        }
+    except OSError as e:
+        return {"error": str(e)}
+
+
+def snapshot(out_path: Path = OPS_DIR / "brain-metrics-latest.json") -> dict:
+    result = {
+        "generated_at": time.time(),
+        "timestamp_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "persistent": get_persistent_metrics(),
+        "evolution": get_evolution_metrics(),
+        "evolution_log": get_log_evolution_count(),
+        "context": get_context_metrics(),
+        "tool_quality": get_tool_quality_metrics(),
     }
-    out = home / "data" / "ops" / "brain-metrics-latest.json"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(json.dumps({"ok": True, "path": str(out)}, ensure_ascii=False))
-    return 0
+
+    # Write to file
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n")
+
+    return result
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    data = snapshot()
+
+    # Print summary
+    p = data["persistent"]
+    e = data["evolution"]
+    el = data["evolution_log"]
+    ctx = data["context"]
+
+    print(f"{'='*55}")
+    print(f"  Brain Metrics Snapshot")
+    print(f"  {data['timestamp_utc']}")
+    print(f"{'='*55}")
+    print(f"\n📊 Persistent")
+    print(f"  Session count:          {p['session_count']}")
+    print(f"  Skill usage tracked:    {p['skill_usage_count']}")
+    print(f"  Memory entries:         {p['memory_entries']}")
+    print(f"  Key decisions:          {p['key_decisions_count']}")
+    print(f"  Completed milestones:   {p['completed_milestones_count']}")
+
+    print(f"\n🧠 Evolution")
+    print(f"  ok% (7d, test excl):    {e['ok_pct_7d']}%")
+    print(f"  ok lines / total:       {e['ok_lines_7d']}/{e['total_lines_7d']}")
+    print(f"  Unique sessions:        {e['unique_sessions_7d']}")
+
+    print(f"\n📝 Evolution Log (all time)")
+    print(f"  ok / fail / total:      {el['ok_count']}/{el['fail_count']}/{el['evolution_lines_total']}")
+    print(f"  ok% (log):              {el['ok_pct']}%")
+
+    print(f"\n💻 Context (last known)")
+    print(f"  Prompt tokens:          {ctx['prompt_tokens']}")
+    print(f"  Total tokens:           {ctx['total_tokens']}")
+    print(f"  Messages:               {ctx['message_count']}")
+    print(f"  Model:                  {ctx['model']}")
+
+    print(f"\n🔧 Tool Quality (top 5 by calls)")
+    tq = data.get("tool_quality", {})
+    if "error" in tq:
+        print(f"  Error: {tq['error']}")
+    else:
+        for t in tq.get("top_tools_by_calls", [])[:5]:
+            print(f"  {t['success_rate']*100:5.1f}%  {t['tool']}")
+
+    print(f"\nSaved: {OPS_DIR / 'brain-metrics-latest.json'}")
