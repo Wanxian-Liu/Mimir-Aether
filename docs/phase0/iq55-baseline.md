@@ -14,11 +14,14 @@
 
 | 指标 | 值 | 证据 |
 |------|:--:|------|
-| IQ（上次 rubric） | **5.2** | `iq17-closeout.md`（文档待 IQ55-00 刷新） |
+| IQ（上次 rubric） | **5.2** | `iq17-closeout.md`（文档已刷新 IQ55-00） |
 | search_first 原始违规率 | **90%** | `iqevo-31-search-first-audit.json` · 9 violations / 10 样本窗 |
 | search_first filtered | **80%** | 同上 `filtered_violation_rate` |
 | evolution_ledger | **4× planned** | `~/.mimiraether/data/evolution_ledger.json` · `outcome=planned` |
+| evolution ok% 7d | **50%** | `brain-metrics-latest.json`（11/22 行，2026-06-02T05:58Z 快照） |
 | brain_metrics 持久化 | **有** | `~/.mimiraether/data/ops/brain-metrics-latest.json` |
+| skill_view 7d | **0** | brain_metrics（25 sessions 扫描无调用） |
+| session_search 7d | **0** | brain_metrics（需改善） |
 | tool P95 | **91s** 🚩 | health R3（待 IQ55-12 画像刷新） |
 
 ## 刘哥生产 env（本日已执行）
