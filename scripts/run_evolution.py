@@ -265,5 +265,21 @@ if __name__ == "__main__":
                         help="扫描目录(相对于仓库根)")
     parser.add_argument("--dry-run", action="store_true",
                         help="只分析不执行")
+    parser.add_argument("--report", action="store_true",
+                        help="从 ledger 读取 ok% 报告（不执行演化）")
     args = parser.parse_args()
+
+    if args.report:
+        from agent.self_evolution.engine import SelfEvolutionEngine
+        engine = SelfEvolutionEngine(agent_dir=args.candidate_dir)
+        stats = engine.get_stats()
+        ledger = stats.get("ledger", {})
+        print(f"进化账本报告")
+        print(f"  总条目: {ledger.get('total_entries', 0)}")
+        print(f"  ok 计数: {ledger.get('ok_count', 0)}")
+        print(f"  回滚计数: {ledger.get('rolled_back_count', 0)}")
+        print(f"  ok%: {ledger.get('ok_pct', 'N/A')}")
+        import sys
+        sys.exit(0)
+
     main(args.candidate_dir, dry_run=args.dry_run)
