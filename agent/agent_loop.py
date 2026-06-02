@@ -652,8 +652,11 @@ class MimirAgentLoop:
         # Hit max turns
         logger.info("Agent hit max_turns (%d)", self.max_turns)
         self._close_pipeline(user_task)
+        # Nudge-only iterations should not count against budget.
+        _nudge_turns = intent_nudges + search_first_nudges
+        _effective_turns = max(1, self.max_turns - _nudge_turns)
         return AgentResult(
-            messages=messages, turns_used=self.max_turns,
+            messages=messages, turns_used=_effective_turns,
             finished_naturally=False, reasoning_per_turn=reasoning_per_turn,
             tool_errors=tool_errors,
         )

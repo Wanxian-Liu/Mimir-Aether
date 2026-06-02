@@ -100,7 +100,13 @@ def _messages_per_session() -> int:
 
 
 def _session_key_from_env() -> str:
-    """Resolve session_key for prefetch consume — align with gateway session context."""
+    """Resolve session_key for prefetch consume — env first, then gateway session context."""
+    # Check env vars first — fast, no imports, settable by tests/users.
+    for name in ("HERMES_SESSION_KEY", "MIMIR_SESSION_KEY"):
+        key = (os.environ.get(name) or "").strip()
+        if key:
+            return key
+    # Fall back to gateway session context
     try:
         from gateway.session_context import get_session_env
 
@@ -109,6 +115,7 @@ def _session_key_from_env() -> str:
             return key
     except Exception:
         pass
+    # Fall back to tools
     try:
         from tools.approval import get_current_session_key
 
@@ -117,10 +124,6 @@ def _session_key_from_env() -> str:
             return key
     except Exception:
         pass
-    for name in ("MIMIR_SESSION_KEY", "HERMES_SESSION_KEY"):
-        key = (os.environ.get(name) or "").strip()
-        if key:
-            return key
     return ""
 
 

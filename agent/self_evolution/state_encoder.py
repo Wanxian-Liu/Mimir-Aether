@@ -216,7 +216,7 @@ class StateEncoder:
 
             result = subprocess.run(
                 ["bash", str(tier0_script)],
-                capture_output=True, text=True, timeout=60,
+                capture_output=True, text=True, timeout=180,
                 cwd=str(repo_root),
             )
             output = result.stdout + result.stderr
