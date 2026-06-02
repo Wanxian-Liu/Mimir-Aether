@@ -13,8 +13,11 @@ SelfEvolutionEngine — JEPA Closed Loop for Code Self-Evolution
 这是JEPA框架从物理领域到代码架构领域的迁移验证。
 """
 
+import json
+import os
 import time
 import logging
+from pathlib import Path
 from typing import Dict, List, Optional, Any, Callable
 from dataclasses import dataclass, field
 
@@ -173,6 +176,18 @@ class SelfEvolutionEngine:
                 summary=f"所有 {len(plan.recommended_order)} 个文件都被阻塞（连续失败次数过多），"
                         f"IC违规: {len(plan.ic_violations)}",
             )
+            self._write_ledger_entry({
+                "timestamp": time.time(),
+                "cycle": self._cycle_count,
+                "ok": 0,
+                "status": "blocked",
+                "candidates": candidate_files,
+                "safe_files": 0,
+                "ic_violations": len(plan.ic_violations),
+                "recommended": plan.recommended_order[:3],
+                "elapsed_ms": (time.time() - t0) * 1000,
+                "reason": "all_files_blocked_by_memory_retry_limit",
+            })
             self._last_report = report
             return report
 
@@ -187,6 +202,17 @@ class SelfEvolutionEngine:
                 summary=f"无安全文件可改。IC违规 ({len(plan.ic_violations)}): "
                         f"{'; '.join(plan.ic_violations[:3])}",
             )
+            self._write_ledger_entry({
+                "timestamp": time.time(),
+                "cycle": self._cycle_count,
+                "ok": 0,
+                "status": "blocked",
+                "candidates": candidate_files,
+                "safe_files": 0,
+                "ic_violations": len(plan.ic_violations),
+                "elapsed_ms": (time.time() - t0) * 1000,
+                "reason": "no_safe_files_ic_violations",
+            })
             self._last_report = report
             return report
 
@@ -228,6 +254,17 @@ class SelfEvolutionEngine:
                 f"建议顺序: {' → '.join(plan.recommended_order[:5])}"
             ),
         )
+        self._write_ledger_entry({
+            "timestamp": time.time(),
+            "cycle": self._cycle_count,
+            "ok": 1 if record.outcome != "failed" else 0,
+            "status": report.status,
+            "candidates": candidate_files,
+            "safe_files": len(plan.safe_files),
+            "ic_violations": len(plan.ic_violations),
+            "elapsed_ms": (time.time() - t0) * 1000,
+            "reason": f"outcome={record.outcome}",
+        })
         self._last_report = report
         return report
 
@@ -237,14 +274,61 @@ class SelfEvolutionEngine:
 
     def get_stats(self) -> Dict[str, Any]:
         """获取引擎统计"""
+        ledger = self.read_ledger()
+        total = len(ledger)
+        ok_count = sum(1 for e in ledger if e.get("ok") == 1)
         return {
             "cycles": self._cycle_count,
             "memory": self.memory.get_stats(),
+            "ledger": {
+                "total_entries": total,
+                "ok_count": ok_count,
+                "ok_pct": round(ok_count / total * 100, 1) if total > 0 else None,
+            },
             "last_report": (
                 {"status": self._last_report.status, "summary": self._last_report.summary}
                 if self._last_report else None
             ),
         }
+
+    # ── 持久化账本 ──
+
+    @staticmethod
+    def _ledger_path() -> Path:
+        """标准账本路径: $MIMIR_AETHER_HOME/data/evolution_ledger.json"""
+        home = Path(os.environ.get(
+            "MIMIR_AETHER_HOME",
+            Path.home() / ".mimiraether",
+        ))
+        path = home / "data" / "evolution_ledger.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def _write_ledger_entry(self, entry: Dict[str, Any]) -> None:
+        """追加一条账目到 evolution_ledger.json"""
+        path = self._ledger_path()
+        ledger = []
+        if path.exists():
+            try:
+                ledger = json.loads(path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                ledger = []
+        if not isinstance(ledger, list):
+            ledger = []
+        ledger.append(entry)
+        path.write_text(json.dumps(ledger, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    @staticmethod
+    def read_ledger() -> List[Dict[str, Any]]:
+        """读取完整账本"""
+        path = SelfEvolutionEngine._ledger_path()
+        if not path.exists():
+            return []
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            return data if isinstance(data, list) else []
+        except (json.JSONDecodeError, OSError):
+            return []
 
 
 # ── Agent Loop 集成钩子 ──
