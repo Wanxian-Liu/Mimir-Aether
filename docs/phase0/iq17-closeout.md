@@ -1,5 +1,7 @@
 # IQ #17 Phase1 收官报告
 
+> **⚠️ 部分过时（2026-06-02）**：IQ-31～34 **已合** `a0dc323`；tier0 以 fresh `run_ralph_tier0.sh` 为准；**当前主链** → [`MIMIR_IQ55_ROADMAP.md`](../MIMIR_IQ55_ROADMAP.md) §14。勘误见 [`iq55-truth-refresh.md`](./iq55-truth-refresh.md)。
+
 > **生成**：2026-06-01 · **IQ 起点**：4.9/10 · **本链目标**：≥5.2/10
 
 ## 1. IQ-M1～M6 评估

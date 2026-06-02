@@ -2,10 +2,10 @@
 
 > **读者**：Mimir（主执行）· 刘哥（拍板/飞书）· Cursor（工程轨，本清单 **不含** §20.1 写码粒）  
 > **目的**：Cursor 流量不足时，Mimir 按 **单线第一条 `[ ]`** 自驱运维、证据与只读学习；避免 bridge/backlog/issues 三处真源漂移。  
-> **真源优先级**：**§11 IQ #17**（有可执行 `[ ]`）> **§12 ENG-WF**（全 [x] 则跳过）> **§13 MW 心愿单**（刘哥 2026-06-02 拍板）> **§10**（仅 SELF-LOOP `[ ]`）> §9 · §6.1 周常 > §2/§3 · backlog §20  
+> **真源优先级**：**§14 IQ-55**（当前主链）> §11/12/13（已收官）> **§10**（SELF-LOOP `[ ]`）> §9 · §6.1 周常 > §2/§3 · backlog §20  
 > **分工契约**：[`MIMIR_PRIMARY_EXECUTOR.md`](./MIMIR_PRIMARY_EXECUTOR.md)（Mimir 全做 · Cursor 只复核合 main）
 
-**最近更新**：2026-06-02 · **§12 ENG-WF 全 [x]** · 主链 → **§13 MW 心愿单**（Mimir 最想做的 6 项）
+**最近更新**：2026-06-02 · **§13 MW 全 [x]** · 主链 → **§14 IQ-55**（达 5.5：P0 搜索/进化/延迟 + P1 生产证据）
 
 ---
 
@@ -14,7 +14,7 @@
 ```text
 你是 Mimir 运维轨。本轮开始前必读（顺序）：
 
-0) mimir_iq17_run_next → §11；否则 mimir_eng_run_next → §12；否则 mimir_wish_run_next → §13
+0) mimir_iq55_run_next → §14；否则 mimir_iq17/eng/wish → §11/12/13（均已收官则 NONE）
 1) ~/.openclaw/workspace/CLAUDE.md — 行为准则（Think/Simplicity/Surgical/Goal-Driven）
 2) ~/src/MimirAether/AGENTS.md — 仓库 vs MIMIR_AETHER_HOME、Ralph、M6
 3) §11 或 §12 第一条 [ ] 的真源计划（IQ17_EXECUTION_PLAN 或 MIMIR_ENGINEERING_WORKFLOW.md）
@@ -393,7 +393,41 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 | **MW-90** | — | mw-wishlist-closeout | Mimir | [x] ✅ |
 | **§13 心愿单 全部 ✅** | | | | |
 
-**刘哥仅运维（不进 Mimir 代码粒）**：`MW-00` 后按 `mw-00-prod-env.md` 开 `MIMIR_WM_PREDICTOR=1` + gateway 重启。
+**刘哥仅运维（不进 Mimir 代码粒）**：`MW-00` 后按 `mw-00-prod-env.md` 开 `MIMIR_WM_PREDICTOR=1` + gateway 重启。→ **2026-06-02 已执行**（见 `iq55-baseline.md`）。
+
+---
+
+## 14. IQ-55 达成链（5.5 底线 · Mimir 主执行 · 2026-06-02）
+
+> **真源**：[`MIMIR_IQ55_ROADMAP.md`](./MIMIR_IQ55_ROADMAP.md) · [`MIMIR_IQ55_EXECUTION_WORKFLOW.md`](./MIMIR_IQ55_EXECUTION_WORKFLOW.md) · **下一粒**：`./scripts/mimir_iq55_run_next.sh --dry-run`  
+> **勘误**：[`phase0/iq55-truth-refresh.md`](./phase0/iq55-truth-refresh.md)（勿重复合 IQ-31～34 · 勿做 WM-B5）
+
+| ID | 波次 | 任务 | Owner | 状态 |
+|----|:----:|------|-------|------|
+| **IQ55-00** | 0 | 刷新 iq17-closeout / bridge 脚注（handoff 已合） | Mimir | [ ] |
+| **IQ55-01** | 0 | `iq55-baseline.md` 基线数字真源 | Mimir | [x] ✅ |
+| **IQ55-02** | 0 | 复跑 `search_first_audit.py` 记入 baseline | Mimir | [ ] |
+| **IQ55-03** | 0 | `brain_metrics_snapshot.py` → ops | Mimir | [ ] |
+| **IQ55-OPS-01** | 1 | `MIMIR_WM_PREDICTOR=1` + gateway 重启 | 刘哥/Cursor | [x] ✅ |
+| **IQ55-OPS-02** | 1 | （选开）`MIMIR_PARALLEL_TOOLS=1` | 刘哥 | [ ] |
+| **IQ55-OPS-03** | 1 | （选开）`MIMIR_NUDGE_INTERVAL=3` env | 刘哥/Cursor | [x] ✅ |
+| **IQ55-OPS-04** | 1 | 7d 后 ops closeout（WM/intent 日志） | Mimir | [ ] |
+| **IQ55-10** | 2 P0.1 | 搜索违规 ≤40%（10a～10e 子粒） | Mimir | [ ] |
+| **IQ55-11** | 2 P0.2 | 进化 ledger `applied`（11a～11e） | Mimir | [ ] |
+| **IQ55-12** | 2 P0.3 | 工具延迟画像（12a～12d；P95<10s=7.5） | Mimir | [ ] |
+| **IQ55-20** | 3 P1.1 | intent 生产 7d 证据 | Mimir | [ ] |
+| **IQ55-21** | 3 P1.2 | WM 生产证据（依赖 OPS-01） | Mimir | [ ] |
+| **IQ55-22** | 3 P1.3 | brain_metrics 周快照习惯 | Mimir | [ ] |
+| **IQ55-23** | 3 P1.4 | AUTO_ANALYSIS 闭环验 | Mimir | [ ] |
+| **IQ55-24** | 3 | MW-03 ToolDispatchContext 接线（可选） | Mimir | [ ] |
+| **IQ55-30** | 4 | 元认知 10+/周（6.5） | Mimir | [ ] |
+| **IQ55-40** | 4 | 记忆上限巡检（8.5） | Mimir | [ ] |
+| **IQ55-41** | 4 | IC 顾问真实场景复验 | Mimir | [ ] |
+| **IQ55-50** | 4 | 模型路由（7.5） | Mimir | [ ] |
+| **IQ55-60** | 4 | 跨会话意图 1 轮（8.5） | Mimir | [ ] |
+| **IQ55-90** | — | iq55-closeout + rubric 重评 | Mimir | [ ] |
+
+**长期 / 仍 BLOCK**：IQ-12 WM B2 · WM-B5 · EV-VISION · §10 SELF-LOOP 周报
 
 ---
 
@@ -401,6 +435,7 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-06-02 | §14 IQ-55 链 + `MIMIR_IQ55_ROADMAP.md` + `mimir_iq55_run_next.sh` · OPS-01 WM env 已开 |
 | 2026-06-02 | §13 MW 心愿单链 + `MIMIR_WISHLIST_WORKFLOW.md` + `mimir_wish_run_next.sh`（刘哥拍板 Mimir 六诉求） |
 | 2026-06-02 | IQ-14 [x] · CLR-B [x] · `iq17-feishu-smoke.md` + `clr-b-feishu-closeout.md`（Cursor 文档对齐） |
 | 2026-06-01 | §12 ENG-WF 工程工作流（`MIMIR_ENGINEERING_WORKFLOW.md` + `mimir_eng_run_next.sh`）· IQ 后默认主链 |

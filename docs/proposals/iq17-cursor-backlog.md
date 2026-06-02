@@ -30,13 +30,17 @@
 
 **建议**：Cursor 实现前先确认刘哥是否想要，或等 IQ-45 收官后作为 Horizon 下一阶段。
 
-## P3: 观察/运维
+## P3: 观察/运维 → **并入 §14 IQ-55**
 
-| ID | 说明 | 价值 |
-|----|------|:----:|
-| **IQ-M1** | 7d skill_view 计数（IQ-25 已加） | IQ-M1 证据 |
-| **IQ-M2** | search_first_audit 复跑 | IQ-M2 证据 |
-| **SELF-LOOP** | 每周周报（§10 唯一 `[ ]`） | 自律 |
+| ID | 说明 | 真源 |
+|----|------|------|
+| **IQ55-02/03** | search audit + brain_metrics 周快照 | [`MIMIR_IQ55_ROADMAP.md`](../MIMIR_IQ55_ROADMAP.md) |
+| **IQ55-OPS-04** | 7d WM/intent closeout | `iq55-ops-closeout.md`（待写） |
+| **SELF-LOOP** | 每周周报 | §10 |
+
+## P0/P1/P2（Mimir 自检 → IQ-55 粒）
+
+见 **§14**：IQ55-10（搜索≤40%）· IQ55-11（进化 applied）· IQ55-12（延迟画像）· IQ55-20～24 · IQ55-30～60 backlog。
 
 ## 不做
 
