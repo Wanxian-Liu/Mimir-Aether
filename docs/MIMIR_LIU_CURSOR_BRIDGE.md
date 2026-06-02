@@ -653,6 +653,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 || 2026-06-01 | **IQ17-DAY1B** | **Mimir** | IQ-25 done: brain_metrics 增 skill_view_7d(28 sessions, 0 calls). Wave 3 [x]. Next: IQ-30. |
 || 2026-06-02 | **IQ55-11e** | **Mimir** | 进化管道 closeout · 19 ledger 记录 (2 evolved/15 healthy/2 blocked) · `docs/phase0/iq55-p02-evolution-closeout.md` · §14 IQ55-11 全 [x] · NEXT: IQ55-12 工具延迟画像 |
 || 2026-06-02 | **IQ55-12** | **Mimir** | 工具延迟画像完成 · 35 tools profiled · 3 critical (mimir_ops 98.7s / terminal 85.0s / web_extract 67.6s) · 30/35 P95<10s · `data/ops/tool-latency-profile.json` · `docs/phase0/iq55-p03-tool-latency-root-cause.md` · NEXT: IQ55-90 closeout |
+|| 2026-06-02 | **IQ55-90** | **Mimir** | **§14 IQ-55 全线收官** · 16/16 [x] · 2 ⏸ runtime · 1 ⏭️ · rubric 5.2→5.6 (+0.1) · `docs/phase0/iq55-closeout.md` · NEXT: NONE（等 7d 自然经过后 OPS-04） |
 
 ## 5. Mimir 进度笔记
 

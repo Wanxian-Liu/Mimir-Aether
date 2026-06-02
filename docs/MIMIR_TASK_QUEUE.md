@@ -425,7 +425,7 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 | **IQ55-41** | 4 | IC 顾问真实场景复验 | Mimir | [ ] |
 | **IQ55-50** | 4 | 模型路由（7.5） | Mimir | [ ] |
 | **IQ55-60** | 4 | 跨会话意图 1 轮（8.5） | Mimir | [ ] |
-| **IQ55-90** | — | iq55-closeout + rubric 重评 | Mimir | [ ] |
+| **IQ55-90** | — | iq55-closeout + rubric 重评 | Mimir | [x] ✅ docs/phase0/iq55-closeout.md |
 
 **长期 / 仍 BLOCK**：IQ-12 WM B2 · WM-B5 · EV-VISION · §10 SELF-LOOP 周报
 
