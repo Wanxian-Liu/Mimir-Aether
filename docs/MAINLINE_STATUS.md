@@ -6,10 +6,10 @@
 | 字段 | 值 |
 |------|-----|
 | **最近更新** | 2026-06-02 |
-| **更新人** | Cursor（ENG-WF 复核 + IQ-14/CLR-B 文档） |
+| **更新人** | Mimir（loop 崩溃修复 + 并行路径预验证 + tier0 696+2 全绿） |
 | **仓库根（真源）** | `~/src/MimirAether` |
-| **可选校验** | `./run_ralph_tier0.sh`（门禁 **696+2**）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
-| **本轮摘要** | **§13 MW 心愿单**（Mimir 六诉求 · 刘哥拍板）· §12 ENG-WF 收官 · IQ-12 RECALL 仍暂缓 |
+| **可选校验** | `./run_ralph_tier0.sh`（门禁 **696+2** ✅）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
+| **本轮摘要** | **loop 崩溃紧急修复**：`asyncio.get_event_loop()` → `get_running_loop()` 3 文件 · `parallel_dispatcher.py` 条件 import 修复 · 并行路径 tool_errors.append + 预验证补齐 · tier0 696+2 全绿已 push |
 
 ---
 
