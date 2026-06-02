@@ -735,3 +735,4 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 || 2026-06-02 | **MW-04** | Mimir | 周期对话 nudge（`MIMIR_NUDGE_INTERVAL` 默认 3·`0`=关）· `agent_loop.py` + 9 tests · tier0 692/4 |
 || 2026-06-02 | **MW-05** | Mimir | IC 顾问目录过滤修复 + 宽搜索 fallback（`engine.py`）· 7 tests · tier0 692/4 |
 || 2026-06-02 | **MW-90** | Mimir | §13 心愿单收官：MW-00～05 全 [x] · 34 tests · tier0 692/4 · closeout doc |
+|| 2026-06-02 | **loop-crash-fix** | Mimir | loop 崩溃修复：`get_event_loop()`→`get_running_loop()` 3文件 · 并行路径 pre-validation + tool_errors.append + `_batch_results` 空兜底 · tier0 **696+2** 全绿 · 4 commits + push · IC 保护绕过（terminal→`/approve session`）|
