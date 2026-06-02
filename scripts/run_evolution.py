@@ -99,7 +99,8 @@ def _add_simple_docstring(file_path: str) -> Optional[str]:
 def write_safe_change(file_path: str) -> dict:
     """
     对 file_path 施安全微改。
-    返回 dict: {"outcome": "success" | "skipped" | "failed", "tier0": ...}
+    返回 dict: {"outcome": "success" | "skipped" | "rolled_back", "tier0": ...}
+    "rolled_back" 表示改动已写入但验证失败后回滚（语法错/tier0 失败/异常）。
     """
     logger.info("尝试安全微改: %s", file_path)
 
@@ -133,7 +134,7 @@ def write_safe_change(file_path: str) -> dict:
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write(original_content)
             os.remove(backup)
-            return {"outcome": "failed", "tier0": "not_run", "reason": f"syntax_error: {e}"}
+            return {"outcome": "rolled_back", "tier0": "not_run", "reason": f"syntax_error: {e}"}
 
         # 验证：tier0
         tier0_result = _run_tier0()
@@ -145,7 +146,7 @@ def write_safe_change(file_path: str) -> dict:
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write(original_content)
             os.remove(backup)
-            return {"outcome": "failed", "tier0": tier0_result["summary"], "reason": "tier0_failed"}
+            return {"outcome": "rolled_back", "tier0": tier0_result["summary"], "reason": "tier0_failed"}
 
     except Exception as e:
         # 异常时回滚
@@ -153,7 +154,7 @@ def write_safe_change(file_path: str) -> dict:
             f.write(original_content)
         if os.path.exists(backup):
             os.remove(backup)
-        return {"outcome": "failed", "tier0": "not_run", "reason": str(e)}
+        return {"outcome": "rolled_back", "tier0": "not_run", "reason": str(e)}
 
 
 def _run_tier0() -> dict:

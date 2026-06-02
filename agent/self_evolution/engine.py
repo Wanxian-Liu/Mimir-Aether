@@ -257,7 +257,7 @@ class SelfEvolutionEngine:
         self._write_ledger_entry({
             "timestamp": time.time(),
             "cycle": self._cycle_count,
-            "ok": 1 if record.outcome != "failed" else 0,
+            "ok": 1 if record.outcome in ("success", "planned") else 0,
             "status": report.status,
             "candidates": candidate_files,
             "safe_files": len(plan.safe_files),
@@ -277,12 +277,17 @@ class SelfEvolutionEngine:
         ledger = self.read_ledger()
         total = len(ledger)
         ok_count = sum(1 for e in ledger if e.get("ok") == 1)
+        rolled_back_count = sum(
+            1 for e in ledger
+            if e.get("reason", "").startswith("outcome=rolled_back")
+        )
         return {
             "cycles": self._cycle_count,
             "memory": self.memory.get_stats(),
             "ledger": {
                 "total_entries": total,
                 "ok_count": ok_count,
+                "rolled_back_count": rolled_back_count,
                 "ok_pct": round(ok_count / total * 100, 1) if total > 0 else None,
             },
             "last_report": (
