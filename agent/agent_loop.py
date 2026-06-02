@@ -594,9 +594,25 @@ class MimirAgentLoop:
                     )
                 ):
                     search_first_nudges += 1
+                    # Hard block: auto-execute preemptive search with search results.
+                    try:
+                        _q = (last_user_text(messages) or "")[:200].strip()
+                        _search_results = session_search_prefetch(_q, limit=3, session_limit=2) or []
+                        _total = len(_search_results)
+                        _sessions = len({x.get("session", "") for x in _search_results})
+                        _preemptive = (
+                            "[preemptive-search] Queried sessions."
+                            + "\nquery: " + str(_q[:120])
+                            + "\nmatches: " + str(_total) + ", sessions: " + str(_sessions)
+                            + "\nresults: " + json.dumps(_search_results, ensure_ascii=False)[:2000]
+                            + "\nUse these results to answer."
+                        )
+                        messages.append({"role": "user", "content": _preemptive})
+                    except Exception:
+                        pass
                     messages.append({"role": "user", "content": build_search_first_nudge()})
                     logger.warning(
-                        "[%s] turn %d: search-first guard nudge %d/%d",
+                        "[%s] turn %d: search-first guard hard-block %d/%d",
                         self.task_id[:8],
                         turn + 1,
                         search_first_nudges,
