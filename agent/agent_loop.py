@@ -449,6 +449,13 @@ class MimirAgentLoop:
                                 error_message=err_msg, duration_ms=telapsed * 1000,
                                 result_summary=str(tool_result)[:200],
                             )
+                            if not ok:
+                                tool_errors.append(ToolError(
+                                    turn=turn + 1, tool_name=tname,
+                                    arguments=str(raw_args)[:200],
+                                    error=err_msg or "Tool execution failed",
+                                    tool_result=str(tool_result)[:500],
+                                ))
                         except Exception:
                             pass
                         try:
