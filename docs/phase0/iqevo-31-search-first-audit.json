@@ -1,11 +1,11 @@
 {
   "ok": true,
   "sessions_dir": "/home/rayliu/.mimiraether/data/sessions",
-  "recall_candidates_total": 665,
+  "recall_candidates_total": 668,
   "sample_size": 10,
   "violations": 9,
   "violation_rate": 0.9,
-  "filtered_recall_candidates_total": 121,
+  "filtered_recall_candidates_total": 123,
   "filtered_sample_size": 10,
   "filtered_violations": 8,
   "filtered_violation_rate": 0.8,
@@ -117,6 +117,22 @@
       "filtered_in_scope": true
     },
     {
+      "session_file": "20260602_130040_282268a8.jsonl",
+      "user_snippet": "你看看是不是有很多之前的话你没看到，现在逐个发回来了，我说的是开始下一粒",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": null,
+      "filtered_in_scope": true
+    },
+    {
+      "session_file": "20260602_130040_282268a8.jsonl",
+      "user_snippet": "路径： ~/src/MimirAether/output/2026-06-02-MIMIR综合评估报告-给Mimir参考.md ​ ​报告核心结论（短版）：  综合评分：7.5/10，比上次+0.7  两个 P0 瓶颈： 进化 ledger",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": null,
+      "filtered_in_scope": true
+    },
+    {
       "session_file": "20260601_222855_205adbfa.jsonl",
       "user_snippet": "还记得我们上次关于 IQ 的决定吗",
       "search_first_ok": true,
@@ -150,22 +166,6 @@
     },
     {
       "session_file": "20260601_155410_e547d3c3.jsonl",
-      "user_snippet": "还记得任务么",
-      "search_first_ok": false,
-      "evidence": "no session_search before next user turn",
-      "exclude_reason": null,
-      "filtered_in_scope": true
-    },
-    {
-      "session_file": "20260601_155242_336e66d5.jsonl",
-      "user_snippet": "还记得任务么",
-      "search_first_ok": false,
-      "evidence": "no session_search before next user turn",
-      "exclude_reason": null,
-      "filtered_in_scope": true
-    },
-    {
-      "session_file": "20260601_154019_906ec148.jsonl",
       "user_snippet": "还记得任务么",
       "search_first_ok": false,
       "evidence": "no session_search before next user turn",

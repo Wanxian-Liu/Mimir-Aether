@@ -416,13 +416,13 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 | **IQ55-11** | 2 P0.2 | 进化 ledger `applied`（11a～11e） | Mimir | [x] ✅ 11e closeout docs/phase0/iq55-p02-evolution-closeout.md |
 | **IQ55-12** | 2 P0.3 | 工具延迟画像（12a～12d；P95<10s=7.5） | Mimir | [x] ✅ 12a-c done · `tool-latency-profile.json` · 12d deferred to 7.5 |
 | **IQ55-20** | 3 P1.1 | intent 生产 7d 证据 | Mimir | [ ] |
-| **IQ55-21** | 3 P1.2 | WM 生产证据（依赖 OPS-01） | Mimir | [ ] |
-| **IQ55-22** | 3 P1.3 | brain_metrics 周快照习惯 | Mimir | [ ] |
-| **IQ55-23** | 3 P1.4 | AUTO_ANALYSIS 闭环验 | Mimir | [ ] |
-| **IQ55-24** | 3 | MW-03 ToolDispatchContext 接线（可选） | Mimir | [ ] |
+|| **IQ55-21** | 3 P1.2 | WM 生产证据（依赖 OPS-01） | Mimir | [x] ✅ 43 wm_prediction 日志 · 2 need 类型 |
+|| **IQ55-22** | 3 P1.3 | brain_metrics 周快照习惯 | Mimir | [x] ✅ scripts/brain_metrics_snapshot.py 成功运行 |
+|| **IQ55-23** | 3 P1.4 | AUTO_ANALYSIS 闭环验 | Mimir | [x] ✅ ON · post_close_analysis 真实运行 · 4 applied 记录 · ⚠️ ASCII 编码 bug（\u2026）需后续修 |
+|| **IQ55-24** | 3 | MW-03 ToolDispatchContext 接线（可选） | Mimir | ⏭️ IC blocked（core 保护 · 可选粒） |
 | **IQ55-30** | 4 | 元认知 10+/周（6.5） | Mimir | [ ] |
 | **IQ55-40** | 4 | 记忆上限巡检（8.5） | Mimir | [ ] |
-| **IQ55-41** | 4 | IC 顾问真实场景复验 | Mimir | [ ] |
+|| **IQ55-41** | 4 | IC 顾问真实场景复验 | Mimir | [x] ✅ 7/7 tests PASS · wider search (prompts/ + blast_radius≤1) 已部署 · suggestion 不为空 |
 | **IQ55-50** | 4 | 模型路由（7.5） | Mimir | [ ] |
 | **IQ55-60** | 4 | 跨会话意图 1 轮（8.5） | Mimir | [ ] |
 | **IQ55-90** | — | iq55-closeout + rubric 重评 | Mimir | [x] ✅ docs/phase0/iq55-closeout.md |

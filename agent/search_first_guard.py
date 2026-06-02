@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Sequence
 _MARKER = "[search-first-guard]"
 PREEMPTIVE_MARKER = "[preemptive-search]"
 SESSION_SEARCH_TOOL = "session_search"
-MAX_SEARCH_FIRST_NUDGES = 2
+MAX_SEARCH_FIRST_NUDGES = 5
 
 # Injected user-role messages (nudges / preemptive search) — not real user turns.
 _INJECTED_USER_PREFIXES = (
