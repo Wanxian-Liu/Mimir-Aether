@@ -6,7 +6,7 @@
 
 | 项 | 值 |
 |----|-----|
-| `main` HEAD | `4f58b3d`（evolution ledger 写盘） |
+| `main` HEAD | `dfbd688`（IQ55-00 handoff 状态刷新） |
 | IQ-31～34 | 已合 `a0dc323` |
 | §12 ENG-WF / §13 MW | 队列全 [x] |
 
