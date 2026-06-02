@@ -452,6 +452,8 @@ class MimirAgentLoop:
                         _batch_results = await _parallel_dispatch_all(
                         _valid_norm, _executor, self.tool_dispatcher, self.task_id,
                     )
+                    else:
+                        _batch_results = []
                     for _br in _batch_results:
                         if _br is None:
                             continue
