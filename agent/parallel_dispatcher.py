@@ -9,6 +9,7 @@ Usage:
     results = await dispatcher.dispatch_all(tool_calls, loop, executor, tool_dispatcher)
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -46,17 +47,16 @@ def is_read_only(tool_name: str) -> bool:
 
 async def dispatch_all(
     tool_calls: List[Dict[str, Any]],
-    loop: "asyncio.AbstractEventLoop",
     executor: "concurrent.futures.ThreadPoolExecutor",
     tool_dispatcher: Callable[[str, dict, str], str],
     task_id: str = "",
 ) -> List[Any]:
     """Dispatch tool calls, running read-only tools in parallel.
 
+
     Args:
         tool_calls: List of normalized tool call dicts with keys:
                     id, type, function.name, function.arguments
-        loop: asyncio event loop
         executor: ThreadPoolExecutor for sync tool dispatcher
         tool_dispatcher: Callable[[tool_name, args, task_id], str]
         task_id: Session/task identifier for logging
@@ -85,7 +85,6 @@ async def dispatch_all(
 
     # --- Execute read-only tools in parallel ---
     if ro_indices:
-        import asyncio
         ro_specs = [(i, tool_calls[i]) for i in ro_indices]
 
         async def _run_one(idx: int, tc: dict) -> tuple:
@@ -96,7 +95,7 @@ async def dispatch_all(
                 args = json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
             except Exception:
                 args = {}
-            result = await loop.run_in_executor(
+            result = await asyncio.get_running_loop().run_in_executor(
                 executor,
                 lambda n=name, a=args, tid=tid: tool_dispatcher(n, a, tid),
             )
@@ -124,8 +123,7 @@ async def dispatch_all(
         except Exception:
             args = {}
         try:
-            import asyncio
-            result = await loop.run_in_executor(
+            result = await asyncio.get_running_loop().run_in_executor(
                 executor,
                 lambda n=name, a=args, tid=tid: tool_dispatcher(n, a, tid),
             )

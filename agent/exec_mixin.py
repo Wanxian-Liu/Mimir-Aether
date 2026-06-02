@@ -545,8 +545,7 @@ class ExecMixin:
                     func_name, arguments,
                     parent_agent=self,
                 )
-                loop = asyncio.get_event_loop()
-                result = await loop.run_in_executor(
+                result = await asyncio.get_running_loop().run_in_executor(
                     _tool_executor,
                     _dispatch_bound,
                 )

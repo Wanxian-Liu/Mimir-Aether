@@ -422,7 +422,7 @@ class MimirAgentLoop:
                 if os.environ.get("MIMIR_PARALLEL_TOOLS", "0") == "1":
                     from .parallel_dispatcher import dispatch_all as _parallel_dispatch_all
                     _batch_results = await _parallel_dispatch_all(
-                        normalized, loop, _executor, self.tool_dispatcher, self.task_id,
+                        normalized, _executor, self.tool_dispatcher, self.task_id,
                     )
                     for _br in _batch_results:
                         if _br is None:
@@ -494,7 +494,6 @@ class MimirAgentLoop:
 
                         try:
                             t0 = _time.monotonic()
-                            loop = asyncio.get_event_loop()
                             _tn, _ta, _tid = tname, args, self.task_id
                             from agent.tool_event_emitter import (
                                 emit_tool_execution_end,
@@ -504,7 +503,7 @@ class MimirAgentLoop:
                             emit_tool_execution_start(
                                 tname, args, session_id=self.task_id
                             )
-                            tool_result = await loop.run_in_executor(
+                            tool_result = await asyncio.get_running_loop().run_in_executor(
                                 _executor,
                                 lambda tn=_tn, ta=_ta, tid=_tid: self.tool_dispatcher(tn, ta, tid),
                             )
