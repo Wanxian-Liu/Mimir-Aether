@@ -404,7 +404,7 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 
 | ID | 波次 | 任务 | Owner | 状态 |
 |----|:----:|------|-------|------|
-| **IQ55-00** | 0 | 刷新 iq17-closeout / bridge 脚注（handoff 已合） | Mimir | [ ] |
+| **IQ55-00** | 0 | 刷新 iq17-closeout / bridge 脚注（handoff 已合） | Mimir | [x] ✅ |
 | **IQ55-01** | 0 | `iq55-baseline.md` 基线数字真源 | Mimir | [x] ✅ |
 | **IQ55-02** | 0 | 复跑 `search_first_audit.py` 记入 baseline | Mimir | [ ] |
 | **IQ55-03** | 0 | `brain_metrics_snapshot.py` → ops | Mimir | [ ] |
