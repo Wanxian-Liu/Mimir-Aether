@@ -92,6 +92,7 @@ class ClassifiedError:
     
     @property
     def is_auth(self) -> bool:
+        """function auto-docstring. """
         return self.reason in (FailoverReason.auth, FailoverReason.auth_permanent)
 
 
