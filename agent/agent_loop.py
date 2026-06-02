@@ -421,8 +421,36 @@ class MimirAgentLoop:
                 # ---- Parallel dispatch (env MIMIR_PARALLEL_TOOLS=1) ----
                 if os.environ.get("MIMIR_PARALLEL_TOOLS", "0") == "1":
                     from .parallel_dispatcher import dispatch_all as _parallel_dispatch_all
-                    _batch_results = await _parallel_dispatch_all(
-                        normalized, _executor, self.tool_dispatcher, self.task_id,
+                    # Pre-validate: filter unknown tools and bad JSON
+                    _valid_norm = []
+                    for _tc in normalized:
+                        _tname = _get_tc_name(_tc)
+                        _targs_raw = _get_tc_args(_tc)
+                        _tid = _get_tc_id(_tc)
+                        if _tname not in self.valid_tool_names:
+                            _tr = json.dumps({"error": f"Unknown tool '{_tname}'."})
+                            tool_errors.append(ToolError(
+                                turn=turn + 1, tool_name=_tname,
+                                arguments=str(_targs_raw)[:200],
+                                error=f"Unknown tool '{_tname}'", tool_result=_tr,
+                            ))
+                            messages.append({"role": "tool", "tool_call_id": _tid, "content": _tr})
+                            continue
+                        try:
+                            json.loads(_targs_raw) if isinstance(_targs_raw, str) else (_targs_raw or {})
+                        except json.JSONDecodeError as _e:
+                            _tr = json.dumps({"error": f"Invalid JSON: {_e}"})
+                            tool_errors.append(ToolError(
+                                turn=turn + 1, tool_name=_tname,
+                                arguments=str(_targs_raw)[:200],
+                                error=f"Invalid JSON: {_e}", tool_result=_tr,
+                            ))
+                            messages.append({"role": "tool", "tool_call_id": _tid, "content": _tr})
+                            continue
+                        _valid_norm.append(_tc)
+                    if _valid_norm:
+                        _batch_results = await _parallel_dispatch_all(
+                        _valid_norm, _executor, self.tool_dispatcher, self.task_id,
                     )
                     for _br in _batch_results:
                         if _br is None:
