@@ -650,7 +650,8 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 | 2026-06-01 | **WB-B00** | **Cursor** | WM Phase0 spike scope locked → `docs/phase0/wm-phase0-spike-scope.md` · next **WB-B01** predictor MVP |
 || 2026-05-31 | **WA-A06** | **Cursor** | search-first 加固：prompt 显式跨会话 MUST search · audit 排除 9 类假阳 · **filtered_violation_rate=100%**（10/10）· filtered_n=**102**/528 · tier0 **648 PASS** · M6 已记 |
 | 2026-06-01 | **IQ17-DAY1** | **Mimir** | IQ-20~24 观察窗：brain_metrics session=166 ok%=0%; evolution eval all pass; WM SURPRISE_DETECTED 旧; skill_view 7d 需 IQ-25; 下一粒 IQ-25 |
-| 2026-06-01 | **IQ17-DAY1B** | **Mimir** | IQ-25 done: brain_metrics 增 skill_view_7d(28 sessions, 0 calls). Wave 3 [x]. Next: IQ-30. |
+|| 2026-06-01 | **IQ17-DAY1B** | **Mimir** | IQ-25 done: brain_metrics 增 skill_view_7d(28 sessions, 0 calls). Wave 3 [x]. Next: IQ-30. |
+|| 2026-06-02 | **IQ55-11e** | **Mimir** | 进化管道 closeout · 19 ledger 记录 (2 evolved/15 healthy/2 blocked) · `docs/phase0/iq55-p02-evolution-closeout.md` · §14 IQ55-11 全 [x] · NEXT: IQ55-12 工具延迟画像 |
 
 ## 5. Mimir 进度笔记
 

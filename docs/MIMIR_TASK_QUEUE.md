@@ -413,7 +413,7 @@ bridge §4：HANDOFF ENG-PI06-01 ready · tier0=…
 | **IQ55-OPS-03** | 1 | （选开）`MIMIR_NUDGE_INTERVAL=3` env | 刘哥/Cursor | [x] ✅ |
 | **IQ55-OPS-04** | 1 | 7d 后 ops closeout（WM/intent 日志） | Mimir | [ ] |
 | **IQ55-10** | 2 P0.1 | 搜索违规 ≤40%（10a～10e 子粒） | Mimir | [10a-d ✅, 10e ⏸ runtime] |
-| **IQ55-11** | 2 P0.2 | 进化 ledger `applied`（11a～11e） | Mimir | [ ] |
+| **IQ55-11** | 2 P0.2 | 进化 ledger `applied`（11a～11e） | Mimir | [x] ✅ 11e closeout docs/phase0/iq55-p02-evolution-closeout.md |
 | **IQ55-12** | 2 P0.3 | 工具延迟画像（12a～12d；P95<10s=7.5） | Mimir | [ ] |
 | **IQ55-20** | 3 P1.1 | intent 生产 7d 证据 | Mimir | [ ] |
 | **IQ55-21** | 3 P1.2 | WM 生产证据（依赖 OPS-01） | Mimir | [ ] |
