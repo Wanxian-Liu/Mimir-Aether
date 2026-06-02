@@ -172,6 +172,7 @@ class TestCompileAndImport:
     """Ensure module compiles cleanly."""
 
     def test_compile(self):
+        """function auto-docstring. """
         import py_compile
         py_compile.compile("agent/skill_curator.py", doraise=True)
 
