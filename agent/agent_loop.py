@@ -56,6 +56,11 @@ from .skill_scenario_router import (
     should_inject_skill_route_nudge,
 )
 from .world_model_spike import is_wm_predictor_enabled, predict as wm_predict
+from .verify_before_report_guard import (
+    build_nudge_message as build_verify_nudge,
+    guard_enabled as verify_guard_enabled,
+    should_block_finish as should_block_verify_finish,
+)
 # 统一类型: 从 types.py 导入 (Phase 3 M1)
 from .types import AgentLoopToolError as ToolError, AgentLoopResult as AgentResult
 
@@ -671,6 +676,18 @@ class MimirAgentLoop:
                     logger.warning(
                         "[%s] turn %d: intent-action guard nudge %d/%d (deferred text-only)",
                         self.task_id[:8], turn + 1, intent_nudges, MAX_INTENT_NUDGES,
+                    )
+                    continue
+
+                # --- verify-before-report guard ---
+                if (
+                    verify_guard_enabled()
+                    and should_block_verify_finish(messages, content or "")
+                ):
+                    messages.append({"role": "user", "content": build_verify_nudge()})
+                    logger.warning(
+                        "[%s] turn %d: verify-before-report guard triggered",
+                        self.task_id[:8], turn + 1,
                     )
                     continue
 
