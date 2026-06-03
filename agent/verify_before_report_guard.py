@@ -31,8 +31,27 @@ def _last_user_text(messages: list[dict[str, Any]]) -> str:
     return ""
 
 
+def _has_verified_this_turn(messages: list[dict]) -> bool:
+    """检查本轮是否有调过验证工具"""
+    VERIFICATION_TOOLS = {"read_file", "search_files", "terminal", "git", "memory"}
+    for msg in reversed(messages):
+        if msg.get("role") == "assistant" and "tool_calls" in msg:
+            for tc in msg["tool_calls"]:
+                if tc.get("function", {}).get("name", "") in VERIFICATION_TOOLS:
+                    return True
+        if msg.get("role") == "user":
+            break
+    return False
+
+
 def should_block_finish(messages: list[dict[str, Any]], assistant_text: str) -> bool:
     if not guard_enabled():
+        return False
+    # 自引用豁免：讨论守卫本身时跳过
+    if "verify-before-report" in (assistant_text or "").lower():
+        return False
+    # 如果已调过验证工具 → 放行
+    if _has_verified_this_turn(messages):
         return False
     last_user = _last_user_text(messages)
     if last_user and any(p in last_user for p in STATUS_QUERY_PATTERNS):
