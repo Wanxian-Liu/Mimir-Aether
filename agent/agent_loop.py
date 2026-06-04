@@ -56,6 +56,7 @@ from .skill_scenario_router import (
     should_inject_skill_route_nudge,
 )
 from .world_model_spike import is_wm_predictor_enabled, predict as wm_predict
+from .wm_voe_learning import append_surprise_event
 from .verify_before_report_guard import (
     build_nudge_message as build_verify_nudge,
     guard_enabled as verify_guard_enabled,
@@ -201,6 +202,7 @@ class MimirAgentLoop:
         intent_nudges = 0
         search_first_nudges = 0
         tool_calls_so_far = 0
+        _wm_prediction_result = None  # for VoE surprise check
 
         for turn in range(self.max_turns):
             if self.interrupt_check():
@@ -312,6 +314,7 @@ class MimirAgentLoop:
                             f"  applicable_skills: {', '.join(_wm_pred.applicable_skills)}\n"
                             "</wm-prediction>"
                         )
+                        _wm_prediction_result = _wm_pred
                         messages.append({"role": "user", "content": _wm_block})
                         logger.info(
                             "[%s] turn %d: wm_prediction needs=%s",
@@ -619,6 +622,25 @@ class MimirAgentLoop:
                     self.task_id[:8], turn + 1, api_elapsed,
                     len(_tool_calls), turn_elapsed,
                 )
+                # --- VoE surprise check: compare WM prediction vs actual tools ---
+                if _wm_prediction_result is not None and _tool_calls:
+                    _predicted_skills = set(s.lower() for s in (_wm_prediction_result.applicable_skills or []))
+                    _actual_tools = set()
+                    for _tc_node in (normalized if isinstance(normalized, list) else (_tool_calls or [])):
+                        _tname = (_tc_node.get("function", {}).get("name", "") if isinstance(_tc_node, dict) else str(_tc_node)).lower()
+                        if _tname:
+                            _actual_tools.add(_tname)
+                    if _predicted_skills and _actual_tools:
+                        if not (_predicted_skills & _actual_tools):
+                            try:
+                                append_surprise_event(
+                                    triggered_at=_time.time(),
+                                    session_id=self.task_id,
+                                    context="wm_prediction_mismatch",
+                                    reason=f"predicted={_predicted_skills}, actual={_actual_tools}",
+                                )
+                            except Exception:
+                                pass
             else:
                 # No tool calls — finish unless intent-action guard blocks deferral.
                 msg_dict = {"role": "assistant", "content": content or ""}
