@@ -47,8 +47,9 @@ def _has_verified_this_turn(messages: list[dict]) -> bool:
 def should_block_finish(messages: list[dict[str, Any]], assistant_text: str) -> bool:
     if not guard_enabled():
         return False
-    # 自引用豁免：讨论守卫本身时跳过
-    if "verify-before-report" in (assistant_text or "").lower():
+    # 自引用豁免：讨论守卫本身时跳过（含中文/英文关键词）
+    text_lower = (assistant_text or "").lower()
+    if any(kw in text_lower for kw in ["verify-before-report", "守卫", "before-report", "before_report"]):
         return False
     # 如果已调过验证工具 → 放行
     if _has_verified_this_turn(messages):
