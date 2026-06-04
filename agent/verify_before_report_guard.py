@@ -31,9 +31,9 @@ def _last_user_text(messages: list[dict[str, Any]]) -> str:
     return ""
 
 
-def _has_verified_this_turn(messages: list[dict]) -> bool:
+def _has_verified_this_turn(messages: list[dict[str, Any]]) -> bool:
     """检查本轮是否有调过验证工具"""
-    VERIFICATION_TOOLS = {"read_file", "search_files", "terminal", "git", "memory"}
+    VERIFICATION_TOOLS = {"read_file", "search_files", "terminal", "git", "memory", "mimir_ops", "get_env"}
     for msg in reversed(messages):
         if msg.get("role") == "assistant" and "tool_calls" in msg:
             for tc in msg["tool_calls"]:
