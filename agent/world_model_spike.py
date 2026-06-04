@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import re
+from collections import deque
 from dataclasses import dataclass
 from typing import Any
 
@@ -35,6 +36,92 @@ _INTENT_SKILLS: dict[str, tuple[str, ...]] = {
     "chat": (),
     "general": ("read_file",),
 }
+
+# --- Diversity check: detect prediction collapse (LeWM SIGReg inspiration) ---
+_COLLAPSE_WINDOW = 10
+_recent_intents: deque = deque(maxlen=_COLLAPSE_WINDOW)
+
+
+def is_diversity_check_enabled() -> bool:
+    return os.environ.get("MIMIR_WM_DIVERSITY_CHECK", "0").strip().lower() not in (
+        "0",
+        "false",
+        "no",
+    )
+
+
+def _record_prediction(intent: str) -> None:
+    """Record a prediction intent for collapse detection."""
+    if is_diversity_check_enabled():
+        _recent_intents.append(intent)
+
+
+def is_collapsed() -> bool:
+    """Check if the last N predictions all have the same intent.
+
+    When collapsed, the predictor is stuck in a rut — every prediction
+    produces the same intent triplet. This mirrors LeWM's SIGReg
+    objective of preventing representation collapse.
+    """
+    if len(_recent_intents) < _COLLAPSE_WINDOW:
+        return False
+    first = _recent_intents[0]
+    return all(i == first for i in _recent_intents)
+
+
+def reset_collapse_history() -> None:
+    """For testing: clear the ring buffer."""
+    _recent_intents.clear()
+
+
+# --- Tool hit rate: measure prediction accuracy against real tool calls ---
+_PREDICTION_ACCURACY_TOOLS = frozenset({
+    "read_file", "search_files", "terminal", "web_search", "web_extract",
+    "write_file", "patch", "memory", "skill_view", "git",
+})
+
+
+def compute_prediction_accuracy(
+    predictions: list[dict],
+    actual_tool_calls: list[str],
+) -> dict:
+    """Compare predicted applicable_skills to actual tool calls.
+
+    Args:
+        predictions: list of {"applicable_skills": [...], ...} from <wm-prediction> blocks.
+        actual_tool_calls: flat list of tool names actually invoked.
+
+    Returns:
+        {"precision": float, "recall": float, "f1": float, "top_k_hits": int, "samples": int}
+    """
+    if not predictions or not actual_tool_calls:
+        return {"precision": 0.0, "recall": 0.0, "f1": 0.0, "top_k_hits": 0, "samples": 0}
+
+    # Flatten all predicted skills
+    predicted = set()
+    for p in predictions:
+        for s in p.get("applicable_skills") or []:
+            if s in _PREDICTION_ACCURACY_TOOLS:
+                predicted.add(s)
+
+    actual = {t for t in actual_tool_calls if t in _PREDICTION_ACCURACY_TOOLS}
+
+    if not predicted and not actual:
+        return {"precision": 1.0, "recall": 1.0, "f1": 1.0, "top_k_hits": 0, "samples": len(predictions)}
+
+    true_positives = predicted & actual
+    precision = len(true_positives) / len(predicted) if predicted else 0.0
+    recall = len(true_positives) / len(actual) if actual else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+
+    return {
+        "precision": round(precision, 3),
+        "recall": round(recall, 3),
+        "f1": round(f1, 3),
+        "top_k_hits": len(true_positives),
+        "samples": len(predictions),
+    }
+
 
 _DEFAULT_OUTCOME = (
     "No actionable context; respond with clarification or a safe conservative default."
@@ -108,6 +195,8 @@ def predict(context_snapshot: dict) -> Prediction:
 
     if not user_message and not objective and intent == "general":
         return _default_prediction()
+
+    _record_prediction(intent)
 
     needs = list(_INTENT_NEEDS.get(intent, _INTENT_NEEDS["general"]))
     skills = list(_INTENT_SKILLS.get(intent, _INTENT_SKILLS["general"]))
