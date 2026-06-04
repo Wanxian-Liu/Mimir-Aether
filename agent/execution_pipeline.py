@@ -51,6 +51,48 @@ from .conversation_formatter import format_trajectory_for_analysis
 if TYPE_CHECKING:
     pass
 
+# ── Raw log sink for compute_prediction_accuracy() ──
+
+_RAW_LOG_PATH: Optional[Path] = None
+
+
+def _get_raw_log_path() -> Path:
+    global _RAW_LOG_PATH
+    if _RAW_LOG_PATH is None:
+        try:
+            from .mimir_constants import get_mimir_data_dir
+            _RAW_LOG_PATH = get_mimir_data_dir() / "raw_session_logs.jsonl"
+        except Exception:
+            _RAW_LOG_PATH = Path(
+                os.environ.get("MIMIR_AETHER_HOME", os.path.expanduser("~/.mimiraether"))
+            ) / "data" / "raw_session_logs.jsonl"
+    return _RAW_LOG_PATH
+
+
+def _write_raw_log(
+    tool_name: str,
+    duration_ms: float,
+    success: bool,
+    error_message: str,
+    session_id: str,
+) -> None:
+    from datetime import datetime, timezone
+
+    path = _get_raw_log_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    record = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "session_id": session_id or "unknown",
+        "tool": tool_name,
+        "duration": round(duration_ms / 1000, 3),
+        "status": "success" if success else "error",
+        "tokens": 0,
+        "model": "unknown",
+        "error": error_message or "",
+    }
+    with open(str(path), "a") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
 
 def record_tool_call(
     tool_name: str,
@@ -107,6 +149,11 @@ def record_tool_call(
             error_message=error_message,
             session_id=sid,
         )
+    except Exception:
+        pass
+
+    try:
+        _write_raw_log(tool_name, duration_ms, success, error_message, sid)
     except Exception:
         pass
 
