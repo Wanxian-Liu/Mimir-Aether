@@ -87,12 +87,12 @@ def test_block_text_only_empty_content(monkeypatch):
     )
 
 
-def test_satisfied_by_preemptive_marker(monkeypatch):
-    """Preemptive-search marker satisfies 'satisfied since last user'."""
+def test_satisfied_by_search_first_marker(monkeypatch):
+    """SEARCH-FIRST-RESULTS marker satisfies 'satisfied since last user'."""
     monkeypatch.setenv("MIMIR_SEARCH_FIRST_GUARD", "1")
     messages = [
         {"role": "user", "content": "查历史 IR-99"},
-        {"role": "user", "content": "[preemptive-search] Queried sessions."},
+        {"role": "user", "content": "[SEARCH-FIRST-RESULTS] Queried sessions."},
     ]
     assert session_search_satisfied_since_last_user(messages)
     assert block_tool_reason("read_file", messages) is None
@@ -101,7 +101,7 @@ def test_satisfied_by_preemptive_marker(monkeypatch):
 def test_injected_message_prefixes():
     """All injected prefixes are recognized."""
     assert _is_injected_user_message("[search-first-guard] call session_search")
-    assert _is_injected_user_message("[preemptive-search] found 2 results")
+    assert _is_injected_user_message("[SEARCH-FIRST-RESULTS] found 2 results")
     assert _is_injected_user_message("[intent-action-guard] use tools")
     assert not _is_injected_user_message("正常的用户消息")
 
