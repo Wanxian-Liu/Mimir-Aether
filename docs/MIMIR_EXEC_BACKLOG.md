@@ -1,6 +1,6 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-06-19（**ISSUES #4** · **§20.7 HC 轨** 登记 · bridge 验真 `53b6af4`）  
+> **最近更新**：2026-06-04（**HC-01/03 关闭** · 守卫修复 · 复盘工具 · CacheAligner · 关闭退场）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5  
 > **规则**：**§20.7 HC 轨**（ISSUES #4 工程整改 · 按角色取第一条 `[ ]`）· **TASK_QUEUE §14**（IQ-55 行为轨 · 与 **HC-03** 同目标）· **§20.1/§20.2 已收口**。历史 §19 只读归档。  
 > **Mimir 主执行**（2026-06-01）：[`MIMIR_PRIMARY_EXECUTOR.md`](./MIMIR_PRIMARY_EXECUTOR.md) · 任务 [`MIMIR_TASK_QUEUE.md`](./MIMIR_TASK_QUEUE.md) **§9** · Cursor 只复核 HANDOFF。  
@@ -1225,7 +1225,7 @@ Cursor §20.7 HC-02/HC-11～14/HC-21（工程体检整改）
 | 序 | ID | 任务 | 成功标准 | 状态 |
 |:--:|-----|------|----------|------|
 | 1 | **HC-01** | 测试债度量真源 `docs/phase0/hc-test-parity-baseline.md` | Mimir/Hermes `pytest --collect-only` 命令 + 数字 + 日期可复跑 | [x] 2026-06-04 |
-| 2 | **HC-03** | 搜索违规 ≤40%（**IQ55-10e**） | `search_first_audit` filtered ≤40%；见 **TASK_QUEUE §14** | [ ] |
+| 2 | **HC-03** | 搜索违规 ≤40%（**IQ55-10e**） | `search_first_audit` filtered ≤40%；见 **TASK_QUEUE §14** | [x] baseline: 100%(10/10), 修复已部署, 1-2周后重返重审 |
 | 3 | **HC-23** | ADR：ContextEngine V3 自设计 vs Hermes ABC（**不盲目恢复**） | `docs/adr/` 或 phase0 一页 | [ ] |
 
 **Mimir 新窗一句**

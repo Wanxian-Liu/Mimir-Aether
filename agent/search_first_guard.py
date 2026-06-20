@@ -67,6 +67,8 @@ def exclude_user_message(content: str) -> str:
         return "same_session_recall"
     if re.search(r"在(?:做|这个|那个|处理|搞|写|改|修|开发|实现).*之前", text, re.I):
         return "temporal_before_preposition"
+    if re.search(r"之前(?:我们决定|我们(?:开启|添加|修改|创建)了)", text, re.I):
+        return "recent_decision"
     if re.match(r"继续(?:离席|入库|执行|推进|做|检查)", text):
         return "task_continuation"
     if re.search(r"(之前(?:所有)?给你发的|深度思考一遍.*之前)", text, re.I):
