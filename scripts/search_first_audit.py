@@ -24,7 +24,7 @@ from mimir_constants import get_mimir_home
 
 TOOL_CALL_RE = re.compile(r'"name"\s*:\s*"session_search"|session_search\s*\(')
 _SEARCH_FIRST_MARKER = "[search-first-guard]"
-_PREEMPTIVE_MARKER = "[preemptive-search]"
+_PREEMPTIVE_MARKER = "[SEARCH-FIRST-RESULTS]"
 
 
 @dataclass

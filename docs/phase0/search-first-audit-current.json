@@ -1,0 +1,176 @@
+{
+  "ok": true,
+  "sessions_dir": "/home/rayliu/.mimiraether/data/sessions",
+  "recall_candidates_total": 84,
+  "sample_size": 10,
+  "violations": 10,
+  "violation_rate": 1.0,
+  "filtered_recall_candidates_total": 9,
+  "filtered_sample_size": 10,
+  "filtered_violations": 9,
+  "filtered_violation_rate": 0.9,
+  "rows": [
+    {
+      "session_file": "20260620_173906_69d27c0b.jsonl",
+      "user_snippet": "现在我不知道刚刚的错误对我们造成了多大的影响。你之前的三问呢，包括自进化、自完善，所有这些功能有没有毁灭性的打击？特别是像一些错误率啊等等，既然发生这件事情了，你能对自己做一个每一个模块对照 B、A、C、K、L、O、G 或者是 G I T 进行一个摸底和深度调研。呃，正好看看还有什么任务没做，或者是哪一些地方的 bug 需要紧急修复，或者是有改变的需要重新恢复的",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "no session_search before next user turn",
+      "filtered_in_scope": true
+    },
+    {
+      "session_file": "20260620_173906_69d27c0b.jsonl",
+      "user_snippet": "我可以直接授权你跑一次，之前你都是可以给我发授权信息的/approve session像这个，你现在发不了了吗？这个功能消失了？还是不一样的性，功能",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "no session_search before next user turn",
+      "filtered_in_scope": true
+    },
+    {
+      "session_file": "20260620_173906_69d27c0b.jsonl",
+      "user_snippet": "我给你证据，以下是之前任务你发给我的，然后就是为什么你回话这么慢\n\n⚠️ **Dangerous command requires approval:**\n```\ncat ~/.mimiraether/data/evolution_ledger.json 2>/dev/null | python3 -m json.tool 2>/dev/null | tail -40 || echo \"NO_LE",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "no session_search before next user turn",
+      "filtered_in_scope": true
+    },
+    {
+      "session_file": "20260620_173906_69d27c0b.jsonl",
+      "user_snippet": "WM 不可能没有代码，你到 BAC k 里去找克立的任务清单里边带 WM 的，了解一下我们曾经做过的事情。在 Bridge 里也有，看看是不是我们没有发现它的代码在哪？而不是一点没有写",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "no session_search before next user turn",
+      "filtered_in_scope": true
+    },
+    {
+      "session_file": "20260620_173906_69d27c0b.jsonl",
+      "user_snippet": "现在就是防止各种的宕机，改正错误。你自己对自己来来一个自查，不要一口气全都自查，一个模块一个模块地去做，你先选择一个方向。自查之后，我们再进行三问，然后看一看哪个方向哪一块、哪一点需要我们进行完善，我们一天做完一点点，但还是围绕自伤。元认知和自进化，这三大主方向。包括工具，如何产做新的工具，如何迭代老的工具。如何调用老的工具，这都是你需要完善的",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "no session_search before next user turn",
+      "filtered_in_scope": true
+    },
+    {
+      "session_file": "20260620_173906_69d27c0b.jsonl",
+      "user_snippet": "你先用三问。来想出最终的解决办法，因为之前我们决定开启的守卫的时候。是为了解决一个问题，但现在问题没解决，又多出了一个问题。那我们再做的话。的目的是解决两个问题，那这两个问题如何真正做到解决？你好好想一想",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "no session_search before next user turn",
+      "filtered_in_scope": true
+    },
+    {
+      "session_file": "20260620_173906_69d27c0b.jsonl",
+      "user_snippet": "我现在没在电脑旁边。我可以委托别的智能体去改。但在做这个事之前，如存不存在我授权你自己去改？如果授权做不到，你可以把你的命令给我，但是给命令的时候要说清楚就可以，好让别的智能体知道怎么改",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "no session_search before next user turn",
+      "filtered_in_scope": true
+    },
+    {
+      "session_file": "20260620_173906_69d27c0b.jsonl",
+      "user_snippet": "先继续聊。那在之前设计的时候，我们一直告诉我是 GEPA，是可以在 CPU 上运营的世界模型。是我们有什么误区吗？还是说我们做过这个？你看看自己代码库里有没有 GEPA？如果没有，我们能不能用 GEPA 做一个小模型，放在 CPU 上？",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "no session_search before next user turn",
+      "filtered_in_scope": true
+    },
+    {
+      "session_file": "20260620_173906_69d27c0b.jsonl",
+      "user_snippet": "我的意思是，刚才你看了一下 Hermes，你也做了一定的总结。你用三问的方式重新看一遍，你对 Hermes 做的方案，我们的学习方案有没有值得做的？",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "no session_search before next user turn",
+      "filtered_in_scope": true
+    },
+    {
+      "session_file": "20260620_173906_69d27c0b.jsonl",
+      "user_snippet": "你调用 Season search 了吗？你的违规率刚才通过刚才能够证明。呃，不再违规了吗",
+      "search_first_ok": true,
+      "evidence": "found preemptive search",
+      "exclude_reason": null,
+      "filtered_in_scope": true
+    }
+  ],
+  "filtered_rows": [
+    {
+      "session_file": "20260620_173906_69d27c0b.jsonl",
+      "user_snippet": "现在我不知道刚刚的错误对我们造成了多大的影响。你之前的三问呢，包括自进化、自完善，所有这些功能有没有毁灭性的打击？特别是像一些错误率啊等等，既然发生这件事情了，你能对自己做一个每一个模块对照 B、A、C、K、L、O、G 或者是 G I T 进行一个摸底和深度调研。呃，正好看看还有什么任务没做，或者是哪一些地方的 bug 需要紧急修复，或者是有改变的需要重新恢复的",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "no session_search before next user turn",
+      "filtered_in_scope": true
+    },
+    {
+      "session_file": "20260620_173906_69d27c0b.jsonl",
+      "user_snippet": "我可以直接授权你跑一次，之前你都是可以给我发授权信息的/approve session像这个，你现在发不了了吗？这个功能消失了？还是不一样的性，功能",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "no session_search before next user turn",
+      "filtered_in_scope": true
+    },
+    {
+      "session_file": "20260620_173906_69d27c0b.jsonl",
+      "user_snippet": "我给你证据，以下是之前任务你发给我的，然后就是为什么你回话这么慢\n\n⚠️ **Dangerous command requires approval:**\n```\ncat ~/.mimiraether/data/evolution_ledger.json 2>/dev/null | python3 -m json.tool 2>/dev/null | tail -40 || echo \"NO_LE",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "no session_search before next user turn",
+      "filtered_in_scope": true
+    },
+    {
+      "session_file": "20260620_173906_69d27c0b.jsonl",
+      "user_snippet": "WM 不可能没有代码，你到 BAC k 里去找克立的任务清单里边带 WM 的，了解一下我们曾经做过的事情。在 Bridge 里也有，看看是不是我们没有发现它的代码在哪？而不是一点没有写",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "no session_search before next user turn",
+      "filtered_in_scope": true
+    },
+    {
+      "session_file": "20260620_173906_69d27c0b.jsonl",
+      "user_snippet": "现在就是防止各种的宕机，改正错误。你自己对自己来来一个自查，不要一口气全都自查，一个模块一个模块地去做，你先选择一个方向。自查之后，我们再进行三问，然后看一看哪个方向哪一块、哪一点需要我们进行完善，我们一天做完一点点，但还是围绕自伤。元认知和自进化，这三大主方向。包括工具，如何产做新的工具，如何迭代老的工具。如何调用老的工具，这都是你需要完善的",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "no session_search before next user turn",
+      "filtered_in_scope": true
+    },
+    {
+      "session_file": "20260620_173906_69d27c0b.jsonl",
+      "user_snippet": "你先用三问。来想出最终的解决办法，因为之前我们决定开启的守卫的时候。是为了解决一个问题，但现在问题没解决，又多出了一个问题。那我们再做的话。的目的是解决两个问题，那这两个问题如何真正做到解决？你好好想一想",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "no session_search before next user turn",
+      "filtered_in_scope": true
+    },
+    {
+      "session_file": "20260620_173906_69d27c0b.jsonl",
+      "user_snippet": "我现在没在电脑旁边。我可以委托别的智能体去改。但在做这个事之前，如存不存在我授权你自己去改？如果授权做不到，你可以把你的命令给我，但是给命令的时候要说清楚就可以，好让别的智能体知道怎么改",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "no session_search before next user turn",
+      "filtered_in_scope": true
+    },
+    {
+      "session_file": "20260620_173906_69d27c0b.jsonl",
+      "user_snippet": "先继续聊。那在之前设计的时候，我们一直告诉我是 GEPA，是可以在 CPU 上运营的世界模型。是我们有什么误区吗？还是说我们做过这个？你看看自己代码库里有没有 GEPA？如果没有，我们能不能用 GEPA 做一个小模型，放在 CPU 上？",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "no session_search before next user turn",
+      "filtered_in_scope": true
+    },
+    {
+      "session_file": "20260620_173906_69d27c0b.jsonl",
+      "user_snippet": "我的意思是，刚才你看了一下 Hermes，你也做了一定的总结。你用三问的方式重新看一遍，你对 Hermes 做的方案，我们的学习方案有没有值得做的？",
+      "search_first_ok": false,
+      "evidence": "no session_search before next user turn",
+      "exclude_reason": "no session_search before next user turn",
+      "filtered_in_scope": true
+    },
+    {
+      "session_file": "20260620_173906_69d27c0b.jsonl",
+      "user_snippet": "你调用 Season search 了吗？你的违规率刚才通过刚才能够证明。呃，不再违规了吗",
+      "search_first_ok": true,
+      "evidence": "found preemptive search",
+      "exclude_reason": null,
+      "filtered_in_scope": true
+    }
+  ]
+}
