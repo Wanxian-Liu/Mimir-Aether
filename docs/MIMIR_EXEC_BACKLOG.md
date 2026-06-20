@@ -1226,7 +1226,7 @@ Cursor §20.7 HC-02/HC-11～14/HC-21（工程体检整改）
 |:--:|-----|------|----------|------|
 | 1 | **HC-01** | 测试债度量真源 `docs/phase0/hc-test-parity-baseline.md` | Mimir/Hermes `pytest --collect-only` 命令 + 数字 + 日期可复跑 | [x] 2026-06-04 |
 | 2 | **HC-03** | 搜索违规 ≤40%（**IQ55-10e**） | `search_first_audit` filtered ≤40%；见 **TASK_QUEUE §14** | [x] baseline: 100%(10/10), 修复已部署, 1-2周后重返重审 |
-| 3 | **HC-23** | ADR：ContextEngine V3 自设计 vs Hermes ABC（**不盲目恢复**） | `docs/adr/` 或 phase0 一页 | [ ] |
+| 3 | **HC-23** | ADR：ContextEngine V3 自设计 vs Hermes ABC（**不盲目恢复**） | `docs/adr/adr-context-engine-v3.md` | [x] 2026-06-04 |
 
 **Mimir 新窗一句**
 

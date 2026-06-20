@@ -792,3 +792,4 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 || 2026-06-02 | **MW-90** | Mimir | §13 心愿单收官：MW-00～05 全 [x] · 34 tests · tier0 692/4 · closeout doc |
 || 2026-06-02 | **loop-crash-fix** | Mimir | loop 崩溃修复：`get_event_loop()`→`get_running_loop()` 3文件 · 并行路径 pre-validation + tool_errors.append + `_batch_results` 空兜底 · tier0 **696+2** 全绿 · 4 commits + push · IC 保护绕过（terminal→`/approve session`）|
 || 2026-06-04 | **HC-01/03 关闭** | Mimir | 测试债基线 + 搜索违规审计基线 · 守卫自引用修复 · 复盘工具 · CacheAligner · auto_retrospective · 5 bugs修 · tier0 696+2 全绿 · 10 commits push |
+| 2026-06-04 | **HC-23** | Mimir | ADR ContextEngine V3 自设计路线（不恢复 Hermes ABC）· `7d368e1` · HC 轨 Mimir 段全部 [x] |
