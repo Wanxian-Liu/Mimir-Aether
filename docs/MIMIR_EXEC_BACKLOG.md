@@ -1,8 +1,8 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-06-01（**IQ-RUBRIC-55-PHASE3** 收官 · ~5.1+exception · tier0 **676**）  
+> **最近更新**：2026-06-19（**ISSUES #4** · **§20.7 HC 轨** 登记 · bridge 验真 `53b6af4`）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5  
-> **规则**：**只认 §20 第一条 `[ ]`（按角色列）**。历史 §19.1/§19.6 只读归档。Handoff：[`world-model-agent-handoff.md`](./superpowers/plans/2026-05-27-world-model-agent-handoff.md)。主计划：[`horizon-c-master-iteration.md`](./superpowers/plans/2026-05-27-horizon-c-master-iteration.md)。  
+> **规则**：**§20.7 HC 轨**（ISSUES #4 工程整改 · 按角色取第一条 `[ ]`）· **TASK_QUEUE §14**（IQ-55 行为轨 · 与 **HC-03** 同目标）· **§20.1/§20.2 已收口**。历史 §19 只读归档。  
 > **Mimir 主执行**（2026-06-01）：[`MIMIR_PRIMARY_EXECUTOR.md`](./MIMIR_PRIMARY_EXECUTOR.md) · 任务 [`MIMIR_TASK_QUEUE.md`](./MIMIR_TASK_QUEUE.md) **§9** · Cursor 只复核 HANDOFF。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
 > **勿提交**：`data/persistent.json`（runtime 镜像）。
@@ -1119,15 +1119,16 @@ Read docs/superpowers/plans/2026-05-27-horizon-c-master-iteration.md + backlog �
 
 ```text
 刘哥 §20.3 拍板 ──解锁──► TASK_QUEUE §9（Mimir 实现）──HANDOFF──► Cursor 复核合 main
-Mimir §20.2 运维周常 + §9 工程主执行
-§20.4 大战役已收口；新工程进 §9 或 ISSUES
+Mimir §20.7 HC-01/HC-03 + TASK_QUEUE §14（IQ-55）
+Cursor §20.7 HC-02/HC-11～14/HC-21（工程体检整改）
+§20.4 大战役已收口；新工程进 §9 / §20.7 / ISSUES
 §20.5 icebox ── 不抢主线
 ```
 
 | 角色 | 规则 |
 |------|------|
-| **Mimir** | **§9 第一条 `[ ]`**（[`MIMIR_TASK_QUEUE.md`](./MIMIR_TASK_QUEUE.md)）；**M-ENG 可写码**；禁 push；交付 `docs/mimir-handoff/` |
-| **Cursor** | 扫 bridge **HANDOFF ready** → tier0 → commit/push/M6；**不抢** §9 第一条 |
+| **Mimir** | **§20.7** 第一条 `[ ]`（HC-01/03）或 **TASK_QUEUE §14**；周常 **M-WEEKLY** | 抢 Cursor **§20.7** 工程粒（HC-02/11～14/21） |
+| **Cursor** | **§20.7** 第一条 `[ ]`（HC-02 → HC-11…）；复核 HANDOFF | 抢 Mimir HC-01/03；勿与 IQ-55 行为轨混 PR |
 | **刘哥** | **§20.3**；飞书 **CLR-B**；战略写 bridge §1 |
 
 ### 20.1 工程轨（Cursor · 单线 · 建议顺序）
@@ -1210,3 +1211,52 @@ Mimir §20.2 运维周常 + §9 工程主执行
 | §19.6 MI-AWAY | **16/16 [x]** |
 | §15 Wave 1–8 | **[x]** |
 | bridge §4 | 历史签收；新工作只追加行 |
+
+### 20.7 ISSUES #4 健康检查整改轨（HC-* · 2026-06-19）
+
+> **真源**：[`ISSUES.md`](./ISSUES.md) **#4** · Cursor 验真 + 粒表：[`MIMIR_LIU_CURSOR_BRIDGE.md`](./MIMIR_LIU_CURSOR_BRIDGE.md) §1「2026-06-19 ISSUES #4」  
+> **分数说明**：体检 **7.0/10** = 工程结构 vs Hermes；**≠** IQ rubric（~5.3）· **≠** 可宣称 IQ-55 达标。  
+> **签收**：每粒 → tier0（触达代码）→ bridge §4 一行 → 本表 `[x]` + 日期；触达 agent/gateway/tools → `record_m6_evolution.sh`。
+
+**建议顺序**：HC-01 → HC-11 → HC-13 → HC-12 → HC-14 → HC-02；**HC-03** 与 **TASK_QUEUE §14 IQ55-10e** 并行（行为轨，不阻塞工程序）。
+
+#### 20.7.1 Mimir 轨（文档 / 行为证据）
+
+| 序 | ID | 任务 | 成功标准 | 状态 |
+|:--:|-----|------|----------|------|
+| 1 | **HC-01** | 测试债度量真源 `docs/phase0/hc-test-parity-baseline.md` | Mimir/Hermes `pytest --collect-only` 命令 + 数字 + 日期可复跑 | [x] 2026-06-04 |
+| 2 | **HC-03** | 搜索违规 ≤40%（**IQ55-10e**） | `search_first_audit` filtered ≤40%；见 **TASK_QUEUE §14** | [ ] |
+| 3 | **HC-23** | ADR：ContextEngine V3 自设计 vs Hermes ABC（**不盲目恢复**） | `docs/adr/` 或 phase0 一页 | [ ] |
+
+**Mimir 新窗一句**
+
+```text
+Read ISSUES.md #4 + backlog §20.7 + bridge §1「ISSUES #4」。
+本轮只做 §20.7 第一条 [ ]（通常 HC-01）；或 TASK_QUEUE §14 IQ55-10e（HC-03）。
+禁止宣称体检 7.0 = IQ 达标。回报 §3.3 + bridge §4。
+```
+
+#### 20.7.2 Cursor 工程轨（单线 · 建议顺序）
+
+| 序 | ID | 任务 | 成功标准 | 状态 |
+|:--:|-----|------|----------|------|
+| 1 | **HC-02** | CI 最小增量：`lint.yml` +「刻意不做」Hermes 16 workflow 清单 | PR + tier0 绿 | [ ] |
+| 2 | **HC-11** | 移植/薄封装 `credential_sources.py`（对齐 Hermes 清理链） | tier0；无密钥日志 | [ ] |
+| 3 | **HC-13** | 清理 `agent/tool_registry.py`（DEPRECATED → 删或并入 `tools.registry`） | tier0 绿 | [ ] |
+| 4 | **HC-12** | 拆分 `tools/mcp_tool.py`（connect/call/schema，行为不变） | 契约测 + tier0 | [ ] |
+| 5 | **HC-14** | 巨型文件拆 **一粒**：`trajectory_compressor.py` **或** `batch_runner.py` | 行数↓ + tier0 | [ ] |
+| 6 | **HC-21** | `prompt_builder.py` stable/volatile 分段（对齐 CacheAligner） | tier0 | [ ] |
+
+**Cursor 新窗一句**
+
+```text
+backlog §20.7.2 第一条 [ ] → tier0 → commit/push/M6 → bridge §4。
+真源：ISSUES #4 + bridge §1 验真表。不与 HC-03/IQ55-10e 混同一 PR。
+```
+
+#### 20.7.3 拍板 / Icebox
+
+| ID | 说明 | 状态 |
+|----|------|------|
+| **HC-22** | Docker 容器化 — **仅刘哥要标准化部署时**开 | [ ] deferred · 刘哥拍板 |
+| **HC-VERIFY** | Cursor 对 ISSUES #4 验真（2026-06-19） | [x] · bridge §4 · commit `53b6af4` |

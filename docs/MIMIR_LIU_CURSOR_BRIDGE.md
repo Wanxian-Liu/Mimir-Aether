@@ -85,7 +85,7 @@ pi-agent 的事件驱动、并行工具、steer/followUp、会话分支、分层
 
 | 波次 | ID | 做什么 | Owner | 验收 | 估时 |
 |:----:|-----|--------|-------|------|:----:|
-| **P0** | **HC-01** | 测试债 **度量真源**：`docs/phase0/hc-test-parity-baseline.md`（Mimir/Hermes collect 命令 + 数字 + 日期） | Mimir | 文档可复跑 | 0.5d |
+| **P0** | **HC-01** | 测试债 **度量真源**：`docs/phase0/hc-test-parity-baseline.md`（Mimir/Hermes collect 命令 + 数字 + 日期） | Mimir | 文档可复跑 | 0.5d · `[x]` 2026-06-04 |
 | P0 | **HC-02** | CI **最小增量**：`lint.yml`（ruff/format 或现有 linter 一条）+ 文档说明与 Hermes 16 条的 **刻意不做** 清单 | Cursor | PR + tier0 绿 | 1d |
 | P0 | **HC-03** | **IQ 行为**（非本体检表）：续 **IQ55-10e** 搜索违规 ≤40% — 见 TASK_QUEUE §14 | Mimir | audit JSON | runtime |
 | **P1** | **HC-11** | 移植/薄封装 **`credential_sources.py`**（对齐 Hermes 清理链，不引新依赖） | Cursor | tier0 + 无密钥日志 | 1d |
