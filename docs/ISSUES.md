@@ -45,3 +45,58 @@
 | — | memory 工具冒烟 | ✅ done |
 | — | persistent.json 截断根因 | ✅ root-caused |
 | — | 存量胶囊迁移 131 .md → .html | ✅ done |
+
+---
+
+## #4 — MimirAether 全方位体检报告（健康检查）
+
+| 字段 | 内容 |
+|------|------|
+| 优先级 | 🟡 中（多项需改进）|
+| 类型 | 健康检查 / 重构记录 |
+| 发起 | 2026-06-19 刘哥指示 |
+| 对标 | Hermes Agent（`~/.openclaw/projects/hermes-agent/`）|
+| 总分 | **7.0/10**（平均）|
+
+### 体检结果汇总
+
+| Part | 主题 | 得分 |
+|:---:|------|:----:|
+| #4.1 | 基础架构与代码质量 | 6.0 |
+| #4.2 | Agent Loop 执行引擎 | 7.3 |
+| #4.3 | 上下文压缩与记忆 | 6.9 |
+| #4.4 | 工具系统与MCP | 7.1 |
+| #4.5 | 模型管理与凭证池 | 7.1 |
+| #4.6 | 提示词构建与安全 | 7.9 ⭐ |
+| #4.7 | 测试、部署与运维 | 6.5 |
+
+### MimirAether 领先能力
+
+- **智能模型路由**（318行，Part 5）
+- **工具质量评估 + 排序**（652行，Part 4）
+- **5个独立 Guards**：degeneration_guard / intent_action_guard / skill_path_guard / search_first_guard / verify_before_report_guard（Part 6）
+- **Prompt Injection 防护**（Part 6）
+- **学术基础扎实**：LeWM 论文（2603.19312）SIGReg + VoE（Part 6）
+- **运维脚本丰富**：77个脚本（Part 7）
+- **Memory Fence 安全围栏**（Part 3）
+- **Provider 生态完整**：registry / runtime / profile / smart_routing（Part 5）
+
+### 关键差距清单
+
+| 优先级 | 问题 | 来源 Part | 建议工作量 |
+|:---:|------|:--------:|:---------:|
+| P0 | 测试覆盖严重不足（151 vs 1266，8.4倍差距）| Part 7 | 1周 |
+| P0 | CI workflows 不足（2 vs 16）| Part 7 | 1周 |
+| P1 | 凭证清理系统缺失（缺 `credential_sources.py`）| Part 5 | 1天 |
+| P1 | `mcp_tool.py` 2264行单文件 | Part 4 | 1.5天 |
+| P1 | `agent/tool_registry.py` 343行死代码 | Part 4 | 半天 |
+| P1 | 拆分巨型文件：`trajectory_compressor.py` (1507行) / `batch_runner.py` (1366行) / `mimir_state.py` (1019行) | Part 1 | 2天 |
+| P1 | `context_compressor.py` 丢失 ContextEngine ABC 抽象 | Part 3 | 1天 |
+| P2 | 缺容器化部署（Docker）| Part 7 | 1天 |
+| P2 | `prompt_builder.py` 1827行过大 | Part 6 | 1.5天 |
+| P2 | 拆分 `credential_persistence.py` 1130行 | Part 5 | 半天 |
+
+### 状态
+- ✅ 体检报告已生成
+- ✅ **Cursor 验真**（2026-06-19）：见 [`MIMIR_LIU_CURSOR_BRIDGE.md`](./MIMIR_LIU_CURSOR_BRIDGE.md) §1「ISSUES #4」；整改粒 **HC-01～HC-23**
+- ⏳ **改进未开始** — 建议顺序：HC-01 → HC-11 → HC-13 → HC-12；行为轨并行 **IQ55-10e**

@@ -634,13 +634,14 @@ class MimirAgentLoop:
                         if not (_predicted_skills & _actual_tools):
                             try:
                                 append_surprise_event(
-                                    triggered_at=_time.time(),
-                                    session_id=self.task_id,
-                                    context="wm_prediction_mismatch",
-                                    reason=f"predicted={_predicted_skills}, actual={_actual_tools}",
+                                    expected=", ".join(sorted(_predicted_skills)),
+                                    actual=", ".join(sorted(_actual_tools)),
+                                    surprise_label="wm_prediction_mismatch",
+                                    context_snapshot={"turn": turn + 1},
+                                    guard_message=f"predicted={_predicted_skills}, actual={_actual_tools}",
                                 )
-                            except Exception:
-                                pass
+                            except Exception as exc:
+                                logger.warning("[%s] VoE surprise write failed: %s", self.task_id[:8], exc)
             else:
                 # No tool calls — finish unless intent-action guard blocks deferral.
                 msg_dict = {"role": "assistant", "content": content or ""}

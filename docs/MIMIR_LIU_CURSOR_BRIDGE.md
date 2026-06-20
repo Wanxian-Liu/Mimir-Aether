@@ -54,6 +54,60 @@ pi-agent 的事件驱动、并行工具、steer/followUp、会话分支、分层
 | **轨 B** | 改 `agent|gateway|tools|mimir_cli` 须本节刘哥 **另条** 授权或记 ISSUES → Cursor **§20.1** |
 | **禁止** | `git push --force` 到 main · 提交 `data/persistent.json` · **EV-VISION** · 未授权 WM 大改 |
 
+### 2026-06-19 — ISSUES #4 全方位体检（Cursor 验真 · 整改方案）
+
+> **真源**：[`ISSUES.md`](./ISSUES.md) **#4** · **发起**：刘哥 2026-06-19  
+> **重要**：体检 **7.0/10** = **工程结构 vs Hermes 对标**，**≠** IQ 行为 rubric（当前独立复评约 **5.3**，搜索违规仍 ~100%）。两表不可混读。
+
+#### Cursor 验真（2026-06-19 · `~/src/MimirAether` + Hermes 路径）
+
+| 体检声称 | 判定 | 复测证据 |
+|----------|:----:|----------|
+| CI **2 vs 16** | ✅ | Mimir：`ralph.yml` + `pytest-wide.yml`；Hermes：16 workflows |
+| `mcp_tool.py` **2264 行** | ✅ | `wc -l tools/mcp_tool.py` |
+| 巨型文件 `trajectory_compressor` 1507 / `batch_runner` 1366 / `mimir_state` 1019 | ✅ | `wc -l` 一致 |
+| `prompt_builder.py` 1827 行 | ✅ | |
+| **缺** `credential_sources.py` | ✅ | Mimir 无；Hermes `agent/credential_sources.py` **448 行** |
+| `agent/tool_registry.py` **死代码** | ✅（生产路径） | 文件头 **DEPRECATED**；运行时用 `tools.registry`；仅 parity 测试引用 |
+| `context_compressor` 丢 ContextEngine ABC | ✅（有意） | 文件注释 V3.0 自设计接口，非回归遗漏 |
+| 5 个 Guards | ✅ | `degeneration` / `intent_action` / `search_first` / `skill_path` / `verify_before_report` |
+| `smart_model_routing` 318 行且接线 | ✅ | `core_loop` / `config_mixin` / gateway 引用 `resolve_turn_route` |
+| 脚本 **77** 个 | ≈ | `scripts/` 现 **85** 文件（量级对） |
+| `tool_quality` **652 行** | ❌ | 现 **`agent/tool_quality.py` 367 行**（数字过时） |
+| 测试 **151 vs 1266（8.4×）** | ⚠️ | Mimir `pytest --collect-only tests` → **687 cases** / **~147** 测试文件；Hermes **3535** 个 `test_*.py` 文件、`pytest` 本机未完整 collect；**8.4× 夸大**，但「Hermes 测试面更厚」方向成立 |
+| 总分 **7.0/10** | ⚠️ | 工程主观分可接受；**不能**用来覆盖 IQ-55 未过的 P0.1（先搜再答） |
+
+**体检未写、但 IQ 轨更痛：** `session_search` 7d 调用 **0**；`search_first` filtered 违规 **~100%**（见 `iq55-closeout` / 独立复评）。
+
+#### 整改方案（分轨 · 小颗粒 · 可 unattended）
+
+**原则**：不照搬 Hermes 体量；每项 = backlog ID + tier0 绿 + bridge §4 一行。与 **IQ-55 行为轨并行**，不替代 P0.1 搜索。
+
+| 波次 | ID | 做什么 | Owner | 验收 | 估时 |
+|:----:|-----|--------|-------|------|:----:|
+| **P0** | **HC-01** | 测试债 **度量真源**：`docs/phase0/hc-test-parity-baseline.md`（Mimir/Hermes collect 命令 + 数字 + 日期） | Mimir | 文档可复跑 | 0.5d |
+| P0 | **HC-02** | CI **最小增量**：`lint.yml`（ruff/format 或现有 linter 一条）+ 文档说明与 Hermes 16 条的 **刻意不做** 清单 | Cursor | PR + tier0 绿 | 1d |
+| P0 | **HC-03** | **IQ 行为**（非本体检表）：续 **IQ55-10e** 搜索违规 ≤40% — 见 TASK_QUEUE §14 | Mimir | audit JSON | runtime |
+| **P1** | **HC-11** | 移植/薄封装 **`credential_sources.py`**（对齐 Hermes 清理链，不引新依赖） | Cursor | tier0 + 无密钥日志 | 1d |
+| P1 | **HC-12** | **`tools/mcp_tool.py`** 按子域拆 3～4 模块（connect / call / schema），行为不变 | Cursor | 契约测 + tier0 | 1.5d |
+| P1 | **HC-13** | **`agent/tool_registry.py`**：标弃用→删或合并进 `tools.registry` 统计 API；删 orphan 测试或迁一处 | Cursor | tier0 绿 | 0.5d |
+| P1 | **HC-14** | 巨型文件 **只拆一个**：优先 `trajectory_compressor.py`（1507）或 `batch_runner.py`（1366）— 记入 backlog **§20.1** 单粒 | Cursor | 行数↓ + tier0 | 2d |
+| **P2** | **HC-21** | `prompt_builder.py` 按 stable/volatile 分段提取（与 CacheAligner 一致） | Cursor | tier0 | 1.5d |
+| P2 | **HC-22** | Docker **可选**：仅当刘哥要部署标准化时开；否则 ISSUES #4 标 deferred | 刘哥拍板 | — | — |
+| P2 | **HC-23** | ContextEngine ABC：**不盲目恢复**；写 ADR「V3 自设计 vs Hermes ABC」一页 | Mimir | `docs/adr/` 或 phase0 | 0.5d |
+
+**建议执行顺序（刘哥不在也能跑）：** HC-01 → HC-11 → HC-13 → HC-12 → HC-14 → HC-02；**HC-03** 与 Mimir 主线并行。
+
+**@Mimir 开场（ISSUES #4 轨）：**
+
+```text
+Read ISSUES.md #4 + bridge §1「2026-06-19 ISSUES #4」。
+本轮只做 HC-01（测试 parity 基线文档）或 HC-03（IQ55-10e 证据），禁止宣称体检 7.0 = IQ 达标。
+回报 §3.3 + bridge §4 一行。
+```
+
+**@Cursor**：HC-02 / HC-11～14 / HC-21 — 每粒一 PR，`run_ralph_tier0.sh` 绿后 bridge §4 签收。
+
 ### 2026-06-01 — IQ #17 执行链（Cursor 编排 · Mimir 主执行）
 
 - **真源**：[`MIMIR_IQ17_EXECUTION_PLAN.md`](./MIMIR_IQ17_EXECUTION_PLAN.md) · **TASK_QUEUE §11**（优先于 §10 LOOP）
@@ -482,6 +536,7 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 
 | 时间 | 已读 bridge+backlog | 本轮 ID | 结果一句话 |
 |------|---------------------|---------|------------|
+| 2026-06-19 | ISSUES #4 + 源码复测 | **HC-VERIFY** | **Cursor**：体检大体属实（CI/巨型文件/credential/guards/routing ✅）；tool_quality 652❌、测试 8.4×⚠️；7.0≠IQ5.3；整改 HC-01～23 入 bridge §1 |
 | 2026-05-31 | Wave A plan + behavior-report | **WA-A00** | Q1=4.9 Q2=部分(0sess) Q3=PASS Q4=待运行 Q5=待验证 · 下一 **WA-A03** |
 | 2026-05-20 | backlog §2b | **EV-M01～M13** | d1–d7 回报；TRUNCATE=19；T-03 [~] |
 | 2026-05-23 | E-004 / E-005 | **WIN-1/4** | PR #6 #7 merged → main |
