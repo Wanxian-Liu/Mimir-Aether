@@ -287,7 +287,7 @@ class MimirAgentLoop:
                 _total = len(_search_results)
                 _sessions = len({x.get("session", "") for x in _search_results})
                 _nudge = (
-                    "[preemptive-search] Queried sessions."
+                    "[SEARCH-FIRST-RESULTS] Queried sessions."
                     + "\nquery: " + str(_q[:120])
                     + "\nmatches: " + str(_total) + ", sessions: " + str(_sessions)
                     + "\nresults: " + json.dumps(_search_results, ensure_ascii=False)[:2000]
@@ -666,7 +666,7 @@ class MimirAgentLoop:
                         _total = len(_search_results)
                         _sessions = len({x.get("session", "") for x in _search_results})
                         _preemptive = (
-                            "[preemptive-search] Queried sessions."
+                            "[SEARCH-FIRST-RESULTS] Queried sessions."
                             + "\nquery: " + str(_q[:120])
                             + "\nmatches: " + str(_total) + ", sessions: " + str(_sessions)
                             + "\nresults: " + json.dumps(_search_results, ensure_ascii=False)[:2000]

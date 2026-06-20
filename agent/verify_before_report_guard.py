@@ -13,6 +13,7 @@ VERIFY_TRIGGERS = [
     "verified", "completed", "fixed", "passed",
     "PASS", "zero errors", "no failures", "all green",
     "已修", "已推送",
+    "收官", "已解决", "完工", "收工", "搞定了",
 ]
 
 STATUS_QUERY_PATTERNS = [
@@ -33,7 +34,7 @@ def _last_user_text(messages: list[dict[str, Any]]) -> str:
 
 def _has_verified_this_turn(messages: list[dict[str, Any]]) -> bool:
     """检查本轮是否有调过验证工具"""
-    VERIFICATION_TOOLS = {"read_file", "search_files", "terminal", "git", "memory", "mimir_ops", "get_env"}
+    VERIFICATION_TOOLS = {"read_file", "search_files", "terminal", "git", "memory", "mimir_ops", "get_env", "session_search"}
     for msg in reversed(messages):
         if msg.get("role") == "assistant" and "tool_calls" in msg:
             for tc in msg["tool_calls"]:

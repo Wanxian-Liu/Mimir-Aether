@@ -207,7 +207,7 @@ Read §11，从 **P1-LONG-MEM 第一条 `[ ]`** 开始（当前 **P1-M04** FTS5�
 | 面 | 文件 | 谁写 | 何时写 |
 |----|------|------|--------|
 | **方向真源** | [`MIMIR_IQ_EVOLUTION_DIRECTION.md`](./MIMIR_IQ_EVOLUTION_DIRECTION.md) | 刘哥/Cursor 定稿；Mimir **只读** | 战略变更时 |
-| **执行队列** | backlog **§15** `IQ-EVO-*` | Mimir 勾状态；Cursor 实现后勾 | 每轮一条 |
+| **执行队列** | backlog **§15** `IQ-EVO-*`；体检整改 **§20.7** `HC-*` | Mimir 勾状态；Cursor 实现后勾 | 每轮一条 |
 | **锚点** | `MIMIR_ISSUES.md` **#12** | 状态 `direction` | 勿当 P0 bug |
 | **提案留痕** | `docs/proposals/iq-evo-*.md` 或 bridge §1 | Mimir 提案轨 | 目标清晰但不会改代码时 |
 | **工程留痕** | PR + `evolution_log` + tier0 | Cursor（或授权后 Mimir B 轨） | 禁止黑盒 |

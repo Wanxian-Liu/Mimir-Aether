@@ -7,7 +7,7 @@ import re
 from typing import Any, Dict, List, Optional, Sequence
 
 _MARKER = "[search-first-guard]"
-PREEMPTIVE_MARKER = "[preemptive-search]"
+PREEMPTIVE_MARKER = "[SEARCH-FIRST-RESULTS]"
 SESSION_SEARCH_TOOL = "session_search"
 MAX_SEARCH_FIRST_NUDGES = 5
 
