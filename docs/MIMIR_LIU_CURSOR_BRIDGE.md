@@ -708,7 +708,14 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 || 2026-06-01 | **IQ17-DAY1B** | **Mimir** | IQ-25 done: brain_metrics 增 skill_view_7d(28 sessions, 0 calls). Wave 3 [x]. Next: IQ-30. |
 || 2026-06-02 | **IQ55-11e** | **Mimir** | 进化管道 closeout · 19 ledger 记录 (2 evolved/15 healthy/2 blocked) · `docs/phase0/iq55-p02-evolution-closeout.md` · §14 IQ55-11 全 [x] · NEXT: IQ55-12 工具延迟画像 |
 || 2026-06-02 | **IQ55-12** | **Mimir** | 工具延迟画像完成 · 35 tools profiled · 3 critical (mimir_ops 98.7s / terminal 85.0s / web_extract 67.6s) · 30/35 P95<10s · `data/ops/tool-latency-profile.json` · `docs/phase0/iq55-p03-tool-latency-root-cause.md` · NEXT: IQ55-90 closeout |
-|| 2026-06-02 | **IQ55-90** | **Mimir** | **§14 IQ-55 全线收官** · 16/16 [x] · 2 ⏸ runtime · 1 ⏭️ · rubric 5.2→5.6 (+0.1) · `docs/phase0/iq55-closeout.md` · NEXT: NONE（等 7d 自然经过后 OPS-04） |
+||| 2026-06-02 | **IQ55-90** | **Mimir** | **§14 IQ-55 全线收官** · 16/16 [x] · 2 ⏸ runtime · 1 ⏭️ · rubric 5.2→5.6 (+0.1) · `docs/phase0/iq55-closeout.md` · NEXT: NONE（等 7d 自然经过后 OPS-04） |
+|| 2026-06-04 | **HC-01** | **Mimir** | 测试债度量基线写入 `docs/phase0/hc-test-parity-baseline.md`（Mimir 687 v.s. Hermes 26259）|
+|| 2026-06-04 | **HC-03** | **Mimir** | IQ55-10e 搜索违规审计 baseline · search_first 修复已部署 · 1-2 周重返重审 |
+|| 2026-06-04 | **HC-23** | **Mimir** | ADR ContextEngine V3 — 不恢复 Hermes ABC · 走自设计路线 · `docs/adr/adr-context-engine-v3.md` |
+|| 2026-06-04 | **HC-02** | **Mimir** | CI 最小增量 `lint.yml` + 「刻意不做」Hermes 16 workflow 清单 · `docs/HERMES_CI_GAP.md` |
+|| 2026-06-04 | **HC-11** | **Mimir** | 薄封装 `agent/credential_sources.py`（RemovalStep 注册模式）· tier0 绿 |
+|| 2026-06-04 | **HC-13** | **Mimir** | 清理 `agent/tool_registry.py`（DEPRECATED → 删）· tier0 绿 |
+|| 2026-06-04 | **HC-12** | **Mimir** | Phase1 schema 拆分：`tools/mcp_schema.py` 提取 8 个纯函数 · `mcp_tool.py` 瘦身 ~140 行 · tier0 685+2 |
 
 ## 5. Mimir 进度笔记
 
