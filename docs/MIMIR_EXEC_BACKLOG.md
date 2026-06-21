@@ -1242,7 +1242,7 @@ Read ISSUES.md #4 + backlog §20.7 + bridge §1「ISSUES #4」。
 |:--:|-----|------|----------|------|
 | 1 | **HC-02** | CI 最小增量：`lint.yml` +「刻意不做」Hermes 16 workflow 清单 | PR + tier0 绿 | [x] 2026-06-04 Mimir |
 | 2 | **HC-11** | 移植/薄封装 `credential_sources.py`（对齐 Hermes 清理链） | tier0；无密钥日志 | [ ] |
-| 3 | **HC-13** | 清理 `agent/tool_registry.py`（DEPRECATED → 删或并入 `tools.registry`） | tier0 绿 | [ ] |
+| 3 | **HC-13** | 清理 `agent/tool_registry.py`（DEPRECATED → 删或并入 `tools.registry`） | tier0 绿 | [x] 2026-06-04 Mimir |
 | 4 | **HC-12** | 拆分 `tools/mcp_tool.py`（connect/call/schema，行为不变） | 契约测 + tier0 | [ ] |
 | 5 | **HC-14** | 巨型文件拆 **一粒**：`trajectory_compressor.py` **或** `batch_runner.py` | 行数↓ + tier0 | [ ] |
 | 6 | **HC-21** | `prompt_builder.py` stable/volatile 分段（对齐 CacheAligner） | tier0 | [ ] |
