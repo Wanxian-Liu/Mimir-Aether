@@ -30,7 +30,7 @@ def _wm_prediction_block(user_message: str) -> str:
 def test_preemptive_satisfied_guard_allows_tools():
     msgs = [
         {"role": "user", "content": "还记得上次的任务么"},
-        {"role": "user", "content": "[preemptive-search] Queried sessions.\nmatches: 1"},
+        {"role": "user", "content": "[SEARCH-FIRST-RESULTS] Queried sessions.\nmatches: 1"},
     ]
     assert preemptive_search_in_slice(msgs)
     assert session_search_satisfied_since_last_user(msgs)
