@@ -1,6 +1,6 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-06-04（**HC-01/03 关闭** · 守卫修复 · 复盘工具 · CacheAligner · 关闭退场）  
+> **最近更新**：2026-06-04（**§20.7 全线收官** · HC-01/03/23/02/11/13/12/14/21 全部 [x] · Branch of `dea324b`）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5  
 > **规则**：**§20.7 HC 轨**（ISSUES #4 工程整改 · 按角色取第一条 `[ ]`）· **TASK_QUEUE §14**（IQ-55 行为轨 · 与 **HC-03** 同目标）· **§20.1/§20.2 已收口**。历史 §19 只读归档。  
 > **Mimir 主执行**（2026-06-01）：[`MIMIR_PRIMARY_EXECUTOR.md`](./MIMIR_PRIMARY_EXECUTOR.md) · 任务 [`MIMIR_TASK_QUEUE.md`](./MIMIR_TASK_QUEUE.md) **§9** · Cursor 只复核 HANDOFF。  
@@ -1244,8 +1244,8 @@ Read ISSUES.md #4 + backlog §20.7 + bridge §1「ISSUES #4」。
 | 2 | **HC-11** | 移植/薄封装 `credential_sources.py`（对齐 Hermes 清理链） | tier0；无密钥日志 | [x] 2026-06-04 Mimir |
 | 3 | **HC-13** | 清理 `agent/tool_registry.py`（DEPRECATED → 删或并入 `tools.registry`） | tier0 绿 | [x] 2026-06-04 Mimir |
 | 4 | **HC-12** | 拆分 `tools/mcp_tool.py`（connect/call/schema，行为不变） | 契约测 + tier0 | [x] 2026-06-04 Mimir (Phase1 schema) |
-| 5 | **HC-14** | 巨型文件拆 **一粒**：`trajectory_compressor.py` **或** `batch_runner.py` | 行数↓ + tier0 | [ ] |
-| 6 | **HC-21** | `prompt_builder.py` stable/volatile 分段（对齐 CacheAligner） | tier0 | [ ] |
+| 5 | **HC-14** | 巨型文件拆 **一粒**：`trajectory_compressor.py` → `trajectory_metrics.py` 183行 | -148行 · tier0 696+2 | [x] 2026-06-04 Mimir `de617a4` |
+| 6 | **HC-21** | `prompt_builder.py` stable/volatile 分段（对齐 CacheAligner） | 标注分段 · tier0 696+2 | [x] 2026-06-04 Mimir `6881116` |
 
 **Cursor 新窗一句**
 
