@@ -1,0 +1,40 @@
+# Minimal lint — pyflakes on agent/ core code.
+# Advisory only (exits 0 always). Merge gate remains: ralph.yml (./run_ralph_tier0.sh).
+# See docs/HERMES_CI_GAP.md for Hermes workflows we intentionally do NOT implement.
+
+name: Lint (advisory)
+
+on:
+  push:
+    branches: [main, master, "feat/**"]
+  pull_request:
+    branches: [main, master]
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pyflakes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pyflakes
+        run: pip install --quiet pyflakes
+
+      - name: Run pyflakes (agent/)
+        run: |
+          echo "### pyflakes diagnostics for agent/" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          pyflakes agent/ >> "$GITHUB_STEP_SUMMARY" 2>&1 || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "Done. Exit 0 — advisory only." >> "$GITHUB_STEP_SUMMARY"
