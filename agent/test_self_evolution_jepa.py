@@ -25,7 +25,7 @@ def test_encoder_real_files():
     assert state.total_files > 20, f"Expected >20 files, got {state.total_files}"
     assert state.total_lines > 2000, f"Expected >2000 lines, got {state.total_lines}"
     assert "agent_loop.py" in state.files
-    assert "tool_registry.py" in state.files
+    assert "exec_mixin.py" in state.files
     print(f"  Encoder: {state.total_files} files, {state.total_lines} lines")
 
 

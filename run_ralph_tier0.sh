@@ -18,7 +18,6 @@ TARGET_FILES=(
   "agent/turn_loop.py"
   "agent/skill_funcs.py"
   "agent/delegate_subagent.py"
-  "agent/tool_registry.py"
   "agent/llm_port.py"
   "agent/tool_port.py"
   "agent/session_port.py"
@@ -40,7 +39,6 @@ mods = [
     "agent.turn_loop",
     "agent.skill_funcs",
     "agent.delegate_subagent",
-    "agent.tool_registry",
     "agent.llm_port",
     "agent.tool_port",
     "agent.session_port",
@@ -72,9 +70,7 @@ python3 -m pytest -q \
   agent/test_security_fencer_and_paths.py \
   agent/test_turn_loop_budget.py \
   agent/test_write_file_arg_repair.py \
-  agent/test_tool_registry_api.py \
   agent/test_hermes_tool_name_align.py \
-  agent/test_tool_registry_concurrency.py \
   agent/test_cli_arg_boundaries.py \
   agent/test_m3_cli_quick_task_slice.py \
   agent/test_m3_api_chat_slice.py \

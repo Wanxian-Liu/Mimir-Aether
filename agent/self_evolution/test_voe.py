@@ -24,7 +24,7 @@ def test_unusual_cross_module():
     r = d.detect([
         "agent/agent_loop.py",
         "gateway/run.py",
-        "tools/tool_registry.py",
+        "tools/registry.py",
         "skills/xx.py",
         "tests/yy.py",
     ])
@@ -70,7 +70,7 @@ def _build_history() -> EvolutionMemory:
         (["tools/mimir_tool.py"], "failed"),
         (["agent/skill_evolution.py"], "success"),
         (["agent/context_compressor.py"], "success"),
-        (["agent/tool_port.py", "tools/tool_registry.py"], "failed"),
+        (["agent/tool_port.py", "tools/registry.py"], "failed"),
         (["agent/skill_evolution.py"], "success"),
         (["gateway/run.py", "agent/exec_mixin.py"], "failed"),
         (["agent/skill_evolution.py"], "success"),
