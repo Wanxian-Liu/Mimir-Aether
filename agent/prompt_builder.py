@@ -1246,7 +1246,11 @@ def build_system_prompt(
     skills_dirs: Optional[List[str]] = None,
 ) -> str:
     """
-    构建完整的system prompt
+    [DEPRECATED] 构建完整的system prompt（扁平字符串）。
+    
+    **此函数为旧接口，推荐使用** :func:`build_system_prompt_parts`（返回
+    stable/context/volatile 三级分区，适配 cross-session prefix cache，与
+    CacheAligner 对齐）。当前保留此函数以保证现有调用方兼容。
     
     Args:
         model: 模型名称
@@ -1302,6 +1306,8 @@ def build_system_prompt(
     if artifact_guidance:
         sections.append(artifact_guidance)
     
+    # ── context tier（会话内稳定） ──
+    
     # 8. 上下文文件 + 可选子目录 hint（HERM-SDH-02 · 默认关）
     if include_context:
         context_prompt = build_context_files_prompt(cwd)
@@ -1312,6 +1318,8 @@ def build_system_prompt(
     subdir_hints = build_subdirectory_hints_system_block(cwd)
     if subdir_hints:
         sections.append(subdir_hints)
+    
+    # ── volatile tier（每轮变化） ──
     
     # 9. 技能索引
     if include_skills:
@@ -1347,6 +1355,9 @@ def build_system_prompt_parts(
     skills_dirs: Optional[List[str]] = None,
 ) -> dict:
     """将系统提示拆分为三级以适应跨会话前缀缓存。
+    
+    推荐使用此函数（替代 build_system_prompt）。
+    三级分区（stable/context/volatile）与 CacheAligner 前缀稳定策略对齐。
     
     返回 {"stable": str, "context": str, "volatile": str}
     
