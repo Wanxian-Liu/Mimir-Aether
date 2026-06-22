@@ -1,8 +1,8 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-06-23（**§21 OC-01 [x]** · OC-02 [x] · OC-03 [x] · OC-04 [ ] · OC-05 [ ]）  
+> **最近更新**：2026-06-23（**§21 OC 全线收官**：OC-01～OC-05 全部 [x] · WM 自愈闭环验证通过）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5  
-> **规则**：**§21 孤件清理轨**（OC-* 按序执行 · 当前 `[ ]` = **OC-04**）· **§20.7 HC 轨**已全线收官 · **TASK_QUEUE §14**（IQ-55 行为轨）搁置中。历史 §19 只读归档。  
+> **规则**：**§21 孤件清理轨**（OC-01～OC-05 全部 [x]）· **§20.7 HC 轨**已全线收官 · **TASK_QUEUE §14**（IQ-55 行为轨）搁置中。历史 §19 只读归档。  
 > **Mimir 主执行**（2026-06-01）：[`MIMIR_PRIMARY_EXECUTOR.md`](./MIMIR_PRIMARY_EXECUTOR.md) · 任务 [`MIMIR_TASK_QUEUE.md`](./MIMIR_TASK_QUEUE.md) **§9** · Cursor 只复核 HANDOFF。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
 > **勿提交**：`data/persistent.json`（runtime 镜像）。
