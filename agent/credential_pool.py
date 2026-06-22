@@ -33,6 +33,12 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 logger = logging.getLogger(__name__)
 
+# SA-03: import removal contract so remove_index cleans external state too
+try:
+    from .credential_sources import find_removal_step as _find_removal_step
+except ImportError:
+    _find_removal_step = None
+
 # ============================================================================
 # 常量
 # ============================================================================
@@ -1513,6 +1519,16 @@ def _credential_pool_remove_index(self, index: int) -> Optional[PooledCredential
         self._persist()
         if self._current_id == removed.id:
             self._current_id = None
+
+        # SA-03: also clean up the external source (.env, config, etc.)
+        if _find_removal_step:
+            step = _find_removal_step(removed.provider, removed.source or "")
+            if step:
+                result = step.remove_fn(removed.provider, removed)
+                if result.cleaned or result.hints:
+                    logger.info("[SA-03] %s removal: cleaned=%s hints=%s",
+                                removed.provider, result.cleaned, result.hints)
+
         return removed
 
 

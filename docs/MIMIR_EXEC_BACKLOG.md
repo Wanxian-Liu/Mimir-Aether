@@ -1,6 +1,6 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-06-23（**§21 OC 全线收官** · **§22 SA-01 [x]** — skills_qa 审计 + 接线到 skill_curator · 剩余 SA-02～SA-04）  
+> **最近更新**：2026-06-23（**§22 SA全线收官** — SA-01 skills_qa 接线 ✅ · SA-02 NO-ACTION ❌ · SA-03 credential_sources 接线 ✅ · SA-04 记忆子系统 NO-ACTION ❌）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5  
 > **规则**：**§21 孤件清理轨**（OC-01～OC-05 全部 [x]）· **§20.7 HC 轨**已全线收官 · **TASK_QUEUE §14**（IQ-55 行为轨）搁置中。历史 §19 只读归档。  
 > **Mimir 主执行**（2026-06-01）：[`MIMIR_PRIMARY_EXECUTOR.md`](./MIMIR_PRIMARY_EXECUTOR.md) · 任务 [`MIMIR_TASK_QUEUE.md`](./MIMIR_TASK_QUEUE.md) **§9** · Cursor 只复核 HANDOFF。  
@@ -1329,9 +1329,9 @@ _level_5_   auto_retrospective.py (74行)    ❌ 已被守卫内置复盘取代
 | 序 | ID | 任务 | 成功标准 | 收益 | 状态 |
 |:--:|:--:|------|----------|:----:|:----:|
 | 1 | **SA-01** | **审计 `skills_qa.py`**（1,031行）— 读接口(L1-200) → 读核心逻辑(L201-600) → 判断是否接线到 `skill_curator.py` | audit → wired → run. | ✅ 已接线到 skill_curator.run_lifecycle_pass() | **[x]** |
-| 2 | **SA-02** | **审计 `skills_hub.py`**（496行）— 同样三阶段 | 审计报告 | 若可用则激活技能分发能力 | **[ ]**（依赖 SA-01） |
-| 3 | **SA-03** | **接线 `credential_sources.py` 到 `credential_pool.py`** | `credential_pool.py` 在某点调 `credential_sources.py` 的清理方法 | HC-11 产物真正可用 | **[ ]** |
-| 4 | **SA-04** | **审计记忆子系统** — `memory_fence.py`(?) + `memory_provider.py`(?) + `memory_system.py`(?) | 三个文件逐一审计报告 | 记忆架构可见性 | **[ ]** |
+|| 2 | **SA-02** | **审计 `skills_hub.py`**（496行）— 同样三阶段 | 审计报告 | 若可用则激活技能分发能力 | **[NO-ACTION]** — 功能被 skill_curator + skills_qa 覆盖；唯一值(SQLite使用统计)可通过 skill_curator 加20行日志实现 |
+|| 3 | **SA-03** | **接线 `credential_sources.py` 到 `credential_pool.py`** | `credential_pool.py` 调 `credential_sources.find_removal_step()` 在 remove_index() 后 | HC-11 产物真正可用 | **[x]** — import-safe + remove_index() 后调 find_removal_step(), 自动清除 .env/config 外部状态 |
+|| 4 | **SA-04** | **审计记忆子系统** — `memory_fence.py`(243) + `memory_provider.py`(428) + `memory_provider_base.py`(221) + `memory_manager.py`(208) + `memory_system.py`(131) | 逐一审计报告 | 记忆架构可见性 | **[NO-ACTION]** — 5文件 1,918行 零import；被 Gateway memory 工具 + cross_session_memory.py 完全覆盖；不做接线 |
 
 ### 准入条件
 

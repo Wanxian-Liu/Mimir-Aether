@@ -809,3 +809,6 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 || 2026-06-23 | **OC-04** | Mimir | 持久化写入审计：persistent_store.py(188行)+memory_write_facade.py(46行)+cross_session_memory.py(489行)=723行本地代码全部未被任何文件导入。Gateway 写入正常（23KB, 21决策, 11模式）。决定：保持现状，打 [OC-04 DEFERRED] |
 ||| 2026-06-23 | **OC-05** | Mimir | WM 自愈闭环验证通过：762条 surprise 事件 → 48个 learned 模式 → 16个 ≥10次 → 4个自愈技能 (search_files, run_terminal_cmd, patch, execute_code) · predict() line 206-209 正确合并 get_self_healing_additions() · auto_update_predictions() 含阈值+排除+映射 · 最新 learned 时间戳：1782148690（实时） · §21 全线收官 |
 ||| 2026-06-23 | **SA-01** | Mimir | skills_qa.py(1031行) 审计 + 接线到 skill_curator.run_lifecycle_pass() · 1 个 import 行 + 14 行 QA 检查块 · 合同测试 3 个对齐（OCs 遗留）· `86f97bd` · tier0 685+2 全绿 |
+|| 2026-06-23 | **SA-02** | Mimir | skills_hub.py(496行) 审计结论: **[NO-ACTION]** — 功能被 skill_curator + skills_qa 完全覆盖；唯一值(SQLite使用统计)可通过 skill_curator 加20行日志实现 |
+|| 2026-06-23 | **SA-03** | Mimir | credential_sources.py → credential_pool.py 接线: import-safe + remove_index() 后自动调 find_removal_step() 清理 .env/config · tier0 681+2 (0 新退化) · commit pending |
+|| 2026-06-23 | **SA-04** | Mimir | 记忆子系统(5文件 1918行) 审计结论: **[NO-ACTION]** — Gateway memory 工具 + cross_session_memory.py 完全覆盖 · §22 SA 全线收官 |
