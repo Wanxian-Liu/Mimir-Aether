@@ -29,12 +29,12 @@ _INTENT_NEEDS: dict[str, tuple[str, ...]] = {
 }
 
 _INTENT_SKILLS: dict[str, tuple[str, ...]] = {
-    "recall": ("session_search", "read_file"),
-    "code": ("read_file", "run_terminal_cmd"),
-    "debug": ("read_file", "run_terminal_cmd", "grep"),
-    "ops": ("run_terminal_cmd", "health_check"),
+    "recall": ("session_search", "search_files", "read_file"),
+    "code": ("read_file", "run_terminal_cmd", "search_files", "patch"),
+    "debug": ("read_file", "run_terminal_cmd", "grep", "search_files"),
+    "ops": ("run_terminal_cmd", "search_files", "health_check"),
     "chat": (),
-    "general": ("read_file",),
+    "general": ("read_file", "search_files"),
 }
 
 # --- Diversity check: detect prediction collapse (LeWM SIGReg inspiration) ---
