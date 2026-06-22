@@ -1,8 +1,8 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-06-04（**§20.7 全线收官** · HC-01/03/23/02/11/13/12/14/21 全部 [x] · Branch of `dea324b`）  
+> **最近更新**：2026-06-22（**§20.7 全线收官** · **§21 孤件清理轨上线** · OC-01～OC-05 全 [ ] · WM 自愈闭环已写入）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5  
-> **规则**：**§20.7 HC 轨**（ISSUES #4 工程整改 · 按角色取第一条 `[ ]`）· **TASK_QUEUE §14**（IQ-55 行为轨 · 与 **HC-03** 同目标）· **§20.1/§20.2 已收口**。历史 §19 只读归档。  
+> **规则**：**§21 孤件清理轨**（OC-* 按序执行 · 当前 `[ ]` = OC-01）· **§20.7 HC 轨**已全线收官 · **TASK_QUEUE §14**（IQ-55 行为轨）搁置中。历史 §19 只读归档。  
 > **Mimir 主执行**（2026-06-01）：[`MIMIR_PRIMARY_EXECUTOR.md`](./MIMIR_PRIMARY_EXECUTOR.md) · 任务 [`MIMIR_TASK_QUEUE.md`](./MIMIR_TASK_QUEUE.md) **§9** · Cursor 只复核 HANDOFF。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
 > **勿提交**：`data/persistent.json`（runtime 镜像）。
@@ -1260,3 +1260,49 @@ backlog §20.7.2 第一条 [ ] → tier0 → commit/push/M6 → bridge §4。
 |----|------|------|
 | **HC-22** | Docker 容器化 — **仅刘哥要标准化部署时**开 | [ ] deferred · 刘哥拍板 |
 | **HC-VERIFY** | Cursor 对 ISSUES #4 验真（2026-06-19） | [x] · bridge §4 · commit `53b6af4` |
+
+---
+
+## 21. 孤件清理轨（OC-* · Orphan Cleanup · 2026-06-22）
+
+> **真源**：[`docs/MIMIR_EXEC_BACKLOG.md`] `§21` 由 2026-06-22 全盘孤件审计生成。  
+> **根因**：多轮开发中写完了代码但未接线到 agent life cycle，形成死代码。  
+> **收益**：释放无用依赖、激活有价值引擎、形成「写完即接」纪律。
+
+### 孤件审计全景
+
+```
+_level_1_  agent_loop.py:742  _close_pipeline()
+           ↓ 零调用 + 内含 2 个不存在 import
+_level_2_  ┌→ skill_curator.py (910行)     ✅ 完整但死
+           └→ memory_write_facade.py (46行) ✅ 完整但死
+_level_3_   persistent_store.py (188行)     ✅ 读写锁 + bak 恢复
+_level_4_   WM 自愈闭环 (d8ed349)           ✅ 代码已写，Gateway 未重启未生效
+_level_5_   auto_retrospective.py (74行)    ❌ 已被守卫内置复盘取代
+```
+
+| 孤件 | 有用？ | 为什么死了 | 行动 |
+|:----|:------:|:---------|:-----|
+| `_close_pipeline()` | ❌ 内含坏 import | 设计后未挂生命周期 | 修死引用或删 |
+| `skill_curator.py` 910行 | ✅ 扫描76技能、自动过期检测 | 载体 `_close_pipeline` 死了 | 挂到 agent 生命周期 |
+| `persistent_store.py` + `memory_write_facade` | ✅ 本地持久化引擎 | 从未被 agent_loop 纳入 | 审计后决定是否切 |
+| WM 自愈闭环 (d8ed349) | ✅ 14个待自愈模式 | Gateway 未重启 | 重启后验证 |
+| `auto_retrospective.py` | ❌ 过时 | 被 `retrospectives.jsonl` 守卫内置复盘替代 | 归档 |
+
+### 执行队列
+
+| 序 | ID | 任务 | 成功标准 | 收益 | 状态 |
+|:--:|----|------|----------|:----:|:----:|
+| 1 | **OC-01** | **归档** `agent/auto_retrospective.py`（74行 — 已被守卫内置复盘取代） | 文件移到 `archive/`；无 import 残留 | 减少 dead code 51行 | [ ] |
+| 2 | **OC-02** | **修复** `agent/agent_loop.py:742` `_close_pipeline()` — 删除 `jepa_session_hook` + `post_close_analysis` 两个不存在 import；替换为 `logger.warning("post-close not wired")` 占位 | tier0 绿；无 `ModuleNotFoundError` | 防运行时崩溃 2行 | [ ] |
+| 3 | **OC-03** | **接入** `agent/skill_curator.py` — 在 `agent_loop.py` 的对话循环结束处加一段非阻塞调用：`skill_curator.run_maintenance()`（env 门控 `MIMIR_SKILL_CURATOR=1`，默认 `0`） | tier0 绿；`run_maintenance` 被正确调用但不阻塞对话 | 激活 910行技能引擎 | [ ] |
+| 4 | **OC-04** | **审计** 持久化写入 — 当前 `memory` 工具不走本仓库代码；判断 `persistent_store.py` 是否可以接管、是否有收益 | 文档结论 + 建议（切/不切/部分切） | 持久化架构透明度 | [ ] |
+| 5 | **OC-05** | **验证** WM 自愈闭环 — Gateway 重启后确认 14 个待自愈模式被自动识别并写入 prediction rules | `learned_surprises.json` 的 hit≥10 模式触发 `auto_update_predictions()`；WM 预测集包含 `run_terminal_cmd` | 自修复闭环实证 | [ ] |
+
+### 准入条件
+
+- 每粒独立 PR，禁合并
+- OC-01/02 可并行（互不依赖）
+- OC-03 依赖 OC-02（`_close_pipeline` 修好才接）
+- OC-04 独立
+- OC-05 最后（依赖 Gateway 重启验证）

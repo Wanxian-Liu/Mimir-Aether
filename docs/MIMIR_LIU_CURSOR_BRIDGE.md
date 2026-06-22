@@ -803,3 +803,4 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 || 2026-06-04 | **HC-11** | Mimir | credential_sources.py 薄封装 127 行（RemovalStep 注册模式）· `181a452` · tier0 696+2 |
 || 2026-06-04 | **HC-13** | Mimir | rm agent/tool_registry.py 343 行 DEPRECATED + 同步删 2 测试文件 + 更新引用 · `d2410d6` · tier0 685 |
 || 2026-06-04 | **HC-21** | Mimir | prompt_builder.py stable/volatile 分段标注 + deprecation docstring · `6881116` · tier0 696+2 · **§20.7 全线收官** |
+|| 2026-06-22 | **OC-* 初始化** | Mimir | 全盘孤件审计 → §21 孤件清理轨（OC-01～OC-05）写入 backlog · WM 预测规则优化 + 自愈闭环 `d8ed349` · WM 深度分析报告（606条 surprise 数据）· `3b03564` WM rules · backlog + bridge + memory 同步更新 |
