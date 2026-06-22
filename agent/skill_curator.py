@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from agent import memory_write_facade as mwf
+from agent.skills_qa import SkillsQA
 
 logger = logging.getLogger(__name__)
 
@@ -215,6 +216,20 @@ def run_lifecycle_pass() -> Dict[str, Any]:
             save_description_review_report(description_review)
     except Exception as exc:
         logger.warning("skill_description_review pass failed: %s", exc)
+
+    # ── SA-01: SkillsQA ghost detection ─────────────────────────────────
+    qa_ghosts: List[str] = []
+    try:
+        qa = SkillsQA(str(SKILLS_ROOT))
+        qa.run_qa_check()
+        qa_ghosts = qa.detect_ghost_skills()
+        if qa_ghosts:
+            logger.warning(
+                "SkillsQA: %d ghost skill(s) detected: %s",
+                len(qa_ghosts), ", ".join(qa_ghosts),
+            )
+    except Exception as exc:
+        logger.warning("SkillsQA pass failed (non-fatal): %s", exc)
 
     report_md = build_lifecycle_report(
         skills, buckets, actions_data, description_review=description_review

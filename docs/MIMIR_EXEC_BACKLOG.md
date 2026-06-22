@@ -1,6 +1,6 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-06-23（**§21 OC 全线收官**：OC-01～OC-05 全部 [x] · WM 自愈闭环验证通过）  
+> **最近更新**：2026-06-23（**§21 OC 全线收官** · **§22 SA-01 [x]** — skills_qa 审计 + 接线到 skill_curator · 剩余 SA-02～SA-04）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5  
 > **规则**：**§21 孤件清理轨**（OC-01～OC-05 全部 [x]）· **§20.7 HC 轨**已全线收官 · **TASK_QUEUE §14**（IQ-55 行为轨）搁置中。历史 §19 只读归档。  
 > **Mimir 主执行**（2026-06-01）：[`MIMIR_PRIMARY_EXECUTOR.md`](./MIMIR_PRIMARY_EXECUTOR.md) · 任务 [`MIMIR_TASK_QUEUE.md`](./MIMIR_TASK_QUEUE.md) **§9** · Cursor 只复核 HANDOFF。  
@@ -1297,7 +1297,7 @@ _level_5_   auto_retrospective.py (74行)    ❌ 已被守卫内置复盘取代
 | 2 | **OC-02** | **修复** `agent/agent_loop.py:742` `_close_pipeline()` — 删除 `jepa_session_hook` + `post_close_analysis` 两个不存在 import；修正 `except Exception: pass` → `logger.warning`；清理孤立调用块 + 死 import `schedule_post_close_evolution`；同步 fix 测试标记 `[preemptive-search]` → `[SEARCH-FIRST-RESULTS]` | tier0 685+2（1 预存无关失败） · `157c093` | 防运行时崩溃 + 标记同步 | [x] |
 | 3 | **OC-03** | **接入** `agent/skill_curator.py` — 移除 `schedule_skill_curator_lifecycle_pass()` 的 `MIMIR_SKILL_CURATOR_ON_CLOSE` env 门控，使 lifecycle pass 每次 close 自动运行；清理 `import os`（仅用于门控）| tier0 685+2 · `157c093` | 激活 910 行技能策展引擎 · 无需手动设置 env | [x] |
 | 4 | **OC-04** | **审计** 持久化写入 — 当前 `memory` 工具不走本仓库代码；判断 `persistent_store.py` 是否可以接管、是否有收益 | 文档结论 + 建议（切/不切/部分切） | 持久化架构透明度 | [ ] |
-| 5 | **OC-05** | **验证** WM 自愈闭环 — Gateway 重启后确认 14 个待自愈模式被自动识别并写入 prediction rules | `learned_surprises.json` 的 hit≥10 模式触发 `auto_update_predictions()`；WM 预测集包含 `run_terminal_cmd` | 自修复闭环实证 | [ ] |
+| 5 | **OC-05** | **验证** WM 自愈闭环 — Gateway 重启后确认 14 个待自愈模式被自动识别并写入 prediction rules | `learned_surprises.json` 的 hit≥10 模式触发 `auto_update_predictions()`；WM 预测集包含 `run_terminal_cmd` | 自修复闭环实证 | [x] ✅ 已验证通过 `ccc49f1` |
 
 ### 准入条件
 
@@ -1306,3 +1306,36 @@ _level_5_   auto_retrospective.py (74行)    ❌ 已被守卫内置复盘取代
 - OC-03 依赖 OC-02（`_close_pipeline` 修好才接）
 - OC-04 独立
 - OC-05 最后（依赖 Gateway 重启验证）
+
+---
+
+## §22 孤件审计与接线（SA · Self-Audit · 2026-06-23）
+
+> **背景**：2017-06-23 三问扫描发现 `agent/` 下 153 文件中有 **18 个生产代码文件从未被任何文件导入**。其中 3 个集群值得处理。
+
+### 孤件全景
+
+| 集群 | 文件 | 总行数 | 当前状态 | 评估 |
+|:----|:-----|:-----:|:--------|:----|
+| **A — 技能 QA** | `skills_qa.py` + `skills_hub.py` | **1,527** | ✅ 代码完整 · ⛔ 从未被 import | 接口已初验（L1–200），健壮 |
+| **B — 记忆子系统** | `memory_fence.py` + `memory_provider.py` + `memory_system.py` | **1,231** | ⛔ 从未被 import | 待审计 — 可能被 Gateway 的 memory 工具覆盖 |
+| **C — credential 接线** | `credential_sources.py` (HC-11 产物) | **206** | ✅ 代码已写 · ⛔ 未接到 `credential_pool.py` | 纯接线，~10行 |
+| **D — persistent_store** | `persistent_store.py` + `memory_write_facade.py` | **234** | ⛔ 从未被 import | ✅ OC-04 已决定保持现状（DEFERRED） |
+
+### 执行队列
+
+> 每粒：读接口 → 读内部逻辑 → 判断接线 → runtime 验证。用 `技能名:[ready|blocked|done]` 标记。
+
+| 序 | ID | 任务 | 成功标准 | 收益 | 状态 |
+|:--:|:--:|------|----------|:----:|:----:|
+| 1 | **SA-01** | **审计 `skills_qa.py`**（1,031行）— 读接口(L1-200) → 读核心逻辑(L201-600) → 判断是否接线到 `skill_curator.py` | audit → wired → run. | ✅ 已接线到 skill_curator.run_lifecycle_pass() | **[x]** |
+| 2 | **SA-02** | **审计 `skills_hub.py`**（496行）— 同样三阶段 | 审计报告 | 若可用则激活技能分发能力 | **[ ]**（依赖 SA-01） |
+| 3 | **SA-03** | **接线 `credential_sources.py` 到 `credential_pool.py`** | `credential_pool.py` 在某点调 `credential_sources.py` 的清理方法 | HC-11 产物真正可用 | **[ ]** |
+| 4 | **SA-04** | **审计记忆子系统** — `memory_fence.py`(?) + `memory_provider.py`(?) + `memory_system.py`(?) | 三个文件逐一审计报告 | 记忆架构可见性 | **[ ]** |
+
+### 准入条件
+
+- SA-01 独立（当前 Step 1 起点）
+- SA-02 依赖 SA-01（skills_hub 需先确认 skills_qa 是否可用）
+- SA-03 独立（可并行）
+- SA-04 最后（涉及面最广）

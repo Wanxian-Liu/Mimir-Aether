@@ -18,10 +18,9 @@ WAVE2_IDS = (
 
 
 def test_wave2_modules_wired():
-    assert (ROOT / "agent/post_close_analysis.py").is_file()
+    # OC-02: post_close_analysis.py removed — no longer wired
     assert (ROOT / "agent/conversation_nudges.py").is_file()
     loop = AGENT_LOOP.read_text(encoding="utf-8")
-    assert "schedule_post_close_analysis" in loop
     assert "maybe_memory_nudge_message" in loop
     pb = PROMPT_BUILDER.read_text(encoding="utf-8")
     assert "_cross_session_max_chars" in pb

@@ -16,7 +16,7 @@ def test_herm_cur_02_lifecycle_exports():
         "scan_all_skills",
         "run_lifecycle_pass",
         "schedule_skill_curator_lifecycle_pass",
-        "MIMIR_SKILL_CURATOR_ON_CLOSE",
+        "SkillsQA",
     ):
         assert symbol in text
 

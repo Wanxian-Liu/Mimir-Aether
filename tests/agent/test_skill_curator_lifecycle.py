@@ -76,20 +76,21 @@ def test_schedule_skill_curator_on_close_spawns_when_env(monkeypatch):
     assert called
 
 
-def test_schedule_skill_curator_skips_when_env_off(monkeypatch):
+def test_schedule_skill_curator_always_runs(monkeypatch):
+    # OC-03: env gate removed — always runs on close
     monkeypatch.delenv("MIMIR_SKILL_CURATOR_ON_CLOSE", raising=False)
     called = []
 
     monkeypatch.setattr(
         "agent.skill_curator.run_lifecycle_pass",
-        lambda: called.append("ran"),
+        lambda: called.append("ran") or {"total": 0, "report_md": ""},
     )
 
     schedule_skill_curator_lifecycle_pass()
     import time
 
-    time.sleep(0.15)
-    assert not called
+    time.sleep(0.2)
+    assert called
 
 
 def test_build_lifecycle_report_truncates():
