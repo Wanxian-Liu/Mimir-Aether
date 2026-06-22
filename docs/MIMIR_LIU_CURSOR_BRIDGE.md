@@ -805,3 +805,4 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 || 2026-06-23 | **OC-01** | Mimir | 归档 auto_retrospective.py（被守卫内置复盘取代）· agent_loop 两处引用均已注释 · 保留源文件供参考 · `bc8e88d` |
 || 2026-06-04 | **HC-21** | Mimir | prompt_builder.py stable/volatile 分段标注 + deprecation docstring · `6881116` · tier0 696+2 · **§20.7 全线收官** |
 || 2026-06-22 | **OC-* 初始化** | Mimir | 全盘孤件审计 → §21 孤件清理轨（OC-01～OC-05）写入 backlog · WM 预测规则优化 + 自愈闭环 `d8ed349` · WM 深度分析报告（606条 surprise 数据）· `3b03564` WM rules · backlog + bridge + memory 同步更新 |
+|| 2026-06-23 | **OC-02+OC-03** | Mimir | _close_pipeline 清理：删除 2 个不存在 import + 孤立调用块，修正 except:pass → logger.warning, 测试标记 [preemptive-search] → [SEARCH-FIRST-RESULTS] 同步 · skill_curator 门控移除：lifecycle pass 每次 close 自动运行 · `157c093` · tier0 685+2 |
