@@ -62,7 +62,8 @@ from .verify_before_report_guard import (
     guard_enabled as verify_guard_enabled,
     should_block_finish as should_block_verify_finish,
 )
-from .auto_retrospective import enabled as retro_enabled, record as record_retro
+# OC-01: auto_retrospective archived
+# from .auto_retrospective import enabled as retro_enabled, record as record_retro
 # 统一类型: 从 types.py 导入 (Phase 3 M1)
 from .types import AgentLoopToolError as ToolError, AgentLoopResult as AgentResult
 
@@ -709,7 +710,8 @@ class MimirAgentLoop:
                     and should_block_verify_finish(messages, content or "")
                 ):
                     messages.append({"role": "user", "content": build_verify_nudge()})
-                    record_retro(messages, content or "")
+                    # OC-01: record_retro archived
+                    # record_retro(messages, content or "")
                     logger.warning(
                         "[%s] turn %d: verify-before-report guard triggered",
                         self.task_id[:8], turn + 1,

@@ -1,10 +1,7 @@
-"""auto_retrospective.py — 自动化复盘器。
+"""auto_retrospective.py — 自动化复盘器。 [OC-01 ARCHIVED 2026-06-23]
 
-当 verify-before-report guard 拦截时，自动：
-1. 提取根因（assistant 文本中的假声明）
-2. 写入复盘日志 (data/retrospectives.jsonl)
-
-env 门控: MIMIR_AUTO_RETROSPECTIVE=1
+被守卫内置复盘取代（verify_before_report_guard 直接写入 retrospectives.jsonl）。
+保留文件供参考，不再导入。"""
 """
 
 import os
