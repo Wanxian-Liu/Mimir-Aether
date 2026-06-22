@@ -208,7 +208,7 @@ class TestShouldBlockTextOnlyFinish:
             {"role": "user", "content": "还记得上次的任务么"},
             {
                 "role": "user",
-                "content": "[preemptive-search] Queried sessions.\nmatches: 2",
+                "content": "[SEARCH-FIRST-RESULTS] Queried sessions.\nmatches: 2",
             },
         ]
         assert session_search_satisfied_since_last_user(msgs) is True
@@ -226,7 +226,7 @@ class TestLastUserText:
     def test_skips_preemptive_and_guard_messages(self):
         msgs = [
             {"role": "user", "content": "还记得上次的任务么"},
-            {"role": "user", "content": "[preemptive-search] Queried sessions."},
+            {"role": "user", "content": "[SEARCH-FIRST-RESULTS] Queried sessions."},
             {"role": "user", "content": "[search-first-guard] must call session_search"},
         ]
         assert last_user_text(msgs) == "还记得上次的任务么"
@@ -234,6 +234,6 @@ class TestLastUserText:
     def test_preemptive_satisfies_without_tool_call(self):
         msgs = [
             {"role": "user", "content": "还记得上次的任务么"},
-            {"role": "user", "content": "[preemptive-search] Queried sessions."},
+            {"role": "user", "content": "[SEARCH-FIRST-RESULTS] Queried sessions."},
         ]
         assert block_tool_reason("read_file", msgs) is None

@@ -197,8 +197,8 @@ class MimirAgentLoop:
         try:
             from agent.execution_pipeline import start_execution_pipeline
             start_execution_pipeline(task_name=user_task or self.task_id, session_id=self.task_id)
-        except Exception:
-            pass
+        except Exception as exc:
+                logger.warning("[%s] _close_pipeline error: %s", self.task_id[:8], exc)
 
         intent_nudges = 0
         search_first_nudges = 0
@@ -745,11 +745,8 @@ class MimirAgentLoop:
         """Defensive close of execution pipeline (best-effort, never raises)."""
         try:
             from agent.execution_pipeline import (
-                close_execution_pipeline,
-                schedule_post_close_evolution,
+                close_execution_pipeline
             )
-            from agent.jepa_session_hook import schedule_post_close_jepa_cycle
-            from agent.post_close_analysis import schedule_post_close_analysis
             from agent.skill_curator import schedule_skill_curator_lifecycle_pass
 
             task = task_name or self.task_id
@@ -761,16 +758,8 @@ class MimirAgentLoop:
                 session_id=self.task_id,
                 task_name=task,
             )
-            schedule_post_close_analysis(
-                result,
-                task_name=task,
-                session_id=self.task_id,
-            )
-            schedule_post_close_evolution(result)
-            schedule_post_close_jepa_cycle(result, session_id=self.task_id)
-        except Exception:
-            pass
-
+        except Exception as exc:
+            logger.warning("[%s] _close_pipeline error: %s", self.task_id[:8], exc)
     def _record_tool(
         self,
         tool_name: str,
@@ -797,8 +786,8 @@ class MimirAgentLoop:
                 result_summary=result_summary,
                 session_id=self.task_id,
             )
-        except Exception:
-            pass  # Recording is best-effort
+        except Exception as exc:
+                logger.warning("[%s] _close_pipeline error: %s", self.task_id[:8], exc)  # Recording is best-effort
 
 
 def _fallback_parse_tool_calls(content: str) -> Optional[List[dict]]:
@@ -829,8 +818,8 @@ def _fallback_parse_tool_calls(content: str) -> Optional[List[dict]]:
                         ),
                     },
                 })
-        except Exception:
-            pass
+        except Exception as exc:
+                logger.warning("[%s] _close_pipeline error: %s", self.task_id[:8], exc)
     return parsed or None
 
 

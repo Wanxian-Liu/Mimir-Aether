@@ -13,7 +13,6 @@ MimirAether Skill Curator — 技能生命周期管理
 """
 
 import logging
-import os
 import threading
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -239,14 +238,7 @@ def schedule_skill_curator_lifecycle_pass(
     session_id: str = "",
     task_name: str = "",
 ) -> None:
-    """Fire-and-forget lifecycle pass when MIMIR_SKILL_CURATOR_ON_CLOSE=1."""
-    if os.environ.get("MIMIR_SKILL_CURATOR_ON_CLOSE", "").strip().lower() not in (
-        "1",
-        "true",
-        "yes",
-    ):
-        return
-
+    """Fire-and-forget lifecycle pass. Always runs on close."""
     def _worker() -> None:
         try:
             run_lifecycle_pass()
