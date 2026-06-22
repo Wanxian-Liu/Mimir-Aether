@@ -12,6 +12,8 @@ from collections import deque
 from dataclasses import dataclass
 from typing import Any
 
+from .wm_voe_learning import get_self_healing_additions, is_wm_voe_learning_enabled
+
 _RECALL_HINT = re.compile(
     r"(?i)上次|之前|记得|session_search|历史.*对话|还记得|prior\s+session"
 )
@@ -200,6 +202,11 @@ def predict(context_snapshot: dict) -> Prediction:
 
     needs = list(_INTENT_NEEDS.get(intent, _INTENT_NEEDS["general"]))
     skills = list(_INTENT_SKILLS.get(intent, _INTENT_SKILLS["general"]))
+    # Merge self-healing additions from learned patterns (WM-P12-01)
+    if is_wm_voe_learning_enabled():
+        for t in get_self_healing_additions():
+            if t not in skills:
+                skills.append(t)
     expected = _build_expected_outcome(intent, objective, user_message)
     return Prediction(
         next_context_needs=needs,

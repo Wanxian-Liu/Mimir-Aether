@@ -220,3 +220,69 @@ def append_surprise_event(
         surprise_label,
         path=learned_path,
     )
+
+    auto_update_predictions(learned_path)
+
+
+# --- Self-healing: auto-update WM prediction rules (WM-P12-01) ---
+
+AUTO_UPDATE_THRESHOLD = int(os.environ.get("MIMIR_WM_AUTO_UPDATE_THRESHOLD", "10"))
+_self_healing_additions: set[str] = set()
+_self_healing_last_update: float = 0.0
+_SELF_HEAL_UPDATE_COOLDOWN = 300.0  # 5 min between reads
+
+# Tools from test/benchmark noise, never add to predictions
+_SELF_HEAL_EXCLUDE = frozenset({
+    "echo", "crash_tool", "nonexistent", "calc", "orphan_tool",
+    "tool_b", "noop_tool", "read_file", "session_search",
+})
+
+# Map actual tool names to _INTENT_SKILLS-compatible names
+_SELF_HEAL_TOOL_MAP: dict[str, str] = {
+    "terminal": "run_terminal_cmd",
+}
+
+
+def auto_update_predictions(path: Path | None = None) -> None:
+    """Read learned_surprises.json and extract tools with hit_count >= threshold.
+
+    Updates the global _self_healing_additions set, which is read by
+    get_self_healing_additions() and merged into predictions in world_model_spike.
+    Rate-limited to once per SELF_HEAL_UPDATE_COOLDOWN seconds.
+    """
+    global _self_healing_additions, _self_healing_last_update
+
+    now = time.time()
+    if now - _self_healing_last_update < _SELF_HEAL_UPDATE_COOLDOWN:
+        return
+
+    target = path or default_learned_surprises_path()
+    index = _load_learned_index(target)
+    entries = index.get("entries", {})
+
+    additions: set[str] = set()
+    for key, entry in entries.items():
+        hit_count = entry.get("hit_count", 0)
+        if hit_count < AUTO_UPDATE_THRESHOLD:
+            continue
+        actual_str = entry.get("actual", "")
+        for tool in actual_str.split(","):
+            tool = tool.strip()
+            if not tool or tool in _SELF_HEAL_EXCLUDE:
+                continue
+            tool = _SELF_HEAL_TOOL_MAP.get(tool, tool)
+            additions.add(tool)
+
+    _self_healing_additions = additions
+    _self_healing_last_update = now
+
+    if additions:
+        logger.info(
+            "WM self-heal: auto-added %s from %d learned patterns (threshold=%d)",
+            sorted(additions), len(entries), AUTO_UPDATE_THRESHOLD,
+        )
+
+
+def get_self_healing_additions() -> set[str]:
+    """Return current self-healing tool additions (merged into predict())."""
+    return set(_self_healing_additions)
