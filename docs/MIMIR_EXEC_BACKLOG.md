@@ -159,6 +159,7 @@ EV-M01..12: (列表勾选)
 || **EV-L12** | 真进化 | evolution / simulated | Playbook **§12** 真/伪进化各 1 例 | [x] 2026-05-20 |
 || **EV-L13** | 可观测债 | 结合 EV-M08 | Playbook **§13** + ISSUES ≤1 条（E-006） | [x] 2026-05-20 |
 || **EV-L14** | 索引 | 汇总 §1–§13 | Playbook **§14** 目录+复习节奏；飞书 **学习轨完成包** | [x] 2026-05-20 |
+|| **EV-L15** | .env 安全 + 重复回复 | write_file 覆盖 FEISHU/DEEPSEEK 密钥；LLM 循环重复 | Playbook **§15** env-safe-update 技能 + chmod 600 + 重复检测 | [x] 2026-06-23 |
 
 **执行约束**
 

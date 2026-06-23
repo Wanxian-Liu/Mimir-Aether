@@ -1,1 +1,21 @@
-[]
+{
+  "jobs": [
+    {
+      "id": "2a6a7d276c7f",
+      "name": "每周论文追踪 - arXiv AI frontier",
+      "prompt": "## 每周论文追踪任务\n\n搜索 arXiv 本周最新（过去 7 天）的 AI 前沿论文，重点关注以下方向：\n\n1. **世界模型（World Models）** — FWM, IDM, LeWM, SWIRL 相关\n2. **AI Agent 架构** — Agent 循环、工具调用、自进化、Action/World/Judge 多模型协作\n3. **自进化系统（Self-evolving / Self-improving）** — LLM 自我改进、RL 自训练\n4. **前沿通用 AI 研究** — 不局限上述三类，搜到高影响力的也覆盖\n\n### 搜索步骤\n1. 使用 web_search 搜索 `arxiv cs.AI latest papers site:arxiv.org`\n2. 搜索 `arxiv world models self-improving 2025 2026`\n3. 搜到的论文用 web_extract 拉取摘要\n4. 筛选出最有趣/最相关的 3-5 篇\n\n### 输出格式\n按以下格式输出摘要：\n\n```\n## 本周论文速报 🗓️ 2026-XX-XX\n\n### 🥇 [论文标题]\n> arxiv.org/abs/XXXX.XXXXX\n\n**核心贡献：** 一句话\n**跟我们的关系：** 跟 MimirAether 自愈闭环、WM 预测器、三级框架的关联\n**值得深读吗？** ⭐⭐⭐（1-5 星）\n\n### 🥈 [第二篇]\n...\n```\n\n如果没搜到新论文，如实说\"本周无相关新论文\"，不要编造。\n\n### 交付\n直接输出到当前对话即可。",
+      "schedule": {
+        "type": "cron",
+        "value": "0 9 * * 0",
+        "display": "0 9 * * 0"
+      },
+      "schedule_display": "0 9 * * 0",
+      "enabled": true,
+      "state": "scheduled",
+      "next_run_at": null,
+      "created_at": "2026-06-23T05:57:51.908835+00:00",
+      "deliver": "local"
+    }
+  ],
+  "updated_at": "2026-06-23T05:57:51.909190+00:00"
+}

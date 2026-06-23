@@ -493,7 +493,28 @@ Mimir 发现异常
 | **D6-0a** | insights SQL `TOOL_CALL` | `session_tracker.py` 扩展：新增 `TOOL_CALL` 表（tool_name / status / duration_ms / error_msg），每次工具调用自动 INSERT | `sqlite3 $DB "SELECT COUNT(*) FROM TOOL_CALL WHERE status='error'"` 返回数字 |
 | **D6-0b** | monitor 阈值 + status | `agent/monitor.py` 新增：每 N 个 tool call 检查错误率；超过阈值写入 `data/monitor_alerts.json`；`/health` 端点新增 `agent_error_rate` 字段 | `curl /health` 返回含 `agent_error_rate`；错误率 >10% 时有 alert 文件 |
 | **D6-0c** | health.register | Gateway health 端点接入 Agent 层：注册 `agent.monitor` 到 health check 列表；`/health` 返回聚合状态（gateway + agent 双源） | `curl /health` 返回 `{"gateway":"ok","agent":"ok"}` 或 `"agent":"degraded"` |
-| **D6-0d** | RateLimitTracker Lock | `session_tracker.py` 或 `monitor.py` 的限流计数器加 `threading.Lock`，防并发写入竞态 | 并发测试无 `KeyError` / 计数不准 |
+| **D6-0d** | RateLimitTracker Lock | `session_tracker.py` 或 `monitor.py`  䏬 流计数器加 `threading.Lock`，防并发写入竞态 | 并发测试无 `KeyError` / 计数不准 |
+
+---
+
+## 15. .env 误删与 systemd 持久化（EV-L15 ✅ 2026-06-23）
+
+> 来源：Session 258（2026-06-23 14:05-14:30）— `write_file` 覆盖 ~/.mimiraether/.env，清空 FEISHU_APP_SECRET 和 DEEPSEEK_API_KEY。
+
+### 学到了（3 条）
+
+- **`write_file` 是整文件覆盖，不是 patch**：写 `.env` 等配置文件时，裸 `write_file(path, content)` 会清空文件中所有已有键值。这是工具 API 的行为，不是 bug，但 Mimir 之前没有为此设防。
+- **LLM 重复回复 = 上下文循环**：同一段内容重复发出 6 次不是因为"想重复"，是因为 Gateway 的 response 写回逻辑在异常路径下产生了循环（状态更新了但消息重复）。修复方式：在回复前检查上一轮回复的内容是否完全一致，如果是则中断循环。
+- **WM 可以全程在跑但仍然拦不住工具误用**：WM 预测器只能预测"会用哪个工具"（猜中了 write_file），不能预测"这个工具调用的后果是什么"。这就是 Level 1（consequence simulation）的缺失缺口——WM 看到了我在做什么，但不知道这么做对不对。
+
+### 防再发（2 条）
+
+- **`env-safe-update` 技能**：禁止裸 `write_file` 改写 `.env`。必须用"先读 → 只改目标行 → 写前备份 → 写后验证密钥完整性"流程。技能文件已写入 `skills/mimiraether/env-safe-update/SKILL.md`。
+- **`.env` 权限固化 `chmod 600`**：仅 owner 可读，减少意外修改窗口。同时 `EnvironmentFile` 方式加载（systemd）确保启动时仍然可读。
+
+### 对标工业实践
+
+- 类似 Terraform 的 `terraform plan` 先预览再执行——写配置前先读盘、做 diff、展示差异，确认后再写。Mimir 的 `env-safe-update` 技能约定了相同的"先读后改"流程。
 
 ### E-006 完成后复验清单
 
@@ -565,9 +586,14 @@ Mimir 发现异常
 
 ```text
 [Mimir 工业级学习轨] 2026-05-20
-EV-L01..14: ✅✅✅✅✅✅✅✅✅✅✅✅✅✅ (14/14)
-Playbook: docs/MIMIR_EV_L_INDUSTRIAL_LEARNING.md 已填 §1–§14
+|EV-L01..15: ✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅ (15/15)
+Playbook: docs/MIMIR_EV_L_INDUSTRIAL_LEARNING.md 已填 §1–§15
 最大收获 1 条: 工具管道 100% 断裂 → 4 类代码错误不进 TRUNCATE → 分层修复 (import 烟测 + 类型守卫 + 飞书端到端)
 防再发 1 条（最重要）: 改 agent/gateway/tools 后必须 tier0 绿；无 tier0 的 SKILL.md ≠ 进化
 建议工程: E-004 (CLI_CONFIG) / E-006 (可观测四子项)
+---
+[2026-06-23 Session 258 追加]
+EV-L15: write_file 覆盖 .env → env-safe-update 技能 + chmod 600 + systemd service
+WM 确认: 970+ surprise · 54 模式 · 自愈闭环中 4 个工具自动加入预测
+3 条铁律自检链: 读盘验证 / session_search 历史查询 / 三问结构分析
 ```
