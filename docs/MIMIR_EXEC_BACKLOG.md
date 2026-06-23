@@ -1,8 +1,8 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-06-23（**WM Level 2+3** — 置信度评分 + 按需门控 ✅ · **§22 SA** 全线收官 ✅ · **§21 OC** 全线收官 ✅）  
+> **最近更新**：2026-06-24（**研究树** #1~#4 全线收官 ✅ · **WM 进化三级** Level 2+3 完成 ✅ · **梦境记忆蒸馏** cron 每日 23:00 · **WM 数据** 1079+ 条持续积累 ✅ · **Agent-Reach** 已装 ✅ · **`.env` 安全** chmod 600 + `env-safe-update` 技能 ✅ · **dropbox** 定时清理由 `~/.local/bin/dropbox_cleanup.sh` 接管 ✅）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5  
-> **规则**：**§21 OC 孤件清理轨**全线 [x] ✅ · **§22 SA 审计接线轨**全线 [x] ✅ · **WM Level 2+3**（置信度 + 按需门控）已部署 · 活跃任务均已完成，数据自然积累中。历史 §19 只读归档。  
+> **规则**：**§21 OC 孤件清理轨**全线 [x] ✅ · **§22 SA 审计接线轨**全线 [x] ✅ · **WM Level 2+3**（置信度 + 按需门控）已部署 · **研究树** #1~#4 全线 [x] ✅ · **Agent-Reach** 已装并替代 Tavily ✅ · **梦境记忆蒸馏 cron** 每日 23:00 上线 ✅ · 活跃任务均已完成，数据自然积累中。历史 §19 只读归档。  
 > **Mimir 主执行**（2026-06-01）：[`MIMIR_PRIMARY_EXECUTOR.md`](./MIMIR_PRIMARY_EXECUTOR.md) · 任务 [`MIMIR_TASK_QUEUE.md`](./MIMIR_TASK_QUEUE.md) **§9** · Cursor 只复核 HANDOFF。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
 > **勿提交**：`data/persistent.json`（runtime 镜像）。
@@ -1297,7 +1297,7 @@ _level_5_   auto_retrospective.py (74行)    ❌ 已被守卫内置复盘取代
 | 1 | **OC-01** | **审计确认** `auto_retrospective.py` — 有效代码，`agent_loop.py:712` 活跃调用，非孤件 | 审计报告写入文档 | 修正误判，节约 15 分钟不必要归档 | [x] |
 | 2 | **OC-02** | **修复** `agent/agent_loop.py:742` `_close_pipeline()` — 删除 `jepa_session_hook` + `post_close_analysis` 两个不存在 import；修正 `except Exception: pass` → `logger.warning`；清理孤立调用块 + 死 import `schedule_post_close_evolution`；同步 fix 测试标记 `[preemptive-search]` → `[SEARCH-FIRST-RESULTS]` | tier0 685+2（1 预存无关失败） · `157c093` | 防运行时崩溃 + 标记同步 | [x] |
 | 3 | **OC-03** | **接入** `agent/skill_curator.py` — 移除 `schedule_skill_curator_lifecycle_pass()` 的 `MIMIR_SKILL_CURATOR_ON_CLOSE` env 门控，使 lifecycle pass 每次 close 自动运行；清理 `import os`（仅用于门控）| tier0 685+2 · `157c093` | 激活 910 行技能策展引擎 · 无需手动设置 env | [x] |
-| 4 | **OC-04** | **审计** 持久化写入 — 当前 `memory` 工具不走本仓库代码；判断 `persistent_store.py` 是否可以接管、是否有收益 | 文档结论 + 建议（切/不切/部分切） | 持久化架构透明度 | [ ] |
+| 4 | **OC-04** | **审计** 持久化写入 — 当前 `memory` 工具不走本仓库代码；判断 `persistent_store.py` 是否可以接管、是否有收益 | 文档结论 + 建议（切/不切/部分切） | 持久化架构透明度 | [x] 2026-06-23 — 结论：DEFERRED。保持现状，不切（723 行本地代码，零 import，Gateway 写入已正常工作）。详见 `docs/phase0/oc04-persistence-audit.md` |
 | 5 | **OC-05** | **验证** WM 自愈闭环 — Gateway 重启后确认 14 个待自愈模式被自动识别并写入 prediction rules | `learned_surprises.json` 的 hit≥10 模式触发 `auto_update_predictions()`；WM 预测集包含 `run_terminal_cmd` | 自修复闭环实证 | [x] ✅ 已验证通过 `ccc49f1` |
 
 ### 准入条件

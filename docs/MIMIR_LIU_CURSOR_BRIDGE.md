@@ -816,4 +816,10 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 ||| 2026-06-23 | **SA-01** | Mimir | skills_qa.py(1031行) 审计 + 接线到 skill_curator.run_lifecycle_pass() · 1 个 import 行 + 14 行 QA 检查块 · 合同测试 3 个对齐（OCs 遗留）· `86f97bd` · tier0 685+2 全绿 |
 || 2026-06-23 | **SA-02** | Mimir | skills_hub.py(496行) 审计结论: **[NO-ACTION]** — 功能被 skill_curator + skills_qa 完全覆盖；唯一值(SQLite使用统计)可通过 skill_curator 加20行日志实现 |
 || 2026-06-23 | **SA-03** | Mimir | credential_sources.py → credential_pool.py 接线: import-safe + remove_index() 后自动调 find_removal_step() 清理 .env/config · tier0 681+2 (0 新退化) · commit pending |
-|| 2026-06-23 | **SA-04** | Mimir | 记忆子系统(5文件 1918行) 审计结论: **[NO-ACTION]** — Gateway memory 工具 + cross_session_memory.py 完全覆盖 · §22 SA 全线收官 |
+||| 2026-06-23 | **SA-04** | Mimir | 记忆子系统(5文件 1918行) 审计结论: **[NO-ACTION]** — Gateway memory 工具 + cross_session_memory.py 完全覆盖 · §22 SA 全线收官 |
+||| 2026-06-23 | **HC-12+14** | Mimir | mcp_tool.py 拆出 mcp_schema.py(173行, -140行) + trajectory_compressor.py 拆出 trajectory_metrics.py(183行, -148行) · tier0 685+2 · `d0b444b` + `de617a4` |
+||| 2026-06-23 | **WM L2+L3** | Mimir | 置信度评分(Level 2): predict() 返回每个技能命中率/置信度 · 按需门控(Level 3): >50%跳过surprise, 10-50%低严重性标记 · global bugfix(置信度21天空转) · `8e349a4` |
+||| 2026-06-23 | **systemd+env** | Mimir | mimiraether.service 开机自启+崩溃5秒自动拉起 · .env 权限 chmod 600 · env-safe-update 技能固化(防误删密钥) · OpenClaw 保留重启能力 |
+||| 2026-06-24 | **研究树 #1-#4** | Mimir | SkillSpector对比 → skills_qa够用(NO-ACTION) · CowAgent 5层对比 → P0差距=梦境蒸馏 · Agent-Reach安装+安全评估 → 替代Tavily(免费) · Codebase-Memory-MCP参考 |
+||| 2026-06-24 | **梦境蒸馏 cron** | Mimir | agent/dream_memory.py每日23:00自动运行 · scripts/dream_memory_cron.sh包装器 · 记忆去重+重写≤20条决策+≤30条模式 |
+||| 2026-06-24 | **研究树收官** | Mimir | #1-#4全线[x] · Agent-Reach安全评估+安装+doctor通过 · 研究树技能固化(mimiraether-study-tree) · 对比CowAgent 5层(P0=梦境)· skills_qa够用(NO-ACTION) · 论文追踪cron每周日9:00 |
