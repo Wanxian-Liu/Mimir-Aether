@@ -9,10 +9,10 @@ from __future__ import annotations
 import os
 import re
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
-from .wm_voe_learning import get_self_healing_additions, is_wm_voe_learning_enabled
+from .wm_voe_learning import get_self_healing_additions, get_self_healing_confidence, is_wm_voe_learning_enabled
 
 _RECALL_HINT = re.compile(
     r"(?i)上次|之前|记得|session_search|历史.*对话|还记得|prior\s+session"
@@ -135,6 +135,7 @@ class Prediction:
     next_context_needs: list[str]
     applicable_skills: list[str]
     expected_outcome: str
+    tool_confidence: dict[str, float] = field(default_factory=dict)
 
 
 def is_wm_predictor_enabled() -> bool:
@@ -203,13 +204,20 @@ def predict(context_snapshot: dict) -> Prediction:
     needs = list(_INTENT_NEEDS.get(intent, _INTENT_NEEDS["general"]))
     skills = list(_INTENT_SKILLS.get(intent, _INTENT_SKILLS["general"]))
     # Merge self-healing additions from learned patterns (WM-P12-01)
+    confidence: dict[str, float] = {}
     if is_wm_voe_learning_enabled():
         for t in get_self_healing_additions():
             if t not in skills:
                 skills.append(t)
+        confidence = get_self_healing_confidence()
+    # Assign default confidence (0.0) for rule-based skills not in learned data
+    for s in skills:
+        if s not in confidence:
+            confidence[s] = 0.0
     expected = _build_expected_outcome(intent, objective, user_message)
     return Prediction(
         next_context_needs=needs,
         applicable_skills=skills,
         expected_outcome=expected,
+        tool_confidence=confidence,
     )

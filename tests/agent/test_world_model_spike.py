@@ -9,7 +9,7 @@ from agent.world_model_spike import Prediction, is_wm_predictor_enabled, predict
 
 def test_prediction_dataclass_fields():
     names = {f.name for f in fields(Prediction)}
-    assert names == {"next_context_needs", "applicable_skills", "expected_outcome"}
+    assert names == {"next_context_needs", "applicable_skills", "expected_outcome", "tool_confidence"}
 
 
 def test_predict_rich_snapshot_non_empty_outcome():

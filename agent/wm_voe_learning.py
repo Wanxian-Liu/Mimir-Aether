@@ -228,6 +228,7 @@ def append_surprise_event(
 
 AUTO_UPDATE_THRESHOLD = int(os.environ.get("MIMIR_WM_AUTO_UPDATE_THRESHOLD", "10"))
 _self_healing_additions: set[str] = set()
+_self_healing_confidence: dict[str, float] = {}  # tool → data-driven confidence (hit/total)
 _self_healing_last_update: float = 0.0
 _SELF_HEAL_UPDATE_COOLDOWN = 300.0  # 5 min between reads
 
@@ -261,6 +262,8 @@ def auto_update_predictions(path: Path | None = None) -> None:
     entries = index.get("entries", {})
 
     additions: set[str] = set()
+    tool_confidences: dict[str, float] = {}
+    total_events = sum(e.get("hit_count", 0) for e in entries.values()) or 1
     for key, entry in entries.items():
         hit_count = entry.get("hit_count", 0)
         if hit_count < AUTO_UPDATE_THRESHOLD:
@@ -272,17 +275,28 @@ def auto_update_predictions(path: Path | None = None) -> None:
                 continue
             tool = _SELF_HEAL_TOOL_MAP.get(tool, tool)
             additions.add(tool)
+            # Track max hit_count for this mapped tool for confidence
+            tool_confidences[tool] = max(tool_confidences.get(tool, 0), hit_count)
 
     _self_healing_additions = additions
+    _self_healing_confidence = {
+        t: round(h / total_events, 3)
+        for t, h in tool_confidences.items()
+    }
     _self_healing_last_update = now
 
     if additions:
         logger.info(
-            "WM self-heal: auto-added %s from %d learned patterns (threshold=%d)",
-            sorted(additions), len(entries), AUTO_UPDATE_THRESHOLD,
+            "WM self-heal: auto-added %s (confidence=%s) from %d learned patterns (threshold=%d)",
+            sorted(additions), _self_healing_confidence, len(entries), AUTO_UPDATE_THRESHOLD,
         )
 
 
 def get_self_healing_additions() -> set[str]:
     """Return current self-healing tool additions (merged into predict())."""
     return set(_self_healing_additions)
+
+
+def get_self_healing_confidence() -> dict[str, float]:
+    """Return confidence scores for self-healed tools (0.0-1.0, hit_count/total_events)."""
+    return dict(_self_healing_confidence)
