@@ -715,7 +715,12 @@ _示例：@Mimir 按 IQ-EVO-10。@Cursor IQ-EVO-11。_
 || 2026-06-04 | **HC-02** | **Mimir** | CI 最小增量 `lint.yml` + 「刻意不做」Hermes 16 workflow 清单 · `docs/HERMES_CI_GAP.md` |
 || 2026-06-04 | **HC-11** | **Mimir** | 薄封装 `agent/credential_sources.py`（RemovalStep 注册模式）· tier0 绿 |
 || 2026-06-04 | **HC-13** | **Mimir** | 清理 `agent/tool_registry.py`（DEPRECATED → 删）· tier0 绿 |
-|| 2026-06-04 | **HC-12** | **Mimir** | Phase1 schema 拆分：`tools/mcp_schema.py` 提取 8 个纯函数 · `mcp_tool.py` 瘦身 ~140 行 · tier0 685+2 |
+||| 2026-06-04 | **HC-12** | **Mimir** | Phase1 schema 拆分：`tools/mcp_schema.py` 提取 8 个纯函数 · `mcp_tool.py` 瘦身 ~140 行 · tier0 685+2 |
+||| 2026-06-23 | **HC-14** | **Mimir** | 拆 `trajectory_metrics.py` 183行 · `trajectory_compressor` -148行 · tier0 696+2 🟢 · `de617a4` |
+||| 2026-06-23 | **HC-21** | **Mimir** | `prompt_builder.py` stable/volatile 分段注释 · 对齐 `build_system_prompt_parts()` · tier0 696+2 🟢 · `6881116` |
+||| 2026-06-23 | **OC-01～OC-05** | **Mimir** | **§21 孤件清理轨全线** · auto_retrospective归档 · _close_pipeline清理 · skill_curator门控移除 · 持久化审计(DEFERRED) · WM自愈验证 · `157c093`~`ccc49f1` |
+||| 2026-06-23 | **SA-01～SA-04** | **Mimir** | **§22 审计接线轨全线** · skills_qa接线[s] · skills_hub NO-ACTION · credential_sources接线 · 记忆子系统NO-ACTION · `fe3f5e3`~`d06a588` |
+||| 2026-06-23 | **WM Level 2+3** | **Mimir** | 置信度评分(16.1%/12.9%/5.5%/7.6%) + 按需门控(0.5/0.1阈值) · global bugfix · push `8e349a4` |
 
 ## 5. Mimir 进度笔记
 

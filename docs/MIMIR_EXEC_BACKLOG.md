@@ -1,8 +1,8 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-06-23（**§22 SA全线收官** — SA-01 skills_qa 接线 ✅ · SA-02 NO-ACTION ❌ · SA-03 credential_sources 接线 ✅ · SA-04 记忆子系统 NO-ACTION ❌）  
+> **最近更新**：2026-06-23（**WM Level 2+3** — 置信度评分 + 按需门控 ✅ · **§22 SA** 全线收官 ✅ · **§21 OC** 全线收官 ✅）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5  
-> **规则**：**§21 孤件清理轨**（OC-01～OC-05 全部 [x]）· **§20.7 HC 轨**已全线收官 · **TASK_QUEUE §14**（IQ-55 行为轨）搁置中。历史 §19 只读归档。  
+> **规则**：**§21 OC 孤件清理轨**全线 [x] ✅ · **§22 SA 审计接线轨**全线 [x] ✅ · **WM Level 2+3**（置信度 + 按需门控）已部署 · 活跃任务均已完成，数据自然积累中。历史 §19 只读归档。  
 > **Mimir 主执行**（2026-06-01）：[`MIMIR_PRIMARY_EXECUTOR.md`](./MIMIR_PRIMARY_EXECUTOR.md) · 任务 [`MIMIR_TASK_QUEUE.md`](./MIMIR_TASK_QUEUE.md) **§9** · Cursor 只复核 HANDOFF。  
 > **卡住**：记 `docs/ISSUES.md` 或 `docs/MIMIR_ISSUES.md`，停手等刘哥。  
 > **勿提交**：`data/persistent.json`（runtime 镜像）。
