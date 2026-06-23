@@ -191,9 +191,27 @@ def append_surprise_event(
     path: Optional[Path] = None,
     learned_path: Optional[Path] = None,
 ) -> None:
-    """Append one VoE surprise event. No-op when learning is disabled."""
+    """Append one VoE surprise event. No-op when learning is disabled.
+
+    Confidence-gated: if the expected tool has high confidence from self-healing
+    history (above HIGH_CONF_THRESHOLD), skip the surprise — the model already
+    learned this pattern. Moderate confidence (above MOD_CONF_THRESHOLD) still
+    writes but with a reduced-severity label.
+    """
     if not is_wm_voe_learning_enabled():
         return
+
+    confidence = get_self_healing_confidence()
+    expected_tool = expected.strip()
+    tool_conf = confidence.get(expected_tool, 0.0)
+    if tool_conf >= _HIGH_CONF_THRESHOLD:
+        logger.debug(
+            "WM VoE skip surprise: %s confidence=%.3f >= threshold=%.2f",
+            expected_tool, tool_conf, _HIGH_CONF_THRESHOLD,
+        )
+        return
+    if tool_conf >= _MOD_CONF_THRESHOLD:
+        surprise_label = f"low_severity:{surprise_label}"
 
     target = path or default_surprise_events_path()
     event = {
@@ -231,6 +249,8 @@ _self_healing_additions: set[str] = set()
 _self_healing_confidence: dict[str, float] = {}  # tool → data-driven confidence (hit/total)
 _self_healing_last_update: float = 0.0
 _SELF_HEAL_UPDATE_COOLDOWN = 300.0  # 5 min between reads
+_HIGH_CONF_THRESHOLD = 0.5  # confidence ≥50% → skip writing surprise (self-healed)
+_MOD_CONF_THRESHOLD = 0.10  # confidence ≥10% → write with low_severity label
 
 # Tools from test/benchmark noise, never add to predictions
 _SELF_HEAL_EXCLUDE = frozenset({
@@ -251,11 +271,13 @@ def auto_update_predictions(path: Path | None = None) -> None:
     get_self_healing_additions() and merged into predictions in world_model_spike.
     Rate-limited to once per SELF_HEAL_UPDATE_COOLDOWN seconds.
     """
-    global _self_healing_additions, _self_healing_last_update
+    global _self_healing_additions, _self_healing_confidence, _self_healing_last_update
 
     now = time.time()
     if now - _self_healing_last_update < _SELF_HEAL_UPDATE_COOLDOWN:
         return
+    _self_healing_additions = set()
+    _self_healing_confidence = {}
 
     target = path or default_learned_surprises_path()
     index = _load_learned_index(target)
