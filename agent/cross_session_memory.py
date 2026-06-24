@@ -65,6 +65,7 @@ class CrossSessionMemory:
             "memory": {
                 "key_decisions": [],
                 "learned_patterns": [],
+                "behavioral_constraints": [],
                 "active_projects": [],
                 "user_preferences": {},
                 "skills_used": []
@@ -261,6 +262,11 @@ class CrossSessionMemory:
 
         if "curator_nudge" in disk_data and "curator_nudge" not in out:
             out["curator_nudge"] = copy.deepcopy(disk_data["curator_nudge"])
+
+        # PMD 共同进化：合并 behavioral_constraints（来自梦境蒸馏，用磁盘版替换内存版）
+        disk_behavioral = disk_data.get("memory", {}).get("behavioral_constraints")
+        if disk_behavioral:
+            out.setdefault("memory", {})["behavioral_constraints"] = copy.deepcopy(disk_behavioral)
 
         return out
     

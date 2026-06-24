@@ -1155,6 +1155,20 @@ def _build_cross_session_context() -> str:
                 primary_key="pattern",
                 limit=_cross_session_list_limit("MIMIR_CROSS_SESSION_PATTERNS_MAX", 3),
             )
+            # PMD 共同进化：注入行为约束（最多3条）
+            behavioral = memory.get("behavioral_constraints")
+            if isinstance(behavioral, list) and behavioral:
+                b_lines = []
+                for item in behavioral[:3]:
+                    rule = item.get("rule", "") if isinstance(item, dict) else str(item)
+                    if rule:
+                        if len(rule) > 100:
+                            rule = rule[:99] + "…"
+                        b_lines.append(f"- {rule}")
+                if b_lines:
+                    parts.append("行为约束(3):")
+                    parts.extend(b_lines)
+
             if last_end:
                 parts.append(f"上次会话结束: {last_end}")
             parts.append(f"会话计数: {session_count}")

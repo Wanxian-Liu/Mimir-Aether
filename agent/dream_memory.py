@@ -4,6 +4,10 @@
 模仿 CowAgent L4 梦境记忆模式：
   每天定时运行 → 读取所有持久化记忆 → 去重合并 → 蒸馏精炼 → 写回
 
+PMD 共同进化（Co-Evolution）改进：
+  - 行为约束蒸馏（behavioral_constraints）→ 写回 persistent.json 约束我的行为
+  - 自我矛盾报告（self_contradiction_report）→ 写入独立文件用于复盘
+
 依赖：
   - persistent.json（通过 memory_write_facade 访问）
   - DEEPSEEK_API_KEY（环境变量）
@@ -27,6 +31,7 @@ logger = logging.getLogger(__name__)
 # 容量限制（与 CrossSessionMemory 一致）
 _MAX_DECISIONS = 20
 _MAX_PATTERNS = 30
+_MAX_CONSTRAINTS = 5  # 行为约束上限
 
 # 梦境蒸馏 API 参数
 _DREAM_MODEL = "deepseek-chat"
@@ -96,12 +101,15 @@ def _build_distillation_prompt(memory_text: str) -> str:
 2. **删除完全重复的条目**（完全相同的文字保留一条）
 3. **删除过时或被新条目替代的条目**
 4. **为合并后的条目保留最佳的证据/上下文**
-5. **输出格式固定**：JSON 格式，包含 "key_decisions" 和 "learned_patterns" 两个数组
+5. **输出格式固定**：JSON 格式，包含 "key_decisions"、"learned_patterns"、"behavioral_constraints"、"self_contradiction" 四个字段
 6. **key_decisions 不超过 {_MAX_DECISIONS} 条**
 7. **learned_patterns 不超过 {_MAX_PATTERNS} 条**
-8. **每条决策可附带 context 字段**（不超过 30 字）
-9. **每条模式可附带 evidence 字段**（不超过 50 字）
-10. **只输出 JSON**，不要解释过程。
+8. **behavioral_constraints 不超过 {_MAX_CONSTRAINTS} 条**——从 key_decisions 和 learned_patterns 中提取"你应该/你不应该"格式的行为约束
+9. **self_contradiction** 为单条字符串——分析记忆条目中最严重的自我矛盾（哪个决策和哪个模式冲突）
+10. **每条决策可附带 context 字段**（不超过 30 字）
+11. **每条模式可附带 evidence 字段**（不超过 50 字）
+12. **每条约束格式**：{{"rule": "你应该/你不应该...", "source": "distilled", "evidence": "基于XX条模式/决策的提炼"}}
+13. **只输出 JSON**，不要解释过程。
 
 输入记忆：
 {memory_text}
@@ -113,7 +121,11 @@ def _build_distillation_prompt(memory_text: str) -> str:
   ],
   "learned_patterns": [
     {{"pattern": "学到的模式", "evidence": "支撑该模式的证据"}}
-  ]
+  ],
+  "behavioral_constraints": [
+    {{"rule": "你应该/你不应该...", "source": "distilled", "evidence": "基于XX条模式的提炼"}}
+  ],
+  "self_contradiction": "最严重的自我矛盾描述（如果没有则返回空字符串）"
 }}"""
 
 
@@ -165,6 +177,41 @@ async def _call_dream_llm(prompt: str) -> Optional[Dict]:
         return None
 
 
+def _get_contradiction_path() -> str:
+    """获取 self_contradiction_report.json 路径。"""
+    home = os.environ.get("MIMIR_AETHER_HOME", os.path.expanduser("~/.mimiraether"))
+    return os.path.join(home, "data", "self_contradiction_report.json")
+
+
+def _save_contradiction_report(contradiction: str) -> bool:
+    """将自我矛盾报告写入独立文件。"""
+    if not contradiction or not contradiction.strip():
+        return False
+    path = _get_contradiction_path()
+    entry = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "contradiction": contradiction.strip(),
+    }
+    try:
+        # 追加到已有报告列表（保留最近10条）
+        existing = []
+        if os.path.isfile(path):
+            with open(path, "r", encoding="utf-8") as f:
+                existing = json.load(f)
+        if not isinstance(existing, list):
+            existing = []
+        existing.append(entry)
+        if len(existing) > 10:
+            existing = existing[-10:]
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(existing, f, ensure_ascii=False, indent=2)
+        logger.info(f"[DreamMemory] 自我矛盾报告已写入: {contradiction[:80]}...")
+        return True
+    except (IOError, json.JSONDecodeError) as e:
+        logger.warning(f"[DreamMemory] 写入自我矛盾报告失败: {e}")
+        return False
+
+
 async def _run_distillation(
     data: Dict, memory_text: str, dry_run: bool = False
 ) -> Tuple[Dict, str]:
@@ -182,8 +229,10 @@ async def _run_distillation(
     # 统计蒸馏前后的条目数
     old_decisions = len(data.get("memory", {}).get("key_decisions", []))
     old_patterns = len(data.get("memory", {}).get("learned_patterns", []))
+    old_constraints = len(data.get("memory", {}).get("behavioral_constraints", []))
     new_decisions = len(result.get("key_decisions", []))
     new_patterns = len(result.get("learned_patterns", []))
+    new_constraints = len(result.get("behavioral_constraints", []))
 
     # 用蒸馏后的条目替换原有记忆
     if "memory" not in data:
@@ -191,12 +240,26 @@ async def _run_distillation(
     data["memory"]["key_decisions"] = result["key_decisions"][:_MAX_DECISIONS]
     data["memory"]["learned_patterns"] = result["learned_patterns"][:_MAX_PATTERNS]
 
+    # PMD 共同进化：写入 behavioral_constraints
+    if new_constraints > 0:
+        data["memory"]["behavioral_constraints"] = result["behavioral_constraints"][:_MAX_CONSTRAINTS]
+    else:
+        data["memory"].pop("behavioral_constraints", None)
+
+    # 写入自我矛盾报告（Change 3）
+    contradiction = result.get("self_contradiction", "")
+    if contradiction and contradiction.strip():
+        _save_contradiction_report(contradiction)
+
     report = (
         f"🔄 梦境蒸馏完成\n"
         f"  - key_decisions: {old_decisions} → {new_decisions} "
         f"({old_decisions - new_decisions:+d})\n"
         f"  - learned_patterns: {old_patterns} → {new_patterns} "
         f"({old_patterns - new_patterns:+d})\n"
+        f"  - behavioral_constraints: {old_constraints} → {new_constraints} "
+        f"({new_constraints - old_constraints:+d})\n"
+        f"  - 自我矛盾: {'⚠️ ' + contradiction[:80] if contradiction else '✅ 无'}\n"
         f"  - 时间: {datetime.now(timezone.utc).isoformat()}"
     )
     return data, report
