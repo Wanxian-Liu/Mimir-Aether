@@ -19,7 +19,7 @@
 
 ---
 
-## 0. 对标总表（✅ EV-L14 完成时核对 — 2026-05-20）
+## 0. 对标总表（✅ EV-L15 完成时核对 — 2026-06-24）
 
 | 工业级实践 | 典型框架/标准 | MimirAether 落点 | EV-L |
 |------------|---------------|------------------|------|
@@ -32,6 +32,7 @@
 | 运行手册 | SRE runbook | `OPERATIONS_GATEWAY.md` + `restart_gateway_hard.sh` | L09 |
 | 可观测性 | RED/USE metrics | d6 insights/monitor（缺口→E-006） | L13 |
 | 真进化 vs 归档 | MLOps eval loop | `evolution_log` + 禁 `simulated` 存根 | L12 |
+| 密钥安全 | `chmod 600` + Terraform plan | `env-safe-update` 技能 + `chmod 600 ~/.mimiraether/.env` | L15 |
 
 ---
 
@@ -497,46 +498,6 @@ Mimir 发现异常
 
 ---
 
-## 15. .env 误删与 systemd 持久化（EV-L15 ✅ 2026-06-23）
-
-> 来源：Session 258（2026-06-23 14:05-14:30）— `write_file` 覆盖 ~/.mimiraether/.env，清空 FEISHU_APP_SECRET 和 DEEPSEEK_API_KEY。
-
-### 学到了（3 条）
-
-- **`write_file` 是整文件覆盖，不是 patch**：写 `.env` 等配置文件时，裸 `write_file(path, content)` 会清空文件中所有已有键值。这是工具 API 的行为，不是 bug，但 Mimir 之前没有为此设防。
-- **LLM 重复回复 = 上下文循环**：同一段内容重复发出 6 次不是因为"想重复"，是因为 Gateway 的 response 写回逻辑在异常路径下产生了循环（状态更新了但消息重复）。修复方式：在回复前检查上一轮回复的内容是否完全一致，如果是则中断循环。
-- **WM 可以全程在跑但仍然拦不住工具误用**：WM 预测器只能预测"会用哪个工具"（猜中了 write_file），不能预测"这个工具调用的后果是什么"。这就是 Level 1（consequence simulation）的缺失缺口——WM 看到了我在做什么，但不知道这么做对不对。
-
-### 防再发（2 条）
-
-- **`env-safe-update` 技能**：禁止裸 `write_file` 改写 `.env`。必须用"先读 → 只改目标行 → 写前备份 → 写后验证密钥完整性"流程。技能文件已写入 `skills/mimiraether/env-safe-update/SKILL.md`。
-- **`.env` 权限固化 `chmod 600`**：仅 owner 可读，减少意外修改窗口。同时 `EnvironmentFile` 方式加载（systemd）确保启动时仍然可读。
-
-### 对标工业实践
-
-- 类似 Terraform 的 `terraform plan` 先预览再执行——写配置前先读盘、做 diff、展示差异，确认后再写。Mimir 的 `env-safe-update` 技能约定了相同的"先读后改"流程。
-
-### E-006 完成后复验清单
-
-| # | 验证项 | 命令 / 方法 | 预期 |
-|---|--------|------------|------|
-| V1 | TOOL_CALL 表存在 | `sqlite3 $DB ".schema TOOL_CALL"` | 含 tool_name/status/duration_ms/error_msg 列 |
-| V2 | 历史错误可查询 | `sqlite3 $DB "SELECT tool_name, COUNT(*) FROM TOOL_CALL WHERE status='error' GROUP BY tool_name"` | 返回 Issue #9 的 3 类 NameError 计数 |
-| V3 | Health 含 agent 指标 | `curl -s http://127.0.0.1:18999/health` | 返回 JSON 含 `agent_error_rate` 且值 ≥0 |
-| V4 | 红警自动触发 | 故意触发一次 NameError → 等 60s → `cat data/monitor_alerts.json` | 含此次错误记录 |
-| V5 | tier0 不变 | `./run_ralph_tier0.sh` | Gate1+2+3 全 PASS；无新增失败 |
-
-### 防再发
-
-- **自动检测 > 人工审计**：E-006 完成后，错误率告警应在 **下一次 tool call 周期内**（~秒级）触发，而非等 d-N 审计（~天级）
-- **Health 端点是唯一真源**：所有运维检查（§9 SOP / §10 Readiness）统一读 `/health`，不再分散 grep
-- **每新增模块必须接入 health**：新建 agent 子模块时，若涉及 IO/网络/状态，需 `health.register("模块名", check_fn)`
-
-### 对标工业实践
-- 类似 Datadog / Prometheus 的 **RED 指标**（Rate-Errors-Duration）：D6-0a 覆盖 Errors+Duration，D6-0b 覆盖 Rate。Duration 百分位数（P50/P95/P99）缺失 → 已记 **ISSUES #11**。
-
----
-
 ## 14. 本 Playbook 索引与复习节奏（EV-L14 ✅ 2026-05-20）
 
 ### §1–§13 分类索引
@@ -582,6 +543,46 @@ Mimir 发现异常
 
 ---
 
+## 15. .env 误删与 systemd 持久化（EV-L15 ✅ 2026-06-23）
+
+> 来源：Session 258（2026-06-23 14:05-14:30）— `write_file` 覆盖 ~/.mimiraether/.env，清空 FEISHU_APP_SECRET 和 DEEPSEEK_API_KEY。
+
+### 学到了（3 条）
+
+- **`write_file` 是整文件覆盖，不是 patch**：写 `.env` 等配置文件时，裸 `write_file(path, content)` 会清空文件中所有已有键值。这是工具 API 的行为，不是 bug，但 Mimir 之前没有为此设防。
+- **LLM 重复回复 = 上下文循环**：同一段内容重复发出 6 次不是因为"想重复"，是因为 Gateway 的 response 写回逻辑在异常路径下产生了循环（状态更新了但消息重复）。修复方式：在回复前检查上一轮回复的内容是否完全一致，如果是则中断循环。
+- **WM 可以全程在跑但仍然拦不住工具误用**：WM 预测器只能预测"会用哪个工具"（猜中了 write_file），不能预测"这个工具调用的后果是什么"。这就是 Level 1（consequence simulation）的缺失缺口——WM 看到了我在做什么，但不知道这么做对不对。
+
+### 防再发（2 条）
+
+- **`env-safe-update` 技能**：禁止裸 `write_file` 改写 `.env`。必须用"先读 → 只改目标行 → 写前备份 → 写后验证密钥完整性"流程。技能文件已写入 `skills/mimiraether/env-safe-update/SKILL.md`。
+- **`.env` 权限固化 `chmod 600`**：仅 owner 可读，减少意外修改窗口。同时 `EnvironmentFile` 方式加载（systemd）确保启动时仍然可读。
+
+### 对标工业实践
+
+- 类似 Terraform 的 `terraform plan` 先预览再执行——写配置前先读盘、做 diff、展示差异，确认后再写。Mimir 的 `env-safe-update` 技能约定了相同的"先读后改"流程。
+
+### E-006 完成后复验清单
+
+| # | 验证项 | 命令 / 方法 | 预期 |
+|---|--------|------------|------|
+| V1 | TOOL_CALL 表存在 | `sqlite3 $DB ".schema TOOL_CALL"` | 含 tool_name/status/duration_ms/error_msg 列 |
+| V2 | 历史错误可查询 | `sqlite3 $DB "SELECT tool_name, COUNT(*) FROM TOOL_CALL WHERE status='error' GROUP BY tool_name"` | 返回 Issue #9 的 3 类 NameError 计数 |
+| V3 | Health 含 agent 指标 | `curl -s http://127.0.0.1:18999/health` | 返回 JSON 含 `agent_error_rate` 且值 ≥0 |
+| V4 | 红警自动触发 | 故意触发一次 NameError → 等 60s → `cat data/monitor_alerts.json` | 含此次错误记录 |
+| V5 | tier0 不变 | `./run_ralph_tier0.sh` | Gate1+2+3 全 PASS；无新增失败 |
+
+### 防再发
+
+- **自动检测 > 人工审计**：E-006 完成后，错误率告警应在 **下一次 tool call 周期内**（~秒级）触发，而非等 d-N 审计（~天级）
+- **Health 端点是唯一真源**：所有运维检查（§9 SOP / §10 Readiness）统一读 `/health`，不再分散 grep
+- **每新增模块必须接入 health**：新建 agent 子模块时，若涉及 IO/网络/状态，需 `health.register("模块名", check_fn)`
+
+### 对标工业实践
+- 类似 Datadog / Prometheus 的 **RED 指标**（Rate-Errors-Duration）：D6-0a 覆盖 Errors+Duration，D6-0b 覆盖 Rate。Duration 百分位数（P50/P95/P99）缺失 → 已记 **ISSUES #11**。
+
+---
+
 ## 附录 A — 学习轨完成包
 
 ```text
@@ -595,5 +596,10 @@ Playbook: docs/MIMIR_EV_L_INDUSTRIAL_LEARNING.md 已填 §1–§15
 [2026-06-23 Session 258 追加]
 EV-L15: write_file 覆盖 .env → env-safe-update 技能 + chmod 600 + systemd service
 WM 确认: 970+ surprise · 54 模式 · 自愈闭环中 4 个工具自动加入预测
-3 条铁律自检链: 读盘验证 / session_search 历史查询 / 三问结构分析
+|3 条铁律自检链: 读盘验证 / session_search 历史查询 / 三问结构分析
+---
+[2026-06-24 Session 263 追加]
+Playbook 结构修复: §15 排在 §14 之前 → 已重排；§0 总表加 EV-L15 行
+搜索工具清扫: 发现 web_search/web_extract 走 Tavily(401)，TAVILY_API_KEY 已在 .env
+"说了没做"模式固化: 根因=结论定型前缺验证过滤，已存耐久记忆为行为准则
 ```
