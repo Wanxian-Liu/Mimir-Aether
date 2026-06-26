@@ -5,6 +5,7 @@ Extracted from GatewayRunner (gateway/run.py) as part of d3 GOD class split.
 """
 
 from __future__ import annotations
+from pathlib import Path
 from gateway.restart import _AGENT_PENDING_SENTINEL
 from gateway.session import build_session_context, build_session_context_prompt
 
@@ -17,6 +18,7 @@ import re as _re
 import subprocess
 import tempfile
 import uuid as _uuid
+from pathlib import Path
 from typing import Dict, Any, Optional, TYPE_CHECKING
 
 from gateway.config import Platform
