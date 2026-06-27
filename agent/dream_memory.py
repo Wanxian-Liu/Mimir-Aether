@@ -41,10 +41,22 @@ _DREAM_TIMEOUT = 45
 
 
 def _get_persistent_path() -> str:
-    """获取 persistent.json 路径（与 CrossSessionMemory 同源）。"""
-    # 优先读 MIMIR_AETHER_HOME
-    home = os.environ.get("MIMIR_AETHER_HOME", os.path.expanduser("~/.mimiraether"))
-    return os.path.join(home, "data", "persistent.json")
+    """获取 persistent.json 路径（与 CrossSessionMemory 同源）。
+
+    注意：sandbox/terminal 环境中 HOME 可能被 OpenClaw 覆盖为
+    /home/rayliu/.mimiraether，此时 expanduser("~/.mimiraether") 会产
+    生双层嵌套。修复方案：先取 MIMIR_AETHER_HOME，fallback 时检测 HOME
+    是否已指向 .mimiraether。
+    """
+    home = os.environ.get("MIMIR_AETHER_HOME")
+    if home:
+        return os.path.join(home, "data", "persistent.json")
+    # Fallback: expanduser("~") 然后检测是否已包含 .mimiraether
+    base = os.path.expanduser("~")
+    if base.endswith(".mimiraether"):
+        # HOME 已被覆盖为运行时目录，直接使用
+        return os.path.join(base, "data", "persistent.json")
+    return os.path.join(base, ".mimiraether", "data", "persistent.json")
 
 
 def _load_persistent(path: str) -> Optional[Dict]:

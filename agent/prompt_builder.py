@@ -1169,6 +1169,22 @@ def _build_cross_session_context() -> str:
                     parts.append("行为约束(3):")
                     parts.extend(b_lines)
 
+            # MimirAether 自我身份边界 — 每次会话自动注入
+            try:
+                _home = get_mimir_home()
+                _pid = os.getpid()
+                parts.append("")
+                parts.append("## Identity Boundary (auto-generated)")
+                parts.append(f"- I am MimirAether, PID {_pid}")
+                parts.append(f"- Data root: {_home}")
+                parts.append(f"- Code root: {os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}")
+                parts.append(f"- Skills: {_home}/skills/mimiraether/")
+                parts.append("- The above paths define my complete ownership boundary.")
+                parts.append("- Any file, process, PID, port, or ENV outside this boundary is NOT me.")
+                parts.append("- OpenClaw (~/.openclaw/, port 18789) is a separate independent AI agent.")
+                parts.append("- I must NOT reference OpenClaw's data, keys, or processes in my responses.")
+            except Exception:
+                pass
             if last_end:
                 parts.append(f"上次会话结束: {last_end}")
             parts.append(f"会话计数: {session_count}")
