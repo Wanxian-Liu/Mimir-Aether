@@ -36,7 +36,7 @@ _MAX_CONSTRAINTS = 5  # 行为约束上限
 # 梦境蒸馏 API 参数
 _DREAM_MODEL = "deepseek-chat"
 _DREAM_TEMPERATURE = 0.3
-_DREAM_MAX_TOKENS = 2048
+_DREAM_MAX_TOKENS = 4096
 _DREAM_TIMEOUT = 45
 
 
@@ -109,7 +109,10 @@ def _build_distillation_prompt(memory_text: str) -> str:
 10. **每条决策可附带 context 字段**（不超过 30 字）
 11. **每条模式可附带 evidence 字段**（不超过 50 字）
 12. **每条约束格式**：{{"rule": "你应该/你不应该...", "source": "distilled", "evidence": "基于XX条模式/决策的提炼"}}
-13. **只输出 JSON**，不要解释过程。
+13. **（Trajectory-Informed Memory）** 每条决策和模式增加以下字段：
+    - **tip_type**：分类为 "strategy"（策略—以后该怎么做）、"recovery"（恢复—怎么从错误中修）、"optimization"（优化—怎么把好的做得更好）
+    - **cause_chain**（仅决策）：{{"direct": "直接触发原因", "proximate": "近因/中间原因", "root": "根因/系统性问题"}}
+14. **只输出 JSON**，不要解释过程。
 
 输入记忆：
 {memory_text}
@@ -117,10 +120,10 @@ def _build_distillation_prompt(memory_text: str) -> str:
 输出格式：
 {{
   "key_decisions": [
-    {{"decision": "简洁的决策描述", "context": "何时/为什么做此决定"}}
+    {{"decision": "简洁的决策描述", "context": "何时/为什么做此决定", "tip_type": "strategy|recovery|optimization", "cause_chain": {{"direct": "直接原因", "proximate": "近因", "root": "根因"}}}}
   ],
   "learned_patterns": [
-    {{"pattern": "学到的模式", "evidence": "支撑该模式的证据"}}
+    {{"pattern": "学到的模式", "evidence": "支撑该模式的证据", "tip_type": "strategy|recovery|optimization"}}
   ],
   "behavioral_constraints": [
     {{"rule": "你应该/你不应该...", "source": "distilled", "evidence": "基于XX条模式的提炼"}}
@@ -171,10 +174,64 @@ async def _call_dream_llm(prompt: str) -> Optional[Dict]:
                 if content.startswith("```"):
                     content = content.split("\n", 1)[-1]
                     content = content.rsplit("```", 1)[0].strip()
-                return json.loads(content)
+                return _safe_json_parse(content)
     except Exception as e:
         logger.error(f"[DreamMemory] LLM 调用失败: {e}")
         return None
+
+
+def _safe_json_parse(text: str) -> Optional[Dict]:
+    """容错 JSON 解析：尝试多种策略从 LLM 输出中提取 JSON。"""
+    import re
+
+    # 策略1: 标准 json.loads
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # 策略2: json.JSONDecoder(strict=False) — 允许未转义控制字符
+    try:
+        decoder = json.JSONDecoder(strict=False)
+        return decoder.decode(text)
+    except json.JSONDecodeError:
+        pass
+
+    # 策略3: 正则提取最外层 JSON 块
+    brace_match = re.search(r'\{.*\}', text, re.DOTALL)
+    if brace_match:
+        candidate = brace_match.group(0)
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            pass
+        try:
+            decoder = json.JSONDecoder(strict=False)
+            return decoder.decode(candidate)
+        except json.JSONDecodeError:
+            pass
+
+    # 策略4: 尝试逐行修复 — 修复未转义的引号
+    # 找到第一个 { 和最后一个 }，之间的内容
+    first_brace = text.find('{')
+    last_brace = text.rfind('}')
+    if first_brace != -1 and last_brace > first_brace:
+        candidate = text[first_brace:last_brace + 1]
+        # 尝试修复常见问题：未转义的内部引号
+        candidate = re.sub(r'(?<!\\)"', '\\"', candidate)
+        candidate = candidate.replace('\\"', '"', 1)  # 恢复第一个（最外层）
+        candidate = candidate.replace('\\"{', '{')     # 恢复 { 前的
+        candidate = candidate.replace('\\"}', '}')     # 恢复 } 前的
+        # 只保留最外层的引号
+        if candidate.startswith('"') and candidate.endswith('"'):
+            candidate = candidate[1:-1]
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            pass
+
+    logger.error(f"[DreamMemory] 所有 JSON 解析策略均失败，前200字: {text[:200]}")
+    return None
 
 
 def _get_contradiction_path() -> str:
@@ -251,12 +308,31 @@ async def _run_distillation(
     if contradiction and contradiction.strip():
         _save_contradiction_report(contradiction)
 
+    # 统计 tip_type 分布（Trajectory-Informed Memory）
+    tip_types_decisions = {}
+    for d in result.get("key_decisions", []):
+        tt = d.get("tip_type", "unknown") if isinstance(d, dict) else "unknown"
+        tip_types_decisions[tt] = tip_types_decisions.get(tt, 0) + 1
+    tip_types_patterns = {}
+    for p in result.get("learned_patterns", []):
+        tt = p.get("tip_type", "unknown") if isinstance(p, dict) else "unknown"
+        tip_types_patterns[tt] = tip_types_patterns.get(tt, 0) + 1
+
+    # 统计 cause_chain 覆盖率
+    decisions_with_chain = sum(
+        1 for d in result.get("key_decisions", [])
+        if isinstance(d, dict) and d.get("cause_chain")
+    )
+
     report = (
         f"🔄 梦境蒸馏完成\n"
         f"  - key_decisions: {old_decisions} → {new_decisions} "
         f"({old_decisions - new_decisions:+d})\n"
+        f"    · tip_type 分布: {tip_types_decisions}\n"
+        f"    · cause_chain 覆盖率: {decisions_with_chain}/{new_decisions}\n"
         f"  - learned_patterns: {old_patterns} → {new_patterns} "
         f"({old_patterns - new_patterns:+d})\n"
+        f"    · tip_type 分布: {tip_types_patterns}\n"
         f"  - behavioral_constraints: {old_constraints} → {new_constraints} "
         f"({new_constraints - old_constraints:+d})\n"
         f"  - 自我矛盾: {'⚠️ ' + contradiction[:80] if contradiction else '✅ 无'}\n"
