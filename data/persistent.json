@@ -218,6 +218,36 @@
       "mimiraether-self_evolution",
       "mimiraether-skill_generator",
       "skills-qa"
+    ],
+    "behavioral_constraints": [
+      {
+        "rule": "汇报'已完成/已写入/已修复'前必须读盘确认，找不到盘上证据的完成态动词自动改为'准备好/建议'",
+        "source": "user_directive",
+        "evidence": "用户反复纠正'说了没做'问题后从key_decisions蒸馏",
+        "tip_type": "strategy",
+        "priority": 1
+      },
+      {
+        "rule": "任何时候遇到问题，先查自己的 ~/.mimiraether/ 和 ~/src/MimirAether/，零搜索 OpenClaw 路径",
+        "source": "true_self_skill",
+        "evidence": "编过三次 OpenClaw 相关故事后写入铁律一",
+        "tip_type": "strategy",
+        "priority": 1
+      },
+      {
+        "rule": "不编不存在的 commit hash、文件路径或数据——宁可说'不确定'也不编造",
+        "source": "true_self_skill",
+        "evidence": "编过不存在的 66600ae commit 后写入铁律三",
+        "tip_type": "strategy",
+        "priority": 1
+      },
+      {
+        "rule": "认知回收站机制：发现说谎后立即承认根因并在当前轮修复，不承诺'以后不会'——用工具证据证明本次已做对",
+        "source": "true_self_skill",
+        "evidence": "反复的虚假汇报后写入铁律四",
+        "tip_type": "recovery",
+        "priority": 1
+      }
     ]
   },
   "progress": {

@@ -1,6 +1,6 @@
 # MimirAether 执行待办（统一 backlog）
 
-> **最近更新**：2026-06-24（**研究树** #1~#4 全线收官 ✅ · **WM 进化三级** Level 2+3 完成 ✅ · **梦境记忆蒸馏** cron 每日 23:00 · **WM 数据** 1079+ 条持续积累 ✅ · **Agent-Reach** 已装 ✅ · **`.env` 安全** chmod 600 + `env-safe-update` 技能 ✅ · **dropbox** 定时清理由 `~/.local/bin/dropbox_cleanup.sh` 接管 ✅）  
+> **最近更新**：2026-06-24（**个人助理系统** 上线 ✅ · **研究树** #1~#4 全线收官 ✅ · **WM 进化三级** Level 2+3 完成 ✅ · **梦境记忆蒸馏** cron 每日 23:00 · **WM 数据** 1079+ 条持续积累 ✅ · **Agent-Reach** 已装 ✅ · **`.env` 安全** chmod 600 + `env-safe-update` 技能 ✅ · **dropbox** 定时清理由 `~/.local/bin/dropbox_cleanup.sh` 接管 ✅）  
 > **离线沟通**：`docs/MIMIR_LIU_CURSOR_BRIDGE.md` §4/§5  
 > **规则**：**§21 OC 孤件清理轨**全线 [x] ✅ · **§22 SA 审计接线轨**全线 [x] ✅ · **WM Level 2+3**（置信度 + 按需门控）已部署 · **研究树** #1~#4 全线 [x] ✅ · **Agent-Reach** 已装并替代 Tavily ✅ · **梦境记忆蒸馏 cron** 每日 23:00 上线 ✅ · 活跃任务均已完成，数据自然积累中。历史 §19 只读归档。  
 > **Mimir 主执行**（2026-06-01）：[`MIMIR_PRIMARY_EXECUTOR.md`](./MIMIR_PRIMARY_EXECUTOR.md) · 任务 [`MIMIR_TASK_QUEUE.md`](./MIMIR_TASK_QUEUE.md) **§9** · Cursor 只复核 HANDOFF。  
