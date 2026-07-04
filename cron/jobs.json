@@ -12,7 +12,7 @@
       "schedule_display": "0 9 * * 0",
       "enabled": true,
       "state": "completed",
-      "next_run_at": null,
+      "next_run_at": "2026-07-05T09:00:00+00:00",
       "created_at": "2026-06-23T05:57:51.908835+00:00",
       "deliver": "local",
       "last_run_at": "2026-06-28T09:00:56.485345+00:00",
@@ -25,7 +25,7 @@
     {
       "id": "251d540c90e5",
       "name": "梦境记忆蒸馏（每日）",
-      "prompt": "执行梦境记忆蒸馏。调 scripts/dream_memory_cron.sh，然后输出结果。",
+      "prompt": "请执行一次梦境记忆蒸馏。读取 ~/.mimiraether/data/persistent.json，调用 sync_run_dream_cycle(dry_run=False) 完成 key_decisions 去重压缩（目标 ≤20 条）、learned_patterns 去重压缩（目标 ≤30 条）、提取 behavioral_constraints（≤5 条）、检测 self_contradiction。完成后输出结果摘要。",
       "schedule": {
         "type": "cron",
         "value": "0 23 * * *",
@@ -34,10 +34,10 @@
       "schedule_display": "0 23 * * *",
       "enabled": true,
       "state": "completed",
-      "next_run_at": null,
+      "next_run_at": "2026-07-04T23:00:00+00:00",
       "created_at": "2026-06-23T11:39:53.180354+00:00",
       "deliver": "local",
-      "script": "dream_memory_cron.sh",
+      "script": null,
       "last_run_at": "2026-06-27T07:18:21.797685+00:00",
       "last_status": "error",
       "last_error": "script exit 1",
@@ -57,7 +57,7 @@
       "schedule_display": "0 8 * * *",
       "enabled": true,
       "state": "completed",
-      "next_run_at": null,
+      "next_run_at": "2026-07-05T08:00:00+00:00",
       "created_at": "2026-06-23T14:59:48.828631+00:00",
       "deliver": "local",
       "last_run_at": "2026-06-26T08:01:46.320314+00:00",
@@ -68,5 +68,5 @@
       }
     }
   ],
-  "updated_at": "2026-06-28T09:00:56.485426+00:00"
+  "updated_at": "2026-07-04T13:30:52.952813+00:00"
 }

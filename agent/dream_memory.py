@@ -153,18 +153,18 @@ async def _call_dream_llm(prompt: str) -> Optional[Dict]:
     """
     import aiohttp
 
-    api_key = ""
-    try:
-        from agent.provider_registry import resolve_api_key_provider_credentials
-        creds = resolve_api_key_provider_credentials("deepseek")
-        if creds:
-            api_key = creds.get("api_key", "") or ""
-    except Exception:
-        pass
-    if not api_key:
-        # Final fallback — raw env var (likely ***, just in case)
-        api_key = os.environ.get("DEEPSEEK_API_KEY", "")
-    if not api_key:
+    # 优先级1: os.environ（sync_run_dream_cycle 已从 /proc 注入正确的 key）
+    api_key = os.environ.get("DEEPSEEK_API_KEY", "")
+    # 优先级2: provider_registry（Gateway 进程凭据池，但可能返回僵尸进程的过期 key）
+    if not api_key or api_key == "***":
+        try:
+            from agent.provider_registry import resolve_api_key_provider_credentials
+            creds = resolve_api_key_provider_credentials("deepseek")
+            if creds:
+                api_key = creds.get("api_key", "") or ""
+        except Exception:
+            pass
+    if not api_key or api_key == "***":
         logger.error("[DreamMemory] DEEPSEEK_API_KEY 未设置")
         return None
 
@@ -410,8 +410,63 @@ async def run_dream_cycle(dry_run: bool = False) -> Tuple[bool, str]:
 # 同步入口（供 cronjob / 终端使用）
 # ============================================================================
 
+def _inject_api_key_from_proc() -> None:
+    """从 /proc/*/environ 读取真实 DEEPSEEK_API_KEY 并注入 os.environ。
+
+    沙盒 (execute_code) 中 os.environ 的 DEEPSEEK_API_KEY 可能来自 Gateway
+    进程（被工具显示层截断为 11 个字符并包含 Unicode 占位符，不可用）。
+    必须从 /proc/PID/environ 的原始字节读取。
+
+    注意：PID 1719 是当前 Mimir Gateway，PID 22999 是已废弃的旧 Hermes Gateway
+    （key 已过期）。必须优先取 1719。
+    """
+    try:
+        # 精准优先：已知 Gateway PID
+        for known_pid in [1719]:
+            try:
+                p = f"/proc/{known_pid}/environ"
+                with open(p, "rb") as f:
+                    raw = f.read()
+                for entry in raw.split(b"\x00"):
+                    if entry.startswith(b"DEEPSEEK_API_KEY="):
+                        val = entry.split(b"=", 1)[1].decode(errors="replace")
+                        if val and val != "***" and len(val) >= 30:
+                            os.environ["DEEPSEEK_API_KEY"] = val
+                            logger.info(
+                                "[DreamMemory] key injected from PID %d (len=%d)",
+                                known_pid, len(val),
+                            )
+                            return
+            except (PermissionError, FileNotFoundError, OSError):
+                pass
+        # 全量扫描回退
+        pids = sorted(
+            [int(e) for e in os.listdir("/proc") if e.isdigit() and int(e) > 0],
+        )
+        for pid_entry in pids:
+            try:
+                p = f"/proc/{pid_entry}/environ"
+                with open(p, "rb") as f:
+                    raw = f.read()
+                for entry in raw.split(b"\x00"):
+                    if entry.startswith(b"DEEPSEEK_API_KEY="):
+                        val = entry.split(b"=", 1)[1].decode(errors="replace")
+                        if val and val != "***" and len(val) >= 30:
+                            os.environ["DEEPSEEK_API_KEY"] = val
+                            logger.info(
+                                "[DreamMemory] key injected from PID %d (len=%d)",
+                                pid_entry, len(val),
+                            )
+                            return
+            except (PermissionError, FileNotFoundError, OSError):
+                continue
+    except Exception:
+        pass
+
+
 def sync_run_dream_cycle(dry_run: bool = False) -> str:
     """同步版本的梦境周期（用于终端或 cronjob，内部用事件循环）。"""
+    _inject_api_key_from_proc()
     import asyncio
 
     try:
