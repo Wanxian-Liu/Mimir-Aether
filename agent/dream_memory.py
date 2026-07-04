@@ -417,12 +417,28 @@ def _inject_api_key_from_proc() -> None:
     进程（被工具显示层截断为 11 个字符并包含 Unicode 占位符，不可用）。
     必须从 /proc/PID/environ 的原始字节读取。
 
-    注意：PID 1719 是当前 Mimir Gateway，PID 22999 是已废弃的旧 Hermes Gateway
-    （key 已过期）。必须优先取 1719。
+    优先扫描当前运行的 Mimir Gateway 进程（gateway/run.py），
+    避免硬编码 PID（Gateway 重启后 PID 会变）。
     """
     try:
-        # 精准优先：已知 Gateway PID
-        for known_pid in [1719]:
+        # 动态查找当前 Mimir Gateway PID
+        gateway_pid = None
+        for entry in os.listdir("/proc"):
+            if not entry.isdigit():
+                continue
+            try:
+                cmdline_path = f"/proc/{entry}/cmdline"
+                if not os.path.isfile(cmdline_path):
+                    continue
+                with open(cmdline_path, "rb") as f:
+                    cmdline = f.read()
+                if b"gateway/run.py" in cmdline:
+                    gateway_pid = int(entry)
+                    break
+            except (PermissionError, FileNotFoundError, OSError):
+                continue
+        known_pids = [gateway_pid] if gateway_pid else []
+        for known_pid in known_pids:
             try:
                 p = f"/proc/{known_pid}/environ"
                 with open(p, "rb") as f:
