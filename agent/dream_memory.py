@@ -145,10 +145,25 @@ def _build_distillation_prompt(memory_text: str) -> str:
 
 
 async def _call_dream_llm(prompt: str) -> Optional[Dict]:
-    """调用 DeepSeek API 执行梦境蒸馏（同步模式用于 cron，异步模式用于 agent）。"""
+    """调用 DeepSeek API 执行梦境蒸馏（同步模式用于 cron，异步模式用于 agent）。
+
+    注意：不直接从进程环境读 DEEPSEEK_API_KEY（该变量常为 *** 占位符）。
+    通过 provider_registry.resolve_api_key_provider_credentials 解析真实 key，
+    该函数支持 credential_pool 回退，与 Gateway 主循环同源。
+    """
     import aiohttp
 
-    api_key = os.environ.get("DEEPSEEK_API_KEY", "")
+    api_key = ""
+    try:
+        from agent.provider_registry import resolve_api_key_provider_credentials
+        creds = resolve_api_key_provider_credentials("deepseek")
+        if creds:
+            api_key = creds.get("api_key", "") or ""
+    except Exception:
+        pass
+    if not api_key:
+        # Final fallback — raw env var (likely ***, just in case)
+        api_key = os.environ.get("DEEPSEEK_API_KEY", "")
     if not api_key:
         logger.error("[DreamMemory] DEEPSEEK_API_KEY 未设置")
         return None

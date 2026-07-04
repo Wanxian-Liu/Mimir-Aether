@@ -1,14 +1,8 @@
 #!/usr/bin/env bash
 # 梦境记忆蒸馏 — 每日 cron 入口
-# 依赖: DEEPSEEK_API_KEY（从 ~/.mimiraether/.env 加载）
+# 注意：不 source .env（该文件中的 DEEPSEEK_API_KEY 常为 *** 占位符）。
+#      真实 key 通过 provider_registry.credential_pool 解析，与 Gateway 同源。
 set -euo pipefail
-
-MIMIR_HOME="${MIMIR_AETHER_HOME:-$HOME/.mimiraether}"
-if [ -f "$MIMIR_HOME/.env" ]; then
-    set -a
-    source "$MIMIR_HOME/.env"
-    set +a
-fi
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
