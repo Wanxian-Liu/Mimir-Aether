@@ -11,38 +11,38 @@
       },
       "schedule_display": "0 9 * * 0",
       "enabled": true,
-      "state": "completed",
-      "next_run_at": "2026-07-05T09:00:00+00:00",
+      "state": "scheduled",
+      "next_run_at": "2026-07-12T09:00:00+00:00",
       "created_at": "2026-06-23T05:57:51.908835+00:00",
       "deliver": "local",
-      "last_run_at": "2026-06-28T09:00:56.485345+00:00",
+      "last_run_at": "2026-07-05T09:05:36.294477+00:00",
       "last_status": "ok",
       "last_error": null,
       "repeat": {
-        "completed": 1
+        "completed": 2
       }
     },
     {
       "id": "251d540c90e5",
-      "name": "梦境记忆蒸馏（每日）",
-      "prompt": "请执行一次梦境记忆蒸馏。读取 ~/.mimiraether/data/persistent.json，调用 sync_run_dream_cycle(dry_run=False) 完成 key_decisions 去重压缩（目标 ≤20 条）、learned_patterns 去重压缩（目标 ≤30 条）、提取 behavioral_constraints（≤5 条）、检测 self_contradiction。完成后输出结果摘要。",
+      "name": "梦境蒸馏（每日）",
+      "prompt": "梦境蒸馏执行报告：读取 cron 脚本输出的蒸馏结果，向我汇报 key_decisions 和 learned_patterns 的压缩情况。",
       "schedule": {
         "type": "cron",
-        "value": "0 23 * * *",
-        "display": "0 23 * * *"
+        "value": "45 23 * * *",
+        "display": "45 23 * * *"
       },
-      "schedule_display": "0 23 * * *",
+      "schedule_display": "45 23 * * *",
       "enabled": true,
       "state": "completed",
-      "next_run_at": "2026-07-04T23:00:00+00:00",
+      "next_run_at": null,
       "created_at": "2026-06-23T11:39:53.180354+00:00",
       "deliver": "local",
-      "script": null,
-      "last_run_at": "2026-06-27T07:18:21.797685+00:00",
+      "script": "#!/bin/bash\ncd /home/rayliu/src/MimirAether\npython3 -c \"\nimport sys, os, json\nsys.path.insert(0, '.')\nfor entry in os.listdir('/proc'):\n    if entry.isdigit():\n        try:\n            cmdline = open(f'/proc/{entry}/cmdline', 'rb').read()\n            if b'gateway/run.py' in cmdline:\n                env_data = open(f'/proc/{entry}/environ', 'rb').read()\n                for item in env_data.split(b'\\0'):\n                    if item.startswith(b'DEEPSEEK_API_KEY='):\n                        key = item.split(b'=', 1)[1].decode()\n                        if len(key) >= 30:\n                            os.environ['DEEPSEEK_API_KEY'] = key\n                        break\n                break\n        except:\n            pass\nfrom agent.dream_memory import sync_run_dream_cycle\nresult = sync_run_dream_cycle(dry_run=False)\nprint(result)\n\" 2>&1",
+      "last_run_at": "2026-07-06T04:18:43.037250+00:00",
       "last_status": "error",
-      "last_error": "script exit 1",
+      "last_error": "script not found: #!/bin/bash\ncd /home/rayliu/src/MimirAether\npython3 -c \"\nimport sys, os, json\nsys.path.insert(0, '.')\nfor entry in os.listdir('/proc'):\n    if entry.isdigit():\n        try:\n            cmdline = open(f'/proc/{entry}/cmdline', 'rb').read()\n            if b'gateway/run.py' in cmdline:\n                env_data = open(f'/proc/{entry}/environ', 'rb').read()\n                for item in env_data.split(b'\\0'):\n                    if item.startswith(b'DEEPSEEK_API_KEY='):\n                        key = item.split(b'=', 1)[1].decode()\n                        if len(key) >= 30:\n                            os.environ['DEEPSEEK_API_KEY'] = key\n                        break\n                break\n        except:\n            pass\nfrom agent.dream_memory import sync_run_dream_cycle\nresult = sync_run_dream_cycle(dry_run=False)\nprint(result)\n\" 2>&1",
       "repeat": {
-        "completed": 1
+        "completed": 3
       }
     },
     {
@@ -57,16 +57,16 @@
       "schedule_display": "0 8 * * *",
       "enabled": true,
       "state": "completed",
-      "next_run_at": "2026-07-05T08:00:00+00:00",
+      "next_run_at": null,
       "created_at": "2026-06-23T14:59:48.828631+00:00",
       "deliver": "local",
-      "last_run_at": "2026-06-26T08:01:46.320314+00:00",
+      "last_run_at": "2026-07-06T08:01:06.490587+00:00",
       "last_status": "ok",
       "last_error": null,
       "repeat": {
-        "completed": 1
+        "completed": 3
       }
     }
   ],
-  "updated_at": "2026-07-04T13:30:52.952813+00:00"
+  "updated_at": "2026-07-06T08:01:06.490678+00:00"
 }

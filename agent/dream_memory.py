@@ -443,7 +443,6 @@ def _inject_api_key_from_proc() -> None:
                 p = f"/proc/{known_pid}/environ"
                 with open(p, "rb") as f:
                     raw = f.read()
-                for entry in raw.split(b"\x00"):
                     if entry.startswith(b"DEEPSEEK_API_KEY="):
                         val = entry.split(b"=", 1)[1].decode(errors="replace")
                         if val and val != "***" and len(val) >= 30:
@@ -467,7 +466,6 @@ def _inject_api_key_from_proc() -> None:
                 for entry in raw.split(b"\x00"):
                     if entry.startswith(b"DEEPSEEK_API_KEY="):
                         val = entry.split(b"=", 1)[1].decode(errors="replace")
-                        if val and val != "***" and len(val) >= 30:
                             os.environ["DEEPSEEK_API_KEY"] = val
                             logger.info(
                                 "[DreamMemory] key injected from PID %d (len=%d)",
