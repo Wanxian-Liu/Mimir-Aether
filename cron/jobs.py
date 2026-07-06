@@ -10,9 +10,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-JOBS_FILE = PROJECT_ROOT / "cron" / "jobs.json"
-OUTPUT_DIR = PROJECT_ROOT / "cron" / "output"
+from mimir_constants import get_mimir_home
+
+MIMIR_HOME = get_mimir_home()
+JOBS_FILE = MIMIR_HOME / "cron" / "jobs.json"
+OUTPUT_DIR = MIMIR_HOME / "cron" / "output"
 
 
 def now() -> datetime:
