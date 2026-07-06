@@ -5,7 +5,7 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union
 from datetime import datetime
 
 from mimir_constants import get_mimir_home
@@ -32,7 +32,14 @@ def load_jobs() -> List[Dict]:
         return []
     try:
         with open(JOBS_FILE, "r") as f:
-            return json.load(f)
+            data = json.load(f)
+        # cron/jobs.py wraps jobs in {"jobs": [...]} format
+        if isinstance(data, dict) and "jobs" in data:
+            return data["jobs"]
+        # scheduler/jobs.py expects a flat list
+        if isinstance(data, list):
+            return data
+        return []
     except:
         return []
 
@@ -41,6 +48,21 @@ def save_jobs(jobs: List[Dict]):
     ensure_dirs()
     with open(JOBS_FILE, "w") as f:
         json.dump(jobs, f, indent=2)
+
+def _get_cron_expr(job: Dict) -> Optional[str]:
+    """从不同格式的任务字段中提取 cron 表达式"""
+    # 格式1: {"schedule": {"type": "cron", "value": "..."}}
+    sch = job.get("schedule", {})
+    if isinstance(sch, dict) and sch.get("type") == "cron":
+        return sch.get("value")
+    # 格式2: {"schedule_display": "..."}
+    if job.get("schedule_display"):
+        return job["schedule_display"]
+    # 格式3: {"cron": "..."}
+    if job.get("cron"):
+        return job["cron"]
+    return None
+
 
 def parse_cron_next_run(cron_expr, from_time=None):
     """解析cron表达式，返回下次执行时间戳"""
@@ -67,19 +89,20 @@ def get_due_jobs() -> List[Dict]:
         if job.get("next_run", 0) <= now:
             due_jobs.append(job)
         # 如果任务有cron表达式，检查是否应该执行
-        elif "cron" in job and HAS_CRONITER:
-            try:
-                cron_expr = job["cron"]
-                cron = croniter(cron_expr, now)
-                next_run = cron.get_prev()  # 获取上次应该执行的时间
-                # 如果上次应该执行的时间在当前时间之前，说明任务应该执行
-                if next_run <= now:
-                    due_jobs.append(job)
-            except Exception as e:
-                print(f"Error parsing cron expression {job.get('cron')}: {e}")
-                # 如果cron解析失败，使用next_run字段
-                if job.get("next_run", 0) <= now:
-                    due_jobs.append(job)
+        elif HAS_CRONITER:
+            cron_expr = _get_cron_expr(job)
+            if cron_expr:
+                try:
+                    cron = croniter(cron_expr, now)
+                    next_run = cron.get_prev()  # 获取上次应该执行的时间
+                    # 如果上次应该执行的时间在当前时间之前，说明任务应该执行
+                    if next_run <= now:
+                        due_jobs.append(job)
+                except Exception as e:
+                    print(f"Error parsing cron expression {cron_expr}: {e}")
+                    # 如果cron解析失败，使用next_run字段
+                    if job.get("next_run", 0) <= now:
+                        due_jobs.append(job)
     
     return due_jobs
 
@@ -91,16 +114,18 @@ def mark_job_run(job_id: str, next_run: Optional[float] = None):
             job["last_run"] = time.time()
             if next_run:
                 job["next_run"] = next_run
-            elif "cron" in job:
-                # 如果有cron表达式，计算下次执行时间
-                try:
-                    job["next_run"] = parse_cron_next_run(job["cron"], job["last_run"])
-                except Exception as e:
-                    print(f"Error calculating next run for job {job_id}: {e}")
-                    # 回退到24小时后
-                    job["next_run"] = job["last_run"] + 86400
             else:
-                # 没有cron表达式，使用默认的24小时间隔
-                job["next_run"] = job["last_run"] + 86400
+                cron_expr = _get_cron_expr(job)
+                if cron_expr:
+                    # 如果有cron表达式，计算下次执行时间
+                    try:
+                        job["next_run"] = parse_cron_next_run(cron_expr, job["last_run"])
+                    except Exception as e:
+                        print(f"Error calculating next run for job {job_id}: {e}")
+                        # 回退到24小时后
+                        job["next_run"] = job["last_run"] + 86400
+                else:
+                    # 没有cron表达式，使用默认的24小时间隔
+                    job["next_run"] = job["last_run"] + 86400
             break
     save_jobs(jobs)
