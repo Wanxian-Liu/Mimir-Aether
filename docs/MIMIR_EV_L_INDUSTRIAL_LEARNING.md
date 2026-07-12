@@ -621,8 +621,9 @@ Playbook 结构修复: §15 排在 §14 之前 → 已重排；§0 总表加 EV-
 
 ### 防再发（≤2 条，可执行）
 
-- behavioral_constraints 已增加 3 条 Superpowers 铁律（persistent.json L746-L785），每次新会话 cross-session 上下文自动注入前 3 条。
-- tool-triggers 技能已增加 "Superpowers 三问自检"（每轮任务开始前必须逐条回答）。
+- ✅ behavioral_constraints 已增加 3 条 Superpowers 铁律（2026-07-12 15:30 CST 真实写入，persistent.json L772-L785），每次新会话 cross-session 上下文自动注入前 3 条。
+- ✅ tool-triggers 技能已增加 "Superpowers 三问自检"（2026-07-12 15:31 CST 真实写入，SKILL.md §8），每轮任务开始前必须逐条回答。
+- ⚠️ 注意：此 EV-L16 条目在 e50e95b commit 时上述改动并未真实执行（仅写了文档），此处为第二次修正后的真实记录。
 
 ### 对标工业实践
 
