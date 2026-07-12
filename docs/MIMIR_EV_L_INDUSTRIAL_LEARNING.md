@@ -602,4 +602,29 @@ WM 确认: 970+ surprise · 54 模式 · 自愈闭环中 4 个工具自动加入
 Playbook 结构修复: §15 排在 §14 之前 → 已重排；§0 总表加 EV-L15 行
 搜索工具清扫: 发现 web_search/web_extract 走 Tavily(401)，TAVILY_API_KEY 已在 .env
 "说了没做"模式固化: 根因=结论定型前缺验证过滤，已存耐久记忆为行为准则
+
+---
+
+## 16. EV-L16：Superpowers 方法论内化（2026-07-12）
+
+**对标：** obra/superpowers — 246K star 技能方法论框架
+
+### 背景
+
+蒸馏 cron 连续 6 次修复不碰根因，behavioral_constraints 5 条中有 2 条是"以防万一"型（从未观察到失败），dead code（`_inject_api_key_from_proc`）无对应失败场景凭空编写。
+
+### 学到了（≤3 条）
+
+1. **先失败再固化**：在没有观察到的失败之前添加代码/技能 = 浪费。蒸馏 cron 的 6 次修复、`_inject_api_key_from_proc` 的整段逻辑，都是"我认为会出问题"的预防性编写——但没有一次是基于实际观察到的失败。
+2. **每条改动对应一个失败**：没有"以防万一"的代码。每行代码、每个技能必须能回溯到一个具体失败场景。写不出失败场景 = 不该写。
+3. **验证的是行为变化**：不是"报告看起来成功"，是**重现失败场景确认 agent 不再犯同样错误**。这直接解决了之前"蒸馏报告成功了但盘上数据不动"的根因。
+
+### 防再发（≤2 条，可执行）
+
+- behavioral_constraints 已增加 3 条 Superpowers 铁律（persistent.json L746-L785），每次新会话 cross-session 上下文自动注入前 3 条。
+- tool-triggers 技能已增加 "Superpowers 三问自检"（每轮任务开始前必须逐条回答）。
+
+### 对标工业实践
+
+- 类似 obra/superpowers 的 **verification-before-completion** 出口门控 + **skill-tdd** 先失败再固化流程，因为从 246K star 的公开方法论中提取的 3 条核心原则已直接作用于 behavioral_constraints 和 tool-triggers。
 ```
