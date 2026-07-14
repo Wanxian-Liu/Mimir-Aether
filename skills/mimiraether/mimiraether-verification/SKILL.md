@@ -1,11 +1,18 @@
 ---
 name: mimiraether-verification
 description: >
-  收尾硬门控：提交前必须验证。与 brainstorming（入口门控）配对的出口门控。
+  收尾硬门控：提交/汇报前必须验证。与 brainstorming（入口门控）配对的出口门控。
   灵感源自 obra/superpowers verification-before-completion 技能。
-  强制在 commit/push/"做完了"之前执行验证序列，防止"以为做完了但实际没验证"。
-version: 1.0.0
-auto_load: false
+  强制在 commit/push/"做完了"/"成功了"之前执行验证序列，防止"以为做完了但实际没验证"。
+version: 1.1.0
+auto_load: true
+triggers:
+  - 完成
+  - 成功
+  - 报告
+  - 提交
+  - commit
+  - push
 ---
 
 # MimirAether Verification — 收尾门控
@@ -16,7 +23,7 @@ auto_load: false
 
 ---
 
-## 触发条件
+## ## 触发条件
 
 **必须触发（硬门控）**：
 
@@ -61,17 +68,15 @@ auto_load: false
    - 删了模块 → grep 确认零残留引用
    - 新增模块 → 确认 __init__.py 导出
 
-2. 「声称 vs 实际」检查：
-   - 声称"hermes_cli 已删除" → ls hermes_cli/ 确认不存在
-   - 声称"零残留" → grep -r "from hermes_cli" 确认 0 结果
+2. 「声称 vs 盘上」检查：
+   - 声称"写入了" → read_file 确认盘上有
+   - 声称"压缩了" → read_file persistent.json 确认条数减少
    - 声称"已提交" → git status 确认干净（除运行时文件）
 
 3. 文件完整：
    - 新增文件 → git status 确认已 tracked
    - 不应该出现的文件 → 确认在 .gitignore
 ```
-
----
 
 ### 第 3 层：飞书实战验证 (Live)
 
@@ -93,7 +98,7 @@ auto_load: false
 完成前必须诚实回答：
 
 ```
-□ 我声称做完了 X。我真的验证了 X 能用吗？
+□ 我声称做完了 X。我真的验证了 X 能用吗？——读盘确认数据变了再开口
 □ 有没有"我假设它能用所以就算了"的东西？
 □ 用户原始请求是什么？我做的和请求一致吗？
 □ 有没有 dangling 改动（改了 A 但忘了改依赖 A 的 B）？
@@ -110,12 +115,10 @@ auto_load: false
 
 ```
 ━━━ 验证报告 ━━━━━━━━━━━━━━━
-Gate1 导入     ✅/❌
-Gate2 单元     ✅/❌ (N passed)
-Gate3 契约     ✅/❌ (N passed)
-残留引用       ✅/❌ (0/X 残留)
-飞书实战       ✅/❌ / N/A
-自问清单       5/5 ✅
+- "声称 vs 盘上"检查:      ✅ (列证据)
+- 残留引用:               ✅ (0 残留)
+- 飞书实战:               ✅ / N/A
+- 自问清单:                5/5 ✅
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 判定: PASS / FAIL
 ```
@@ -130,12 +133,18 @@ brainstorming (设计门控)
     → subagent-driven-dev (执行)
       → verification (本技能 — 收尾门控)
         → commit/push (完成)
+
+蒸馏执行专用验证（与 mimiraether-distillation-execution 联动）：
+  1. terminal 写盘后 → 必须 read_file 读回 persistent.json
+  2. 不凭终端"写入成功"文本汇报
+  3. 验证 kd ≤ 20 / lp ≤ 30 / bc ≤ 8 / 100% tip_type+cause_chain
 ```
 
 | 技能 | 协作方式 |
 |------|---------|
 | `mimiraether-brainstorming` | 入口门控配对 — 设计批准开始，验证通过结束 |
 | `mimiraether-ralph-core` | Ralph tier0 是验证第 1 层的执行引擎 |
+| `mimiraether-distillation-execution` | 蒸馏操作的执行路径铁律 + 验证铁律（加载此技能获取完整规则） |
 | `gateway-feishu-crash-recovery` | 如果飞书验证失败 → 加载此技能诊断 |
 
 ---
@@ -145,7 +154,7 @@ brainstorming (设计门控)
 | 原则 | 说明 |
 |------|------|
 | 自动化优先 | 能脚本验证的不靠人眼 |
-| 声称必须证明 | 说"已完成"必须能证明 |
+| 声称必须证明 | 说"已完成"必须能证明——先读盘再开口 |
 | 飞书改动必实战 | gateway 改动不跳过 Live 验证 |
 | 诚实自问 | 最后的防线是诚实 |
 | 非代码迭代 | 写作/分析任务在 verify 前先走 `mimiraether-evaluator-optimizer` 循环 |
@@ -158,3 +167,4 @@ brainstorming (设计门控)
 2. **只跑 Ralph，不做一致性**："测试过了就行" — 残留引用不导致测试失败
 3. **飞书实战被遗忘**：每次循环都在这里断开，不是验证有问题，是上下文污染
 4. **自问清单敷衍**：全部打勾但实际没想 — 这骗的是自己
+5. **声称"写入了"但不读盘确认** — 这是本轮对话 15 轮循环的根因。behavioral_constraints 第 6-7 条已禁止此行为
