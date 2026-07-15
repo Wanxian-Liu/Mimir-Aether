@@ -1,0 +1,167 @@
+# [DORMANT] mimiraether-skill_generator
+
+**沉寂时间**: 2026-07-12T04:37:29.595480+00:00
+**原始分类**: mimiraether
+**描述**: MimirAether技能生成器 - 检测系统技能缺口，生成完整SKILL.md并注册到技能目录
+
+核心功能：
+- detect_gap(): 检测系统缺失的能力
+- generate_skill_md(name, description, code): 生成完整SKILL.md
+- register_skill(skill_name): 注册技能到目录
+- verify_skill(skill_name): 验证技能可用性
+
+使用三环闭环架构（Monitor→Decision→Execution）进行技能缺口检测和生成
+
+**触发阈值**: 60天未触碰
+
+---
+
+## 技能要点
+
+# MimirAether Skill Generator
+
+> 技能生成器 - 检测缺口、生成SKILL.md、注册并验证
+
+## 核心功能
+
+### 1. detect_gap()
+
+检测系统中缺失的能力，基于：
+- 现有技能目录扫描
+- 三环闭环架构的监控环指标
+- 异常事件分析
+
+**返回格式**:
+```python
+{
+    "gaps": [
+        {"name": "xxx", "reason": "缺失原因", "severity": 0.8},
+        ...
+    ],
+    "existing_skills": [...],
+    "missing_capabilities": [...]
+}
+```
+
+### 2. generate_skill_md(name, description, code)
+
+生成完整的SKILL.md文件内容。
+
+**参数**:
+- `name`: 技能名称 (kebab-case)
+- `description`: 技能描述
+- `code`: 核心实现代码（可选）
+
+**返回**: 完整的SKILL.md内容字符串
+
+### 3. register_skill(skill_name)
+
+将技能注册到技能目录。
+
+**参数**:
+- `skill_name`: 技能名称
+
+**流程**:
+1. 创建技能目录
+2. 写入SKILL.md
+3. 更新技能索引
+
+### 4. verify_skill(skill_name)
+
+验证技能是否可用。
+
+**验证项**:
+- SKILL.md存在且格式正确
+- 核心函数可导入
+- 依赖项满足
+
+**返回**:
+```python
+{
+    "valid": True/False,
+    "checks": {
+        "file_exists": True,
+        "frontmatter_valid": True,
+        "importable": True
+    },
+    "issues": []
+}
+```
+
+## 三环闭环集成
+
+### 监控环 (Monitor Ring)
+- 扫描现有技能目录
+- 检测重复/空实现
+- 收集系统能力指标
+
+### 决策环 (Decision Ring)
+- 分析缺口根因
+- 生成技能实现策略
+- 选择最优生成方案
+
+### 执行环 (Execution Ring)
+- 生成SKILL.md
+- 创建技能目录
+- 验证技能可用性
+
+## 使用示例
+
+```python
+from mimiraether_skill_generator import (
+    detect_gap,
+    generate_skill_md,
+    register_skill,
+    verify_skill
+)
+
+# 1. 检测缺口
+gaps = detect_gap()
+print(f"发现 {len(gaps['gaps'])} 个技能缺口")
+
+# 2. 生成技能
+skill_md = generate_skill_md(
+    name="my-new-skill",
+    description="新技能描述",
+    code="def my_function(): pass"
+)
+
+# 3. 注册技能
+register_skill("my-new-skill")
+
+# 4. 验证技能
+result = verify_skill("my-new-skill")
+print(f"验证结果: {result['valid']}")
+```
+
+## 输出路径
+
+```
+`$(git rev-parse --show-toplevel)/skills/mimiraether/mimiraether-{skill_name}/`
+    └── SKILL.md
+```
+
+## 空壳禁制（硬约束）
+
+**禁止生成"骨架技能"**。以下任一条件为真时，**拒绝生成、不落盘、不注册**：
+
+1. 三个核心功能全部标注"待实现"
+2. 无任何可执行的代码/命令/具体步骤
+3. 内容长度 < 500 字符（不含 frontmatter）
+4. 包含 `gap_reason: 核心能力缺失` 或 `骨架技能` 标记
+
+**替代做法**：
+- 缺口真实存在但暂无可实现内容 → 记录到 `docs/skill_gaps.md`，不创建空壳
+- 缺口可被已有技能覆盖 → 不创建，在检测报告中注明覆盖关系
+- 缺口需要新技能但信息不足 → 先收集信息，再生成完整技能
+
+## 幽灵检测（自检）
+
+每次 `detect_gap()` 执行时，额外扫描
+
+... (truncated)
+
+---
+
+> 此胶囊由 Skill Curator 自动生成。原始技能已移入 .dormant/。
+> 调用 `skill_view("mimiraether-skill_generator")` 即可自动唤醒。

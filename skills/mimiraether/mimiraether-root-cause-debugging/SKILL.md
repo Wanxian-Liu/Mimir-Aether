@@ -278,6 +278,18 @@ If you catch yourself thinking:
 
 ---
 
+## Critical: `***` Literal Bug Pattern
+
+**症状：** API call 始终 401，但 .env / /proc/environ / config.yaml 中的 key 都是正确的。
+
+**根因：** Python 源文件中关键位置出现了字面 `***` 字符。这两个 `***` 不是模板替换——是文件内容真实的三颗星号。具体位置：
+1. `_DREAM_MAX_TOKENS=***` — 应为 `_DREAM_MAX_TOKENS = 4096`（整数），`***` 字面量会让 max_tokens 传空字符串给 API
+2. `entry.startswith(b"DEEPSEEK_API_KEY=***")` — 应为 `startswith(b"DEEPSEEK_API_KEY=")`，`***` 字面量会让 /proc key 注入永不匹配真实的 `sk-...` key
+
+**排查方法：** `python3 -c "with open('file.py', 'rb') as f: lines = f.readlines(); print(repr(lines[N-1]))"` — 用二进制模式读文件确认真实内容。`read_file` 不会显示 `***` 不是替换而是字面量。
+
+**为什么之前的修复都无效：** 每次修的是外圈（provider_registry fallback、/proc 扫描路径、cron 脚本调用方式、asyncio.run），从未触达文件中的字面 `***`。最内层的 bug 被所有外层修复掩盖了。
+
 ## Debugging Patterns Reference
 
 ### Pattern: Null Pointer After API Call

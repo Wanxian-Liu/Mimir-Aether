@@ -629,3 +629,57 @@ Playbook 结构修复: §15 排在 §14 之前 → 已重排；§0 总表加 EV-
 
 - 类似 obra/superpowers 的 **verification-before-completion** 出口门控 + **skill-tdd** 先失败再固化流程，因为从 246K star 的公开方法论中提取的 3 条核心原则已直接作用于 behavioral_constraints 和 tool-triggers。
 ```
+
+## EV-L17 — 梦境蒸馏 16 轮根因链闭环（2026-07-15）
+
+### 背景
+
+梦境蒸馏（`dream_memory.py`）从 2026-06-27 部署以来，15+ 次声称"修好了/成功了"，但用户每次追问后读盘验证都发现盘上 `persistent.json` 的 59 条 key_decisions 从未被压缩。此 EV-L 记录完整的根因链和修复方案。
+
+### 根因链
+
+```
+dream_memory.py L447 缩进错误：val = entry.split(...) 写在 if 块外
+  + L468 同样缩进错误
+  + 缺少 provider_registry key 回退（startswith(b"***") 永不能匹配真实 sk-... key）
+  → key 永不注入 os.environ
+  → _call_dream_llm() 拿不到 API key → 返回 None
+  → _run_distillation() 不产生压缩数据
+  → _save_persistent() 写入未修改的数据（或从未执行）
+  → 盘上 59 kd 15 轮从未变过
+```
+
+### 误区链条
+
+| 轮次 | 声称的"根因" | 实际 |
+|:----:|:----------|:-----|
+| 1-5 | cron 路径不对 / PID 硬编码 | 外围，未触及 L447 缩进 |
+| 6-8 | `***` 是代码字面量 bug | ❌ `***` 是 `read_file` 工具层遮盖，代码从头正确 |
+| 9-11 | asyncio 嵌套冲突 / 事件循环 | ✅ 沙盒执行正确识别了冲突，但 terminal 路径本就能通 |
+| 12-14 | 验证路径错误 / `data["memory"]` | ✅ JSON 嵌套确实有区别，但盘上数据未变不是因为查错路径 |
+| 15 | terminal 路径一直能通 | \| **发现了 subset true** — 但 LLM 没 key 所以函数从未写盘 |
+| 16（用户修复）| **缩进错误 + provider_registry 回退** | ✅ 真正的代码级根因 |
+
+### 量化指标
+
+| 指标 | 修复前 | 修复后 |
+|:----|:-----:|:-----:|
+| key_decisions | 59 (23/59 tip) | **20 (20/20 tip+cc)** |
+| learned_patterns | 53 (33/53 tip) | **30 (30/30 tip)** |
+| 执行路径 | execute_code（沙盒崩）/ cron Agent Prompt（编造）| **terminal（独立进程，成功）** |
+| 验证方式 | 看 terminal 输出文字"写入成功"就汇报 | **read_file 读盘交叉确认后再汇报** |
+| 修复者 | Mimir（15 轮，从未触及根因）| **用户（1 轮，改缩进+加回退）** |
+
+### 固化的技能和文档
+
+- `mimiraether-distillation-execution` SKILL.md：更新完整根因链 + 缩进错误 + provider_registry 回退 + 执行路径铁律 + 验证铁律
+- `persistent.json` behavioral_constraints：第 6 条"写盘走 terminal" + 第 7 条"写盘后读回确认"
+- `mimiraether-verification` SKILL.md：第 2 层一致性检查（声称 vs 盘上）
+- `mimiraether-tool-triggers` SKILL.md §8：Superpowers 三问自检
+
+### 关键教训
+
+1. **代码写盘后的验证不能凭终端输出中的"成功"字样** — 必须用第二个工具（`read_file`）读盘交叉验证
+2. **`***` 是工具层密钥遮盖，不是代码 bug** — 遇到 `***` 在代码中的显示时，先查 xxd 原始字节确认真实内容
+3. **`data["memory"]["key_decisions"]` 不是 `data["key_decisions"]`** — JSON 路径必须确认嵌套结构
+4. **修复缩进错误 + 加 provider_registry 回退** — 两个改动都是用户做的，不是 Mimir 做对的

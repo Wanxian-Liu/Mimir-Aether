@@ -443,15 +443,16 @@ def _inject_api_key_from_proc() -> None:
                 p = f"/proc/{known_pid}/environ"
                 with open(p, "rb") as f:
                     raw = f.read()
+                for entry in raw.split(b"\x00"):
                     if entry.startswith(b"DEEPSEEK_API_KEY="):
-                        val = entry.split(b"=", 1)[1].decode(errors="replace")
-                        if val and val != "***" and len(val) >= 30:
-                            os.environ["DEEPSEEK_API_KEY"] = val
-                            logger.info(
-                                "[DreamMemory] key injected from PID %d (len=%d)",
-                                known_pid, len(val),
-                            )
-                            return
+                            val = entry.split(b"=", 1)[1].decode(errors="replace")
+                            if val and val != "***" and len(val) >= 30:
+                                os.environ["DEEPSEEK_API_KEY"] = val
+                                logger.info(
+                                    "[DreamMemory] key injected from PID %d (len=%d)",
+                                    known_pid, len(val),
+                                )
+                                return
             except (PermissionError, FileNotFoundError, OSError):
                 pass
         # 全量扫描回退
@@ -466,14 +467,30 @@ def _inject_api_key_from_proc() -> None:
                 for entry in raw.split(b"\x00"):
                     if entry.startswith(b"DEEPSEEK_API_KEY="):
                         val = entry.split(b"=", 1)[1].decode(errors="replace")
-                            os.environ["DEEPSEEK_API_KEY"] = val
-                            logger.info(
-                                "[DreamMemory] key injected from PID %d (len=%d)",
-                                pid_entry, len(val),
-                            )
-                            return
+                        os.environ["DEEPSEEK_API_KEY"] = val
+                        logger.info(
+                            "[DreamMemory] key injected from PID %d (len=%d)",
+                            pid_entry, len(val),
+                        )
+                        return
             except (PermissionError, FileNotFoundError, OSError):
                 continue
+        # provider_registry 回退（.env 中的 key 常为 *** 遮盖值，需从凭据池获取真实 key）
+        current_key = os.environ.get("DEEPSEEK_API_KEY", "")
+        if not current_key or current_key == "***":
+            try:
+                from agent.provider_registry import resolve_api_key_provider_credentials
+                creds = resolve_api_key_provider_credentials("deepseek")
+                if creds:
+                    key = creds.get("api_key", "") or ""
+                    if key and key != "***" and len(key) >= 30:
+                        os.environ["DEEPSEEK_API_KEY"] = key
+                        logger.info(
+                            "[DreamMemory] key injected from provider_registry (len=%d)",
+                            len(key),
+                        )
+            except Exception:
+                pass
     except Exception:
         pass
 
