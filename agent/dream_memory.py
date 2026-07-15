@@ -80,6 +80,24 @@ def _save_persistent(path: str, data: Dict) -> bool:
         return False
 
 
+def _get_distill_sentinel_path() -> str:
+    """哨兵文件路径——标记蒸馏已完成，CrossSessionMemory 应在下次 save 前重载缓存。"""
+    from mimir_constants import get_mimir_data_dir
+    return str(get_mimir_data_dir() / ".distilled")
+
+
+def _write_distill_sentinel() -> None:
+    """写哨兵文件，通知 CrossSessionMemory 蒸馏已完成、缓存已过期。"""
+    logger.info("[DreamMemory] 写蒸馏哨兵")
+    try:
+        path = _get_distill_sentinel_path()
+        with open(path, "w") as f:
+            f.write(f"{datetime.now(timezone.utc).isoformat()}\n")
+        logger.info("[DreamMemory] 蒸馏哨兵已写入: %s", path)
+    except Exception as e:
+        logger.warning("[DreamMemory] 写蒸馏哨兵失败: %s", e)
+
+
 def _format_memory_for_distillation(data: Dict) -> str:
     """将记忆条目格式化为 LLM 友好的文本。"""
     mem: Dict = data.get("memory", {})
@@ -403,6 +421,10 @@ async def run_dream_cycle(dry_run: bool = False) -> Tuple[bool, str]:
     if not ok:
         return False, report + f"\n❌ 写入失败（耗时 {elapsed:.1f}s）"
 
+    # 5. 写哨兵文件——通知 CrossSessionMemory 下一轮 save 前从磁盘重载缓存
+    #    （避免终端进程蒸馏写盘后，Gateway 进程仍用旧缓存 59 kd 覆盖掉压缩后的 20 kd）
+    _write_distill_sentinel()
+
     return True, report + f"\n✅ 写入成功（耗时 {elapsed:.1f}s）"
 
 
@@ -466,13 +488,14 @@ def _inject_api_key_from_proc() -> None:
                     raw = f.read()
                 for entry in raw.split(b"\x00"):
                     if entry.startswith(b"DEEPSEEK_API_KEY="):
-                        val = entry.split(b"=", 1)[1].decode(errors="replace")
-                        os.environ["DEEPSEEK_API_KEY"] = val
-                        logger.info(
-                            "[DreamMemory] key injected from PID %d (len=%d)",
-                            pid_entry, len(val),
-                        )
-                        return
+                            val = entry.split(b"=", 1)[1].decode(errors="replace")
+                            if val and val != "***" and len(val) >= 30:
+                                os.environ["DEEPSEEK_API_KEY"] = val
+                                logger.info(
+                                    "[DreamMemory] key injected from PID %d (len=%d)",
+                                    pid_entry, len(val),
+                                )
+                                return
             except (PermissionError, FileNotFoundError, OSError):
                 continue
         # provider_registry 回退（.env 中的 key 常为 *** 遮盖值，需从凭据池获取真实 key）
@@ -489,6 +512,48 @@ def _inject_api_key_from_proc() -> None:
                             "[DreamMemory] key injected from provider_registry (len=%d)",
                             len(key),
                         )
+            except Exception:
+                pass
+        # config.yaml 直接回退（provider_registry 只查环境变量和 credential_pool，不读 config.yaml）
+        if not os.environ.get("DEEPSEEK_API_KEY") or os.environ.get("DEEPSEEK_API_KEY") == "***":
+            try:
+                import yaml
+                config_path = os.path.join(
+                    os.environ.get("MIMIR_AETHER_HOME", os.path.expanduser("~/.mimiraether")),
+                    "config.yaml",
+                )
+                if os.path.isfile(config_path):
+                    with open(config_path, "r") as f:
+                        cfg = yaml.safe_load(f)
+                    raw_key = (cfg or {}).get("providers", {}).get("deepseek", {}).get("api_key", "")
+                    if raw_key and raw_key != "***" and len(raw_key) >= 30:
+                        os.environ["DEEPSEEK_API_KEY"] = raw_key
+                        logger.info(
+                            "[DreamMemory] key injected from config.yaml (len=%d)",
+                            len(raw_key),
+                        )
+            except Exception:
+                pass
+        # .env 直接回退（cat/read_file 显示 *** 是工具遮盖层，文件字节有真实 key）
+        if not os.environ.get("DEEPSEEK_API_KEY") or os.environ.get("DEEPSEEK_API_KEY") == "***":
+            try:
+                env_path = os.path.join(
+                    os.environ.get("MIMIR_AETHER_HOME", os.path.expanduser("~/.mimiraether")),
+                    ".env",
+                )
+                if os.path.isfile(env_path):
+                    with open(env_path, "r") as f:
+                        for line in f:
+                            line = line.strip()
+                            if line.startswith("DEEPSEEK_API_KEY="):
+                                val = line.split("=", 1)[1].strip().strip("\"'")
+                                if val and val != "***" and len(val) >= 30:
+                                    os.environ["DEEPSEEK_API_KEY"] = val
+                                    logger.info(
+                                        "[DreamMemory] key injected from .env (len=%d)",
+                                        len(val),
+                                    )
+                                break
             except Exception:
                 pass
     except Exception:

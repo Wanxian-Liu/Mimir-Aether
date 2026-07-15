@@ -31,6 +31,7 @@
 
 import copy
 import json
+import logging
 import os
 import time
 from datetime import datetime, timezone
@@ -38,6 +39,8 @@ from typing import Optional, List, Dict, Any
 from pathlib import Path
 
 from agent.memory_write_facade import get_persistent_path, save_persistent_merged
+
+logger = logging.getLogger(__name__)
 
 
 # 持久化文件路径（随 MIMIR_AETHER_HOME 解析；与 persistent_store 一致）
@@ -167,9 +170,41 @@ class CrossSessionMemory:
             mem["active_projects"] = fixed_ap
     
     def save(self) -> bool:
-        """保存持久化记忆（单写者锁 + 磁盘合并，ADR-001）。"""
+        """保存持久化记忆（单写者锁 + 磁盘合并，ADR-001）。
+
+        如果 .distilled 哨兵文件存在（蒸馏刚写完盘），在合并前重载磁盘数据
+        到 self._data，避免用旧缓存（59 kd）覆盖蒸馏结果（20 kd）。
+        """
         self._data["last_session_end"] = datetime.now(timezone.utc).isoformat()
         self.file_path = get_persistent_path()
+
+        # 哨兵检测：蒸馏已完成，重载磁盘数据覆盖内存缓存
+        sentinel_path = self.file_path.parent / ".distilled"
+        if sentinel_path.exists():
+            try:
+                sentinel_ts = sentinel_path.read_text(encoding="utf-8").strip()
+                logger.info(
+                    "[CrossSessionMemory] 检测到蒸馏哨兵 (%s)，从磁盘重载缓存",
+                    sentinel_ts,
+                )
+                with open(self.file_path, "r", encoding="utf-8") as f:
+                    disk_data = json.load(f)
+                # 用磁盘数据替换内存缓存（保留 last_session_end 等运行时字段）
+                disk_data["last_session_end"] = self._data.get("last_session_end")
+                disk_data["session_count"] = self._data.get("session_count", 0)
+                self._data = disk_data
+                logger.info(
+                    "[CrossSessionMemory] 缓存已从磁盘重载: kd=%d, lp=%d",
+                    len(disk_data.get("memory", {}).get("key_decisions", [])),
+                    len(disk_data.get("memory", {}).get("learned_patterns", [])),
+                )
+                # 清理哨兵，避免每次 save 都重载
+                sentinel_path.unlink(missing_ok=True)
+            except Exception as e:
+                logger.warning(
+                    "[CrossSessionMemory] 读哨兵/重载缓存失败: %s，继续使用原缓存", e,
+                )
+
         ok = save_persistent_merged(
             self._data,
             CrossSessionMemory.merge_disk_into_memory,
