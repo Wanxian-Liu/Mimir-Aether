@@ -658,7 +658,8 @@ dream_memory.py L447 缩进错误：val = entry.split(...) 写在 if 块外
 | 9-11 | asyncio 嵌套冲突 / 事件循环 | ✅ 沙盒执行正确识别了冲突，但 terminal 路径本就能通 |
 | 12-14 | 验证路径错误 / `data["memory"]` | ✅ JSON 嵌套确实有区别，但盘上数据未变不是因为查错路径 |
 | 15 | terminal 路径一直能通 | \| **发现了 subset true** — 但 LLM 没 key 所以函数从未写盘 |
-| 16（用户修复）| **缩进错误 + provider_registry 回退** | ✅ 真正的代码级根因 |
+|   16（用户修复）| **缩进错误 + provider_registry 回退** | ✅ 代码级修复让 key 注入了，蒸馏首次成功写出 20 kd 到磁盘 |
+|   17（Mimir 哨兵修复）| **CrossSessionMemory 缓存覆盖** — 蒸馏写入 20 kd 到 main，但 Gateway 进程的 _save_unlocked 把内存缓存的旧 59 kd 覆写了回磁盘。bak 里的 20 kd 是"蒸馏成功写盘后被旧缓存覆盖"的遗存 | **哨兵文件机制**（`.distilled`）：蒸馏成功后写哨兵 → CrossSessionMemory.save() 检测到哨兵时从磁盘重载缓存，不再用旧内存数据覆盖磁盘 |
 
 ### 量化指标
 
@@ -666,20 +667,24 @@ dream_memory.py L447 缩进错误：val = entry.split(...) 写在 if 块外
 |:----|:-----:|:-----:|
 | key_decisions | 59 (23/59 tip) | **20 (20/20 tip+cc)** |
 | learned_patterns | 53 (33/53 tip) | **30 (30/30 tip)** |
+| .bak vs main 差异 | .bak 有 20, main 有 59（缓存覆盖）| **main=20, .bak=59（哨兵工作正常）** |
 | 执行路径 | execute_code（沙盒崩）/ cron Agent Prompt（编造）| **terminal（独立进程，成功）** |
 | 验证方式 | 看 terminal 输出文字"写入成功"就汇报 | **read_file 读盘交叉确认后再汇报** |
-| 修复者 | Mimir（15 轮，从未触及根因）| **用户（1 轮，改缩进+加回退）** |
+| 修复者 | Mimir（15 轮，从未触及根因）| **用户修复缩进+回退；Mimir 修复哨兵缓存覆盖** |
 
 ### 固化的技能和文档
 
-- `mimiraether-distillation-execution` SKILL.md：更新完整根因链 + 缩进错误 + provider_registry 回退 + 执行路径铁律 + 验证铁律
+- `mimiraether-distillation-execution` SKILL.md：更新完整根因链 + 缩进错误 + provider_registry 回退 + 哨兵机制 + 执行路径铁律 + 验证铁律
 - `persistent.json` behavioral_constraints：第 6 条"写盘走 terminal" + 第 7 条"写盘后读回确认"
 - `mimiraether-verification` SKILL.md：第 2 层一致性检查（声称 vs 盘上）
 - `mimiraether-tool-triggers` SKILL.md §8：Superpowers 三问自检
+- `dream_memory.py` L77-90：哨兵写入机制
+- `agent/cross_session_memory.py` L142-152：哨兵消费 + 缓存重载
 
 ### 关键教训
 
 1. **代码写盘后的验证不能凭终端输出中的"成功"字样** — 必须用第二个工具（`read_file`）读盘交叉验证
 2. **`***` 是工具层密钥遮盖，不是代码 bug** — 遇到 `***` 在代码中的显示时，先查 xxd 原始字节确认真实内容
 3. **`data["memory"]["key_decisions"]` 不是 `data["key_decisions"]`** — JSON 路径必须确认嵌套结构
-4. **修复缩进错误 + 加 provider_registry 回退** — 两个改动都是用户做的，不是 Mimir 做对的
+4. **蒸馏写入 main 成功不等于蒸馏永远成功** — 如果还有其他进程/缓存层写回旧数据，磁盘随时可能被覆盖。需要进程间同步或哨兵机制
+5. **"16 轮修不好"的真相：蒸馏一直能跑、一直能写——是读盘验证路径 + 缓存覆盖两个问题，不是蒸馏功能本身的问题**
