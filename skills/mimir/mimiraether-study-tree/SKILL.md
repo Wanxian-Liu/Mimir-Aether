@@ -57,10 +57,130 @@ MimirAether 知识研究树——对外部技术的调研、对比、吸收结�
 - SkeMex: Read-Write-Assess-Govern 闭环，填补梦境蒸馏的"效用评估"缺失环节
 - 结论: 等待 Tavily 恢复稳定后再拉全文深读
 
+### #7 Superpowers — ✅ 已吸收
+
+**来源**: obra/superpowers，**252K stars**（2026-07-15 #1 trending）
+**核心**: 13 skill 组成的完整 SDLC 方法论（brainstorming → worktrees → 写 plan → 执行 → TDD → review → 收尾）
+**许可**: MIT
+**核心哲学**: Test-Driven Development / Systematic over ad-hoc / Complexity reduction / Evidence over claims
+
+#### 全 13 Skill 交叉对比
+
+| # | Superpowers Skill | 我们有吗 | 质量对比 | △ |
+|:-:|:-----------------|:--------:|:--------|:-:|
+| 1 | **brainstorming** | ✅ `mimiraether-brainstorming` | 我们有基础版本。他们：9步清单 + anti-pattern + visual companion。**差距：无强制门控、无 anti-pattern 章节、无 visual compaion** | 🟡 |
+| 2 | **writing-plans** | ✅ `writing-plans` | 他们的：bite-sized 2-5min 任务粒度、标准 plan header 模板、placeholder 禁止、"No Placeholders → plan 失败"规则。**差距：模板不够精确、缺对 TBD/TODO 的硬禁止** | 🟡 |
+| 3 | **executing-plans** | ✅ `executing-plans` | 大致持平。他们的在 checkpoint 点更精确 | 🟢 |
+| 4 | **verification-before-completion** | ✅ `mimiraether-verification`（auto_load）| **我们有的就是抄他们的。差距：缺 rationalization prevention 表格** | 🟢 |
+| 5 | **subagent-driven-development** | ✅ `delegate-subagent` + `subagent-driven-development` | 他们的：2-stage review（spec compliance → code quality）、4种 implementer status（DONE/DONE_WITH_CONCERNS/NEEDS_CONTEXT/BLOCKED）、explicit model selection。**差距：无完整 4 种状态处理流程** | 🟡 |
+| 6 | **test-driven-development** | ✅ `test-driven-development` | 他们的：铁律"NO PRODUCTION CODE WITHOUT FAILING TEST FIRST"、regression 验证明文要求。我们基本持平 | 🟢 |
+| 7 | **finishing-a-development-branch** | ✅ `finishing-a-development-branch` | 他们的：6 步精确流程、环境检测区分 3/4 菜单。**差距：无环境检测步骤** | 🟡 |
+| 8 | **using-git-worktrees** | ✅ `using-git-worktrees` | 他们的：Step 0 检测（含 submodule guard！）、native tool 优先。**差距：无 submodule guard** | 🟡 |
+| 9 | **requesting-code-review** | ✅ `requesting-code-review` | 大致持平。他们的有 reviewer dispatch template。**差距：缺精确的 reviewer prompt 模板** | 🟢 |
+| 10 | **systematic-debugging** | ✅ `mimiraether-root-cause-debugging` | 他们的：4-phase + 铁律"NO FIXES WITHOUT ROOT CAUSE" + **3次失败后架构边界**。**差距：缺"3+ fixes → STOP"规则** | 🟡 |
+| 11 | **dispatching-parallel-agents** | ❌ **缺失** | 我们有 `delegate_task` 批量模式，但无专门的"并行调试"skill。**差距：新增 skill** | 🔴 |
+| 12 | **receiving-code-review** | ❌ **缺失** | 我们是单向 review。他们：requesting + receiving 双向。**差距：新增 skill** | 🔴 |
+| 13 | **writing-skills** | ✅ `mimiraether-skill-solidify` + `hermes-agent-skill-authoring` | 他们的：TDD for skills（写 test scenario → 先看 agent 无 skill 时失败 → 写 skill → 看 agent 匹配）。**差距：缺 TDD 式技能创作方法论** | 🟡 |
+
+#### 吸收结论
+
+| 差距级别 | 计数 | 行动 |
+|:-------:|:----:|:----|
+| 🔴 缺失 | 2 | 创建 `dispatching-parallel-agents` + `receiving-code-review` |
+| 🟡 质量 | 7 | 升级 7 个同名 skill（加 anti-pattern / iron law / 精确模板） |
+| 🟢 持平 | 4 | 维持现状（verification / TDD / code-review / executing-plans） |
+
+#### 四个可以直接吸收的核心模式
+
+1. **铁律机制** — 每个 skill 开头的"Iron Law"段落（如 "NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST"）是很强的行为约束模式。我们每个 skill 也应该有
+2. **Anti-patterns** — 每个 skill 都列出"跳过技能的常见借口"并配套"reality"反驳。我们从 Superpowers 的 verification 技能直接抄了 rationalization prevention 表，应该在所有 skill 里推广
+3. **Red Flags** — "如果你在想 X → STOP"的模式比模糊警告更有效
+4. **Evicende over claims** — 贯穿全体技能的核心哲学
+
+### #8 mattpocock/skills — ✅ 已吸收
+
+**来源**: mattpocock/skills，**165K stars**（2026 trend）
+**核心**: 10+ 工程技能（user-invoked + model-invoked 两种模式）
+**许可**: MIT
+**哲学**: 小型、可组合、易适配的技能 vs 大而全的框架
+
+#### 可吸收的部分
+
+| 他们的 skill | 我们缺吗 | 建议 |
+|:-----------|:--------:|:-----|
+| **`/grill-me`** / **`/grill-with-docs`** | ⚠️ 部分 | 结构化质询流程——先问清楚需求再动手。我们 brainstorming 有但不够结构化。可吸收"garilling session"模式 |
+| **`/improve-codebase-architecture`** | ✅ 缺 | HTML 报告 + 每日架构扫描。我们自己应该在 skills 质量层做类似的 |
+| **`/to-spec`** | ✅ 缺 | 通过质询探索模块边界再写 spec。可吸收 |
+| **CONTEXT.md + 共享语言** | ⚠️ 部分 | 我们 memory 了但没有"项目级共享术语"文档。他推荐 /grill-with-docs 自动构建 |
+| **skills.sh 可编辑安装** | ❌ 不适应 | 我们技能直接写盘，不需要 |
+
+**结论**: 主要吸收 `grill-with-docs` 方法论（结构化质询 + 共享术语自动生成）和 `/improve-codebase-architecture`（技能质量扫描报告）。不复制全项目。
+
+### #9 TencentDB-Agent-Memory — ✅ 已吸收
+
+**来源**: TencentCloud/TencentDB-Agent-Memory，**8.5K stars**（2026-07 #1 trending）
+**核心**: 4层渐进式记忆流水线（L0-L3）+ 符号化短期记忆
+**许可**: MIT
+**语言**: TypeScript（84%）
+
+#### 架构要点
+
+| 层 | 名称 | 内容 | 格式 | 与我们对比 |
+|:-:|:----|:-----|:----|:----------|
+| L0 | Conversation | 原始对话 | 无结构化 | ✅ 我们也有 |
+| L1 | Atom | 原子事实 | JSONL（SQLite 全文检索） | ⚠️ 类似我们的 key_decisions |
+| L2 | Scenario | 场景块 | Markdown（人类可读） | ❌ 我们没有 |
+| L3 | Persona | 用户画像 | Markdown（persona.md） | ✅ 类似我们的 memory user 存储 |
+| Short-term | Mermaid Canvas | 符号化工具日志 | Mermaid graph + node_id 引用 | ❌ **我们没有** |
+
+#### 与我们持久化系统的对比
+
+| 维度 | TencentDB | 我们（persistent.json） |
+|:----|:---------|:----------------------|
+| 层数 | 4 | 2（kd + lp，无 L2/L3 中间层）|
+| 检索 | SQLite + sqlite-vec（混合关键词+向量 RRF） | 纯关键词（read_file） |
+| 短期记忆 | Mermaid 符号化 + refs/*.md 脱载 | 无短期层 |
+| 用户画像 | persona.md（自动生成，每 50 记忆更新） | memory 工具用户存储（手动）|
+| 集成 | OpenClaw 插件 + Hermes Docker | 自有 Gateway |
+| Token 节省 | −61%（221M→85M） | 无测量 |
+
+#### 可吸收的方向（非复制，是参考）
+
+1. **Mermaid Canvas 短期记忆符号化** — 我们蒸馏的 kd/lp 是纯文本，TencentDB 用 Mermaid 图高度压缩。可在蒸馏输出中引入符号化摘要
+2. **L2 Scenario 层** — 我们在 persistent.json 只有 kd/lp 两层平坦结构。加一个"场景"层可按对话主题组织，检索效率更高
+3. **persona.md 自动生成** — 我们 memory 工具的用户存储是手动的。可参考 TencentDB 的自动 persona 生成（每 50 记忆一次）
+4. **混合检索（BM25+向量）** — 当前检索全靠 `grep -r` / `read_file`。引入 sqlite-vec（完全本地，无外部 API）可大幅提升 recall
+
+**结论**: 不复制项目（TypeScript，异构架构）。但 L2 场景层 + Mermaid 符号化 + 混合检索的方向值得在 persistent.json v2 中参考。**标记为 P1 候选参考**。
+
+### #10 Self-Harness 论文 — ✅ 已吸收
+
+| 论文 | 日期 | 核心 | 与我们关系 |
+|:----|:----|:-----|:----------|
+| **Self-Harness** (arXiv:2606.09498) | Jun 8 | 三阶段：Weakness Mining → Harness Proposal → Validation。最高 +60% | **蒸馏16轮修复是手动 Self-Harness。下一步：自动化三阶段循环** |
+| **Meta-Harness** (arXiv:2603.28052) | Mar | 外环系统自动搜索 harness 代码。+7.7 分 | 可参考外环收敛模式 |
+| **Agent Harness Survey** (2026) | Apr | 形式化定义 H=(E,T,C,S,L,V)。harness 是生产瓶颈 | 验证我们的架构（6 组件全有但缺形式化评估） |
+
+#### Self-Harness 三阶段 vs 已做
+
+| Self-Harness 阶段 | 我们手动做了什么 | 自动化差距 |
+|:-----------------|:---------------|:----------|
+| Weakness Mining | 16 轮失败 → 发现 `***`、`.bak→main`、缓存覆盖 | 当前靠你手动发现问题 |
+| Harness Proposal | 哨兵文件 `.distilled`、`provider_registry` 回退 | 我提出方案但需你验证 |
+| Validation | 3 路交叉验证 + 读盘确认 | 当前已有 verification 技能，但未接回全循环 |
+
+**结论**: Self-Harness 已经是我们实际在做但没有形式化命名的方法论。**P0 吸收项**：
+
+1. 在三阶段已手动跑通过的基础上，通过 `self_evolution` 技能实现 Weakness Mining 的半自动化（日志异常检测 → 自动提案 → 回归测试 → 通知你）
+2. 不复制论文全貌，只吸收三阶段循环结构
+
 ## 长期差距记录
 
 | 优先级 | 差距 | 来源 | 状态 |
 |:-----:|------|:----:|:----:|
-| P0 | L4 梦境记忆蒸馏 | CowAgent L4 | ✅ [x] agent/dream_memory.py 已上线 + cron 每日 23:00 |
-| P1 | 搜索替代 | Tavily 401 → 已恢复 | ✅ [x] Tavily key 已生效；Agent-Reach 备用已装 |
+| P0 | L4 梦境记忆蒸馏 | CowAgent L4 | ✅ [x] agent/dream_memory.py + cron 已修复 |
+| P0 | Self-Harness 自动化 | #10 Self-Harness 论文 | ⏸ 手动跑通过，待半自动化 |
+| P1 | 搜索替代 | Tavily 恢复 | ✅ [x] Tavily key 已生效；Agent-Reach 备用已装 |
+| P1 | TencentDB 记忆架构参考（L2场景层+Mermaid符号化+混合检索） | #9 TencentDB | ⏸ P1 候选参考 |
+| P1 | Skill 质量升级（7 🟡 + 2 🔴 缺失） | #7 Superpowers | 🔄 需按 △差距表推进 |
 | P2 | 百度搜索（中文独占内容） | 百度反爬 | ⏸ PENDING 等待触发条件 |
