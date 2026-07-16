@@ -214,9 +214,37 @@ class MemoryStore:
         fresh = list(dict.fromkeys(fresh))  # deduplicate
         self._set_entries(target, fresh)
 
+    def _backup_before_write(self, target: str):
+        """Backup existing memory file to .bak before overwriting.
+        
+        Uses shutil.copy2 to preserve metadata. Only backs up if the file
+        exists and has meaningful content (>100 bytes to skip empty/new files).
+        The .bak sits alongside the main file and is written atomically
+        (copy2 blocks until complete).
+        """
+        path = self._path_for(target)
+        if not path.exists():
+            return
+        try:
+            file_size = path.stat().st_size
+            if file_size < 100:
+                return  # empty/new file, nothing worth backing up
+            bak_path = path.with_suffix(path.suffix + ".bak")
+            import shutil
+            shutil.copy2(path, bak_path)
+            logger.debug(f"Backed up {path.name} ({file_size:,} bytes) to {bak_path.name}")
+        except (OSError, IOError) as e:
+            logger.warning(f"Failed to backup {path.name}: {e}")
+
     def save_to_disk(self, target: str):
-        """Persist entries to the appropriate file. Called after every mutation."""
+        """Persist entries to the appropriate file. Called after every mutation.
+        
+        Creates a .bak copy before overwriting (unless the file is empty/new),
+        so accidental overwrites (e.g. test code writing to the production path)
+        can be rolled back.
+        """
         get_memory_dir().mkdir(parents=True, exist_ok=True)
+        self._backup_before_write(target)
         self._write_file(self._path_for(target), self._entries_for(target))
 
     def _entries_for(self, target: str) -> List[str]:
@@ -240,6 +268,123 @@ class MemoryStore:
         if target == "user":
             return self.user_char_limit
         return self.memory_char_limit
+
+    def _maybe_compact(self, target: str) -> Dict[str, Any]:
+        """Auto-compact memory when usage > 80% of char limit.
+
+        Uses available knowledge discovery components:
+        1. Exact dedup (dict.fromkeys — always safe)
+        2. KnowledgeDeduplicator: merge similar entries on same topic
+        3. ImportanceScorer: keep only high-scored entries
+        4. Trim to 85% limit for headroom
+
+        Returns compaction report (or empty dict if no action).
+        """
+        entries = self._entries_for(target)
+        current = self._char_count(target)
+        limit = self._char_limit(target)
+
+        # Only compact when > 80% full
+        if current < limit * 0.8:
+            return {}
+
+        original_count = len(entries)
+        original_chars = current
+        logger.info(f"Compacting {target}: {current:,}/{limit:,} chars ({original_count} entries)")
+
+        # Phase 1: Exact dedup (preserves order, keeps first occurrence)
+        entries = list(dict.fromkeys(entries))
+
+        # Phase 2: Semantic dedup via KnowledgeDeduplicator (if available)
+        if KnowledgeDeduplicator is not None and KnowledgeItem is not None:
+            try:
+                items = [KnowledgeItem(content=e, source_type="memory") for e in entries]
+                dedup = KnowledgeDeduplicator(DedupConfig(similarity_threshold=0.70))
+                result = dedup.deduplicate(items)
+                dedup_result = result.get("result") if isinstance(result, dict) else result
+                if dedup_result and hasattr(dedup_result, "merged_items"):
+                    entries = [item.content for item in dedup_result.merged_items]
+                    logger.info(f"  Semantic dedup: {original_count} -> {len(entries)}")
+            except Exception:
+                logger.warning("  KnowledgeDeduplicator failed, skipping semantic dedup", exc_info=True)
+
+        # Phase 2.5: Truncate long entries (>=300 chars) to free space
+        # This is in chars, not tokens, so it's model-independent. Long entries
+        # are more likely to be verbose descriptions than essential facts.
+        truncated_count = 0
+        max_entry_chars = 300
+        for i, e in enumerate(entries):
+            if len(e) > max_entry_chars:
+                # Find a good break point (last period or space within limit)
+                truncated = e[:max_entry_chars]
+                last_period = truncated.rfind(".")
+                last_space = truncated.rfind(" ")
+                if last_period > 200:
+                    truncated = e[:last_period + 1]
+                elif last_space > 200:
+                    truncated = e[:last_space]
+                else:
+                    truncated = e[:max_entry_chars]
+                entries[i] = truncated + " [...] (truncated)"
+                truncated_count += 1
+        if truncated_count:
+            logger.info(f"  Truncated {truncated_count} entries to ≤{max_entry_chars} chars")
+
+        # Phase 3: Importance scoring — keep only entries above threshold
+        if ImportanceScorer is not None:
+            try:
+                scorer = ImportanceScorer()
+                scored = []
+                for e in entries:
+                    result = scorer.score(e)
+                    if isinstance(result, dict):
+                        score = float(result.get("score", 0.5))
+                    elif hasattr(result, "score"):
+                        score = float(result.score)
+                    else:
+                        score = 0.5
+                    scored.append((score, e))
+                scored.sort(key=lambda x: x[0], reverse=True)
+                entries = [e for _, e in scored]
+                logger.info(f"  Sorted {len(entries)} entries by importance")
+            except Exception:
+                logger.warning("  ImportanceScorer failed, skipping importance sort", exc_info=True)
+
+        # Phase 4: Trim to 85% of limit (give headroom for future adds)
+        budget = int(limit * 0.85)
+        trimmed = []
+        char_used = 0
+        for e in entries:
+            entry_len = len(ENTRY_DELIMITER) + len(e) if trimmed else len(e)
+            if char_used + entry_len <= budget:
+                trimmed.append(e)
+                char_used += entry_len
+            else:
+                logger.info(f"  Trimmed at entry {len(trimmed)+1} (budget {budget:,} chars)")
+                break
+        entries = trimmed
+
+        # Write to disk
+        self._set_entries(target, entries)
+        self.save_to_disk(target)
+
+        new_count = len(entries)
+        new_chars = self._char_count(target)
+        freed = original_chars - new_chars
+
+        report = {
+            "compacted": True,
+            "target": target,
+            "original_count": original_count,
+            "new_count": new_count,
+            "original_chars": original_chars,
+            "new_chars": new_chars,
+            "freed_chars": freed,
+            "freed_pct": round(freed / original_chars * 100, 1) if original_chars > 0 else 0,
+            "truncated_entries": truncated_count if truncated_count else 0,
+        }
+        logger.info(f"  Compaction done: {original_count}->{new_count} entries, freed {freed:,} chars ({report['freed_pct']}%)")
+        return report
 
     def add(self, target: str, content: str) -> Dict[str, Any]:
         """Append a new entry. Returns error if it would exceed the char limit."""
@@ -269,6 +414,22 @@ class MemoryStore:
 
             if new_total > limit:
                 current = self._char_count(target)
+                # Auto-compact before giving up
+                compact_result = self._maybe_compact(target)
+                if compact_result:
+                    # Retry after compaction
+                    self._reload_target(target)
+                    entries = self._entries_for(target)
+                    new_entries = entries + [content]
+                    new_total = len(ENTRY_DELIMITER.join(new_entries))
+                    if new_total <= limit:
+                        entries.append(content)
+                        self._set_entries(target, entries)
+                        self.save_to_disk(target)
+                        resp = self._success_response(target, "Entry added (after auto-compaction).")
+                        resp["compacted"] = compact_result
+                        return resp
+
                 return {
                     "success": False,
                     "error": (
@@ -278,6 +439,7 @@ class MemoryStore:
                     ),
                     "current_entries": entries,
                     "usage": f"{current:,}/{limit:,}",
+                    "compacted": compact_result if compact_result else None,
                 }
 
             entries.append(content)
@@ -330,12 +492,31 @@ class MemoryStore:
             new_total = len(ENTRY_DELIMITER.join(test_entries))
 
             if new_total > limit:
+                # Auto-compact before giving up
+                compact_result = self._maybe_compact(target)
+                if compact_result:
+                    # Retry after compaction
+                    self._reload_target(target)
+                    entries = self._entries_for(target)
+                    # Re-find the entry
+                    new_matches = [(i, e) for i, e in enumerate(entries) if old_text in e]
+                    if new_matches:
+                        entries[new_matches[0][0]] = new_content
+                        new_total = len(ENTRY_DELIMITER.join(entries))
+                        if new_total <= limit:
+                            self._set_entries(target, entries)
+                            self.save_to_disk(target)
+                            resp = self._success_response(target, "Entry replaced (after auto-compaction).")
+                            resp["compacted"] = compact_result
+                            return resp
+
                 return {
                     "success": False,
                     "error": (
                         f"Replacement would put memory at {new_total:,}/{limit:,} chars. "
                         f"Shorten the new content or remove other entries first."
                     ),
+                    "compacted": compact_result if compact_result else None,
                 }
 
             entries[idx] = new_content
