@@ -159,8 +159,10 @@ EV-M01..12: (列表勾选)
 || **EV-L12** | 真进化 | evolution / simulated | Playbook **§12** 真/伪进化各 1 例 | [x] 2026-05-20 |
 || **EV-L13** | 可观测债 | 结合 EV-M08 | Playbook **§13** + ISSUES ≤1 条（E-006） | [x] 2026-05-20 |
 || **EV-L14** | 索引 | 汇总 §1–§13 | Playbook **§14** 目录+复习节奏；飞书 **学习轨完成包** | [x] 2026-05-20 |
-|| **EV-L15** | .env 安全 + 重复回复 | write_file 覆盖 FEISHU/DEEPSEEK 密钥；LLM 循环重复 | Playbook **§15** env-safe-update 技能 + chmod 600 + 重复检测 | [x] 2026-06-23 |
-
+||| **EV-L15** | .env 安全 + 重复回复 | write_file 覆盖 FEISHU/DEEPSEEK 密钥；LLM 循环重复 | Playbook **§15** env-safe-update 技能 + chmod 600 + 重复检测 | [x] 2026-06-23 |
+||| **EV-L16** | Superpowers 内化 | 读 study-tree #7 obra/superpowers(252K) → 对比全 13 skill，创建 2 缺失 skill | Playbook **§16** 差距表 + 2 新 skill 落盘 | [x] 2026-07-15 |
+||| **EV-L17** | 蒸馏 16 轮根因链 | 哨兵修复 + 内存缓存覆盖 + MEMORY.md 保护机制 `_backup_before_write()` | Playbook **§17** 根因链 + 5 条教训 + 4 改进项 | [x] 2026-07-15 |
+|
 **执行约束**
 
 - 每轮 **只做一个 EV-L**；只编辑 `MIMIR_EV_L_INDUSTRIAL_LEARNING.md` 对应节 + 本表勾 `[x]`。  
