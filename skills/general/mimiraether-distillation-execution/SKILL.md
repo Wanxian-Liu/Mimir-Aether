@@ -75,12 +75,21 @@ mem = data.get("memory", {})
 kd = mem.get("key_decisions", [])
 ```
 
-#### `***` 是工具层密钥遮盖，不是代码 bug
+#### `***` 是源码真实字符串（xxd 字节级确认），不是纯工具遮盖
 
-`_inject_api_key_from_proc()` 中的 `startswith(b"DEEPSEEK_API_KEY=")` 从始至终正确。
-`read_file`/`sed`/`cat` 等工具自动将 `DEEPSEEK_API_KEY=` 后面的内容显示为 `***`，
-导致看起来像代码在比较 `***` 字面量。xxd 原始字节证实代码从未包含 `***`。
-这个误解导致了至少 3 轮额外的"修复"和虚假报告。
+**两个事实共存：**
+
+1. **dream_memory.py L447/468 源码包含 `***` 字面量**
+    xxd 偏移 0x4b90: `0x2a 0x2a 0x2a` = `***`。代码是 `startswith(b"DEEPSEEK_API_KEY=***\n")`，
+    所以 `_inject_api_key_from_proc()` 永远无法匹配真实 key（`sk-11f...`）。
+
+2. **蒸馏最终成功的真正修复是 provider_registry 回退**
+    用户在 `~/.mimiraether/config.yaml` 的 `providers.deepseek` 层加了真实 key，
+    绕过了 `_inject_api_key_from_proc()` 的 `***` 比较。蒸馏的哨兵机制修复（commit `4912d77`）
+    解决了内存缓存覆盖问题，但 `***` 代码本身从未被修复——是 provider_registry 回退让蒸馏得到了 key。
+
+**教训：** `README`/`cat`/`read_file` 确实会遮盖 key 内容，但 `***` 在源码中是真实的。
+不要仅凭"工具会遮盖 key"的推理就断定代码没有 `***`——应以 xxd 原始字节为准。
 
 ### 执行路径铁律
 
