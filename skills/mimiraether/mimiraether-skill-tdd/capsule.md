@@ -1,12 +1,14 @@
+# [DORMANT] mimiraether-skill-tdd
+
+**沉寂时间**: 2026-07-14T18:58:40.746101+00:00
+**原始分类**: mimiraether
+**描述**: TDD 方法写技能：先让 agent 在没有技能的情况下失败，再写技能修复，然后验证技能阻止了失败。 升级 mimiraether-skill-solidify 的"跑通了就固化"为"先证明需要，再固化，再验证"。 灵感源自 obra/superpowers writing-skills 技能。
+
+**触发阈值**: 60天未触碰
+
 ---
-name: mimiraether-skill-tdd
-description: >
-  TDD 方法写技能：先让 agent 在没有技能的情况下失败，再写技能修复，然后验证技能阻止了失败。
-  升级 mimiraether-skill-solidify 的"跑通了就固化"为"先证明需要，再固化，再验证"。
-  灵感源自 obra/superpowers writing-skills 技能。
-version: 1.0.0
-auto_load: false
----
+
+## 技能要点
 
 # MimirAether Skill TDD — 测试驱动的技能编写
 
@@ -128,47 +130,11 @@ skill-solidify (现有)          skill-tdd (本技能)
 ### 技能修复
 
 ```
-触发条件：用户说"实现/加/做" → 进入设计四阶段
-硬门控：设计未批准 → 禁止编码
-时间盒：每个阶段有上限（与 paralysis-break 联动）
-```
+触发条件：用户说"实现/加/做" → 进入设计
 
-### 验证
-
-```
-重现：用户说"帮我加个功能" → agent 先进入设计阶段而非直接编码 ✅
-```
+... (truncated)
 
 ---
 
-## 关键原则
-
-| 原则 | 来源 | 说明 |
-|------|------|------|
-| 先失败再固化 | Superpowers | 没有观察到的失败 = 不需要技能 |
-| 每条指令对应一个失败 | Superpowers | 不写"以防万一" |
-| 验证的是行为变化 | Superpowers | 不是文档质量，是 agent 是否真的不再犯错 |
-| 行为约束必须 TDD | 自身教训 | brainstorming/verification 这类门控不能用 skill-solidify |
-
----
-
-## 反模式与陷阱
-
-1. **凭空写技能**：没有观察到失败就觉得"应该有用" → 浪费 token
-2. **复制但不适配**：从 superpowers 复制但不验证 MimirAether 是否有同类失败
-3. **技能验证只靠读**：`skill_view` 看一遍就完了 → 必须重现失败场景
-4. **过度 TDD**：简单命令工具不需要 TDD，skill-solidify 够用
-
-### Beyoncé Rule（碧昂丝规则）
-
-> *"If you liked it, you should have put a test on it."*
-> — 碧昂丝·诺尔斯，经由 addyosmani/agent-skills 引入开发流程
-
-**含义：** 基础设施、重构、迁移、配置变更——凡是变更后可能出问题的东西，都应该有测试。不是因为"写测试是好的"——是因为"没有测试 = 无法证明没坏"。
-
-**在我们的上下文中：**
-- 重构 skill 后 → 必须 `skill_view` 验证 + 重现失败场景验证
-- 修改行为约束后 → 必须触发原失败模式，确认被阻止
-- 添加新 skill 后 → 必须走 Observe Failure → Write Skill → Verify Fix 三阶段
-
-**违反 Beyoncé Rule 的后果：** 你这次改的东西，下次一定坏——而你不知道它已经坏了。
+> 此胶囊由 Skill Curator 自动生成。原始技能已移入 .dormant/。
+> 调用 `skill_view("mimiraether-skill-tdd")` 即可自动唤醒。
