@@ -70,6 +70,7 @@ version: 1.0.0
 - [ ] **触发条件**写清（何时用 / 何时不用）
 - [ ] **步骤可执行**（命令、路径、顺序编号）
 - [ ] **坑点 / 反模式**（至少一条）
+- [ ] **Anti-Rationalization Table**（3~8 行预写 LLM 借口与反驳。格式：3 列——借口、为什么错、正确行动。借口引用具体 Mimir 经验：蒸馏 16 轮、sk- 读盘失误、路径混淆）
 - [ ] **如何验证**（跑什么命令、期望现象）
 - [ ] 正文过长时拆到 **`references/`**，`SKILL.md` 只保留索引与要点（总大小注意 `MAX_SKILL_CONTENT_CHARS` 一类约定，见 `skill_manager_tool` 与 authoring 技能）
 
