@@ -86,6 +86,16 @@ pre-push hook 自动跑 Ralph tier0，双重保险。
 - **"push 就行，不用验证"** → push 不等于 deploy。飞书实战确认才算闭环
 - **"一个巨型 commit"** → 除非真的只有一个原子改动，否则拆分
 
+### Anti-Rationalization Table
+
+| LLM 常用借口 | 为什么是错的 | 正确行动 |
+|:------------|:-----------|:---------|
+| "只改了文档，不用跑 Ralph" | 文档也在 repo 中，Ralph 检查引用 | 跑 `./run_ralph_tier0.sh` 5 分钟就行 |
+| "我已经提交了，不用看状态" | git status 是唯一真相。记忆不准 | 跑 `git status -sb` 确认干净才关闭 |
+| "远程就是最新的" | `--force-with-lease` 可能不同步 | `git status -sb` 检查 ahead/behind |
+| "这次是单纯 bug 修复，不开新分支" | 主分支直接修改 = 不可回滚 | 用 worktree 隔离，验证后再合并 |
+| "经验固化太慢了，先提交再说" | 不固化 2 小时后忘光 | 至少一行 `skill_manage(patch)`
+
 ## 与 Pipeline 其他技能的关系
 
 ```

@@ -254,16 +254,19 @@ If you catch yourself thinking:
 
 ---
 
-## Common Rationalizations
+## Anti-Rationalization Table
 
-| Excuse | Reality |
-|--------|---------|
-| "Issue is simple, don't need process" | Simple issues have root causes too |
-| "Emergency, no time for process" | Systematic is FASTER than guess-and-check |
-| "Just try this first, then investigate" | First fix sets the pattern |
-| "I'll write test after confirming fix works" | Untested fixes don't stick |
-| "Multiple fixes at once saves time" | Can't isolate what worked |
-| "I see the problem, let me fix it" | Seeing symptoms ≠ understanding root cause |
+| LLM 常用借口 | 为什么是错的 | 正确行动 |
+|:------------|:-----------|:---------|
+| "问题很简单，不用走流程" | 简单问题也有根因。跳过流程=重新经历15轮蒸馏循环 | 必须完成 Phase 1（读错误→复现→查更改→追踪数据流）|
+| "紧急，没时间走流程" | 系统化走流程比试错法更快。紧急时最需要纪律 | 走 Phase 1 精简版：读错误→复现→查更改 |
+| "我先试这个，不行再查" | 第一个修复设定了模式盲区。先试的往往是错的 | 先完成 Phase 1，再形成假设 |
+| "确认修好了再写测试" | 没测试的修复=没验证。我说"修好了"但盘上没变，这就是16轮蒸馏失败的模式 | 先写回归测试再现 bug，再修复 |
+| "一次修多个，省时间" | 无法隔离哪个修复有效。多个同时修=不知道修没修好 | 一次只修一个，修完验证再修下一个 |
+| "我看到问题了，我直接修" | 看到症状≠理解根因。症状在 Line 447，根因可能在 Line 72 | 读完完整函数（至少完整读完）再动 |
+| "之前修过类似的，这次也一样" | 蒸馏 `***` 字面量和 `os.replace` 跳过是两个完全不同的根因 | 每次重新做 Phase 1 数据流追踪 |
+| "已经修了3次了，再试一次" | 规则上限：≥3次失败=架构问题。再修一次=第4次失败 | STOP——读文档重审设计，与用户讨论 |
+| "看输出就行了，不用读盘" | 终端输出"写入成功"≠盘上数据变了。这是16轮蒸馏失败的根因 | 任何写操作后必须 `read_file` 或 `json.load` 验证盘上数据 |
 
 ---
 

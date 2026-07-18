@@ -434,6 +434,15 @@ __all__ = ["SelfEvolutionSkill"]
 - `agent/mimir_constants.py` — `get_mimir_home()` 路径解析
 - Python 3.8+ with asyncio
 
+## Anti-Rationalization Table
+
+| LLM 常用借口 | 为什么是错的 | 正确行动 |
+|:------------|:-----------|:---------|
+| "进化循环刚跑过，不用再跑" | `success_rate` 指标会随时间退化。不检查=不知道退化了 | 跑 `collect_metrics()` 看实际数据。如果指标健康就跳过，否则执行循环 |
+| "没发现需要改进的" | `analyze_gaps()` 只监控内存/上下文/置信度。执行失败、验证跳过、盘上数据不一致这些不监控 | 推进 Self-Harness 阶段：监控执行失败追踪而非仅系统指标 |
+| "手动跑进化循环就行" | `run_self_evolution_cycle()` 必须自动触发才有效。手动=想起来才做=很少做 | 改为定时触发或 on_session_end 触发 |
+| "这次修复太小，不值得记录 gap" | 蒸馏 16 轮的根源就是每次"小修复"没进 gap 记录 | 任何修复，无论多小，记录到 gap 至少以 stats 形式 |
+
 ## 验证方式
 
 技能实现后，可通过以下方式验证：
