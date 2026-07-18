@@ -1,6 +1,6 @@
 # [DORMANT] mimiraether-skill-tdd
 
-**沉寂时间**: 2026-07-14T18:58:40.746101+00:00
+**沉寂时间**: 2026-07-18T05:22:57.792354+00:00
 **原始分类**: mimiraether
 **描述**: TDD 方法写技能：先让 agent 在没有技能的情况下失败，再写技能修复，然后验证技能阻止了失败。 升级 mimiraether-skill-solidify 的"跑通了就固化"为"先证明需要，再固化，再验证"。 灵感源自 obra/superpowers writing-skills 技能。
 
