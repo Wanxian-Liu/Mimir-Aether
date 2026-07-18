@@ -14,6 +14,18 @@
 | 5 | **Pure agent shell available** | ✅ | `terminal` tool works, gateway PID 33395 active |
 | 6 | **test_all pass rate** | ❌ | No `test_all.sh` script exists. Unit tests for memory_tool, dream_memory not tracked |
 
+## Evaulation Run: 2026-07-18
+
+| Metric | Result | Baseline (2026-05-26) | Pass? |
+|:-------|:------:|:---------------------:|:-----:|
+| like_hit_rate | **1.0** | 1.0 | ✅ |
+| fts_hit_rate | **0.5** | 0.5 | ✅ |
+| semantic_hit_rate | **1.0** | 1.0 | ✅ |
+| 20 queries all hit | **true** | — | ✅ |
+| Overall | pass: true | no regression | ✅ |
+
+**Result: no regression from May 26 baseline. All recall metrics flat or even.**
+
 ## Additional Diagnostics
 
 | Metric | Value |
