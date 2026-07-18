@@ -799,6 +799,14 @@ class FeishuAdapter(BasePlatformAdapter):
         event = _event_dict_to_message_event(self, payload, pre_downloaded_path=pre_downloaded)
         if event is None:
             return
+        # 发送 typing 指示器
+        chat_id = str(payload.get("event", {}).get("message", {}).get("chat_id", "") or 
+                      payload.get("event", {}).get("chat_id", ""))
+        if chat_id:
+            try:
+                await self.send_typing(chat_id)
+            except Exception:
+                pass  # typing 失败不影响消息处理
         await self.handle_message(event)
 
     async def _close_http(self) -> None:
@@ -979,6 +987,14 @@ class FeishuAdapter(BasePlatformAdapter):
             return
         event = _event_dict_to_message_event(self, payload)
         if event:
+            # 发送 typing 指示器
+            chat_id = str(payload.get("event", {}).get("message", {}).get("chat_id", "") or 
+                          payload.get("event", {}).get("chat_id", ""))
+            if chat_id:
+                try:
+                    await self.send_typing(chat_id)
+                except Exception:
+                    pass
             await self.handle_message(event)
 
     def verify_webhook(self, payload: bytes, signature: Optional[str] = None) -> bool:
