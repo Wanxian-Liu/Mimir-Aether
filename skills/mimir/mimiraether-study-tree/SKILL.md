@@ -188,13 +188,149 @@ MimirAether 知识研究树——对外部技术的调研、对比、吸收结�
 
 **不排期。等条件自然触发。**
 
+### #11 addyosmani/agent-skills — ✅ 已吸收（2026-07-15）
+
+**来源**: Addy Osmani（前 Google Director, Gemini/Cloud AI），**78K stars**，MIT
+**核心**: 24 个结构化 workflow skill + 8 个 slash command，覆盖完整 SDLC
+
+#### 项目结构
+
+```
+agent-skills/
+├── skills/          # 24 skills (23 生命周期 + 1 meta)
+│   ├── using-agent-skills/      # Meta — 路由用户意图到正确 skill
+│   ├── interview-me/            # Define
+│   ├── idea-refine/             # Define
+│   ├── spec-driven-development/  # Define
+│   ├── planning-and-task-breakdown/ # Plan
+│   ├── incremental-implementation/  # Build
+│   ├── context-engineering/      # Build
+│   ├── source-driven-development/  # Build
+│   ├── doubt-driven-development/  # Build
+│   ├── frontend-ui-engineering/   # Build
+│   ├── test-driven-development/   # Build
+│   ├── api-and-interface-design/  # Build
+│   ├── browser-testing-with-devtools/  # Verify
+│   ├── debugging-and-error-recovery/  # Verify
+│   ├── code-review-and-quality/   # Review
+│   ├── code-simplification/       # Review
+│   ├── security-and-hardening/    # Review
+│   ├── performance-optimization/  # Review
+│   ├── git-workflow-and-versioning/  # Ship
+│   ├── ci-cd-and-automation/      # Ship
+│   ├── deprecation-and-migration/  # Ship
+│   ├── documentation-and-adrs/     # Ship
+│   ├── observability-and-instrumentation/ # Ship
+│   └── shipping-and-launch/       # Ship
+├── agents/          # 4 specialist personas
+├── references/      # 7 reference checklists
+├── hooks/           # Session lifecycle hooks
+├── .claude/commands/  # 8 slash commands (Claude Code)
+├── .gemini/commands/  # 8 slash commands (Gemini CLI)
+├── commands/          # 8 slash commands (Antigravity CLI)
+└── docs/              # Setup guides per tool
+```
+
+#### 8 个 Slash Command
+
+| Command | Phase | What it does |
+|:--------|:-----|:-------------|
+| `/spec` | Define | Spec before code |
+| `/plan` | Plan | Small atomic tasks |
+| `/build` | Build | One slice at a time |
+| `/test` | Verify | Tests are proof |
+| `/review` | Review | Improve code health |
+| `/webperf` | Review | Measure before optimize |
+| `/code-simplify` | Review | Clarity over cleverness |
+| `/ship` | Ship | Faster is safer |
+
+#### 5 个核心哲学（全部可吸收）
+
+| # | 哲学 | 含义 | 我们有吗 |
+|:-:|:----|:-----|:--------:|
+| 1 | **Process over prose** | Skill 是 workflow（步骤+检查点+退出标准），不是参考文档。每一段话都对应 agent 可执行的行动 | ⚠️ 部分。我们已有但不够结构化 |
+| 2 | **Anti-rationalization tables** | 每个 skill 开头有"常见借口 vs 现实"表格。LLM 擅长自圆其说——预写反驳让借口无法藏身。**这是最可吸收的模式** | ❌ 只有 verification 有，其他 31 个 skill 没有 |
+| 3 | **Verification is non-negotiable** | 每个 skill 以**具体可验证的证据**终止（测试通过/构建输出/runtime trace/评审签名）。"Seems right"不够 | ✅ 我们 verification skill 已有，但未普及到所有 skill |
+| 4 | **Progressive disclosure** | Meta-skill 只加载相关技能，不全部注入。20-skill 库压到 ~5K tokens | ❌ 我们 32 个 skill 全部 auto_load 或带触发词，无路由层 |
+| 5 | **Scope discipline** | "只碰你被要求碰的东西"。他们的 meta-skill 硬编码这个规则 | ⚠️ 我们 CLAUDE.md §3 有 Surgical Changes，但无 skill 层强制 |
+
+#### 交叉对比：他们有的 vs 我们有的
+
+| # | 他们的 skill | 我们有吗 | 对比 | 差距 |
+|:-:|:-----------|:--------:|:----|:---:|
+| 1 | **using-agent-skills**（Meta） | ❌ **缺失** | 32 个 skill 但无路由层。用户说"修这个 bug"时我不知道该加载哪个 skill | 🔴 P0 |
+| 2 | **interview-me** | ❌ 缺类似物 | 一次一问直到 95% 信心。比 brainstorming（我们只有发散无收敛）更精确 | 🟡 P1 |
+| 3 | **idea-refine** | ⚠️ brainstorming | 我们的发散→收敛程度不够。缺"3 个方向→评分→选择"流程 | 🟡 P1 |
+| 4 | **spec-driven-development** | ⚠️ writing-plans | 更正式：spec 先于代码。纯文本概要写 5 行也有效 | 🟡 P1 |
+| 5 | **planning-and-task-breakdown** | ✅ writing-plans + executing-plans | 大致持平 | 🟢 |
+| 6 | **incremental-implementation** | ✅ executing-plans | 他们的有垂直切片概念，我们更模块化 | 🟢 |
+| 7 | **context-engineering** | ⚠️ context-compressor | 不同概念：他们的是"为当前任务构建最佳上下文"，我们是"压缩长对话"。互补 | 🟡 P2 |
+| 8 | **source-driven-development** | ❌ 缺类似物 | "Always work from a source of truth" — 文档/设计文档/API spec 是真源，代码是实现 | 🟡 P2 |
+| 9 | **doubt-driven-development** | ❌ 缺类似物 | "在实现前问什么东西可能会出问题" — 风险预检 | 🟡 P1 |
+| 10 | **test-driven-development** | ✅ | 我们已有 + auto_load | 🟢 |
+| 11 | **code-review-and-quality** | ✅ | 我们已有 requesting + receiving | 🟢 |
+| 12 | **code-simplification** | ❌ 缺类似物 | YAGNI review + Chesterton's Fence（不要删你理解不了的东西）| 🟡 P1 |
+| 13 | **security-and-hardening** | ❌ 缺类似物 | 安全审查 checklist（注入/XSS/权限/密钥管理）| 🟡 P1 |
+| 14 | **performance-optimization** | ❌ 缺类似物 | 性能审查（加载/渲染/网络/内存）| 🟡 P2 |
+| 15 | **debugging-and-error-recovery** | ✅ root-cause-debugging | 方向一致。他们的缺"3次失败→架构边界"规则（我们有）| 🟢 |
+| 16 | **git-workflow-and-versioning** | ✅ using-git-worktrees | 持平 | 🟢 |
+| 17 | **ci-cd-and-automation** | ❌ 缺类似物 | CI/CD pipeline 自动化 workflow | 🟡 P2 |
+| 18 | **shipping-and-launch** | ✅ finishing-a-development-branch | 持平 | 🟢 |
+| 19 | **documentation-and-adrs** | ❌ 缺类似物 | ADR 写作 + 文档更新 workflow | 🟡 P2 |
+| 20 | **observability-and-instrumentation** | ❌ 缺类似物 | 日志/监控/告警 | 🟡 P2 |
+| 21 | **deprecation-and-migration** | ❌ 缺类似物 | 弃用/迁移流程 | 🟡 P2 |
+| 22 | **api-and-interface-design** | ❌ 缺类似物 | API 设计 review | 🟡 P2 |
+| 23 | **browser-testing-with-devtools** | ❌ 不适应 | 前端专用，跳过 | — |
+| 24 | **frontend-ui-engineering** | ❌ 不适应 | 前端专用，跳过 | — |
+
+#### 最大可吸收模式：Anti-rationalization tables
+
+这是整个项目中唯一不能跳过的东西。原理：
+
+> LLM 本质上是寻找理由的机器。它擅长为"为什么这次不需要写测试/写 spec/做 review"生成有说服力的段落。
+> Anti-rationalization table 是**在撒谎发生前预写的反驳**。
+
+他们的例子：
+
+| 常见借口 | 反驳 |
+|:--------|:-----|
+| "这个任务简单到不需要 spec" | 验收标准仍然适用。5 行可以。0 行不行。|
+| "我之后再写测试" | "之后"是最危险的词。先写会失败的测试。|
+| "测试都过了，发吧" | 测试通过是证据，不是证明。检查 runtime、用户可见行为、人工 diff review。|
+
+**我们要做的事情**：把 Anti-rationalization tables 植入每个现有的 skill。Skill 数 32 个×每 skill 2-3 个常见借口 = ~80 行总增量。
+
+#### 吸收结论和行动
+
+| 差距级别 | 计数 | 行动 |
+|:-------:|:----:|:-----|
+| 🔴 P0 缺失 | 1 | **创建 meta-skill `using-agent-skills`** — 用户意图→正确 skill 路由 |
+| 🟡 P1 值得 | 5 | 创建 `interview-me`、`doubt-driven-development`、`code-simplification`、`security-and-hardening`、`spec-driven-development` |
+| 🟡 P2 可做 | 8 | context-engineering、source-driven-development、performance-optimization、ci-cd、doc-adrs、observability、deprecation、api-design |
+| 🟢 持平 | 6 | TDD、code-review、debugging、git-workflow、shipping、planning |
+| — 跳过 | 2 | 前端专用（browser-testing、frontend-ui）|
+
+#### 不需复制
+
+- 不需要装 install 脚本——我们的 skill 直接写盘
+- 不需要跨平台命令目录——我们只有 Feishu
+- 不需要 specialist agent personas——我们没有多 agent 编排
+
+#### 第一行动
+
+创建 **`using-agent-skills`（meta-skill）** — 这是唯一能立即改善 32 个 skill 使用效率的改动。用户一说"修 bug" / "写代码" / "review PR"，自动知道该加载哪个具体 skill。
+
 ## 长期差距记录
 
 | 优先级 | 差距 | 来源 | 状态 |
 |:-----:|------|:----:|:----:|
 | P0 | L4 梦境记忆蒸馏 | CowAgent L4 | ✅ [x] agent/dream_memory.py + cron 已修复 |
 | P0 | Self-Harness 自动化 | #10 Self-Harness 论文 | ⏸ 手动跑通过，待半自动化 |
+| P0 | Meta-skill 路由（using-agent-skills） | #11 addyosmani/agent-skills | 🔴 缺失，待创建 |
 | P1 | 搜索替代 | Tavily 恢复 | ✅ [x] Tavily key 已生效；Agent-Reach 备用已装 |
 | P1 | TencentDB 记忆架构参考（L2场景层+Mermaid符号化+混合检索） | #9 TencentDB | ⏸ P1 候选参考 |
 | P1 | Skill 质量升级（7 🟡 + 2 🔴 缺失） | #7 Superpowers | 🔄 需按 △差距表推进 |
+| P1 | Anti-rationalization tables 植入所有 skill | #11 addyosmani/agent-skills | 🟡 — 32 skill × 2-3 借口 = ~80 行增量 |
+| P1 | interview-me / doubt-driven-dev / code-simplify / security / spec-driven-dev | #11 addyosmani/agent-skills | 🟡 5 个新 skill 待创建 |
 | P2 | 百度搜索（中文独占内容） | 百度反爬 | ⏸ PENDING 等待触发条件 |
+| P2 | 8 个延伸 skill（context-engineering / performance / ci-cd / doc-adrs 等） | #11 addyosmani/agent-skills | 🟡 可按需推进 |
