@@ -375,3 +375,168 @@ agent-skills/
 | P2 | 8 个延伸 skill（context-engineering / performance / ci-cd / doc-adrs 等） | #11 addyosmani/agent-skills | 🟡 可按需推进 |
 | P1 | Verification 升级（监控类型表 + 度量指标） | #12 DeepMind AI Control Roadmap | 🟡 待升级 |
 | P1 | Self-Harness 自动化强化（Threat Model 阶段参考） | #12 DeepMind AI Control Roadmap | 🟡 待整合 |
+
+### #13 ByteRover — ✅ 深读完成（arXiv:2604.01599）
+
+**来源**: arXiv:2604.01599v1，19 页，CC-BY 4.0
+**核心**: 反转 MAG 范式 — 记忆不是外部服务（向量DB/图谱），是 agent 原生能力。同一 LLM 推理 + 策展 + 检索知识
+**LoCoMo**: 96.1% SOTA | **LongMemEval-S**: 92.8%
+**零外部基础设施**: 无需向量 DB、图谱、embedding 服务。纯文件系统。
+
+#### Three Layers
+
+| 层 | 作用 | 对应我们 |
+|:--|:-----|:--------|
+| Agent Layer | LLM 推理循环 + 记忆工具（curate/query/search 是一等公民工具） | ✅ 我们有 memory/add/replace |
+| Execution Layer | 顺序任务队列（消除写写冲突）+ 沙盒策展环境 | ⚠️ 蒸馏是同步的，无队列 |
+| Knowledge Layer | Context Tree markdown + MiniSearch 全文索引 + 查询缓存 | ⚠️ 我们是 persistent.json JSON，不是 markdown |
+
+#### Context Tree 数据结构
+
+`Domain >> Topic >> Subtopic >> Entry`（每个 entry 是独立 markdown 文件 + YAML frontmatter）
+
+每个 entry 五组件:
+| 组件 | 含义 | 我们有吗 |
+|:----|:-----|:--------|
+| ℛᵢ (Relations) | 显式 `@domain/topic/file.md` 边 | ❌ — kd/lp 无跨条目引用 |
+| 𝒞ᵢ (Concept) | 来源、变更、时间戳、作者 | ⚠️ — metadata 刚加，无 provenance |
+| 𝒱ᵢ (Narrative) | 结构化叙述（依赖、规则、示例）| ⚠️ — kd 有 narrative-like 内容 |
+| 𝒮ᵢ (Snippets) | 代码、公式、原始数据 | ❌ — 无 snippets |
+| ℒᵢ (Lifecycle) | 重要性分、成熟度等级、时效衰减 | ❌ — **最大差距** |
+
+#### Adaptive Knowledge Lifecycle (AKL) — ⭐ 核心吸收
+
+| 组件 | 公式/参数 | 对我们价值 |
+|:----|:---------|:---------|
+| **重要性分** ιᵢ ∈ [0,100] | 访问+3，更新+5，每日衰减×0.995 | **P0** — 蒸馏后知道哪些条目被高频引用 |
+| **成熟度等级** | Draft(<35)→Validated(≥65↔<35)→Core(≥85↔<60)。**滞回差25-30分**防止震荡 | **P0** — persistent.json 可区分"初稿 vs 稳固知识" |
+| **时效衰减** rᵢ = exp(-Δt/30) | ~21天半衰期 | **P0** — 解决"旧知识永远排在前面"的问题 |
+| **复合检索分** | w_r·BM25 + w_ι·ι̂ᵢ + w_t·rᵢ | **P0** — 替代当前单维度检索 |
+
+#### 5-Tier Progressive Retrieval — ⭐ 核心吸收
+
+| Tier | 机制 | 延迟 | 条件 |
+|:----|:-----|:----|:-----|
+| 0 | 精确缓存命中 | ~0ms | Hash 匹配+指纹有效 |
+| 1 | 模糊缓存（Jaccard）| ~50ms | Jaccard ≥ 阈值 |
+| 2 | 直接 MiniSearch（BM25）| ~100ms | 置信度≥0.93，间隙≥0.08 |
+| 3 | 优化的 LLM 调用 | <5s | 中等置信度，1024 token，temp 0.3 |
+| 4 | 完整 agent 循环 | 8-15s | 新查询，多轮推理 |
+
+**关键 insight**: Tiers 0-2（~100ms 内）可解决绝大多数查询，无需 LLM。我们当前每个查询都走 LLM。
+
+#### 域外检测（Out-of-Domain Detection）
+
+当≥4字符的查询关键项不匹配任何条目且标准化分<0.85 → 显式报告"超出存储知识范围" → 阻止幻觉。
+
+**直接对应**我们的 behavioral_constraints "不知道就说不知道"规则 —— 但 ByteRover 给的是可执行的定量检测，不是铁律。
+
+#### 可直接吸收到我们的改动
+
+| 改动 | 改哪 | 行数 | 影响 |
+|:----|:-----|:---:|:----:|
+| 1. 重要性分 ιᵢ 加进 kd/lp 条目 | persistent.json 写入时加字段 `importance: int` | ~5 | 跟踪引用频率 |
+| 2. 时效衰减 rᵢ 加进 metadata | persistent.json save() 中计算 | ~5 | 旧知识自然下降 |
+| 3. 成熟度等级（Draft/Validated/Core） | distillation 输出后自动评分 | ~10 | 区分初稿 vs 稳固 |
+| 4. 复合检索分 `w_r·BM25 + w_ι·ι̂ᵢ + w_t·rᵢ` | session_search / prefetch 中实现 | ~30 | 检索质量提升 |
+| 5. 域外检测 — 分<0.85 时承认不知道 | prefetch / system_prompt_block 中加判断 | ~10 | 减少幻觉 |
+
+**总改动**: ~60 行。不改 persistent.json 架构 —— 加字段而已。
+
+#### 元知识点：ByteRover 证明向量 DB 不是必须的
+
+> BM25 + 重要性 + 时效的复合评分在 LoCoMo 上 96.1%，超过所有向量+混合方案。
+
+这意味着我们把 Chroma 或任何向量 DB 的引入从 P0 降级为 P2 可选项。AM 指令优先完善 BM25 + AKL，无需为搜索引入外部基础设施。
+
+### #14 ActMem — ✅ 已吸收（arXiv:2603.00026，参考级）
+
+**来源**: 南京大学 & 阿里巴巴，arXiv:2603.00026v2，CC-BY 4.0
+**核心**: 弥合记忆检索和推理之间的鸿沟 —— 将非结构化对话转为结构化合因果关系图，通过反事实推理探测隐藏约束
+**Code**: github.com/nju-websoft/ActMem
+
+#### 核心机制（4 模块）
+
+| 模块 | 做什么 | 对我们的价值 |
+|:----|:------|:-----------|
+| 1. 事实提取 | 原始对话 → 原子事实 + 代词消解 + 绝对时间戳 | ⚠️ 我们有 kd/lp 精炼，不是原子事实 |
+| 2. 事实聚类 | Qwen3-Embedding-8B 增量聚类（δ=0.2），产生不相交簇 | 🟡 — 蒸馏压缩条目前可以先聚类再合并 |
+| 3. 知识图谱构建 | 语义边(cosine>0.3) + 因果边(PMI>0.2) | 🟡 — tip+cc 可升级为"因果边 PMI" |
+| 4. 反事实检索 | "如果用户做X，考虑到历史V，可能有什么负面后果？" | ⭐ **P0 — 直接回答"做了事回头看又是错的"** |
+
+#### 反事实检索（Counterfactual Reasoning）— 最直接相关
+
+1. **初始检索**: top-k 相似事实
+2. **反事实推理**: LLM 提问 "如果用户做 X，考虑到已有信息，可能有什么负面后果？"
+3. **精炼**: 检索与反事实结果相似的节点，通过 KG 邻居扩展
+4. **最终回复**: 初始信息 + 反事实警告 + 精炼信息
+
+**和我们对应:** 当我在 16 轮蒸馏中重复说"修好了"时，如果有一个反事实检查 "如果你说修好了但盘上数据没变，可能有什么后果？" → 就会触发 self-check
+
+#### ActMemEval Benchmark — 6 种冲突类型
+
+| 类别 | 直接对应 behavioral_constraints |
+|:----|:-------------------------------|
+| 安全-健康风险 | bc 铁律（输出前验证） |
+| 可行性限制 | 无直接对应 |
+| 时间-空间-流程不匹配 | ❌ 无 |
+| 访问/可用性缺口 | ❌ 无 |
+| 偏好冲突 | user.md 偏好记录 |
+| 机会复用（已有更好方案时别重做） | ❌ 无 — 可吸收 |
+
+#### 可直接吸收
+
+| 概念 | 改哪 | 行数 |
+|:----|:-----|:---:|
+| PMI 因果边（我们叫 tip+cc → 升级为 PMI>0.2 过滤）| distillation 输出后增加 PMI 验证 | ~15 |
+| 反事实推理（告诉蒸馏："如果这条 kd 被压缩掉了，后果是什么？"）| distillation 的 LLM prompt 加反事实问题 | ~10 |
+| 机会复用 bc 新增 "已有蒸馏成功方案时，不自行重造" | behavioral_constraints 追加 1 条 | ~1 |
+
+### #15 Memanto — ✅ 已吸收（arXiv:2604.22085，参考级）
+
+**来源**: arXiv:2604.22085v1，13 页，CC-BY-SA 4.0
+**核心**: 纯向量 + 零成本摄入的记忆系统，无需知识图谱。13 类有类型记忆 schema + 信息论检索
+**LongMemEval**: 89.8% | **LoCoMo**: 87.1%
+**延迟**: <90ms 检索，2000+ QPS
+**零索引延迟**: 写即搜（无需 embedding/索引）
+
+#### 6 项设计准则（D1-D6）与符合度
+
+| # | 准则 | 我们有？ |
+|:-:|:----|:--------:|
+| D1 | 可查询的，非注入的 | ✅ memory 工具是查询式 |
+| D2 | 时间感知 + 衰减 | ❌ 无 — ByteRover AKL 可补 |
+| D3 | 置信度 + 来源追踪 | ❌ 无 — metadata 刚加，无置信度 |
+| D4 | 有类型化 + 分层的 | ⚠️ 三层（kd/lp/bc）但无子类型 |
+| D5 | 冲突感知 | ❌ 无 — 不同会话的同一主题可矛盾 |
+| D6 | 零开销摄入 | ✅ 蒸馏是零开销写入 |
+
+#### 13 类有类型记忆 schema
+
+| 类型 | 含义 | 可吸收？ |
+|:----|:-----|:--------|
+| fact / preference / decision / commitment / goal | 事实/偏好/决策/承诺/目标 | ✅ — 我们 kd 涵盖了这些，但未显式标记 |
+| event / context | 事件/情境 | ⚠️ 会话级，不在 persistent.json |
+| instruction / relationship / learning / observation | 指令/关系/学习/观察 | ✅ — 我们的 lp 涵盖 |
+| error / artifact | 错误/工件 | ⚠️ 不常出现 |
+
+**核心吸收**: 给 kd/lp 加 `type` 字段（限于 5-6 种主要类型，不复制全部 13）→ 对同类型条目做更好的压缩和优先级排序
+
+#### 冲突解决机制
+
+检测两条记忆的语义矛盾:
+1. 在写入时检测 `n_i` 与 `n_j` 的语义矛盾
+2. 标记冲突并报告
+3. 不覆盖旧数据
+
+**对我们**: 蒸馏压缩时两 kd 矛盾 → 标记为"需人工解决"而非静默删除
+
+#### 三篇论文的选择建议
+
+| 吸收优先级 | 论文 | 理由 | 改动量 |
+|:---------:|:----|:----|:-----:|
+| **P0** | ByteRover AKL（重要性+衰减+成熟度+复合检索） | 直接提升检索质量 | ~60 行 |
+| **P1** | ActMem 反事实推理（蒸馏加 self-check） | 减少虚假成功声明 | ~25 行 |
+| **P2** | Memanto 类型化（kd/lp 加 type 字段） | 改进结构，非功能缺口 | ~10 行 |
+
+**如果只做一个**: ByteRover AKL。不改架构，加 4 个字段（`importance`/`maturity`/`last_access`/`decay_factor`），BM25 已有基础，加权重和时效。该改动让所有条目有生命周期，自然老化，不用的不占位置。
