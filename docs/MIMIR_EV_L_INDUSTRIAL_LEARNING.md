@@ -654,7 +654,7 @@ dream_memory.py L447 缩进错误：val = entry.split(...) 写在 if 块外
 | 轮次 | 声称的"根因" | 实际 |
 |:----:|:----------|:-----|
 | 1-5 | cron 路径不对 / PID 硬编码 | 外围，未触及 L447 缩进 |
-| 6-8 | `***` 是代码字面量 bug | ✅ `***` 是 **源码字面量** — xxd 确认 0x2a 字节存在于 L469/L490/L548。蒸馏最终能跑不是因为代码正确，而是 provider_registry 回退绕过了 `_inject_api_key_from_proc()` |
+| 6-8 | `***` 是代码字面量 bug | ✅ `***` 是 **源码字面量** — xxd 确认 0x2a 字节存在于旧版 L469/L490/L548。蒸馏最终能跑不是因为代码正确，而是 provider_registry 回退绕过了 `_inject_api_key_from_proc()`。**当前代码中 `***` 比较已彻底移除** — `_call_dream_llm()` L177 + `_inject_api_key_from_proc()` L503 均使用 `api_key == "***"` 判等而非 `startswith(b"***")`，后接 provider_registry + config.yaml 双重回退 |
 | 9-11 | asyncio 嵌套冲突 / 事件循环 | ✅ 沙盒执行正确识别了冲突，但 terminal 路径本就能通 |
 | 12-14 | 验证路径错误 / `data["memory"]` | ✅ JSON 嵌套确实有区别，但盘上数据未变不是因为查错路径 |
 | 15 | terminal 路径一直能通 | \| **发现了 subset true** — 但 LLM 没 key 所以函数从未写盘 |
