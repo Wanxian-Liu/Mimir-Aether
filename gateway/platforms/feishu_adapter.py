@@ -870,6 +870,27 @@ class FeishuAdapter(BasePlatformAdapter):
         except Exception as e:
             logger.error("[%s] Token refresh failed: %s", self.name, e)
 
+    async def send_typing(self, chat_id: str, metadata=None) -> None:
+        """飞书 typing 指示器"""
+        if not self._session:
+            return
+        with self._token_lock:
+            token = self._tenant_token
+        if not token:
+            return
+        try:
+            url = f"{self._origin()}/open-apis/im/v1/typing"
+            async with self._session.post(
+                url,
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                json={"chat_id": chat_id, "status": "Begin"},
+                timeout=aiohttp.ClientTimeout(total=5),
+            ) as r:
+                if r.status not in (200, 204):
+                    logger.debug("[feishu] typing indicator returned HTTP %s", r.status)
+        except Exception:
+            pass
+
     async def send(
         self,
         chat_id: str,

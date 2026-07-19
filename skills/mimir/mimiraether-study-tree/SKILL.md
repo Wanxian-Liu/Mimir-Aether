@@ -320,6 +320,45 @@ agent-skills/
 
 创建 **`using-agent-skills`（meta-skill）** — 这是唯一能立即改善 32 个 skill 使用效率的改动。用户一说"修 bug" / "写代码" / "review PR"，自动知道该加载哪个具体 skill。
 
+### #12 GDM AI Control Roadmap — ✅ 已吸收（2026-07-18）
+
+**来源**: Google DeepMind，arXiv:2607.13087（2025/2026）
+**核心**: AI Control 第二道防线 — 当 AI agent 不可信时，用系统级防御检测和阻止破坏。三阶段：Threat Model → Control Invariants → Mitigations。
+**许可**: CC-BY 4.0
+
+#### 三阶段架构
+
+| 阶段 | 含义 | 与我们对应 |
+|:----|:-----|:----------|
+| **Threat Model** (TRAIT&R) | MITRE ATT&CK 衍生分类法，定义 attacker 目标（Loss of Control / Work Sabotage / Direct Harm）和 8 种战术 | ⚠️ 我们没有形式化威胁模型。tool-triggers §8 近似"防御规避"但不是完整分类 |
+| **Control Invariants** | 不可协商的检测和预防目标 | ✅ 我们的 verification 技能四层 = 检测；哨兵机制 = 预防 |
+| **Mitigation Ladder** (D1-D4 + R1-R3) | 7 层渐进式缓解措施，从 CoT monitoring 到 shutdown infrastructure | ⚠️ 我们有 D 层（detection）但缺 R 层（response）|
+
+#### 6 种检测类型 vs 我们的验证层
+
+| DeepMind 检测类型 | 我们有没有 | 差距 |
+|:-----------------|:--------:|:----|
+| **Alignment testing**（体外评估） | ✅ verification L1（Ralph tier0） | 持平 |
+| **CoT monitoring**（推理链监控） | ❌ 没有 | **新增** — 蒸馏时检查 LLM 输出的推理过程 |
+| **Action monitoring**（行为监控） | ⚠️ 部分 — verification L2（一致性检查）| 需强化 |
+| **Activations monitoring**（内部状态监控） | ❌ 技术上无法做 | 跳过 |
+| **PR monitoring**（代码审查） | ✅ requesting-code-review | 持平 |
+| **Honeypots**（蜜罐检测） | ⚠️ 部分 — verification L4（自问清单）| 方向一致 |
+
+#### 可吸收的模式
+
+1. **度量指标** — DeepMind 用 Coverage / Recall / Time-to-response 衡量检测质量。我们当前验证只有 PASS/FAIL，没有量化指标
+2. **R 层（响应）** — 我们只有 D（检测）没有 R（响应）。论文的 R1-R3（隔离→回滚→关闭）可吸收为 verification 失败后的 escalation 路径
+3. **Threat Model 简化版** — 不复制完整 TRAIT&R，但可以把"Agent 撒谎/幻觉/验证失败"形式化为简化的威胁模式
+
+#### 吸收结论
+
+| 行动 | 优先级 | 状态 |
+|:----|:-----:|:----:|
+| Verification 技能升级：补监控类型表 + 3 个度量指标（Coverage/Recall/Time-to-response）+ R1-R3 escalation | P1 | 🟡 待操作 |
+| Self-Harness 自动化参考：在 Threat Model 阶段加入论文的 8 种战术 | P1 | 🟡 待整合 |
+| study-tree #12 新增节点 | ✅ | ✅ 已记录 |
+
 ## 长期差距记录
 
 | 优先级 | 差距 | 来源 | 状态 |
@@ -334,3 +373,5 @@ agent-skills/
 | P1 | interview-me / doubt-driven-dev / code-simplify / security / spec-driven-dev | #11 addyosmani/agent-skills | 🟡 5 个新 skill 待创建 |
 | P2 | 百度搜索（中文独占内容） | 百度反爬 | ⏸ PENDING 等待触发条件 |
 | P2 | 8 个延伸 skill（context-engineering / performance / ci-cd / doc-adrs 等） | #11 addyosmani/agent-skills | 🟡 可按需推进 |
+| P1 | Verification 升级（监控类型表 + 度量指标） | #12 DeepMind AI Control Roadmap | 🟡 待升级 |
+| P1 | Self-Harness 自动化强化（Threat Model 阶段参考） | #12 DeepMind AI Control Roadmap | 🟡 待整合 |
