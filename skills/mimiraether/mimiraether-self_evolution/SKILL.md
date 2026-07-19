@@ -104,6 +104,16 @@ async def analyze_gaps(metrics: Dict[str, Any]) -> Dict[str, Any]:
             "recommendation": "increase_exploration or review_strategies"
         })
     
+    # 检测过度验证（同一工具调用 >3 次未改变盘上数据）
+    # 指标来源：verification skill 的调用计数器；collect_metrics 需扩展
+    repeat_calls = metrics.get("repeat_tool_calls", 0)
+    if repeat_calls > 3:
+        gaps.append({
+            "type": "over_verification",
+            "severity": min(1.0, (repeat_calls - 3) * 0.15),
+            "recommendation": "read_before_act — 先读盘确认数据是否已变，再决定是否继续验证"
+        })
+    
     return {
         "gaps": gaps,
         "priority_gap": max(gaps, key=lambda g: g["severity"]) if gaps else None,
@@ -241,6 +251,7 @@ result = await ring.execute_and_verify(fix_plan)
 **内置策略:**
 | 策略 | 标签 | 基础评分 |
 |------|------|---------|
+| read_before_act | over_verification | 0.9 |
 | clear_buffer | memory | 0.7 |
 | compact_memory | memory | 0.65 |
 | compress_history | context | 0.8 |
