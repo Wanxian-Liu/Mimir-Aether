@@ -341,6 +341,127 @@ agent-skills/
 - ✅ behavioral_constraints 追加：同一工具/验证循环中重复 >3 次相同调用 → 强制回到读盘确认
 - ⏸ Self-Harness 参考：Threat Model 阶段纳入自动化闭环方案
 
+### #13 杨立昆 AMI Labs 系列论文 — 📥 已拉取（2026-07-19）
+
+**来源**: Yann LeCun — 2025年底离开Meta，巴黎创立AMI Labs（$1.03B seed, NVIDIA/Samsung/Bezos投资）
+
+#### 近两月核心论文
+
+| 论文 | 日期 | arXiv ID | 核心内容 | 对我们价值 |
+|:----|:----|:--------|:---------|:---------|
+| **LeWorldModel (LeWM)** | 2026-03-13 | 2603.19312 | 首个端到端JEPA：像素→潜在空间→物理规划。15M参数，单GPU数小时。规划比基础模型快48倍 | 高 — "各向同性高斯分布防止坍缩"的方法与蒸馏防止缓存覆盖的结构对照 |
+| **When Does LeJEPA Learn a World Model?** | 2026-05-25 | 2605.26379 | 首次从数学上证明JEPA何时能学到真实世界结构的条件（iff定理）| 高 — 形式化方法可借鉴到蒸馏质量评估 |
+| **AI Must Embrace SAI** | 2026-02 | 2602.23643 | 反AGI论文："通用"是错误目标，应追求超人类可适应智能 | 哲学参考 |
+| **Value-guided JEPA planning** | 2026-01 | 2601.00844 | JEPA做价值引导行动规划 | 中等 |
+
+#### LeWM 结构（已拉全文）
+
+```
+Encoder: z_t = enc(o_t) — ViT tiny (~5M params)
+Predictor: \hat{z}_{t+1} = pred(z_t, a_t) — Transformer (~10M params)
+  ↓
+ℒ_LeWM = ℒ_pred + λ SIGReg(Z)  ← 只有两个loss项（从6个超参降到1个）
+  ↓
+Planning: MPC + CEM in latent space (0.98s vs 47s = 48× faster)
+```
+
+**核心机制 SIGReg**: 用Cramér-Wold定理强制潜在嵌入符合各向同性高斯分布 → 防止JEPA表示坍缩。对标到我们的蒸馏：防缓存覆盖也需要"锁定正确状态"的机制（哨兵文件与之同构）
+
+#### 吸收评估
+
+| 维度 | 评估 |
+|:----|:-----|
+| 直接有用 | 中 — 非memory/蒸馏系统直接借鉴，但LeWM的"简单loss防坍缩"哲学可参考到蒸馏质量设计 |
+| 研究价值 | 高 — JEPA是LLM的主要替代路线之一，理解它对研究树生态位置判断有帮助 |
+| 代码价值 | 低 — PyTorch + 16×A100，不在我们当前可运行范围 |
+| 平台参考价值 | 中 — AMI Labs论文发布在arXiv + GitHub开源，验证arXiv是论文主要入口 |
+
+**结论**: 有价值但非立即吸收。标记为"可扩展知识"放在研究树中，不排行动计划。
+
+## 论文获取平台一览
+
+以下是世界最权威的AI/物理/数学/量子计算论文平台及其结构，供未来按兴趣查阅：
+
+### ① arXiv.org（全球首选预印本库，⭐⭐⭐⭐⭐）
+
+| 大类 | 子类ID | 覆盖内容 |
+|:----|:------|:--------|
+| **cs** — 计算机科学 | cs.AI | 人工智能（专家系统/知识表示/规划/推理 — 不含ML/CV/NLP）|
+| | cs.LG | **机器学习**（深度学习/强化学习/统计学习 — 最大子域）|
+| | cs.CL | 自然语言处理/计算语言学 |
+| | cs.CV | 计算机视觉/模式识别 |
+| | cs.RO | 机器人学（控制/感知/规划/HRI）|
+| | cs.IR | 信息检索（搜索/推荐/RAG）|
+| | cs.MA | 多智能体系统 |
+| | cs.SE | 软件工程 |
+| | cs.CR | 密码学/安全 |
+| | cs.AR | 硬件架构（加速芯片/AI芯片）|
+| **stat** — 统计学 | stat.ML | 统计机器学习（cs.LG论文也常投这里）|
+| **math** — 数学 | math.NA | 数值分析（科学计算/优化）|
+| | math.OC | 优化与控制（凸优化/非线性规划/最优控制）|
+| | math.DS | 动力系统（混沌/遍历理论/非线性动力学）|
+| | math.PR | 概率论（随机过程/随机矩阵/大偏差）|
+| | math.ST | 统计理论/数理统计 |
+| | math.GT | 博弈论（机制设计/拍卖理论）|
+| **physics** — 物理 | physics.comp-ph | 计算物理（蒙特卡洛/分子动力学/格点QCD）|
+| | physics.class-ph | 经典物理/电磁学/引力 |
+| | physics.optics | 光学/光子学 |
+| | physics.flu-dyn | 流体动力学 |
+| | quant-ph | 量子物理（量子计算/量子信息/量子纠缠 — **你的兴趣**）|
+| | astro-ph | 天体物理/宇宙学 |
+| | cond-mat | 凝聚态物理/材料科学（含量子材料）|
+| | hep-th | 高能物理—理论（弦论/QFT/量子引力）|
+| **q-bio** — 生物 | q-bio.NC | 神经科学/计算神经 |
+| | q-bio.QM | 定量方法（生物信息/基因组学）|
+| **eess** — 电子工程 | eess.SP | 信号处理（语音/音频/视频）|
+
+**最佳入口：** 每天新论文 → arxiv.org/list/cs.AI/new 或 arxiv.org/list/cs.LG/new  
+**精确搜索：** arxiv.org/search/?searchtype=all&query=关键词  
+**按时间+热度排序：** alphaxiv.org（带社区讨论）  
+**PDF直链：** arxiv.org/pdf/ID
+
+### ② Google DeepMind Publications（DeepMind 官方，⭐⭐⭐⭐⭐）
+
+| 研究领域 | 涵盖 | 与我们关系 |
+|:--------|:-----|:---------|
+| **AI Safety & Control** | AI Control Roadmap, Honeypot eval, Multi-agent safety | ⭐ 已吸收 #12 |
+| **Foundation Models** | Gemini Ultra 2, Veo 3, Gemma 4 | 关注，非直接吸收 |
+| **World Models** | Genie 3, SIMA 2 | ⭐ 重叠 #13 LeCun |
+| **Science** | 生物（AlphaFold/ALS老化/肝脏疾病）、气象（WeatherNext）、化学（分子发现）| 🟡 扩展视野 |
+| **Robotics** | Gemini Robotics、物理Agent | 🟡 兴趣 |
+| **Multi-agent** | Co-Scientist、协作推理 | ⭐ 与Self-Harness相关 |
+
+**入口：** deepmind.google/research/publications — 按年份/作者/领域筛选
+
+### ③ OpenReview.net（同行评审会议论文，⭐⭐⭐⭐）
+
+| 会议 | 领域 | 特点 |
+|:----|:----|:----|
+| **ICLR** | 表示学习/深度学习 | 论坛式公开审稿，审稿人+作者讨论可见 |
+| **NeurIPS** | 神经信息处理系统 | AI/ML最大会议（~10K论文/年）|
+| **ICML** | 机器学习 | 纯ML，理论+应用 |
+| **AISTATS** | 统计学习/AI | 更偏理论/统计 |
+| **COLT** | 学习理论 | 纯理论（PAC/泛化界/在线学习）|
+
+**入口：** openreview.net — 按会议/年份/领域浏览 + 带作者回复
+
+### 兴趣领域论文星级地图
+
+| 你的兴趣 | 最佳第一站 | 最佳第二站 | 最活跃时间 |
+|:--------|:---------|:---------|:---------|
+| 🧠 **AI / 机器学习** | arXiv cs.LG | DeepMind Publications | 全年（5-6月/12月最多）|
+| 🔬 **物理** | arXiv physics.*（quant-ph, comp-ph, flu-dyn等特定子域）| DeepMind Science | 全年 |
+| 📐 **数学** | arXiv math.*（NA/OC/DS/PR）| — | 全年 |
+| ⚛️ **量子计算** | arXiv quant-ph | — | 全年 |
+| 🔗 **交叉领域**（科学+AI）| DeepMind Publications Science | arXiv cs.CE | 2025-2026井喷 |
+
+## 使用习惯（备忘）
+
+- **每天刷arXiv** → 只看 cs.LG + cs.AI + quant-ph 的新论文（每日列表 ~100-300篇，扫标题 3分钟）
+- **深读** → PDF直链 `arxiv.org/pdf/ID`
+- **话题跟踪** → `web_search "Yann LeCun 2026 site:arxiv.org"` 或 `web_search "DeepMind + [兴趣关键词] 2026"`
+- **价值判断标准**：能否直接吸收到我们（memory/dream distillation/verification/self_evolution/self-harness）系统中。与这些组件无直接映射→标记PENDING或跳过
+
 ## 长期差距记录
 
 | 优先级 | 差距 | 来源 | 状态 |
@@ -354,4 +475,50 @@ agent-skills/
 | P1 | Anti-rationalization tables 植入所有 skill | #11 addyosmani/agent-skills | 🟡 — 32 skill × 2-3 借口 = ~80 行增量 |
 | P1 | interview-me / doubt-driven-dev / code-simplify / security / spec-driven-dev | #11 addyosmani/agent-skills | 🟡 5 个新 skill 待创建 |
 | P2 | 百度搜索（中文独占内容） | 百度反爬 | ⏸ PENDING 等待触发条件 |
-| P2 | 8 个延伸 skill（context-engineering / performance / ci-cd / doc-adrs 等） | #11 addyosmani/agent-skills | 🟡 可按需推进 |
+|| P2 | 8 个延伸 skill（context-engineering / performance / ci-cd / doc-adrs 等） | #11 addyosmani/agent-skills | 🟡 可按需推进 |
+| P1 | SkillOpt skill 优化器参考 | #14 SkillOpt | ⏸ 待代码化 — 需研究能否接入 self_evolution 作为优化器 |
+| P1 | Kairos 后悔感知蒸馏度量参考 | #15 Kairos | ⏸ 待引入蒸馏质量评估 — 需研究"后悔"指标的蒸馏效用函数 |
+
+### #14 SkillOpt（Microsoft Research）— ✅ [x] 已吸收
+- **来源**: arXiv:2605.23904, Microsoft Research / 4 位中科学者, 2026-05-22
+- **核心**: Skill 优化的独立 optimizer 模型 — 把评分过的 rollout 转为 bounded add/delete/replace 编辑，**只有严格提高验证分数时接受修改**
+- **关键机制**:
+  | 机制 | 解决什么问题 | 与我们关系 |
+  |:----|:-----------|:---------|
+  | **文本学习率预算** | 防止单次改动过大，类似梯度下降的步长裁剪 | ✅ 我们的 self_evolution 缺"每次改多少"的控制 |
+  | **拒绝编辑缓冲区** | 不接受验证分数没提高的修改 | ✅ 我们 16 轮蒸馏失败正是"没验证就用了新代码" |
+  | **epoch-wise 慢速/元更新** | 运行时从 1-3 轮编辑开始，逐步增加至 10-20 轮 | ✅ 我们的自进化缺少渐进式规模控制 |
+- **结果**: 6 benchmark, 7 目标模型, 3 execution harness — **全部 52 个测试单元格最佳或并列最佳**
+- **GPT-5.5 量化提升**: 无 skill → +23.5（直接对话）/ +24.8（Codex）/ +19.1（Claude Code）
+- **吸收建议**:
+  1. 把 SkillOpt 的"拒绝编辑缓冲区"模式融入 self_evolution 的 decision_ring — 验证分数没提高就不接受修改
+  2. 文本学习率预算控制每次自进化时产生的改动规模（当前是一次性改整段代码）
+  3. 等 self_evolution 积累 ≥3 轮测试数据后，再考虑引入独立的 optimizer 层
+
+### #15 Kairos（Regret-Aware World Model）— ✅ [x] 已吸收
+- **来源**: arXiv:2606.16533, 百人团队, 2026-06-15 / 2026-07-03 更新
+- **核心**: 「后悔感知」原生世界-行动模型，不模拟所有像素，只维持对具身控制最重要的信息
+- **三阶段学习框架**:
+  | 阶段 | 内容 | 与我们关系 |
+  |:----|:-----|:---------|
+  | **Learn** | 跨具身数据课程（多本体/多任务协调） | 🟡 persistent.json 的多源整合可参考 |
+  | **Maintain** | 混合线性时间注意力（长序列高效在线更新）| ✅ `\_maybe\_compact` 的增量压缩可借鉴 |
+  | **Deploy** | 感知延迟/内存/硬件约束的实际部署 | 🟡 我们蒸馏的部署环境（gateway/terminal）约束类似 |
+- **后悔感知**: 不仅预测未来，还要知道它**过去错在哪**— 最相关的概念
+- **五个维护维度**: 对象状态、空间关系、接触条件、任务进度、动作后果、失败边界、部署不确定性
+- **吸收建议**:
+  1. **后悔感知度量**融入蒸馏质量评估 — 当前我们只记"成功了/没成功"，不记"这次错在哪"
+  2. 三阶段课程思路可借鉴给 persistent.json 的层次化维护（原始记录 → 场景层 → 结构化蒸馏）
+  3. 混合线性时间注意力可作为 long-term recall 的可选参考架构
+
+## 论文获取平台一览
+
+详见上文 `​### ① arXiv` / `### ② DeepMind Publications` / `### ③ OpenReview.net` 三节 + `兴趣领域论文星级地图`
+
+## 论文更新日志
+
+| 日期 | 操作 | 内容 |
+|:----|:----|:-----|
+| 2026-07-18 | 新增 #14 | SkillOpt — Microsoft Research skill 优化器（arXiv:2605.23904）|
+| 2026-07-18 | 新增 #15 | Kairos — 后悔感知世界模型（arXiv:2606.16533）|
+
