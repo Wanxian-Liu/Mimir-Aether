@@ -709,6 +709,9 @@ class MimirAgentLoop:
                     verify_guard_enabled()
                     and should_block_verify_finish(messages, content or "")
                 ):
+                    # Hard block: remove unverified assistant response from history
+                    if messages and messages[-1].get("role") == "assistant":
+                        messages.pop()
                     messages.append({"role": "user", "content": build_verify_nudge()})
                     # OC-01: record_retro archived
                     # record_retro(messages, content or "")

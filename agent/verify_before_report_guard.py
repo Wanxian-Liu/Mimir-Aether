@@ -64,7 +64,7 @@ def should_block_finish(messages: list[dict[str, Any]], assistant_text: str) -> 
 
 def build_nudge_message() -> str:
     return (
-        "[verify-before-report] 你刚才的回复中含有声明性结论。"
-        "请先调用 read_file 或对应工具确认证据真实存在，再输出最终结论。"
-        "不要凭记忆报告——工具结果优先。"
+        "[BLOCKED:verify-before-report] 你的回复被阻止——含有未经验证的声明性结论。"
+        "你的回复已被从历史记录中移除。请先调用 read_file / json.load / terminal 等工具"
+        "确认盘上证据真实存在，再重新输出结论。不要凭记忆报告。"
     )
