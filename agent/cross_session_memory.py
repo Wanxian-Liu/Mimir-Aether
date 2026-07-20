@@ -303,6 +303,12 @@ class CrossSessionMemory:
         if disk_behavioral:
             out.setdefault("memory", {})["behavioral_constraints"] = copy.deepcopy(disk_behavioral)
 
+        # Fallthrough: 保留 disk_data 中所有被 out 遗漏的顶层键
+        # 确保 metadata 等手动写入的字段不被静默丢弃
+        for key in disk_data:
+            if key not in out:
+                out[key] = copy.deepcopy(disk_data[key])
+
         return out
     
     def is_first_session(self) -> bool:
