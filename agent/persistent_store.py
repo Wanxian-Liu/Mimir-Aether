@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import json
 import logging
 import threading
@@ -145,6 +146,25 @@ def _save_unlocked(data: dict, path: Path | None = None) -> None:
 
     raw = json.dumps(data, ensure_ascii=False, indent=2)
     _write_atomic(raw, target)
+
+
+# ── ByteRover AKL fields (importance / maturity / last_access / decay_factor) ──
+
+
+def _init_akl_fields(entry: dict) -> dict:
+    """Initialize ByteRover AKL fields for a knowledge entry (kd or lp)."""
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    entry.setdefault("importance", 50)
+    entry.setdefault("maturity", "draft")
+    entry.setdefault("last_access", now)
+    entry.setdefault("decay_factor", 0.95)
+    return entry
+
+
+def _update_akl_last_access(entry: dict) -> dict:
+    """Update last_access timestamp; decay applied during distillation."""
+    entry["last_access"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    return entry
 
 
 def load(path: Path | None = None) -> dict:

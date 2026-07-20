@@ -286,6 +286,16 @@ class CrossSessionMemory:
                         mem_kd.append(item)
                         seen_decisions.add(item["decision"])
 
+        # 更新 ByteRover AKL last_access（磁盘合并 = 记忆被访问）
+        _now_akl = datetime.now(timezone.utc).isoformat()
+        for item in mem_kd:
+            if isinstance(item, dict):
+                item["last_access"] = _now_akl
+        if disk_lp:
+            for item in mem_lp:
+                if isinstance(item, dict):
+                    item["last_access"] = _now_akl
+
         for key in ("skill_usage", "dormant_skills"):
             if key in disk_data:
                 disk_seg = disk_data.get(key) or {}

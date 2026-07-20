@@ -342,6 +342,21 @@ async def _run_distillation(
     data["memory"]["key_decisions"] = result["key_decisions"][:_MAX_DECISIONS]
     data["memory"]["learned_patterns"] = result["learned_patterns"][:_MAX_PATTERNS]
 
+    # 注入 ByteRover AKL 字段（importance / maturity / last_access / decay_factor）
+    _now_akl = datetime.now(timezone.utc).isoformat()
+    for d in data["memory"]["key_decisions"]:
+        if isinstance(d, dict):
+            d.setdefault("importance", 50)
+            d.setdefault("maturity", "draft")
+            d.setdefault("last_access", _now_akl)
+            d.setdefault("decay_factor", 0.95)
+    for p in data["memory"]["learned_patterns"]:
+        if isinstance(p, dict):
+            p.setdefault("importance", 50)
+            p.setdefault("maturity", "draft")
+            p.setdefault("last_access", _now_akl)
+            p.setdefault("decay_factor", 0.95)
+
     # PMD 共同进化：写入 behavioral_constraints
     if new_constraints > 0:
         data["memory"]["behavioral_constraints"] = result["behavioral_constraints"][:_MAX_CONSTRAINTS]
