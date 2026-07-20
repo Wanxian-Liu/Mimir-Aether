@@ -320,147 +320,44 @@ agent-skills/
 
 创建 **`using-agent-skills`（meta-skill）** — 这是唯一能立即改善 32 个 skill 使用效率的改动。用户一说"修 bug" / "写代码" / "review PR"，自动知道该加载哪个具体 skill。
 
-### #12 DeepMind AI Control Roadmap — ✅ [x] 已吸收
+### #12 GDM AI Control Roadmap — ✅ 已吸收（2026-07-18）
 
-- **来源**: Google DeepMind, arXiv:2607.13087, 2026-06-18
-- **核心**: 假设 AI 可能不可靠，在其周围加系统级防御和控制层
-- **核心发现**: 分析 100 万条 agent 轨迹后，大部分异常来自 **agent 误解或过度积极不是恶意**
-- **三层框架**: Individual Agent → Multi-Agent → Ecosystem
-- **6 种检测类型**: CoT monitoring / Action monitoring / Honeypots / PR monitoring / Activation monitoring / UEBA
+**来源**: Google DeepMind，arXiv:2607.13087（2025/2026）
+**核心**: AI Control 第二道防线 — 当 AI agent 不可信时，用系统级防御检测和阻止破坏。三阶段：Threat Model → Control Invariants → Mitigations。
+**许可**: CC-BY 4.0
 
-**与我们映射:**
-| DeepMind 层 | 我们有的 | 差距 |
-|:-----------|:--------|:----:|
-| CoT monitoring | verification 技能 — 读盘验证 | 读盘是事后检查，不是执行中监控 |
-| Action monitoring | tool-triggers §8 自检 | 只有入口自检，无执行中追踪 |
-| 度量指标 | 无 | **缺 3 个度量**：Coverage（覆盖多少失败）、Recall（检出率）、Time-to-response（发现到修复的延迟）|
-| Threat Model → Mitigation | 手动 16 轮调试 | 无自动化闭环 |
+#### 三阶段架构
 
-**吸收行动:**
-- ✅ verification 升级：补 6 种检测类型描述 + 3 个度量指标（Coverage/Recall/Time-to-response）+ R1-R3 升级路径
-- ✅ behavioral_constraints 追加：同一工具/验证循环中重复 >3 次相同调用 → 强制回到读盘确认
-- ⏸ Self-Harness 参考：Threat Model 阶段纳入自动化闭环方案
+| 阶段 | 含义 | 与我们对应 |
+|:----|:-----|:----------|
+| **Threat Model** (TRAIT&R) | MITRE ATT&CK 衍生分类法，定义 attacker 目标（Loss of Control / Work Sabotage / Direct Harm）和 8 种战术 | ⚠️ 我们没有形式化威胁模型。tool-triggers §8 近似"防御规避"但不是完整分类 |
+| **Control Invariants** | 不可协商的检测和预防目标 | ✅ 我们的 verification 技能四层 = 检测；哨兵机制 = 预防 |
+| **Mitigation Ladder** (D1-D4 + R1-R3) | 7 层渐进式缓解措施，从 CoT monitoring 到 shutdown infrastructure | ⚠️ 我们有 D 层（detection）但缺 R 层（response）|
 
-### #13 杨立昆 AMI Labs 系列论文 — 📥 已拉取（2026-07-19）
+#### 6 种检测类型 vs 我们的验证层
 
-**来源**: Yann LeCun — 2025年底离开Meta，巴黎创立AMI Labs（$1.03B seed, NVIDIA/Samsung/Bezos投资）
+| DeepMind 检测类型 | 我们有没有 | 差距 |
+|:-----------------|:--------:|:----|
+| **Alignment testing**（体外评估） | ✅ verification L1（Ralph tier0） | 持平 |
+| **CoT monitoring**（推理链监控） | ❌ 没有 | **新增** — 蒸馏时检查 LLM 输出的推理过程 |
+| **Action monitoring**（行为监控） | ⚠️ 部分 — verification L2（一致性检查）| 需强化 |
+| **Activations monitoring**（内部状态监控） | ❌ 技术上无法做 | 跳过 |
+| **PR monitoring**（代码审查） | ✅ requesting-code-review | 持平 |
+| **Honeypots**（蜜罐检测） | ⚠️ 部分 — verification L4（自问清单）| 方向一致 |
 
-#### 近两月核心论文
+#### 可吸收的模式
 
-| 论文 | 日期 | arXiv ID | 核心内容 | 对我们价值 |
-|:----|:----|:--------|:---------|:---------|
-| **LeWorldModel (LeWM)** | 2026-03-13 | 2603.19312 | 首个端到端JEPA：像素→潜在空间→物理规划。15M参数，单GPU数小时。规划比基础模型快48倍 | 高 — "各向同性高斯分布防止坍缩"的方法与蒸馏防止缓存覆盖的结构对照 |
-| **When Does LeJEPA Learn a World Model?** | 2026-05-25 | 2605.26379 | 首次从数学上证明JEPA何时能学到真实世界结构的条件（iff定理）| 高 — 形式化方法可借鉴到蒸馏质量评估 |
-| **AI Must Embrace SAI** | 2026-02 | 2602.23643 | 反AGI论文："通用"是错误目标，应追求超人类可适应智能 | 哲学参考 |
-| **Value-guided JEPA planning** | 2026-01 | 2601.00844 | JEPA做价值引导行动规划 | 中等 |
+1. **度量指标** — DeepMind 用 Coverage / Recall / Time-to-response 衡量检测质量。我们当前验证只有 PASS/FAIL，没有量化指标
+2. **R 层（响应）** — 我们只有 D（检测）没有 R（响应）。论文的 R1-R3（隔离→回滚→关闭）可吸收为 verification 失败后的 escalation 路径
+3. **Threat Model 简化版** — 不复制完整 TRAIT&R，但可以把"Agent 撒谎/幻觉/验证失败"形式化为简化的威胁模式
 
-#### LeWM 结构（已拉全文）
+#### 吸收结论
 
-```
-Encoder: z_t = enc(o_t) — ViT tiny (~5M params)
-Predictor: \hat{z}_{t+1} = pred(z_t, a_t) — Transformer (~10M params)
-  ↓
-ℒ_LeWM = ℒ_pred + λ SIGReg(Z)  ← 只有两个loss项（从6个超参降到1个）
-  ↓
-Planning: MPC + CEM in latent space (0.98s vs 47s = 48× faster)
-```
-
-**核心机制 SIGReg**: 用Cramér-Wold定理强制潜在嵌入符合各向同性高斯分布 → 防止JEPA表示坍缩。对标到我们的蒸馏：防缓存覆盖也需要"锁定正确状态"的机制（哨兵文件与之同构）
-
-#### 吸收评估
-
-| 维度 | 评估 |
-|:----|:-----|
-| 直接有用 | 中 — 非memory/蒸馏系统直接借鉴，但LeWM的"简单loss防坍缩"哲学可参考到蒸馏质量设计 |
-| 研究价值 | 高 — JEPA是LLM的主要替代路线之一，理解它对研究树生态位置判断有帮助 |
-| 代码价值 | 低 — PyTorch + 16×A100，不在我们当前可运行范围 |
-| 平台参考价值 | 中 — AMI Labs论文发布在arXiv + GitHub开源，验证arXiv是论文主要入口 |
-
-**结论**: 有价值但非立即吸收。标记为"可扩展知识"放在研究树中，不排行动计划。
-
-## 论文获取平台一览
-
-以下是世界最权威的AI/物理/数学/量子计算论文平台及其结构，供未来按兴趣查阅：
-
-### ① arXiv.org（全球首选预印本库，⭐⭐⭐⭐⭐）
-
-| 大类 | 子类ID | 覆盖内容 |
-|:----|:------|:--------|
-| **cs** — 计算机科学 | cs.AI | 人工智能（专家系统/知识表示/规划/推理 — 不含ML/CV/NLP）|
-| | cs.LG | **机器学习**（深度学习/强化学习/统计学习 — 最大子域）|
-| | cs.CL | 自然语言处理/计算语言学 |
-| | cs.CV | 计算机视觉/模式识别 |
-| | cs.RO | 机器人学（控制/感知/规划/HRI）|
-| | cs.IR | 信息检索（搜索/推荐/RAG）|
-| | cs.MA | 多智能体系统 |
-| | cs.SE | 软件工程 |
-| | cs.CR | 密码学/安全 |
-| | cs.AR | 硬件架构（加速芯片/AI芯片）|
-| **stat** — 统计学 | stat.ML | 统计机器学习（cs.LG论文也常投这里）|
-| **math** — 数学 | math.NA | 数值分析（科学计算/优化）|
-| | math.OC | 优化与控制（凸优化/非线性规划/最优控制）|
-| | math.DS | 动力系统（混沌/遍历理论/非线性动力学）|
-| | math.PR | 概率论（随机过程/随机矩阵/大偏差）|
-| | math.ST | 统计理论/数理统计 |
-| | math.GT | 博弈论（机制设计/拍卖理论）|
-| **physics** — 物理 | physics.comp-ph | 计算物理（蒙特卡洛/分子动力学/格点QCD）|
-| | physics.class-ph | 经典物理/电磁学/引力 |
-| | physics.optics | 光学/光子学 |
-| | physics.flu-dyn | 流体动力学 |
-| | quant-ph | 量子物理（量子计算/量子信息/量子纠缠 — **你的兴趣**）|
-| | astro-ph | 天体物理/宇宙学 |
-| | cond-mat | 凝聚态物理/材料科学（含量子材料）|
-| | hep-th | 高能物理—理论（弦论/QFT/量子引力）|
-| **q-bio** — 生物 | q-bio.NC | 神经科学/计算神经 |
-| | q-bio.QM | 定量方法（生物信息/基因组学）|
-| **eess** — 电子工程 | eess.SP | 信号处理（语音/音频/视频）|
-
-**最佳入口：** 每天新论文 → arxiv.org/list/cs.AI/new 或 arxiv.org/list/cs.LG/new  
-**精确搜索：** arxiv.org/search/?searchtype=all&query=关键词  
-**按时间+热度排序：** alphaxiv.org（带社区讨论）  
-**PDF直链：** arxiv.org/pdf/ID
-
-### ② Google DeepMind Publications（DeepMind 官方，⭐⭐⭐⭐⭐）
-
-| 研究领域 | 涵盖 | 与我们关系 |
-|:--------|:-----|:---------|
-| **AI Safety & Control** | AI Control Roadmap, Honeypot eval, Multi-agent safety | ⭐ 已吸收 #12 |
-| **Foundation Models** | Gemini Ultra 2, Veo 3, Gemma 4 | 关注，非直接吸收 |
-| **World Models** | Genie 3, SIMA 2 | ⭐ 重叠 #13 LeCun |
-| **Science** | 生物（AlphaFold/ALS老化/肝脏疾病）、气象（WeatherNext）、化学（分子发现）| 🟡 扩展视野 |
-| **Robotics** | Gemini Robotics、物理Agent | 🟡 兴趣 |
-| **Multi-agent** | Co-Scientist、协作推理 | ⭐ 与Self-Harness相关 |
-
-**入口：** deepmind.google/research/publications — 按年份/作者/领域筛选
-
-### ③ OpenReview.net（同行评审会议论文，⭐⭐⭐⭐）
-
-| 会议 | 领域 | 特点 |
-|:----|:----|:----|
-| **ICLR** | 表示学习/深度学习 | 论坛式公开审稿，审稿人+作者讨论可见 |
-| **NeurIPS** | 神经信息处理系统 | AI/ML最大会议（~10K论文/年）|
-| **ICML** | 机器学习 | 纯ML，理论+应用 |
-| **AISTATS** | 统计学习/AI | 更偏理论/统计 |
-| **COLT** | 学习理论 | 纯理论（PAC/泛化界/在线学习）|
-
-**入口：** openreview.net — 按会议/年份/领域浏览 + 带作者回复
-
-### 兴趣领域论文星级地图
-
-| 你的兴趣 | 最佳第一站 | 最佳第二站 | 最活跃时间 |
-|:--------|:---------|:---------|:---------|
-| 🧠 **AI / 机器学习** | arXiv cs.LG | DeepMind Publications | 全年（5-6月/12月最多）|
-| 🔬 **物理** | arXiv physics.*（quant-ph, comp-ph, flu-dyn等特定子域）| DeepMind Science | 全年 |
-| 📐 **数学** | arXiv math.*（NA/OC/DS/PR）| — | 全年 |
-| ⚛️ **量子计算** | arXiv quant-ph | — | 全年 |
-| 🔗 **交叉领域**（科学+AI）| DeepMind Publications Science | arXiv cs.CE | 2025-2026井喷 |
-
-## 使用习惯（备忘）
-
-- **每天刷arXiv** → 只看 cs.LG + cs.AI + quant-ph 的新论文（每日列表 ~100-300篇，扫标题 3分钟）
-- **深读** → PDF直链 `arxiv.org/pdf/ID`
-- **话题跟踪** → `web_search "Yann LeCun 2026 site:arxiv.org"` 或 `web_search "DeepMind + [兴趣关键词] 2026"`
-- **价值判断标准**：能否直接吸收到我们（memory/dream distillation/verification/self_evolution/self-harness）系统中。与这些组件无直接映射→标记PENDING或跳过
+| 行动 | 优先级 | 状态 |
+|:----|:-----:|:----:|
+| Verification 技能升级：补监控类型表 + 3 个度量指标（Coverage/Recall/Time-to-response）+ R1-R3 escalation | P1 | 🟡 待操作 |
+| Self-Harness 自动化参考：在 Threat Model 阶段加入论文的 8 种战术 | P1 | 🟡 待整合 |
+| study-tree #12 新增节点 | ✅ | ✅ 已记录 |
 
 ## 长期差距记录
 
@@ -475,50 +372,192 @@ Planning: MPC + CEM in latent space (0.98s vs 47s = 48× faster)
 | P1 | Anti-rationalization tables 植入所有 skill | #11 addyosmani/agent-skills | 🟡 — 32 skill × 2-3 借口 = ~80 行增量 |
 | P1 | interview-me / doubt-driven-dev / code-simplify / security / spec-driven-dev | #11 addyosmani/agent-skills | 🟡 5 个新 skill 待创建 |
 | P2 | 百度搜索（中文独占内容） | 百度反爬 | ⏸ PENDING 等待触发条件 |
-|| P2 | 8 个延伸 skill（context-engineering / performance / ci-cd / doc-adrs 等） | #11 addyosmani/agent-skills | 🟡 可按需推进 |
-| P1 | SkillOpt skill 优化器参考 | #14 SkillOpt | ⏸ 待代码化 — 需研究能否接入 self_evolution 作为优化器 |
-| P1 | Kairos 后悔感知蒸馏度量参考 | #15 Kairos | ⏸ 待引入蒸馏质量评估 — 需研究"后悔"指标的蒸馏效用函数 |
+| P2 | 8 个延伸 skill（context-engineering / performance / ci-cd / doc-adrs 等） | #11 addyosmani/agent-skills | 🟡 可按需推进 |
+| P1 | Verification 升级（监控类型表 + 度量指标） | #12 DeepMind AI Control Roadmap | 🟡 待升级 |
+| P1 | Self-Harness 自动化强化（Threat Model 阶段参考） | #12 DeepMind AI Control Roadmap | 🟡 待整合 |
 
-### #14 SkillOpt（Microsoft Research）— ✅ [x] 已吸收
-- **来源**: arXiv:2605.23904, Microsoft Research / 4 位中科学者, 2026-05-22
-- **核心**: Skill 优化的独立 optimizer 模型 — 把评分过的 rollout 转为 bounded add/delete/replace 编辑，**只有严格提高验证分数时接受修改**
-- **关键机制**:
-  | 机制 | 解决什么问题 | 与我们关系 |
-  |:----|:-----------|:---------|
-  | **文本学习率预算** | 防止单次改动过大，类似梯度下降的步长裁剪 | ✅ 我们的 self_evolution 缺"每次改多少"的控制 |
-  | **拒绝编辑缓冲区** | 不接受验证分数没提高的修改 | ✅ 我们 16 轮蒸馏失败正是"没验证就用了新代码" |
-  | **epoch-wise 慢速/元更新** | 运行时从 1-3 轮编辑开始，逐步增加至 10-20 轮 | ✅ 我们的自进化缺少渐进式规模控制 |
-- **结果**: 6 benchmark, 7 目标模型, 3 execution harness — **全部 52 个测试单元格最佳或并列最佳**
-- **GPT-5.5 量化提升**: 无 skill → +23.5（直接对话）/ +24.8（Codex）/ +19.1（Claude Code）
-- **吸收建议**:
-  1. 把 SkillOpt 的"拒绝编辑缓冲区"模式融入 self_evolution 的 decision_ring — 验证分数没提高就不接受修改
-  2. 文本学习率预算控制每次自进化时产生的改动规模（当前是一次性改整段代码）
-  3. 等 self_evolution 积累 ≥3 轮测试数据后，再考虑引入独立的 optimizer 层
+### #13 ByteRover — ✅ 深读完成（arXiv:2604.01599）
 
-### #15 Kairos（Regret-Aware World Model）— ✅ [x] 已吸收
-- **来源**: arXiv:2606.16533, 百人团队, 2026-06-15 / 2026-07-03 更新
-- **核心**: 「后悔感知」原生世界-行动模型，不模拟所有像素，只维持对具身控制最重要的信息
-- **三阶段学习框架**:
-  | 阶段 | 内容 | 与我们关系 |
-  |:----|:-----|:---------|
-  | **Learn** | 跨具身数据课程（多本体/多任务协调） | 🟡 persistent.json 的多源整合可参考 |
-  | **Maintain** | 混合线性时间注意力（长序列高效在线更新）| ✅ `\_maybe\_compact` 的增量压缩可借鉴 |
-  | **Deploy** | 感知延迟/内存/硬件约束的实际部署 | 🟡 我们蒸馏的部署环境（gateway/terminal）约束类似 |
-- **后悔感知**: 不仅预测未来，还要知道它**过去错在哪**— 最相关的概念
-- **五个维护维度**: 对象状态、空间关系、接触条件、任务进度、动作后果、失败边界、部署不确定性
-- **吸收建议**:
-  1. **后悔感知度量**融入蒸馏质量评估 — 当前我们只记"成功了/没成功"，不记"这次错在哪"
-  2. 三阶段课程思路可借鉴给 persistent.json 的层次化维护（原始记录 → 场景层 → 结构化蒸馏）
-  3. 混合线性时间注意力可作为 long-term recall 的可选参考架构
+**来源**: arXiv:2604.01599v1，19 页，CC-BY 4.0
+**核心**: 反转 MAG 范式 — 记忆不是外部服务（向量DB/图谱），是 agent 原生能力。同一 LLM 推理 + 策展 + 检索知识
+**LoCoMo**: 96.1% SOTA | **LongMemEval-S**: 92.8%
+**零外部基础设施**: 无需向量 DB、图谱、embedding 服务。纯文件系统。
 
-## 论文获取平台一览
+#### Three Layers
 
-详见上文 `​### ① arXiv` / `### ② DeepMind Publications` / `### ③ OpenReview.net` 三节 + `兴趣领域论文星级地图`
+| 层 | 作用 | 对应我们 |
+|:--|:-----|:--------|
+| Agent Layer | LLM 推理循环 + 记忆工具（curate/query/search 是一等公民工具） | ✅ 我们有 memory/add/replace |
+| Execution Layer | 顺序任务队列（消除写写冲突）+ 沙盒策展环境 | ⚠️ 蒸馏是同步的，无队列 |
+| Knowledge Layer | Context Tree markdown + MiniSearch 全文索引 + 查询缓存 | ⚠️ 我们是 persistent.json JSON，不是 markdown |
 
-## 论文更新日志
+#### Context Tree 数据结构
 
-| 日期 | 操作 | 内容 |
-|:----|:----|:-----|
-| 2026-07-18 | 新增 #14 | SkillOpt — Microsoft Research skill 优化器（arXiv:2605.23904）|
-| 2026-07-18 | 新增 #15 | Kairos — 后悔感知世界模型（arXiv:2606.16533）|
+`Domain >> Topic >> Subtopic >> Entry`（每个 entry 是独立 markdown 文件 + YAML frontmatter）
 
+每个 entry 五组件:
+| 组件 | 含义 | 我们有吗 |
+|:----|:-----|:--------|
+| ℛᵢ (Relations) | 显式 `@domain/topic/file.md` 边 | ❌ — kd/lp 无跨条目引用 |
+| 𝒞ᵢ (Concept) | 来源、变更、时间戳、作者 | ⚠️ — metadata 刚加，无 provenance |
+| 𝒱ᵢ (Narrative) | 结构化叙述（依赖、规则、示例）| ⚠️ — kd 有 narrative-like 内容 |
+| 𝒮ᵢ (Snippets) | 代码、公式、原始数据 | ❌ — 无 snippets |
+| ℒᵢ (Lifecycle) | 重要性分、成熟度等级、时效衰减 | ❌ — **最大差距** |
+
+#### Adaptive Knowledge Lifecycle (AKL) — ⭐ 核心吸收
+
+| 组件 | 公式/参数 | 对我们价值 |
+|:----|:---------|:---------|
+| **重要性分** ιᵢ ∈ [0,100] | 访问+3，更新+5，每日衰减×0.995 | **P0** — 蒸馏后知道哪些条目被高频引用 |
+| **成熟度等级** | Draft(<35)→Validated(≥65↔<35)→Core(≥85↔<60)。**滞回差25-30分**防止震荡 | **P0** — persistent.json 可区分"初稿 vs 稳固知识" |
+| **时效衰减** rᵢ = exp(-Δt/30) | ~21天半衰期 | **P0** — 解决"旧知识永远排在前面"的问题 |
+| **复合检索分** | w_r·BM25 + w_ι·ι̂ᵢ + w_t·rᵢ | **P0** — 替代当前单维度检索 |
+
+#### 5-Tier Progressive Retrieval — ⭐ 核心吸收
+
+| Tier | 机制 | 延迟 | 条件 |
+|:----|:-----|:----|:-----|
+| 0 | 精确缓存命中 | ~0ms | Hash 匹配+指纹有效 |
+| 1 | 模糊缓存（Jaccard）| ~50ms | Jaccard ≥ 阈值 |
+| 2 | 直接 MiniSearch（BM25）| ~100ms | 置信度≥0.93，间隙≥0.08 |
+| 3 | 优化的 LLM 调用 | <5s | 中等置信度，1024 token，temp 0.3 |
+| 4 | 完整 agent 循环 | 8-15s | 新查询，多轮推理 |
+
+**关键 insight**: Tiers 0-2（~100ms 内）可解决绝大多数查询，无需 LLM。我们当前每个查询都走 LLM。
+
+#### 域外检测（Out-of-Domain Detection）
+
+当≥4字符的查询关键项不匹配任何条目且标准化分<0.85 → 显式报告"超出存储知识范围" → 阻止幻觉。
+
+**直接对应**我们的 behavioral_constraints "不知道就说不知道"规则 —— 但 ByteRover 给的是可执行的定量检测，不是铁律。
+
+#### 可直接吸收到我们的改动
+
+| 改动 | 改哪 | 行数 | 影响 |
+|:----|:-----|:---:|:----:|
+| 1. 重要性分 ιᵢ 加进 kd/lp 条目 | persistent.json 写入时加字段 `importance: int` | ~5 | 跟踪引用频率 |
+| 2. 时效衰减 rᵢ 加进 metadata | persistent.json save() 中计算 | ~5 | 旧知识自然下降 |
+| 3. 成熟度等级（Draft/Validated/Core） | distillation 输出后自动评分 | ~10 | 区分初稿 vs 稳固 |
+| 4. 复合检索分 `w_r·BM25 + w_ι·ι̂ᵢ + w_t·rᵢ` | session_search / prefetch 中实现 | ~30 | 检索质量提升 |
+| 5. 域外检测 — 分<0.85 时承认不知道 | prefetch / system_prompt_block 中加判断 | ~10 | 减少幻觉 |
+
+**总改动**: ~60 行。不改 persistent.json 架构 —— 加字段而已。
+
+#### 元知识点：ByteRover 证明向量 DB 不是必须的
+
+> BM25 + 重要性 + 时效的复合评分在 LoCoMo 上 96.1%，超过所有向量+混合方案。
+
+这意味着我们把 Chroma 或任何向量 DB 的引入从 P0 降级为 P2 可选项。AM 指令优先完善 BM25 + AKL，无需为搜索引入外部基础设施。
+
+### #14 ActMem — ✅ 已吸收（arXiv:2603.00026，参考级）
+
+**来源**: 南京大学 & 阿里巴巴，arXiv:2603.00026v2，CC-BY 4.0
+**核心**: 弥合记忆检索和推理之间的鸿沟 —— 将非结构化对话转为结构化合因果关系图，通过反事实推理探测隐藏约束
+**Code**: github.com/nju-websoft/ActMem
+
+#### 核心机制（4 模块）
+
+| 模块 | 做什么 | 对我们的价值 |
+|:----|:------|:-----------|
+| 1. 事实提取 | 原始对话 → 原子事实 + 代词消解 + 绝对时间戳 | ⚠️ 我们有 kd/lp 精炼，不是原子事实 |
+| 2. 事实聚类 | Qwen3-Embedding-8B 增量聚类（δ=0.2），产生不相交簇 | 🟡 — 蒸馏压缩条目前可以先聚类再合并 |
+| 3. 知识图谱构建 | 语义边(cosine>0.3) + 因果边(PMI>0.2) | 🟡 — tip+cc 可升级为"因果边 PMI" |
+| 4. 反事实检索 | "如果用户做X，考虑到历史V，可能有什么负面后果？" | ⭐ **P0 — 直接回答"做了事回头看又是错的"** |
+
+#### 反事实检索（Counterfactual Reasoning）— 最直接相关
+
+1. **初始检索**: top-k 相似事实
+2. **反事实推理**: LLM 提问 "如果用户做 X，考虑到已有信息，可能有什么负面后果？"
+3. **精炼**: 检索与反事实结果相似的节点，通过 KG 邻居扩展
+4. **最终回复**: 初始信息 + 反事实警告 + 精炼信息
+
+**和我们对应:** 当我在 16 轮蒸馏中重复说"修好了"时，如果有一个反事实检查 "如果你说修好了但盘上数据没变，可能有什么后果？" → 就会触发 self-check
+
+#### ActMemEval Benchmark — 6 种冲突类型
+
+| 类别 | 直接对应 behavioral_constraints |
+|:----|:-------------------------------|
+| 安全-健康风险 | bc 铁律（输出前验证） |
+| 可行性限制 | 无直接对应 |
+| 时间-空间-流程不匹配 | ❌ 无 |
+| 访问/可用性缺口 | ❌ 无 |
+| 偏好冲突 | user.md 偏好记录 |
+| 机会复用（已有更好方案时别重做） | ❌ 无 — 可吸收 |
+
+#### 可直接吸收
+
+| 概念 | 改哪 | 行数 |
+|:----|:-----|:---:|
+| PMI 因果边（我们叫 tip+cc → 升级为 PMI>0.2 过滤）| distillation 输出后增加 PMI 验证 | ~15 |
+| 反事实推理（告诉蒸馏："如果这条 kd 被压缩掉了，后果是什么？"）| distillation 的 LLM prompt 加反事实问题 | ~10 |
+| 机会复用 bc 新增 "已有蒸馏成功方案时，不自行重造" | behavioral_constraints 追加 1 条 | ~1 |
+
+### #15 Memanto — ✅ 已吸收（arXiv:2604.22085，参考级）
+
+**来源**: arXiv:2604.22085v1，13 页，CC-BY-SA 4.0
+**核心**: 纯向量 + 零成本摄入的记忆系统，无需知识图谱。13 类有类型记忆 schema + 信息论检索
+**LongMemEval**: 89.8% | **LoCoMo**: 87.1%
+**延迟**: <90ms 检索，2000+ QPS
+**零索引延迟**: 写即搜（无需 embedding/索引）
+
+#### 6 项设计准则（D1-D6）与符合度
+
+| # | 准则 | 我们有？ |
+|:-:|:----|:--------:|
+| D1 | 可查询的，非注入的 | ✅ memory 工具是查询式 |
+| D2 | 时间感知 + 衰减 | ❌ 无 — ByteRover AKL 可补 |
+| D3 | 置信度 + 来源追踪 | ❌ 无 — metadata 刚加，无置信度 |
+| D4 | 有类型化 + 分层的 | ⚠️ 三层（kd/lp/bc）但无子类型 |
+| D5 | 冲突感知 | ❌ 无 — 不同会话的同一主题可矛盾 |
+| D6 | 零开销摄入 | ✅ 蒸馏是零开销写入 |
+
+#### 13 类有类型记忆 schema
+
+| 类型 | 含义 | 可吸收？ |
+|:----|:-----|:--------|
+| fact / preference / decision / commitment / goal | 事实/偏好/决策/承诺/目标 | ✅ — 我们 kd 涵盖了这些，但未显式标记 |
+| event / context | 事件/情境 | ⚠️ 会话级，不在 persistent.json |
+| instruction / relationship / learning / observation | 指令/关系/学习/观察 | ✅ — 我们的 lp 涵盖 |
+| error / artifact | 错误/工件 | ⚠️ 不常出现 |
+
+**核心吸收**: 给 kd/lp 加 `type` 字段（限于 5-6 种主要类型，不复制全部 13）→ 对同类型条目做更好的压缩和优先级排序
+
+#### 冲突解决机制
+
+检测两条记忆的语义矛盾:
+1. 在写入时检测 `n_i` 与 `n_j` 的语义矛盾
+2. 标记冲突并报告
+3. 不覆盖旧数据
+
+**对我们**: 蒸馏压缩时两 kd 矛盾 → 标记为"需人工解决"而非静默删除
+
+#### 三篇论文的选择建议
+
+| 吸收优先级 | 论文 | 理由 | 改动量 |
+|:---------:|:----|:----|:-----:|
+| **P0** | ByteRover AKL（重要性+衰减+成熟度+复合检索） | 直接提升检索质量 | ~60 行 |
+| **P1** | ActMem 反事实推理（蒸馏加 self-check） | 减少虚假成功声明 | ~25 行 |
+| **P2** | Memanto 类型化（kd/lp 加 type 字段） | 改进结构，非功能缺口 | ~10 行 |
+
+**如果只做一个**: ByteRover AKL。不改架构，加 4 个字段（`importance`/`maturity`/`last_access`/`decay_factor`），BM25 已有基础，加权重和时效。该改动让所有条目有生命周期，自然老化，不用的不占位置。
+
+### #16 LeWorldModel (LeWM) / AMI Labs — ✅ [x] 已吸收，理论参考
+
+- **来源**: Yann LeCun / AMI Labs, arXiv:2603.19312, 2026-03-13
+- **代码**: lucas-maes/le-wm, 4,100 stars, MIT 开源
+- **核心**: 首个端到端不坍缩的 JEPA 世界模型。15M 参数，单 GPU 训练，SIGReg（各向同性高斯分布）解决 JEPA 5 年来的 latent 坍缩问题
+
+**成熟度评估**：
+
+| 标准 | 状态 | 证据 |
+|:----|:----:|:------|
+| 代码可运行 | ✅ | train/eval pipeline + HuggingFace pretrained weights |
+| 多场景验证 | ❌ | 仅 4 个简单环境（PushT/Cube/TwoRoom/Reacher），无复杂 3D 或现实世界 |
+| 生产级部署 | ❌ | 无 API / SDK / Docker / 部署工具 |
+| 生态活跃度 | ⏸ | 4个月无 v2 后续，停滞 |
+
+**对我们最有价值的吸收**：
+- SIGReg 正则化防坍缩 = 我们蒸馏的哨兵机制（`.distilled` 文件防缓存覆盖）的数学等价物。同一类问题：系统在迭代中保持信息不丢失
+- LeWM 用数学证明它是可解问题；我们用工程证明
+
+**结论**: 可用研究原型，成熟度不足。SIGReg 思想可作为蒸馏反坍缩的数学参考，但不引入代码。

@@ -38,6 +38,7 @@ class AnomalyType(Enum):
     COMPRESSION_LOSS = "compression_loss"
     RETRIEVAL_MISS = "retrieval_miss"
     PERFORMANCE_DEGRADATION = "performance_degradation"
+    OVER_VERIFICATION = "over_verification"
     UNKNOWN = "unknown"
 
 
@@ -302,6 +303,11 @@ class DecisionRing:
                 "strategies": ["optimize_query", "cache_result", "parallel_execute"],
                 "default": "optimize_query",
                 "risk": 0.2
+            },
+            AnomalyType.OVER_VERIFICATION: {
+                "strategies": ["read_before_act", "reset_tool_counters", "switch_to_direct_read"],
+                "default": "read_before_act",
+                "risk": 0.15
             }
         }
         
