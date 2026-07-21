@@ -540,3 +540,58 @@ agent-skills/
 | **P2** | Memanto 类型化（kd/lp 加 type 字段） | 改进结构，非功能缺口 | ~10 行 |
 
 **如果只做一个**: ByteRover AKL。不改架构，加 4 个字段（`importance`/`maturity`/`last_access`/`decay_factor`），BM25 已有基础，加权重和时效。该改动让所有条目有生命周期，自然老化，不用的不占位置。
+
+### #17 Ashtekar 动态黑洞热力学 — ✅ [x] 已吸收，科普级理解
+   |
+**来源**: Ashtekar, Paraizo, Shu, arXiv:2604.00170, 2026-04-01 (更新至v3)  
+**出版**: Physical Review Letters — Editor's Suggestion（APS 最高优先级标记）  
+**媒体**: ScienceDaily (2026-07-13), Phys.org, Space.com 均报道  
+**作者**: Abhay Ashtekar (Penn State, 圈量子引力奠基人, APS Einstein Prize 得主), 2位研究生  
+**篇幅**: 56 页, 4 图, 1 表  
+**子领域**: gr-qc / hep-th / math-ph
+
+#### 核心突破
+
+Hawking 在 1970 年代的黑洞热力学四大定律只适用于**平衡态**黑洞。但真实黑洞是**动态**的——形成、合并、蒸发。这篇论文的关键洞察：把热力学的基础从"事件视界（event horizon）"替换为"动力学视界（dynamical horizon）"。
+
+| 维度 | 原 Hawking 定律 | Ashtekar 扩展 |
+|:----|:--------------|:-------------|
+| 视界类型 | 事件视界（全局）| 动力学视界（局部——与事件无关）|
+| 熵 | 正比于视界面积 | 正比于自旋+能量（不依赖视界面积）|
+| 适用范围 | 平衡态（稳定黑洞）| 非平衡态（形成/合并/蒸发中的黑洞）|
+| 目标论 | 是——需要知道整个时空未来 | 否——完全由此刻的局域物理确定 |
+
+**通俗理解**：就好像温度计——Hawking 的律法只告诉你一支稳定放着的水银温度计的度数。Ashtekar 说，我们现在可以做一支在火山爆发中快速升温时也能准确读数的温度计。
+
+#### 为何受认可
+
+- 作者 Abhay Ashtekar 是 APS Einstein Prize 得主、美国国家科学院院士——国际公认的圈量子引力奠基人
+- Physical Review Letters + Editor's Suggestion = APS 编辑部推荐的阅读
+- 50 年来首次将黑洞热力学从平衡态扩展到非平衡态——Stephen Hawking 去世后该方向最大的概念突破
+
+#### 对我们认知的意义
+
+纯理论物理，非工具性论文，不直接改变我们的代码或架构。但它对应我们的一条 behavioral_constraint："不确定性不是没答案"。这篇论文的根本方法是——**把"定义"从依赖于不可观测的全局信息（事件视界）改为依赖于可观测的局域信息（动力学视界）**。和我们的"读盘后再开口"原则一致。都依赖于局部可验证的事实，而非全局推理。
+
+#### 吸收状态：科普级理解，知识性吸收，不改造技能
+
+### #16 LeWorldModel (LeWM) / AMI Labs — ✅ [x] 已吸收，理论参考
+
+- **来源**: Yann LeCun / AMI Labs, arXiv:2603.19312, 2026-03-13
+- **代码**: lucas-maes/le-wm, 4,100 stars, MIT 开源
+- **核心**: 首个端到端不坍缩的 JEPA 世界模型。15M 参数，单 GPU 训练，SIGReg（各向同性高斯分布）解决 JEPA 5 年来的 latent 坍缩问题
+
+**成熟度评估**：
+
+| 标准 | 状态 | 证据 |
+|:----|:----:|:------|
+| 代码可运行 | ✅ | train/eval pipeline + HuggingFace pretrained weights |
+| 多场景验证 | ❌ | 仅 4 个简单环境（PushT/Cube/TwoRoom/Reacher），无复杂 3D 或现实世界 |
+| 生产级部署 | ❌ | 无 API / SDK / Docker / 部署工具 |
+| 生态活跃度 | ⏸ | 4个月无 v2 后续，停滞 |
+
+**对我们最有价值的吸收**：
+- SIGReg 正则化防坍缩 = 我们蒸馏的哨兵机制（`.distilled` 文件防缓存覆盖）的数学等价物。同一类问题：系统在迭代中保持信息不丢失
+- LeWM 用数学证明它是可解问题；我们用工程证明
+
+**结论**: 可用研究原型，成熟度不足。SIGReg 思想可作为蒸馏反坍缩的数学参考，但不引入代码。
