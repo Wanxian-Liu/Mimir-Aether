@@ -15,6 +15,7 @@ import hashlib
 import hmac
 import json
 import logging
+import os
 import threading
 import time
 from datetime import datetime, timezone
@@ -993,6 +994,132 @@ class FeishuAdapter(BasePlatformAdapter):
                 (chat_id or "")[:24],
             )
             return SendResult(success=False, error="send timeout", retryable=True)
+        except Exception as e:
+            return SendResult(success=False, error=str(e), retryable=True)
+
+    async def send_file(
+        self,
+        chat_id: str,
+        file_path: str,
+        file_name: Optional[str] = None,
+        reply_to: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> SendResult:
+        """Upload and send a file to a Feishu chat.
+
+        Two-step flow:
+          1. POST /open-apis/im/v1/files (multipart upload) → file_key
+          2. POST /open-apis/im/v1/messages (msg_type=file) → deliver
+
+        Args:
+            chat_id: Target chat ID.
+            file_path: Absolute path to the file on disk.
+            file_name: Display name in chat (default: basename of file_path).
+            reply_to: Optional message ID to reply to.
+            metadata: Optional dict (supports feishu_receive_id_type override).
+
+        Returns:
+            SendResult with success status and message_id.
+        """
+        if not self._session:
+            return SendResult(success=False, error="Not connected")
+        token_expired = not _tenant_token_valid(self)
+        token_stale = (
+            self._last_token_refresh_at > 0.0
+            and (time.time() - self._last_token_refresh_at) > TOKEN_STALE_THRESHOLD
+        )
+        if token_expired or token_stale:
+            await self._refresh_token()
+        with self._token_lock:
+            token = self._tenant_token
+        if not token:
+            return SendResult(success=False, error="No tenant token")
+
+        display_name = file_name or os.path.basename(file_path)
+
+        # ── Step 1: upload file ─────────────────────────────────
+        upload_url = f"{self._origin()}/open-apis/im/v1/files"
+        try:
+            with open(file_path, "rb") as fh:
+                file_data = fh.read()
+        except FileNotFoundError:
+            return SendResult(success=False, error=f"File not found: {file_path}")
+        except OSError as e:
+            return SendResult(success=False, error=str(e))
+
+        from aiohttp import FormData
+        form = FormData()
+        form.add_field("file_type", "stream")
+        form.add_field("file_name", display_name)
+        form.add_field("file", file_data, filename=display_name, content_type="application/octet-stream")
+
+        try:
+            async with self._session.post(
+                upload_url,
+                data=form,
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=aiohttp.ClientTimeout(total=60),
+            ) as resp:
+                upload_result = await resp.json()
+                if upload_result.get("code") != 0:
+                    logger.warning(
+                        "[%s] file upload failed: %s",
+                        self.name, upload_result,
+                    )
+                    return SendResult(
+                        success=False,
+                        error=f"Upload failed: {upload_result.get('msg', 'unknown')}",
+                    )
+                file_key = upload_result.get("data", {}).get("file_key")
+                if not file_key:
+                    return SendResult(success=False, error="No file_key in upload response")
+        except asyncio.TimeoutError:
+            return SendResult(success=False, error="Upload timeout", retryable=True)
+        except Exception as e:
+            return SendResult(success=False, error=str(e), retryable=True)
+
+        logger.info(
+            "[%s] file uploaded file_key=%s name=%s size=%d",
+            self.name, file_key, display_name, len(file_data),
+        )
+
+        # ── Step 2: send file message ───────────────────────────
+        msg_url = f"{self._origin()}/open-apis/im/v1/messages"
+        rid_type = metadata.get("feishu_receive_id_type") or _feishu_receive_id_type(chat_id) if metadata else _feishu_receive_id_type(chat_id)
+
+        body: Dict[str, Any] = {
+            "receive_id": chat_id,
+            "msg_type": "file",
+            "content": json.dumps({"file_key": file_key}),
+        }
+        if reply_to:
+            body["reply_to_message_id"] = reply_to
+        if metadata and metadata.get("thread_id"):
+            body["thread_id"] = metadata["thread_id"]
+
+        try:
+            async with self._session.post(
+                msg_url,
+                json=body,
+                params={"receive_id_type": rid_type},
+                headers=self._headers(),
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as resp:
+                result = await resp.json()
+                if result.get("code") != 0:
+                    logger.warning(
+                        "[%s] send file message failed: %s",
+                        self.name, result,
+                    )
+                    return SendResult(success=False, error=str(result))
+                mid = result.get("data", {}).get("message_id")
+                logger.info(
+                    "[%s] file sent message_id=%s file_key=%s",
+                    self.name, str(mid)[:24] if mid else "?", file_key,
+                )
+                return SendResult(success=True, message_id=str(mid) if mid else None, raw_response=result)
+        except asyncio.TimeoutError:
+            return SendResult(success=False, error="Send file message timeout", retryable=True)
         except Exception as e:
             return SendResult(success=False, error=str(e), retryable=True)
 
