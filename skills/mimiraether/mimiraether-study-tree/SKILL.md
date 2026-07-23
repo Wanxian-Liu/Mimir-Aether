@@ -686,26 +686,64 @@ Hawking 在 1970 年代的黑洞热力学四大定律只适用于**平衡态**�
 
 ---
 
-### #19 Frank Merle 2026 Breakthrough Prize / Hong Wang 3D Kakeya 猜想 — ✅ [x] 已吸收，信息级理解
-
-**来源**: 2026 Breakthrough Prize in Mathematics（$3M）
-**得主**: Frank Merle（CY Cergy Paris / IHES）
-
-**核心成就**:
-- 非线性演化方程奇点形成（blow-up）的完整分类
-- 证明了"散焦型"非线性薛定谔方程也会爆破——推翻半个世纪的假设
-
-**同届值得关注的年轻获奖者**:
-| 数学家 | 奖项 | 成就 |
-|:-----|:----|:------|
-| **Hong Wang**（NYU/IHES，华人） | New Horizons Prize | **解决了 3 维 Kakeya 猜想**（百年未解） |
-| **Yunqing Tang**（UC Berkeley，华人） | New Horizons Prize | 算术几何重要突破 |
-
-**对我们的价值**:
-| 维度 | 价值 |
-|:----|:-----|
-| 直接工具性 | ❌ 纯数学，不改变代码 |
-| 方法性 | ⭐ Hong Wang 的 Kakeya 证明用了"多尺度分解"——同一问题的不同尺度用不同工具，和 persistent.json 三层结构（kd/lp/bc）的方法论一致 |
-| 认知性 | Breakthrough Prize 的 $3M + 媒体曝光 = 数学对公众的可见度提升 |
-
 **吸收状态**: 信息级理解，不做深度代码吸收。
+
+---
+
+### #21 Tracing Agentic Failure from the Flow of Success — ✅ [x] 深读完成，待评估是否代码落地
+
+**来源**: Samuel Yeh (UW-Madison), Yiwen Zhu, Shaleen Deep (Microsoft Research), Sharon Li (UW-Madison), arXiv:2607.12747v1, CC-BY 4.0
+**日期**: 2026年7月16日（1周前）
+**热度**: ✅ HuggingFace Papers 推荐 | ✅ dair_ai 周报 Top 10（7/13-19）| ✅ LinkedIn 多位研究者转载
+
+**核心**: 提出 **OAT（One-class Agent Tracing）** — 用 Neural Controlled Differential Equations（神经控制微分方程）在 latent space 建模成功轨迹的"正常流"，然后在推理时检测失败轨迹中每一步是否偏离此流。
+
+#### 核心发现
+| # | 发现 | 详细内容 |
+|:-:|:----|:---------|
+| 1 | **无监督失败归因** | 仅用 100 条成功轨迹训练，无需标注失败数据。推理时自动给出异常步分数 |
+| 2 | **OAT 方法** | Neural CDE 建模连续 latent 路径，+ 门控控制路径处理 OOD |
+| 3 | **200–5000× 比 prompting 更快** | 零 token 开销，<1GB VRAM。GPT-4o/5 需要 ~10K tokens + ~5000ms，OAT 只要 1-25ms |
+| 4 | **F1 提升** | 域内 +20%，跨域 +7%（从单 agent tool calling 泛化到多 agent）|
+| 5 | **两种检测策略** | Top-k 检测（取 3 个最高分步）+ 共形预测（自适应阈值，miscoverage α=0.2）|
+
+#### 与我们现有工作的交叉对比
+| 论文说的 | 我们已有的 | 状态 |
+|:---------|:----------|:----:|
+| 无监督失败归因—仅用成功轨迹识别失败步 | verification + self_evolution collect_metrics() | ⚠️ 方向一致，我们靠 tool call 日志+规则，论文靠 latent space 建模 |
+| Anomaly score 定位到具体步 | behavioral_constraints #6 "重复工具>3次→强制读盘" | ⚠️ 等价但实现不同—论文是连续建模，我们是硬规则触发 |
+| 共形预测自适应阈值（不硬编码 k） | bc #6 的硬编码 >3 | ❌ 差距—可借鉴共形预测思想让阈值自适应 |
+
+#### 尚未代码落地的差距
+| 差距 | 论文方案 | 改动建议 |
+|:----|:--------|:--------|
+| 无失败轨迹的显式建模 | 论文用 Neural CDE | **不复制 CDE**，可吸收两步策略：①每次验证失败时记失败轨迹 ②定期聚类看是否出现重复模式 |
+| 无自适应阈值 | 共形预测 | bc #6 硬编码 >3 可改为动态计算阈值（超过近期均值 2 倍标准分→触发），~15 行 |
+
+#### 对我们最核心的启示
+> **"只学习成功路径的动力学，然后检测失败路径中哪些步偏离了"** — 这正是 Self-Harness 方向的核心。论文验证了方向，但不需立即代码落地。**等 ≥3 种不同失败模式自然积累后，再按两点策略实现。**
+
+---
+
+### #22 Welcome to the Era of Experience — ✅ [x] 深读完成，信息级吸收
+
+**来源**: Google DeepMind — David Silver, Richard S. Sutton
+**日期**: 2026年（MIT Press book chapter）
+**热度**: ✅ VentureBeat 报道 | ✅ Reddit r/MachineLearning 74 upvotes / 59 评论 | ✅ Semantic Scholar 187 引用
+
+| 大神级别 | 证据 |
+|:--------|:-----|
+| **David Silver** | DeepMind RL VP，AlphaGo/AlphaZero/AlphaFold 核心领导人 |
+| **Richard Sutton** | "强化学习之父"，RL 经典教科书作者 |
+
+#### 核心论点：三个时代框架
+| 时代 | 数据来源 | 代表系统 | 能力上限 |
+|:----|:--------|:--------|:--------|
+| **模拟时代** | 自对弈生成 | AlphaGo, AlphaZero | 封闭环境，明确奖励 |
+| **人类数据时代** | 人类文本/标注/反馈 | GPT-5.5, Claude, Gemini | 受限于人类已有知识 |
+| **经验时代** (即将到来) | Agent 自我生成 | 未来的 Agent | 超越人类知识边界 |
+
+#### 与我们的直接关系
+Self-Harness 的核心思想——"Agent 从自身失败中持续学习改进"——不是小众念头，而是 Silver+Sutton 认为的 AI 下一个时代的核心特征。我们的蒸馏、verification、self_evolution、behavioral_constraints 都属于"经验时代"框架范畴。
+
+**吸收建议：信息级吸收，不代码落地。** 这篇是立场论文，定义方向但不给实现。差距（世界模型、规划层）不在本论文指导范围内。
