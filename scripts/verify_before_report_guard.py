@@ -42,14 +42,15 @@ CLAIM_PATTERNS = [
 VERIFICATION_TOOL_PATTERNS = [
     "read_file",
     "json.load",
-    'terminal.*cat.*persistent',
-    'terminal.*cat.*\.json',
-    'terminal.*cat.*\.md',
-    "json\\.load",
-    "json\\.dumps",
-    "write_file",      # 写后再写不算验证
-    "patch",            # patch 改文件不算验证
+    r'terminal.*cat.*persistent',
+    r'terminal.*cat.*\.json',
+    r'terminal.*cat.*\.md',
+    r"json\.load",
+    r"json\.dumps",
+    # NOTE: write_file and patch are intentionally included so the regex
+    # check below matches them but then EXCLUDES them via the "skip" logic:
 ]
+
 
 def has_claim(text: str) -> bool:
     """检查文本是否包含声称性结论"""
@@ -61,9 +62,10 @@ def has_claim(text: str) -> bool:
             return True
     return False
 
+
 def has_verification_call(tool_history: list, lookback: int = 5) -> bool:
     """检查最近 lookback 条工具调用中是否包含验证操作
-    
+
     验证操作定义：至少一次 read_file / json.load / terminal cat 到持久化文件
     """
     if not tool_history:
@@ -73,15 +75,20 @@ def has_verification_call(tool_history: list, lookback: int = 5) -> bool:
         call_str = json.dumps(call).lower() if isinstance(call, dict) else str(call).lower()
         for vpat in VERIFICATION_TOOL_PATTERNS:
             if re.search(vpat, call_str):
-                # read_file 肯定算；terminal cat 必须是读 data/ 或 docs/ 才可信
+                # Skip patterns that are NOT real verification:
+                # - terminal cat without persistent/json/md paths
+                # - write_file / patch (these modify, not verify)
                 if "cat" in vpat and "persistent" not in call_str and ".json" not in call_str and ".md" not in call_str:
+                    continue
+                if vpat in ("write_file", "patch") or re.fullmatch(r"write_file|patch", vpat):
                     continue
                 return True
     return False
 
+
 def check_verification(output_text: str, tool_call_history: list) -> dict:
     """主入口：检查输出是否需要阻止
-    
+
     返回:
         {"blocked": bool, "message": str, "reason": str}
     """
