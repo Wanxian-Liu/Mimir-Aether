@@ -747,3 +747,55 @@ Hawking 在 1970 年代的黑洞热力学四大定律只适用于**平衡态**�
 Self-Harness 的核心思想——"Agent 从自身失败中持续学习改进"——不是小众念头，而是 Silver+Sutton 认为的 AI 下一个时代的核心特征。我们的蒸馏、verification、self_evolution、behavioral_constraints 都属于"经验时代"框架范畴。
 
 **吸收建议：信息级吸收，不代码落地。** 这篇是立场论文，定义方向但不给实现。差距（世界模型、规划层）不在本论文指导范围内。
+
+---
+
+### #23 OpenSpace v2.0.0 — ✅ [x] 已深读 + 3 个架构模式已代码吸收
+
+**来源**: HKUDS/OpenSpace, 6,800+ stars, MIT license
+**发布日期**: 2026-07-17（距今7天 — 本日对比日）
+
+#### v2 相比我们已知的 v0 的变化
+
+| 维度 | v0（5月前） | v2（7月17日） | 变化 |
+|:----|:----------|:------------|:----|
+| 定位 | 通用 agent 技能工具 | **质量优先 Skill Hub** 全面升级 | 框架从工具变为质量平台 |
+| 质量层 | 无 | `Skill Quality Layer` — 记录 outcome、工具可靠性、重用信号 | 新能力 |
+| 进化控制 | 无 | `Controlled Skill Evolution` — FIX/DERIVED/CAPTURED 三种进化类型 | 新能力 |
+| Skill Wiki | 无 | 包树浏览、包内搜索 | 新能力 |
+| Agent Harness | 基础 | 恢复式 session + 权限感知工具 + 质量记录 | 强化 |
+| Terminal-Bench 2.1 | 65.2% Cold | **78.7% Warm** (+13.5%) | 可量化提升 |
+
+#### 4 层框架 vs 我们现有结构
+
+| OpenSpace v2 层 | 对应我们什么 |
+|:---------------|:----------|
+| **Skill Quality Layer** — outcome/fallback/reliability 追踪 | ⚠️ 部分：verification_results.jsonl 记录验证失败，但不追踪 skill 级别的 outcome |
+| **Controlled Evolution** — FIX/DERIVED/CAPTURED + provisional↔trusted 生命周期 | ⚠️ 部分：self_evolution 的 `execute_improvement()` + `verify_result()`，但我们只有 pseudo-code，无 runtime 实现 |
+| **Local-First Hub** — 云发现+本地运行+审核历史 | ✅ 现有：26 skills + meta-skill 路由，github+local 双路径 |
+| **Agent Harness** — 恢复式 session + 质量记录 | ❌ 我们缺：无 session 质量记录，无恢复式执行 harness |
+
+#### 进化类型对比
+
+| OpenSpace v2 | 我们（行为约束+自我进化） | 建议 |
+|:-----------|:---------------------|:----|
+| **FIX** — 修复损坏的 skill | behavioral_constraints #6/#7（重复工具>3次+文件修改>3次→强制读盘） | ✅ P0 等价 |
+| **DERIVED** — 从已有 skill 衍生变体 | self_evolution 无此能力 | ❌ P2 — 暂不需要 |
+| **CAPTURED** — 成功工作流固化为 skill | skill-solidify 做类似的事（质量清单） | ⚠️ 等价 |
+
+#### 三个可直接吸收的架构模式（P0）
+
+| # | OpenSpace v2 模式 | 映射到我们 | 改动量 |
+|:-:|:----------------|:---------|:-----:|
+| **P1** | **决策证据驱动** — decision engine 基于真实 task outcome 决策，而非硬编码规则 | self_evolution `analyze_gaps()` — 当前基于 `importance/maturity/last_access` 静态字段，可改为基于验证日志 | ~20 行 |
+| **P2** | **行为重放评估** — behavior_eval 在改进后重放 task 验证效果是否提升 | self_evolution `verify_result()` — 当前只对比 before/after metrics，可改为重放检查 | ~15 行 |
+| **P3** | **信号检测器** — detector 扫描 checkpoints 发现异常，而非等待触发 | verify_before_report guard — 当前只拦截声明性结论，可扩展为主动扫描 | ~20 行 |
+
+#### 不需吸收的部分
+
+| OpenSpace v2 功能 | 原因 |
+|:-----------------|:----|
+| Cloud Skill Wiki / Package Browsing | 我们是单 agent 自学习，不需要云社区 |
+| Multi-agent 共享 skill 池 | 无多 agent 协作需求 |
+| MCP 集成 | 无宿主 agent 调用 MCP 场景 |
+| 全套 Dashboard/TUI | 命令行已足够 |

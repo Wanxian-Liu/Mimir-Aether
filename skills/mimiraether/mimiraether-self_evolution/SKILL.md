@@ -421,20 +421,57 @@ class SelfEvolutionSkill:
         return metrics
 
     async def analyze_gaps(self, metrics: dict) -> dict:
-        """分析差距"""
-        anomalies = await self.collector.detect_anomalies(metrics)
+        """分析差距 — 证据驱动（OpenSpace v2 Pattern: Evidence-Driven Decision）
 
-        if not anomalies:
+        除 collectors 的 anomalies 外，还从 verification_results.jsonl 读取真实失败数据，
+        将验证日志中的失败 pattern 作为 gap 触发证据，而非仅依赖硬编码规则。
+        """
+        anomalies = await self.collector.detect_anomalies(metrics)
+        evidence_gaps = self._load_evidence_gaps()  # 从验证日志加载真实失败证据
+
+        gaps = list(anomalies)
+        gaps.extend(evidence_gaps)
+
+        if not gaps:
             return {"gaps": [], "priority_gap": None}
 
-        root_cause = await self.ring.analyze_root_cause(anomalies)
+        root_cause = await self.ring.analyze_root_cause(gaps)
         strategies = await self.ring.generate_strategies(root_cause)
         
         return {
             "root_cause": root_cause,
             "strategies": strategies,
-            "anomaly_count": len(anomalies)
+            "anomaly_count": len(anomalies),
+            "evidence_gap_count": len(evidence_gaps),  # 新增：证据驱动 gap 数量
         }
+
+    def _load_evidence_gaps(self) -> list:
+        """从 verification_results.jsonl 读取验证失败记录作为 gap 证据
+
+        OpenSpace v2 核心模式: decision engine 基于真实 task outcome 决策
+        - 读取最近 N 条验证记录
+        - 筛选出 failed 条目
+        - 按 failure_type 聚合
+        - 返回聚合后的 evidence 列表
+        """
+        import json
+        from pathlib import Path
+        log_path = Path(get_mimir_home()) / "data" / "verification_results.jsonl"
+        if not log_path.exists():
+            return []
+        failures = {}
+        with open(log_path) as f:
+            for line in f:
+                entry = json.loads(line)
+                if not entry.get("passed", True):
+                    ftype = entry.get("failure_type", "unknown")
+                    failures[ftype] = failures.get(ftype, 0) + 1
+        # 只有出现 2+ 次的同一 failure_type 才作为 gap 证据（防止噪声）
+        return [
+            {"type": ftype, "evidence_count": count, "source": "verification_log"}
+            for ftype, count in failures.items()
+            if count >= 2
+        ]
     
     async def execute_improvement(self, plan: dict) -> dict:
         """执行改进"""
@@ -456,11 +493,39 @@ class SelfEvolutionSkill:
         }
     
     async def verify_result(self, before: dict, after: dict, execution) -> dict:
-        """验证结果"""
+        """验证结果 — 行为重放评估（OpenSpace v2 Pattern: Behavior Replay Evaluation）
+
+        两阶段验证：
+        Stage 1 — 常规对比：before vs after metrics 对比（现有逻辑）
+        Stage 2 — 重放检查：重新运行改进策略的验证条件，重放执行过程以确认效果
+        """
+        # Stage 1: 常规对比
         verified = await self.ring.verify(execution, {})
+        
+        # Stage 2: 重放检查 — 重新加载最关键的条件确认盘上数据变化
+        replay_passed = True
+        replay_evidence = {}
+        if hasattr(execution, 'verification_conditions') and execution.verification_conditions:
+            for condition in execution.verification_conditions:
+                # 重新检查条件：读盘确认变化持久化
+                import json
+                from pathlib import Path
+                check_path = condition.get('check_path', '')
+                expected = condition.get('expected', None)
+                if check_path and Path(check_path).exists():
+                    try:
+                        current = json.loads(Path(check_path).read_text()) if check_path.endswith('.json') else Path(check_path).read_text().strip()
+                        replay_passed = replay_passed and (current == expected if expected else True)
+                        replay_evidence[condition.get('name', check_path)] = 'passed' if replay_passed else 'failed'
+                    except Exception:
+                        replay_passed = False
+                        replay_evidence[condition.get('name', check_path)] = 'read_error'
+        
         return {
-            "verification_passed": verified,
-            "effectiveness": execution.effectiveness_score
+            "verification_passed": verified and replay_passed,
+            "effectiveness": execution.effectiveness_score,
+            "replay_verification": replay_passed,
+            "replay_evidence": replay_evidence if replay_evidence else None,
         }
     
     async def run_cycle(self) -> dict:

@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """
-verify_before_report_guard.py — 声称"完成"前必须验证的运行时守卫。
+verify_before_report_guard.py — 声称\"完成\"前必须验证的运行时守卫。
 
-触发条件：在 Agent 输出包含声称性结论（"已完成"/"已修"/"已验证"等）时，
+触发条件：在 Agent 输出包含声称性结论（\"已完成\"/\"已修\"/\"已验证\"等）时，
 检查最近 N 条工具调用是否包含至少一次验证操作（read_file / json.load / terminal cat）。
 如果没有，则阻止该输出，并返回提示消息。
+
+OpenSpace v2 Pattern: Signal Detector (P3)
+  — 扩展版支持主动扫描模式：在 Agent 开始响应前检查 verification_results.jsonl
+    中是否有未处理的验证失败记录，提前发出预警而非等到 claim 出现才反应。
 
 Env gate: MIMIR_VERIFY_BEFORE_REPORT=1 (default: enabled)
 
@@ -14,13 +18,21 @@ Env gate: MIMIR_VERIFY_BEFORE_REPORT=1 (default: enabled)
     if result['blocked']:
         print(result['message'])
 
+    # 主动扫描模式（OpenSpace v2 P3）:
+    from scripts.verify_before_report_guard import proactive_scan
+    scan_result = proactive_scan()
+    if scan_result['has_unresolved_failures']:
+        print(f\"警告：有 {scan_result['failure_count']} 个未处理的验证失败\")
+
 用法 (命令行):
-    python3 verify_before_report_guard.py --check "已完成" --calls read_file,web_search
+    python3 verify_before_report_guard.py --check \"已完成\" --calls read_file,web_search
+    python3 verify_before_report_guard.py --scan   # 主动扫描模式
 """
 
 import os
 import re
 import json
+from pathlib import Path
 
 # 声称性结论的触发词
 CLAIM_PATTERNS = [
@@ -116,6 +128,55 @@ def check_verification(output_text: str, tool_call_history: list) -> dict:
     }
 
 
+def proactive_scan(max_lookback: int = 10) -> dict:
+    """主动扫描模式 — OpenSpace v2 P3: Signal Detector
+
+    在 Agent 开始响应前检查 verification_results.jsonl 中是否有
+    未处理的验证失败记录，提前发出预警而非等到 claim 出现才反应。
+
+    返回:
+        {
+            "has_unresolved_failures": bool,
+            "failure_count": int,
+            "failures": [{"time": str, "failure_type": str, "detail": str}],
+            "scan_time": str
+        }
+    """
+    from mimir_constants import get_mimir_home
+    log_path = Path(get_mimir_home()) / "data" / "verification_results.jsonl"
+    if not log_path.exists():
+        return {
+            "has_unresolved_failures": False,
+            "failure_count": 0,
+            "failures": [],
+            "scan_time": __import__("datetime").datetime.now().isoformat()
+        }
+
+    failures = []
+    with open(log_path) as f:
+        lines = f.readlines()
+        # 只读最近 max_lookback 条
+        for line in lines[-max_lookback:]:
+            try:
+                entry = json.loads(line)
+                if not entry.get("passed", True):
+                    failures.append({
+                        "time": entry.get("timestamp", "unknown"),
+                        "failure_type": entry.get("failure_type", "unknown"),
+                        "detail": entry.get("message", "")
+                    })
+            except (json.JSONDecodeError, KeyError):
+                continue
+
+    now = __import__("datetime").datetime.now().isoformat()
+    return {
+        "has_unresolved_failures": len(failures) > 0,
+        "failure_count": len(failures),
+        "failures": failures,
+        "scan_time": now
+    }
+
+
 if __name__ == "__main__":
     import sys
     import argparse
@@ -123,10 +184,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="验证守卫：检查声称前是否先验证")
     parser.add_argument("--check", help="要检查的文本")
     parser.add_argument("--calls", help="逗号分隔的工具调用列表")
+    parser.add_argument("--scan", action="store_true", help="主动扫描模式（检查未处理的验证失败）")
     args = parser.parse_args()
 
-    text = args.check or "已完成"
-    calls = [{"tool": c.strip()} for c in (args.calls or "").split(",") if c.strip()]
-    result = check_verification(text, calls)
-
-    print(json.dumps(result, indent=2, ensure_ascii=False))
+    if args.scan:
+        result = proactive_scan()
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    else:
+        text = args.check or "已完成"
+        calls = [{"tool": c.strip()} for c in (args.calls or "").split(",") if c.strip()]
+        result = check_verification(text, calls)
+        print(json.dumps(result, indent=2, ensure_ascii=False))
