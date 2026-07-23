@@ -619,22 +619,89 @@ Hawking 在 1970 年代的黑洞热力学四大定律只适用于**平衡态**�
 
 **吸收状态**: 信息级理解，主要价值在"AI 辅助证明"的方法论层面。不做深度代码吸收。  
 
-### #19 Frank Merle 2026 Breakthrough Prize / Hong Wang 3D Kakeya 猜想 — ✅ [x] 已吸收，信息级理解  
+### #19 Frank Merle 2026 Breakthrough Prize / Hong Wang 3D Kakeya 猜想 — ✅ [x] 已吸收，信息级理解
 
-**来源**: 2026 Breakthrough Prize in Mathematics（$3M）  
-**得主**: Frank Merle（CY Cergy Paris / IHES）  
+| 维度 | 价值 |
+|:----|:-----|
+| 直接工具性 | ❌ 纯数学，不改变代码 |
+| 方法性 | ⭐ Hong Wang 的 Kakeya 证明用了"多尺度分解"——同一问题的不同尺度用不同工具，和 persistent.json 三层结构（kd/lp/bc）的方法论一致 |
+| 认知性 | Breakthrough Prize 的 $3M + 媒体曝光 = 数学对公众的可见度提升 |
 
-**核心成就**:  
-- 非线性演化方程奇点形成（blow-up）的完整分类  
-- 证明了"散焦型"非线性薛定谔方程也会爆破——推翻半个世纪的假设  
+**吸收状态**: 信息级理解。不做深度代码吸收。
 
-**同届值得关注的年轻获奖者**:  
+---
+
+### #20 DeepMind — LLM Overthinking: TRACE 框架与效用定义 — 🔄 深入分析中，部分吸收待代码落地
+
+**完整标题**: Do LLMs Really Need 10+ Thoughts for "Find the Time 1000 Days Later"? Towards Structural Understanding of LLM Overthinking
+
+**来源**: Google DeepMind, ACL 2026（7月7-12日，圣地亚哥），arXiv:2510.07880, 30页, 41图, 10表
+**发布日期**: 2026年7月2日（3周前）
+
+#### 核心贡献
+
+| # | 发现 | 内容 |
+|:-:|:----|:------|
+| 1 | **TRACE 框架** | Thought-process Reconstruction and Automated Clustering Engine — 4 阶段：采样 → 子思维分解与标签推断 → 渐进图构建 → 聚类归纳模式 |
+| 2 | **两种过思考模式** | **Explorer**（多路径探索后收敛，大模型特有）和 **Late Landing**（单路径反复验证，中小模型为主）|
+| 3 | **效用定义** | Overthinking = convergence point 之后的推理，边际收益 < ε。不再是基于长度，而是基于"还有没有用"|
+| 4 | **管理启发式** | Self-looping（连续 k 次验证相同答案→终止）+ Backtrack（回到之前答案→终止）|
+
+#### 关键量化结果
+
+| 度量 | 数值 |
+|:----|:-----|
+| Thinking 模型在简单任务上 | **5–20× 更慢**，无精度提升（>4B-8B 模型）|
+| GSM8k 思考浪费 | **~80% 的计算量浪费**在过思考上 |
+| Self-looping (k=2) + Backtrack | 精度不变，**长度减半**（2700→1100 tokens，~60% 节省）|
+| Self-looping (k=3) | 精度 80.18（-3 分），**成本降 40%**（4000→2463 tokens）|
+
+#### 与我们现有工作的交叉对比
+
+| 论文说的 | 我们已有的 | 状态 |
+|:---------|:----------|:----:|
+| **Self-looping**: 连续 k 次验证相同答案→终止 | behavioral_constraints #6: "同一工具/验证循环中重复 >3 次相同调用且盘上数据未变 → 强制回到读盘确认" | ✅ **代码落地** — bc #6 于 7/18 写入 persistent.json |
+| **Backtrack heuristic**: 回到之前答案→终止 | verify_before_report guard: 检测到未验证的结论→[BLOCKED]阻止输出 | ⚠️ 功能等价但实现不同（我们的在 guard 层，论文的在推理层）|
+| **Explorer 模式**（多路径尝试后收敛）| 我 16 轮修蒸馏（换了多种路径）| ✅ 行为匹配 |
+| **Late Landing**（单路径反复验证）| self_evolution analyze_gaps() over_verification 检测（repeat_tool_calls > 3）| ✅ 代码级匹配 |
+| **效用定义**: convergence point + marginal return | 我们的 bc #6-#8 从"长度"改为"效用"（验证通过才接受，不通过→block）| ✅ 同方向 |
+| **TRACE 框架**（子思维分解→渐进图）| verification skill 的"4层验证"（读盘→交叉→自问→输出）| ⚠️ 结构相似但无 graph 可视化 |
+
+#### 尚未代码落地的差距（待推进）
+
+| 差距 | 论文方案 | 改动建议 |
+|:----|:--------|:--------|
+| 无 convergence point 检测 | 论文用 utility tracing + marginal return | self_evolution 中加"验证工具调用次数 vs 数据变化量"的自回归判断，~20 行 |
+| 无 Explorer pattern 检测 | 论文通过渐进图识别多路径分支 | self_evolution analyze_gaps() 中加路径分支计数（不同工具或方法尝试次数），~15 行 |
+| 无 self-looping 的显式终止计数 | k=2 或 k=3 后强制终止 | bc #6 已有 >3 次触发读盘，可加更优雅的 k 参数化配置，~10 行 |
+
+#### 对我们最重要的吸收
+
+> **这篇论文不是"告诉我们有新东西要学"——是把我们已在做但未系统化的东西（bc #6 的重复调用→读盘、self_evolution 的 over-verification 检测、grad 的 explorer 行为）用 DeepMind 级别的理论框架系统化了。**
+
+吸收优先级:
+1. **P0**: convergence point 检测（~20 行，改 self_evolution）— 让"这次是过度检查还是真正需要"的判断自动化
+2. **P1**: Explorer pattern 检测（~15 行，改 analyze_gaps）— 区分"在探索"和"在重复"
+3. **P2**: k 参数化 self-looping（~10 行，改 bc 定义）— 从硬编码 3 改为可配置
+
+---
+
+### #19 Frank Merle 2026 Breakthrough Prize / Hong Wang 3D Kakeya 猜想 — ✅ [x] 已吸收，信息级理解
+
+**来源**: 2026 Breakthrough Prize in Mathematics（$3M）
+**得主**: Frank Merle（CY Cergy Paris / IHES）
+
+**核心成就**:
+- 非线性演化方程奇点形成（blow-up）的完整分类
+- 证明了"散焦型"非线性薛定谔方程也会爆破——推翻半个世纪的假设
+
+**同届值得关注的年轻获奖者**:
 | 数学家 | 奖项 | 成就 |
 |:-----|:----|:------|
 | **Hong Wang**（NYU/IHES，华人） | New Horizons Prize | **解决了 3 维 Kakeya 猜想**（百年未解） |
 | **Yunqing Tang**（UC Berkeley，华人） | New Horizons Prize | 算术几何重要突破 |
 
-**对我们的价值**:  
+**对我们的价值**:
 | 维度 | 价值 |
 |:----|:-----|
 | 直接工具性 | ❌ 纯数学，不改变代码 |
@@ -642,3 +709,59 @@ Hawking 在 1970 年代的黑洞热力学四大定律只适用于**平衡态**�
 | 认知性 | Breakthrough Prize 的 $3M + 媒体曝光 = 数学对公众的可见度提升 |
 
 **吸收状态**: 信息级理解，不做深度代码吸收。
+
+---
+
+### #21 Tracing Agentic Failure from the Flow of Success — ✅ [x] 深读完成，待评估是否代码落地
+
+**来源**: Samuel Yeh (UW-Madison), Yiwen Zhu, Shaleen Deep (Microsoft Research), Sharon Li (UW-Madison), arXiv:2607.12747v1, CC-BY 4.0
+**日期**: 2026年7月16日（1周前）
+**热度**: ✅ HuggingFace Papers 推荐 | ✅ dair_ai 周报 Top 10（7/13-19）| ✅ LinkedIn 多位研究者转载
+
+**核心**: 提出 **OAT（One-class Agent Tracing）** — 用 Neural Controlled Differential Equations（神经控制微分方程）在 latent space 建模成功轨迹的"正常流"，然后在推理时检测失败轨迹中每一步是否偏离此流。
+
+#### 核心发现
+
+| # | 发现 | 详细内容 |
+|:-:|:----|:---------|
+| 1 | **无监督失败归因** | 仅用 100 条成功轨迹训练，无需标注失败数据。推理时自动给出异常步分数 |
+| 2 | **OAT 方法** | Neural CDE 建模连续 latent 路径，+ 门控控制路径处理 OOD（out-of-distribution） |
+| 3 | **200–5000× 比 prompting 更快** | 零 token 开销，<1GB VRAM。GPT-4o/5 需要 ~10K tokens + ~5000ms，OAT 只要 1-25ms |
+| 4 | **F1 提升** | 域内 +20%，跨域 +7%（从单 agent tool calling 泛化到多 agent） |
+| 5 | **两种检测策略** | Top-k 检测（取 3 个最高分步）+ 共形预测（自适应阈值，miscoverage α=0.2） |
+
+#### 与我们现有工作的交叉对比
+
+| 论文说的 | 我们已有的 | 状态 |
+|:---------|:----------|:----:|
+| 无监督失败归因 — 仅用成功轨迹识别失败步 | verification skill 的"读盘后再开口"、self_evolution collect_metrics() | ⚠️ 方向一致，但我们靠 tool call 日志+规则，论文靠 latent space 建模 |
+| Anomaly score 定位到具体步 | behavioral_constraints #6 的"重复工具>3次→强制读盘" | ⚠️ 等价但实现不同 — 论文是连续建模，我们是硬规则触发 |
+| 跨域泛化（仅训练单 agent，泛化到多 agent、不同 LLM） | skill 跨域能力未经测试 | ❌ 缺类似的跨域验证 |
+| 门控控制路径处理 OOD | verify_before_report guard 的 [BLOCKED] 机制 | ⚠️ 功能等价 — 都是自主抑制不可靠信号 |
+| 共形预测自适应阈值（不硬编码 k） | bc #6 的硬编码 >3 | ❌ 差距 — 可借鉴共形预测思想让阈值自适应 |
+
+#### 与我们最直接对应的关系
+
+> **"只学习成功路径的动力学，然后检测失败路径中哪些步偏离了"** — 这正是你每次"回头看看"后在做的：你知道什么是"正常流"（读盘→验证→汇报），然后检测我哪一步偏离到了"声称成功但没验证"。
+>
+> 论文的方法把这个过程自动化了：OAT 学了 100 条成功轨迹后，可以在新轨迹中自动标注异常步——和我们 Self-Harness 的半自动化方向完全同构。
+
+#### 尚未代码落地的差距
+
+| 差距 | 论文方案 | 改动建议 |
+|:----|:--------|:--------|
+| 无失败轨迹的显式建模 | 论文用 Neural CDE 在 latent space 建模连续路径，分配 anomaly score | **不复制 CDE**（需要 ML 训练，复杂度高）。可吸收**两步策略**：① 每次验证失败时记失败轨迹（时间戳+失败类型+工具调用序列）② 定期聚类失败轨迹看是否出现重复模式 |
+| 无自适应阈值 | 论文用共形预测，从校准集算出自适应阈值 | bc #6 当前硬编码 >3。可改为从最近 5 次验证失败的重复次数动态计算阈值（如：超过近期均值的 2 倍标准差分→触发），~15 行 |
+| 无跨域验证 | 论文在 MCP-Atlas 训练，在 Who&When 测试 | 我们无正式跨域评估机制。不归因于这个 paper，但可列为长期改进方向 |
+
+#### 对我们最重要的吸收
+
+三个层次（优先级排列）：
+
+| 优先级 | 吸收 | 内容 | 改动量 |
+|:-----:|:----|:-----|:------:|
+| P0 | **失败轨迹记录** | 每次 verification 失败时，记一条 JSONL：`{timestamp, failure_type, assertion, tool_sequence, current_kd_count}` | ~10 行，加进 verification skill |
+| P1 | **自适应阈值** | bc #6 的 >3 硬编码改为动态：从最近 5-10 条失败轨迹计算阈值 | ~15 行，改 behavioral_constraints 注入逻辑 |
+| P2 | **失败轨迹聚类** | 定期（蒸馏时）聚类失败轨迹，看是否出现重复模式 | ~20 行，改 self_evolution collect_metrics() |
+
+**如果不做任何代码改动，这篇论文的最核心价值是强化了一个认知：** 失败归因不需要等到有人手动"回头看看"——它是可以被自动化检测的，而且只需要成功轨迹做训练数据。验证了我们 Self-Harness 方向的对。**评估结论：暂不代码落地。等 ≥3 种不同的失败模式自然积累后，再按两点策略实现。**
