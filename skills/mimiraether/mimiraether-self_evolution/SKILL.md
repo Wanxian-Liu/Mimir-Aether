@@ -39,6 +39,10 @@ async def collect_metrics() -> Dict[str, Any]:
         "cpu_usage": psutil.cpu_percent() / 100,
         "context_length": 当前上下文长度比例,
         "session_count": len(active_sessions),
+
+        # 验证失败指标（从 verification 日志读取）
+        "verification_failures": self._count_verification_failures(),
+        "repeat_tool_calls": self._count_repeat_tool_calls(),
         
         # 进化相关指标
         "cycle_count": three_ring.cycle_count,
@@ -104,6 +108,23 @@ async def analyze_gaps(metrics: Dict[str, Any]) -> Dict[str, Any]:
             "recommendation": "increase_exploration or review_strategies"
         })
     
+    # 检测失败原因分类（Kairos 后悔感知模式 — arXiv:2606.16533）
+    # 当 collect_metrics 扩展后支持以下分类：
+    # "key_not_injected" — API key 注入失败（dream_memory L447）
+    # "os_replace_skipped" — 文件替换未执行（_save_persistent）
+    # "path_not_found" — 读错了 JSON 嵌套路径
+    # "verification_skipped" — 改完后没读盘验证
+    failure_types = metrics.get("failure_causes", {})
+    known_failures = ["key_not_injected", "os_replace_skipped", "path_not_found", "verification_skipped"]
+    for ftype in known_failures:
+        count = failure_types.get(ftype, 0)
+        if count >= 2:
+            gaps.append({
+                "type": f"recurring_failure_{ftype}",
+                "severity": min(1.0, count * 0.2),
+                "recommendation": f"read_before_act — 回退到读盘确认，不继续{ftype}路径"
+            })
+
     # 检测过度验证（同一工具调用 >3 次未改变盘上数据）
     # 指标来源：verification skill 的调用计数器；collect_metrics 需扩展
     repeat_calls = metrics.get("repeat_tool_calls", 0)
@@ -358,6 +379,41 @@ class SelfEvolutionSkill:
         self.collector = MonitorCollector()
         self.ring = DecisionRing()
         self._initialized = True
+    
+    def _count_verification_failures(self) -> dict:
+        \"\"\"从 verification_results.jsonl 读取验证失败统计\"\"\"
+        import json
+        from pathlib import Path
+        log_path = Path(get_mimir_home()) / "data" / "verification_results.jsonl"
+        if not log_path.exists():
+            return {"total": 0, "by_type": {}}
+        failures = {"total": 0, "by_type": {}}
+        with open(log_path) as f:
+            for line in f:
+                entry = json.loads(line)
+                if not entry.get("passed", True):
+                    failures["total"] += 1
+                    ftype = entry.get("failure_type", "unknown")
+                    failures["by_type"][ftype] = failures["by_type"].get(ftype, 0) + 1
+        return failures
+    
+    def _count_repeat_tool_calls(self) -> int:
+        \"\"\"从 verification_results.jsonl 读取同一工具反复调用次数\"\"\"
+        import json
+        from pathlib import Path
+        log_path = Path(get_mimir_home()) / "data" / "verification_results.jsonl"
+        if not log_path.exists():
+            return 0
+        calls = {}
+        with open(log_path) as f:
+            for line in f:
+                entry = json.loads(line)
+                tool = entry.get("tool", "unknown")
+                if tool not in calls:
+                    calls[tool] = []
+                calls[tool].append(entry.get("timestamp", ""))
+        # 返回同一工具调用次数的最大值
+        return max((len(v) for v in calls.values()), default=0)
     
     async def collect_metrics(self) -> dict:
         """收集系统指标"""

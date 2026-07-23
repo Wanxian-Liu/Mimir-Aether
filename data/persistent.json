@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "last_session_end": "2026-07-20T23:27:01.934914+00:00",
-  "session_count": 319,
+  "last_session_end": "2026-07-23T13:41:51.197678+00:00",
+  "session_count": 316,
   "identity": {
     "name": "MimirAether",
     "soul": "智慧之泉",
@@ -14,13 +14,13 @@
         "context": "提升跨会话记忆可靠性",
         "tip_type": "optimization",
         "cause_chain": {
-          "direct": "手动注入不可靠",
-          "proximate": "需要自动化和健壮性",
-          "root": "系统稳定性需求"
+          "direct": "手动注入效率低且易遗漏",
+          "proximate": "需要更可靠的跨会话上下文",
+          "root": "系统缺乏自动化记忆管理"
         },
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -28,55 +28,55 @@
         "context": "确保技能加载行为一致",
         "tip_type": "strategy",
         "cause_chain": {
-          "direct": "技能沉默问题",
-          "proximate": "标记格式不统一",
+          "direct": "技能沉默问题频发",
+          "proximate": "标记格式不统一导致加载失败",
           "root": "缺乏标准化规范"
         },
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
         "decision": "plan-mode升级为完整5阶段流程+模板+验证清单",
-        "context": "减少返工，提升任务效率",
-        "tip_type": "optimization",
+        "context": "减少任务返工",
+        "tip_type": "strategy",
         "cause_chain": {
-          "direct": "任务分解不充分",
-          "proximate": "依赖映射缺失",
-          "root": "流程不完整"
+          "direct": "任务分解不充分导致返工",
+          "proximate": "缺乏结构化流程",
+          "root": "规划阶段不严谨"
         },
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
         "decision": "persistent.json固化：路径和状态写入持久化存储",
-        "context": "确保跨会话状态恢复",
-        "tip_type": "strategy",
+        "context": "确保跨会话状态一致",
+        "tip_type": "optimization",
         "cause_chain": {
-          "direct": "状态丢失",
-          "proximate": "未持久化",
+          "direct": "状态丢失影响会话连续性",
+          "proximate": "路径和状态未持久化",
           "root": "缺乏持久化机制"
         },
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
         "decision": "第4条药方（skill固化）标记完成，靠元规则驱动",
         "context": "减少手动维护",
-        "tip_type": "optimization",
+        "tip_type": "strategy",
         "cause_chain": {
-          "direct": "手动维护成本高",
-          "proximate": "需要自动化",
-          "root": "系统可维护性"
+          "direct": "手动维护技能固化效率低",
+          "proximate": "需要自动化规则",
+          "root": "依赖人工操作"
         },
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -84,41 +84,41 @@
         "context": "修复自进化链路",
         "tip_type": "recovery",
         "cause_chain": {
-          "direct": "路径硬编码和类不存在",
-          "proximate": "代码与实际脱节",
-          "root": "未验证真实API表面"
+          "direct": "自进化链路报错",
+          "proximate": "硬编码路径和不存在类引用",
+          "root": "代码未验证真实API表面"
         },
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
         "decision": "幽灵技能清理完成：删除3空壳+补10frontmatter+3description→106→103零幽灵",
-        "context": "消除无效技能",
+        "context": "减少冗余技能",
         "tip_type": "recovery",
         "cause_chain": {
-          "direct": "幽灵技能积累",
-          "proximate": "生成器禁制被绕过",
-          "root": "write_file创建骨架"
+          "direct": "幽灵技能占用资源",
+          "proximate": "空壳、无头、无描述技能存在",
+          "root": "生成过程缺乏禁制"
         },
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
         "decision": "skills_qa新增detect_ghost_skills()和print_ghost_report()方法",
-        "context": "自动发现幽灵技能",
-        "tip_type": "strategy",
+        "context": "自动化幽灵检测",
+        "tip_type": "optimization",
         "cause_chain": {
-          "direct": "需要自动化检测",
-          "proximate": "手动检测低效",
-          "root": "缺乏QA工具"
+          "direct": "幽灵技能需定期清理",
+          "proximate": "缺乏自动检测工具",
+          "root": "QA流程不完善"
         },
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -127,26 +127,26 @@
         "tip_type": "strategy",
         "cause_chain": {
           "direct": "空壳技能泛滥",
-          "proximate": "生成器无检查",
-          "root": "缺乏生成约束"
+          "proximate": "生成器缺乏内容检查",
+          "root": "禁制缺失"
         },
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
         "decision": "Skill Curator全线落地: 检测/报告/行动建议/胶囊化/复活/闭环",
         "context": "技能管理自动化",
-        "tip_type": "optimization",
+        "tip_type": "strategy",
         "cause_chain": {
-          "direct": "技能管理混乱",
-          "proximate": "需要全流程覆盖",
-          "root": "缺乏统一管理工具"
+          "direct": "技能管理分散",
+          "proximate": "缺乏全流程工具",
+          "root": "系统设计不完整"
         },
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -154,13 +154,13 @@
         "context": "消除外部依赖",
         "tip_type": "strategy",
         "cause_chain": {
-          "direct": "依赖残留",
-          "proximate": "分阶段执行",
-          "root": "系统解耦需求"
+          "direct": "依赖Hermes导致耦合",
+          "proximate": "分阶段脱钩",
+          "root": "架构设计依赖外部"
         },
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -168,13 +168,13 @@
         "context": "减少不必要的自动加载",
         "tip_type": "optimization",
         "cause_chain": {
-          "direct": "启动慢",
-          "proximate": "自动加载过多",
-          "root": "资源优化"
+          "direct": "Self-Prompt自动加载拖慢启动",
+          "proximate": "功能冗余",
+          "root": "设计过度"
         },
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -182,41 +182,41 @@
         "context": "消除硬依赖",
         "tip_type": "strategy",
         "cause_chain": {
-          "direct": "硬依赖残留",
-          "proximate": "需要灵活fallback",
-          "root": "系统弹性需求"
+          "direct": "Gateway依赖不灵活",
+          "proximate": "路径硬编码",
+          "root": "缺乏fallback机制"
         },
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
         "decision": "幻觉根因诊断：推理-行动断层——注入分析→执行→汇报原子化规则",
-        "context": "减少虚假闭合感",
+        "context": "减少虚假闭合",
         "tip_type": "recovery",
         "cause_chain": {
-          "direct": "幻觉产生",
+          "direct": "幻觉导致错误结论",
           "proximate": "推理与行动脱节",
           "root": "缺乏原子化规则"
         },
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
         "decision": "消息去重：从JSONL提取上条用户消息并注入最近对话摘要",
-        "context": "提升上下文准确性",
+        "context": "提升上下文质量",
         "tip_type": "optimization",
         "cause_chain": {
-          "direct": "上下文冗余",
-          "proximate": "未去重",
-          "root": "注入策略不精确"
+          "direct": "上下文重复冗余",
+          "proximate": "未去重导致混乱",
+          "root": "注入逻辑不精细"
         },
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -224,13 +224,13 @@
         "context": "减小持久化体积",
         "tip_type": "optimization",
         "cause_chain": {
-          "direct": "体积过大",
+          "direct": "persistent体积过大",
           "proximate": "历史决策未归档",
-          "root": "缺乏瘦身机制"
+          "root": "缺乏归档机制"
         },
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -238,27 +238,27 @@
         "context": "避免基于错误假设修复",
         "tip_type": "strategy",
         "cause_chain": {
-          "direct": "修复失败",
-          "proximate": "代码与实际脱节",
-          "root": "未验证API"
+          "direct": "修复基于技能自称类名失败",
+          "proximate": "未验证API表面",
+          "root": "信任错误信息"
         },
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
         "decision": "第5条药方残余聚焦：扫描auto_load标记+更新persistent",
-        "context": "完成药方残余工作",
+        "context": "完成药方剩余工作",
         "tip_type": "optimization",
         "cause_chain": {
           "direct": "药方未完全执行",
-          "proximate": "需要聚焦扫描",
-          "root": "任务分解不细"
+          "proximate": "auto_load标记和persistent未同步",
+          "root": "执行不彻底"
         },
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -267,26 +267,26 @@
         "tip_type": "optimization",
         "cause_chain": {
           "direct": "冗余技能占用空间",
-          "proximate": "审计确认安全",
-          "root": "系统清理需求"
+          "proximate": "审计确认无影响",
+          "root": "技能积累过多"
         },
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
         "decision": "蒸馏改为6步手动流程（收集->格式化->追加->压缩->验证->汇报）",
-        "context": "提升数据准确性",
+        "context": "提升蒸馏数据准确性",
         "tip_type": "strategy",
         "cause_chain": {
-          "direct": "蒸馏质量不稳定",
-          "proximate": "流程不规范",
-          "root": "缺乏标准化"
+          "direct": "蒸馏流程不规范导致数据错误",
+          "proximate": "缺乏标准化步骤",
+          "root": "流程设计不完善"
         },
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       }
     ],
@@ -297,7 +297,7 @@
         "tip_type": "recovery",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -306,7 +306,7 @@
         "tip_type": "strategy",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -315,16 +315,16 @@
         "tip_type": "strategy",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
         "pattern": "plan-mode的核心价值在于任务分解和依赖映射，减少返工",
         "evidence": "实施后任务完成效率提升",
-        "tip_type": "optimization",
+        "tip_type": "strategy",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -333,7 +333,7 @@
         "tip_type": "strategy",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -342,7 +342,7 @@
         "tip_type": "recovery",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -351,7 +351,7 @@
         "tip_type": "strategy",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -360,7 +360,7 @@
         "tip_type": "recovery",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -369,7 +369,7 @@
         "tip_type": "strategy",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -378,7 +378,7 @@
         "tip_type": "recovery",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -387,7 +387,7 @@
         "tip_type": "optimization",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -396,16 +396,16 @@
         "tip_type": "optimization",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
         "pattern": "技能固化需依赖元规则驱动而非手动维护",
         "evidence": "第4条药方标记完成时采用元规则",
-        "tip_type": "optimization",
+        "tip_type": "strategy",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -414,7 +414,7 @@
         "tip_type": "recovery",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -423,7 +423,7 @@
         "tip_type": "strategy",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -432,7 +432,7 @@
         "tip_type": "recovery",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -441,16 +441,16 @@
         "tip_type": "strategy",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
         "pattern": "Skill Curator需覆盖检测/报告/行动建议/胶囊化/复活/闭环全流程",
         "evidence": "全线落地后技能管理自动化",
-        "tip_type": "optimization",
+        "tip_type": "strategy",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -459,7 +459,7 @@
         "tip_type": "optimization",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -468,7 +468,7 @@
         "tip_type": "strategy",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -477,7 +477,7 @@
         "tip_type": "optimization",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -486,16 +486,16 @@
         "tip_type": "strategy",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
         "pattern": "技能QA需包含幽灵检测和报告方法",
         "evidence": "新增方法后幽灵技能可自动发现",
-        "tip_type": "strategy",
+        "tip_type": "optimization",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -504,7 +504,7 @@
         "tip_type": "optimization",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -513,7 +513,7 @@
         "tip_type": "optimization",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -522,16 +522,16 @@
         "tip_type": "recovery",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
         "pattern": "先验证真实API表面再修复技能代码，避免相信技能自称的类名",
         "evidence": "SelfDriveEngine不存在于mimicore/evolve/中",
-        "tip_type": "strategy",
+        "tip_type": "recovery",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -540,7 +540,7 @@
         "tip_type": "strategy",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -549,7 +549,7 @@
         "tip_type": "strategy",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       },
       {
@@ -558,7 +558,7 @@
         "tip_type": "recovery",
         "importance": 50,
         "maturity": "draft",
-        "last_access": "2026-07-20T15:00:28.344578+00:00",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
         "decay_factor": 0.95
       }
     ],
@@ -664,39 +664,44 @@
     "skills_used": [],
     "behavioral_constraints": [
       {
-        "rule": "你应该在修改技能代码前先验证真实API表面",
+        "rule": "你应该先验证真实API表面再修复技能代码，避免基于错误假设",
         "source": "distilled",
         "evidence": "基于6条模式/决策的提炼"
       },
       {
-        "rule": "你应该在生成技能时实施空壳禁制（内容<500字或全待实现则拒绝）",
+        "rule": "你应该在技能生成器层面实施空壳禁制（内容<500字或全待实现则拒绝）",
         "source": "distilled",
         "evidence": "基于3条模式/决策的提炼"
       },
       {
-        "rule": "你应该在跨会话操作中同时更新data/persistent.json和memory/persistent.json",
+        "rule": "你应该使用标准化auto_load标记（triggers + priority + description）确保技能加载一致",
         "source": "distilled",
         "evidence": "基于2条模式/决策的提炼"
       },
       {
-        "rule": "你应该在蒸馏记忆时使用标准化6步流程（收集->格式化->追加->压缩->验证->汇报）",
+        "rule": "你应该在跨会话记忆持久化中同时更新data/persistent.json和memory/persistent.json",
         "source": "distilled",
         "evidence": "基于2条模式/决策的提炼"
       },
       {
-        "rule": "你不应该依赖技能模板中声明的类名而不验证其实际存在性",
+        "rule": "你不应该信任技能代码中自称的类名或路径，必须先验证真实API表面",
         "source": "distilled",
         "evidence": "基于3条模式/决策的提炼"
       },
       {
-        "rule": "同一工具/验证循环中重复 >3 次相同调用且盘上数据未变 → 强制回到读盘确认，不继续推理或编新解释",
+        "rule": "同一工具/验证循环中重复>3次相同调用且盘上数据未变→强制回到读盘确认",
         "source": "distilled",
-        "evidence": "基于 DeepMind Overthinking 论文吸收 + 16轮蒸馏调试失败模式"
+        "evidence": "基于2026-07-18 self-evolution分析注入"
       },
       {
-        "rule": "同一文件修改 >3 次不通过（验证失败/盘上数据未变）→ 回退读完整文件，不再增量编辑",
+        "rule": "同一文件修改>3次不通过→回退读完整文件（SkillOpt拒绝编辑缓冲区）",
         "source": "distilled",
-        "evidence": "基于 SkillOpt (arXiv:2605.23904) 拒绝编辑缓冲区概念吸收"
+        "evidence": "基于arXiv:2605.23904 SkillOpt吸收"
+      },
+      {
+        "rule": "声明完成前自动调验证工具链，不通过则不输出",
+        "source": "distilled",
+        "evidence": "基于2026-07-23 自我修复闭环注入"
       }
     ]
   },
@@ -791,7 +796,7 @@
     ],
     "pending_tasks": []
   },
-  "curator_nudge": "skill_curator: 39技能 | fresh=10 stale=27 dormant=2\nstale (30+天未触): mimiraether-degeneration-guard, mimiraether-html-output, mimiraether-skill-integration, mimiraether-strategic-planner, mimiraether-auto-load, mimiraether-brainstorming, mimiraether-capsule-factory, mimiraether-context-compressor, mimiraether-context-engine, mimiraether-heartbeat, mimiraether-hermes-code-study, mimiraether-hermes-integration, mimiraether-physics-reasoner, mimiraether-ralph-core, mimiraether-root-cause-debugging, mimiraether-self_evolution, mimiraether-self_health_check, mimiraether-ship, mimiraether-skill-prune, mimiraether-skill-solidify, mimiraether-tools-system, mimiraether-verification, arxiv, llm-wiki, executing-plans, finishing-a-development-branch, using-git-worktrees\ndormant (60+天未触): mimiraether-cross-session, mimiraether-tool-triggers\naction: 胶囊化2 预警16 复核2",
+  "curator_nudge": "skill_curator: 31技能 | fresh=9 stale=20 dormant=2\nstale (30+天未触): mimiraether-degeneration-guard, mimiraether-html-output, mimiraether-skill-integration, mimiraether-strategic-planner, env-safe-update, mimiraether-study-tree, mimiraether-auto-load, mimiraether-brainstorming, mimiraether-context-compressor, mimiraether-context-engine, mimiraether-heartbeat, mimiraether-hermes-code-study, mimiraether-hermes-integration, mimiraether-ralph-core, mimiraether-root-cause-debugging, mimiraether-self_evolution, mimiraether-self_health_check, mimiraether-ship, mimiraether-tools-system, mimiraether-verification\ndormant (60+天未触): mimiraether-cross-session, mimiraether-tool-triggers\naction: 胶囊化2 预警7 复核4",
   "skill_usage": {
     "mimiraether-agent-benchmark": "2026-05-15T18:03:30.011287+00:00",
     "mimiraether-degeneration-guard": "2026-05-26T08:42:23.548908+00:00",
@@ -882,7 +887,8 @@
     "mimiraether-distillation-execution": "2026-07-12T21:42:58.984422+00:00",
     "dispatching-parallel-agents": "2026-07-15T19:49:08.948676+00:00",
     "receiving-code-review": "2026-07-15T19:49:18.275643+00:00",
-    "using-agent-skills": "2026-07-20T03:15:33.347049+00:00"
+    "using-agent-skills": "2026-07-20T03:15:33.347049+00:00",
+    "feishu-file-upload": "2026-07-21T20:04:06.432061+00:00"
   },
   "dormant_skills": {
     "mimiraether-plan-mode": {
@@ -1166,6 +1172,60 @@
       "original_category": "mimiraether",
       "dormant_at": "2026-07-19T05:20:09.285558+00:00",
       "summary": "Gateway崩溃重启后飞书WebSocket僵死诊断与修复。症状：消息可收到但全部处理失败。根因：WebSocket event loop卡死在closed状态未正确恢复。修复：二次重启Gateway。"
+    },
+    "mimiraether-capsule-factory": {
+      "capsule_path": ".dormant/mimiraether/mimiraether-capsule-factory",
+      "original_category": "mimiraether",
+      "dormant_at": "2026-07-23T06:18:46.607476+00:00",
+      "summary": "MimirAether 胶囊工厂 — 从 Mimicore 提炼出的核心胶囊生成管线。 包含 CapsuleGenerator (911行)、GDIScorer (453行)、EvoMapValidator (674行)、Classifier (645行)。 负责 produce_capsule / get_capsule_by_id / list_capsules / improve_capsule 四个工具的后端逻辑。\n"
+    },
+    "mimiraether-physics-reasoner": {
+      "capsule_path": ".dormant/mimiraether/mimiraether-physics-reasoner",
+      "original_category": "mimiraether",
+      "dormant_at": "2026-07-23T06:18:46.627318+00:00",
+      "summary": "Mimir 物理推理助手 — 路线 1（力学核心求解器）。 自然语言 → 公式匹配 → SymPy 推导 → NumPy 求解 → 自然语言回报。 基于杨立昆 JEPA（不预测像素，预测抽象表征）和李飞飞空间智能（物理接地）。 CPU only，零新增依赖，不改 agent/gateway。\n"
+    },
+    "mimiraether-skill-prune": {
+      "capsule_path": ".dormant/mimiraether/mimiraether-skill-prune",
+      "original_category": "mimiraether",
+      "dormant_at": "2026-07-23T06:18:46.646626+00:00",
+      "summary": "Use when removing unused bundled skills, cleaning upstream Hermes imports, or user says skills are useless—follow git prune SOP; never blind rm. Read with mimiraether-tool-triggers."
+    },
+    "mimiraether-skill-solidify": {
+      "capsule_path": ".dormant/mimiraether/mimiraether-skill-solidify",
+      "original_category": "mimiraether",
+      "dormant_at": "2026-07-23T06:18:46.665425+00:00",
+      "summary": "将可复用经验固化为 SKILL.md 的流程：何时做、落盘路径、命名、frontmatter、skill_manage 操作与质量清单（配合 mimiraether-tool-triggers）。"
+    },
+    "arxiv": {
+      "capsule_path": ".dormant/research/arxiv",
+      "original_category": "research",
+      "dormant_at": "2026-07-23T06:18:46.684160+00:00",
+      "summary": "Search and retrieve academic papers from arXiv using their free REST API. No API key needed. Search by keyword, author, category, or ID. For full PDF text use web_extract or install an optional document skill from optional-skills."
+    },
+    "llm-wiki": {
+      "capsule_path": ".dormant/research/llm-wiki",
+      "original_category": "research",
+      "dormant_at": "2026-07-23T06:18:46.702227+00:00",
+      "summary": "Karpathy's LLM Wiki — build and maintain a persistent, interlinked markdown knowledge base. Ingest sources, query compiled knowledge, and lint for consistency."
+    },
+    "executing-plans": {
+      "capsule_path": ".dormant/software-development/executing-plans",
+      "original_category": "software-development",
+      "dormant_at": "2026-07-23T06:18:46.718375+00:00",
+      "summary": ""
+    },
+    "finishing-a-development-branch": {
+      "capsule_path": ".dormant/software-development/finishing-a-development-branch",
+      "original_category": "software-development",
+      "dormant_at": "2026-07-23T06:18:46.734345+00:00",
+      "summary": "Use after all implementation tasks are done — verify tests, detect environment, present 4 structured options (merge/PR/keep/discard), execute choice, clean up workspace. Never merge with failing tests."
+    },
+    "using-git-worktrees": {
+      "capsule_path": ".dormant/software-development/using-git-worktrees",
+      "original_category": "software-development",
+      "dormant_at": "2026-07-23T06:18:46.749979+00:00",
+      "summary": "Use when starting implementation work — ensures work happens in an isolated git worktree workspace. Detects existing isolation first, then uses native tools or git worktree fallback. Never start implementation on main/master without isolation."
     }
   },
   "curator_capsulized": [
@@ -1215,6 +1275,7 @@
     "mimiraether-backlog-runner",
     "mimiraether-skill-tdd",
     "requesting-code-review",
-    "requesting-code-review"
+    "requesting-code-review",
+    "mimiraether-physics-reasoner"
   ]
 }

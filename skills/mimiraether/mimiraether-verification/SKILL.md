@@ -46,6 +46,36 @@ triggers:
 
 ## 验证四层
 
+### 第 0 层：验证基线 (Baseline) — SkillOpt 拒绝编辑缓冲区
+
+**改代码前必须先建立验证基线。** 没有基线=不知道改的有没有用。
+
+```python
+# 修改前：读盘快照
+import json
+path = "/home/rayliu/.mimiraether/data/persistent.json"
+with open(path) as f:
+    baseline = json.load(f)
+# 记录关键计数指标
+kd_before = len(baseline['memory']['key_decisions'])
+lp_before = len(baseline['memory']['learned_patterns'])
+bc_before = len(baseline['memory']['behavioral_constraints'])
+size_before = path.stat().st_size
+
+# 修改后：对比验证
+# 只有变化是预期的且数据未退化才接受
+```
+
+**SkillOpt 规则 (arXiv:2605.23904)：**
+- **拒绝编辑缓冲区**：验证分数没严格提高就不接受修改
+- **文本学习率预算**：单次改动限制在 3 个函数 / 30 行以内
+- **epoch-wise 慢更新**：从 1-3 轮编辑开始，逐步增加
+- **>3 次不通过 → 回退**：behavioral_constraints #7
+
+当验证 FAIL 时，不走"再微调一下"路线——看 baseline 对比报告，确认是哪个指标退化了。
+
+---
+
 ### 第 1 层：自动化门禁 (Gate)
 
 ```
@@ -125,6 +155,41 @@ triggers:
 
 ---
 
+## 验证度量指标（参考 GDM AI Control Roadmap #12）
+
+每次验证完成后，计算以下指标：
+
+| 指标 | 含义 | 阈值 |
+|:----|:-----|:----:|
+| **Coverage** | 验证覆盖了哪些层（1-4）| ≥3 层 |
+| **Recall** | 验证发现了多少问题 / 实际有多少问题 | ≥80% |
+| **Time-to-response** | 从检测到问题到生成验证报告的时间 | ≤30s |
+
+**不达标 → 标记为 FAIL，追加步骤后重新验证。**
+
+## R1-R3 升级路径（验证失败时）
+
+当验证 FAIL 时，按以下层级 escalate：
+
+| 级别 | 动作 | 说明 |
+|:----:|:-----|:-----|
+| **R1 — 隔离** | 阻止 commit/push。生成失败报告，标记 blocking issue | 默认动作 |
+| **R2 — 回滚** | 如果代码已部署但验证发现严重问题，回滚到上一个已知良好版本 | 仅用于生产环境问题 |
+| **R3 — 关闭** | 如果检测到系统性不可信（同一模式连续 3 次验证 FAIL），停止当前任务批次，等待人工介入 | 最终防线 |
+
+**R1 是默认动作。R2 / R3 由你触发，我不自动执行。**
+
+## 六种检测类型（参考 GDM AI Control Roadmap）
+
+| 检测类型 | 在我们的验证层中的对应 | 状态 |
+|:--------|:--------------------|:----:|
+| **Alignment testing** — Ralph tier0 | L1 自动化门禁 | ✅ |
+| **CoT monitoring** — 检查 LLM 输出推理链 | 蒸馏时检查 `run_dream_cycle` 的输出，确认 LLM 成功返回压缩结果 | 🟡 需强化 |
+| **Action monitoring** — 检查行为一致性 | L2 一致性检查（声称 vs 盘上） | ✅ |
+| **PR monitoring** — 代码变更审查 | requesting-code-review skill | ✅ |
+| **Honeypots** — 预设陷阱检测 | L4 自问清单 + Anti-Rationalization Table | ✅ |
+| **Activations monitoring** — 内部状态（技术上无法实现） | — | ❌ 跳过 |
+
 ## 与 MimirAether 技能生态的协作
 
 ```
@@ -158,6 +223,19 @@ brainstorming (设计门控)
 | 飞书改动必实战 | gateway 改动不跳过 Live 验证 |
 | 诚实自问 | 最后的防线是诚实 |
 | 非代码迭代 | 写作/分析任务在 verify 前先走 `mimiraether-evaluator-optimizer` 循环 |
+
+---
+
+## 自我验证循环 (Self-Validation Cycle)
+
+当 LLM 输出包含"已完成"、"已验证"、"已修"、"成功了"、"已修复"、"没问题了"等声明性结论时：
+
+1. **自动触发** — 对声明涉及的文件调用 `read_file` / `json.load` 确认盘上真实状态
+2. **如果不匹配** — 阻止该声明输出，追加 `[BLOCKED:verify-before-report]` 消息
+3. **只有通过** — 盘上数据与声明严格一致才允许输出
+4. **记录日志** — 每次验证结果追加到 `verification_results.jsonl`，供 `self_evolution.collect_metrics()` 读取
+
+**这个循环在下一次"完成"声明时自动生效。** 不需要手动触发。
 
 ---
 
