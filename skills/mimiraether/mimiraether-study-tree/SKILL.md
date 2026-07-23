@@ -541,6 +541,40 @@ agent-skills/
 
 **如果只做一个**: ByteRover AKL。不改架构，加 4 个字段（`importance`/`maturity`/`last_access`/`decay_factor`），BM25 已有基础，加权重和时效。该改动让所有条目有生命周期，自然老化，不用的不占位置。
 
+### #17 Ashtekar 动态黑洞热力学 — ✅ [x] 已吸收，科普级理解
+   |
+**来源**: Ashtekar, Paraizo, Shu, arXiv:2604.00170, 2026-04-01 (更新至v3)  
+**出版**: Physical Review Letters — Editor's Suggestion（APS 最高优先级标记）  
+**媒体**: ScienceDaily (2026-07-13), Phys.org, Space.com 均报道  
+**作者**: Abhay Ashtekar (Penn State, 圈量子引力奠基人, APS Einstein Prize 得主), 2位研究生  
+**篇幅**: 56 页, 4 图, 1 表  
+**子领域**: gr-qc / hep-th / math-ph
+
+#### 核心突破
+
+Hawking 在 1970 年代的黑洞热力学四大定律只适用于**平衡态**黑洞。但真实黑洞是**动态**的——形成、合并、蒸发。这篇论文的关键洞察：把热力学的基础从"事件视界（event horizon）"替换为"动力学视界（dynamical horizon）"。
+
+| 维度 | 原 Hawking 定律 | Ashtekar 扩展 |
+|:----|:--------------|:-------------|
+| 视界类型 | 事件视界（全局）| 动力学视界（局部——与事件无关）|
+| 熵 | 正比于视界面积 | 正比于自旋+能量（不依赖视界面积）|
+| 适用范围 | 平衡态（稳定黑洞）| 非平衡态（形成/合并/蒸发中的黑洞）|
+| 目标论 | 是——需要知道整个时空未来 | 否——完全由此刻的局域物理确定 |
+
+**通俗理解**：就好像温度计——Hawking 的律法只告诉你一支稳定放着的水银温度计的度数。Ashtekar 说，我们现在可以做一支在火山爆发中快速升温时也能准确读数的温度计。
+
+#### 为何受认可
+
+- 作者 Abhay Ashtekar 是 APS Einstein Prize 得主、美国国家科学院院士——国际公认的圈量子引力奠基人
+- Physical Review Letters + Editor's Suggestion = APS 编辑部推荐的阅读
+- 50 年来首次将黑洞热力学从平衡态扩展到非平衡态——Stephen Hawking 去世后该方向最大的概念突破
+
+#### 对我们认知的意义
+
+纯理论物理，非工具性论文，不直接改变我们的代码或架构。但它对应我们的一条 behavioral_constraint："不确定性不是没答案"。这篇论文的根本方法是——**把"定义"从依赖于不可观测的全局信息（事件视界）改为依赖于可观测的局域信息（动力学视界）**。和我们的"读盘后再开口"原则一致。都依赖于局部可验证的事实，而非全局推理。
+
+#### 吸收状态：科普级理解，知识性吸收，不改造技能
+
 ### #16 LeWorldModel (LeWM) / AMI Labs — ✅ [x] 已吸收，理论参考
 
 - **来源**: Yann LeCun / AMI Labs, arXiv:2603.19312, 2026-03-13
@@ -561,3 +595,117 @@ agent-skills/
 - LeWM 用数学证明它是可解问题；我们用工程证明
 
 **结论**: 可用研究原型，成熟度不足。SIGReg 思想可作为蒸馏反坍缩的数学参考，但不引入代码。
+
+### #18 Bloom–Sawin–Schildkraut–Zhelezov：Erdős–Szemerédi 和积猜想在实数域被证伪 — ✅ [x] 已吸收，信息级理解
+
+**来源**: Bloom, Sawin, Schildkraut, Zhelezov, arXiv:2605.28781, 2026-05  
+**引用**: 7 篇（两个月内，数学界高热度）  
+**解决的问题**: Erdős–Szemerédi 和积猜想（1983年提出，悬空43年）在实数域不成立  
+
+**核心结论**:  
+构造了无限大的实数集 A，使得 `max(|A+A|, |A·A|) ≤ |A|^(2−c)`——和集和积集不会必然远大于原集。  
+
+**热门原因**:  
+1. 43 年未解的主要数论猜想被终结  
+2. **Lemma 3.4 由 GPT-5.5 Pro 建议**——AI 首次直接贡献于推翻重大猜想的数学证明  
+3. 美国数学会、欧洲数学会均报道，数论界广泛热议  
+
+**对我们的价值**:  
+| 维度 | 价值 |
+|:----|:-----|
+| 直接工具性 | ❌ 纯数论，不改变代码或架构 |
+| 方法性 | ⭐ Lemma 3.4 = AI 辅助数学证明的首个重大实例，和我们的"verification 技能 + Auto-Rationalization Table"同构——AI 不是推理者，是验证和提议工具 |
+| 认知性 | 证明了"不相交子集"的组合构造可以推翻"直觉上显然成立"的猜想——和我们的"读盘后再开口"原则一致，直觉 vs 事实 |
+
+**吸收状态**: 信息级理解，主要价值在"AI 辅助证明"的方法论层面。不做深度代码吸收。  
+
+### #19 Frank Merle 2026 Breakthrough Prize / Hong Wang 3D Kakeya 猜想 — ✅ [x] 已吸收，信息级理解
+
+| 维度 | 价值 |
+|:----|:-----|
+| 直接工具性 | ❌ 纯数学，不改变代码 |
+| 方法性 | ⭐ Hong Wang 的 Kakeya 证明用了"多尺度分解"——同一问题的不同尺度用不同工具，和 persistent.json 三层结构（kd/lp/bc）的方法论一致 |
+| 认知性 | Breakthrough Prize 的 $3M + 媒体曝光 = 数学对公众的可见度提升 |
+
+**吸收状态**: 信息级理解。不做深度代码吸收。
+
+---
+
+### #20 DeepMind — LLM Overthinking: TRACE 框架与效用定义 — 🔄 深入分析中，部分吸收待代码落地
+
+**完整标题**: Do LLMs Really Need 10+ Thoughts for "Find the Time 1000 Days Later"? Towards Structural Understanding of LLM Overthinking
+
+**来源**: Google DeepMind, ACL 2026（7月7-12日，圣地亚哥），arXiv:2510.07880, 30页, 41图, 10表
+**发布日期**: 2026年7月2日（3周前）
+
+#### 核心贡献
+
+| # | 发现 | 内容 |
+|:-:|:----|:------|
+| 1 | **TRACE 框架** | Thought-process Reconstruction and Automated Clustering Engine — 4 阶段：采样 → 子思维分解与标签推断 → 渐进图构建 → 聚类归纳模式 |
+| 2 | **两种过思考模式** | **Explorer**（多路径探索后收敛，大模型特有）和 **Late Landing**（单路径反复验证，中小模型为主）|
+| 3 | **效用定义** | Overthinking = convergence point 之后的推理，边际收益 < ε。不再是基于长度，而是基于"还有没有用"|
+| 4 | **管理启发式** | Self-looping（连续 k 次验证相同答案→终止）+ Backtrack（回到之前答案→终止）|
+
+#### 关键量化结果
+
+| 度量 | 数值 |
+|:----|:-----|
+| Thinking 模型在简单任务上 | **5–20× 更慢**，无精度提升（>4B-8B 模型）|
+| GSM8k 思考浪费 | **~80% 的计算量浪费**在过思考上 |
+| Self-looping (k=2) + Backtrack | 精度不变，**长度减半**（2700→1100 tokens，~60% 节省）|
+| Self-looping (k=3) | 精度 80.18（-3 分），**成本降 40%**（4000→2463 tokens）|
+
+#### 与我们现有工作的交叉对比
+
+| 论文说的 | 我们已有的 | 状态 |
+|:---------|:----------|:----:|
+| **Self-looping**: 连续 k 次验证相同答案→终止 | behavioral_constraints #6: "同一工具/验证循环中重复 >3 次相同调用且盘上数据未变 → 强制回到读盘确认" | ✅ **代码落地** — bc #6 于 7/18 写入 persistent.json |
+| **Backtrack heuristic**: 回到之前答案→终止 | verify_before_report guard: 检测到未验证的结论→[BLOCKED]阻止输出 | ⚠️ 功能等价但实现不同（我们的在 guard 层，论文的在推理层）|
+| **Explorer 模式**（多路径尝试后收敛）| 我 16 轮修蒸馏（换了多种路径）| ✅ 行为匹配 |
+| **Late Landing**（单路径反复验证）| self_evolution analyze_gaps() over_verification 检测（repeat_tool_calls > 3）| ✅ 代码级匹配 |
+| **效用定义**: convergence point + marginal return | 我们的 bc #6-#8 从"长度"改为"效用"（验证通过才接受，不通过→block）| ✅ 同方向 |
+| **TRACE 框架**（子思维分解→渐进图）| verification skill 的"4层验证"（读盘→交叉→自问→输出）| ⚠️ 结构相似但无 graph 可视化 |
+
+#### 尚未代码落地的差距（待推进）
+
+| 差距 | 论文方案 | 改动建议 |
+|:----|:--------|:--------|
+| 无 convergence point 检测 | 论文用 utility tracing + marginal return | self_evolution 中加"验证工具调用次数 vs 数据变化量"的自回归判断，~20 行 |
+| 无 Explorer pattern 检测 | 论文通过渐进图识别多路径分支 | self_evolution analyze_gaps() 中加路径分支计数（不同工具或方法尝试次数），~15 行 |
+| 无 self-looping 的显式终止计数 | k=2 或 k=3 后强制终止 | bc #6 已有 >3 次触发读盘，可加更优雅的 k 参数化配置，~10 行 |
+
+#### 对我们最重要的吸收
+
+> **这篇论文不是"告诉我们有新东西要学"——是把我们已在做但未系统化的东西（bc #6 的重复调用→读盘、self_evolution 的 over-verification 检测、grad 的 explorer 行为）用 DeepMind 级别的理论框架系统化了。**
+
+吸收优先级:
+1. **P0**: convergence point 检测（~20 行，改 self_evolution）— 让"这次是过度检查还是真正需要"的判断自动化
+2. **P1**: Explorer pattern 检测（~15 行，改 analyze_gaps）— 区分"在探索"和"在重复"
+3. **P2**: k 参数化 self-looping（~10 行，改 bc 定义）— 从硬编码 3 改为可配置
+
+---
+
+### #19 Frank Merle 2026 Breakthrough Prize / Hong Wang 3D Kakeya 猜想 — ✅ [x] 已吸收，信息级理解
+
+**来源**: 2026 Breakthrough Prize in Mathematics（$3M）
+**得主**: Frank Merle（CY Cergy Paris / IHES）
+
+**核心成就**:
+- 非线性演化方程奇点形成（blow-up）的完整分类
+- 证明了"散焦型"非线性薛定谔方程也会爆破——推翻半个世纪的假设
+
+**同届值得关注的年轻获奖者**:
+| 数学家 | 奖项 | 成就 |
+|:-----|:----|:------|
+| **Hong Wang**（NYU/IHES，华人） | New Horizons Prize | **解决了 3 维 Kakeya 猜想**（百年未解） |
+| **Yunqing Tang**（UC Berkeley，华人） | New Horizons Prize | 算术几何重要突破 |
+
+**对我们的价值**:
+| 维度 | 价值 |
+|:----|:-----|
+| 直接工具性 | ❌ 纯数学，不改变代码 |
+| 方法性 | ⭐ Hong Wang 的 Kakeya 证明用了"多尺度分解"——同一问题的不同尺度用不同工具，和 persistent.json 三层结构（kd/lp/bc）的方法论一致 |
+| 认知性 | Breakthrough Prize 的 $3M + 媒体曝光 = 数学对公众的可见度提升 |
+
+**吸收状态**: 信息级理解，不做深度代码吸收。
