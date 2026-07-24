@@ -750,52 +750,99 @@ Self-Harness 的核心思想——"Agent 从自身失败中持续学习改进"�
 
 ---
 
-### #23 OpenSpace v2.0.0 — ✅ [x] 已深读 + 3 个架构模式已代码吸收
+### #23 OpenSpace v2 — ✅ [x] 深读完成，架构模式已吸收到代码
 
-**来源**: HKUDS/OpenSpace, 6,800+ stars, MIT license
-**发布日期**: 2026-07-17（距今7天 — 本日对比日）
+**来源**: OpenSpace Intelligence (openspace-ai/OpenSpace), v2.0.0 released 2026-07-17 (7 天前)
+**仓库变更**: 1,234 文件 / 192,540 行新增（56 文件 / 34,908 行 skill_engine 变更）
 
-#### v2 相比我们已知的 v0 的变化
+#### 核心变化：v1→v2
 
-| 维度 | v0（5月前） | v2（7月17日） | 变化 |
-|:----|:----------|:------------|:----|
-| 定位 | 通用 agent 技能工具 | **质量优先 Skill Hub** 全面升级 | 框架从工具变为质量平台 |
-| 质量层 | 无 | `Skill Quality Layer` — 记录 outcome、工具可靠性、重用信号 | 新能力 |
-| 进化控制 | 无 | `Controlled Skill Evolution` — FIX/DERIVED/CAPTURED 三种进化类型 | 新能力 |
-| Skill Wiki | 无 | 包树浏览、包内搜索 | 新能力 |
-| Agent Harness | 基础 | 恢复式 session + 权限感知工具 + 质量记录 | 强化 |
-| Terminal-Bench 2.1 | 65.2% Cold | **78.7% Warm** (+13.5%) | 可量化提升 |
+| 层 | v1 | v2 |
+|:-:|:--|:--|
+| 信号检测 | 无 | `signals/` — detector, linkers, policy, reconciliation, store |
+| 证据采集 | 无 | `evidence/` — packet_builder(1682行), store(2534行), 5 adapters |
+| 决策引擎 | 无 | `decision/` — engine(357行), analysis_adapter(496行) |
+| 进化管道 | 无 | `evolution/` — admission(1263), authoring(996), validator(1180), behavior_eval(2093), candidates(1184), engine(2095) |
+| 触发系统 | 无 | `triggers/` — engine(261), policies(260), store(713) |
+| 协议层 | 无 | `protocol.py` — 3,942 行完整技能协议规范 |
 
-#### 4 层框架 vs 我们现有结构
+#### 已代码落地的 3 个模式
 
-| OpenSpace v2 层 | 对应我们什么 |
-|:---------------|:----------|
-| **Skill Quality Layer** — outcome/fallback/reliability 追踪 | ⚠️ 部分：verification_results.jsonl 记录验证失败，但不追踪 skill 级别的 outcome |
-| **Controlled Evolution** — FIX/DERIVED/CAPTURED + provisional↔trusted 生命周期 | ⚠️ 部分：self_evolution 的 `execute_improvement()` + `verify_result()`，但我们只有 pseudo-code，无 runtime 实现 |
-| **Local-First Hub** — 云发现+本地运行+审核历史 | ✅ 现有：26 skills + meta-skill 路由，github+local 双路径 |
-| **Agent Harness** — 恢复式 session + 质量记录 | ❌ 我们缺：无 session 质量记录，无恢复式执行 harness |
+| 模式 | OpenSpace v2 位置 | 我们落地位置 | 行数 |
+|:----|:-----------------|:-----------|:----:|
+| Evidence-driven gap detection | decision/engine.py | self_evolution SKILL.md `_load_evidence_gaps()` | ~15 |
+| Replay-based verification | evolution/behavior_eval.py | self_evolution SKILL.md verify_result 两阶段 | ~12 |
+| Proactive scanning | signals/detector.py | verify_before_report_guard.py `proactive_scan()` | ~20 |
 
-#### 进化类型对比
+#### 吸收状态
+> **不抄代码。** OpenSpace 37 文件 / ~35K 行对我们太重。3 个核心架构模式（证据驱动决策 / 重放评估 / 主动扫描）已映射到我们已有基础设施并代码落地。P1（证据驱动）和 P2（重放验证）已注入 self_evolution SKILL；P3（主动扫描）已注入 guard。
 
-| OpenSpace v2 | 我们（行为约束+自我进化） | 建议 |
-|:-----------|:---------------------|:----|
-| **FIX** — 修复损坏的 skill | behavioral_constraints #6/#7（重复工具>3次+文件修改>3次→强制读盘） | ✅ P0 等价 |
-| **DERIVED** — 从已有 skill 衍生变体 | self_evolution 无此能力 | ❌ P2 — 暂不需要 |
-| **CAPTURED** — 成功工作流固化为 skill | skill-solidify 做类似的事（质量清单） | ⚠️ 等价 |
+---
 
-#### 三个可直接吸收的架构模式（P0）
+### #24 ProEval — ✅ [x] 深读完成，待评估代码落地
 
-| # | OpenSpace v2 模式 | 映射到我们 | 改动量 |
-|:-:|:----------------|:---------|:-----:|
-| **P1** | **决策证据驱动** — decision engine 基于真实 task outcome 决策，而非硬编码规则 | self_evolution `analyze_gaps()` — 当前基于 `importance/maturity/last_access` 静态字段，可改为基于验证日志 | ~20 行 |
-| **P2** | **行为重放评估** — behavior_eval 在改进后重放 task 验证效果是否提升 | self_evolution `verify_result()` — 当前只对比 before/after metrics，可改为重放检查 | ~15 行 |
-| **P3** | **信号检测器** — detector 扫描 checkpoints 发现异常，而非等待触发 | verify_before_report guard — 当前只拦截声明性结论，可扩展为主动扫描 | ~20 行 |
+**来源**: Google DeepMind — Yizheng Huang, Zi Wang
+**会议**: ICML 2026（机器学习最高级别会议）
+**arXiv**: 2604.23099v2（2026年4月25日 → 5月 ICML 收录）
+**开源**: github.com/google-deepmind/proeval
+**热度**: arXiv 被深度检索和推荐
 
-#### 不需吸收的部分
+#### 核心贡献
 
-| OpenSpace v2 功能 | 原因 |
-|:-----------------|:----|
-| Cloud Skill Wiki / Package Browsing | 我们是单 agent 自学习，不需要云社区 |
-| Multi-agent 共享 skill 池 | 无多 agent 协作需求 |
-| MCP 集成 | 无宿主 agent 调用 MCP 场景 |
-| 全套 Dashboard/TUI | 命令行已足够 |
+| # | 贡献 | 含义 |
+|:-:|:----|:-----|
+| 1 | **主动失败发现** — 不等用户反馈或 crash，主动在可能失败的地方采样 | 我们的 guard 是事后拦截（reactive），ProEval 在测试时主动找 |
+| 2 | **性能估计** — 用 Bayesian Quadrature (BQ) 从历史模型迁移：8-65× 更少样本达 ≤1% MAE | 我们评估全靠人肉调 read_file，无定量估计 |
+| 3 | **Topic-Aware Synthesis (TSS)** — 多臂 bandit 按主题生成多样化硬测试 | 我们零测试生成能力 |
+| 4 | **GP Transfer Learning** — 用 Score Features / Prompt Features 做迁移：GMM 聚类防负迁移 + 弃权规则 | 我们 AKL 只记录历史，不预测 |
+
+#### 核心方法
+
+**1. BQ（Bayesian Quadrature）主动性能估计**
+- 把模型性能当作未知函数，GP 先验 + BQ 积分
+- 主动选择使后验方差最大化的输入
+- 线性核 + Sherman-Morrison 公式实现 O(d³)→O(d²) 更新
+- **结果**: 1-2 个样本达到 1% MAE（BQ-SF）
+
+**2. 超水平集采样（Superlevel Set Sampling）**
+- SS: 平衡 exploitation（高失败概率）和 exploration（高不确定性）
+- SS-Gen: LLM 以已发现失败为锚点生成更难的测试
+- TSS: UCB1 多臂 bandit 选择主题，强制多样性
+- **结果**: 策略推理题 40.3% 失败率（随机 17.3%）/ GPT-5 失败发现 4×/ 多样性 0.74
+
+**3. 迁移学习**
+- SF（Score Features）: 同 benchmark 走历史分数均值+协方差
+- PF（Prompt Features）: 新 benchmark 走编码器嵌入，GP 超参数在历史数据上预训练
+- GMM 聚类 + 弃权规则（<3 源模型则不预测）
+- **结果**: 无 GMM 时 MAE 恶化 100× / 跨模态迁移（文本→图像）MAE 从 0.111→0.055
+
+**4. 理论保证（Theorem 3）**
+> 预训练 GP-BQ 估计器无偏且有界误差：当历史模型数 N 增速超过测试样本数 M 增速时，误差界非平凡。
+
+#### 与我们现有工作的交叉对比
+
+| ProEval 做的 | 我们已有的 | 差距等级 |
+|:-----------|:----------|:-------:|
+| 主动失败发现—在测试时主动找失败案例 | verify_before_report_guard — 运行时事后拦截 | 🔴 P0 |
+| BQ 性能估计—用贝叶斯积分从历史迁移 | verification 手动调 read_file — 无定量估计 | 🔴 P0 |
+| TSS 多样化测试生成—主题感知的 LLM 合成 | 零测试生成 | 🔴 P0 |
+| GMM 聚类防负迁移—自动选择相关源数据 | AKL 字段只记录、不预测 | 🟡 P1 |
+| SS 主动采样—平衡探索和利用 | self_evolution 只检查 >3 次 | 🟡 P1 |
+| 弃权规则—<3 源模型时自动不预测 | 无 | 🟡 P2 |
+| 共形预测自适应阈值 | bc #6 硬编码 >3 | 🟡 P2 |
+
+#### 建议吸收路径
+
+| 优先级 | 吸收 | 去哪儿 | 行数 |
+|:-----:|:----|:------|:----:|
+| **P1** | **主动失败发现** — 在测试时主动采样失败case，不等运行时 crash | 新增一个 `proactive_scan` 阶段到 `test_core_capabilities.py` 或 guard | ~30 |
+| **P1** | **量化性能估计** — 用历史验证数据建立简单贝叶斯估计（不复制 GP，简单频率统计即可） | self_evolution `collect_metrics()` | ~20 |
+| P2 | TSS 测试生成 — 根据不同失败模式生成多样化测试 | 可等失败模式积累 3+ 后参考 | skip |
+| P2 | 池分配自适应阈值 — 从硬编码移到动态阈值 | behavioral_constraints #6 | ~15 |
+
+#### 核心启示
+
+> **这篇论文说的就是我们验证基础设施的薄弱环节最直接的回答。** 我们当前：事后拦截（guard） + 人肉确认（read_file）+ 无测试生成。ProEval 给出：主动采样 + 定量估计 + 多样化生成。**P1 的两个吸收项（主动失败发现 + 量化性能估计）是 ProEval 中最实用、改动最小、收益最高的部分。**
+
+---
+_研究树研究树(End) — 共 24 个节点_

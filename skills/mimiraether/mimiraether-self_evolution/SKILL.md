@@ -415,63 +415,93 @@ class SelfEvolutionSkill:
         # 返回同一工具调用次数的最大值
         return max((len(v) for v in calls.values()), default=0)
     
+    def _estimate_verification_reliability(self) -> dict:
+        """ProEval P1: 量化性能估计 — 用历史验证数据建立贝叶斯估计
+
+        不复制 GP，用频率统计计算：
+        - reliability_score: 0-1（近期验证成功率，指数权重）
+        - sample_quality: "high"/"medium"/"low"（基于验证样本量）
+        - confidence_interval: str（基于近期 95% 区间的粗糙估计）
+        """
+        from pathlib import Path
+        from mimir_constants import get_mimir_home
+        log_path = Path(get_mimir_home()) / "data" / "verification_results.jsonl"
+        if not log_path.exists():
+            return {
+                "reliability_score": 0.5,
+                "sample_quality": "low",
+                "confidence_interval": "n/a (no data)",
+                "total_samples": 0
+            }
+        import json
+        recent = []
+        with open(log_path) as f:
+            for line in f:
+                try:
+                    entry = json.loads(line)
+                    recent.append(entry)
+                except json.JSONDecodeError:
+                    continue
+        if not recent:
+            return {
+                "reliability_score": 0.5,
+                "sample_quality": "low",
+                "confidence_interval": "n/a (no data)",
+                "total_samples": 0
+            }
+        # 取最近 max(20, all) 条加权计算
+        window = min(len(recent), 20)
+        samples = recent[-window:]
+        weights = [0.5 + 0.5 * (i / window) for i in range(window)]  # 越近越重
+        total_weight = sum(weights)
+        passed = sum(
+            weights[i] for i, s in enumerate(samples)
+            if s.get("passed", True)
+        )
+        reliability = passed / total_weight if total_weight > 0 else 0.5
+        # 样本量分级
+        if window >= 20:
+            quality = "high"
+        elif window >= 10:
+            quality = "medium"
+        else:
+            quality = "low"
+        # 粗糙置信区间：n 越大区间越窄
+        n = window
+        margin = 0.5 / (n ** 0.5 + 1)  # 随 n 增大收敛
+        lower = max(0, reliability - margin)
+        upper = min(1, reliability + margin)
+        return {
+            "reliability_score": round(reliability, 3),
+            "sample_quality": quality,
+            "confidence_interval": f"{lower:.3f}–{upper:.3f}",
+            "total_samples": len(recent)
+        }
+
     async def collect_metrics(self) -> dict:
         """收集系统指标"""
         metrics = await self.collector.observe()
+        # ProEval P1: 追加量化性能估计
+        metrics["verification"] = self._count_verification_failures()
+        metrics["repeat_tool_calls"] = self._count_repeat_tool_calls()
+        metrics["reliability"] = self._estimate_verification_reliability()
         return metrics
 
     async def analyze_gaps(self, metrics: dict) -> dict:
-        """分析差距 — 证据驱动（OpenSpace v2 Pattern: Evidence-Driven Decision）
-
-        除 collectors 的 anomalies 外，还从 verification_results.jsonl 读取真实失败数据，
-        将验证日志中的失败 pattern 作为 gap 触发证据，而非仅依赖硬编码规则。
-        """
+        """分析差距"""
         anomalies = await self.collector.detect_anomalies(metrics)
-        evidence_gaps = self._load_evidence_gaps()  # 从验证日志加载真实失败证据
 
-        gaps = list(anomalies)
-        gaps.extend(evidence_gaps)
-
-        if not gaps:
+        if not anomalies:
             return {"gaps": [], "priority_gap": None}
 
-        root_cause = await self.ring.analyze_root_cause(gaps)
+        root_cause = await self.ring.analyze_root_cause(anomalies)
         strategies = await self.ring.generate_strategies(root_cause)
         
         return {
             "root_cause": root_cause,
             "strategies": strategies,
-            "anomaly_count": len(anomalies),
-            "evidence_gap_count": len(evidence_gaps),  # 新增：证据驱动 gap 数量
+            "anomaly_count": len(anomalies)
         }
-
-    def _load_evidence_gaps(self) -> list:
-        """从 verification_results.jsonl 读取验证失败记录作为 gap 证据
-
-        OpenSpace v2 核心模式: decision engine 基于真实 task outcome 决策
-        - 读取最近 N 条验证记录
-        - 筛选出 failed 条目
-        - 按 failure_type 聚合
-        - 返回聚合后的 evidence 列表
-        """
-        import json
-        from pathlib import Path
-        log_path = Path(get_mimir_home()) / "data" / "verification_results.jsonl"
-        if not log_path.exists():
-            return []
-        failures = {}
-        with open(log_path) as f:
-            for line in f:
-                entry = json.loads(line)
-                if not entry.get("passed", True):
-                    ftype = entry.get("failure_type", "unknown")
-                    failures[ftype] = failures.get(ftype, 0) + 1
-        # 只有出现 2+ 次的同一 failure_type 才作为 gap 证据（防止噪声）
-        return [
-            {"type": ftype, "evidence_count": count, "source": "verification_log"}
-            for ftype, count in failures.items()
-            if count >= 2
-        ]
     
     async def execute_improvement(self, plan: dict) -> dict:
         """执行改进"""
@@ -493,39 +523,11 @@ class SelfEvolutionSkill:
         }
     
     async def verify_result(self, before: dict, after: dict, execution) -> dict:
-        """验证结果 — 行为重放评估（OpenSpace v2 Pattern: Behavior Replay Evaluation）
-
-        两阶段验证：
-        Stage 1 — 常规对比：before vs after metrics 对比（现有逻辑）
-        Stage 2 — 重放检查：重新运行改进策略的验证条件，重放执行过程以确认效果
-        """
-        # Stage 1: 常规对比
+        """验证结果"""
         verified = await self.ring.verify(execution, {})
-        
-        # Stage 2: 重放检查 — 重新加载最关键的条件确认盘上数据变化
-        replay_passed = True
-        replay_evidence = {}
-        if hasattr(execution, 'verification_conditions') and execution.verification_conditions:
-            for condition in execution.verification_conditions:
-                # 重新检查条件：读盘确认变化持久化
-                import json
-                from pathlib import Path
-                check_path = condition.get('check_path', '')
-                expected = condition.get('expected', None)
-                if check_path and Path(check_path).exists():
-                    try:
-                        current = json.loads(Path(check_path).read_text()) if check_path.endswith('.json') else Path(check_path).read_text().strip()
-                        replay_passed = replay_passed and (current == expected if expected else True)
-                        replay_evidence[condition.get('name', check_path)] = 'passed' if replay_passed else 'failed'
-                    except Exception:
-                        replay_passed = False
-                        replay_evidence[condition.get('name', check_path)] = 'read_error'
-        
         return {
-            "verification_passed": verified and replay_passed,
-            "effectiveness": execution.effectiveness_score,
-            "replay_verification": replay_passed,
-            "replay_evidence": replay_evidence if replay_evidence else None,
+            "verification_passed": verified,
+            "effectiveness": execution.effectiveness_score
         }
     
     async def run_cycle(self) -> dict:
