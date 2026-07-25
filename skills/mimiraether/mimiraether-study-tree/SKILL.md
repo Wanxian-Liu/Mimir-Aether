@@ -907,4 +907,56 @@ AGI (人类级) → ASI (超组织级) → UAI (通用AI/理论极限)
 
 ---
 
-_研究树(End) — 共 25 个节点_
+_研究树 — 共 27 个节点_
+
+### #26 — Academic Research Skills (ARS) — ✅ [x] 已吸收（知识层）
+
+**来源**: Imbad0202/academic-research-skills (GitHub, **39.4K ★**, 618 commits)
+**领域**: Claude Code / Codex 学术研究技能套件
+
+**关键特性**:
+- 4 子技能 + 7-mode blocking checklist（基于 Lu et al. Nature 2026 的 7 种 AI 研究失败模式）
+- Claim Verification Protocol (Phase E, 6 阶)：E1 摘要提取 → E2 源追踪 → E3 交叉比对 → E4 范围报警告 → E5 新颖性报警告 → E6 声张强度漂移警告
+- trust-chain frontmatter：每条引用携带 locator anchor，支持 claim 级别溯源
+- verdict taxonomy：VERIFIED / MINOR_DISTORTION / MAJOR_DISTORTION / UNVERIFIABLE / UNVERIFIABLE_ACCESS
+- selection tiers：HIGH-IMPACT(100%) / RANDOM(10%) / TOP-UP(随机填充)
+- **核心设计模式**: advisory-only flags（E4/E5/E6 从不阻塞 PASS/FAIL，但持续累积直到最终审计）
+
+**与我们交叉对比**:
+
+| ARS 特性 | 我们的等价物 | 差距 |
+|:--------|:-----------|:----:|
+| 7-mode checklist | anti-rationalization 表（6 条） | ⚠️ 同构——不同场景下的同一种失败 |
+| Claim Verification Protocol | verify_result() before/after 比较 | ⚠️ 场景不同——学术声明 vs 代码状态 |
+| trust-chain frontmatter | git log 追溯 | ❌ 不直接可移植 |
+| advisory-only flags | anti-rationalization 是"反驳借口"非"持久记录" | ⚠️ 设计模式差异 |
+| verdict taxonomy | PASS/FAIL 二元 | ❌ 不是缺口——我们不需要四档 |
+
+**结论**: 验证基础设施的学术版同构。**不代码落地。**
+
+---
+
+### #27 — PaperSpine 动机驱动方法论 — ✅ [x] 已吸收（知识层）
+
+**来源**: WUBING2023/PaperSpine (GitHub, **4.3K ★**)
+**领域**: AI Agent 论文/报告写作 skill
+
+**核心哲学**: Records why each unit is planned or changed, not just what was written
+
+**关键特性**:
+- Motivation-driven / Contribution-First (V4) / Results-as-Validation
+- Anti-skip / Anti-placeholder / Resume-first 规则
+- 12 个阶段管道：intake → research → citation → motivation → humanize → write → audit → latex → submission → translation → respond → review
+
+**与我们交叉对比**:
+
+| PaperSpine 模式 | 我们的等价物 | 差距 |
+|:--------------|:-----------|:----:|
+| Motivation-driven | execute_improvement() 的 `gap_type` | ❌ 已被覆盖 |
+| Contribution-First | guard + bc #6-#8 | ❌ 已被覆盖 |
+| Results-as-Validation | verification 第 0 层基线 | ❌ 已被覆盖 |
+| Anti-skip | 每阶段门控 | ❌ 已被覆盖 |
+| Anti-placeholder | bc #7（>3次不通过→回退）| ❌ 已被覆盖 |
+
+**结论**: 核心模式已被我们的 gate/guard/constraint 系统覆盖。**不代码落地。**
+
