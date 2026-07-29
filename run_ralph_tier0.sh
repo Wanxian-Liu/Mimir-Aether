@@ -11,10 +11,26 @@ fi
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT_DIR"
 
+# --retry=N: Ralph Wiggum Loop — retry failing gates up to N times
+RETRY_COUNT=0  # default: no retry
+if [[ "${1:-}" =~ ^--retry=([0-9]+)$ ]]; then
+  RETRY_COUNT="${BASH_REMATCH[1]}"
+  echo "=== Ralph Wiggum Loop: --retry=${RETRY_COUNT}, ${RETRY_COUNT} consecutive fail(s) to abort ==="
+elif [[ "${2:-}" =~ ^--retry=([0-9]+)$ ]]; then
+  RETRY_COUNT="${BASH_REMATCH[1]}"
+  echo "=== Ralph Wiggum Loop: --retry=${RETRY_COUNT}, ${RETRY_COUNT} consecutive fail(s) to abort ==="
+fi
+
 # --changed-only: incremental mode (git diff HEAD → test subset)
 INCREMENTAL=false
-if [[ "${1:-}" == "--changed-only" ]]; then
-  INCREMENTAL=true
+ARG_POS=1
+for arg in "$@"; do
+  if [[ "$arg" == "--changed-only" ]]; then
+    INCREMENTAL=true
+  fi
+done
+
+if [ "$INCREMENTAL" = true ]; then
   CHANGED_FILES=$(git diff HEAD --name-only 2>/dev/null || echo "")
   CHANGED_COUNT=$(echo "$CHANGED_FILES" | grep -c . 2>/dev/null || echo "0")
   echo "=== --changed-only: ${CHANGED_COUNT} file(s) changed ==="
@@ -31,6 +47,44 @@ if [[ "${1:-}" == "--changed-only" ]]; then
     echo "---"
   } >> "$ROOT_DIR/logs/incremental-run.log"
 fi
+
+# --- Ralph Wiggum Loop helpers ---
+ralph_retry_gate() {
+  local gate_name="$1"
+  local attempt=1
+  local max_attempts=1
+  [ "$RETRY_COUNT" -gt 0 ] && max_attempts=$((RETRY_COUNT + 1))
+  local exit_code=0
+
+  while [ "$attempt" -le "$max_attempts" ]; do
+    if [ "$attempt" -gt 1 ]; then
+      echo "=== Ralph Wiggum Loop: ${gate_name} attempt ${attempt}/${max_attempts} ==="
+    fi
+    # Run the gate body (passed as remaining args)
+    shift
+    set +e
+    eval "$@"
+    exit_code=$?
+    set -e
+    if [ "$exit_code" -eq 0 ]; then
+      return 0
+    fi
+    if [ "$attempt" -lt "$max_attempts" ]; then
+      echo "=== Gate ${gate_name} failed (exit ${exit_code}), saving error diff ==="
+      # Save diff of failure context for debugging
+      mkdir -p "$ROOT_DIR/logs"
+      {
+        echo "[$(date -Iseconds)] ralph-retry | gate=${gate_name} | attempt=${attempt} | exit=${exit_code}"
+        echo "---"
+      } >> "$ROOT_DIR/logs/ralph-wiggum.log"
+      attempt=$((attempt + 1))
+    else
+      attempt=$((attempt + 1))
+    fi
+  done
+  echo "*** Ralph Wiggum Loop: ${gate_name} failed after ${max_attempts} attempt(s) ***"
+  return "$exit_code"
+}
 
 TARGET_FILES=(
   "cli.py"
@@ -50,23 +104,29 @@ TARGET_FILES=(
 )
 
 echo "=== Ralph Tier-0: Gate1 Syntax/Import ==="
-if [ "$INCREMENTAL" = true ]; then
-  # Only check changed files that are in TARGET_FILES
-  CHANGED_TARGETS=()
-  for f in "${TARGET_FILES[@]}"; do
-    if echo "$CHANGED_FILES" | grep -qxF "$f"; then
-      CHANGED_TARGETS+=("$f")
-    fi
-  done
-  if [ ${#CHANGED_TARGETS[@]} -gt 0 ]; then
-    python3 -m py_compile "${CHANGED_TARGETS[@]}"
-    python3 -c "print('incremental_ok')"
-  else
-    echo "(incremental: no changed TARGET_FILES, skipping)"
+_GATE1_OK=false
+for _attempt in $(seq 1 $((RETRY_COUNT > 0 ? RETRY_COUNT + 1 : 1))); do
+  if [ "$_attempt" -gt 1 ]; then
+    echo "=== Ralph Wiggum Loop: Gate1 attempt ${_attempt}/$((RETRY_COUNT + 1)) ==="
   fi
-else
-  python3 -m py_compile "${TARGET_FILES[@]}"
-  python3 <<'PY'
+  set +e
+  (
+    if [ "$INCREMENTAL" = true ]; then
+      CHANGED_TARGETS=()
+      for f in "${TARGET_FILES[@]}"; do
+        if echo "$CHANGED_FILES" | grep -qxF "$f"; then
+          CHANGED_TARGETS+=("$f")
+        fi
+      done
+      if [ ${#CHANGED_TARGETS[@]} -gt 0 ]; then
+        python3 -m py_compile "${CHANGED_TARGETS[@]}"
+        python3 -c "print('incremental_ok')"
+      else
+        echo "(incremental: no changed TARGET_FILES, skipping)"
+      fi
+    else
+      python3 -m py_compile "${TARGET_FILES[@]}"
+      python3 <<'PY'
 import importlib
 mods = [
     "cli",
@@ -92,18 +152,42 @@ for m in mods:
     importlib.import_module(m)
 print("import_ok")
 PY
+    fi
+  )
+  _GATE1_EXIT=$?
+  set -e
+  if [ "$_GATE1_EXIT" -eq 0 ]; then
+    _GATE1_OK=true
+    break
+  fi
+  if [ "$_attempt" -lt $((RETRY_COUNT > 0 ? RETRY_COUNT + 1 : 1)) ]; then
+    echo "=== Gate1 failed (exit ${_GATE1_EXIT}), retry ==="
+    mkdir -p "$ROOT_DIR/logs"
+    echo "[$(date -Iseconds)] ralph-retry | gate=Gate1 | attempt=${_attempt} | exit=${_GATE1_EXIT}" >> "$ROOT_DIR/logs/ralph-wiggum.log"
+  fi
+done
+if [ "$_GATE1_OK" != true ]; then
+  echo "*** Ralph Wiggum Loop: Gate1 failed after $((RETRY_COUNT + 1)) attempt(s) ***"
+  exit "$_GATE1_EXIT"
 fi
 
 echo "=== Ralph Tier-0: Gate2 Parity Tests ==="
-if [ "$INCREMENTAL" = true ]; then
-  CHANGED_TEST_FILES=$(echo "$CHANGED_FILES" | grep -E '^(agent/test_|tests/).*\.py$' | tr '\n' ' ')
-  if [ -n "$CHANGED_TEST_FILES" ]; then
-    echo "(incremental: running ${CHANGED_COUNT} changed test file(s))"
-    python3 -m pytest -q $CHANGED_TEST_FILES
-  else
-    echo "(incremental: no test files changed, skipping)"
+_GATE2_OK=false
+for _attempt in $(seq 1 $((RETRY_COUNT > 0 ? RETRY_COUNT + 1 : 1))); do
+  if [ "$_attempt" -gt 1 ]; then
+    echo "=== Ralph Wiggum Loop: Gate2 attempt ${_attempt}/$((RETRY_COUNT + 1)) ==="
   fi
-else
+  set +e
+  (
+    if [ "$INCREMENTAL" = true ]; then
+      CHANGED_TEST_FILES=$(echo "$CHANGED_FILES" | grep -E '^(agent/test_|tests/).*\.py$' | tr '\n' ' ')
+      if [ -n "$CHANGED_TEST_FILES" ]; then
+        echo "(incremental: running ${CHANGED_COUNT} changed test file(s))"
+        python3 -m pytest -q $CHANGED_TEST_FILES
+      else
+        echo "(incremental: no test files changed, skipping)"
+      fi
+    else
 python3 -m pytest -q \
   agent/test_agent_loop.py \
   agent/test_agent_loop_edge.py \
@@ -254,6 +338,23 @@ python3 -m pytest -q \
   tests/agent/test_search_first_guard.py \
   tests/agent/test_verify_before_report_guard.py \
   agent/test_persistent_store_akl.py
+    fi
+  )
+  _GATE2_EXIT=$?
+  set -e
+  if [ "$_GATE2_EXIT" -eq 0 ]; then
+    _GATE2_OK=true
+    break
+  fi
+  if [ "$_attempt" -lt $((RETRY_COUNT > 0 ? RETRY_COUNT + 1 : 1)) ]; then
+    echo "=== Gate2 failed (exit ${_GATE2_EXIT}), retry ==="
+    mkdir -p "$ROOT_DIR/logs"
+    echo "[$(date -Iseconds)] ralph-retry | gate=Gate2 | attempt=${_attempt} | exit=${_GATE2_EXIT}" >> "$ROOT_DIR/logs/ralph-wiggum.log"
+  fi
+done
+if [ "$_GATE2_OK" != true ]; then
+  echo "*** Ralph Wiggum Loop: Gate2 failed after $((RETRY_COUNT + 1)) attempt(s) ***"
+  exit "$_GATE2_EXIT"
 fi
 
 echo "=== Ralph Tier-1: Gate3 Core E2E (mocked LLM) ==="
