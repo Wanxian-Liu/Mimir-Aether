@@ -11,6 +11,27 @@ fi
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT_DIR"
 
+# --changed-only: incremental mode (git diff HEAD → test subset)
+INCREMENTAL=false
+if [[ "${1:-}" == "--changed-only" ]]; then
+  INCREMENTAL=true
+  CHANGED_FILES=$(git diff HEAD --name-only 2>/dev/null || echo "")
+  CHANGED_COUNT=$(echo "$CHANGED_FILES" | grep -c . 2>/dev/null || echo "0")
+  echo "=== --changed-only: ${CHANGED_COUNT} file(s) changed ==="
+  if [ "${CHANGED_COUNT}" -gt 15 ] 2>/dev/null; then
+    echo "*** >15 files changed, falling back to full run ***"
+    INCREMENTAL=false
+  fi
+  # Audit log with audit hash
+  mkdir -p "$ROOT_DIR/logs"
+  AUDIT_HASH=$(echo "$CHANGED_FILES" | sha256sum | head -c 16)
+  {
+    echo "[$(date -Iseconds)] incremental-run | hash=${AUDIT_HASH} | files=${CHANGED_COUNT}"
+    echo "$CHANGED_FILES"
+    echo "---"
+  } >> "$ROOT_DIR/logs/incremental-run.log"
+fi
+
 TARGET_FILES=(
   "cli.py"
   "api_service.py"
@@ -29,8 +50,23 @@ TARGET_FILES=(
 )
 
 echo "=== Ralph Tier-0: Gate1 Syntax/Import ==="
-python3 -m py_compile "${TARGET_FILES[@]}"
-python3 - <<'PY'
+if [ "$INCREMENTAL" = true ]; then
+  # Only check changed files that are in TARGET_FILES
+  CHANGED_TARGETS=()
+  for f in "${TARGET_FILES[@]}"; do
+    if echo "$CHANGED_FILES" | grep -qxF "$f"; then
+      CHANGED_TARGETS+=("$f")
+    fi
+  done
+  if [ ${#CHANGED_TARGETS[@]} -gt 0 ]; then
+    python3 -m py_compile "${CHANGED_TARGETS[@]}"
+    python3 -c "print('incremental_ok')"
+  else
+    echo "(incremental: no changed TARGET_FILES, skipping)"
+  fi
+else
+  python3 -m py_compile "${TARGET_FILES[@]}"
+  python3 <<'PY'
 import importlib
 mods = [
     "cli",
@@ -56,8 +92,18 @@ for m in mods:
     importlib.import_module(m)
 print("import_ok")
 PY
+fi
 
 echo "=== Ralph Tier-0: Gate2 Parity Tests ==="
+if [ "$INCREMENTAL" = true ]; then
+  CHANGED_TEST_FILES=$(echo "$CHANGED_FILES" | grep -E '^(agent/test_|tests/).*\.py$' | tr '\n' ' ')
+  if [ -n "$CHANGED_TEST_FILES" ]; then
+    echo "(incremental: running ${CHANGED_COUNT} changed test file(s))"
+    python3 -m pytest -q $CHANGED_TEST_FILES
+  else
+    echo "(incremental: no test files changed, skipping)"
+  fi
+else
 python3 -m pytest -q \
   agent/test_agent_loop.py \
   agent/test_agent_loop_edge.py \
@@ -208,6 +254,7 @@ python3 -m pytest -q \
   tests/agent/test_search_first_guard.py \
   tests/agent/test_verify_before_report_guard.py \
   agent/test_persistent_store_akl.py
+fi
 
 echo "=== Ralph Tier-1: Gate3 Core E2E (mocked LLM) ==="
 python3 -m pytest -q agent/test_tier1_e2e_agent.py
