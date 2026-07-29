@@ -261,9 +261,9 @@ class CrossSessionMemory:
                     mem_ap.append(dp)
 
         disk_lp = disk_data.get("memory", {}).get("learned_patterns", [])
+        mem_lp = out.setdefault("memory", {}).setdefault("learned_patterns", [])
+        seen_patterns = set()
         if disk_lp:
-            mem_lp = out.setdefault("memory", {}).setdefault("learned_patterns", [])
-            seen_patterns = set()
             for item in mem_lp:
                 if isinstance(item, dict) and item.get("pattern"):
                     seen_patterns.add(item["pattern"])
@@ -274,9 +274,9 @@ class CrossSessionMemory:
                         seen_patterns.add(item["pattern"])
 
         disk_kd = disk_data.get("memory", {}).get("key_decisions", [])
+        mem_kd = out.setdefault("memory", {}).setdefault("key_decisions", [])
+        seen_decisions = set()
         if disk_kd:
-            mem_kd = out.setdefault("memory", {}).setdefault("key_decisions", [])
-            seen_decisions = set()
             for item in mem_kd:
                 if isinstance(item, dict) and item.get("decision"):
                     seen_decisions.add(item["decision"])
@@ -459,7 +459,6 @@ class CrossSessionMemory:
                 if name.startswith("mimiraether-curator") or name in (
                     "mimiraether-tool-triggers",
                     "mimiraether-cross-session",
-                    "mimiraether-heartbeat",
                     "mimiraether-auto-load",
                 ):
                     continue

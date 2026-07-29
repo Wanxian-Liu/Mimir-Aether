@@ -20,11 +20,6 @@ def test_recommend_debug_triggers():
     assert "mimiraether-root-cause-debugging" in skills
 
 
-def test_recommend_task_chain_triggers_ship():
-    skills = recommend_skills("继续 BRAIN-01 下一粒")
-    assert "mimiraether-ship" in skills
-
-
 def test_build_nudge_contains_marker_and_skills():
     nudge = build_skill_route_nudge(["mimiraether-self-audit"])
     assert MARKER in nudge

@@ -21,7 +21,6 @@
 | "蒸馏"/"压缩"/"梦境"/"memory 整理" | `mimiraether-distillation-execution` | 完整蒸馏流程 |
 | "状态"/"健康"/"检查"/"验证" | `mimiraether-self_health_check` + `mimiraether-verification` | 先检再报 |
 | "进化"/"智商"/"变聪明"/"成长" | `mimiraether-self_evolution` | 固定进化循环 |
-| "推到 git"/"commit"/"push"/"发布" | `mimiraether-ship` | 预发布检查+推送 |
 | "技能"/"skill"/"写个技能" | `mimiraether-skill-solidify` | 技能创作流程 |
 | "tmd"/"为什么"/"又错了"/"你干了什么" | `mimiraether-root-cause-debugging` + `mimiraether-verification` | **根因+验证双加载** |
 | "学习"/"研究"/"论文"/"看" | `mimiraether-study-tree` | 研究树查询 |
@@ -53,17 +52,15 @@
 | 9 | `mimiraether-brainstorming` | 规划 | brainstorm, 想想 | 事前多头分析 |
 | 10 | `mimiraether-html-output` | 输出 | html, 报告 | HTML 双模输出 |
 | 11 | `mimiraether-personal-assistant` | 用户 | 记录, 保存, 记住 | 自动分类存储用户信息 |
-| 12 | `mimiraether-heartbeat` | 铁律 | 醒来, 唤醒 | 身份三问+基调 |
-| 13 | `mimiraether-verification` | 铁律 | 验证, verify | 收尾硬门控 |
-| 14 | `mimiraether-context-compressor` | 运维 | 压缩, context | 上下文压缩管理 |
-| 15 | `mimiraether-root-cause-debugging` | 调试 | debug, 根因, 为什么会 | 四阶段根因分析 |
-| 16 | `mimiraether-context-engine` | 运维 | context 引擎 | 对话上下文管理 |
-| 17 | `mimiraether-auto-load` | 元 | — | 自动加载入口 |
-| 18 | `mimiraether-skill-prune` | 技能 | prune, 清理 | 无用技能清除 |
-| 19 | `mimiraether-ship` | 发布 | ship, 发布, commit | 结构化发布流程 |
-| 20 | `mimiraether-study-tree` | 学习 | 学习, 论文, 研究 | 知识研究树 |
-| 21 | `mimiraether-physics-reasoner` | 推理 | 物理, 推理 | 物理世界推理 |
-| 22 | `mimiraether-self_evolution` | 自进化 | 进化, 智商, 成长 | 三环自我进化 |
+| 12 | `mimiraether-verification` | 铁律 | 验证, verify | 收尾硬门控 |
+| 13 | `mimiraether-context-compressor` | 运维 | 压缩, context | 上下文压缩管理 |
+| 14 | `mimiraether-root-cause-debugging` | 调试 | debug, 根因, 为什么会 | 四阶段根因分析 |
+| 15 | `mimiraether-context-engine` | 运维 | context 引擎 | 对话上下文管理 |
+| 16 | `mimiraether-auto-load` | 元 | — | 自动加载入口 |
+| 17 | `mimiraether-skill-prune` | 技能 | prune, 清理 | 无用技能清除 |
+| 18 | `mimiraether-study-tree` | 学习 | 学习, 论文, 研究 | 知识研究树 |
+| 19 | `mimiraether-physics-reasoner` | 推理 | 物理, 推理 | 物理世界推理 |
+| 20 | `mimiraether-self_evolution` | 自进化 | 进化, 智商, 成长 | 三环自我进化 |
 
 ---
 

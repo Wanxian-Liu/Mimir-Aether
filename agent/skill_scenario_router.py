@@ -87,14 +87,6 @@ _SCENARIOS: List[Tuple[re.Pattern[str], List[str], str]] = [
         "ralph",
     ),
     (
-        re.compile(
-            r"BRAIN-\d+|§10|任务链|下一粒|继续下一|自治链|HANDOFF",
-            re.IGNORECASE,
-        ),
-        ["mimiraether-ship"],
-        "task_chain",
-    ),
-    (
         re.compile(r"TDD|测试驱动|测试优先|RED.GREEN|先写测试|test.first", re.IGNORECASE),
         ["mimiraether-test-driven-development"],
         "tdd",
