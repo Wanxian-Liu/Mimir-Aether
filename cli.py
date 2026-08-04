@@ -12,4 +12,3 @@ __all__ = ["main", "run_task", "run_interactive"]
 
 if __name__ == "__main__":
     raise SystemExit(main() or 0)
-def broken_fu
