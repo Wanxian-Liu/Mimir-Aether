@@ -188,8 +188,10 @@ def _write_codex_cli_tokens(
         auth_path.parent.mkdir(parents=True, exist_ok=True)
         auth_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
         auth_path.chmod(0o600)
+        # 修复（2026-08-05）：写失败升级为error级（OpenClaw发现P2——原debug级是监控盲区）
+        logger.info("Refreshed Codex tokens written to %s (0o600)", auth_path)
     except (OSError, IOError) as exc:
-        logger.debug("Failed to write refreshed tokens to %s: %s", auth_path, exc)
+        logger.error("Failed to write refreshed tokens to %s: %s", auth_path, exc)
 
 
 # ============================================================================
