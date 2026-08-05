@@ -98,6 +98,10 @@ class ContextCompressorV2:
             self.tail_token_budget = int(self.threshold_tokens * summary_target_ratio)
         else:
             self.tail_token_budget = tail_token_budget
+        # 修复（2026-08-05，核心体检-2 OpenClaw发现）：cooldown/anti-thrashing状态
+        self._last_compress_time = 0.0        # cooldown：上次压缩时间戳
+        self._last_savings: list[float] = []   # anti-thrashing：最近压缩节省比例
+        self._compress_failures = 0            # 连续失败计数（触发cooldown）
         
         self.max_summary_tokens = min(
             int(self.context_length * 0.05), 
@@ -151,6 +155,36 @@ class ContextCompressorV2:
         """Check if compression is needed (token-based)."""
         tokens = prompt_tokens if prompt_tokens is not None else 0
         return tokens >= self.threshold_tokens
+
+    def should_compress_info(self, prompt_tokens: Optional[int] = None, now: Optional[float] = None) -> Tuple[bool, str]:
+        """修复（2026-08-05，核心体检-2 OpenClaw发现）：返回(bool, reason) tuple——对齐Hermes。
+
+        原should_compress只返回bool，无reason（silent overflow）：
+        - "cooldown:<s>"：summary LLM刚失败/刚压缩过，冷却中
+        - "ineffective"：anti-thrashing——最近2次压缩节省<10%，跳过
+        - "threshold"：正常触发（tokens超阈值）
+        - "ok"：不需要压缩
+        """
+        now = now or time.monotonic()
+        tokens = prompt_tokens if prompt_tokens is not None else 0
+
+        # cooldown：压缩后冷却期（避免连续压缩）
+        if self._last_compress_time > 0:
+            elapsed = now - self._last_compress_time
+            if elapsed < self.summary_failure_cooldown_s:
+                return False, f"cooldown:{int(self.summary_failure_cooldown_s - elapsed)}s"
+        # 连续失败也冷却
+        if self._compress_failures >= 2:
+            return False, f"cooldown:failures={self._compress_failures}"
+
+        if tokens < self.threshold_tokens:
+            return False, "ok"
+
+        # anti-thrashing：最近2次压缩节省<10% → 无效压缩，跳过
+        if len(self._last_savings) >= 2 and all(s < 0.10 for s in self._last_savings[-2:]):
+            return False, "ineffective"
+
+        return True, "threshold"
 
     def has_content_to_compress(self, messages: List[Dict[str, Any]]) -> bool:
         """Quick check: is there anything in messages that can be compacted?
@@ -334,7 +368,9 @@ class ContextCompressorV2:
                 self._summary_failure_cooldown_until = 0.0
                 return self._with_prefix(summary), "llm"
         except Exception as e:
-            logger.debug(f"LLM summary failed: {e}")
+            # 修复（2026-08-05，核心体检-2）：失败计数（触发cooldown）+日志升级（原debug盲区）
+            self._compress_failures += 1
+            logger.warning(f"LLM summary failed (failures={self._compress_failures}): {e}")
             self._summary_failure_cooldown_until = (
                 time.monotonic() + float(self.summary_failure_cooldown_s)
             )
@@ -601,6 +637,12 @@ TURNS TO SUMMARIZE:
         compressed = self._sanitize_tool_pairs(compressed)
         
         compressed_tokens = self._estimate_tokens(compressed)
+        # 修复（2026-08-05，核心体检-2 OpenClaw发现）：记录压缩效果（anti-thrashing状态）
+        self._last_compress_time = time.monotonic()
+        savings_ratio = (display_tokens - compressed_tokens) / max(display_tokens, 1)
+        self._last_savings.append(savings_ratio)
+        self._last_savings = self._last_savings[-3:]  # 只保留最近3次
+        self._compress_failures = 0  # 成功压缩清零失败计数
         
         result = CompressionResult(
             original_count=n_messages,
