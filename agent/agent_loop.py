@@ -70,6 +70,7 @@ from .verify_before_report_guard import (
     guard_enabled as verify_guard_enabled,
     should_block_finish as should_block_verify_finish,
 )
+MAX_VERIFY_NUDGES = 3  # verify guard最大nudge次数（修复：防freeze loop——对齐MAX_INTENT_NUDGES模式）
 # OC-01: auto_retrospective archived
 # from .auto_retrospective import enabled as retro_enabled, record as record_retro
 # 统一类型: 从 types.py 导入 (Phase 3 M1)
@@ -190,6 +191,7 @@ class MimirAgentLoop:
         """
         reasoning_per_turn: List[Optional[str]] = []
         tool_errors: List[ToolError] = []
+        verify_nudges = 0  # verify guard attempts计数（修复：防freeze loop，OpenClaw发现）
 
         user_task = None
         for msg in messages:
@@ -741,6 +743,7 @@ class MimirAgentLoop:
                 # --- verify-before-report guard ---
                 if (
                     verify_guard_enabled()
+                    and verify_nudges < MAX_VERIFY_NUDGES
                     and should_block_verify_finish(messages, content or "")
                 ):
                     # Hard block: remove unverified assistant response from history
@@ -749,9 +752,10 @@ class MimirAgentLoop:
                     messages.append({"role": "user", "content": build_verify_nudge()})
                     # OC-01: record_retro archived
                     # record_retro(messages, content or "")
+                    verify_nudges += 1  # 修复（2026-08-05，OpenClaw发现）：attempts计数——防freeze loop
                     logger.warning(
-                        "[%s] turn %d: verify-before-report guard triggered",
-                        self.task_id[:8], turn + 1,
+                        "[%s] turn %d: verify-before-report guard nudge %d/%d",
+                        self.task_id[:8], turn + 1, verify_nudges, MAX_VERIFY_NUDGES,
                     )
                     continue
 
