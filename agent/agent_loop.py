@@ -70,6 +70,7 @@ from .verify_before_report_guard import (
     guard_enabled as verify_guard_enabled,
     should_block_finish as should_block_verify_finish,
 )
+from .task_state import TaskState  # task_state（四方共识，2026-08-05）
 MAX_VERIFY_NUDGES = 3  # verify guard最大nudge次数（修复：防freeze loop——对齐MAX_INTENT_NUDGES模式）
 # OC-01: auto_retrospective archived
 # from .auto_retrospective import enabled as retro_enabled, record as record_retro
@@ -192,6 +193,7 @@ class MimirAgentLoop:
         reasoning_per_turn: List[Optional[str]] = []
         tool_errors: List[ToolError] = []
         verify_nudges = 0  # verify guard attempts计数（修复：防freeze loop，OpenClaw发现）
+        self._task_state = TaskState.PROBING  # task_state注入点1（四方共识：初始探测阶段）
 
         user_task = None
         for msg in messages:
@@ -239,6 +241,10 @@ class MimirAgentLoop:
             turn_start = _time.monotonic()
 
             mem_nudge = maybe_memory_nudge_message(turn)
+            # task_state消费方（四方共识）：WRITING时不注入nudge（不打断写盘）
+            if mem_nudge and self._task_state == TaskState.WRITING:
+                logger.info("[%s] turn %d: memory nudge skipped (WRITING)", self.task_id[:8], turn + 1)
+                mem_nudge = None
             if mem_nudge:
                 messages.append({"role": "user", "content": mem_nudge})
                 logger.info(
@@ -248,6 +254,10 @@ class MimirAgentLoop:
                     os.environ.get("MIMIR_MEMORY_NUDGE_INTERVAL", "10"),
                 )
             skill_nudge = maybe_skill_nudge_message(turn, tool_calls_so_far)
+            # task_state消费方（四方共识）：WRITING时不注入skill nudge（不打断写盘）
+            if skill_nudge and self._task_state == TaskState.WRITING:
+                logger.info("[%s] turn %d: skill nudge skipped (WRITING)", self.task_id[:8], turn + 1)
+                skill_nudge = None
             if skill_nudge:
                 messages.append({"role": "user", "content": skill_nudge})
 
@@ -493,6 +503,10 @@ class MimirAgentLoop:
                         if _br is None:
                             continue
                         tname, tid, raw_args, tool_result = _br
+                        # task_state注入点2（四方共识）：按工具名更新状态
+                        _ts = TaskState.from_tool_name(tname)
+                        if _ts is not None:
+                            self._task_state = _ts
                         try:
                             t0 = _time.monotonic()
                             from agent.tool_event_emitter import (
@@ -764,6 +778,7 @@ class MimirAgentLoop:
                     self.task_id[:8], turn + 1, api_elapsed,
                 )
                 self._close_pipeline(user_task)
+                self._task_state = TaskState.DONE  # task_state注入点3（四方共识：自然退出→DONE）
                 return AgentResult(
                     messages=messages, turns_used=turn + 1,
                     finished_naturally=True, reasoning_per_turn=reasoning_per_turn,
