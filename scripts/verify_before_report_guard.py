@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """
-verify_before_report_guard.py — 声称\"完成\"前必须验证的运行时守卫。
+verify_before_report_guard.py — 声称"完成"前必须验证的运行时守卫。
 
-触发条件：在 Agent 输出包含声称性结论（\"已完成\"/\"已修\"/\"已验证\"等）时，
+⚠️ 与 agent/verify_before_report_guard.py 的分工（2026-08-05 Hermes整理）：
+- agent/ 版：生产守卫（agent_loop.py/core_loop.py 使用）——消息级拦截（should_block_finish）
+- scripts/ 版：独立文本扫描守卫（tests 引用）——文本级检测（has_claim/check_verification）
+两版功能互补，默认值已对齐（MIMIR_VERIFY_BEFORE_REPORT 默认均=1），勿互相删除。
+
+触发条件：在 Agent 输出包含声称性结论（"已完成"/"已修"/"已验证"等）时，
 检查最近 N 条工具调用是否包含至少一次验证操作（read_file / json.load / terminal cat）。
 如果没有，则阻止该输出，并返回提示消息。
 
