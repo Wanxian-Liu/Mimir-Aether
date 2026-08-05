@@ -55,8 +55,16 @@ from .skill_scenario_router import (
     build_skill_route_nudge,
     should_inject_skill_route_nudge,
 )
-from .world_model_spike import is_wm_predictor_enabled, predict as wm_predict
-from .wm_voe_learning import append_surprise_event
+# WM imports — archived 2026-08-03 (docs/archive/world-model-20260803).
+# Defensive import: modules are archived, so guard against ImportError so the
+# agent loop keeps working (surprise flow disabled per WM discussion consensus).
+try:
+    from .world_model_spike import is_wm_predictor_enabled, predict as wm_predict
+    from .wm_voe_learning import append_surprise_event
+except ImportError:
+    is_wm_predictor_enabled = lambda: False
+    wm_predict = lambda *a, **k: None
+    append_surprise_event = lambda *a, **k: None
 from .verify_before_report_guard import (
     build_nudge_message as build_verify_nudge,
     guard_enabled as verify_guard_enabled,
@@ -215,6 +223,17 @@ class MimirAgentLoop:
                     tool_errors=tool_errors, interrupted=True,
                 )
 
+            # 修复（2026-08-05，核心体检-1 P0）：错误风暴检测——工具错误过多=循环卡死信号
+            # （原来无上限：工具持续失败会无限continue，浪费token且可能死循环）
+            if len(tool_errors) >= 50:
+                logger.warning("Tool error storm detected (%d errors) at turn %d — aborting loop", len(tool_errors), turn + 1)
+                self._close_pipeline(user_task)
+                return AgentResult(
+                    messages=messages, turns_used=turn + 1,
+                    finished_naturally=False, reasoning_per_turn=reasoning_per_turn,
+                    tool_errors=tool_errors, interrupted=True,
+                )
+
             turn_start = _time.monotonic()
 
             mem_nudge = maybe_memory_nudge_message(turn)
@@ -297,6 +316,10 @@ class MimirAgentLoop:
                 messages.append({"role": "user", "content": _nudge})
 
             # WM predictor: advisory context (env MIMIR_WM_PREDICTOR, default off)
+            # BUG-19 NOTE (2026-08-03): WM modules archived to
+            # docs/archive/world-model-20260803/ — is_wm_predictor_enabled()
+            # is always False here (defensive import fallback), so this block
+            # is dead code retained for revival reference only.
             if turn == 0 and is_wm_predictor_enabled():
                 try:
                     _wm_user = last_user_text(messages)
@@ -624,6 +647,14 @@ class MimirAgentLoop:
                     len(_tool_calls), turn_elapsed,
                 )
                 # --- VoE surprise check: compare WM prediction vs actual tools ---
+                # BUG-02 FIX (2026-08-03): old logic recorded a surprise only
+                # when prediction set and actual set had ZERO intersection, and
+                # joined the whole predicted set into one "expected" string —
+                # producing 84.8% malformed keys that could never be looked up.
+                # Now each mismatch is recorded per-tool (expected=missing
+                # predicted tool, actual=the tool actually used).
+                # NOTE: WM modules are archived (2026-08-03) — this block is
+                # inert while is_wm_predictor_enabled() is False.
                 if _wm_prediction_result is not None and _tool_calls:
                     _predicted_skills = set(s.lower() for s in (_wm_prediction_result.applicable_skills or []))
                     _actual_tools = set()
@@ -632,15 +663,18 @@ class MimirAgentLoop:
                         if _tname:
                             _actual_tools.add(_tname)
                     if _predicted_skills and _actual_tools:
-                        if not (_predicted_skills & _actual_tools):
+                        _unused_predicted = _predicted_skills - _actual_tools
+                        _unpredicted_used = _actual_tools - _predicted_skills
+                        if _unused_predicted or _unpredicted_used:
                             try:
-                                append_surprise_event(
-                                    expected=", ".join(sorted(_predicted_skills)),
-                                    actual=", ".join(sorted(_actual_tools)),
-                                    surprise_label="wm_prediction_mismatch",
-                                    context_snapshot={"turn": turn + 1},
-                                    guard_message=f"predicted={_predicted_skills}, actual={_actual_tools}",
-                                )
+                                for _missed in sorted(_unused_predicted):
+                                    append_surprise_event(
+                                        expected=_missed,
+                                        actual=", ".join(sorted(_unpredicted_used)) or "(none)",
+                                        surprise_label="wm_prediction_mismatch",
+                                        context_snapshot={"turn": turn + 1},
+                                        guard_message=f"predicted={_predicted_skills}, actual={_actual_tools}",
+                                    )
                             except Exception as exc:
                                 logger.warning("[%s] VoE surprise write failed: %s", self.task_id[:8], exc)
             else:
