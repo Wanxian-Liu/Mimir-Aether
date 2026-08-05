@@ -230,6 +230,9 @@ class CrossSessionMemory:
                 mem.setdefault("key_decisions", [])
                 # 记录最近任务到进度
                 self._data.setdefault("progress", {})["last_task"] = context["last_task"]
+            # task_state接入（四方共识，2026-08-05）：保存任务状态——恢复时知道做到哪
+            if context.get("task_state"):
+                self._data.setdefault("progress", {})["task_state"] = context["task_state"]
             for key in ("key_decisions", "pending_tasks"):
                 if context.get(key):
                     existing = mem.setdefault(key, [])

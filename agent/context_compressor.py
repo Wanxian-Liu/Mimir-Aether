@@ -162,6 +162,7 @@ class ContextCompressorV2:
         原should_compress只返回bool，无reason（silent overflow）：
         - "cooldown:<s>"：summary LLM刚失败/刚压缩过，冷却中
         - "ineffective"：anti-thrashing——最近2次压缩节省<10%，跳过
+        - "task_state:WRITING"：任务正在写盘，延迟压缩（task_state接入——四方共识）
         - "threshold"：正常触发（tokens超阈值）
         - "ok"：不需要压缩
         """
@@ -179,6 +180,10 @@ class ContextCompressorV2:
 
         if tokens < self.threshold_tokens:
             return False, "ok"
+
+        # task_state接入（四方共识，2026-08-05）：任务正在写盘时延迟压缩（防摘要丢写盘变量）
+        if getattr(self, '_task_state', None) == "writing":
+            return False, "task_state:WRITING"
 
         # anti-thrashing：最近2次压缩节省<10% → 无效压缩，跳过
         if len(self._last_savings) >= 2 and all(s < 0.10 for s in self._last_savings[-2:]):
