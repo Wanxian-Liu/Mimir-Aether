@@ -53,9 +53,13 @@ async def main():
 
         # 修复v2：过滤从"全文词匹配"改为"开头类型标记匹配"（防任务消息含'回执'被误杀）
         # 只跳过明确标记为确认/待命类的消息（开头20字内判定）
+        # 修复v3（2026-08-05）：加"【Openclaw】/【Loki】写入路径/待命/已落盘"——回执噪音漏过过滤的根因
         CONFIRM_PREFIX = ["【REPLY】", "【Mimir】", "【Loki 待命】", "【OpenClaw 待命】",
                           "✅ 已收", "✅ 收到", "已收", "收到。", "收到，", "停】",
-                          "【REPLY", "【Mimir】收"]
+                          "【REPLY", "【Mimir】收",
+                          "【Openclaw】写入路径", "【Openclaw】立场", "【Openclaw】✅",
+                          "【Loki】写入路径", "【Loki】【Loki 待命", "【Loki】**", "【Loki】✅",
+                          "【OpenClaw琬弦→Hermes】"]
         target = None
         for line in reversed(lines):
             try:
