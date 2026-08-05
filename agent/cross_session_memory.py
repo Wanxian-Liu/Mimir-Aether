@@ -211,8 +211,36 @@ class CrossSessionMemory:
             self.file_path,
         )
         if not ok:
-            print("[CrossSessionMemory] 保存失败")
+            # 修复（2026-08-05，Loki发现M2）：print→logger（生产环境stdout被重定向，print不可见）
+            logger.error("[CrossSessionMemory] 保存失败")
         return ok
+
+    def save_context(self, context: dict) -> bool:
+        """保存会话上下文（B1修复：core_loop._save_cross_session调用的方法——之前不存在导致静默失效）。
+
+        复用 :meth:`save` 机制，把会话级上下文（last_task/key_decisions/pending_tasks）
+        合并进持久化记忆。不新造写路径——用现有原子写。
+        """
+        if not isinstance(context, dict):
+            logger.warning("[CrossSessionMemory] save_context 收到非dict: %r", type(context))
+            return False
+        try:
+            mem = self._data.setdefault("memory", {})
+            if context.get("last_task"):
+                mem.setdefault("key_decisions", [])
+                # 记录最近任务到进度
+                self._data.setdefault("progress", {})["last_task"] = context["last_task"]
+            for key in ("key_decisions", "pending_tasks"):
+                if context.get(key):
+                    existing = mem.setdefault(key, [])
+                    # 去重合并（按内容，不重复追加）
+                    for item in context[key]:
+                        if item not in existing:
+                            existing.append(item)
+            return self.save()
+        except Exception as e:
+            logger.error("[CrossSessionMemory] save_context 失败: %s", e)
+            return False
 
     def _merge_disk_changes(self) -> None:
         """合并磁盘快照到 ``self._data``（供会话内逻辑；保存走 :meth:`save`）。"""
