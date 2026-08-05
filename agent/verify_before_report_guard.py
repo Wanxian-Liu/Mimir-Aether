@@ -22,7 +22,8 @@ STATUS_QUERY_PATTERNS = [
 
 
 def guard_enabled() -> bool:
-    return os.environ.get("MIMIR_VERIFY_BEFORE_REPORT", "0") == "1"
+    # 修复（2026-08-05，OpenClaw发现）：默认改为1（与scripts版一致）——原默认0导致guard形同虚设
+    return os.environ.get("MIMIR_VERIFY_BEFORE_REPORT", "1") == "1"
 
 
 def _last_user_text(messages: list[dict[str, Any]]) -> str:
