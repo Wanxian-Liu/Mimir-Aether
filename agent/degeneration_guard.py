@@ -408,48 +408,16 @@ class DegenerationGuard:
 
         if expected_vs_actual:
             exp, act = expected_vs_actual
-            try:
-                from agent.wm_voe_learning import (
-                    is_wm_voe_recall_enabled,
-                    lookup_learned_surprise,
-                )
-                if is_wm_voe_recall_enabled():
-                    learned = lookup_learned_surprise(exp, act)
-                    if learned:
-                        report.details["surprise_suppressed"] = True
-                        report.details["suppressed_reason"] = "learned_voe"
-                        return report
-            except Exception as exc:
-                logger.warning("WM VoE recall hook failed: %s", exc)
-
+            # WM VoE learning hooks were archived 2026-08-03 (world-model-20260803).
+            # surprise_gate itself is self-contained: detect_surprise() does the
+            # outcome-reversal / existence-mismatch check without wm_voe_learning.
+            # The archived module is imported defensively; if absent we simply
+            # skip the learned-surprise suppression and event logging.
             surprise_msg = self.detect_surprise(exp, act)
             if surprise_msg:
                 report.signal = DegenerationSignal.SURPRISE_DETECTED
                 report.warnings.append(surprise_msg)
                 report.details["surprise"] = surprise_msg
-                try:
-                    from agent.wm_voe_learning import (
-                        append_surprise_event,
-                        format_wm_learning_context,
-                        is_wm_voe_learning_enabled,
-                        is_wm_voe_replan_ctx_enabled,
-                        surprise_label_from_guard_message,
-                    )
-                    exp, act = expected_vs_actual
-                    label = surprise_label_from_guard_message(surprise_msg)
-                    if is_wm_voe_replan_ctx_enabled():
-                        ctx = format_wm_learning_context(exp, act, label)
-                        report.details["wm_learning_context"] = ctx
-                        try:
-                            from agent.wm_voe_learning import set_pending_wm_learning_context
-
-                            set_pending_wm_learning_context(ctx)
-                        except Exception as exc:
-                            logger.warning("WM VoE pending context failed: %s", exc)
-                    if is_wm_voe_learning_enabled():
-                        append_surprise_event(exp, act, label, {}, surprise_msg)
-                except Exception as exc:
-                    logger.warning("WM VoE learning hook failed: %s", exc)
                 return report  # 🔴 立即返回
 
         # ⚠️ 级别

@@ -95,8 +95,24 @@ HermesStyleCompressor(
 
 - 从 **`_hermes_home / "config.yaml"`** 读配置（与仓库内示例 [`config.yaml`](config.yaml) **未必是同一文件**）。
 - **`compression.enabled`**：仅此布尔（及 truthy 字符串）控制是否启用卫生压缩；路径见代码中 `_hyg_data.get("compression", {})`。
-- **卫生触发阈值比例**：代码内 **`_hyg_threshold_pct = 0.85`**（相对解析出的模型上下文长度），**硬编码**，**不是** YAML 键。
+- **卫生触发阈值（2026-08-02 P0 修复后）**：`agent_route_mixin.py` L322 `_compress_token_threshold = 200_000` **固定值**（替代旧的 `context_length × 0.85` = 850K）。token 来源**仅用 actual**（`session_entry.last_prompt_tokens`），`estimated` 不再触发——旧估算偏差 3.05×（10:31 estimated 244,759 vs 10:34 actual 80,359）导致"该压不压"。消息数 ≥400 硬阀保留兜底。
 - 优先使用 `session_entry.last_prompt_tokens`，否则用 `estimate_messages_tokens_rough(history)`。
+
+## ⚠️ P0 coroutine bug 教训（2026-08-02 修复）
+
+**症状**：gateway.log 连续 70 天（841 次触发 0 次成功）报 `auto-compress failed: cannot unpack non-iterable coroutine object`。
+
+**根因链**（三层叠加）：
+1. `agent/context_compressor.py:524` `compress` 是 **`async def`**（内部 L566 `await _generate_summary`）
+2. `run_agent.py:160` `AIAgent._compress_context`（sync def）调 `comp.compress(...)` **无 await** → 返回 coroutine 对象
+3. `agent_route_mixin.py:399` 把 `_compress_context` 丢进 `run_in_executor` 线程池 → lambda 返回 coroutine → `_compressed, _ = <coroutine>` → TypeError → L441 except 吞掉
+
+**修复模式**（async 链必须全链路 await，禁止在 sync→async 边界丢 run_in_executor 包装）：
+- `run_agent.py:145` → `async def _compress_context` + L160 `return await comp.compress(...)`
+- `agent_route_mixin.py:398`（session hygiene）/ `command_handlers.py:1397`（/compress）/ `tuning_commands_mixin.py:383` → 去 `run_in_executor` 包装，直接 `await`
+- `acp_adapter/server.py:650`（sync `_cmd_compact`）→ `agent.async_bridge.run_async` 桥接
+
+**排查信号**：`grep "auto-compress failed" gateway.log | wc -l` 若 >0 且含 "coroutine object"，先查是否 `async def` 被 sync 调用且无 await，再查是否被 run_in_executor 包装。修复顺序：先 coroutine 后触发器，不能反。
 
 ## 配置键 → 代码位置（摘要）
 
@@ -165,6 +181,17 @@ HermesStyleCompressor(
 
 - 无 API `usage` 且粗估失败时，`last_prompt_tokens` 可能仍为 0，自动触发仍可能偏保守。
 - Gateway 卫生压缩仍使用独立配置与 85% 常量阈值，与 Agent 内 `threshold_percent` 等**不一定**数值一致。
+
+## ⚠️ Pitfall: 卫生压缩日志 "token 翻倍" 是口径假象（2026-08-02 定位）
+
+日志 `Session hygiene: compressed 1923 → 1922 msgs, ~112,035 → ~225,789 tokens` 中 **112K→225K 不是上下文真变大**，是**两个不可比的数字**放进一个箭头：
+
+1. **压缩前** `_approx_tokens = session_entry.last_prompt_tokens`（`agent_route_mixin.py` L332）= **API 实际 prompt_tokens**（tokenizer 精确计数）。
+2. **压缩后** `_new_tokens = estimate_messages_tokens_rough(_compressed)`（L409）= `(sum(len(str(msg)))+3)//4`（`model_metadata.py` L961）**字符粗估**，对代码/JSON/中文消息系统性高估 ~2x（注释自认 overestimates 30-50%）。
+3. 1923→1922 只少 1 条 = `_hyg_msgs` 只保留 user/assistant（L370-375）过滤掉 tool 消息；`_compress_context(approx_tokens=112035)` → `compressor.compress(current_tokens=112035)` **未达 threshold（0.85×ctx ≈170K）→ no-op 原样返回**，但日志谎报 "compressed"。
+4. 触发原因不是 112K≥200K，而是 **`_msg_count=1923 ≥ 400` 硬消息数阀**（L344-347）——对"条数多但每条小"的中文短消息会话误触发。
+
+**判断要点**：看到 hygiene 日志 token 翻倍先查**口径是否一致**，再查 **compress 是否真的 no-op**（消息数几乎不变 = 未达阈值）。
 
 ## 🧠 V-JEPA 2.1 Layer 1 自检 (Session 75+)
 

@@ -1,0 +1,17 @@
+{
+  "generated_at": "2026-07-29T23:30+08:00",
+  "generated_by": "MimirAether",
+  "gate1": "import_ok",
+  "gate2_passed": 708,
+  "gate2_failed": 0,
+  "gate2_warnings": 10,
+  "gate3_passed": 2,
+  "gate3_failed": 0,
+  "coverage": "not_run",
+  "total_gate_time_sec": 86.18,
+  "incremental_enabled": true,
+  "wiggum_retry_enabled": true,
+  "changed_only_mode": "active",
+  "source": "run_ralph_tier0.sh",
+  "version": "0.1.0"
+}

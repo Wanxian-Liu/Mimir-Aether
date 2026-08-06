@@ -950,6 +950,33 @@ class FeishuAdapter(BasePlatformAdapter):
                 )
         # ─────────────────────────────────────────────────────────
 
+        # ── Pre-Send Verify Gate (2026-07-29 4-agent discussion) ──
+        # Block any "done"/"written"/"landed" claim unless
+        # the claimed files actually exist on disk with size > 0.
+        _CLAIM_KW = ("已完成", "已写入", "已落地", "三块基线", "全部落盘")
+        if any(kw in content for kw in _CLAIM_KW):
+            import os as _os, pathlib as _pl, json as _json
+            session_log = _pl.Path("~/.mimiraether/data/raw_session_logs.jsonl").expanduser()
+            recent_paths = set()
+            if session_log.exists():
+                for line in session_log.read_text().rstrip().split("\n")[-10:]:
+                    try:
+                        rec = _json.loads(line)
+                        if rec.get("tool") == "write_file" and rec.get("status") == "success":
+                            path = rec.get("path") or rec.get("file") or ""
+                            if path:
+                                recent_paths.add(_pl.Path(path).expanduser())
+                    except Exception:
+                        pass
+            if recent_paths:
+                missing = [str(p) for p in recent_paths if not p.exists() or p.stat().st_size == 0]
+                if missing:
+                    raise RuntimeError(
+                        f"Pre-send verify BLOCKED: {len(missing)} file(s) in recent "
+                        f"write_file claims not on disk or empty: {missing[:3]}"
+                    )
+        # ─────────────────────────────────────────────────────────
+
         body: Dict[str, Any] = {
             "receive_id": chat_id,
             "msg_type": msg_type,

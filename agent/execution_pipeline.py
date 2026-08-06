@@ -69,6 +69,16 @@ def _get_raw_log_path() -> Path:
     return _RAW_LOG_PATH
 
 
+def _raw_log_enabled() -> bool:
+    """BUG-20 FIX (2026-08-03): raw_session_logs had NO consumer
+    (compute_prediction_accuracy was dead code) yet kept growing (2.29MB+).
+    Default OFF — set MIMIR_RAW_SESSION_LOG=1 to re-enable when a real
+    consumer exists."""
+    return os.environ.get("MIMIR_RAW_SESSION_LOG", "0").strip().lower() not in (
+        "0", "false", "no",
+    )
+
+
 def _write_raw_log(
     tool_name: str,
     duration_ms: float,
@@ -76,6 +86,8 @@ def _write_raw_log(
     error_message: str,
     session_id: str,
 ) -> None:
+    if not _raw_log_enabled():
+        return  # BUG-20: sink disabled (no consumer)
     from datetime import datetime, timezone
 
     path = _get_raw_log_path()

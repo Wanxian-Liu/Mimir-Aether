@@ -1,4 +1,7 @@
-"""BRAIN-05: VoE learning minimal tests — WM prediction correctness + env gate."""
+
+import pytest
+pytest.importorskip("agent.wm_voe_learning", reason="WM archived 2026-08-03")
+pytest.importorskip("agent.world_model_spike", reason="WM archived 2026-08-03")
 
 import os
 from unittest.mock import patch
@@ -8,7 +11,6 @@ from agent.world_model_spike import (
     predict,
     is_wm_predictor_enabled,
 )
-
 
 class TestVoEWmPrediction:
     """Validate world_model_spike.predict returns correct structure."""

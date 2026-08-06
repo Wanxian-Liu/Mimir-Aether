@@ -380,10 +380,8 @@ class TuningCommandsMixin:
             if compress_start >= compress_end:
                 return "Nothing to compress yet (the transcript is still all protected context)."
 
-            loop = asyncio.get_event_loop()
-            compressed, _ = await loop.run_in_executor(
-                None,
-                lambda: tmp_agent._compress_context(msgs, "", approx_tokens=approx_tokens, focus_topic=focus_topic)
+            compressed, _ = await tmp_agent._compress_context(
+                msgs, "", approx_tokens=approx_tokens, focus_topic=focus_topic
             )
 
             # _compress_context already calls end_session() on the old session

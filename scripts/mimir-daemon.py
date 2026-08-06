@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Mimir Daemon — lightweight status server for port 18791.
-Reports Mimir's current health, state (idle/active), and last activity.
+Mimir Daemon — lightweight status server (DEPRECATED). 
+Port 18999 is the real Gateway. This daemon is no longer needed.
 """
 
 import http.server
@@ -15,7 +15,7 @@ import time
 from datetime import datetime
 
 HOST = "127.0.0.1"
-PORT = 18791
+PORT = 18791  # DEPRECATED — real Gateway is on 18999
 
 START_TIME = time.time()
 STATE_FILE = os.path.expanduser("~/.mimiraether/data/star-office-state.json")

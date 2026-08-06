@@ -605,7 +605,7 @@ Playbook 结构修复: §15 排在 §14 之前 → 已重排；§0 总表加 EV-
 
 ---
 
-## 16. EV-L16：Superpowers 方法论内化（2026-07-12）
+## 16. EV-L16 ✅：Superpowers 方法论内化（2026-07-12）
 
 **对标：** obra/superpowers — 246K star 技能方法论框架
 
@@ -630,7 +630,7 @@ Playbook 结构修复: §15 排在 §14 之前 → 已重排；§0 总表加 EV-
 - 类似 obra/superpowers 的 **verification-before-completion** 出口门控 + **skill-tdd** 先失败再固化流程，因为从 246K star 的公开方法论中提取的 3 条核心原则已直接作用于 behavioral_constraints 和 tool-triggers。
 ```
 
-## EV-L17 — 梦境蒸馏 16 轮根因链闭环（2026-07-15）
+## EV-L17 ✅ — 梦境蒸馏 16 轮根因链闭环（2026-07-15）
 
 ### 背景
 

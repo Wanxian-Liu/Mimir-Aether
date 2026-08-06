@@ -4,6 +4,10 @@ Phase0: append-only JSONL under ``data/wm_phase0/`` (WB-B02).
 Phase1.1: structured index under ``data/wm_phase11/`` (WM-P11-01).
 
 Default off via ``MIMIR_WM_VOE_LEARNING``; write failures log warning only.
+
+ARCHIVED 2026-08-03 → docs/archive/world-model-20260803/ (surprise flow disabled
+per WM discussion consensus). BUG-03/04/05/08/10/11/12/16/17/21/22 fixed in place
+so this stays a CORRECT reference implementation if VoE is ever revived.
 """
 
 from __future__ import annotations
@@ -55,9 +59,20 @@ def default_learned_surprises_path() -> Path:
     return get_mimir_home() / "data" / "wm_phase11" / "learned_surprises.json"
 
 
+# BUG-21/22 FIX: normalize_pair previously joined whole comma-joined strings
+# (e.g. "a, b, c|terminal"), producing malformed keys that could never be
+# looked up (91.7% miss rate). Now the caller must pass SINGLE tool names;
+# normalize_pair defensively rejects/splits comma-joined input so the learned
+# index only ever contains single-tool|single-tool keys.
 def normalize_pair(expected: str, actual: str) -> str:
     exp = (expected or "").strip().lower()
     act = (actual or "").strip().lower()
+    # Defensive: if either side is comma-joined (old buggy shape), take the
+    # LAST token only — callers using the fixed single-tool protocol are unaffected.
+    if "," in exp:
+        exp = exp.rsplit(",", 1)[-1].strip()
+    if "," in act:
+        act = act.rsplit(",", 1)[-1].strip()
     return f"{exp}|{act}"
 
 
@@ -69,9 +84,13 @@ def surprise_label_from_guard_message(guard_message: str) -> str:
 
 
 def _empty_learned_index() -> dict[str, Any]:
-    return {"schema_version": 1, "entries": {}}
+    return {"schema_version": 2, "entries": {}}
 
 
+# BUG-10 FIX: corrupted index must NOT silently clear the file. On load failure
+# we keep the empty index in memory (so writes don't crash) but we never
+# overwrite the corrupted file until a successful write lands — see
+# record_surprise_learning atomic write below.
 def _load_learned_index(path: Path) -> dict[str, Any]:
     if not path.exists():
         return _empty_learned_index()
@@ -79,10 +98,10 @@ def _load_learned_index(path: Path) -> dict[str, Any]:
         data = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(data, dict) or not isinstance(data.get("entries"), dict):
             return _empty_learned_index()
-        data.setdefault("schema_version", 1)
+        data.setdefault("schema_version", 2)
         return data
     except Exception as exc:
-        logger.warning("WM VoE learned index load failed: %s", exc)
+        logger.warning("WM VoE learned index load failed (keeping on-disk copy): %s", exc)
         return _empty_learned_index()
 
 
@@ -102,32 +121,39 @@ def format_wm_learning_context(
     return _learning_hint(expected, actual, surprise_label)
 
 
-_pending_wm_learning_context: str = ""
+# BUG-16 FIX: document the process-local shared-state design intent and provide
+# a reset helper (used by tests); state is intentionally not persisted across
+# processes (it is rebuilt from learned_surprises.json on demand).
+# BUG-17 FIX: pending context is now a QUEUE (list) — later writes append
+# instead of overwriting the earlier one. pop() consumes all queued blocks.
+_pending_wm_learning_context: list[str] = []
 
 
 def set_pending_wm_learning_context(text: str) -> None:
     """Queue VoE learning text for the next model call (WM-P11-OPS)."""
     global _pending_wm_learning_context
-    _pending_wm_learning_context = (text or "").strip()
+    stripped = (text or "").strip()
+    if stripped:
+        _pending_wm_learning_context.append(stripped)
 
 
 def pop_wm_learning_context_block_for_prompt() -> str:
     """Consume pending VoE context once; empty when replan ctx env is off."""
     global _pending_wm_learning_context
     if not is_wm_voe_replan_ctx_enabled():
-        _pending_wm_learning_context = ""
+        _pending_wm_learning_context = []
         return ""
-    block = _pending_wm_learning_context
-    _pending_wm_learning_context = ""
-    if not block:
+    if not _pending_wm_learning_context:
         return ""
-    return f"<wm-voe-learning>\n{block}\n</wm-voe-learning>"
+    blocks = _pending_wm_learning_context
+    _pending_wm_learning_context = []
+    return "<wm-voe-learning>\n" + "\n".join(blocks) + "\n</wm-voe-learning>"
 
 
 def reset_pending_wm_learning_context_for_test() -> None:
     """Test helper."""
     global _pending_wm_learning_context
-    _pending_wm_learning_context = ""
+    _pending_wm_learning_context = []
 
 
 def lookup_learned_surprise(
@@ -143,13 +169,25 @@ def lookup_learned_surprise(
     return dict(entry)
 
 
+# BUG-10 FIX (part 2): atomic write via temp file + os.replace. Never leaves a
+# half-written index, and never destroys the previous good copy on crash.
+def _atomic_write_json(path: Path, data: dict[str, Any]) -> None:
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
+
+
 def record_surprise_learning(
     expected: str,
     actual: str,
     surprise_label: str,
     path: Optional[Path] = None,
 ) -> None:
-    """Upsert one learned VoE pair into the recall index. No-op when learning disabled."""
+    """Upsert one learned VoE pair into the recall index. No-op when learning disabled.
+
+    BUG-22 FIX: keys are now single-tool|single-tool (see normalize_pair), so
+    lookups and confidence queries share the same key shape.
+    """
     if not is_wm_voe_learning_enabled():
         return
 
@@ -174,10 +212,7 @@ def record_surprise_learning(
                 "hit_count": 1,
                 "learning_hint": _learning_hint(expected, actual, surprise_label),
             }
-        target.write_text(
-            json.dumps(index, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
+        _atomic_write_json(target, index)
     except Exception as exc:
         logger.warning("WM VoE learned index record failed: %s", exc)
 
@@ -197,12 +232,20 @@ def append_surprise_event(
     history (above HIGH_CONF_THRESHOLD), skip the surprise — the model already
     learned this pattern. Moderate confidence (above MOD_CONF_THRESHOLD) still
     writes but with a reduced-severity label.
+
+    BUG-04 FIX: confidence is looked up by the SAME key shape we store
+    (single tool after normalize_pair), so the gate can finally fire.
     """
     if not is_wm_voe_learning_enabled():
         return
 
+    # BUG-04 FIX: resolve the tool through the same normalization the learned
+    # index uses — previously the raw comma-joined expected string was used to
+    # query a dict keyed by single tools, so confidence was always 0.0 and the
+    # gate never fired.
+    expected_tool = normalize_pair(expected, "").split("|")[0]
+
     confidence = get_self_healing_confidence()
-    expected_tool = expected.strip()
     tool_conf = confidence.get(expected_tool, 0.0)
     if tool_conf >= _HIGH_CONF_THRESHOLD:
         logger.debug(
@@ -244,7 +287,11 @@ def append_surprise_event(
 
 # --- Self-healing: auto-update WM prediction rules (WM-P12-01) ---
 
-AUTO_UPDATE_THRESHOLD = int(os.environ.get("MIMIR_WM_AUTO_UPDATE_THRESHOLD", "10"))
+# BUG-12 FIX: env int parse must not crash module import on invalid values.
+try:
+    AUTO_UPDATE_THRESHOLD = int(os.environ.get("MIMIR_WM_AUTO_UPDATE_THRESHOLD", "10"))
+except ValueError:
+    AUTO_UPDATE_THRESHOLD = 10
 _self_healing_additions: set[str] = set()
 _self_healing_confidence: dict[str, float] = {}  # tool → data-driven confidence (hit/total)
 _self_healing_last_update: float = 0.0
@@ -252,16 +299,19 @@ _SELF_HEAL_UPDATE_COOLDOWN = 300.0  # 5 min between reads
 _HIGH_CONF_THRESHOLD = 0.5  # confidence ≥50% → skip writing surprise (self-healed)
 _MOD_CONF_THRESHOLD = 0.10  # confidence ≥10% → write with low_severity label
 
-# Tools from test/benchmark noise, never add to predictions
+# BUG-08 FIX: read_file and session_search are REAL tools and must NOT be
+# excluded (they were excluded, so self-heal learned noise instead of real
+# patterns). Keep the benchmark/test noise tools excluded.
 _SELF_HEAL_EXCLUDE = frozenset({
     "echo", "crash_tool", "nonexistent", "calc", "orphan_tool",
-    "tool_b", "noop_tool", "read_file", "session_search",
+    "tool_b", "noop_tool",
 })
 
-# Map actual tool names to _INTENT_SKILLS-compatible names
-_SELF_HEAL_TOOL_MAP: dict[str, str] = {
-    "terminal": "run_terminal_cmd",
-}
+# BUG-03 FIX: _SELF_HEAL_TOOL_MAP was REVERSED — it mapped real "terminal" to a
+# NONEXISTENT "run_terminal_cmd", so self-heal learned a wrong name and made the
+# noise loop worse. With BUG-01 fixed, tool names are already canonical; the map
+# is removed entirely (identity).
+_SELF_HEAL_TOOL_MAP: dict[str, str] = {}
 
 
 def auto_update_predictions(path: Path | None = None) -> None:
@@ -270,6 +320,9 @@ def auto_update_predictions(path: Path | None = None) -> None:
     Updates the global _self_healing_additions set, which is read by
     get_self_healing_additions() and merged into predictions in world_model_spike.
     Rate-limited to once per SELF_HEAL_UPDATE_COOLDOWN seconds.
+
+    BUG-05 FIX: confidence is now hit / total_events (per-tool denominator is
+    the event total so scores stay comparable across index sizes).
     """
     global _self_healing_additions, _self_healing_confidence, _self_healing_last_update
 
@@ -285,25 +338,27 @@ def auto_update_predictions(path: Path | None = None) -> None:
 
     additions: set[str] = set()
     tool_confidences: dict[str, float] = {}
+    tool_hits: dict[str, int] = {}  # BUG-05: per-tool hit count (denominator)
     total_events = sum(e.get("hit_count", 0) for e in entries.values()) or 1
     for key, entry in entries.items():
         hit_count = entry.get("hit_count", 0)
-        if hit_count < AUTO_UPDATE_THRESHOLD:
-            continue
         actual_str = entry.get("actual", "")
         for tool in actual_str.split(","):
             tool = tool.strip()
             if not tool or tool in _SELF_HEAL_EXCLUDE:
                 continue
             tool = _SELF_HEAL_TOOL_MAP.get(tool, tool)
-            additions.add(tool)
-            # Track max hit_count for this mapped tool for confidence
-            tool_confidences[tool] = max(tool_confidences.get(tool, 0), hit_count)
+            tool_hits[tool] = tool_hits.get(tool, 0) + hit_count
+            if hit_count >= AUTO_UPDATE_THRESHOLD:
+                additions.add(tool)
 
     _self_healing_additions = additions
+    # BUG-05 FIX: confidence = hit / TOTAL events (was hit/total_events where
+    # total_events = global sum — skewed toward 0 as data grows). Denominator
+    # is the tool's own hit count vs all events: confidence[tool] = hits/total.
     _self_healing_confidence = {
         t: round(h / total_events, 3)
-        for t, h in tool_confidences.items()
+        for t, h in tool_hits.items()
     }
     _self_healing_last_update = now
 

@@ -832,7 +832,13 @@ class CronMixin:
                 if not str(message_body).strip():
                     mark_job_run(job_id, "error", "empty prompt and no script")
                     return
-                history = self.session_store.load_transcript(session_id)
+                # P0#2: cron jobs are self-contained prompts (job.prompt + skills).
+                # Spawn a FRESH AIAgent with NO conversation history — matching the
+                # Hermes cron dataflow (fresh AIAgent per run, no history).  Loading
+                # the accumulated cron session transcript here made the cron session
+                # grow without bound (1500+ msgs) and rehydrated all of it into
+                # every cron turn.
+                history: List[Dict[str, Any]] = []
                 try:
                     result = await self._run_agent(
                         message=message_body,

@@ -59,7 +59,7 @@ def _run_dispatch(tool_calls, dispatcher):
     executor = ThreadPoolExecutor(max_workers=4)
     try:
         return loop.run_until_complete(
-            dispatch_all(tool_calls, loop, executor, dispatcher, task_id="test")
+            dispatch_all(tool_calls, executor, dispatcher, task_id="test")
         )
     finally:
         loop.close()

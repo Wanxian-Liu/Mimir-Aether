@@ -1,6 +1,8 @@
-"""IQ-33: contract tests for preemptive search vs intent/WM nudge coexistence."""
-
 from __future__ import annotations
+
+import pytest
+pytest.importorskip("agent.wm_voe_learning", reason="WM archived 2026-08-03")
+pytest.importorskip("agent.world_model_spike", reason="WM archived 2026-08-03")
 
 import os
 
@@ -10,7 +12,6 @@ from agent.search_first_guard import (
     session_search_satisfied_since_last_user,
 )
 from agent.world_model_spike import is_wm_predictor_enabled, predict as wm_predict
-
 
 def _wm_prediction_block(user_message: str) -> str:
     pred = wm_predict(
@@ -26,7 +27,6 @@ def _wm_prediction_block(user_message: str) -> str:
         "</wm-prediction>"
     )
 
-
 def test_preemptive_satisfied_guard_allows_tools():
     msgs = [
         {"role": "user", "content": "还记得上次的任务么"},
@@ -34,7 +34,6 @@ def test_preemptive_satisfied_guard_allows_tools():
     ]
     assert preemptive_search_in_slice(msgs)
     assert session_search_satisfied_since_last_user(msgs)
-
 
 def test_low_confidence_recall_skips_strong_recall_directive():
     pred = IntentPrediction(
@@ -48,7 +47,6 @@ def test_low_confidence_recall_skips_strong_recall_directive():
     assert "low-confidence prediction" in block
     assert "search sessions or MEMORY.md first" not in block
 
-
 def test_wm_and_intent_blocks_use_distinct_markers():
     user = "还记得上次 gateway 的问题吗"
     wm_block = _wm_prediction_block(user)
@@ -58,7 +56,6 @@ def test_wm_and_intent_blocks_use_distinct_markers():
     assert "<intent-context>" in intent_block
     assert "<wm-prediction>" not in intent_block
     assert "</wm-prediction>" not in intent_block
-
 
 def test_wm_predictor_off_by_default(monkeypatch):
     monkeypatch.delenv("MIMIR_WM_PREDICTOR", raising=False)

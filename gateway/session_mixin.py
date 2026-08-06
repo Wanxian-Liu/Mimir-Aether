@@ -6,6 +6,7 @@ Extracted from GatewayRunner (gateway/run.py) as part of d3 GOD class split.
 
 from __future__ import annotations
 from gateway.restart import (
+    DEFAULT_GATEWAY_RESTART_DRAIN_TIMEOUT,
     GATEWAY_SERVICE_RESTART_EXIT_CODE,
     _AGENT_PENDING_SENTINEL,
     parse_restart_drain_timeout,

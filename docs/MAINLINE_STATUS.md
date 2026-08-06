@@ -5,11 +5,11 @@
 
 | 字段 | 值 |
 |------|-----|
-| **最近更新** | 2026-06-04 |
-| **更新人** | Mimir（loop 崩溃修复 + verify-before-report guard + WM DiversityCheck + SOUL 铁律压缩 + 进化日志更新） |
+| **最近更新** | 2026-08-03 |
+| **更新人** | Mimir（Pi 融合试点1 成功闭环 + WM 存废执行 + WM 审计 18 bug + Buzz 通信层接入） |
 | **仓库根（真源）** | `~/src/MimirAether` |
 | **可选校验** | `./run_ralph_tier0.sh`（门禁 **696+2** ✅）；`MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh`（周常） |
-| **本轮摘要** | **loop 崩溃紧急修复**：`get_event_loop()` → `get_running_loop()` 3 文件 · 并行路径预验证+tool_errors补齐 · verify-before-report guard 68行（自引用豁免+证据检查）· SOUL.md 铁律压缩至头部2条 · WM DiversityCheck + prediction_accuracy · raw_session_logs.jsonl 链路修通 · tier0 696+2 全绿 · evolution_log+MAINLINE已更新 |
+| **本轮摘要** | **Pi 融合试点1 成功闭环**：pi-crew 激活（pi-subagents 移除解工具冲突）· bridge 异步化（方案 A：Popen 分离进程组 + `_wait_run` 轮询 manifest）· 真跑 run completed / 3 worker 绿 / 55 artifacts · wiki 卡 3,829B · commit c5e622e · evolution_log L189（M6）· 讨论卡 resolved。**WM 存废执行 + 审计**：env 4 开关关 · 代码+数据归档 `docs/archive/world-model-20260803/` · outcome reversal 并入 degeneration_guard（解耦 5 import + agent_loop 防御导入）· KPI 脚本 · 审计发现 **18 bug**（P0×3：工具名 100% 不存在 run_terminal_cmd / VoE 整串比较 / 自愈映射反）· 落盘集体修复讨论卡。**Buzz 通信层接入**：nostr relay AUTH/发/查全过 · GitHub 调研（ACP/A2A/Nostr 现状）· 附录并入 OpenClaw 蜂巢卡。 |
 
 ---
 
@@ -79,7 +79,7 @@
 
 ## 5. 更新日志（倒序）
 
-| 2026-06-02 | ENG-WF §12 全 [x]（复核：tool_registry **85%** · 补真源 `MIMIR_ENGINEERING_WORKFLOW.md`）· tier0 **696/4** · IQ-14/CLR-B 文档闭合 |
+| 2026-08-03 | **Pi 试点1 成功**：pi-crew 激活+冲突解除+bridge 异步化→真跑四条验收全过（run completed/55 artifacts/卡 3,829B/c5e622e）· WM 存废执行 6 项全过 + 审计 18 bug 落盘集体修复卡 · Buzz 接入（AUTH/发/查全过）+ GitHub 协议调研。tier0 门禁 exit=0（M6 记录 L189）。 |
 
 | 日期 | 摘要 |
 |------|------|

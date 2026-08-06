@@ -1,6 +1,6 @@
 # [DORMANT] mimiraether-html-output
 
-**沉寂时间**: 2026-07-29T08:22:40.155584+00:00
+**沉寂时间**: 2026-07-31T08:10:50.556162+00:00
 **原始分类**: root
 **描述**: MimirAether HTML 双模输出——复杂报告、评测、架构图等场景自动切换 HTML 输出。对齐 Karpathy "HTML > Markdown" 理念。
 **触发阈值**: 60天未触碰

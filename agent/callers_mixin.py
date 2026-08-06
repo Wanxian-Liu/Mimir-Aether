@@ -373,14 +373,10 @@ class CallersMixin:
         intent_block = getattr(self, "_intent_context_block", "") or ""
         if intent_block:
             system_content = f"{system_content}\n\n{intent_block}"
-        try:
-            from agent.wm_voe_learning import pop_wm_learning_context_block_for_prompt
-
-            wm_block = pop_wm_learning_context_block_for_prompt()
-        except Exception:
-            wm_block = ""
-        if wm_block:
-            system_content = f"{system_content}\n\n{wm_block}"
+        # BUG-19 FIX (2026-08-03): removed residual import of archived
+        # agent.wm_voe_learning (module moved to docs/archive/world-model-20260803/
+        # on 2026-08-03). This try/except was a guaranteed-failed import on
+        # every prompt assembly. WM is disabled by consensus; no wm_block.
         messages.append({
             "role": "system",
             "content": system_content,

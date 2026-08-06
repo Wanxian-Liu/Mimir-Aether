@@ -1,6 +1,8 @@
-"""WM-P11-01: learned surprise recall index tests."""
-
 from __future__ import annotations
+
+import pytest
+pytest.importorskip("agent.wm_voe_learning", reason="WM archived 2026-08-03")
+pytest.importorskip("agent.world_model_spike", reason="WM archived 2026-08-03")
 
 import json
 
@@ -10,7 +12,6 @@ from agent.wm_voe_learning import (
     normalize_pair,
     record_surprise_learning,
 )
-
 
 def test_record_or_lookup_first_write(tmp_path, monkeypatch):
     monkeypatch.setenv("MIMIR_WM_VOE_LEARNING", "1")
@@ -26,7 +27,6 @@ def test_record_or_lookup_first_write(tmp_path, monkeypatch):
     assert key in data["entries"]
     assert data["entries"][key]["hit_count"] == 1
     assert data["entries"][key]["surprise_label"] == "outcome reversal"
-
 
 def test_record_or_lookup_jsonl_dual_write(tmp_path, monkeypatch):
     monkeypatch.setenv("MIMIR_WM_VOE_LEARNING", "1")
@@ -48,7 +48,6 @@ def test_record_or_lookup_jsonl_dual_write(tmp_path, monkeypatch):
         "operation success", "operation failed", path=index_path
     )
 
-
 def test_record_or_lookup_lookup_hit(tmp_path, monkeypatch):
     monkeypatch.setenv("MIMIR_WM_VOE_LEARNING", "1")
     index_path = tmp_path / "learned_surprises.json"
@@ -57,7 +56,6 @@ def test_record_or_lookup_lookup_hit(tmp_path, monkeypatch):
     assert hit is not None
     assert "learning_hint" in hit
     assert hit["expected"] == "operation success"
-
 
 def test_record_or_lookup_env_zero_no_writes(tmp_path, monkeypatch):
     monkeypatch.setenv("MIMIR_WM_VOE_LEARNING", "0")
@@ -68,7 +66,6 @@ def test_record_or_lookup_env_zero_no_writes(tmp_path, monkeypatch):
     assert not jsonl_path.exists()
     assert not index_path.exists()
 
-
 def test_record_or_lookup_increments_hit_count(tmp_path, monkeypatch):
     monkeypatch.setenv("MIMIR_WM_VOE_LEARNING", "1")
     index_path = tmp_path / "learned_surprises.json"
@@ -77,7 +74,6 @@ def test_record_or_lookup_increments_hit_count(tmp_path, monkeypatch):
     data = json.loads(index_path.read_text(encoding="utf-8"))
     key = normalize_pair("operation success", "operation failed")
     assert data["entries"][key]["hit_count"] == 2
-
 
 def test_replan_context_surprise_has_learning_context(monkeypatch):
     monkeypatch.setenv("MIMIR_WM_VOE_REPLAN_CTX", "1")
@@ -95,7 +91,6 @@ def test_replan_context_surprise_has_learning_context(monkeypatch):
     assert "operation failed" in ctx
     assert "outcome reversal" in ctx
 
-
 def test_replan_context_env_zero_no_field(monkeypatch):
     monkeypatch.setenv("MIMIR_WM_VOE_REPLAN_CTX", "0")
     monkeypatch.setenv("MIMIR_WM_VOE_RECALL", "0")
@@ -107,9 +102,7 @@ def test_replan_context_env_zero_no_field(monkeypatch):
     assert report.signal.value == "surprise_detected"
     assert "wm_learning_context" not in report.details
 
-
 _PAIR = ("operation success", "operation failed")
-
 
 def test_second_no_surprise_first_then_clean(tmp_path, monkeypatch):
     monkeypatch.setenv("MIMIR_WM_VOE_LEARNING", "1")
@@ -134,7 +127,6 @@ def test_second_no_surprise_first_then_clean(tmp_path, monkeypatch):
     assert second.details.get("surprise_suppressed") is True
     assert second.details.get("suppressed_reason") == "learned_voe"
     assert len(jsonl_path.read_text(encoding="utf-8").strip().splitlines()) == 1
-
 
 def test_second_no_surprise_recall_off_writes_twice(tmp_path, monkeypatch):
     monkeypatch.setenv("MIMIR_WM_VOE_LEARNING", "1")

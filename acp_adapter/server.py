@@ -642,15 +642,18 @@ class HermesACPAgent(acp.Agent):
             approx_tokens = estimate_messages_tokens_rough(state.history)
             original_session_db = getattr(agent, "_session_db", None)
 
+            from agent.async_bridge import run_async
             try:
                 # ACP sessions must keep a stable session id, so avoid the
                 # SQLite session-splitting side effect inside _compress_context.
                 agent._session_db = None
-                compressed, _ = agent._compress_context(
-                    state.history,
-                    getattr(agent, "_cached_system_prompt", "") or "",
-                    approx_tokens=approx_tokens,
-                    task_id=state.session_id,
+                compressed, _ = run_async(
+                    agent._compress_context(
+                        state.history,
+                        getattr(agent, "_cached_system_prompt", "") or "",
+                        approx_tokens=approx_tokens,
+                        task_id=state.session_id,
+                    )
                 )
             finally:
                 agent._session_db = original_session_db

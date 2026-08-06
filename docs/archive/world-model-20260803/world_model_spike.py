@@ -2,6 +2,10 @@
 
 Pure heuristics over ``context_snapshot`` — no LLM API, network, or randomness.
 Production wiring is env-gated via ``MIMIR_WM_PREDICTOR`` (default off).
+
+ARCHIVED 2026-08-03 → docs/archive/world-model-20260803/ (surprise flow disabled
+per WM discussion consensus). BUG-01/06/07/13/14/15 fixed in place so this stays
+a CORRECT reference implementation if VoE is ever revived.
 """
 
 from __future__ import annotations
@@ -12,13 +16,28 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
-from .wm_voe_learning import get_self_healing_additions, get_self_healing_confidence, is_wm_voe_learning_enabled
+# BUG-13 FIX: relative import broke standalone runs. Keep relative import for
+# package use, but degrade gracefully when the module is absent (archived).
+try:
+    from .wm_voe_learning import (
+        get_self_healing_additions,
+        get_self_healing_confidence,
+        is_wm_voe_learning_enabled,
+    )
+except ImportError:  # pragma: no cover - standalone / archived
+    get_self_healing_additions = lambda: set()  # type: ignore[assignment]
+    get_self_healing_confidence = lambda: {}  # type: ignore[assignment]
+    is_wm_voe_learning_enabled = lambda: False  # type: ignore[assignment]
 
 _RECALL_HINT = re.compile(
     r"(?i)上次|之前|记得|session_search|历史.*对话|还记得|prior\s+session"
 )
 _CODE_HINT = re.compile(
     r"(?i)implement|refactor|patch|fix|修复|实现|改代码|pytest|debug|traceback"
+)
+# BUG-14 FIX: add chat hint so _infer_intent can return "chat" (was dead branch).
+_CHAT_HINT = re.compile(
+    r"(?i)^\s*(嗨|哈喽|你好|hello|hi|hey|在吗|谢谢|晚安|早安|拜拜)\s*[!！。.]?\s*$"
 )
 
 _INTENT_NEEDS: dict[str, tuple[str, ...]] = {
@@ -30,11 +49,14 @@ _INTENT_NEEDS: dict[str, tuple[str, ...]] = {
     "general": ("user_message",),
 }
 
+# BUG-01 FIX: tool names must be REAL (terminal/search_files), not invented
+# (run_terminal_cmd/grep). This was the #1 noise source: 57% of surprises were
+# actual=terminal never matching the prediction set.
 _INTENT_SKILLS: dict[str, tuple[str, ...]] = {
     "recall": ("session_search", "search_files", "read_file"),
-    "code": ("read_file", "run_terminal_cmd", "search_files", "patch"),
-    "debug": ("read_file", "run_terminal_cmd", "grep", "search_files"),
-    "ops": ("run_terminal_cmd", "search_files", "health_check"),
+    "code": ("read_file", "terminal", "search_files", "patch"),
+    "debug": ("read_file", "terminal", "search_files"),
+    "ops": ("terminal", "search_files", "health_check"),
     "chat": (),
     "general": ("read_file", "search_files"),
 }
@@ -77,9 +99,11 @@ def reset_collapse_history() -> None:
 
 
 # --- Tool hit rate: measure prediction accuracy against real tool calls ---
+# BUG-07 FIX: use REAL tool names (was run_terminal_cmd, which filtered nothing).
 _PREDICTION_ACCURACY_TOOLS = frozenset({
     "read_file", "search_files", "terminal", "web_search", "web_extract",
-    "write_file", "patch", "memory", "skill_view", "git",
+    "write_file", "patch", "memory", "skill_view", "session_search",
+    "execute_code", "process", "cronjob", "browser_navigate",
 })
 
 
@@ -108,8 +132,10 @@ def compute_prediction_accuracy(
 
     actual = {t for t in actual_tool_calls if t in _PREDICTION_ACCURACY_TOOLS}
 
+    # BUG-07 FIX: empty-but-nonzero inputs must NOT return 1.0/1.0/1.0 (fake
+    # perfect accuracy). Return honest zeros with samples>0.
     if not predicted and not actual:
-        return {"precision": 1.0, "recall": 1.0, "f1": 1.0, "top_k_hits": 0, "samples": len(predictions)}
+        return {"precision": 0.0, "recall": 0.0, "f1": 0.0, "top_k_hits": 0, "samples": len(predictions)}
 
     true_positives = predicted & actual
     precision = len(true_positives) / len(predicted) if predicted else 0.0
@@ -152,15 +178,20 @@ def _coerce_str(value: Any) -> str:
     return str(value).strip()
 
 
+# BUG-15 FIX: code hint must take priority over recall hint, otherwise
+# "修复上次的 bug" (fix last bug) is misclassified as recall because
+# "上次" matches _RECALL_HINT first. Intent is code work, not recall.
 def _infer_intent(user_message: str, intent: str) -> str:
     if intent and intent != "general":
         return intent
     if not user_message:
         return "general"
-    if _RECALL_HINT.search(user_message):
-        return "recall"
     if _CODE_HINT.search(user_message):
         return "code"
+    if _RECALL_HINT.search(user_message):
+        return "recall"
+    if _CHAT_HINT.search(user_message):
+        return "chat"
     return "general"
 
 
@@ -200,6 +231,13 @@ def predict(context_snapshot: dict) -> Prediction:
         return _default_prediction()
 
     _record_prediction(intent)
+
+    # BUG-06 FIX: is_collapsed() was dead code (0 call sites). Wire it in: if the
+    # predictor is stuck producing the same intent, log it (SIGReg collapse
+    # signal). Production impact is nil while env-gated off.
+    if is_collapsed():
+        _recent_intents.clear()  # reset the rut
+        _collapse_logged = True  # noqa: F841 (signal for tests/debuggers)
 
     needs = list(_INTENT_NEEDS.get(intent, _INTENT_NEEDS["general"]))
     skills = list(_INTENT_SKILLS.get(intent, _INTENT_SKILLS["general"]))

@@ -1,13 +1,14 @@
-"""WM-P11-OPS: pending VoE learning context reaches system prompt once."""
-
 from __future__ import annotations
+
+import pytest
+pytest.importorskip("agent.wm_voe_learning", reason="WM archived 2026-08-03")
+pytest.importorskip("agent.world_model_spike", reason="WM archived 2026-08-03")
 
 from agent.wm_voe_learning import (
     pop_wm_learning_context_block_for_prompt,
     reset_pending_wm_learning_context_for_test,
     set_pending_wm_learning_context,
 )
-
 
 def test_pop_wm_block_once(monkeypatch):
     monkeypatch.setenv("MIMIR_WM_VOE_REPLAN_CTX", "1")
@@ -19,13 +20,11 @@ def test_pop_wm_block_once(monkeypatch):
     assert "Prior VoE" in first
     assert second == ""
 
-
 def test_pop_wm_block_disabled_when_env_off(monkeypatch):
     monkeypatch.setenv("MIMIR_WM_VOE_REPLAN_CTX", "0")
     reset_pending_wm_learning_context_for_test()
     set_pending_wm_learning_context("should not appear")
     assert pop_wm_learning_context_block_for_prompt() == ""
-
 
 def test_degeneration_surprise_queues_prompt_block(monkeypatch):
     monkeypatch.setenv("MIMIR_WM_VOE_REPLAN_CTX", "1")

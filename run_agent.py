@@ -142,7 +142,7 @@ class AIAgent:
         """Gateway / `/compress` compatibility: same object as ``MimirAetherAgent.compressor``."""
         return self._get_real_agent().compressor
 
-    def _compress_context(
+    async def _compress_context(
         self,
         messages: List[Dict[str, Any]],
         cached_system_prompt: str = "",
@@ -157,7 +157,7 @@ class AIAgent:
         """
         _ = cached_system_prompt, task_id, kwargs
         comp = self._get_real_agent().compressor
-        return comp.compress(
+        return await comp.compress(
             messages,
             current_tokens=approx_tokens,
             focus_topic=focus_topic,

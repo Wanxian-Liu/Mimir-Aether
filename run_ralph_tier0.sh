@@ -48,6 +48,95 @@ if [ "$INCREMENTAL" = true ]; then
   } >> "$ROOT_DIR/logs/incremental-run.log"
 fi
 
+# --fidelity-gate: Change2Task 保真度门禁 (files/hunks/lines 比率 + 阈值报警)
+FIDELITY=false
+for arg in "$@"; do
+  if [[ "$arg" == "--fidelity-gate" ]]; then
+    FIDELITY=true
+  fi
+done
+
+if [ "$FIDELITY" = true ]; then
+  echo "=== --fidelity-gate: Change2Task 保真度检测 ==="
+  cd "$ROOT_DIR"
+  # 变更文件数 / hunks / lines 统计（git diff 默认 HEAD）
+  DIFF_STAT=$(git diff HEAD --stat 2>/dev/null | tail -1 || echo "0 files changed")
+  FILE_COUNT=$(echo "$DIFF_STAT" | grep -oP '^\s*\d+' || echo 0)
+  FILES_CHANGED=$(git diff HEAD --name-only 2>/dev/null | grep -c . || echo 0)
+  HUNK_COUNT=$(git diff HEAD 2>/dev/null | grep -c '^@@' || echo 0)
+  LINE_ADD=$(git diff HEAD 2>/dev/null | grep -c '^+' || echo 0)
+  LINE_DEL=$(git diff HEAD 2>/dev/null | grep -c '^-' || echo 0)
+  TOTAL_LINES=$((LINE_ADD + LINE_DEL))
+  echo "files=${FILES_CHANGED} | hunks=${HUNK_COUNT} | +${LINE_ADD} -${LINE_DEL}"
+
+  # 结构漂移检测：跨文件重构/import变更 → 降级全量（OpenClaw 推论）
+  STRUCTURAL=false
+  if [ "${FILES_CHANGED}" -ge 3 ] 2>/dev/null; then
+    IMPORT_CHANGES=$(git diff HEAD --name-only 2>/dev/null | grep -cE 'import|__init__|package|requirements|\.proto$|\.sql$' || echo 0)
+    if [ "${IMPORT_CHANGES}" -gt 0 ] 2>/dev/null; then
+      STRUCTURAL=true
+      echo "*** 结构漂移检测：import/package/架构文件变更 → 建议全量测试 ***"
+    fi
+  fi
+
+  # 保真度聚合分（Change2Task 权重：files 0.18 + hunks 0.20 + lines 0.28）
+  if [ "${FILES_CHANGED}" -gt 0 ] 2>/dev/null && [ "${TOTAL_LINES}" -gt 0 ] 2>/dev/null; then
+    # line/hunk 比率（Change2Task：≥0.50 且 ≤2.50）
+    RATIO_LH=$(python3 -c "print(f'{(TOTAL_LINES / max(HUNK_COUNT,1)):.2f}')" 2>/dev/null || echo "0.00")
+    # 简化保真度分：line覆盖率 vs file 数（>1 file = 上下文扩散）
+    FIDELITY_SCORE=$(python3 -c "
+fc=$FILES_CHANGED; tl=$TOTAL_LINES
+# files 0.18: 1 file=1.0, 每多1文件-0.1；lines 0.28: 200±100行=1.0
+f = max(0.0, 1.0 - (fc-1)*0.1)
+l = min(1.0, tl/300)
+score = 0.18*f + 0.28*l
+print(f'{score:.2f}')
+" 2>/dev/null || echo "0.00")
+    echo "fidelity_score=${FIDELITY_SCORE} (基准 0.894) | line/hunk_ratio=${RATIO_LH}"
+
+    # 阈值报警：<0.85 报警（OpenClaw 补丁：Change2Task 实测 0.894 是基线）
+    if python3 -c "exit(0 if float('${FIDELITY_SCORE}') < 0.85 else 1)" 2>/dev/null; then
+      echo "*** FIDELITY ALERT: score ${FIDELITY_SCORE} < 0.85 — 增量扫描可能在为测而测，考虑全量 ***"
+      echo "[$(date -Iseconds)] fidelity-gate | score=${FIDELITY_SCORE} | files=${FILES_CHANGED} | hunks=${HUNK_COUNT} | lines=${TOTAL_LINES} | structural=${STRUCTURAL}" >> "$ROOT_DIR/logs/incremental-run.log"
+    fi
+  else
+    echo "无变更或变更为空 — fidelity-gate 跳过"
+  fi
+fi
+
+# --tool-quality: dump per-tool stats from tool_quality.db → JSON
+TOOL_QUALITY=false
+for arg in "$@"; do
+  if [[ "$arg" == "--tool-quality" ]]; then
+    TOOL_QUALITY=true
+  fi
+done
+
+if [ "$TOOL_QUALITY" = true ]; then
+  echo "=== --tool-quality: dumping tool quality stats ==="
+  mkdir -p "$ROOT_DIR/docs/eval"
+  cd "$ROOT_DIR"
+  python3 -c '
+import json, os, sys
+sys.path.insert(0, ".")
+from agent.tool_quality import ToolQualityManager
+from datetime import datetime
+
+qm = ToolQualityManager(enable_persistence=True)
+report = qm.get_report()
+
+report["generated"] = datetime.now().isoformat()
+report["source"] = "tool_quality.db (via MIMIR_AETHER_HOME/data/)"
+
+out_path = os.path.join(os.getcwd(), "docs", "eval", "tool-quality-20260730.json")
+with open(out_path, "w") as f:
+    json.dump(report, f, indent=2, ensure_ascii=False)
+    print("Wrote {} tools / {} executions to {}".format(report["tools_tracked"], report["total_executions"], out_path))
+'
+  echo "=== --tool-quality: done ==="
+  exit 0
+fi
+
 # --- Ralph Wiggum Loop helpers ---
 ralph_retry_gate() {
   local gate_name="$1"

@@ -319,29 +319,19 @@ class AgentRouteMixin:
                     config_context_length=_hyg_config_context_length,
                     provider=_hyg_provider or "",
                 )
-                _compress_token_threshold = int(
-                    _hyg_context_length * _hyg_threshold_pct
-                )
+                _compress_token_threshold = 200_000  # P0#2: fixed 200K actual-token trigger
                 _warn_token_threshold = int(_hyg_context_length * 0.95)
 
                 _msg_count = len(history)
 
-                # Prefer actual API-reported tokens from the last turn
-                # (stored in session entry) over the rough char-based estimate.
+                # P0#2: trigger on ACTUAL API-reported tokens from the last turn
+                # (stored in session entry) only.  The old char-based estimate
+                # overestimates by ~3x on code/JSON-heavy sessions, so it fired
+                # late ("该压不压").  Without actual usage data we do NOT fire —
+                # the hard message-count valve below still catches runaway growth.
                 _stored_tokens = session_entry.last_prompt_tokens
-                if _stored_tokens > 0:
-                    _approx_tokens = _stored_tokens
-                    _token_source = "actual"
-                else:
-                    _approx_tokens = estimate_messages_tokens_rough(history)
-                    _token_source = "estimated"
-                    # Note: rough estimates overestimate by 30-50% for code/JSON-heavy
-                    # sessions, but that just means hygiene fires a bit early — which
-                    # is safe and harmless.  The 85% threshold already provides ample
-                    # headroom (agent's own compressor runs at 50%).  A previous 1.4x
-                    # multiplier tried to compensate by inflating the threshold, but
-                    # 85% * 1.4 = 119% of context — which exceeds the model's limit
-                    # and prevented hygiene from ever firing for ~200K models (GLM-5).
+                _approx_tokens = _stored_tokens if _stored_tokens > 0 else 0
+                _token_source = "actual" if _stored_tokens > 0 else "actual-unavailable"
 
                 # Hard safety valve: force compression if message count is
                 # extreme, regardless of token estimates.  This breaks the
@@ -395,13 +385,9 @@ class AgentRouteMixin:
                                 )
                                 _hyg_agent._print_fn = lambda *a, **kw: None
 
-                                loop = asyncio.get_event_loop()
-                                _compressed, _ = await loop.run_in_executor(
-                                    None,
-                                    lambda: _hyg_agent._compress_context(
-                                        _hyg_msgs, "",
-                                        approx_tokens=_approx_tokens,
-                                    ),
+                                _compressed, _ = await _hyg_agent._compress_context(
+                                    _hyg_msgs, "",
+                                    approx_tokens=_approx_tokens,
                                 )
 
                                 # _compress_context ends the old session and creates
