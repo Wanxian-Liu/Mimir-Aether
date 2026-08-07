@@ -791,6 +791,35 @@ class MimirAgentLoop:
         # Nudge-only iterations should not count against budget.
         _nudge_turns = intent_nudges + search_first_nudges
         _effective_turns = max(1, self.max_turns - _nudge_turns)
+        # ===== 架构修复（2026-08-08 刘哥洞察+四方共识）：耗尽→强制产出 =====
+        # 问题：max_turns耗尽直接返回——若最后是工具调用（无assistant回复）→0产出静默结束
+        # 修复：检查messages最后一条——若是tool角色（工具结果）→追加强制总结请求（一次额外LLM调用）
+        _last_role = messages[-1].get("role", "") if messages else ""
+        if _last_role == "tool":
+            logger.info("[%s] max_turns reached with pending tool result — forcing final summary", self.task_id[:8])
+            try:
+                _force_msg = {
+                    "role": "user",
+                    "content": (
+                        "【架构强制产出】你已用完迭代预算但最后一步是工具调用，尚未给出最终答复。\n"
+                        "现在请立即输出你的最终答复：\n"
+                        "1. 总结你已完成的分析/调研（如有落盘要求，用 write_file/patch 写入指定路径）\n"
+                        "2. 输出最终结论（直接可用，50-200字）\n"
+                        "3. 不要调用新工具（除了必需的写盘）——直接回答"
+                    ),
+                }
+                messages.append(_force_msg)
+                try:
+                    _resp = await self.model_call(messages)
+                    if _resp is not None:
+                        _text = getattr(_resp, "content", None) or (getattr(_resp, "message", None) or {}).get("content") if not hasattr(_resp, "content") else getattr(_resp, "content", None)
+                        if _text:
+                            messages.append({"role": "assistant", "content": _text})
+                            logger.info("[%s] forced summary appended (%d chars)", self.task_id[:8], len(str(_text)))
+                except Exception as _exc2:
+                    logger.warning("[%s] forced summary model_call failed: %s", self.task_id[:8], _exc2)
+            except Exception as _exc:
+                logger.warning("[%s] forced summary failed: %s", self.task_id[:8], _exc)
         return AgentResult(
             messages=messages, turns_used=_effective_turns,
             finished_naturally=False, reasoning_per_turn=reasoning_per_turn,
