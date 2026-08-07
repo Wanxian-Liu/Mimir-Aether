@@ -125,90 +125,55 @@ async def main():
         print(f"agent执行异常: {e}")
         buffer.write(f"\n[异常] {e}")
 
-    # ===== C1产出门禁v7（2026-08-08 四方共识+刘哥确认）=====
-    # 目标：治"调研死循环"（读了N个文件但没写盘就结束）
-    # v7修复（对比v6）：
-    #   1. 时区统一——轨迹目录按UTC命名（Mimir发现：本地08-08 vs UTC轨迹08-07——找不到"今天"→门禁失效）
-    #   2. 目标文件新鲜度主判断——任务含"写入XX卡"→查目标卡mtime（不依赖轨迹——"写到目标"才算数）
-    #   3. 轨迹检查降为辅助（不再作为唯一依据）
+    # ===== C1产出门禁（2026-08-06 四方共识+刘哥批准）=====
+    # 目标：治"调研死循环"（读了N个文件/跑了N步分析但没写盘就结束）
+    # 原理：run_task结束后，检查本次会话轨迹是否有 write_file/patch 调用
+    # 无写盘 → 判定"调研未产出"→ 补一次"强制写盘"任务
     # 保留：调研能力+自我进化能力（只治"忘了产出"）
     import glob as _glob
-    import datetime as _dt
     traj_dir = os.path.expanduser("~/.mimiraether/data/trajectories")
-    
-    # === 1. 时区统一：找轨迹目录（UTC + 本地 双查兼容）===
-    today_utc = _dt.datetime.utcnow().strftime("%Y-%m-%d")
-    today_local = _time.strftime("%Y-%m-%d")
+    # 找最新的轨迹文件（今天）
+    today = _time.strftime("%Y-%m-%d")
+    today_dir = os.path.join(traj_dir, today)
     latest_traj = None
-    for td in [today_utc, today_local]:
-        td_path = os.path.join(traj_dir, td)
-        if os.path.isdir(td_path):
-            trajs = sorted(_glob.glob(os.path.join(td_path, "*.jsonl")), key=os.path.getmtime)
-            if trajs:
-                # 取最新的（mtime）
-                candidate = trajs[-1]
-                if latest_traj is None or os.path.getmtime(candidate) > os.path.getmtime(latest_traj):
-                    latest_traj = candidate
-    
-    # === 2. 目标文件新鲜度主判断 ===
-    # 从任务内容提取目标卡路径
-    import re as _re2
-    target_paths = _re2.findall(r"(/home/rayliu/\S+?\.md)", content)
-    target_fresh = False
-    target_hits = []
-    if target_paths:
-        for tp in target_paths:
-            if os.path.exists(tp):
-                mtime = os.path.getmtime(tp)
-                if _time.time() - mtime < 600:  # 10分钟内被改
-                    target_fresh = True
-                    target_hits.append(tp)
-    
-    # === 3. 轨迹辅助检查（新鲜轨迹有无写盘）===
-    traj_has_write = False
+    if os.path.isdir(today_dir):
+        trajs = sorted(_glob.glob(os.path.join(today_dir, "*.jsonl")), key=os.path.getmtime)
+        if trajs:
+            latest_traj = trajs[-1]
     if latest_traj:
         try:
+            # 修复v6（2026-08-06 刘哥发现）：轨迹必须新鲜（10分钟内）——否则是旧轨迹误判
+            import time as _t3
             traj_mtime = os.path.getmtime(latest_traj)
-            if _time.time() - traj_mtime <= 600:  # 10分钟内（新鲜）
+            if _t3.time() - traj_mtime > 600:  # 10分钟
+                print(f"⚠ 产出门禁: 最新轨迹{latest_traj.split('/')[-1]}是旧的（{int(_t3.time()-traj_mtime)}秒前）——非本次任务，跳过检查")
+            else:
                 with open(latest_traj) as _tf:
                     _traj_content = _tf.read()
-                traj_has_write = ("write_file" in _traj_content) or ("patch" in _traj_content)
-        except Exception:
-            pass
-    
-    # === 4. 判定：目标新鲜度(主) OR 轨迹有写盘(辅助) ===
-    has_write_task = any(k in content for k in ["写", "写入", "追加", "落盘", "完成你的段", "输出到"])
-    if has_write_task and target_paths:
-        # 有明确目标路径——以目标文件新鲜度为准
-        if target_fresh:
-            print(f"✅ 产出门禁v7: 目标文件新鲜（{target_hits}）——写盘成功")
-        elif traj_has_write:
-            print(f"⚠ 产出门禁v7: 目标文件未新鲜，但轨迹有写盘（{latest_traj.split('/')[-1]}）——可能是写到别处，需人工确认")
-        else:
-            print(f"⚠ 产出门禁v7: 目标文件未新鲜+轨迹无写盘——调研未产出，补强制写盘")
-            write_task = f"""你在Buzz频道收到消息（来自 {from_pub}）。
+                has_write = ("write_file" in _traj_content) or ("patch" in _traj_content) or ('"tool_name": "write' in _traj_content)
+                if has_write:
+                    print(f"✅ 产出门禁: 轨迹有写盘（{latest_traj.split('/')[-1]}）")
+                else:
+                    # 无写盘——判定调研循环，补强制写盘任务
+                    print(f"⚠ 产出门禁: 轨迹无写盘（{latest_traj.split('/')[-1]}）——调研未产出，补强制写盘")
+                    write_task = f"""你在Buzz频道收到消息（来自 {from_pub}）。
 消息内容（需完成落盘）：{content}
 
 你已经做完了调研，现在必须【写盘产出】：
-1. 用 patch 追加到目标卡（任务指定的路径）
+1. 用 patch 追加到本卡：~/wiki/discussions/Mimir整改C组-机制修复四方讨论.md（或任务指定路径）
 2. 写出你的段（五段式：【角色】【任务】【上下文】【分析】【结论】）
 3. 写盘后输出回执含路径
 不要继续调研！现在只做一件事：写盘。"""
-            try:
-                with contextlib.redirect_stdout(io.StringIO()):
-                    await run_task(task=write_task, model="deepseek-v4-flash", max_iterations=8, verbose=True)
-                print("✅ 产出门禁v7: 强制写盘任务已执行")
-            except Exception as e:
-                print(f"⚠ 产出门禁v7: 强制写盘失败 {e}")
-    elif has_write_task and not target_paths:
-        # 有写盘要求但无明确路径——以轨迹判断
-        if traj_has_write:
-            print(f"✅ 产出门禁v7: 轨迹有写盘（{latest_traj.split('/')[-1] if latest_traj else '?'}）")
-        else:
-            print(f"⚠ 产出门禁v7: 任务要求写盘但无目标路径+轨迹无写盘——需关注")
+                    try:
+                        with contextlib.redirect_stdout(io.StringIO()):
+                            await run_task(task=write_task, model="deepseek-v4-flash", max_iterations=8, verbose=True)
+                        print("✅ 产出门禁: 强制写盘任务已执行")
+                    except Exception as e:
+                        print(f"⚠ 产出门禁: 强制写盘失败 {e}")
+        except Exception as _e:
+            print(f"⚠ 产出门禁: 轨迹读取失败 {_e}")
     else:
-        print("产出门禁v7: 非写盘任务，跳过")
-
+        print("⚠ 产出门禁: 无今日轨迹（可能是讨论/询问消息，跳过）")
 
     output = buffer.getvalue()
     # 提取agent的最后一段回复（"【执行结果】"之后或最后的正文）
