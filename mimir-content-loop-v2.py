@@ -165,14 +165,18 @@ async def main():
                     target_hits.append(tp)
     
     # === 3. 轨迹辅助检查（新鲜轨迹有无写盘）===
+    # v7.1修复（2026-08-08）：has_write必须用结构化判断（tool_name字段）——裸子串"patch"会匹配session_start的系统提示
     traj_has_write = False
     if latest_traj:
         try:
             traj_mtime = os.path.getmtime(latest_traj)
             if _time.time() - traj_mtime <= 600:  # 10分钟内（新鲜）
                 with open(latest_traj) as _tf:
-                    _traj_content = _tf.read()
-                traj_has_write = ("write_file" in _traj_content) or ("patch" in _traj_content)
+                    _traj_lines = _tf.readlines()
+                for _tl in _traj_lines:
+                    if '"tool_name": "write_file"' in _tl or '"tool_name": "patch"' in _tl:
+                        traj_has_write = True
+                        break
         except Exception:
             pass
     
