@@ -125,50 +125,6 @@ async def main():
         print(f"agent执行异常: {e}")
         buffer.write(f"\n[异常] {e}")
 
-    # ===== C1产出门禁（2026-08-06 四方共识+刘哥批准）=====
-    # 目标：治"调研死循环"（读了N个文件/跑了N步分析但没写盘就结束）
-    # 原理：run_task结束后，检查本次会话轨迹是否有 write_file/patch 调用
-    # 无写盘 → 判定"调研未产出"→ 补一次"强制写盘"任务
-    # 保留：调研能力+自我进化能力（只治"忘了产出"）
-    import glob as _glob
-    traj_dir = os.path.expanduser("~/.mimiraether/data/trajectories")
-    # 找最新的轨迹文件（今天）
-    today = _time.strftime("%Y-%m-%d")
-    today_dir = os.path.join(traj_dir, today)
-    latest_traj = None
-    if os.path.isdir(today_dir):
-        trajs = sorted(_glob.glob(os.path.join(today_dir, "*.jsonl")), key=os.path.getmtime)
-        if trajs:
-            latest_traj = trajs[-1]
-    if latest_traj:
-        try:
-            with open(latest_traj) as _tf:
-                _traj_content = _tf.read()
-            has_write = ("write_file" in _traj_content) or ("patch" in _traj_content) or ('"tool_name": "write' in _traj_content)
-            if has_write:
-                print(f"✅ 产出门禁: 轨迹有写盘（{latest_traj.split('/')[-1]}）")
-            else:
-                # 无写盘——判定调研循环，补强制写盘任务
-                print(f"⚠ 产出门禁: 轨迹无写盘（{latest_traj.split('/')[-1]}）——调研未产出，补强制写盘")
-                write_task = f"""你在Buzz频道收到消息（来自 {from_pub}）。
-消息内容（需完成落盘）：{content}
-
-你已经做完了调研，现在必须【写盘产出】：
-1. 用 patch 追加到本卡：~/wiki/discussions/Mimir整改C组-机制修复四方讨论.md（或任务指定路径）
-2. 写出你的段（五段式：【角色】【任务】【上下文】【分析】【结论】）
-3. 写盘后输出回执含路径
-不要继续调研！现在只做一件事：写盘。"""
-                try:
-                    with contextlib.redirect_stdout(io.StringIO()):
-                        await run_task(task=write_task, model="deepseek-v4-flash", max_iterations=8, verbose=True)
-                    print("✅ 产出门禁: 强制写盘任务已执行")
-                except Exception as e:
-                    print(f"⚠ 产出门禁: 强制写盘失败 {e}")
-        except Exception as _e:
-            print(f"⚠ 产出门禁: 轨迹读取失败 {_e}")
-    else:
-        print("⚠ 产出门禁: 无今日轨迹（可能是讨论/询问消息，跳过）")
-
     output = buffer.getvalue()
     # 提取agent的最后一段回复（"【执行结果】"之后或最后的正文）
     reply_text = ""
