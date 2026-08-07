@@ -1,0 +1,2075 @@
+{
+  "schema_version": 1,
+  "entries": {
+    "operation success|operation failed": {
+      "expected": "operation success",
+      "actual": "operation failed",
+      "surprise_label": "outcome reversal",
+      "first_seen": 1780254195.7365074,
+      "last_seen": 1780254195.7365074,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (outcome reversal): expected 'operation success' but got 'operation failed'; do not repeat same assumption."
+    },
+    "read_file|terminal": {
+      "expected": "read_file",
+      "actual": "terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1780601998.4631813,
+      "last_seen": 1782132014.0093474,
+      "hit_count": 122,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file' but got 'terminal'; do not repeat same assumption."
+    },
+    "read_file2|terminal2": {
+      "expected": "read_file2",
+      "actual": "terminal2",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1780602041.4744165,
+      "last_seen": 1780602041.4744165,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file2' but got 'terminal2'; do not repeat same assumption."
+    },
+    "read_file|search_files": {
+      "expected": "read_file",
+      "actual": "search_files",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1781948367.941065,
+      "last_seen": 1782131626.637228,
+      "hit_count": 153,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file' but got 'search_files'; do not repeat same assumption."
+    },
+    "read_file|skill_view": {
+      "expected": "read_file",
+      "actual": "skill_view",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1781948413.456292,
+      "last_seen": 1782120955.3391306,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file' but got 'skill_view'; do not repeat same assumption."
+    },
+    "read_file|search_files, terminal": {
+      "expected": "read_file",
+      "actual": "search_files, terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1781948511.1297863,
+      "last_seen": 1782035154.8856215,
+      "hit_count": 11,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file' but got 'search_files, terminal'; do not repeat same assumption."
+    },
+    "read_file|write_file": {
+      "expected": "read_file",
+      "actual": "write_file",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1781948659.4620764,
+      "last_seen": 1782036811.3422525,
+      "hit_count": 7,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file' but got 'write_file'; do not repeat same assumption."
+    },
+    "read_file|patch": {
+      "expected": "read_file",
+      "actual": "patch",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1781948665.4193738,
+      "last_seen": 1782122388.617694,
+      "hit_count": 33,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file' but got 'patch'; do not repeat same assumption."
+    },
+    "read_file|execute_code": {
+      "expected": "read_file",
+      "actual": "execute_code",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1781949675.0532198,
+      "last_seen": 1782132295.0901687,
+      "hit_count": 10,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file' but got 'execute_code'; do not repeat same assumption."
+    },
+    "read_file|session_search, skill_view": {
+      "expected": "read_file",
+      "actual": "session_search, skill_view",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1781950288.494087,
+      "last_seen": 1781950288.494087,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file' but got 'session_search, skill_view'; do not repeat same assumption."
+    },
+    "read_file, session_search|search_files": {
+      "expected": "read_file, session_search",
+      "actual": "search_files",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1781950848.949481,
+      "last_seen": 1781950848.949481,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, session_search' but got 'search_files'; do not repeat same assumption."
+    },
+    "read_file|echo": {
+      "expected": "read_file",
+      "actual": "echo",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1781951226.5833237,
+      "last_seen": 1782037889.2684076,
+      "hit_count": 96,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file' but got 'echo'; do not repeat same assumption."
+    },
+    "read_file|nonexistent": {
+      "expected": "read_file",
+      "actual": "nonexistent",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1781951226.604116,
+      "last_seen": 1782037888.6876416,
+      "hit_count": 12,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file' but got 'nonexistent'; do not repeat same assumption."
+    },
+    "read_file|crash_tool": {
+      "expected": "read_file",
+      "actual": "crash_tool",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1781951226.6799788,
+      "last_seen": 1782037888.7576032,
+      "hit_count": 12,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file' but got 'crash_tool'; do not repeat same assumption."
+    },
+    "read_file|calc": {
+      "expected": "read_file",
+      "actual": "calc",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1781951226.8876424,
+      "last_seen": 1782037888.9690292,
+      "hit_count": 12,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file' but got 'calc'; do not repeat same assumption."
+    },
+    "read_file|orphan_tool": {
+      "expected": "read_file",
+      "actual": "orphan_tool",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1781951227.017528,
+      "last_seen": 1782037889.100744,
+      "hit_count": 12,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file' but got 'orphan_tool'; do not repeat same assumption."
+    },
+    "read_file|tool_b": {
+      "expected": "read_file",
+      "actual": "tool_b",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1781951227.1373084,
+      "last_seen": 1782037889.2313173,
+      "hit_count": 12,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file' but got 'tool_b'; do not repeat same assumption."
+    },
+    "read_file|noop_tool": {
+      "expected": "read_file",
+      "actual": "noop_tool",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1781951669.4809763,
+      "last_seen": 1782038000.9869263,
+      "hit_count": 8,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file' but got 'noop_tool'; do not repeat same assumption."
+    },
+    "read_file|memory": {
+      "expected": "read_file",
+      "actual": "memory",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1781951680.2886448,
+      "last_seen": 1782118944.6831741,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file' but got 'memory'; do not repeat same assumption."
+    },
+    "read_file|session_search": {
+      "expected": "read_file",
+      "actual": "session_search",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782035064.5503998,
+      "last_seen": 1782035064.5503998,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file' but got 'session_search'; do not repeat same assumption."
+    },
+    "read_file, session_search|memory": {
+      "expected": "read_file, session_search",
+      "actual": "memory",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782072079.844372,
+      "last_seen": 1782072090.6655447,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, session_search' but got 'memory'; do not repeat same assumption."
+    },
+    "read_file|get_env": {
+      "expected": "read_file",
+      "actual": "get_env",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782118682.3601305,
+      "last_seen": 1782132494.0320795,
+      "hit_count": 4,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file' but got 'get_env'; do not repeat same assumption."
+    },
+    "read_file, search_files|echo": {
+      "expected": "read_file, search_files",
+      "actual": "echo",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782122398.9655733,
+      "last_seen": 1785691990.8552952,
+      "hit_count": 42,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files' but got 'echo'; do not repeat same assumption."
+    },
+    "read_file, search_files|nonexistent": {
+      "expected": "read_file, search_files",
+      "actual": "nonexistent",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782122398.9879317,
+      "last_seen": 1782122521.2926662,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files' but got 'nonexistent'; do not repeat same assumption."
+    },
+    "read_file, search_files|crash_tool": {
+      "expected": "read_file, search_files",
+      "actual": "crash_tool",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782122399.028638,
+      "last_seen": 1782122521.3377535,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files' but got 'crash_tool'; do not repeat same assumption."
+    },
+    "read_file, search_files|calc": {
+      "expected": "read_file, search_files",
+      "actual": "calc",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782122399.2639446,
+      "last_seen": 1782122521.5815983,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files' but got 'calc'; do not repeat same assumption."
+    },
+    "read_file, search_files|orphan_tool": {
+      "expected": "read_file, search_files",
+      "actual": "orphan_tool",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782122399.37589,
+      "last_seen": 1782122521.6941378,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files' but got 'orphan_tool'; do not repeat same assumption."
+    },
+    "read_file, search_files|tool_b": {
+      "expected": "read_file, search_files",
+      "actual": "tool_b",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782122399.4833426,
+      "last_seen": 1782122521.81236,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files' but got 'tool_b'; do not repeat same assumption."
+    },
+    "read_file, search_files|noop_tool": {
+      "expected": "read_file, search_files",
+      "actual": "noop_tool",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782122634.7534769,
+      "last_seen": 1785692100.144716,
+      "hit_count": 15,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files' but got 'noop_tool'; do not repeat same assumption."
+    },
+    "read_file|search_files, session_search": {
+      "expected": "read_file",
+      "actual": "search_files, session_search",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782131629.6959481,
+      "last_seen": 1782131629.6959481,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file' but got 'search_files, session_search'; do not repeat same assumption."
+    },
+    "read_file|mimir_ops": {
+      "expected": "read_file",
+      "actual": "mimir_ops",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782132434.1184359,
+      "last_seen": 1782132505.8916857,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file' but got 'mimir_ops'; do not repeat same assumption."
+    },
+    "read_file, search_files|mimir_ops": {
+      "expected": "read_file, search_files",
+      "actual": "mimir_ops",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782132644.3735063,
+      "last_seen": 1782221926.956165,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files' but got 'mimir_ops'; do not repeat same assumption."
+    },
+    "read_file, search_files|terminal": {
+      "expected": "read_file, search_files",
+      "actual": "terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782132653.5987082,
+      "last_seen": 1785586687.140291,
+      "hit_count": 146,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files' but got 'terminal'; do not repeat same assumption."
+    },
+    "read_file, search_files|mimir_ops, skill_view": {
+      "expected": "read_file, search_files",
+      "actual": "mimir_ops, skill_view",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782132690.5160608,
+      "last_seen": 1784057187.392286,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files' but got 'mimir_ops, skill_view'; do not repeat same assumption."
+    },
+    "read_file, search_files|mimir_ops, terminal": {
+      "expected": "read_file, search_files",
+      "actual": "mimir_ops, terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782132703.3365457,
+      "last_seen": 1782141826.4773655,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files' but got 'mimir_ops, terminal'; do not repeat same assumption."
+    },
+    "read_file, search_files|execute_code": {
+      "expected": "read_file, search_files",
+      "actual": "execute_code",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782132729.8538954,
+      "last_seen": 1785586642.6693742,
+      "hit_count": 98,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files' but got 'execute_code'; do not repeat same assumption."
+    },
+    "read_file, search_files|patch": {
+      "expected": "read_file, search_files",
+      "actual": "patch",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782136738.6291084,
+      "last_seen": 1782442166.5369782,
+      "hit_count": 58,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files' but got 'patch'; do not repeat same assumption."
+    },
+    "execute_code, patch, read_file, run_terminal_cmd, search_files|nonexistent": {
+      "expected": "execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "nonexistent",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782136767.5683525,
+      "last_seen": 1782152024.9807556,
+      "hit_count": 10,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'nonexistent'; do not repeat same assumption."
+    },
+    "execute_code, patch, read_file, run_terminal_cmd, search_files|crash_tool": {
+      "expected": "execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "crash_tool",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782136767.6439033,
+      "last_seen": 1782152025.056725,
+      "hit_count": 10,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'crash_tool'; do not repeat same assumption."
+    },
+    "execute_code, patch, read_file, run_terminal_cmd, search_files|echo": {
+      "expected": "execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "echo",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782136767.7383046,
+      "last_seen": 1782152028.724811,
+      "hit_count": 70,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'echo'; do not repeat same assumption."
+    },
+    "execute_code, patch, read_file, run_terminal_cmd, search_files|calc": {
+      "expected": "execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "calc",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782136767.8533287,
+      "last_seen": 1782152025.635524,
+      "hit_count": 10,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'calc'; do not repeat same assumption."
+    },
+    "execute_code, patch, read_file, run_terminal_cmd, search_files|orphan_tool": {
+      "expected": "execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "orphan_tool",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782136767.992313,
+      "last_seen": 1782152026.6559076,
+      "hit_count": 10,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'orphan_tool'; do not repeat same assumption."
+    },
+    "execute_code, patch, read_file, run_terminal_cmd, search_files|tool_b": {
+      "expected": "execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "tool_b",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782136768.1220062,
+      "last_seen": 1782152028.2140248,
+      "hit_count": 10,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'tool_b'; do not repeat same assumption."
+    },
+    "read_file, search_files|memory": {
+      "expected": "read_file, search_files",
+      "actual": "memory",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782137025.590991,
+      "last_seen": 1782442199.9771183,
+      "hit_count": 11,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files' but got 'memory'; do not repeat same assumption."
+    },
+    "read_file, search_files|get_env": {
+      "expected": "read_file, search_files",
+      "actual": "get_env",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782137103.0999072,
+      "last_seen": 1782269243.9338293,
+      "hit_count": 5,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files' but got 'get_env'; do not repeat same assumption."
+    },
+    "read_file, search_files|skill_view": {
+      "expected": "read_file, search_files",
+      "actual": "skill_view",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782137313.3385367,
+      "last_seen": 1783937163.1831536,
+      "hit_count": 10,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files' but got 'skill_view'; do not repeat same assumption."
+    },
+    "read_file, search_files, session_search|memory": {
+      "expected": "read_file, search_files, session_search",
+      "actual": "memory",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782137620.0548604,
+      "last_seen": 1785645335.2712457,
+      "hit_count": 5,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files, session_search' but got 'memory'; do not repeat same assumption."
+    },
+    "read_file, search_files|write_file": {
+      "expected": "read_file, search_files",
+      "actual": "write_file",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782142953.3923914,
+      "last_seen": 1782442163.5158923,
+      "hit_count": 4,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files' but got 'write_file'; do not repeat same assumption."
+    },
+    "read_file, search_files, session_search|patch": {
+      "expected": "read_file, search_files, session_search",
+      "actual": "patch",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782149444.4115229,
+      "last_seen": 1785645320.3776653,
+      "hit_count": 5,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files, session_search' but got 'patch'; do not repeat same assumption."
+    },
+    "read_file, search_files|process": {
+      "expected": "read_file, search_files",
+      "actual": "process",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782151047.5798872,
+      "last_seen": 1782151274.6104772,
+      "hit_count": 5,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files' but got 'process'; do not repeat same assumption."
+    },
+    "read_file, search_files|web_search": {
+      "expected": "read_file, search_files",
+      "actual": "web_search",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782177055.224048,
+      "last_seen": 1783058158.4730196,
+      "hit_count": 5,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files' but got 'web_search'; do not repeat same assumption."
+    },
+    "read_file, search_files|web_extract": {
+      "expected": "read_file, search_files",
+      "actual": "web_extract",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782177357.2026613,
+      "last_seen": 1783058394.5026958,
+      "hit_count": 5,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files' but got 'web_extract'; do not repeat same assumption."
+    },
+    "read_file, search_files|web_extract, web_search": {
+      "expected": "read_file, search_files",
+      "actual": "web_extract, web_search",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782177378.5470514,
+      "last_seen": 1783058196.0792277,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files' but got 'web_extract, web_search'; do not repeat same assumption."
+    },
+    "read_file, search_files|get_env, terminal": {
+      "expected": "read_file, search_files",
+      "actual": "get_env, terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782186947.5975196,
+      "last_seen": 1782221937.535802,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files' but got 'get_env, terminal'; do not repeat same assumption."
+    },
+    "read_file, search_files|cronjob": {
+      "expected": "read_file, search_files",
+      "actual": "cronjob",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782194264.7709365,
+      "last_seen": 1782194273.7604332,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files' but got 'cronjob'; do not repeat same assumption."
+    },
+    "read_file, search_files, session_search|skill_manage": {
+      "expected": "read_file, search_files, session_search",
+      "actual": "skill_manage",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782199903.0375059,
+      "last_seen": 1783109916.086085,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files, session_search' but got 'skill_manage'; do not repeat same assumption."
+    },
+    "execute_code, patch, read_file, run_terminal_cmd, search_files|memory, skill_view": {
+      "expected": "execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "memory, skill_view",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782200244.7619245,
+      "last_seen": 1782200244.7619245,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'memory, skill_view'; do not repeat same assumption."
+    },
+    "execute_code, patch, read_file, run_terminal_cmd, search_files|memory": {
+      "expected": "execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "memory",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782200252.1904364,
+      "last_seen": 1782202031.473776,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'memory'; do not repeat same assumption."
+    },
+    "execute_code, patch, read_file, run_terminal_cmd, search_files|terminal": {
+      "expected": "execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782200606.183671,
+      "last_seen": 1782202010.4603193,
+      "hit_count": 8,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'terminal'; do not repeat same assumption."
+    },
+    "execute_code, patch, read_file, run_terminal_cmd, search_files|web_search": {
+      "expected": "execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "web_search",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782200857.3492131,
+      "last_seen": 1782201780.6654556,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'web_search'; do not repeat same assumption."
+    },
+    "execute_code, patch, read_file, run_terminal_cmd, search_files|browser_navigate": {
+      "expected": "execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "browser_navigate",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782200878.8837194,
+      "last_seen": 1782201799.6590774,
+      "hit_count": 12,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'browser_navigate'; do not repeat same assumption."
+    },
+    "execute_code, patch, read_file, run_terminal_cmd, search_files|browser_scroll": {
+      "expected": "execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "browser_scroll",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782200882.1552684,
+      "last_seen": 1782201920.0294983,
+      "hit_count": 6,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'browser_scroll'; do not repeat same assumption."
+    },
+    "execute_code, patch, read_file, run_terminal_cmd, search_files|browser_snapshot": {
+      "expected": "execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "browser_snapshot",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782200884.2859619,
+      "last_seen": 1782201803.5093656,
+      "hit_count": 5,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'browser_snapshot'; do not repeat same assumption."
+    },
+    "execute_code, patch, read_file, run_terminal_cmd, search_files|skill_manage": {
+      "expected": "execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "skill_manage",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782201182.7469425,
+      "last_seen": 1782202045.8789907,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'skill_manage'; do not repeat same assumption."
+    },
+    "execute_code, patch, read_file, run_terminal_cmd, search_files|skill_view": {
+      "expected": "execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "skill_view",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782201186.536796,
+      "last_seen": 1782201186.536796,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'skill_view'; do not repeat same assumption."
+    },
+    "execute_code, patch, read_file, run_terminal_cmd, search_files|web_extract": {
+      "expected": "execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "web_extract",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782201345.937144,
+      "last_seen": 1782201525.0818033,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'web_extract'; do not repeat same assumption."
+    },
+    "execute_code, patch, read_file, run_terminal_cmd, search_files|browser_click": {
+      "expected": "execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "browser_click",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782201905.101605,
+      "last_seen": 1782201922.212945,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'browser_click'; do not repeat same assumption."
+    },
+    "execute_code, patch, read_file, run_terminal_cmd, search_files|browser_console": {
+      "expected": "execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "browser_console",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782201909.0299206,
+      "last_seen": 1782201941.2230585,
+      "hit_count": 7,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'browser_console'; do not repeat same assumption."
+    },
+    "execute_code, patch, read_file, run_terminal_cmd, search_files|browser_back": {
+      "expected": "execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "browser_back",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782201932.656274,
+      "last_seen": 1782201932.656274,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'browser_back'; do not repeat same assumption."
+    },
+    "execute_code, patch, read_file, run_terminal_cmd, search_files|get_env": {
+      "expected": "execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "get_env",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782201981.6379116,
+      "last_seen": 1782201981.6379116,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'get_env'; do not repeat same assumption."
+    },
+    "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files|browser_click, browser_scroll": {
+      "expected": "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "browser_click, browser_scroll",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782202431.0118878,
+      "last_seen": 1782202431.0118878,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'browser_click, browser_scroll'; do not repeat same assumption."
+    },
+    "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files|browser_snapshot": {
+      "expected": "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "browser_snapshot",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782202432.9503715,
+      "last_seen": 1782221669.1035745,
+      "hit_count": 10,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'browser_snapshot'; do not repeat same assumption."
+    },
+    "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files|web_extract": {
+      "expected": "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "web_extract",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782202437.2063627,
+      "last_seen": 1782221672.4159164,
+      "hit_count": 7,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'web_extract'; do not repeat same assumption."
+    },
+    "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files|browser_get_images": {
+      "expected": "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "browser_get_images",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782202439.1386461,
+      "last_seen": 1782202439.1386461,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'browser_get_images'; do not repeat same assumption."
+    },
+    "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files|terminal": {
+      "expected": "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782202509.267251,
+      "last_seen": 1782221716.6806805,
+      "hit_count": 97,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'terminal'; do not repeat same assumption."
+    },
+    "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files|browser_console": {
+      "expected": "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "browser_console",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782209819.4238956,
+      "last_seen": 1782209822.4200153,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'browser_console'; do not repeat same assumption."
+    },
+    "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files|memory": {
+      "expected": "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "memory",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782209972.2845013,
+      "last_seen": 1782214856.474291,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'memory'; do not repeat same assumption."
+    },
+    "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files|skill_view": {
+      "expected": "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "skill_view",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782209974.9978926,
+      "last_seen": 1782214850.129443,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'skill_view'; do not repeat same assumption."
+    },
+    "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files|skill_manage": {
+      "expected": "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "skill_manage",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782209980.9835887,
+      "last_seen": 1782212513.822254,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'skill_manage'; do not repeat same assumption."
+    },
+    "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files|grep": {
+      "expected": "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "grep",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782212360.3833232,
+      "last_seen": 1782212360.3833232,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'grep'; do not repeat same assumption."
+    },
+    "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files|write_file": {
+      "expected": "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "write_file",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782212427.0577292,
+      "last_seen": 1782214788.1442153,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'write_file'; do not repeat same assumption."
+    },
+    "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files|cronjob": {
+      "expected": "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "cronjob",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782214793.192284,
+      "last_seen": 1782214798.3167431,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'cronjob'; do not repeat same assumption."
+    },
+    "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files|browser_scroll": {
+      "expected": "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "browser_scroll",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782216635.9586828,
+      "last_seen": 1782221667.2836928,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'browser_scroll'; do not repeat same assumption."
+    },
+    "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files|browser_click": {
+      "expected": "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "browser_click",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782217172.7234275,
+      "last_seen": 1782221653.6323876,
+      "hit_count": 8,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'browser_click'; do not repeat same assumption."
+    },
+    "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files|web_search": {
+      "expected": "browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "web_search",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782217296.6512203,
+      "last_seen": 1782221603.2377553,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'web_search'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files, session_search|web_search": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files, session_search",
+      "actual": "web_search",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782221975.2897956,
+      "last_seen": 1782221975.2897956,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files, session_search' but got 'web_search'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files, session_search|terminal": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files, session_search",
+      "actual": "terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782221987.6852329,
+      "last_seen": 1782288723.697935,
+      "hit_count": 36,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files, session_search' but got 'terminal'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|get_env, terminal": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "get_env, terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782222027.4259133,
+      "last_seen": 1782222027.4259133,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'get_env, terminal'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|get_env, mimir_ops": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "get_env, mimir_ops",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782222189.884341,
+      "last_seen": 1782222189.884341,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'get_env, mimir_ops'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|web_search": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "web_search",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782222203.3314772,
+      "last_seen": 1782276772.7019722,
+      "hit_count": 5,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'web_search'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|web_extract": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "web_extract",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782222251.3173945,
+      "last_seen": 1782276816.5037062,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'web_extract'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|terminal": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782222283.2070189,
+      "last_seen": 1782291740.329632,
+      "hit_count": 92,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'terminal'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|memory": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "memory",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782225145.9955196,
+      "last_seen": 1782284020.1349716,
+      "hit_count": 5,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'memory'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|skills_list, terminal": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "skills_list, terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782226520.9219618,
+      "last_seen": 1782226520.9219618,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'skills_list, terminal'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|todo": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "todo",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782226525.9092536,
+      "last_seen": 1782226525.9092536,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'todo'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|browser_scroll": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "browser_scroll",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782226745.6628199,
+      "last_seen": 1782226745.6628199,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'browser_scroll'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|browser_type": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "browser_type",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782226755.7655945,
+      "last_seen": 1782226755.7655945,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'browser_type'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|browser_click": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "browser_click",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782226758.1213293,
+      "last_seen": 1782276811.4282057,
+      "hit_count": 5,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'browser_click'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|cronjob": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "cronjob",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782226788.8418026,
+      "last_seen": 1782291093.5152347,
+      "hit_count": 4,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'cronjob'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|write_file": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "write_file",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782227336.8147235,
+      "last_seen": 1782284009.69554,
+      "hit_count": 5,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'write_file'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|memory, skill_manage": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "memory, skill_manage",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782227345.3187,
+      "last_seen": 1782291105.9731185,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'memory, skill_manage'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|cronjob, terminal": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "cronjob, terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782227871.1981704,
+      "last_seen": 1782227871.1981704,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'cronjob, terminal'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files, session_search|memory": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files, session_search",
+      "actual": "memory",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782245071.8671534,
+      "last_seen": 1782245071.8671534,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files, session_search' but got 'memory'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|skill_view, terminal": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "skill_view, terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782263627.87938,
+      "last_seen": 1782263627.87938,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'skill_view, terminal'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|nonexistent": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "nonexistent",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782266294.3274386,
+      "last_seen": 1782277180.2338386,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'nonexistent'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|crash_tool": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "crash_tool",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782266294.4151578,
+      "last_seen": 1782277180.321109,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'crash_tool'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|echo": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "echo",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782266294.634813,
+      "last_seen": 1782277184.521974,
+      "hit_count": 14,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'echo'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|calc": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "calc",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782266295.0977113,
+      "last_seen": 1782277180.9323847,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'calc'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|orphan_tool": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "orphan_tool",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782266296.298666,
+      "last_seen": 1782277182.1758344,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'orphan_tool'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|tool_b": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "tool_b",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782266298.1760314,
+      "last_seen": 1782277183.981964,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'tool_b'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files, session_search|memory, terminal": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files, session_search",
+      "actual": "memory, terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782266406.2188582,
+      "last_seen": 1782277345.0431557,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files, session_search' but got 'memory, terminal'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|terminal, web_search": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "terminal, web_search",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782266941.9160633,
+      "last_seen": 1782266941.9160633,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'terminal, web_search'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|terminal, write_file": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "terminal, write_file",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782267080.649318,
+      "last_seen": 1782267080.649318,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'terminal, write_file'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|web_extract, web_search": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "web_extract, web_search",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782270871.0032873,
+      "last_seen": 1782276791.9812603,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'web_extract, web_search'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|skill_view": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "skill_view",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782273153.4502153,
+      "last_seen": 1782277396.2465086,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'skill_view'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files|skill_manage": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "skill_manage",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782273166.6767318,
+      "last_seen": 1782273166.6767318,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files' but got 'skill_manage'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files, session_search|cronjob": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files, session_search",
+      "actual": "cronjob",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782287293.5094333,
+      "last_seen": 1782287316.771481,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files, session_search' but got 'cronjob'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files, session_search|get_env": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files, session_search",
+      "actual": "get_env",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782287333.2394426,
+      "last_seen": 1782287333.2394426,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, patch, read_file, run_terminal_cmd, search_files, session_search' but got 'get_env'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files|terminal": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782294199.7728539,
+      "last_seen": 1783170763.7159088,
+      "hit_count": 151,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files' but got 'terminal'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files|skill_view": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "skill_view",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782294306.8301263,
+      "last_seen": 1783170826.345785,
+      "hit_count": 10,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files' but got 'skill_view'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files|get_env, terminal": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "get_env, terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782444761.1206286,
+      "last_seen": 1782444761.1206286,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files' but got 'get_env, terminal'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files|web_search": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "web_search",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782569613.9053679,
+      "last_seen": 1783170889.6286504,
+      "hit_count": 4,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files' but got 'web_search'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search|web_search": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search",
+      "actual": "web_search",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782570536.6754494,
+      "last_seen": 1782572303.3351023,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search' but got 'web_search'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search|skill_view": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search",
+      "actual": "skill_view",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782572297.9339972,
+      "last_seen": 1782572297.9339972,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search' but got 'skill_view'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files|web_extract": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "web_extract",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782572988.4494727,
+      "last_seen": 1783170921.2969146,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files' but got 'web_extract'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files|web_extract, web_search": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "web_extract, web_search",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782573103.4147658,
+      "last_seen": 1783170941.884778,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files' but got 'web_extract, web_search'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files|grep, terminal": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "grep, terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782574580.6991386,
+      "last_seen": 1782574580.6991386,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files' but got 'grep, terminal'; do not repeat same assumption."
+    },
+    "read_file, search_files, session_search|execute_code": {
+      "expected": "read_file, search_files, session_search",
+      "actual": "execute_code",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782582988.4971836,
+      "last_seen": 1785664853.081018,
+      "hit_count": 57,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files, session_search' but got 'execute_code'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search|terminal": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search",
+      "actual": "terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782585552.170509,
+      "last_seen": 1783168582.2276456,
+      "hit_count": 11,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search' but got 'terminal'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search|write_file": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search",
+      "actual": "write_file",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782586269.7623248,
+      "last_seen": 1782586269.7623248,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search' but got 'write_file'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files|write_file": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "write_file",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782588353.0747707,
+      "last_seen": 1783059628.2443497,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files' but got 'write_file'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files|skill_manage": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "skill_manage",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782590524.2192578,
+      "last_seen": 1783169385.1904655,
+      "hit_count": 4,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files' but got 'skill_manage'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files|delegate_task": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "delegate_task",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782594223.040093,
+      "last_seen": 1782594223.040093,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files' but got 'delegate_task'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files|nonexistent": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "nonexistent",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782594271.766114,
+      "last_seen": 1782594271.766114,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files' but got 'nonexistent'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files|crash_tool": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "crash_tool",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782594271.8711572,
+      "last_seen": 1782594271.8711572,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files' but got 'crash_tool'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files|echo": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "echo",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782594272.060186,
+      "last_seen": 1782594276.0401757,
+      "hit_count": 7,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files' but got 'echo'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files|calc": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "calc",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782594272.4483006,
+      "last_seen": 1782594272.4483006,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files' but got 'calc'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files|orphan_tool": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "orphan_tool",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782594273.6048672,
+      "last_seen": 1782594273.6048672,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files' but got 'orphan_tool'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files|tool_b": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "tool_b",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1782594275.4507313,
+      "last_seen": 1782594275.4507313,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files' but got 'tool_b'; do not repeat same assumption."
+    },
+    "read_file, search_files, session_search|memory, skill_manage": {
+      "expected": "read_file, search_files, session_search",
+      "actual": "memory, skill_manage",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783109894.2442417,
+      "last_seen": 1783109894.2442417,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files, session_search' but got 'memory, skill_manage'; do not repeat same assumption."
+    },
+    "read_file, search_files, session_search|skills_list": {
+      "expected": "read_file, search_files, session_search",
+      "actual": "skills_list",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783109906.1153896,
+      "last_seen": 1783109906.1153896,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files, session_search' but got 'skills_list'; do not repeat same assumption."
+    },
+    "read_file, search_files, session_search|skill_view": {
+      "expected": "read_file, search_files, session_search",
+      "actual": "skill_view",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783109908.8705668,
+      "last_seen": 1785348964.2861614,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files, session_search' but got 'skill_view'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files|skills_list": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "skills_list",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783169388.192578,
+      "last_seen": 1783169388.192578,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files' but got 'skills_list'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files|mimir_ops, skill_view": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "mimir_ops, skill_view",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783169401.2632334,
+      "last_seen": 1783169401.2632334,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files' but got 'mimir_ops, skill_view'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files|cronjob": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files",
+      "actual": "cronjob",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783171139.6231194,
+      "last_seen": 1783171139.6231194,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files' but got 'cronjob'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view|cronjob": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view",
+      "actual": "cronjob",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783171486.8458302,
+      "last_seen": 1783179627.1044054,
+      "hit_count": 12,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view' but got 'cronjob'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view|todo": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view",
+      "actual": "todo",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783171556.0859153,
+      "last_seen": 1783171556.0859153,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view' but got 'todo'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view|write_file": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view",
+      "actual": "write_file",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783171580.407192,
+      "last_seen": 1783176640.786897,
+      "hit_count": 8,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view' but got 'write_file'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view|terminal": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view",
+      "actual": "terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783171589.6003742,
+      "last_seen": 1783179628.688291,
+      "hit_count": 57,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view' but got 'terminal'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view|grep, terminal": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view",
+      "actual": "grep, terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783173502.7563727,
+      "last_seen": 1783173502.7563727,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view' but got 'grep, terminal'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view|terminal": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view",
+      "actual": "terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783173516.8681076,
+      "last_seen": 1783177794.2584357,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view' but got 'terminal'; do not repeat same assumption."
+    },
+    "read_file, search_files, session_search|cronjob": {
+      "expected": "read_file, search_files, session_search",
+      "actual": "cronjob",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783176059.2253141,
+      "last_seen": 1783176059.2253141,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files, session_search' but got 'cronjob'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view|skill_manage": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view",
+      "actual": "skill_manage",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783177360.5773222,
+      "last_seen": 1783177360.5773222,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view' but got 'skill_manage'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view|write_file": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view",
+      "actual": "write_file",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783177677.1830003,
+      "last_seen": 1783177677.1830003,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view' but got 'write_file'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view|cronjob, terminal": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view",
+      "actual": "cronjob, terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783178334.4904158,
+      "last_seen": 1783178334.4904158,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view' but got 'cronjob, terminal'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view|mimir_ops": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view",
+      "actual": "mimir_ops",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783179464.1172,
+      "last_seen": 1783179464.1172,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view' but got 'mimir_ops'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view|skill_manage": {
+      "expected": "browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view",
+      "actual": "skill_manage",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783195431.3063464,
+      "last_seen": 1783195431.3063464,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view' but got 'skill_manage'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view|terminal": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view",
+      "actual": "terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783238453.1014378,
+      "last_seen": 1783858650.08741,
+      "hit_count": 89,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view' but got 'terminal'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view|todo": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view",
+      "actual": "todo",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783242011.3055215,
+      "last_seen": 1783242011.3055215,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view' but got 'todo'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view|web_search": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view",
+      "actual": "web_search",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783242017.3926294,
+      "last_seen": 1783846963.2202363,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view' but got 'web_search'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view|web_extract, web_search": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view",
+      "actual": "web_extract, web_search",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783242233.629727,
+      "last_seen": 1783847048.6262274,
+      "hit_count": 9,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view' but got 'web_extract, web_search'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view|write_file": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view",
+      "actual": "write_file",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783245443.465479,
+      "last_seen": 1783858807.4016774,
+      "hit_count": 11,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view' but got 'write_file'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view|skill_manage": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view",
+      "actual": "skill_manage",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783334269.2698739,
+      "last_seen": 1783436229.354171,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view' but got 'skill_manage'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view|terminal": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view",
+      "actual": "terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783440189.1258602,
+      "last_seen": 1783849672.8338785,
+      "hit_count": 11,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view' but got 'terminal'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view|terminal, web_search": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view",
+      "actual": "terminal, web_search",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783534183.6055431,
+      "last_seen": 1783534183.6055431,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view' but got 'terminal, web_search'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view|web_extract": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view",
+      "actual": "web_extract",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783534210.9636388,
+      "last_seen": 1783534329.7883837,
+      "hit_count": 5,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view' but got 'web_extract'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view|web_search": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view",
+      "actual": "web_search",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783534222.1584404,
+      "last_seen": 1783534273.3510718,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view' but got 'web_search'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view|browser_scroll": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view",
+      "actual": "browser_scroll",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783534250.949693,
+      "last_seen": 1783534250.949693,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view' but got 'browser_scroll'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view|web_extract, web_search": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view",
+      "actual": "web_extract, web_search",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783534309.4899926,
+      "last_seen": 1783534309.4899926,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view' but got 'web_extract, web_search'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view|web_extract": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view",
+      "actual": "web_extract",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783846948.2269714,
+      "last_seen": 1783847090.456207,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view' but got 'web_extract'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view|session_search": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view",
+      "actual": "session_search",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783858478.8530395,
+      "last_seen": 1783858579.207099,
+      "hit_count": 4,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view' but got 'session_search'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file|terminal": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file",
+      "actual": "terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783863630.962779,
+      "last_seen": 1784348869.7728844,
+      "hit_count": 197,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file' but got 'terminal'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file|skill_manage": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file",
+      "actual": "skill_manage",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783892578.9986343,
+      "last_seen": 1784144925.2426257,
+      "hit_count": 9,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file' but got 'skill_manage'; do not repeat same assumption."
+    },
+    "read_file, search_files|memory, skill_manage": {
+      "expected": "read_file, search_files",
+      "actual": "memory, skill_manage",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783937160.2482848,
+      "last_seen": 1783937160.2482848,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files' but got 'memory, skill_manage'; do not repeat same assumption."
+    },
+    "read_file, search_files|skill_manage": {
+      "expected": "read_file, search_files",
+      "actual": "skill_manage",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1783937172.4889424,
+      "last_seen": 1783937172.4889424,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files' but got 'skill_manage'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file|get_env": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file",
+      "actual": "get_env",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784041829.0629334,
+      "last_seen": 1784044174.5705254,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file' but got 'get_env'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file|todo": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file",
+      "actual": "todo",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784103902.9504082,
+      "last_seen": 1784144756.2264497,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file' but got 'todo'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, write_file|terminal": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, write_file",
+      "actual": "terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784105317.0989125,
+      "last_seen": 1784318712.8373876,
+      "hit_count": 21,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, write_file' but got 'terminal'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, write_file|skill_manage": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, write_file",
+      "actual": "skill_manage",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784116378.3510547,
+      "last_seen": 1784261838.132933,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, write_file' but got 'skill_manage'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file|session_search": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file",
+      "actual": "session_search",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784123456.1427197,
+      "last_seen": 1784123456.1427197,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file' but got 'session_search'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file|web_search": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file",
+      "actual": "web_search",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784143924.2257776,
+      "last_seen": 1784347408.900193,
+      "hit_count": 8,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file' but got 'web_search'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file|web_extract, web_search": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file",
+      "actual": "web_extract, web_search",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784144135.8948781,
+      "last_seen": 1784144482.555083,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file' but got 'web_extract, web_search'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file|skills_list": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file",
+      "actual": "skills_list",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784144484.2744026,
+      "last_seen": 1784144939.908619,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file' but got 'skills_list'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file|web_extract": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file",
+      "actual": "web_extract",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784144618.96657,
+      "last_seen": 1784348784.725205,
+      "hit_count": 10,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, write_file' but got 'web_extract'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, write_file|skill_manage": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, write_file",
+      "actual": "skill_manage",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784352125.664512,
+      "last_seen": 1784462368.5715075,
+      "hit_count": 4,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, write_file' but got 'skill_manage'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, write_file|terminal": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, write_file",
+      "actual": "terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784352153.212383,
+      "last_seen": 1784459441.0287895,
+      "hit_count": 43,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, write_file' but got 'terminal'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, write_file|terminal": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, write_file",
+      "actual": "terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784352281.1045032,
+      "last_seen": 1784352299.6282132,
+      "hit_count": 4,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, write_file' but got 'terminal'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, write_file|skills_list": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, write_file",
+      "actual": "skills_list",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784353271.6837134,
+      "last_seen": 1784364527.3391602,
+      "hit_count": 4,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, write_file' but got 'skills_list'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, write_file|web_search": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, write_file",
+      "actual": "web_search",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784447240.0521908,
+      "last_seen": 1784462363.661522,
+      "hit_count": 14,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, write_file' but got 'web_search'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, write_file|web_search": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, write_file",
+      "actual": "web_search",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784451634.134325,
+      "last_seen": 1784451860.4382477,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, write_file' but got 'web_search'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|browser_scroll": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "browser_scroll",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784462902.6321895,
+      "last_seen": 1784462902.6321895,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'browser_scroll'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|browser_click": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "browser_click",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784462909.018353,
+      "last_seen": 1784903916.8149054,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'browser_click'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|terminal": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784465510.443432,
+      "last_seen": 1785639558.3814273,
+      "hit_count": 511,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'terminal'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|skill_manage": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "skill_manage",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784480390.5983043,
+      "last_seen": 1785267733.12963,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'skill_manage'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file|todo": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file",
+      "actual": "todo",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784590127.8960726,
+      "last_seen": 1784590127.8960726,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file' but got 'todo'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file|terminal": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file",
+      "actual": "terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784590191.1049707,
+      "last_seen": 1785601307.9100044,
+      "hit_count": 259,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file' but got 'terminal'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|session_search": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "session_search",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784611807.0058227,
+      "last_seen": 1785259522.6815767,
+      "hit_count": 5,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'session_search'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|send_message": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "send_message",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784613830.0306854,
+      "last_seen": 1785068632.6555219,
+      "hit_count": 6,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'send_message'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file|skill_manage": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file",
+      "actual": "skill_manage",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784664246.4414482,
+      "last_seen": 1785317050.4194982,
+      "hit_count": 4,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file' but got 'skill_manage'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|todo": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "todo",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784788819.0414655,
+      "last_seen": 1784788819.0414655,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'todo'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|browser_console": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "browser_console",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784788860.56695,
+      "last_seen": 1784788869.766235,
+      "hit_count": 5,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'browser_console'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|grep, terminal": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "grep, terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784792026.0104263,
+      "last_seen": 1784792026.0104263,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'grep, terminal'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|process": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "process",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1784835151.8805044,
+      "last_seen": 1785639607.4034142,
+      "hit_count": 11,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'process'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|grep": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "grep",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785057236.438914,
+      "last_seen": 1785426446.384119,
+      "hit_count": 8,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'grep'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|get_env": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "get_env",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785267324.5494478,
+      "last_seen": 1785267324.5494478,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'get_env'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file|process": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file",
+      "actual": "process",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785297349.5186594,
+      "last_seen": 1785297349.5186594,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file' but got 'process'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|mimir_ops": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "mimir_ops",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785299760.4710178,
+      "last_seen": 1785316238.4766061,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'mimir_ops'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|nonexistent": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "nonexistent",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785311673.5146701,
+      "last_seen": 1785351610.6990368,
+      "hit_count": 11,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'nonexistent'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|crash_tool": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "crash_tool",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785311673.5553215,
+      "last_seen": 1785351610.7840884,
+      "hit_count": 11,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'crash_tool'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|echo": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "echo",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785311673.6778514,
+      "last_seen": 1785351613.216931,
+      "hit_count": 77,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'echo'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|calc": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "calc",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785311673.8769844,
+      "last_seen": 1785351611.183069,
+      "hit_count": 11,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'calc'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|orphan_tool": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "orphan_tool",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785311674.4059956,
+      "last_seen": 1785351611.8719168,
+      "hit_count": 11,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'orphan_tool'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|tool_b": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "tool_b",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785311675.2187467,
+      "last_seen": 1785351612.87967,
+      "hit_count": 11,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'tool_b'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file|grep": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file",
+      "actual": "grep",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785314663.115196,
+      "last_seen": 1785314663.115196,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file' but got 'grep'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file|get_env": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file",
+      "actual": "get_env",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785344048.712513,
+      "last_seen": 1785344048.712513,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file' but got 'get_env'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|get_env, terminal": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "get_env, terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785345230.3098588,
+      "last_seen": 1785345230.3098588,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'get_env, terminal'; do not repeat same assumption."
+    },
+    "read_file, search_files, session_search|execute_code, skill_view": {
+      "expected": "read_file, search_files, session_search",
+      "actual": "execute_code, skill_view",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785479580.713869,
+      "last_seen": 1785645252.7645304,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files, session_search' but got 'execute_code, skill_view'; do not repeat same assumption."
+    },
+    "read_file, search_files, session_search|terminal": {
+      "expected": "read_file, search_files, session_search",
+      "actual": "terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785479658.6528912,
+      "last_seen": 1785643220.9095552,
+      "hit_count": 11,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files, session_search' but got 'terminal'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file|mimir_ops": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file",
+      "actual": "mimir_ops",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785507730.7090018,
+      "last_seen": 1785528298.4120827,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file' but got 'mimir_ops'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file|clarify": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file",
+      "actual": "clarify",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785548274.6799114,
+      "last_seen": 1785548274.6799114,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file' but got 'clarify'; do not repeat same assumption."
+    },
+    "read_file, search_files, session_search|write_file": {
+      "expected": "read_file, search_files, session_search",
+      "actual": "write_file",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785643181.898177,
+      "last_seen": 1785645295.1347878,
+      "hit_count": 3,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'read_file, search_files, session_search' but got 'write_file'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file|terminal": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file",
+      "actual": "terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785644332.1657343,
+      "last_seen": 1785699900.0480797,
+      "hit_count": 39,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file' but got 'terminal'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file|skill_manage": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file",
+      "actual": "skill_manage",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785645516.798361,
+      "last_seen": 1785645516.798361,
+      "hit_count": 1,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, session_search, skill_view, web_extract, web_search, write_file' but got 'skill_manage'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|terminal": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "terminal",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785651134.068042,
+      "last_seen": 1785696580.7679775,
+      "hit_count": 32,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'terminal'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|nonexistent": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "nonexistent",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785691874.0033422,
+      "last_seen": 1785691990.871195,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'nonexistent'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|crash_tool": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "crash_tool",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785691874.0302045,
+      "last_seen": 1785691990.8985283,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'crash_tool'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|echo": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "echo",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785691874.075164,
+      "last_seen": 1785691991.9495037,
+      "hit_count": 14,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'echo'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|calc": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "calc",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785691874.1698542,
+      "last_seen": 1785691991.038463,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'calc'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|orphan_tool": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "orphan_tool",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785691874.4347816,
+      "last_seen": 1785691991.3020606,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'orphan_tool'; do not repeat same assumption."
+    },
+    "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file|tool_b": {
+      "expected": "browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file",
+      "actual": "tool_b",
+      "surprise_label": "wm_prediction_mismatch",
+      "first_seen": 1785691875.021748,
+      "last_seen": 1785691991.751039,
+      "hit_count": 2,
+      "learning_hint": "Prior VoE (wm_prediction_mismatch): expected 'browser_navigate, browser_snapshot, cronjob, execute_code, memory, patch, process, read_file, run_terminal_cmd, search_files, skill_view, web_extract, web_search, write_file' but got 'tool_b'; do not repeat same assumption."
+    }
+  }
+}
