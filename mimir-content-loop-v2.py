@@ -142,15 +142,21 @@ async def main():
             latest_traj = trajs[-1]
     if latest_traj:
         try:
-            with open(latest_traj) as _tf:
-                _traj_content = _tf.read()
-            has_write = ("write_file" in _traj_content) or ("patch" in _traj_content) or ('"tool_name": "write' in _traj_content)
-            if has_write:
-                print(f"✅ 产出门禁: 轨迹有写盘（{latest_traj.split('/')[-1]}）")
+            # 修复v6（2026-08-06 刘哥发现）：轨迹必须新鲜（10分钟内）——否则是旧轨迹误判
+            import time as _t3
+            traj_mtime = os.path.getmtime(latest_traj)
+            if _t3.time() - traj_mtime > 600:  # 10分钟
+                print(f"⚠ 产出门禁: 最新轨迹{latest_traj.split('/')[-1]}是旧的（{int(_t3.time()-traj_mtime)}秒前）——非本次任务，跳过检查")
             else:
-                # 无写盘——判定调研循环，补强制写盘任务
-                print(f"⚠ 产出门禁: 轨迹无写盘（{latest_traj.split('/')[-1]}）——调研未产出，补强制写盘")
-                write_task = f"""你在Buzz频道收到消息（来自 {from_pub}）。
+                with open(latest_traj) as _tf:
+                    _traj_content = _tf.read()
+                has_write = ("write_file" in _traj_content) or ("patch" in _traj_content) or ('"tool_name": "write' in _traj_content)
+                if has_write:
+                    print(f"✅ 产出门禁: 轨迹有写盘（{latest_traj.split('/')[-1]}）")
+                else:
+                    # 无写盘——判定调研循环，补强制写盘任务
+                    print(f"⚠ 产出门禁: 轨迹无写盘（{latest_traj.split('/')[-1]}）——调研未产出，补强制写盘")
+                    write_task = f"""你在Buzz频道收到消息（来自 {from_pub}）。
 消息内容（需完成落盘）：{content}
 
 你已经做完了调研，现在必须【写盘产出】：
@@ -158,12 +164,12 @@ async def main():
 2. 写出你的段（五段式：【角色】【任务】【上下文】【分析】【结论】）
 3. 写盘后输出回执含路径
 不要继续调研！现在只做一件事：写盘。"""
-                try:
-                    with contextlib.redirect_stdout(io.StringIO()):
-                        await run_task(task=write_task, model="deepseek-v4-flash", max_iterations=8, verbose=True)
-                    print("✅ 产出门禁: 强制写盘任务已执行")
-                except Exception as e:
-                    print(f"⚠ 产出门禁: 强制写盘失败 {e}")
+                    try:
+                        with contextlib.redirect_stdout(io.StringIO()):
+                            await run_task(task=write_task, model="deepseek-v4-flash", max_iterations=8, verbose=True)
+                        print("✅ 产出门禁: 强制写盘任务已执行")
+                    except Exception as e:
+                        print(f"⚠ 产出门禁: 强制写盘失败 {e}")
         except Exception as _e:
             print(f"⚠ 产出门禁: 轨迹读取失败 {_e}")
     else:
