@@ -61,6 +61,12 @@ async def main():
 3. 生成一条回复（简洁，内容级，不要用【REPLY】标记）
 4. 把回复写入文件 {REPLY_FILE}（这是关键步骤，回复内容必须落盘）
 
+⚠️ 落盘铁律（2026-08-08 自主进化迭代，基于观察日志 be9cf5a0"只读不写"教训）：
+- 研究/调查/审计类任务（读文件、搜代码、查历史）完成后，**必须把研究结论/发现落盘**（write_file/patch 到指定路径或临时结论文件）——只读不写 = 任务未完成
+- 任务若指定落盘路径（如 ~/wiki/discussions/xxx.md），必须写入该路径并附验证（grep/stat）
+- 无指定路径的研究类任务，把结论写入 {REPLY_FILE} 同目录下的 /tmp/mimir-research-conclusion.md 并在回复中说明
+- 纯询问/讨论消息不强制落盘，但回复中应含明确结论
+
 回复将发回Buzz频道。"""
     
     from mimir_cli.task_runner import run_task
