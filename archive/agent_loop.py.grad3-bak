@@ -218,14 +218,6 @@ class MimirAgentLoop:
         _wm_prediction_result = None  # for VoE surprise check
 
         for turn in range(self.max_turns):
-            # ===== 梯度3改造（2026-08-08 四方批准+Hermes代改——装眼睛）=====
-            # 产出标记日志：每轮记录"是否有assistant产出"——让"只说不做"在日志里现形
-            # 目的：可观测性（刘哥行为观察制度）——Mimir能看见自己的行为→自我改进有依据
-            _last_role_before = messages[-1].get("role", "") if messages else ""
-            if _last_role_before == "tool":
-                logger.info("[%s] turn %d: 上轮以tool结尾——检查本轮是否产出assistant", self.task_id[:8], turn + 1)
-            elif _last_role_before == "assistant":
-                logger.info("[%s] turn %d: 上轮已有产出（assistant）——正常闭环", self.task_id[:8], turn + 1)
             if self.interrupt_check():
                 logger.info("Loop interrupted at turn %d", turn + 1)
                 self._close_pipeline(user_task)
