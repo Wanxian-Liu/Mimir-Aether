@@ -153,7 +153,14 @@ async def main():
     # === 2. 目标文件新鲜度主判断 ===
     # 从任务内容提取目标卡路径
     import re as _re2
-    target_paths = _re2.findall(r"(/home/rayliu/\S+?\.md)", content)
+    import os.path as _osp2
+    # v7.2修复（2026-08-08）：同时匹配 ~/ 和 /home/rayliu/ 两种路径（~开头的"~/wiki/..."之前没匹配到）
+    target_paths = []
+    for _tp in _re2.findall(r"(~/[^\s,，。;；]+?\.md|/home/rayliu/[^\s,，。;；]+?\.md)", content):
+        if _tp.startswith("~/"):
+            _tp = _osp2.expanduser(_tp)
+        if _tp not in target_paths:
+            target_paths.append(_tp)
     target_fresh = False
     target_hits = []
     if target_paths:
