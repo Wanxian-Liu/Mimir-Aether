@@ -155,12 +155,29 @@ async def main():
     import re as _re2
     import os.path as _osp2
     # v7.2修复（2026-08-08）：同时匹配 ~/ 和 /home/rayliu/ 两种路径（~开头的"~/wiki/..."之前没匹配到）
+    # v7.3修复（2026-08-09 Hermes——Mimir假成功暴露）：任务里"参考/示范/例如"后面的路径是参考路径——不是目标
+    #   ——正则提取会取错（Mimir取到 ~/.hermes/PROGRESS.md 参考——通过门禁——自己没建）
+    #   ——修复：优先提取"你要建/你工作区/你的"附近的目标路径；参考路径（"参考/示范/例如/Hermes示范"后）排除
     target_paths = []
-    for _tp in _re2.findall(r"(~/[^\s,，。;；]+?\.md|/home/rayliu/[^\s,，。;；]+?\.md)", content):
+    # ① 优先：任务里"你(的)工作区/你要建/你的xxx"关联的路径（Mimir/Awaken后跟路径——任务自己的目标）
+    _own_paths = _re2.findall(r"(?:你的工作区|你要建|你的[^\s，。]{0,6}|建在|写入)\s*[:：]?\s*(~/[^\s，。;；]+?\.md|/home/rayliu/[^\s，。;；]+?\.md)", content)
+    for _tp in _own_paths:
         if _tp.startswith("~/"):
             _tp = _osp2.expanduser(_tp)
         if _tp not in target_paths:
             target_paths.append(_tp)
+    # ② 补充：全部.md路径（但排除"参考/示范/例如/Hermes示范"后面的——那些是参考不是目标）
+    _all_md = _re2.findall(r"(~/[^\s，。;；]+?\.md|/home/rayliu/[^\s，。;；]+?\.md)", content)
+    for _tp in _all_md:
+        # 排除参考路径：看它前面是否紧跟"参考/示范/例如/Hermes示范/示例"
+        _before = content[max(0, content.find(_tp)-8):content.find(_tp)]
+        if any(k in _before for k in ["参考", "示范", "例如", "示例", "样例", "比如"]):
+            continue
+        if _tp.startswith("~/"):
+            _tp = _osp2.expanduser(_tp)
+        if _tp not in target_paths:
+            target_paths.append(_tp)
+    # ③ 都没匹配到（无明确目标）——降级用轨迹（辅助判断）
     target_fresh = False
     target_hits = []
     if target_paths:
