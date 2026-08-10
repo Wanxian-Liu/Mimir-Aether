@@ -97,10 +97,90 @@ def get_mimir_chroma_dir() -> Path:
     return _path()
 
 
+class LocalSentenceTransformerEmbeddingFunction:
+    """Chroma-compatible embedding function backed by a local sentence-transformers
+    model (e.g. /home/rayliu/models/bge-m3). Retrieval-optimized:
+    max_seq_length=512 truncation, 16 threads, L2-normalized vectors (cosine).
+
+    P0 (2026-08-11): real bge-m3 replaces the deterministic hash placeholder.
+    """
+
+    DEFAULT_MAX_SEQ_LENGTH = 512
+    DEFAULT_NUM_THREADS = 16
+
+    def __init__(
+        self,
+        model_path: str,
+        max_seq_length: int = DEFAULT_MAX_SEQ_LENGTH,
+        num_threads: int = DEFAULT_NUM_THREADS,
+    ) -> None:
+        self._model_path = model_path
+        self._max_seq_length = max_seq_length
+        try:
+            import torch
+            import sentence_transformers
+
+            torch.set_num_threads(num_threads)
+            self._model = sentence_transformers.SentenceTransformer(
+                model_path, device="cpu"
+            )
+            self._model.max_seq_length = max_seq_length
+        except Exception as exc:  # noqa: BLE001 - re-raise with context
+            raise ImportError(
+                f"local ST model {model_path} failed to load: {exc}"
+            ) from exc
+
+    def __call__(self, input: Sequence[str]) -> List[List[float]]:
+        import numpy as np
+
+        vecs = self._model.encode(
+            list(input),
+            normalize_embeddings=True,
+            batch_size=64,
+            show_progress_bar=False,
+            convert_to_numpy=True,
+        )
+        if isinstance(vecs, np.ndarray):
+            return [v.tolist() for v in vecs]
+        return [v.tolist() for v in vecs]
+
+    def embed_query(self, input: Sequence[str]) -> List[List[float]]:
+        return self.__call__(input)
+
+    def name(self) -> str:
+        return "local_sentence_transformer"
+
+    def get_config(self) -> Dict[str, Any]:
+        return {
+            "model_path": self._model_path,
+            "max_seq_length": self._max_seq_length,
+        }
+
+    @staticmethod
+    def build_from_config(config: Dict[str, Any]) -> "LocalSentenceTransformerEmbeddingFunction":
+        return LocalSentenceTransformerEmbeddingFunction(
+            model_path=str(config.get("model_path", "")),
+            max_seq_length=int(config.get("max_seq_length", LocalSentenceTransformerEmbeddingFunction.DEFAULT_MAX_SEQ_LENGTH)),
+        )
+
+
 def resolve_embedding_function(model: Optional[str] = None):
-    """Pick embedding backend: sentence-transformers when requested, else hash."""
+    """Pick embedding backend: local ST model (e.g. bge-m3) when configured, else
+    chromadb ST by name, else deterministic hash (tier0 / no ML deps)."""
     model = (model or os.getenv("MIMIR_EMBED_MODEL", "")).strip()
     if model:
+        # 1) local path on disk -> retrieval-optimized local embedding (P0: bge-m3)
+        model_path = Path(model).expanduser()
+        if model_path.is_dir():
+            try:
+                return LocalSentenceTransformerEmbeddingFunction(str(model_path))
+            except Exception as exc:
+                logger.warning(
+                    "MIMIR_EMBED_MODEL=%s local load failed (%s); falling back to chromadb ST / hash",
+                    model,
+                    exc,
+                )
+        # 2) model name resolvable via chromadb sentence-transformers extras
         try:
             from chromadb.utils import embedding_functions
 
@@ -116,8 +196,35 @@ def resolve_embedding_function(model: Optional[str] = None):
     return HashEmbeddingFunction()
 
 
+# Garbage / non-retrieval content prefixes (P0 audit 2026-08-11: system error
+# boilerplate and placeholder text was polluting the semantic index — e.g. 39x
+# "抱歉,任务迭代次数已达上限" occupied HippoRAG2 query top-5 slots).
+# NOTE: prefix match only — substring match would kill legitimate conversation
+# that merely *mentions* these strings (e.g. a user asking what
+# "[Old tool output cleared ...]" means).
+_GARBAGE_PREFIXES: Tuple[str, ...] = (
+    "抱歉,任务迭代次数已达上限",
+    "抱歉,模型调用失败,请稍后重试",
+    "(No response generated)",
+    "[Old tool output cleared",
+    "[CONTEXT COMPACTION",
+)
+
+
+def is_garbage_content(content: Optional[str]) -> bool:
+    """True when content has no retrieval value (system errors / placeholders).
+
+    Conservative prefix rules: never substring-match, so real conversation that
+    quotes a placeholder stays indexable.
+    """
+    stripped = (content or "").strip()
+    if not stripped:
+        return True
+    return stripped.startswith(_GARBAGE_PREFIXES)
+
+
 def iter_indexable_messages(db_path: Path) -> Iterator[IndexedMessage]:
-    """Yield searchable rows from sessions_search.db."""
+    """Yield searchable rows from sessions_search.db (garbage-filtered)."""
     conn = sqlite3.connect(str(db_path))
     try:
         cursor = conn.execute(
@@ -132,6 +239,8 @@ def iter_indexable_messages(db_path: Path) -> Iterator[IndexedMessage]:
         )
         for row in cursor:
             message_id, session_id, role, content, tool_name, timestamp, source = row
+            if is_garbage_content(content):
+                continue
             yield IndexedMessage(
                 message_id=int(message_id),
                 session_id=str(session_id),

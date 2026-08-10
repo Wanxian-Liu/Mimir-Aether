@@ -10,6 +10,7 @@ from tools.chroma_session_indexer import (
     backfill_chroma_sessions,
     hash_embed_batch,
     hash_embed_text,
+    is_garbage_content,
     iter_indexable_messages,
     message_doc_id,
 )
@@ -48,6 +49,49 @@ def test_iter_indexable_messages_skips_empty(tmp_path):
     assert rows[0].session_id == "s1"
     assert rows[0].content == "hello"
     assert rows[0].source == "test"
+
+
+def test_is_garbage_content_patterns():
+    # System-error boilerplate and placeholders must be filtered (P0 audit).
+    assert is_garbage_content("抱歉,任务迭代次数已达上限。")
+    assert is_garbage_content("抱歉,任务迭代次数已达上限。\n这是什么意思")
+    assert is_garbage_content("抱歉,模型调用失败,请稍后重试。")
+    assert is_garbage_content("(No response generated)")
+    assert is_garbage_content("[Old tool output cleared to save context space]")
+    assert is_garbage_content("[CONTEXT COMPACTION — REFERENCE ONLY]")
+    assert is_garbage_content("   ")  # whitespace-only
+    assert is_garbage_content("")  # empty
+    assert is_garbage_content(None)  # null-safe
+
+
+def test_is_garbage_content_keeps_legit_mentions():
+    # Substring-match would wrongly kill real conversation that *quotes* these
+    # strings (verified against 20,895-row sessions_search.db on 2026-08-11).
+    assert not is_garbage_content("刘哥，我用最简单的话说清楚。上下文 = 咱俩这次对话的记忆。")
+    assert not is_garbage_content(
+        "在 Mimir 的 system prompt 里加一条铁律：执行任何 '继续' 类操作前，必须先验证。"
+    )
+    assert not is_garbage_content("hello")
+    assert not is_garbage_content("状态")
+    assert not is_garbage_content("现在是第几次session")
+
+
+def test_iter_indexable_messages_skips_garbage(tmp_path):
+    db_path = tmp_path / "sessions_search.db"
+    db = SessionSearchDB(str(db_path))
+    db.add_session("s1", source="test", title="t")
+    db.add_message("s1", "user", "hello")
+    db.add_message("s1", "assistant", "抱歉,任务迭代次数已达上限。")
+    db.add_message("s1", "assistant", "(No response generated)")
+    db.add_message("s1", "assistant", "正常回答内容")
+
+    rows = list(iter_indexable_messages(db_path))
+    contents = [r.content for r in rows]
+    assert len(rows) == 2
+    assert "hello" in contents
+    assert "正常回答内容" in contents
+    assert "抱歉" not in contents
+    assert "(No response generated)" not in contents
 
 
 def test_backfill_chroma_sessions_idempotent_upsert(tmp_path):
