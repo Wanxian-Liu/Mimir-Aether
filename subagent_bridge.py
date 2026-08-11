@@ -96,6 +96,9 @@ def spawn_subagent(
         PI_BIN,
         "--provider", "deepseek",
         "--model", model,
+        # 非交互模式：pi 默认交互 TUI，在 subprocess 中会挂起等待输入直到超时。
+        # --print 让 pi 处理完 prompt 即退出（2026-08-12 P1-3.1 修复）。
+        "--print",
     ]
     # NOTE: pi does not support --max-turns or --tools as CLI flags.
     # Tool restrictions and turn limits are enforced via custom agent .md files
@@ -166,6 +169,8 @@ async def _spawn_async(
         PI_BIN,
         "--provider", "deepseek",
         "--model", model,
+        # 非交互模式（同上）
+        "--print",
     ]
     cmd.append(prompt)
 
