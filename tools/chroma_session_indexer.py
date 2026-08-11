@@ -350,8 +350,15 @@ def upsert_indexed_messages(
 
 
 def sync_message_to_chroma(msg: IndexedMessage) -> bool:
-    """Incremental upsert for a single message row (fail-open)."""
+    """Incremental upsert for a single message row (fail-open).
+
+    Garbage guard (P0 audit 2026-08-11): incremental path bypasses
+    iter_indexable_messages() filtering, so system-error boilerplate would
+    re-pollute the index after backfill purge. Skip garbage at the entry.
+    """
     if not chroma_incremental_enabled():
+        return False
+    if is_garbage_content(msg.content):
         return False
     try:
         upsert_indexed_messages([msg])

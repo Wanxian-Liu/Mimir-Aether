@@ -7,12 +7,14 @@ from unittest.mock import MagicMock
 from tools.chroma_session_indexer import (
     COLLECTION_NAME,
     ChromaBackfillStats,
+    IndexedMessage,
     backfill_chroma_sessions,
     hash_embed_batch,
     hash_embed_text,
     is_garbage_content,
     iter_indexable_messages,
     message_doc_id,
+    sync_message_to_chroma,
 )
 from tools.session_search_tool import SessionSearchDB
 
@@ -92,6 +94,38 @@ def test_iter_indexable_messages_skips_garbage(tmp_path):
     assert "正常回答内容" in contents
     assert "抱歉" not in contents
     assert "(No response generated)" not in contents
+
+
+def test_sync_message_to_chroma_skips_garbage(monkeypatch):
+    """Incremental path must not re-pollute the index with system boilerplate."""
+    monkeypatch.setenv("MIMIR_CHROMA_INCREMENTAL", "1")
+    garbage = IndexedMessage(
+        message_id=1,
+        session_id="s1",
+        role="assistant",
+        content="抱歉,任务迭代次数已达上限。",
+        source="feishu",
+        timestamp=0.0,
+    )
+    assert sync_message_to_chroma(garbage) is False
+
+    legit = IndexedMessage(
+        message_id=2,
+        session_id="s1",
+        role="assistant",
+        content="正常回答内容",
+        source="feishu",
+        timestamp=0.0,
+    )
+    # chromadb may or may not be installed in the test env; fail-open still
+    # means: if it IS available, garbage must be rejected before any upsert.
+    # We assert garbage is rejected in all cases; legit path is environment-dependent.
+    from tools.chroma_session_indexer import chroma_available
+
+    if chroma_available():
+        assert sync_message_to_chroma(legit) is True
+    else:
+        assert sync_message_to_chroma(legit) is False
 
 
 def test_backfill_chroma_sessions_idempotent_upsert(tmp_path):
