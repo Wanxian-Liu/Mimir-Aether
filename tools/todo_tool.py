@@ -266,6 +266,17 @@ TODO_SCHEMA = {
 # --- Registry ---
 from tools.registry import registry, tool_error
 
+# Module-level default store (mirrors tools/memory_tool.py get_memory_store).
+# registry.dispatch injects this when the caller does not pass a store.
+_default_todo_store: Optional[TodoStore] = None
+
+
+def get_todo_store() -> TodoStore:
+    global _default_todo_store
+    if _default_todo_store is None:
+        _default_todo_store = TodoStore()
+    return _default_todo_store
+
 registry.register(
     name="todo",
     toolset="todo",

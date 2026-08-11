@@ -187,6 +187,11 @@ class ToolRegistry:
 
             kwargs = dict(kwargs)
             kwargs["store"] = get_memory_store()
+        if name == "todo" and kwargs.get("store") is None:
+            from tools.todo_tool import get_todo_store
+
+            kwargs = dict(kwargs)
+            kwargs["store"] = get_todo_store()
         try:
             if entry.is_async:
                 from model_tools import _run_async
