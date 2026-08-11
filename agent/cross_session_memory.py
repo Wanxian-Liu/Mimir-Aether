@@ -350,6 +350,18 @@ class CrossSessionMemory:
             if key not in out:
                 out[key] = copy.deepcopy(disk_data[key])
 
+        # Fallthrough: 保留磁盘 progress 段中所有被 out 遗漏的键
+        # P1 教训（2026-08-11 Loki 审计）：progress.milestone_relations 曾因不在
+        # 合并清单（只合并 current_objective / completed_milestones）而在会话结束
+        # save() 时被静默丢弃——104→1247 边数字不一致的根因。任何未来新增的
+        # progress 子字段都必须保留，禁止白名单式吞字段。
+        disk_prog = disk_data.get("progress")
+        if isinstance(disk_prog, dict):
+            mem_prog = out.setdefault("progress", {})
+            for key in disk_prog:
+                if key not in mem_prog:
+                    mem_prog[key] = copy.deepcopy(disk_prog[key])
+
         return out
     
     def is_first_session(self) -> bool:
