@@ -1070,6 +1070,33 @@ class AgentMixin:
             #      that may include tool_calls, tool_call_id, reasoning, etc.
             #      - These must be passed through intact so the API sees valid
             #        assistant→tool sequences (dropping tool_calls causes 500 errors)
+            # ---------------------------------------------------------
+            # A方案: 历史窗口化 (Mimir历史膨胀修复 2026-08-12)
+            # 会话续接不再全量重放 transcript —— 只保留最近
+            # MIMIR_HISTORY_WINDOW 条完整消息，更早的丢弃。
+            # 防止历史无限膨胀 → token 浪费 + 每轮变慢。
+            # 边界安全: 窗口首条不能是孤立的 tool 消息
+            # (tool 必须跟随 assistant tool_calls，否则 API 500)。
+            # 只影响喂给 agent 的初始历史，不动 transcript 存储。
+            # ---------------------------------------------------------
+            try:
+                _window_size = int(os.environ.get("MIMIR_HISTORY_WINDOW", "50") or "50")
+            except (TypeError, ValueError):
+                _window_size = 50
+            if _window_size > 0 and len(history) > _window_size:
+                _dropped = len(history) - _window_size
+                window = history[-_window_size:]
+                _i = _dropped
+                while window and window[0].get("role") == "tool" and _i > 0:
+                    _i -= 1
+                    window.insert(0, history[_i])
+                logger.info(
+                    "History window: dropped %s old message(s), keeping %s "
+                    "(MIMIR_HISTORY_WINDOW=%s)",
+                    _dropped, len(window), _window_size,
+                )
+                history = window
+
             agent_history = []
             for msg in history:
                 role = msg.get("role")
