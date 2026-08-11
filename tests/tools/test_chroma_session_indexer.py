@@ -97,8 +97,18 @@ def test_iter_indexable_messages_skips_garbage(tmp_path):
 
 
 def test_sync_message_to_chroma_skips_garbage(monkeypatch):
-    """Incremental path must not re-pollute the index with system boilerplate."""
+    """Incremental path must not re-pollute the index with system boilerplate.
+
+    Stubs upsert so the test asserts the *guard* (garbage rejected before any
+    upsert call), not the environment's chromadb/embedding availability.
+    """
     monkeypatch.setenv("MIMIR_CHROMA_INCREMENTAL", "1")
+    upsert_calls: list = []
+    monkeypatch.setattr(
+        "tools.chroma_session_indexer.upsert_indexed_messages",
+        lambda msgs, **kw: upsert_calls.append(msgs) or len(msgs),
+    )
+
     garbage = IndexedMessage(
         message_id=1,
         session_id="s1",
@@ -108,6 +118,7 @@ def test_sync_message_to_chroma_skips_garbage(monkeypatch):
         timestamp=0.0,
     )
     assert sync_message_to_chroma(garbage) is False
+    assert upsert_calls == []  # garbage never reaches chroma
 
     legit = IndexedMessage(
         message_id=2,
@@ -117,15 +128,8 @@ def test_sync_message_to_chroma_skips_garbage(monkeypatch):
         source="feishu",
         timestamp=0.0,
     )
-    # chromadb may or may not be installed in the test env; fail-open still
-    # means: if it IS available, garbage must be rejected before any upsert.
-    # We assert garbage is rejected in all cases; legit path is environment-dependent.
-    from tools.chroma_session_indexer import chroma_available
-
-    if chroma_available():
-        assert sync_message_to_chroma(legit) is True
-    else:
-        assert sync_message_to_chroma(legit) is False
+    assert sync_message_to_chroma(legit) is True
+    assert len(upsert_calls) == 1  # legit content still upserts
 
 
 def test_backfill_chroma_sessions_idempotent_upsert(tmp_path):
