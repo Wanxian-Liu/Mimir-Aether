@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from typing import Callable
 
-from mimir_constants import get_mimir_data_dir
+from mimir_constants import get_mimir_data_dir, get_mimir_home
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +59,11 @@ def _fill_missing_defaults(data: dict, source: str = "") -> set:
 
 def get_persistent_path() -> Path:
     return get_mimir_data_dir() / "persistent.json"
+
+
+def get_memory_persistent_path() -> Path:
+    """Dual-write mirror path (约束第3条): ``$MIMIR_AETHER_HOME/memory/persistent.json``."""
+    return get_mimir_home() / "memory" / "persistent.json"
 
 
 def _load_unlocked(path: Path | None = None) -> dict:
@@ -146,6 +151,36 @@ def _save_unlocked(data: dict, path: Path | None = None) -> None:
 
     raw = json.dumps(data, ensure_ascii=False, indent=2)
     _write_atomic(raw, target)
+
+    # ── 约束第3条 · 双写 ──
+    # 仅默认持久化路径触发 memory/ 镜像写；显式非默认 path（临时/测试文件）不镜像。
+    if path is None or path == get_persistent_path():
+        _dual_write_mirror(raw)
+
+
+def _dual_write_mirror(raw: str) -> None:
+    """Mirror identical content to ``memory/persistent.json`` (约束第3条).
+
+    Failure is NOT silent: logs ERROR and raises RuntimeError so callers
+    (``save_merged`` → False, ``save``/``read_modify_write`` → propagate) can
+    surface the drift instead of exiting 0 with a missing replica.
+    """
+    mirror = get_memory_persistent_path()
+    try:
+        _write_atomic(raw, mirror)
+        logger.info(
+            "dual-write OK: data/persistent.json mirrored to %s (%d bytes)",
+            mirror,
+            len(raw),
+        )
+    except OSError as e:
+        logger.error(
+            "DUAL-WRITE FAILED: mirror %s not written (%s) — "
+            "data/persistent.json written but memory replica missing/stale",
+            mirror,
+            e,
+        )
+        raise RuntimeError(f"dual-write to memory/persistent.json failed: {e}") from e
 
 
 # ── ByteRover AKL fields (importance / maturity / last_access / decay_factor) ──

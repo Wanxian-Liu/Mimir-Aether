@@ -181,9 +181,10 @@ check_r7() {
   fi
 }
 
-# --- R8: 跨会话上下文 ---
+# --- R8: 跨会话上下文 + 双写一致性 ---
 check_r8() {
   local persistent="$MIMIR_HOME/data/persistent.json"
+  local mirror="$MIMIR_HOME/memory/persistent.json"
   if [ -f "$persistent" ]; then
     local size
     size=$(wc -c < "$persistent" 2>/dev/null || echo 0)
@@ -191,6 +192,16 @@ check_r8() {
       log_result "R8" "PASS" "persistent.json size=$size bytes (>100)"
     else
       log_result "R8" "FAIL" "persistent.json size=$size bytes (≤100, may be truncated)"
+    fi
+    # 约束第3条双写一致性：memory/ 镜像必须存在且与 data/ 侧内容一致
+    if [ -f "$mirror" ]; then
+      if cmp -s "$persistent" "$mirror"; then
+        log_result "R8" "PASS" "dual-write consistent (memory/persistent.json == data/persistent.json)"
+      else
+        log_result "R8" "FAIL" "dual-write DRIFT: memory/persistent.json differs from data/persistent.json"
+      fi
+    else
+      log_result "R8" "FAIL" "dual-write MISSING: memory/persistent.json not found"
     fi
   else
     log_result "R8" "WARN" "persistent.json not found at $persistent"
