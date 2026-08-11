@@ -212,3 +212,26 @@ HermesStyleCompressor(
 ---
 
 _概念溯源: Hermes Agent context compressor；实现真源: 本仓库 `agent/context_compressor.py` v2.3 / `HermesStyleCompressor`_
+
+## 📋 复活与审计追踪（2026-08-09 追加）
+
+### 复活记录
+- **日期/操作**：2026-08-09 · Mimir 执行（刘哥确认"按你的建议来"）
+- **复活原因**：2026-08-06 A5+A7 归档（commit a75eec3，display.py 等大文件归档）时**随大流误入 dormant**——无独立评估"该废弃"。内容仍为**正在运行的机制**（Gateway 卫生压缩每日执行）的排障手册，8/2 的 P0 coroutine bug 修复模式 + token 翻倍口径假象教训均沉淀于此，实战价值有效。
+- **移动路径**：`skills/.dormant/mimiraether/mimiraether-context-compressor/` → `skills/mimiraether/mimiraether-context-compressor/`（repo + home 两侧同步，dormant 无残留）
+
+### 工作状态（当前）
+- **类型**：文档型排障技能（非执行型）——不主动跑，需要时 skill_view 加载
+- **auto_load**：false（懒加载，平时不占上下文——这是 7 月 c6726eb 懒加载改造的既定设计，非异常）
+- **使用场景**：① Gateway 卫生压缩日志异常 ② token 翻倍/压缩失败排查 ③ 压缩器参数核对
+- **版本**：SKILL.md 12,470B（8/2 12:46 最后更新，含 P0 教训）
+
+### 审计要点（以后判断它是否运行/有 bug/需迭代）
+| 检查项 | 方法 | 健康信号 |
+|--------|------|---------|
+| 压缩器是否在运行 | `grep "auto-compress failed" ~/.mimiraether/logs/gateway.log \| wc -l` | =0（有则先查 coroutine 链） |
+| 压缩是否真生效 | gateway.log `Session hygiene: compressed` 前后消息数/token 口径 | 消息数大幅下降；token 用同口径比（勿被"翻倍"误导） |
+| 参数与代码是否一致 | 对比本技能"运行时真源" vs `agent/context_compressor.py` / `agent/core_loop.py` 实参 | threshold 0.85 / tail 4000 硬编码一致 |
+| 是否需要迭代 | 技能内知识是否落后于代码（代码改版后本技能未同步） | 若代码变动而本技能未更新 → 需迭代 |
+
+_审计记录：每次使用/检查后在此节下方追加一行（日期 + 检查项 + 结果），形成审计轨迹。_

@@ -35,6 +35,18 @@ rg -l '<skill-name>|<dir-name>' skills/ optional-skills/ agent/ gateway/ tools/ 
 - 仅 `docs/`、`learnings/`、`skills/**` 互引 → 可删，但须改交叉引用  
 - `optional-skills/` 里有同名 → 说明「bundled 删了仍可从 optional install」
 
+### 2.5 工具同名技能三分类判别（2026-08-08 审计实证）
+
+候选包名与真实工具同名（read_file/todo/terminal/patch…）时，**先读内容**再决定，禁止仅凭名字或大小删：
+
+| 类型 | 特征 | 处理 |
+|------|------|------|
+| **auto-capture 空壳** | ≤46B 一句 "Review tool failure and update skill guidance."，无 frontmatter | 移 `.dormant/cleaned-<date>/`（垃圾占位） |
+| **工具系统描述** | 35-47 行详细 API 文档（参数/返回/示例），无触发条件无流程 | 移 `.dormant/` 不补 YAML（不该是技能） |
+| **真实技能** | 有触发条件 + 操作流程 + 陷阱 | 保留；缺 frontmatter 则补 YAML |
+
+清理执行用 **`mv` 到 `.dormant/cleaned-<YYYYMMDD>/`（可回滚，不 rm）**，逐项记录原名/路径/大小/判定依据/去向，清完验证：①活动区 SKILL.md 计数变化 ②关键健康技能幸存检查（grep 核心技能名）③46B 空壳根因=auto-capture 工具失败自动生成占位→应在生成器加"内容≥N 字否则丢弃"护栏。
+
 ### 3. 向用户交清单（批量必做）
 
 表格列：`category/name` | 理由（0 生产引用 / 仅上游） | 是否改交叉引用 | 是否动 home 副本。
