@@ -726,6 +726,27 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
 
         effective_user_message = message_text
 
+        # A3: max_turns 分档（任务前置声明 > 环境变量 MIMIR_MAX_TURNS_TIER > 默认）
+        # 解析出的档位在本轮 run_conversation 内生效，作为 MimirAgentLoop 的 max_turns。
+        # 声明片段从消息中剥离（元数据不进模型上下文）；若无声明则回落 default。
+        self._resolved_max_turns: Optional[int] = None
+        self._max_turns_tier: str = "default"
+        try:
+            from .max_turns_tier import resolve_max_turns_tier
+
+            _turns, self._max_turns_tier, effective_user_message = resolve_max_turns_tier(
+                effective_user_message,
+                default=self.max_iterations,
+            )
+            self._resolved_max_turns = _turns
+            if self._max_turns_tier != "default":
+                logger.info(
+                    "[A3] max_turns tier=%s → %d (default=%d)",
+                    self._max_turns_tier, _turns, self.max_iterations,
+                )
+        except Exception as e:
+            logger.debug("[A3] max_turns tier resolve skipped: %s", e)
+
         # IQ-EVO-47: per-turn intent hint (rule-based MVP; env MIMIR_INTENT_PREDICTOR)
         self._intent_prediction = None
         self._intent_context_block = ""
@@ -909,7 +930,11 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
                 tool_schemas=_tool_schemas,
                 valid_tool_names=_valid_names,
                 tool_dispatcher=_tool_dispatcher_adapter,
-                max_turns=self.max_iterations,
+                max_turns=(
+                    self._resolved_max_turns
+                    if self._resolved_max_turns is not None
+                    else self.max_iterations
+                ),
                 task_id=task_id,
                 interrupt_check=lambda: self._interrupt_requested,
                 # A1: 传入 compressor → agent_loop P0-3 in-loop 压缩钩子启用
