@@ -426,7 +426,8 @@ python3 -m pytest -q \
   tests/agent/test_wm_voe_learning_p11.py \
   tests/agent/test_search_first_guard.py \
   tests/agent/test_verify_before_report_guard.py \
-  agent/test_persistent_store_akl.py
+  agent/test_persistent_store_akl.py \
+  tests/agent/test_context_compressor_await.py
     fi
   )
   _GATE2_EXIT=$?

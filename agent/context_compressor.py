@@ -112,6 +112,10 @@ class ContextCompressorV2:
         self._previous_summary: Optional[str] = None
         self._summary_failure_cooldown_until: float = 0.0
         # compression_count tracks cumulative compressions per session
+        # P0-2 修复（2026-08-12）：此前 __init__ 缺失该初始化，首次真实压缩到 L641 时
+        # `self.compression_count += 1` 抛 AttributeError——被 8/2 coroutine bug 掩盖，
+        # await 链修复后暴露（tests/agent/test_context_compressor_await.py 捕获）。
+        self.compression_count = 0
         
         if not quiet_mode:
             logger.info(
