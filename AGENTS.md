@@ -14,6 +14,31 @@ When the user asks for **进度 / 主线 / 完成度** (or similar):
 3. Set **最近更新** to today and append a one-line **更新日志** entry if anything changed.
 4. Reply with a concise summary; the file is the durable snapshot the user can diff over time.
 
+## Parallel tasks & delegation (A6 — delegate 习惯化)
+
+> 依据 Multi-Agent Systems Architect 角色卡（Pattern 2/3 核心规则）；验证记录见 `wiki/concepts/Mimir-A6-delegate习惯化报告.md`。
+
+**默认委派，不是可选**：任务满足任一条件 → **默认 delegate_task**：
+- 总步骤 >20 步，且可拆分为独立子任务（无共享文件/状态）
+- 多个互不依赖的领域需要并行推进
+
+**Fan-out 模式**（Pattern 2 — 独立子任务→并行→合成）：
+- 每批 **≤5 个子任务**（>7 超合成质量阈值——角色卡原话）
+- 子任务必须真正独立：无共享可变状态、无同文件写冲突
+- 合成器显式处理三态：全部成功 / 部分成功 / 全部失败
+
+**Orchestrator 职责**：分解 → 委派 → 合成——**不是执行**（Pattern 3）。你做协调，子代理做事。
+
+**失败处理**：部分子任务失败 → 合成器处理缺失分支，不整体失败；子代理输出带结构化结果 + 置信度信号。
+
+**可观测性**：每次 delegate 调用记录——派了什么（tasks/goals）、结果如何（status/summary/duration）、失败原因；tool_quality DB 为真源。
+
+**反模式**：单步小操作（curl/grep/单文件读）不 delegate——简单任务不触发。
+
+**示例**：
+- ✅ 批量补 source（15 张卡）→ `delegate_task(tasks=[3 子任务 × 5 张])` 并行
+- ❌ 单步小操作（curl/grep）→ 直接做，不 delegate
+
 ## Direction (do not drift)
 
 Read **`docs/DEVELOPMENT_NORTH_STAR.md`** before large changes: **Parity** (Hermes-aligned behavior with evidence) and **Evolution** (measurable gain + regression). It scopes this repo vs isolated clones and links the Ralph contract, migration lossy points, and the three gates.
