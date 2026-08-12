@@ -19,7 +19,8 @@ for idx, line in enumerate(lines, 1):
         is_comment = stripped.startswith("#")
         is_getattr = "getattr(parent_agent" in stripped
         is_hasattr = "hasattr(parent_agent" in stripped
-        if not (is_comment or is_getattr or is_hasattr):
+        in_safe = attr in SAFE_ATTRS  # 有属性保证（双 Agent 均存在）的刻意裸访问
+        if not (is_comment or is_getattr or is_hasattr or in_safe):
             problems.append((idx, attr, stripped))
 
 print("=== parent_agent.* 裸访问检查 ===")
