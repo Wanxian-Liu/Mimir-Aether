@@ -18,7 +18,6 @@ from gateway.home_paths import _hermes_home
 from gateway.platforms.base import MessageEvent, merge_pending_message_event
 from gateway.session import build_session_key
 from mimir_constants import get_hermes_home
-from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
