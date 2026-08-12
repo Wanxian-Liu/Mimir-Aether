@@ -393,12 +393,20 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
         )
 
         # MimirAether 自研上下文压缩器（context_length 构造即正确，不依赖事后修正）
+        # A1: 阈值优先级 = env MIMIR_COMPRESS_THRESHOLD > tuned_thresholds > 默认 0.50
+        _threshold_percent = 0.50
         try:
             from agent.tuned_thresholds import get_tuned_float
 
             _threshold_percent = get_tuned_float("compressor.threshold_percent")
         except Exception:
-            _threshold_percent = 0.50
+            pass
+        try:
+            _env_threshold = os.environ.get("MIMIR_COMPRESS_THRESHOLD")
+            if _env_threshold is not None and _env_threshold.strip():
+                _threshold_percent = float(_env_threshold)
+        except (TypeError, ValueError):
+            logger.warning("Invalid MIMIR_COMPRESS_THRESHOLD=%r, using %s", _env_threshold, _threshold_percent)
         try:
             from agent.decision_compressor_policy import compressor_init_kwargs_from_policy
 
@@ -904,6 +912,9 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
                 max_turns=self.max_iterations,
                 task_id=task_id,
                 interrupt_check=lambda: self._interrupt_requested,
+                # A1: 传入 compressor → agent_loop P0-3 in-loop 压缩钩子启用
+                # (core_loop 预压缩一次后，loop 内每轮 API 调用前再检查)
+                compressor=self.compressor,
             )
             _result = await _loop.run(_loop_messages)
 
