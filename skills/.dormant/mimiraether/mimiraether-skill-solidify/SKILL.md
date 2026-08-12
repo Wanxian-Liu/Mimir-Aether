@@ -77,7 +77,7 @@ version: 1.0.0
 ## auto_load
 
 - **默认**：不设或 `auto_load: false`（本技能即为 `false`），避免系统提示膨胀。
-- 若某技能必须**每轮会话**在场：设 `auto_load: true` 并配**短** `description`（或 `auto_load_meta.description`），规则见 `skill_view('mimiraether-auto-load')`。
+- 若某技能必须**每轮会话**在场：设 `auto_load: false` 并配**短** `description`（或 `auto_load_meta.description`），规则见 `skill_view('mimiraether-auto-load')`。
 - 批量自查：`python scripts/audit_skills_auto_load.py`
 
 ## 协作与 Git
