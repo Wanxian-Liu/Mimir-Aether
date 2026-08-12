@@ -1,5 +1,5 @@
 ---
-auto_load: true
+auto_load: false
 name: mimiraether-ralph-core
 description: >
   Ralph模式核心约束 — 最小注入：工具触发规则 + 反瘫痪 + 进度信号。

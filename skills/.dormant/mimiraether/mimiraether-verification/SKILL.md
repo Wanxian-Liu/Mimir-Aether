@@ -5,7 +5,7 @@ description: >
   灵感源自 obra/superpowers verification-before-completion 技能。
   强制在 commit/push/"做完了"/"成功了"之前执行验证序列，防止"以为做完了但实际没验证"。
 version: 1.1.0
-auto_load: true
+auto_load: false
 triggers:
   - 完成
   - 成功
@@ -70,7 +70,7 @@ size_before = path.stat().st_size
 - **拒绝编辑缓冲区**：验证分数没严格提高就不接受修改
 - **文本学习率预算**：单次改动限制在 3 个函数 / 30 行以内
 - **epoch-wise 慢更新**：从 1-3 轮编辑开始，逐步增加
-- **>3 次不通过 → 回退**：behavioral_constraints #7
+- **>3 次不通过 → 回退**：behavioral_constraints #1（BC列表已更新——原#7不存在；#1最接近语义：修复前先验证真实API表面）
 
 当验证 FAIL 时，不走"再微调一下"路线——看 baseline 对比报告，确认是哪个指标退化了。
 
@@ -245,7 +245,7 @@ brainstorming (设计门控)
 2. **只跑 Ralph，不做一致性**：「测试过了就行」 — 残留引用不导致测试失败
 3. **飞书实战被遗忘**：每次循环都在这里断开，不是验证有问题，是上下文污染
 4. **自问清单敷衍**：全部打勾但实际没想 — 这骗的是自己
-5. **声称"写入了"但不读盘确认** — 这是本轮对话 15 轮循环的根因。behavioral_constraints 第 6-7 条已禁止此行为
+5. **声称"写入了"但不读盘确认** — 这是本轮对话 15 轮循环的根因。behavioral_constraints 第 5 条已禁止此行为（BC列表已更新——原第 6-7 条不存在；#5最接近语义：不信任自称，先验证真实存在性）
 
 ---
 
