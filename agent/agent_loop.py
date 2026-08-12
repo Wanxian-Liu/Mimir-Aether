@@ -163,6 +163,7 @@ class MimirAgentLoop:
         extra_body: Optional[Dict[str, Any]] = None,
         budget_config: Any = None,
         interrupt_check: Optional[Callable[[], bool]] = None,
+        compressor: Any = None,  # P0-3: optional in-loop compressor; None = disabled
     ):
         self.model_call = model_call
         self.tool_schemas = tool_schemas
@@ -175,6 +176,8 @@ class MimirAgentLoop:
         self.extra_body = extra_body
         self.budget_config = budget_config
         self.interrupt_check = interrupt_check or (lambda: False)
+        # P0-3: in-loop compressor (supplement to core_loop pre-compress)
+        self.compressor = compressor
         # Optional execution pipeline (recording + quality tracking)
         self._recorder = None
         # Interval nudge flag: once per session (MW-04)
@@ -390,6 +393,25 @@ class MimirAgentLoop:
                         self.task_id[:8], turn + 1, _nudge_interval,
                     )
                 self._interval_nudge_done = True
+
+            # --- In-loop compression (P0-3) ---
+            # core_loop pre-compresses once before entering the loop; messages keep
+            # growing across turns inside the loop, so re-check before each API call.
+            if self.compressor is not None:
+                try:
+                    if self.compressor.needs_compression(messages):
+                        if self.compressor.has_content_to_compress(messages):
+                            _pre_n = len(messages)
+                            messages, _comp_res = await self.compressor.compress(messages)
+                            logger.info(
+                                "[%s] turn %d: in-loop compress %d->%d msgs (mode=%s)",
+                                self.task_id[:8], turn + 1, _pre_n, len(messages),
+                                getattr(_comp_res, "summary_mode", "?"),
+                            )
+                except Exception as _comp_exc:
+                    # compression failure must not break the loop (degrade: keep msgs)
+                    logger.warning("[%s] turn %d: in-loop compress failed: %s",
+                                   self.task_id[:8], turn + 1, _comp_exc)
 
             # --- Call model ---
             api_start = _time.monotonic()
