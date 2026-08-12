@@ -39,19 +39,20 @@ MimirAether 在对话过长时对上下文做**工具输出修剪**与**中间�
 
 ### MimirAetherAgent 使用的压缩器
 
-[`agent/core_loop.py`](agent/core_loop.py) 中构造：
+[`agent/core_loop.py`](agent/core_loop.py) 中构造（**2026-08-12 A1 变更后——本段已更新**）：
 
 ```text
-HermesStyleCompressor(
+MimirContextCompressor(
     model=model,
-    threshold_percent=0.85,
-    protect_first_n=3,
-    protect_last_n=6,
-    tail_token_budget=4000,
+    context_length=int(self._context_length or 1048576),
+    threshold_percent=_threshold_percent,  # 默认 0.50
+    **_comp_policy,                        # decision_compressor_policy 附加参数
 )
 ```
 
-以上 **`threshold_percent` / `tail_token_budget` 均硬编码**，**不**从仓库根 `config.yaml` 读取。
+阈值优先级（core_loop.py L395-421）：**`MIMIR_COMPRESS_THRESHOLD` env > `get_tuned_float("compressor.threshold_percent")`（agent/tuned_thresholds.py）> 默认 0.50**。
+
+⚠️ 压缩器类为 **`MimirContextCompressor(ContextCompressorV2)`**（agent/context_compressor.py:799），**已不是 HermesStyleCompressor**；`protect_first_n / protect_last_n / tail_token_budget` 不再由 core_loop 硬编码传入，改为 `compressor_init_kwargs_from_policy()`（agent/decision_compressor_policy.py:221）提供的 `_comp_policy`。`HermesStyleCompressor` 类仍存在（供 ACP/兼容路径），但 MimirAetherAgent 主循环用的是 MimirContextCompressor。
 
 ### ContextCompressorV2 类默认值（直接 `new` 实例时）
 
@@ -59,7 +60,7 @@ HermesStyleCompressor(
 
 | 字段 | 类 `__init__` 默认 | MimirAetherAgent 实际传入 |
 |------|-------------------|---------------------------|
-| `threshold_percent` | **0.50** | **0.85** |
+| `threshold_percent` | **0.50** | **0.50**（默认；`MIMIR_COMPRESS_THRESHOLD` env / tuned 可覆盖——2026-08-12 A1 后不再是 0.85） |
 | `protect_first_n` | 3 | 3 |
 | `protect_last_n` | **6** | **6** |
 | `tail_token_budget` | `None`（则用 `threshold_tokens * summary_target_ratio` 动态算） | **4000** |
@@ -121,7 +122,8 @@ HermesStyleCompressor(
 | `compression.enabled` | `gateway/run.py`（`_hermes_home` 下 `config.yaml`） | 仅 **session hygiene** |
 | 卫生 85% 阈值 | 同上，常量 | 非配置项 |
 | `model` / `context_length` / `provider` / `base_url` | 同上 | 用于解析上下文长度与运行时；**不**自动驱动 `ContextCompressorV2.update_model` |
-| Agent `threshold_percent`、`tail_token_budget` | `agent/core_loop.py` 构造实参 | **硬编码** |
+| Agent `threshold_percent` | `agent/core_loop.py` L397-421 | 默认 0.50，env `MIMIR_COMPRESS_THRESHOLD` > `get_tuned_float("compressor.threshold_percent")` > 默认（A1 变更后非硬编码 0.85） |
+| Agent `_comp_policy`（protect/tail 等） | `agent/decision_compressor_policy.py` L221 `compressor_init_kwargs_from_policy()` | 策略提供，非硬编码 |
 
 ## 结构化摘要模板
 
