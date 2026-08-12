@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """
-投递端修复（Backend Architect角色——Hermes落代码）
-Mimir收尾三连的@hermes信号→写 ~/wiki/信号投递/ 目录（在ToolGuard base内——不用/tmp）
-Hermes四方巡检cron检测该目录——信号可靠到达
+⚠️ ARCHIVED — 禁止 import/执行，仅留档（2026-08-13 Mimir P0-1收敛审计 B1修复）
+
+历史：投递端修复（Backend Architect角色——Hermes落代码）
+原用途：Mimir收尾三连的@hermes信号→写 ~/wiki/信号投递/ 目录
+废弃原因：jsonl 活通道（signal-deliver.py → /tmp/buzz-inbox-hermes.jsonl）已接管；
+~/wiki/信号投递/ 目录已移除（wiki gitignore 防污染）。
+B1修复：删除 ensure_dir()——原 read_signals() 一调用就复活已移除的 wiki/信号投递/ 目录（假归档炸弹）。
 """
 import os, json, datetime, sys, glob
 
 SIGNAL_DIR = os.path.expanduser('~/wiki/信号投递/')
 
-def ensure_dir():
-    os.makedirs(SIGNAL_DIR, exist_ok=True)
-
 def write_signal(agent, task, summary, commit=None, report=None):
-    """Mimir收尾三连第3步：写@hermes信号（替代/tmp jsonl——ToolGuard友好）"""
-    ensure_dir()
+    """Mimir收尾三连第3步：写@hermes信号（已废弃——目录不存在时写入失败=防误用）"""
     ts = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
     filename = f'{ts}-{agent}-信号.json'
     signal = {
@@ -32,8 +32,7 @@ def write_signal(agent, task, summary, commit=None, report=None):
     return path
 
 def read_signals(processed=None):
-    """Hermes侧：读未处理的信号（processed=已处理文件名集合）"""
-    ensure_dir()
+    """Hermes侧：读未处理的信号（processed=已处理文件名集合）——目录不存在直接返回空（B1修复：不再复活目录）"""
     signals = []
     for f in sorted(glob.glob(os.path.join(SIGNAL_DIR, '*.json'))):
         name = os.path.basename(f)
