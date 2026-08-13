@@ -107,7 +107,7 @@ ls $MIMIR_PATH/agent/prompt_builder.py
 
 **已对齐模块**
 - ToolRegistry（复制自 Hermes）
-- 基础压缩逻辑（HermesStyleCompressor）
+- 基础压缩逻辑（MimirContextCompressor——context_compressor.py:799）
 - 安全扫描（prompt_builder）
 - 错误分类、凭证池、洞察引擎、内存管理等
 
