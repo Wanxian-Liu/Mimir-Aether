@@ -32,6 +32,7 @@ sessions/**/*.jsonl
 
 # 会话遥测（体积大、含运行态；保留同目录 small markdown/json 可手动 add）
 /data/*.jsonl
+/data/persistent.json
 
 # Project data/ runtime (prompt_builder + gateway status; keep data/.gitkeep)
 /data/.skills_snapshot_cache
