@@ -1,0 +1,1281 @@
+{
+  "version": "1.0",
+  "last_session_end": "2026-07-23T13:41:51.197678+00:00",
+  "session_count": 316,
+  "identity": {
+    "name": "MimirAether",
+    "soul": "智慧之泉",
+    "last_known_mission": null
+  },
+  "memory": {
+    "key_decisions": [
+      {
+        "decision": "cross-session机制从手动升级为自动注入，含差异检测和过期机制",
+        "context": "提升跨会话记忆可靠性",
+        "tip_type": "optimization",
+        "cause_chain": {
+          "direct": "手动注入效率低且易遗漏",
+          "proximate": "需要更可靠的跨会话上下文",
+          "root": "系统缺乏自动化记忆管理"
+        },
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "decision": "auto_load标记标准化：triggers + priority + description",
+        "context": "确保技能加载行为一致",
+        "tip_type": "strategy",
+        "cause_chain": {
+          "direct": "技能沉默问题频发",
+          "proximate": "标记格式不统一导致加载失败",
+          "root": "缺乏标准化规范"
+        },
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "decision": "plan-mode升级为完整5阶段流程+模板+验证清单",
+        "context": "减少任务返工",
+        "tip_type": "strategy",
+        "cause_chain": {
+          "direct": "任务分解不充分导致返工",
+          "proximate": "缺乏结构化流程",
+          "root": "规划阶段不严谨"
+        },
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "decision": "persistent.json固化：路径和状态写入持久化存储",
+        "context": "确保跨会话状态一致",
+        "tip_type": "optimization",
+        "cause_chain": {
+          "direct": "状态丢失影响会话连续性",
+          "proximate": "路径和状态未持久化",
+          "root": "缺乏持久化机制"
+        },
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "decision": "第4条药方（skill固化）标记完成，靠元规则驱动",
+        "context": "减少手动维护",
+        "tip_type": "strategy",
+        "cause_chain": {
+          "direct": "手动维护技能固化效率低",
+          "proximate": "需要自动化规则",
+          "root": "依赖人工操作"
+        },
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "decision": "mimiraether-self_evolution修复：路径去硬编码+移除不存在的SelfDriveEngine引用",
+        "context": "修复自进化链路",
+        "tip_type": "recovery",
+        "cause_chain": {
+          "direct": "自进化链路报错",
+          "proximate": "硬编码路径和不存在类引用",
+          "root": "代码未验证真实API表面"
+        },
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "decision": "幽灵技能清理完成：删除3空壳+补10frontmatter+3description→106→103零幽灵",
+        "context": "减少冗余技能",
+        "tip_type": "recovery",
+        "cause_chain": {
+          "direct": "幽灵技能占用资源",
+          "proximate": "空壳、无头、无描述技能存在",
+          "root": "生成过程缺乏禁制"
+        },
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "decision": "skills_qa新增detect_ghost_skills()和print_ghost_report()方法",
+        "context": "自动化幽灵检测",
+        "tip_type": "optimization",
+        "cause_chain": {
+          "direct": "幽灵技能需定期清理",
+          "proximate": "缺乏自动检测工具",
+          "root": "QA流程不完善"
+        },
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "decision": "mimiraether-skill_generator新增空壳禁制：内容<500字/全待实现→拒绝生成",
+        "context": "预防空壳技能",
+        "tip_type": "strategy",
+        "cause_chain": {
+          "direct": "空壳技能泛滥",
+          "proximate": "生成器缺乏内容检查",
+          "root": "禁制缺失"
+        },
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "decision": "Skill Curator全线落地: 检测/报告/行动建议/胶囊化/复活/闭环",
+        "context": "技能管理自动化",
+        "tip_type": "strategy",
+        "cause_chain": {
+          "direct": "技能管理分散",
+          "proximate": "缺乏全流程工具",
+          "root": "系统设计不完整"
+        },
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "decision": "Hermes独立路线全线闭合：Phase I-V完成，零代码级import依赖残留",
+        "context": "消除外部依赖",
+        "tip_type": "strategy",
+        "cause_chain": {
+          "direct": "依赖Hermes导致耦合",
+          "proximate": "分阶段脱钩",
+          "root": "架构设计依赖外部"
+        },
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "decision": "Self-Prompt降级：auto_load=false，prompt_library.json保留作为约束配置",
+        "context": "减少不必要的自动加载",
+        "tip_type": "optimization",
+        "cause_chain": {
+          "direct": "Self-Prompt自动加载拖慢启动",
+          "proximate": "功能冗余",
+          "root": "设计过度"
+        },
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "decision": "Gateway依赖独立化：优先读MimirAether路径，fallback OpenClaw",
+        "context": "消除硬依赖",
+        "tip_type": "strategy",
+        "cause_chain": {
+          "direct": "Gateway依赖不灵活",
+          "proximate": "路径硬编码",
+          "root": "缺乏fallback机制"
+        },
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "decision": "幻觉根因诊断：推理-行动断层——注入分析→执行→汇报原子化规则",
+        "context": "减少虚假闭合",
+        "tip_type": "recovery",
+        "cause_chain": {
+          "direct": "幻觉导致错误结论",
+          "proximate": "推理与行动脱节",
+          "root": "缺乏原子化规则"
+        },
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "decision": "消息去重：从JSONL提取上条用户消息并注入最近对话摘要",
+        "context": "提升上下文质量",
+        "tip_type": "optimization",
+        "cause_chain": {
+          "direct": "上下文重复冗余",
+          "proximate": "未去重导致混乱",
+          "root": "注入逻辑不精细"
+        },
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "decision": "CrossSession瘦身：key_decisions 16→8，persistent.json 14.9KB→10.2KB",
+        "context": "减小持久化体积",
+        "tip_type": "optimization",
+        "cause_chain": {
+          "direct": "persistent体积过大",
+          "proximate": "历史决策未归档",
+          "root": "缺乏归档机制"
+        },
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "decision": "先验证真实API表面再修复技能代码",
+        "context": "避免基于错误假设修复",
+        "tip_type": "strategy",
+        "cause_chain": {
+          "direct": "修复基于技能自称类名失败",
+          "proximate": "未验证API表面",
+          "root": "信任错误信息"
+        },
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "decision": "第5条药方残余聚焦：扫描auto_load标记+更新persistent",
+        "context": "完成药方剩余工作",
+        "tip_type": "optimization",
+        "cause_chain": {
+          "direct": "药方未完全执行",
+          "proximate": "auto_load标记和persistent未同步",
+          "root": "执行不彻底"
+        },
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "decision": "删除apple/和autonomous-ai-agents/技能经审计确认正确：自进化链路完好",
+        "context": "清理冗余技能",
+        "tip_type": "optimization",
+        "cause_chain": {
+          "direct": "冗余技能占用空间",
+          "proximate": "审计确认无影响",
+          "root": "技能积累过多"
+        },
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "decision": "蒸馏改为6步手动流程（收集->格式化->追加->压缩->验证->汇报）",
+        "context": "提升蒸馏数据准确性",
+        "tip_type": "strategy",
+        "cause_chain": {
+          "direct": "蒸馏流程不规范导致数据错误",
+          "proximate": "缺乏标准化步骤",
+          "root": "流程设计不完善"
+        },
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      }
+    ],
+    "learned_patterns": [
+      {
+        "pattern": "技能沉默的根因之一是缺少auto_load标记",
+        "evidence": "添加auto_load后技能正常加载",
+        "tip_type": "recovery",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "auto_load标记需要标准化格式（triggers + priority + description）",
+        "evidence": "标准化后加载行为一致",
+        "tip_type": "strategy",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "persistent.json的version字段用于检测是否需要迁移",
+        "evidence": "版本检测避免数据不兼容",
+        "tip_type": "strategy",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "plan-mode的核心价值在于任务分解和依赖映射，减少返工",
+        "evidence": "实施后任务完成效率提升",
+        "tip_type": "strategy",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "跨会话记忆持久化需同时更新data/persistent.json和memory/persistent.json",
+        "evidence": "双路径更新确保状态一致",
+        "tip_type": "strategy",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "技能模板代码可能与实际实现脱节，需先验证真实API表面",
+        "evidence": "SelfDriveEngine不存在于mimicore/evolve/中",
+        "tip_type": "recovery",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "幽灵技能分三类：空壳、无头、无描述",
+        "evidence": "分类清理后从106降至103",
+        "tip_type": "strategy",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "空壳技能的来源是LLM直接用write_file创建骨架，而非代码生成器",
+        "evidence": "生成器有禁制，但write_file绕过",
+        "tip_type": "recovery",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "幽灵清理流水线：检测→分类→删除/补全→预防",
+        "evidence": "成功将幽灵技能从106降至103",
+        "tip_type": "strategy",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "grep -r 'from hermes'匹配到的可能都是字符串字面量而非真实导入",
+        "evidence": "4个文件被匹配但全是字符串引用",
+        "tip_type": "recovery",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "跨会话上下文注入需要去重，从JSONL提取上条用户消息",
+        "evidence": "去重后上下文更简洁有效",
+        "tip_type": "optimization",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "历史关键决策应归档到completed_milestones以减小persistent体积",
+        "evidence": "归档后persistent.json从14.9KB降至10.2KB",
+        "tip_type": "optimization",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "技能固化需依赖元规则驱动而非手动维护",
+        "evidence": "第4条药方标记完成时采用元规则",
+        "tip_type": "strategy",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "自进化链路修复需先验证真实路径和类存在性",
+        "evidence": "修复SelfDriveEngine引用时发现不存在",
+        "tip_type": "recovery",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "Gateway依赖应优先使用MimirAether路径，fallback到OpenClaw",
+        "evidence": "独立化后无硬依赖残留",
+        "tip_type": "strategy",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "幻觉根因是推理-行动断层，需注入原子化规则（分析→执行→汇报）",
+        "evidence": "注入规则后虚假闭合感减少",
+        "tip_type": "recovery",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "空壳禁制需在技能生成器层面实施内容长度和实现状态检查",
+        "evidence": "实施后空壳技能生成率下降",
+        "tip_type": "strategy",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "Skill Curator需覆盖检测/报告/行动建议/胶囊化/复活/闭环全流程",
+        "evidence": "全线落地后技能管理自动化",
+        "tip_type": "strategy",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "Self-Prompt降级为约束配置可减少不必要的自动加载",
+        "evidence": "auto_load=false后系统启动更快",
+        "tip_type": "optimization",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "Hermes独立路线需分阶段执行：依赖图谱→认证脱钩→模型脱钩→清理收尾",
+        "evidence": "分阶段执行后零代码级import依赖残留",
+        "tip_type": "strategy",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "cross-session自动注入需包含差异检测和过期机制",
+        "evidence": "升级后跨会话记忆更可靠",
+        "tip_type": "optimization",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "plan-mode的persistent.json固化需同时保存路径和状态",
+        "evidence": "固化后跨会话状态恢复正常",
+        "tip_type": "strategy",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "技能QA需包含幽灵检测和报告方法",
+        "evidence": "新增方法后幽灵技能可自动发现",
+        "tip_type": "optimization",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "消息去重需从JSONL提取上条用户消息",
+        "evidence": "提取后注入更精准",
+        "tip_type": "optimization",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "CrossSession瘦身需归档历史关键决策到completed_milestones",
+        "evidence": "归档后persistent体积减小30%",
+        "tip_type": "optimization",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "自进化链路修复需移除不存在的类引用",
+        "evidence": "移除后自进化链路正常",
+        "tip_type": "recovery",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "先验证真实API表面再修复技能代码，避免相信技能自称的类名",
+        "evidence": "SelfDriveEngine不存在于mimicore/evolve/中",
+        "tip_type": "recovery",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "蒸馏流程需标准化为6步手动流程（收集->格式化->追加->压缩->验证->汇报）",
+        "evidence": "标准化后数据准确性提升",
+        "tip_type": "strategy",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "空壳禁制需在技能生成器层面实施内容长度和实现状态检查（<500字或全待实现则拒绝）",
+        "evidence": "实施后空壳技能生成率下降",
+        "tip_type": "strategy",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      },
+      {
+        "pattern": "空壳技能的来源不是代码生成器，而是LLM直接用write_file创建的骨架——防在技能层面加禁制",
+        "evidence": "生成器有禁制但write_file绕过",
+        "tip_type": "recovery",
+        "importance": 50,
+        "maturity": "draft",
+        "last_access": "2026-07-22T15:01:01.360447+00:00",
+        "decay_factor": 0.95
+      }
+    ],
+    "active_projects": [
+      {
+        "name": "五条药方实施 — 第2/3/4/5条完成，第1条为持续约束",
+        "status": "completed",
+        "created_at": "2026-05-11T04:57:38.845096+00:00",
+        "updated_at": "2026-05-14T13:50:00.000000+00:00"
+      },
+      {
+        "name": "幽灵技能清理 — 已完成 ✅",
+        "status": "completed",
+        "created_at": "2026-05-11T04:57:38.845096+00:00",
+        "updated_at": "2026-05-11T13:34:52.354072+00:00"
+      },
+      {
+        "name": "Hermes独立路线 — Phase I 依赖图谱待启动",
+        "status": "completed",
+        "created_at": "2026-05-11T04:57:38.845096+00:00",
+        "updated_at": "2026-05-14T18:15:13.785998+00:00"
+      },
+      {
+        "name": "Hermes独立路线 — Phase I-V 全线闭合 ✅",
+        "status": "completed",
+        "created_at": "2026-05-11T04:57:38.845096+00:00",
+        "updated_at": "2026-05-11T13:34:52.354072+00:00"
+      },
+      {
+        "name": "Pipeline 完整闭环验证 — Phase XII 消化验证",
+        "status": "completed",
+        "created_at": "2026-05-13T18:00:00.000000+00:00",
+        "updated_at": "2026-05-14T13:50:00.000000+00:00"
+      },
+      {
+        "name": "Hermes生态学习全周期 — Phase VI-XI ✅",
+        "status": "completed",
+        "created_at": "2026-05-13T14:00:00.000000+00:00",
+        "updated_at": "2026-05-13T18:00:00.000000+00:00"
+      },
+      {
+        "name": "LeCun世界模型三层架构注入 — 19/25项 ✅",
+        "status": "completed",
+        "created_at": "2026-05-14T04:00:00.000000+00:00",
+        "updated_at": "2026-05-14T13:50:00.000000+00:00"
+      },
+      {
+        "name": "五条药方实施 — 全部5条完成，第1条为持续约束",
+        "status": "completed",
+        "created_at": "2026-05-11T04:57:38.845096+00:00",
+        "updated_at": "2026-05-14T13:50:00.000000+00:00"
+      },
+      {
+        "name": "LeCun世界模型三层架构注入 — 20/25项, 核心链路闭合 ✅",
+        "status": "completed",
+        "created_at": "2026-05-14T04:00:00.000000+00:00",
+        "updated_at": "2026-05-14T13:50:00.000000+00:00"
+      },
+      {
+        "name": "Karpathy HTML双模输出路线 — 12/12全部完成 ✅",
+        "status": "completed",
+        "created_at": "2026-05-14T10:00:00.000000+00:00",
+        "updated_at": "2026-05-14T13:50:00.000000+00:00"
+      },
+      {
+        "name": "Stability Patterns 稳定性设计 — v1.0 ✅",
+        "status": "completed",
+        "created_at": "2026-05-14T13:00:00.000000+00:00",
+        "updated_at": "2026-05-14T13:50:00.000000+00:00"
+      },
+      {
+        "name": "Self-Prompt 自然语言→结构化提示词 — 1.0 ✅",
+        "status": "completed",
+        "created_at": "2026-05-14T14:20:00.000000+00:00",
+        "updated_at": "2026-05-14T14:20:00.000000+00:00"
+      },
+      {
+        "name": "Self-Prompt 自然语言→结构化提示词 — 1.1 (已接通)",
+        "status": "completed",
+        "created_at": "2026-05-14T14:20:00.000000+00:00",
+        "updated_at": "2026-05-14T18:15:13.786001+00:00"
+      },
+      {
+        "name": "RL Environment 桥接 — MimirAetherBenchmarkEnv ✅",
+        "status": "completed",
+        "created_at": "2026-05-14T17:00:00.000000+00:00",
+        "updated_at": "2026-05-14T18:15:13.786003+00:00"
+      },
+      {
+        "name": "五条药方实施 — 第1条为持续约束",
+        "status": "ongoing",
+        "created_at": "2026-05-11T04:57:38.845096+00:00",
+        "updated_at": "2026-05-15T21:00:00.000000+00:00"
+      },
+      {
+        "name": "MimirAether 完全独立化 — Gateway/Session/依赖全脱离OpenClaw",
+        "status": "ongoing",
+        "created_at": "2026-05-15T08:00:00.000000+00:00",
+        "updated_at": "2026-05-15T21:00:00.000000+00:00"
+      }
+    ],
+    "user_preferences": {},
+    "skills_used": [],
+    "behavioral_constraints": [
+      {
+        "rule": "你应该先验证真实API表面再修复技能代码，避免基于错误假设",
+        "source": "distilled",
+        "evidence": "基于6条模式/决策的提炼"
+      },
+      {
+        "rule": "你应该在技能生成器层面实施空壳禁制（内容<500字或全待实现则拒绝）",
+        "source": "distilled",
+        "evidence": "基于3条模式/决策的提炼"
+      },
+      {
+        "rule": "你应该使用标准化auto_load标记（triggers + priority + description）确保技能加载一致",
+        "source": "distilled",
+        "evidence": "基于2条模式/决策的提炼"
+      },
+      {
+        "rule": "你应该在跨会话记忆持久化中同时更新data/persistent.json和memory/persistent.json",
+        "source": "distilled",
+        "evidence": "基于2条模式/决策的提炼"
+      },
+      {
+        "rule": "你不应该信任技能代码中自称的类名或路径，必须先验证真实API表面",
+        "source": "distilled",
+        "evidence": "基于3条模式/决策的提炼"
+      },
+      {
+        "rule": "同一工具/验证循环中重复>3次相同调用且盘上数据未变→强制回到读盘确认",
+        "source": "distilled",
+        "evidence": "基于2026-07-18 self-evolution分析注入"
+      },
+      {
+        "rule": "同一文件修改>3次不通过→回退读完整文件（SkillOpt拒绝编辑缓冲区）",
+        "source": "distilled",
+        "evidence": "基于arXiv:2605.23904 SkillOpt吸收"
+      },
+      {
+        "rule": "声明完成前自动调验证工具链，不通过则不输出",
+        "source": "distilled",
+        "evidence": "基于2026-07-23 自我修复闭环注入"
+      }
+    ]
+  },
+  "progress": {
+    "current_objective": "MimirAether 完全独立化。Phase XIII/XIV ✅。下一步: html-output去重(已✅) + Ralph门禁回归。",
+    "completed_milestones": [
+      "tool-triggers元规则验证通过 ✅",
+      "hermes-cat-write auto_load ✅",
+      "cross-session auto_load + 自动注入 ✅",
+      "auto_load 格式标准化 ✅",
+      "plan-mode 5阶段流程 ✅",
+      "plan-mode persistent.json固化 ✅",
+      "第4条药方(技能固化)标记完成 ✅",
+      "auto-load扫描完成——发现9个占位幽灵、4个缺frontmatter ✅",
+      "删除apple/和autonomous-ai-agents/审计通过 ✅",
+      "self_evolution 路径去硬编码修复 ✅",
+      "self_evolution 移除SelfDriveEngine(SKILL.md + __init__.py) ✅",
+      "Hermes依赖全景分析完成 ✅",
+      "幽灵技能清理完成：106→103，零幽灵 ✅",
+      "skills_qa 幽灵检测能力上线 ✅",
+      "skill_generator 空壳禁制生效 ✅",
+      "Skill Curator 检测: scan_skills/assess_staleness",
+      "Skill Curator 报告: nudge_report/detailed_report",
+      "Skill Curator 动作: capsulize_and_dormant/revive_skill",
+      "Skill Curator 行动建议: curator_actions/curator_actions_report",
+      "Skill Curator 闭环: end_session自动capsulize_now",
+      "skill_view自动复活dormant技能",
+      "Skill Curator 检测: scan_skills/assess_staleness ✅",
+      "Skill Curator 报告: nudge_report/detailed_report ✅",
+      "Skill Curator 动作: capsulize_and_dormant/revive_skill ✅",
+      "Skill Curator 行动建议: curator_actions/curator_actions_report ✅",
+      "Skill Curator 闭环: end_session自动capsulize_now ✅",
+      "skill_view自动复活dormant技能 ✅",
+      "Hermes Phase I: 依赖图谱 ✅",
+      "Hermes Phase II: 认证脱钩 ✅",
+      "Hermes Phase III: 模型脱钩 ✅",
+      "Hermes Phase IV: 清理收尾 ✅",
+      "Hermes Phase V: 深入脱钩(hermes_constants/logging/state) ✅",
+      "persistent.json对齐真实状态(本会话) ✅",
+      "D1 技能去重: 合并/删除5个薄壳+互补标注 ✅",
+      "D2 骨架充实: 3个骨架技能 +8.2KB ✅",
+      "D3 近重复清理: 合并1个+修复过期引用 ✅",
+      "D5 死链检查器v2增强: related_skills+skill_view()+mimicore验证 ✅",
+      "Hermes同步: himalaya/jupyter-live-kernel/dogfood/orchestration-patterns (+4技能) ✅",
+      "Phase VI: hermes_cli/ mimcore/ 物理删除 (-75752行) ✅",
+      "Phase VI: mimcore→mimir_state 迁移 (0残留) ✅",
+      "Phase VI: tools/toolsets.py Mimir原生工具集 ✅",
+      "Phase VI: 飞书MAX_MESSAGE_LENGTH=131072 ✅",
+      "Phase VI: Gateway crash recovery技能固化 ✅",
+      "Phase VI: 工作区干净 + push 全部完成 ✅",
+      "跨会话循环污染根因诊断 + 修复 (ground_truth + persistent对齐) ✅",
+      "Phase XI P0: session_tracker.py 落盘 + OpenSpace analyzer 模式吸收 ✅",
+      "Phase VII P0: 工具参数类型强制(model_tools) ✅",
+      "Phase VII P1: ProviderProfile档案 ✅",
+      "Phase VIII: Superpowers门控 brainstorming+verification+skill-tdd (3新技能) ✅",
+      "Phase IX: gstack ETHOS铁律+ship技能 ✅",
+      "Phase X: llms.txt+llms-full.txt Hermes Atlas模式 ✅",
+      "Phase XI: Control Interface 跳过 ✅",
+      "Phase XI: Skill Factory 主动提案合并到cross-session ✅",
+      "Phase XII: Harness Engineering 熵管理 — 质量评分/漂移检测/策展分类 ✅",
+      "C1: LeCun三篇论文PDF精读笔记 (learnings/) ✅",
+      "C2: 统一架构提案 (docs/lecun_world_model_architecture.md) ✅",
+      "C3: LeWM退化检测MVP (degeneration_guard.json + skill) ✅",
+      "P0: HWM分层规划 (strategic-planner skill + schema + 4集成) ✅",
+      "P2: V-JEPA 2.1 三层记忆自检 (MEMORY_SELF_CHECK.md + 2集成) ✅",
+      "C4/C5: persistent.json + ground_truth.json 收尾标记 ✅",
+      "Karpathy P0: HTML基础设施 (skill + 4模板 + wiki验证) ✅",
+      "Karpathy P1: 飞书桥接 (html_to_feishu_card.py + 3卡片模板 + 三级回退) ✅",
+      "Karpathy P3: Wiki集成 (raw/目录 + auto-archive + 索引) ✅",
+      "Karpathy P2: Artifacts对标 (协议 + 新组件note/cols/action) ✅",
+      "Stability Patterns: 5模式 + 5反模式 v1.0 ✅",
+      "超参数审计: degeneration_guard 3→1参数 (LeWM风格) ✅",
+      "BUG修复: send_message 工具恢复 (FeishuAdapter _build_lark_client) ✅",
+      "UI按钮: mimir-action 支持 url 属性 ✅",
+      "SYNC: persistent.json 过期项目清理 + 新增Karpathy/Stability ✅",
+      "Self-Prompt接通: auto_load=true + MANDATORY触发规则 ✅",
+      "RL environment.py: MimirAetherBenchmarkEnv 桥接 benchmarks↔rl ✅",
+      "provider-aware剥离方案B: B1-B5完成 — ProviderResolver统一入口, api_mode替代is_anthropic ✅",
+      "Self-Prompt修复: 防递归守卫 + auto_load=false (由tool-triggers按需加载) ✅",
+      "决策归档: 第4条药方（skill固化）标记完成——文档已就位，靠元规则驱动",
+      "决策归档: 第5条药方残余聚焦：扫描auto_load标记 + 更新persistent",
+      "决策归档: 删除apple/和autonomous-ai-agents/技能经审计确认正确：自进化链路完好",
+      "决策归档: Hermes独立路线分4阶段：依赖图谱→认证脱钩→模型脱钩→清理收尾",
+      "决策归档: 幽灵技能清理完成：删除3空壳 + 10补frontmatter + 3补description → 106→103零幽灵",
+      "决策归档: Skill Curator 全线落地: 检测/报告/行动建议/胶囊化/复活/闭环",
+      "决策归档: Hermes独立路线全线闭合：Phase I-V完成。hermes_constants/logging/state已删除或重命名；hermes_cli/已删除；零代码级import依赖残留。仅余PTC桩模块内部命名(hermes_tools",
+      "决策归档: hermes-cat-write 加了 auto_load 标记，写文件时自动加载",
+      "决策归档: mimiraether-cross-session 加了 auto_load 标记，会话启动时自动加载",
+      "决策归档: skills_qa 新增 detect_ghost_skills() 和 print_ghost_report() 方法",
+      "Phase XIII: Anthropic BEA — Evaluator-Optimizer循环 (生成→评估→反馈→迭代,最多3轮) ✅",
+      "Phase XIV: Tool Guard + NLAH + 12Factor (ToolRisk五级+poka-yoke+NLAH对齐+10/12Factor) ✅"
+    ],
+    "pending_tasks": []
+  },
+  "curator_nudge": "skill_curator: 31技能 | fresh=9 stale=20 dormant=2\nstale (30+天未触): mimiraether-degeneration-guard, mimiraether-html-output, mimiraether-skill-integration, mimiraether-strategic-planner, env-safe-update, mimiraether-study-tree, mimiraether-auto-load, mimiraether-brainstorming, mimiraether-context-compressor, mimiraether-context-engine, mimiraether-heartbeat, mimiraether-hermes-code-study, mimiraether-hermes-integration, mimiraether-ralph-core, mimiraether-root-cause-debugging, mimiraether-self_evolution, mimiraether-self_health_check, mimiraether-ship, mimiraether-tools-system, mimiraether-verification\ndormant (60+天未触): mimiraether-cross-session, mimiraether-tool-triggers\naction: 胶囊化2 预警7 复核4",
+  "skill_usage": {
+    "mimiraether-agent-benchmark": "2026-05-15T18:03:30.011287+00:00",
+    "mimiraether-degeneration-guard": "2026-05-26T08:42:23.548908+00:00",
+    "mimiraether-html-output": "2026-06-01T07:24:01.886809+00:00",
+    "mimiraether-recovery-patterns": "2026-05-15T18:03:30.011287+00:00",
+    "mimiraether-skill-integration": "2026-06-02T13:03:10.416122+00:00",
+    "mimiraether-strategic-planner": "2026-06-01T07:54:16.789603+00:00",
+    "codebase-inspection": "2026-05-15T18:03:30.011646+00:00",
+    "github-auth": "2026-05-15T18:47:59.881018+00:00",
+    "github-code-review": "2026-05-15T18:47:57.439997+00:00",
+    "github-issues": "2026-05-15T18:47:54.064968+00:00",
+    "github-pr-workflow": "2026-05-15T18:47:51.437945+00:00",
+    "github-repo-management": "2026-05-15T18:47:49.073925+00:00",
+    "mcporter": "2026-05-15T18:03:30.013384+00:00",
+    "native-mcp": "2026-05-15T18:48:02.317039+00:00",
+    "mimiraether-backlog-runner": "2026-05-19T04:13:56.257282+00:00",
+    "gateway-feishu-crash-recovery": "2026-05-19T14:11:07.845675+00:00",
+    "hermes-cat-write": "2026-05-15T18:03:30.014050+00:00",
+    "mimir-aether-hermes-d5-d10": "2026-05-15T19:38:20.583827+00:00",
+    "mimiraether-auto-load": "2026-05-26T08:54:12.908397+00:00",
+    "mimiraether-brainstorming": "2026-06-01T07:54:16.774828+00:00",
+    "mimiraether-capsule-factory": "2026-05-23T11:51:29.652523+00:00",
+    "mimiraether-capsule-repair-reasoning": "2026-05-15T18:03:30.014050+00:00",
+    "mimiraether-checkpoint": "2026-05-15T18:38:00.346121+00:00",
+    "mimiraether-context-compressor": "2026-05-26T08:42:23.566664+00:00",
+    "mimiraether-context-engine": "2026-05-26T08:42:23.486287+00:00",
+    "mimiraether-cross-session": "2026-05-14T20:36:46.434481+00:00",
+    "mimiraether-feishu-card-debugging": "2026-05-16T20:06:33.561973+00:00",
+    "mimiraether-heartbeat": "2026-06-01T17:43:11.502404+00:00",
+    "mimiraether-hermes-code-study": "2026-05-26T13:28:26.522343+00:00",
+    "mimiraether-hermes-integration": "2026-05-26T13:28:26.553112+00:00",
+    "mimiraether-memory-nudge": "2026-05-15T18:03:30.014576+00:00",
+    "mimiraether-orchestration-patterns": "2026-05-15T18:03:30.014576+00:00",
+    "mimiraether-paralysis-break": "2026-05-15T18:03:30.014576+00:00",
+    "mimiraether-physics-reasoner": "2026-05-23T11:51:29.653394+00:00",
+    "mimiraether-plan-mode": "2026-05-11T04:54:06.478074+00:00",
+    "mimiraether-ralph-core": "2026-06-02T13:03:10.421454+00:00",
+    "mimiraether-root-cause-debugging": "2026-06-01T07:24:01.875163+00:00",
+    "mimiraether-self_evolution": "2026-06-01T08:31:13.222700+00:00",
+    "mimiraether-self_health_check": "2026-06-01T07:54:29.209481+00:00",
+    "mimiraether-ship": "2026-06-01T07:54:16.803681+00:00",
+    "mimiraether-skill-prune": "2026-05-24T03:35:56.564359+00:00",
+    "mimiraether-skill-solidify": "2026-05-24T03:35:56.564359+00:00",
+    "mimiraether-skill-tdd": "2026-05-15T18:03:30.015580+00:00",
+    "mimiraether-skill_generator": "2026-05-11T05:08:00.769110+00:00",
+    "mimiraether-skills-hub": "2026-05-15T18:37:48.647034+00:00",
+    "mimiraether-smart-routing": "2026-05-15T18:03:30.015936+00:00",
+    "mimiraether-timeout-guard": "2026-05-15T18:03:30.015936+00:00",
+    "mimiraether-tool-triggers": "2026-05-11T04:54:06.477587+00:00",
+    "mimiraether-tools-system": "2026-05-26T13:28:26.540464+00:00",
+    "mimiraether-verification": "2026-06-01T08:34:07.088982+00:00",
+    "mimiraether-wiki-auto-archive": "2026-05-15T18:03:30.015936+00:00",
+    "mimiraether-evaluator-optimizer": "2026-05-15T18:03:30.013820+00:00",
+    "huggingface-hub": "2026-05-15T18:03:30.017319+00:00",
+    "delegate-subagent": "2026-05-15T18:48:03.970054+00:00",
+    "insights": "2026-05-15T18:03:30.029122+00:00",
+    "session-tracker": "2026-05-15T18:03:30.032586+00:00",
+    "skills-qa": "2026-05-15T18:03:30.032586+00:00",
+    "snippets": "2026-05-15T18:03:30.032586+00:00",
+    "arxiv": "2026-05-24T03:35:56.564359+00:00",
+    "blogwatcher": "2026-05-15T18:03:30.033676+00:00",
+    "llm-wiki": "2026-05-24T03:35:56.564359+00:00",
+    "polymarket": "2026-05-15T18:03:30.033676+00:00",
+    "research-paper-writing": "2026-05-15T18:03:30.034000+00:00",
+    "debugging-hermes-tui-commands": "2026-05-15T18:03:30.039997+00:00",
+    "executing-plans": "2026-05-24T03:35:56.564359+00:00",
+    "finishing-a-development-branch": "2026-05-24T03:35:56.564359+00:00",
+    "hermes-agent-skill-authoring": "2026-05-15T18:03:30.039997+00:00",
+    "node-inspect-debugger": "2026-05-15T18:03:30.039997+00:00",
+    "python-debugpy": "2026-05-15T18:03:30.039997+00:00",
+    "requesting-code-review": "2026-05-15T18:03:30.039997+00:00",
+    "spike": "2026-05-15T18:03:30.039997+00:00",
+    "subagent-driven-development": "2026-05-15T18:03:30.039997+00:00",
+    "test-driven-development": "2026-05-15T18:03:30.039997+00:00",
+    "using-git-worktrees": "2026-05-24T03:35:56.564359+00:00",
+    "writing-plans": "2026-05-15T18:03:30.039997+00:00",
+    "dogfood": "2026-05-15T18:03:30.040747+00:00",
+    "kept": "yes",
+    "my-skill": "2026-06-03T09:17:07.859865+00:00",
+    "mimiraether-feishu-config-bridge": "2026-05-13T13:41:22.616911+00:00",
+    "mimiraether-self-audit": "2026-05-27T08:18:02.723984+00:00",
+    "env-safe-update": "2026-06-23T07:31:43.023306+00:00",
+    "mimiraether-study-tree": "2026-06-23T07:53:02.738518+00:00",
+    "mimiraether-personal-assistant": "2026-06-23T15:09:05.296866+00:00",
+    "mimiraether-dream-distillation": "2026-06-24T08:51:45.948717+00:00",
+    "mimir-true-self": "2026-06-27T20:01:48.054217+00:00",
+    "mimiraether-cron-recovery": "2026-07-04T12:49:45.139088+00:00",
+    "mimiraether-distillation-execution": "2026-07-12T21:42:58.984422+00:00",
+    "dispatching-parallel-agents": "2026-07-15T19:49:08.948676+00:00",
+    "receiving-code-review": "2026-07-15T19:49:18.275643+00:00",
+    "using-agent-skills": "2026-07-20T03:15:33.347049+00:00",
+    "feishu-file-upload": "2026-07-21T20:04:06.432061+00:00"
+  },
+  "dormant_skills": {
+    "mimiraether-plan-mode": {
+      "capsule_path": ".dormant/mimiraether/mimiraether-plan-mode",
+      "original_category": "mimiraether",
+      "dormant_at": "2026-07-12T04:37:29.543491+00:00",
+      "summary": "Plan mode for MimirAether — analyze context, create actionable implementation plans, and prepare for execution without acting. Inspired by Hermes Agent's plan skill."
+    },
+    "mimiraether-skill_generator": {
+      "capsule_path": ".dormant/mimiraether/mimiraether-skill_generator",
+      "original_category": "mimiraether",
+      "dormant_at": "2026-07-12T04:37:29.595480+00:00",
+      "summary": "MimirAether技能生成器 - 检测系统技能缺口，生成完整SKILL.md并注册到技能目录\n\n核心功能：\n- detect_gap(): 检测系统缺失的能力\n- generate_skill_md(name, description, code): 生成完整SKILL.md\n- register_skill(skill_name): 注册技能到目录\n- verify_skill(skill_name): 验证技能可用性\n\n使用三环闭环架构（Monitor→Decision→Execution）进行技能缺口检测和生成\n"
+    },
+    "mimiraether-agent-benchmark": {
+      "capsule_path": ".dormant/general/mimiraether-agent-benchmark",
+      "original_category": "general",
+      "dormant_at": "2026-07-14T18:58:39.932747+00:00",
+      "summary": ""
+    },
+    "mimiraether-recovery-patterns": {
+      "capsule_path": ".dormant/general/mimiraether-recovery-patterns",
+      "original_category": "general",
+      "dormant_at": "2026-07-14T18:58:39.988520+00:00",
+      "summary": "Tool-level error recovery patterns — when file/process/network operations fail, apply standard recovery before escalation"
+    },
+    "codebase-inspection": {
+      "capsule_path": ".dormant/github/codebase-inspection",
+      "original_category": "github",
+      "dormant_at": "2026-07-14T18:58:40.045995+00:00",
+      "summary": "Inspect and analyze codebases using pygount for LOC counting, language breakdown, and code-vs-comment ratios. Use when asked to check lines of code, repo size, language composition, or codebase stats."
+    },
+    "github-auth": {
+      "capsule_path": ".dormant/github/github-auth",
+      "original_category": "github",
+      "dormant_at": "2026-07-14T18:58:40.101550+00:00",
+      "summary": "Set up GitHub authentication for the agent using git (universally available) or the gh CLI. Covers HTTPS tokens, SSH keys, credential helpers, and gh auth — with a detection flow to pick the right method automatically."
+    },
+    "github-code-review": {
+      "capsule_path": ".dormant/github/github-code-review",
+      "original_category": "github",
+      "dormant_at": "2026-07-14T18:58:40.156301+00:00",
+      "summary": "Review code changes by analyzing git diffs, leaving inline comments on PRs, and performing thorough pre-push review. Works with gh CLI or falls back to git + GitHub REST API via curl."
+    },
+    "github-issues": {
+      "capsule_path": ".dormant/github/github-issues",
+      "original_category": "github",
+      "dormant_at": "2026-07-14T18:58:40.209624+00:00",
+      "summary": "Create, manage, triage, and close GitHub issues. Search existing issues, add labels, assign people, and link to PRs. Works with gh CLI or falls back to git + GitHub REST API via curl."
+    },
+    "github-pr-workflow": {
+      "capsule_path": ".dormant/github/github-pr-workflow",
+      "original_category": "github",
+      "dormant_at": "2026-07-14T18:58:40.262398+00:00",
+      "summary": "Full pull request lifecycle — create branches, commit changes, open PRs, monitor CI status, auto-fix failures, and merge. Works with gh CLI or falls back to git + GitHub REST API via curl."
+    },
+    "github-repo-management": {
+      "capsule_path": ".dormant/github/github-repo-management",
+      "original_category": "github",
+      "dormant_at": "2026-07-14T18:58:40.314154+00:00",
+      "summary": "Clone, create, fork, configure, and manage GitHub repositories. Manage remotes, secrets, releases, and workflows. Works with gh CLI or falls back to git + GitHub REST API via curl."
+    },
+    "mcporter": {
+      "capsule_path": ".dormant/mcp/mcporter",
+      "original_category": "mcp",
+      "dormant_at": "2026-07-14T18:58:40.367412+00:00",
+      "summary": "Use the mcporter CLI to list, configure, auth, and call MCP servers/tools directly (HTTP or stdio), including ad-hoc servers, config edits, and CLI/type generation."
+    },
+    "native-mcp": {
+      "capsule_path": ".dormant/mcp/native-mcp",
+      "original_category": "mcp",
+      "dormant_at": "2026-07-14T18:58:40.418320+00:00",
+      "summary": "Built-in MCP (Model Context Protocol) client that connects to external MCP servers, discovers their tools, and registers them as native Hermes Agent tools. Supports stdio and HTTP transports with automatic reconnection, security filtering, and zero-config tool injection."
+    },
+    "hermes-cat-write": {
+      "capsule_path": ".dormant/mimiraether/hermes-cat-write",
+      "original_category": "mimiraether",
+      "dormant_at": "2026-07-14T18:58:40.467279+00:00",
+      "summary": "所有文件写入操作自动加载此技能，防止 write_file 工具截断特殊字符"
+    },
+    "mimiraether-capsule-repair-reasoning": {
+      "capsule_path": ".dormant/mimiraether/mimiraether-capsule-repair-reasoning",
+      "original_category": "mimiraether",
+      "dormant_at": "2026-07-14T18:58:40.513926+00:00",
+      "summary": "修复胶囊推理引擎 — _generate_repair_capsule 在输入文本信息不足时不再fallback到占位符，而是基于症状关键词反推根因与解决方案。包含症状→根因映射表和方案推理模板。\n"
+    },
+    "mimiraether-checkpoint": {
+      "capsule_path": ".dormant/mimiraether/mimiraether-checkpoint",
+      "original_category": "mimiraether",
+      "dormant_at": "2026-07-14T18:58:40.561073+00:00",
+      "summary": "MimirAether检查点系统 - 基于Hermes实现的会话状态保存与恢复，支持文件系统快照、回滚和会话分支"
+    },
+    "mimiraether-memory-nudge": {
+      "capsule_path": ".dormant/mimiraether/mimiraether-memory-nudge",
+      "original_category": "mimiraether",
+      "dormant_at": "2026-07-14T18:58:40.607512+00:00",
+      "summary": "MimirAether Memory Nudge — 记忆轻推系统。通过上下文相关记忆检索、定时刷新、记忆强度追踪和遗忘模拟，主动唤醒长期记忆。包含记忆质量评分和主动提示机制。\n"
+    },
+    "mimiraether-orchestration-patterns": {
+      "capsule_path": ".dormant/mimiraether/mimiraether-orchestration-patterns",
+      "original_category": "mimiraether",
+      "dormant_at": "2026-07-14T18:58:40.654313+00:00",
+      "summary": "MimirAether多代理编排设计模式 — 提取自Hermes Kanban系统的通用架构原则：任务分解、Fan-out/Fan-in、依赖门控、反诱惑规则、Handoff数据合约、重试诊断。独立于Kanban基础设施，适用于任何多代理协作场景。"
+    },
+    "mimiraether-paralysis-break": {
+      "capsule_path": ".dormant/mimiraether/mimiraether-paralysis-break",
+      "original_category": "mimiraether",
+      "dormant_at": "2026-07-14T18:58:40.700585+00:00",
+      "summary": "打破分析瘫痪；时间盒与行动优先，避免过度分析不决策。"
+    },
+    "mimiraether-skill-tdd": {
+      "capsule_path": ".dormant/mimiraether/mimiraether-skill-tdd",
+      "original_category": "mimiraether",
+      "dormant_at": "2026-07-14T18:58:40.746101+00:00",
+      "summary": "TDD 方法写技能：先让 agent 在没有技能的情况下失败，再写技能修复，然后验证技能阻止了失败。 升级 mimiraether-skill-solidify 的\"跑通了就固化\"为\"先证明需要，再固化，再验证\"。 灵感源自 obra/superpowers writing-skills 技能。\n"
+    },
+    "mimiraether-skills-hub": {
+      "capsule_path": ".dormant/mimiraether/mimiraether-skills-hub",
+      "original_category": "mimiraether",
+      "dormant_at": "2026-07-14T18:58:40.789034+00:00",
+      "summary": "Hermes Agent Skills Hub技能中心 - 统一的技能管理和分发系统，支持技能浏览、安装、搜索和发布"
+    },
+    "mimiraether-smart-routing": {
+      "capsule_path": ".dormant/mimiraether/mimiraether-smart-routing",
+      "original_category": "mimiraether",
+      "dormant_at": "2026-07-14T18:58:40.833788+00:00",
+      "summary": "基于任务特性的智能模型路由 - 根据任务复杂度自动选择合适的模型，降低成本同时保持质量"
+    },
+    "mimiraether-timeout-guard": {
+      "capsule_path": ".dormant/mimiraether/mimiraether-timeout-guard",
+      "original_category": "mimiraether",
+      "dormant_at": "2026-07-14T18:58:40.878035+00:00",
+      "summary": "MimirAether Timeout Guard — 四层超时防护系统：任务分级(L1瞬答/L2浅析/L3深潜) → 时间预算 → 沉没开关 → 熔断机制。含恢复策略和自监控指标。\n"
+    },
+    "mimiraether-wiki-auto-archive": {
+      "capsule_path": ".dormant/mimiraether/mimiraether-wiki-auto-archive",
+      "original_category": "mimiraether",
+      "dormant_at": "2026-07-14T18:58:40.921233+00:00",
+      "summary": "当对话浮现可复用知识时自动归档到 wiki。覆盖 learnings 引用 + 追问深层原理 + 技术决策。触发权在 Agent，无需用户指令。L1 自动 / L2 询问。"
+    },
+    "mimiraether-evaluator-optimizer": {
+      "capsule_path": ".dormant/root/mimiraether-evaluator-optimizer",
+      "original_category": "root",
+      "dormant_at": "2026-07-14T18:58:40.964517+00:00",
+      "summary": "通用迭代改进循环 — LLM生成→评估→反馈→再生成，最多3轮。 来自 Anthropic \"Building Effective Agents\" 核心模式。 用于非代码任务（写作/分析/翻译/搜索综合），代码任务用 TDD。\n"
+    },
+    "huggingface-hub": {
+      "capsule_path": ".dormant/mlops/huggingface-hub",
+      "original_category": "mlops",
+      "dormant_at": "2026-07-14T18:58:41.005435+00:00",
+      "summary": "Hugging Face Hub CLI (hf) — search, download, and upload models and datasets, manage repos, query datasets with SQL, deploy inference endpoints, manage Spaces and buckets."
+    },
+    "delegate-subagent": {
+      "capsule_path": ".dormant/productivity/delegate-subagent",
+      "original_category": "productivity",
+      "dormant_at": "2026-07-14T18:58:41.046150+00:00",
+      "summary": "委托任务给AI子代理并收集结果。管理从任务创建到委托再到结果聚合的完整生命周期。**执行层**：提供子代理基础设施（Task创建/持久化/多代理类型/并行执行）。编排层见 subagent-driven-development。"
+    },
+    "insights": {
+      "capsule_path": ".dormant/productivity/insights",
+      "original_category": "productivity",
+      "dormant_at": "2026-07-14T18:58:41.087803+00:00",
+      "summary": "MimirAether usage analytics and insights engine - analyzes session data, tracks tool usage patterns, generates cost reports, and provides efficiency recommendations. Based on session_tracker.py data."
+    },
+    "session-tracker": {
+      "capsule_path": ".dormant/productivity/session-tracker",
+      "original_category": "productivity",
+      "dormant_at": "2026-07-14T18:58:41.128675+00:00",
+      "summary": "Track conversation session state with SQLite - manage sessions, record events, and monitor token usage and cost. Based on the session_tracker.py module from MimirAether."
+    },
+    "skills-qa": {
+      "capsule_path": ".dormant/productivity/skills-qa",
+      "original_category": "productivity",
+      "dormant_at": "2026-07-14T18:58:41.168765+00:00",
+      "summary": "MimirAether技能质量保障系统 - 检查技能目录结构、验证SKILL.md、检测过期技能、生成质量报告"
+    },
+    "snippets": {
+      "capsule_path": ".dormant/productivity/snippets",
+      "original_category": "productivity",
+      "dormant_at": "2026-07-14T18:58:41.205737+00:00",
+      "summary": "快速保存、搜索和复用常用代码片段。支持标签分类和快速检索。"
+    },
+    "blogwatcher": {
+      "capsule_path": ".dormant/research/blogwatcher",
+      "original_category": "research",
+      "dormant_at": "2026-07-14T18:58:41.244436+00:00",
+      "summary": "Monitor blogs and RSS/Atom feeds for updates using the blogwatcher-cli tool. Add blogs, scan for new articles, track read status, and filter by category."
+    },
+    "polymarket": {
+      "capsule_path": ".dormant/research/polymarket",
+      "original_category": "research",
+      "dormant_at": "2026-07-14T18:58:41.282158+00:00",
+      "summary": "Query Polymarket prediction market data — search markets, get prices, orderbooks, and price history. Read-only via public REST APIs, no API key needed."
+    },
+    "research-paper-writing": {
+      "capsule_path": ".dormant/research/research-paper-writing",
+      "original_category": "research",
+      "dormant_at": "2026-07-14T18:58:41.320339+00:00",
+      "summary": "End-to-end pipeline for writing ML/AI research papers — from experiment design through analysis, drafting, revision, and submission. Covers NeurIPS, ICML, ICLR, ACL, AAAI, COLM. Integrates automated experiment monitoring, statistical analysis, iterative writing, and citation verification."
+    },
+    "debugging-hermes-tui-commands": {
+      "capsule_path": ".dormant/software-development/debugging-hermes-tui-commands",
+      "original_category": "software-development",
+      "dormant_at": "2026-07-14T18:58:41.353148+00:00",
+      "summary": "Debug Hermes TUI slash commands: Python, gateway, Ink UI."
+    },
+    "hermes-agent-skill-authoring": {
+      "capsule_path": ".dormant/software-development/hermes-agent-skill-authoring",
+      "original_category": "software-development",
+      "dormant_at": "2026-07-14T18:58:41.387965+00:00",
+      "summary": "Author in-repo SKILL.md: frontmatter, validator, structure."
+    },
+    "node-inspect-debugger": {
+      "capsule_path": ".dormant/software-development/node-inspect-debugger",
+      "original_category": "software-development",
+      "dormant_at": "2026-07-14T18:58:41.422002+00:00",
+      "summary": "Debug Node.js via --inspect + Chrome DevTools Protocol CLI."
+    },
+    "python-debugpy": {
+      "capsule_path": ".dormant/software-development/python-debugpy",
+      "original_category": "software-development",
+      "dormant_at": "2026-07-14T18:58:41.452045+00:00",
+      "summary": "Debug Python: pdb REPL + debugpy remote (DAP)."
+    },
+    "requesting-code-review": {
+      "capsule_path": ".dormant/software-development/requesting-code-review",
+      "original_category": "software-development",
+      "dormant_at": "2026-07-14T18:58:41.483857+00:00",
+      "summary": "Pre-commit verification pipeline — static security scan, baseline-aware quality gates, independent reviewer subagent, and auto-fix loop. Use after code changes and before committing, pushing, or opening a PR.\n"
+    },
+    "spike": {
+      "capsule_path": ".dormant/software-development/spike",
+      "original_category": "software-development",
+      "dormant_at": "2026-07-14T18:58:41.513615+00:00",
+      "summary": "Throwaway experiments to validate an idea before build."
+    },
+    "subagent-driven-development": {
+      "capsule_path": ".dormant/software-development/subagent-driven-development",
+      "original_category": "software-development",
+      "dormant_at": "2026-07-14T18:58:41.540762+00:00",
+      "summary": "Use when executing implementation plans with independent tasks. Dispatches fresh delegate_task per task with two-stage review (spec compliance then code quality)."
+    },
+    "test-driven-development": {
+      "capsule_path": ".dormant/software-development/test-driven-development",
+      "original_category": "software-development",
+      "dormant_at": "2026-07-14T18:58:41.569065+00:00",
+      "summary": "MimirAether TDD workflow — enforce RED-GREEN-REFACTOR cycle with test-first approach. Features test code generation, coverage reporting, and regression protection."
+    },
+    "writing-plans": {
+      "capsule_path": ".dormant/software-development/writing-plans",
+      "original_category": "software-development",
+      "dormant_at": "2026-07-14T18:58:41.593787+00:00",
+      "summary": "Use when you have a spec or requirements for a multi-step task. Creates comprehensive implementation plans with bite-sized tasks, exact file paths, and complete code examples."
+    },
+    "dogfood": {
+      "capsule_path": ".dormant/testing/dogfood",
+      "original_category": "testing",
+      "dormant_at": "2026-07-14T18:58:41.620494+00:00",
+      "summary": "Web应用系统化探索QA测试 — 通过浏览器工具集自动导航、交互、截图取证、生成结构化Bug报告。"
+    },
+    "mimir-aether-hermes-d5-d10": {
+      "capsule_path": ".dormant/mimiraether/mimir-aether-hermes-d5-d10",
+      "original_category": "mimiraether",
+      "dormant_at": "2026-07-14T19:39:05.285703+00:00",
+      "summary": "Hermes Agent核心源码系统学习 - 涵盖Day 5-12的platforms、gateway、cli、cron、agent、tools等模块的架构分析与集成参考"
+    },
+    "mimiraether-feishu-card-debugging": {
+      "capsule_path": ".dormant/mimiraether/mimiraether-feishu-card-debugging",
+      "original_category": "mimiraether",
+      "dormant_at": "2026-07-15T20:12:43.431558+00:00",
+      "summary": ""
+    },
+    "mimiraether-backlog-runner": {
+      "capsule_path": ".dormant/mimiraether/mimiraether-backlog-runner",
+      "original_category": "mimiraether",
+      "dormant_at": "2026-07-18T04:20:39.696563+00:00",
+      "summary": "领 MIMIR_EXEC_BACKLOG 一条未勾选项执行：做完打勾、验证、回报；卡住写 ISSUES 并停。 飞书/离机指挥用。触发词：做下一条 backlog、按执行清单、backlog-runner。\n"
+    },
+    "gateway-feishu-crash-recovery": {
+      "capsule_path": ".dormant/mimiraether/gateway-feishu-crash-recovery",
+      "original_category": "mimiraether",
+      "dormant_at": "2026-07-19T05:20:09.285558+00:00",
+      "summary": "Gateway崩溃重启后飞书WebSocket僵死诊断与修复。症状：消息可收到但全部处理失败。根因：WebSocket event loop卡死在closed状态未正确恢复。修复：二次重启Gateway。"
+    },
+    "mimiraether-capsule-factory": {
+      "capsule_path": ".dormant/mimiraether/mimiraether-capsule-factory",
+      "original_category": "mimiraether",
+      "dormant_at": "2026-07-23T06:18:46.607476+00:00",
+      "summary": "MimirAether 胶囊工厂 — 从 Mimicore 提炼出的核心胶囊生成管线。 包含 CapsuleGenerator (911行)、GDIScorer (453行)、EvoMapValidator (674行)、Classifier (645行)。 负责 produce_capsule / get_capsule_by_id / list_capsules / improve_capsule 四个工具的后端逻辑。\n"
+    },
+    "mimiraether-physics-reasoner": {
+      "capsule_path": ".dormant/mimiraether/mimiraether-physics-reasoner",
+      "original_category": "mimiraether",
+      "dormant_at": "2026-07-23T06:18:46.627318+00:00",
+      "summary": "Mimir 物理推理助手 — 路线 1（力学核心求解器）。 自然语言 → 公式匹配 → SymPy 推导 → NumPy 求解 → 自然语言回报。 基于杨立昆 JEPA（不预测像素，预测抽象表征）和李飞飞空间智能（物理接地）。 CPU only，零新增依赖，不改 agent/gateway。\n"
+    },
+    "mimiraether-skill-prune": {
+      "capsule_path": ".dormant/mimiraether/mimiraether-skill-prune",
+      "original_category": "mimiraether",
+      "dormant_at": "2026-07-23T06:18:46.646626+00:00",
+      "summary": "Use when removing unused bundled skills, cleaning upstream Hermes imports, or user says skills are useless—follow git prune SOP; never blind rm. Read with mimiraether-tool-triggers."
+    },
+    "mimiraether-skill-solidify": {
+      "capsule_path": ".dormant/mimiraether/mimiraether-skill-solidify",
+      "original_category": "mimiraether",
+      "dormant_at": "2026-07-23T06:18:46.665425+00:00",
+      "summary": "将可复用经验固化为 SKILL.md 的流程：何时做、落盘路径、命名、frontmatter、skill_manage 操作与质量清单（配合 mimiraether-tool-triggers）。"
+    },
+    "arxiv": {
+      "capsule_path": ".dormant/research/arxiv",
+      "original_category": "research",
+      "dormant_at": "2026-07-23T06:18:46.684160+00:00",
+      "summary": "Search and retrieve academic papers from arXiv using their free REST API. No API key needed. Search by keyword, author, category, or ID. For full PDF text use web_extract or install an optional document skill from optional-skills."
+    },
+    "llm-wiki": {
+      "capsule_path": ".dormant/research/llm-wiki",
+      "original_category": "research",
+      "dormant_at": "2026-07-23T06:18:46.702227+00:00",
+      "summary": "Karpathy's LLM Wiki — build and maintain a persistent, interlinked markdown knowledge base. Ingest sources, query compiled knowledge, and lint for consistency."
+    },
+    "executing-plans": {
+      "capsule_path": ".dormant/software-development/executing-plans",
+      "original_category": "software-development",
+      "dormant_at": "2026-07-23T06:18:46.718375+00:00",
+      "summary": ""
+    },
+    "finishing-a-development-branch": {
+      "capsule_path": ".dormant/software-development/finishing-a-development-branch",
+      "original_category": "software-development",
+      "dormant_at": "2026-07-23T06:18:46.734345+00:00",
+      "summary": "Use after all implementation tasks are done — verify tests, detect environment, present 4 structured options (merge/PR/keep/discard), execute choice, clean up workspace. Never merge with failing tests."
+    },
+    "using-git-worktrees": {
+      "capsule_path": ".dormant/software-development/using-git-worktrees",
+      "original_category": "software-development",
+      "dormant_at": "2026-07-23T06:18:46.749979+00:00",
+      "summary": "Use when starting implementation work — ensures work happens in an isolated git worktree workspace. Detects existing isolation first, then uses native tools or git worktree fallback. Never start implementation on main/master without isolation."
+    }
+  },
+  "curator_capsulized": [
+    "mimiraether-agent-benchmark",
+    "mimiraether-recovery-patterns",
+    "codebase-inspection",
+    "github-auth",
+    "github-code-review",
+    "github-issues",
+    "github-pr-workflow",
+    "github-repo-management",
+    "mcporter",
+    "native-mcp",
+    "hermes-cat-write",
+    "mimiraether-capsule-repair-reasoning",
+    "mimiraether-checkpoint",
+    "mimiraether-memory-nudge",
+    "mimiraether-orchestration-patterns",
+    "mimiraether-paralysis-break",
+    "mimiraether-skill-tdd",
+    "mimiraether-skills-hub",
+    "mimiraether-smart-routing",
+    "mimiraether-timeout-guard",
+    "mimiraether-wiki-auto-archive",
+    "mimiraether-evaluator-optimizer",
+    "huggingface-hub",
+    "delegate-subagent",
+    "insights",
+    "session-tracker",
+    "skills-qa",
+    "snippets",
+    "blogwatcher",
+    "polymarket",
+    "research-paper-writing",
+    "debugging-hermes-tui-commands",
+    "hermes-agent-skill-authoring",
+    "node-inspect-debugger",
+    "python-debugpy",
+    "requesting-code-review",
+    "spike",
+    "subagent-driven-development",
+    "test-driven-development",
+    "writing-plans",
+    "dogfood",
+    "mimir-aether-hermes-d5-d10",
+    "mimiraether-feishu-card-debugging",
+    "mimiraether-backlog-runner",
+    "mimiraether-skill-tdd",
+    "requesting-code-review",
+    "requesting-code-review",
+    "mimiraether-physics-reasoner"
+  ]
+}

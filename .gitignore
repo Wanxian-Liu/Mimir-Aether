@@ -60,4 +60,4 @@ data/persistent.json.bak
 !.crew/artifacts/
 !.crew/graphs/
 !.crew/artifacts/.gitkeep
-!.crew/graphs/.gitkeep
+!.crew/graphs/.gitkeep/data/persistent.json
