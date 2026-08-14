@@ -832,6 +832,16 @@ class AgentMixin:
             # triggering an UnboundLocalError on the earlier read at
             # `_resolve_turn_agent_config(message, …)`.
             nonlocal message
+            # `history` is reassigned below (history-window truncation at
+            # `history = window`), so Python treats it as local; `nonlocal`
+            # lets us read *and* reassign the outer `_run_agent` parameter
+            # without triggering an UnboundLocalError at `len(history)`.
+            nonlocal history
+            # `history` is also conditionally re-assigned below (history
+            # windowing at MIMIR_HISTORY_WINDOW) — same scoping trap as
+            # `message`: without nonlocal, the earlier read at
+            # `len(history)` raises UnboundLocalError.
+            nonlocal history
 
             # session_key is now set via contextvars in _set_session_env()
             # (concurrency-safe). Keep os.environ as fallback for CLI/cron.
