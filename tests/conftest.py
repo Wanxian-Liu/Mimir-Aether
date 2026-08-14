@@ -184,3 +184,42 @@ def harness(tmp_path: Path) -> MimirHarness:
     h = create_mimir_harness(tmp_path)
     yield h
     h.cleanup()
+
+
+# ===========================================================================
+# Echo-tool fixtures (moved up from tests/agent/conftest.py, 2026-08-15)
+#
+# Why: pytest 9.1.1 does not load tests/agent/conftest.py when a large mixed
+# set of test paths (tests/, tests/agent/, tests/contract/, tests/gateway/,
+# tests/tools/) is passed on one command line -> "fixture 'echo_tool_schema'
+# not found".  tests/conftest.py IS loaded in that combination, so these
+# fixtures now live here.  See docs/evolution_log.md M6 ralph-clear.
+# ===========================================================================
+
+import json  # noqa: E402
+
+from agent.agent_loop import STRING_PARAM, tool_schema  # noqa: E402
+
+
+@pytest.fixture
+def echo_tool_schema():
+    return tool_schema(
+        "echo",
+        "Echo back text",
+        {
+            "type": "object",
+            "properties": {"text": STRING_PARAM},
+            "required": ["text"],
+        },
+    )
+
+
+@pytest.fixture
+def register_echo_tool() -> Callable:
+    def _register(loop) -> None:
+        async def echo_handler(name, args, session_id):
+            return json.dumps({"echo": args["text"]})
+
+        loop.register_tool("echo", echo_handler)
+
+    return _register
