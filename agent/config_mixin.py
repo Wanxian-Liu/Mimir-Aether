@@ -16,6 +16,7 @@ from . import prompt_builder
 from .credential_pool import CredentialPool, create_credential
 from .smart_model_routing import resolve_turn_route
 from .skill_funcs import SKILL_MANAGE_SCHEMA, SKILL_TOOL_SCHEMAS
+from mimir_constants import get_mimir_home
 
 import tools.registry as _tool_registry_module
 
@@ -244,7 +245,7 @@ class ConfigMixin:
             # 使用prompt_builder构建系统提示
             system_prompt = prompt_builder.build_system_prompt(
                 model=self.model,
-                cwd=os.getcwd(),
+                cwd=str(get_mimir_home()),
                 available_tools=available_tools,
                 platform=self.platform,
                 include_skills=True,
@@ -270,7 +271,7 @@ class ConfigMixin:
 
             return prompt_builder.build_system_prompt_parts(
                 model=self.model,
-                cwd=os.getcwd(),
+                cwd=str(get_mimir_home()),
                 available_tools=available_tools,
                 platform=self.platform,
                 include_skills=True,

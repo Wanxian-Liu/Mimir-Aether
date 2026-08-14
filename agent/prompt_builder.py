@@ -582,7 +582,7 @@ def build_context_files_prompt(
     
     优先级（第一个匹配生效）：
     1. .mimar.md / MIMAR.md  (向上到git root)
-    2. AGENTS.md / agents.md   (cwd only)
+    2. AGENTS.md / agents.md   (向上到git root)
     3. CLAUDE.md / claude.md   (cwd only)
     4. .cursorrules / .cursor/rules/*.mdc  (cwd only)
     
@@ -612,14 +612,21 @@ def build_context_files_prompt(
         if git_root and directory == git_root:
             break
     
-    # AGENTS.md
-    for name in ["AGENTS.md", "agents.md"]:
-        candidate = cwd_path / name
-        if candidate.exists():
-            content = load_context_file(candidate, name)
-            if content:
-                sections.append(content)
-                break
+    # AGENTS.md — 父目录递归（对齐 .mimar.md 模式）：cwd 起向上至 git root，首个命中生效
+    agents_found = False
+    for directory in [cwd_path, *cwd_path.parents]:
+        for name in ["AGENTS.md", "agents.md"]:
+            candidate = directory / name
+            if candidate.is_file():
+                content = load_context_file(candidate, name)
+                if content:
+                    sections.append(content)
+                    agents_found = True
+                    break
+        if agents_found:
+            break
+        if git_root and directory == git_root:
+            break
     
     # CLAUDE.md
     for name in ["CLAUDE.md", "claude.md"]:
