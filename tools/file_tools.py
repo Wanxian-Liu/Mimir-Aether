@@ -793,11 +793,25 @@ def _handle_patch(args, **kw):
 
 def _handle_search_files(args, **kw):
     tid = kw.get("task_id") or "default"
+    # 有效搜索闭环 SOP #1/#3：空 pattern = 无意图 query，禁止静默空搜索
+    # （08-12 轨迹曾出现 raw_args 为空字典的 search_files 调用——参数层防御，
+    #   让"没想清楚"立即暴露为明确错误，而不是返回无意义结果）
+    pattern = args.get("pattern", "") if isinstance(args, dict) else ""
+    if not isinstance(pattern, str) or not pattern.strip():
+        return json.dumps({
+            "error": (
+                "search_files requires a non-empty 'pattern' argument "
+                "(regex for content search, glob like '*.py' for file search). "
+                "Think before searching: WHAT to search / WHY / expected result, "
+                "then retry with a concrete pattern and path."
+            ),
+            "hint": "Example: search_files(pattern='def main', path='~/src/MimirAether', target='content', output_mode='content')",
+        }, ensure_ascii=False)
     target_map = {"grep": "content", "find": "files"}
     raw_target = args.get("target", "content")
     target = target_map.get(raw_target, raw_target)
     return search_tool(
-        pattern=args.get("pattern", ""), target=target, path=args.get("path", "."),
+        pattern=pattern, target=target, path=args.get("path", "."),
         file_glob=args.get("file_glob"), limit=args.get("limit", 50), offset=args.get("offset", 0),
         output_mode=args.get("output_mode", "content"), context=args.get("context", 0), task_id=tid)
 
