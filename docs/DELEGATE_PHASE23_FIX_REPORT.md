@@ -101,3 +101,26 @@ OK: 0-skills 触发的是 WARNING 级别，'技能沉睡'可被发现
 ## 五、摘帽检查
 
 本次以 **Backend Architect**（engineering/engineering-backend-architect.md）角色执行：错误处理纪律（raise 可见化）、接口契约维护（schema description）、系统性核实（cap 多源对比）。任务完成，**角色已摘**——后续对话不延续该角色口吻。
+
+---
+
+## 六、复核记录（2026-08-15 · 刘哥打断纠正后）
+
+**纠正点 1（角色没真读）**：本次复核**真读**了角色卡盘上原文（`~/.openclaw/projects/agency-agents/engineering/engineering-backend-architect.md`），确认 L6 引用的核心规则真实存在于角色卡 §Ensure System Reliability：
+> "Implement proper error handling, circuit breakers, and graceful degradation — Define timeout budgets, retry policies with backoff, and idempotency requirements for every external call"
+
+**纠正点 2（过度探索）**：停止 search_files 定位，按报告精确位置直接合并验证。
+
+**复核验证（全部盘上证据，2026-08-15 重跑）**：
+```bash
+# ① 异常类定义          ✅ L37  class DelegateBaseUrlMissingError(RuntimeError):
+# ② getattr→raise       ✅ L363  raise DelegateBaseUrlMissingError(
+# ③ description 量化触发 ✅ L1054-1062（≥2独立子任务/≥3同模式/≥30s I/O重/<60s直做）
+# ④ 0-skills WARNING     ✅ skill_manager.py L112  logger.warning(...)
+# ⑤ cap 核实             ✅ delegate_tool.py L85  _DEFAULT_MAX_CONCURRENT_CHILDREN = 3（生效值）
+#                         ✅ subagent.py L64  max_concurrent: int = 5（SubAgentPool 组件，非 delegate cap，不冲突，未擅自改）
+# ⑥ 备份                 ✅ tools/delegate_tool.py.bak_phase23 + skills/skill_manager.py.bak_phase23
+# ⑦ AST                  ✅ tools/delegate_tool.py + skills/skill_manager.py 均 parse 通过
+# ⑧ git                  ✅ commit 5b4be0c 已含全部改动 + 本报告
+```
+**结论**：4 处改动此前已全部落盘且已提交（commit 5b4be0c），本次复核确认无遗漏、无重复改动。
