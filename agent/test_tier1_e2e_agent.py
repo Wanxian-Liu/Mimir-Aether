@@ -70,8 +70,8 @@ def test_tier1_tool_call_then_final_reply(isolate_checkpoints):
                             "id": "call_tier1_1",
                             "type": "function",
                             "function": {
-                                "name": "noop_tool",
-                                "arguments": json.dumps({"x": 1}),
+                                "name": "get_env",  # 默认 toolsets 内真实工具（resolve_enabled_tools 55 个）
+                                "arguments": json.dumps({"key": "TEST"}),
                             },
                         }
                     ],
@@ -84,11 +84,14 @@ def test_tier1_tool_call_then_final_reply(isolate_checkpoints):
             0.1,
         )
 
-    async def fake_execute(self, tool_calls, turn=0):
-        return [
-            ToolResult(tool_call_id=tc.get("id", "call_tier1_1"), content='{"ok": true}')
-            for tc in tool_calls
-        ]
+    async def fake_execute(self, tool_call, turn=0):
+        # mock _execute_single_tool（ExecMixin，契约返回单个 ToolResult）
+        # 返回含写盘关键字 → "架构产出提示"判定 _has_written=True，不触发第 3 次 LLM 调用
+        # （2026-08-15 Ralph 清债：pre-existing 第 8 失败根因修复）
+        return ToolResult(
+            tool_call_id=tool_call.get("id", "call_tier1_1"),
+            content='{"ok": true, "note": "File written to /tmp/tier1.txt"}',
+        )
 
     agent = MimirAetherAgent(
         model="deepseek-chat",
@@ -100,7 +103,7 @@ def test_tier1_tool_call_then_final_reply(isolate_checkpoints):
 
     with patch.object(MimirAetherAgent, "_restore_session", lambda self, session_id=None: False):
         with patch.object(MimirAetherAgent, "_call_model_with_tokens", new=fake_llm):
-            with patch.object(MimirAetherAgent, "_execute_tools", new=fake_execute):
+            with patch.object(MimirAetherAgent, "_execute_single_tool", new=fake_execute):
                 out = asyncio.run(agent.run_conversation("use the tool please"))
 
     assert state["n"] == 2

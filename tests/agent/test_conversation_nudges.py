@@ -3,12 +3,33 @@
 import os
 from unittest.mock import patch
 
+import pytest
+
 from agent.conversation_nudges import (
     MEMORY_NUDGE_MARKER,
     SKILL_NUDGE_MARKER,
     maybe_memory_nudge_message,
     maybe_skill_nudge_message,
 )
+
+
+@pytest.fixture(autouse=True)
+def _isolate_nudge_env():
+    """隔离 nudge 环境变量——测试自持数据，不继承 shell/gateway 环境。
+
+    背景：运行环境（gateway .env / shell）可能注入 MIMIR_MEMORY_NUDGE_INTERVAL=0
+    或 MIMIR_SKILL_NUDGE_INTERVAL=0（生产禁 nudge 配置），若测试继承该环境，
+    maybe_*_nudge_message 读到 interval=0 全部返回 None，导致"应触发"断言失败
+    （2026-08-15 Ralph 清债 root-cause：7 failed 中 4 个源于此）。
+    本 fixture 在每个测试前清除这 3 个变量，让测试在默认间隔下运行。
+    """
+    for var in (
+        "MIMIR_MEMORY_NUDGE_INTERVAL",
+        "MIMIR_SKILL_NUDGE_INTERVAL",
+        "MIMIR_SKILL_NUDGE_MIN_TOOLS",
+    ):
+        os.environ.pop(var, None)
+    yield
 
 
 class TestMemoryNudge:

@@ -832,7 +832,19 @@ class MimirAgentLoop:
                         messages.append(_prod_msg)
                         _resp = await self.model_call(messages)
                         if _resp is not None:
-                            _text = getattr(_resp, "content", None)
+                            # 对齐主循环 L468-469 的 content 提取（response.choices[0].message.content）
+                            _msg = None
+                            _choices = getattr(_resp, "choices", None)
+                            if isinstance(_choices, list) and _choices:
+                                _c0 = _choices[0]
+                                _msg = _c0.get("message") if isinstance(_c0, dict) else getattr(_c0, "message", None)
+                            if _msg is None and (hasattr(_resp, "content") or isinstance(_resp, dict)):
+                                _msg = _resp  # 兼容直接返回 message 对象/字典
+                            _text = None
+                            if isinstance(_msg, dict):
+                                _text = _msg.get("content")
+                            elif _msg is not None:
+                                _text = getattr(_msg, "content", None)
                             if _text:
                                 messages.append({"role": "assistant", "content": _text})
                     except Exception as _pexc:
