@@ -9,3 +9,4 @@ aiohttp
 python-dotenv
 requests
 lark-oapi
+chromadb==1.5.8
