@@ -34,6 +34,15 @@ from toolsets import TOOLSETS
 VALID_REASONING_EFFORTS = ("minimal", "low", "medium", "high", "xhigh")
 
 
+class DelegateBaseUrlMissingError(RuntimeError):
+    """Raised when delegate_task cannot resolve a base_url for child agents.
+
+    A missing base_url used to silently fall back to the provider default URL,
+    which made child LLM calls hit the wrong endpoint and look like unrelated
+    model/provider failures. Raising here makes the misconfiguration visible.
+    """
+
+
 def _parse_reasoning_effort(effort: str) -> dict | None:
     """Parse a reasoning effort level into a config dict.
 
@@ -347,6 +356,17 @@ def _build_child_agent(
     # NOTE: use getattr for optional parent attrs (Hermes AIAgent vs MimirAetherAgent
     # interface parity) — base_url/providers_* may not exist on all parent types.
     effective_base_url = override_base_url or getattr(parent_agent, "base_url", None)
+    if not effective_base_url:
+        # Do NOT silently fall back to the provider default URL: child agents
+        # would hit the wrong endpoint/model and the failure would look like an
+        # unrelated model/provider issue. Make the missing base_url visible.
+        raise DelegateBaseUrlMissingError(
+            "delegate_task: no base_url resolved (override_base_url not provided and "
+            f"parent_agent has no base_url; parent type={type(parent_agent).__name__}). "
+            "Child agents would silently fall back to the provider default URL, "
+            "causing model/endpoint mismatch. Configure delegation in config.yaml "
+            "or ensure the parent agent exposes base_url."
+        )
     effective_api_key = override_api_key or parent_api_key
     effective_api_mode = override_api_mode or getattr(parent_agent, "api_mode", None)
     effective_acp_command = override_acp_command or getattr(parent_agent, "acp_command", None)
@@ -1030,11 +1050,17 @@ DELEGATE_TASK_SCHEMA = {
         "1. Single task: provide 'goal' (+ optional context, toolsets)\n"
         "2. Batch (parallel): provide 'tasks' array with up to 3 items. "
         "All run concurrently and results are returned together.\n\n"
-        "WHEN TO USE delegate_task:\n"
+        "WHEN TO USE delegate_task (quantitative triggers — default-delegate policy):\n"
+        "- ANY task decomposable into >=2 independent subtasks\n"
+        "- >=3 same-pattern tasks (independent, same pattern)\n"
+        "- Subtasks independent with no dependencies (parallel-safe)\n"
+        "- Subtasks each >=30s and I/O-heavy\n"
         "- Reasoning-heavy subtasks (debugging, code review, research synthesis)\n"
         "- Tasks that would flood your context with intermediate data\n"
         "- Parallel independent workstreams (research A and B simultaneously)\n\n"
         "WHEN NOT TO USE (use these instead):\n"
+        "- Single-step small operations / total <60s -> do it directly\n"
+        "- Strong dependency chains (subtasks NOT independent)\n"
         "- Mechanical multi-step work with no reasoning needed -> use execute_code\n"
         "- Single tool call -> just call the tool directly\n"
         "- Tasks needing user interaction -> subagents cannot use clarify\n\n"

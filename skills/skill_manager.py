@@ -105,7 +105,13 @@ class SkillManager:
         os.makedirs(self.storage_dir, exist_ok=True)
         self._load_skills_metadata()
         
-        logger.info(f"SkillManager initialized with {len(self.skills)} skills")
+        skill_count = len(self.skills)
+        if skill_count == 0:
+            # 0 skills means the skill store is asleep / failed to load —
+            # an anomaly, not a normal state. WARNING makes it discoverable.
+            logger.warning("SkillManager initialized with 0 skills (skills asleep — check skills metadata)")
+        else:
+            logger.info(f"SkillManager initialized with {skill_count} skills")
     
     def _load_skills_metadata(self):
         """加载Skill元数据"""
