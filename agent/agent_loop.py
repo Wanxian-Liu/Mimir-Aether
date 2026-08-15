@@ -810,9 +810,14 @@ class MimirAgentLoop:
                 # ===== 架构修复2（2026-08-08 刘哥洞察+四方共识）：主动结束路径也检查产出 =====
                 # 问题：no tools正常结束路径无产出检查——若最后assistant只是"调查总结"无落盘动作→0产出静默
                 # 修复：检查本会话是否真的产出过（写盘/落盘动作）——若无→追加"产出提示"（不强制调用——引导补产出）
+                # 修复2（2026-08-15 Code Reviewer 复合发现）：原实现用 content 字符串匹配 ["write_file","patch",...,"bytes"]——
+                #   "bytes" 太宽泛，read_file 读大文件返回 "This file is large (XXX bytes)" 就误判"已写盘"，
+                #   导致"产出提示"永不触发 = "探索完就停"的真凶。改为按 assistant tool_calls 的工具名精确判断。
+                _WRITE_TOOLS = {"write_file", "patch", "create_file", "edit", "write"}
                 _has_written = any(
-                    m.get("role") == "tool" and any(
-                        k in str(m.get("content", "")) for k in ["write_file", "patch", "File written", "已写入", "落盘", "bytes"]
+                    m.get("role") == "assistant" and any(
+                        _get_tc_name(tc) in _WRITE_TOOLS
+                        for tc in (m.get("tool_calls") or [])
                     )
                     for m in messages
                 )
