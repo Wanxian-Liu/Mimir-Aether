@@ -7,3 +7,17 @@ smart_model_routing:
     model: deepseek/deepseek-chat
     api_key_env: DEEPSEEK_API_KEY
     base_url: https://api.deepseek.com
+
+# delegate_task 子代理凭据（2026-08-15 G+E 试点修复）
+# 原因：MimirAetherAgent 无 base_url 属性，delegate_task 找不到 endpoint 会 raise
+# DelegateBaseUrlMissingError。api_key 从环境变量 DEEPSEEK_API_KEY 读取，不落盘明文。
+delegation:
+  provider: deepseek
+  model: deepseek/deepseek-v4-flash
+  max_iterations: 50
+
+providers:
+  deepseek:
+    api_key_env: DEEPSEEK_API_KEY
+    base_url: https://api.deepseek.com
+    api_mode: chat_completions
