@@ -821,53 +821,15 @@ class MimirAgentLoop:
                     "[%s] turn %d: api=%.1fs, no tools (finished)",
                     self.task_id[:8], turn + 1, api_elapsed,
                 )
-                # ===== 架构修复2（2026-08-08 刘哥洞察+四方共识）：主动结束路径也检查产出 =====
-                # 问题：no tools正常结束路径无产出检查——若最后assistant只是"调查总结"无落盘动作→0产出静默
-                # 修复：检查本会话是否真的产出过（写盘/落盘动作）——若无→追加"产出提示"（不强制调用——引导补产出）
-                # 修复2（2026-08-15 Code Reviewer 复合发现）：原实现用 content 字符串匹配 ["write_file","patch",...,"bytes"]——
-                #   "bytes" 太宽泛，read_file 读大文件返回 "This file is large (XXX bytes)" 就误判"已写盘"，
-                #   导致"产出提示"永不触发 = "探索完就停"的真凶。改为按 assistant tool_calls 的工具名精确判断。
-                _WRITE_TOOLS = {"write_file", "patch", "create_file", "edit", "write"}
-                _has_written = any(
-                    m.get("role") == "assistant" and any(
-                        _get_tc_name(tc) in _WRITE_TOOLS
-                        for tc in (m.get("tool_calls") or [])
-                    )
-                    for m in messages
-                )
+                # ===== 架构修复2（2026-08-08）+ Loki-C commit 3（2026-08-15）：主动结束路径检查产出 =====
+                # 问题：no tools 正常结束路径无产出检查——若最后 assistant 只是"调查总结"无落盘动作→0产出静默
+                # 修复：检查本会话是否真的产出过（写盘动作）——若无→注入产出提示（引导补产出）
+                _has_written = self._check_has_written(messages)
                 if not _has_written and any(m.get("role") == "assistant" for m in messages):
                     logger.info(
                         "[%s] turn %d: 主动结束但无写盘产出——追加产出提示", self.task_id[:8], turn + 1
                     )
-                    try:
-                        _prod_msg = {
-                            "role": "user",
-                            "content": (
-                                "【架构产出提示】你即将结束任务，但本会话尚未产生任何写盘产出（write_file/patch）。\n"
-                                "如果任务要求产出（分析结论/审计报告/记录），请立即用 write_file/patch 落盘到指定路径——"
-                                "否则任务视为未完成。如果任务确实不需要落盘（纯问答/纯调查），回复'无需落盘'即可结束。"
-                            ),
-                        }
-                        messages.append(_prod_msg)
-                        _resp = await self.model_call(messages)
-                        if _resp is not None:
-                            # 对齐主循环 L468-469 的 content 提取（response.choices[0].message.content）
-                            _msg = None
-                            _choices = getattr(_resp, "choices", None)
-                            if isinstance(_choices, list) and _choices:
-                                _c0 = _choices[0]
-                                _msg = _c0.get("message") if isinstance(_c0, dict) else getattr(_c0, "message", None)
-                            if _msg is None and (hasattr(_resp, "content") or isinstance(_resp, dict)):
-                                _msg = _resp  # 兼容直接返回 message 对象/字典
-                            _text = None
-                            if isinstance(_msg, dict):
-                                _text = _msg.get("content")
-                            elif _msg is not None:
-                                _text = getattr(_msg, "content", None)
-                            if _text:
-                                messages.append({"role": "assistant", "content": _text})
-                    except Exception as _pexc:
-                        logger.warning("[%s] 产出提示失败: %s", self.task_id[:8], _pexc)
+                    await self._inject_production_nudge(messages)
                 self._close_pipeline(user_task)
                 self._task_state = TaskState.DONE  # task_state注入点3（四方共识：自然退出→DONE）
                 raise AgentLoopExit("natural", {
@@ -928,28 +890,78 @@ class MimirAgentLoop:
         except AgentLoopExit as _exit:
             return await self._finalize_exit(_exit.reason, _exit.result_kwargs)
 
-    async def _finalize_exit(self, reason: str, result_kwargs: dict) -> AgentResult:
-        """统一出口（Loki-C）：所有退出路径汇聚于此。
+    def _check_has_written(self, messages: List[Dict[str, Any]]) -> bool:
+        """检查会话是否产生过写盘产出（Loki-C commit 3 提取）。
 
-        commit 2（行为）：_has_written 校验 + [EXIT] 四要素日志（可观测性）。
-        让"探索完就停"（探索完 0 落盘静默结束）在日志现形为 has_written=false。
-        natural 路径的强制产出提示仍在 _loop_body 循环内（L824-870 架构修复2，保留）。
+        复用修复 A（2026-08-15）：按 assistant tool_calls 的 function.name 精确判断，
+        弃用 content 字符串匹配（"bytes" 太宽泛，read_file 读大文件返回 "large bytes" 误判已写盘）。
         """
-        messages = result_kwargs.get("messages") or []
-        # 白名单：interrupt/tool_storm 是主动停止（非"探索完就停"），不视为漏产出
-        _NO_FORCE_WHITELIST = {"interrupt", "tool_storm"}
         _WRITE_TOOLS = {"write_file", "patch", "create_file", "edit", "write"}
-        _has_written = any(
+        return any(
             m.get("role") == "assistant" and any(
                 _get_tc_name(tc) in _WRITE_TOOLS for tc in (m.get("tool_calls") or [])
             )
             for m in messages
         )
-        # SRE 三件套之二：exit 四要素日志（reason/has_written/task/turns）
-        logger.info("[%s] [EXIT] reason=%s turns=%s has_written=%s whitelisted=%s",
-                    self.task_id[:8], reason, result_kwargs.get("turns_used"),
-                    _has_written, reason in _NO_FORCE_WHITELIST)
-        return AgentResult(**result_kwargs)
+
+    async def _inject_production_nudge(self, messages: List[Dict[str, Any]]) -> None:
+        """注入产出提示（架构修复2 + Loki-C commit 3 提取）：无写盘产出时引导落盘（best-effort，不抛）。"""
+        try:
+            _prod_msg = {
+                "role": "user",
+                "content": (
+                    "【架构产出提示】你即将结束任务，但本会话尚未产生任何写盘产出（write_file/patch）。\n"
+                    "如果任务要求产出（分析结论/审计报告/记录），请立即用 write_file/patch 落盘到指定路径——"
+                    "否则任务视为未完成。"
+                ),
+            }
+            messages.append(_prod_msg)
+            _resp = await self.model_call(messages)
+            if _resp is not None:
+                _msg = None
+                _choices = getattr(_resp, "choices", None)
+                if isinstance(_choices, list) and _choices:
+                    _c0 = _choices[0]
+                    _msg = _c0.get("message") if isinstance(_c0, dict) else getattr(_c0, "message", None)
+                if _msg is None and (hasattr(_resp, "content") or isinstance(_resp, dict)):
+                    _msg = _resp
+                _text = None
+                if isinstance(_msg, dict):
+                    _text = _msg.get("content")
+                elif _msg is not None:
+                    _text = getattr(_msg, "content", None)
+                if _text:
+                    messages.append({"role": "assistant", "content": _text})
+        except Exception as _pexc:
+            logger.warning("[%s] 产出提示失败: %s", self.task_id[:8], _pexc)
+
+    async def _finalize_exit(self, reason: str, result_kwargs: dict) -> AgentResult:
+        """统一出口（Loki-C）：所有退出路径汇聚于此。
+
+        commit 3（spec 完整落地）：_has_written 校验 + [EXIT] 四要素日志 +
+        异常路径注入产出提示（治"探索完就停"核心）+ try/except 兜底。
+        """
+        try:
+            messages = result_kwargs.get("messages") or []
+            # 主动停止（用户中断/系统错误风暴）不视为漏产出
+            _ACTIVE_STOP_REASONS = {"interrupt", "tool_storm"}
+            _has_written = self._check_has_written(messages)
+            # SRE 三件套之二：exit 四要素日志（reason/has_written/task/turns）
+            logger.info("[%s] [EXIT] reason=%s turns=%s has_written=%s active_stop=%s",
+                        self.task_id[:8], reason, result_kwargs.get("turns_used"),
+                        _has_written, reason in _ACTIVE_STOP_REASONS)
+            # 异常路径（api_failure/empty_response/format_error/no_choices）无写盘 → 注入产出提示
+            # （natural 循环内已做、max_turns 循环外已做强制产出、interrupt/tool_storm 主动停止）
+            if (not _has_written
+                    and reason in {"api_failure", "empty_response", "format_error", "no_choices"}
+                    and any(m.get("role") == "assistant" for m in messages)):
+                logger.info("[%s] [EXIT] 异常路径无写盘产出——注入产出提示", self.task_id[:8])
+                await self._inject_production_nudge(messages)
+            return AgentResult(**result_kwargs)
+        except Exception as _exc:
+            # 兜底：_finalize_exit 自身异常不崩 gateway，降级为带错误日志的 AgentResult
+            logger.error("[%s] [EXIT] _finalize_exit 兜底: %s", self.task_id[:8], _exc)
+            return AgentResult(**result_kwargs)
 
     def _close_pipeline(self, task_name: str = "") -> None:
         """Defensive close of execution pipeline (best-effort, never raises)."""
