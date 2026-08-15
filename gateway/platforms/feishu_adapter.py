@@ -466,8 +466,28 @@ def _event_dict_to_message_event(
             timestamp=datetime.now(tz=timezone.utc),
         )
 
+    # --- 富文本（post）消息：文本在 content.content[行][元素].text ---
+    text = ""
+    if msg_type == "post":
+        post_lines = content_dict.get("content", [])
+        post_texts = []
+        for line in post_lines:
+            if isinstance(line, list):
+                for elem in line:
+                    if isinstance(elem, dict) and elem.get("tag") in ("text", "a"):
+                        t = elem.get("text", "")
+                        if t:
+                            post_texts.append(t)
+            elif isinstance(line, dict) and line.get("text"):
+                post_texts.append(str(line["text"]))
+        text = "".join(post_texts).strip()
+        if not text:
+            # post 也可能带 title
+            text = str(content_dict.get("title") or "").strip()
+
     # --- 文本消息 ---
-    text = str(content_dict.get("text") or "").strip()
+    if not text:
+        text = str(content_dict.get("text") or "").strip()
     if not text:
         text = str(msg.get("text") or "").strip()
 
