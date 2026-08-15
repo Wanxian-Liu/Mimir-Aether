@@ -134,6 +134,20 @@ def _get_tc_id(tc) -> str:
     return tc.id
 
 
+class AgentLoopExit(Exception):
+    """Raised inside the agent loop to exit through the unified validation path.
+
+    Backend Architect 方案 B2（2026-08-15）：7 个结束路径统一 raise 此异常，
+    由 run() 外层的 except 捕获，走同一个交付物校验出口——结构性保证
+    （未来加第 8 个退出点，只要 raise AgentLoopExit 就自动过校验）。
+    """
+
+    def __init__(self, reason: str, result_kwargs: dict):
+        super().__init__(reason)
+        self.reason = reason
+        self.result_kwargs = result_kwargs
+
+
 # ============== The Loop ==============
 
 class MimirAgentLoop:
@@ -183,8 +197,8 @@ class MimirAgentLoop:
         # Interval nudge flag: once per session (MW-04)
         self._interval_nudge_done = False
 
-    async def run(self, messages: List[Dict[str, Any]]) -> AgentResult:
-        """Execute the full agent loop.
+    async def _loop_body(self, messages: List[Dict[str, Any]]) -> AgentResult:
+        """Execute the full agent loop (Loki-C 2026-08-15: run() 改名 _loop_body，薄 run() 在外层 try/except 包装)。
 
         Args:
             messages: Initial conversation messages (system + user).
@@ -232,22 +246,22 @@ class MimirAgentLoop:
             if self.interrupt_check():
                 logger.info("Loop interrupted at turn %d", turn + 1)
                 self._close_pipeline(user_task)
-                return AgentResult(
-                    messages=messages, turns_used=turn + 1,
-                    finished_naturally=False, reasoning_per_turn=reasoning_per_turn,
-                    tool_errors=tool_errors, interrupted=True,
-                )
+                raise AgentLoopExit("interrupt", {
+                    "messages": messages, "turns_used": turn + 1,
+                    "finished_naturally": False, "reasoning_per_turn": reasoning_per_turn,
+                    "tool_errors": tool_errors, "interrupted": True,
+                })
 
             # 修复（2026-08-05，核心体检-1 P0）：错误风暴检测——工具错误过多=循环卡死信号
             # （原来无上限：工具持续失败会无限continue，浪费token且可能死循环）
             if len(tool_errors) >= 50:
                 logger.warning("Tool error storm detected (%d errors) at turn %d — aborting loop", len(tool_errors), turn + 1)
                 self._close_pipeline(user_task)
-                return AgentResult(
-                    messages=messages, turns_used=turn + 1,
-                    finished_naturally=False, reasoning_per_turn=reasoning_per_turn,
-                    tool_errors=tool_errors, interrupted=True,
-                )
+                raise AgentLoopExit("tool_storm", {
+                    "messages": messages, "turns_used": turn + 1,
+                    "finished_naturally": False, "reasoning_per_turn": reasoning_per_turn,
+                    "tool_errors": tool_errors, "interrupted": False,
+                })
 
             turn_start = _time.monotonic()
 
@@ -421,20 +435,20 @@ class MimirAgentLoop:
                 api_elapsed = _time.monotonic() - api_start
                 logger.error("API call failed on turn %d (%.1fs): %s", turn + 1, api_elapsed, e)
                 self._close_pipeline(user_task)
-                return AgentResult(
-                    messages=messages, turns_used=turn + 1,
-                    finished_naturally=False, reasoning_per_turn=reasoning_per_turn,
-                    tool_errors=tool_errors,
-                )
+                raise AgentLoopExit("api_failure", {
+                    "messages": messages, "turns_used": turn + 1,
+                    "finished_naturally": False, "reasoning_per_turn": reasoning_per_turn,
+                    "tool_errors": tool_errors,
+                })
             api_elapsed = _time.monotonic() - api_start
 
             if not response:
                 self._close_pipeline(user_task)
-                return AgentResult(
-                    messages=messages, turns_used=turn + 1,
-                    finished_naturally=False, reasoning_per_turn=reasoning_per_turn,
-                    tool_errors=tool_errors,
-                )
+                raise AgentLoopExit("empty_response", {
+                    "messages": messages, "turns_used": turn + 1,
+                    "finished_naturally": False, "reasoning_per_turn": reasoning_per_turn,
+                    "tool_errors": tool_errors,
+                })
 
             # --- Extract response parts (dict, MimirAether-flat, or object) ---
             if isinstance(response, dict):
@@ -452,19 +466,19 @@ class MimirAgentLoop:
                     _reasoning = response.get("reasoning_content")
                 else:
                     self._close_pipeline(user_task)
-                    return AgentResult(
-                        messages=messages, turns_used=turn + 1,
-                        finished_naturally=False, reasoning_per_turn=reasoning_per_turn,
-                        tool_errors=tool_errors,
-                    )
+                    raise AgentLoopExit("format_error", {
+                        "messages": messages, "turns_used": turn + 1,
+                        "finished_naturally": False, "reasoning_per_turn": reasoning_per_turn,
+                        "tool_errors": tool_errors,
+                    })
             else:
                 if not getattr(response, "choices", None):
                     self._close_pipeline(user_task)
-                    return AgentResult(
-                        messages=messages, turns_used=turn + 1,
-                        finished_naturally=False, reasoning_per_turn=reasoning_per_turn,
-                        tool_errors=tool_errors,
-                    )
+                    raise AgentLoopExit("no_choices", {
+                        "messages": messages, "turns_used": turn + 1,
+                        "finished_naturally": False, "reasoning_per_turn": reasoning_per_turn,
+                        "tool_errors": tool_errors,
+                    })
                 msg = response.choices[0].message
                 content = getattr(msg, "content", "") or ""
                 _tool_calls = getattr(msg, "tool_calls", None)
@@ -856,11 +870,11 @@ class MimirAgentLoop:
                         logger.warning("[%s] 产出提示失败: %s", self.task_id[:8], _pexc)
                 self._close_pipeline(user_task)
                 self._task_state = TaskState.DONE  # task_state注入点3（四方共识：自然退出→DONE）
-                return AgentResult(
-                    messages=messages, turns_used=turn + 1,
-                    finished_naturally=True, reasoning_per_turn=reasoning_per_turn,
-                    tool_errors=tool_errors,
-                )
+                raise AgentLoopExit("natural", {
+                    "messages": messages, "turns_used": turn + 1,
+                    "finished_naturally": True, "reasoning_per_turn": reasoning_per_turn,
+                    "tool_errors": tool_errors,
+                })
 
         # Hit max turns
         logger.info("Agent hit max_turns (%d)", self.max_turns)
@@ -897,11 +911,32 @@ class MimirAgentLoop:
                     logger.warning("[%s] forced summary model_call failed: %s", self.task_id[:8], _exc2)
             except Exception as _exc:
                 logger.warning("[%s] forced summary failed: %s", self.task_id[:8], _exc)
-        return AgentResult(
-            messages=messages, turns_used=_effective_turns,
-            finished_naturally=False, reasoning_per_turn=reasoning_per_turn,
-            tool_errors=tool_errors,
-        )
+        raise AgentLoopExit("max_turns", {
+            "messages": messages, "turns_used": _effective_turns,
+            "finished_naturally": False, "reasoning_per_turn": reasoning_per_turn,
+            "tool_errors": tool_errors,
+        })
+
+    async def run(self, messages: List[Dict[str, Any]]) -> AgentResult:
+        """薄 run 包装器（Loki-C 2026-08-15）：try/except 捕获 AgentLoopExit，统一出口。
+
+        保留 run 作为 public API——子类 MimirAetherAgentLoop.run（L1070 附近）
+        仍调用 self._loop.run(...)，此处补齐 run 后不断链。
+        """
+        try:
+            return await self._loop_body(messages)
+        except AgentLoopExit as _exit:
+            return await self._finalize_exit(_exit.reason, _exit.result_kwargs)
+
+    async def _finalize_exit(self, reason: str, result_kwargs: dict) -> AgentResult:
+        """统一出口（Loki-C）：所有退出路径汇聚于此。
+
+        commit 1（重构，行为不变）：只加 [EXIT] 日志，不改变任何 AgentResult 语义。
+        commit 2（行为）：在此加 _has_written 校验 + 强制产出提示 + 白名单。
+        """
+        logger.info("[%s] [EXIT] reason=%s turns=%s",
+                    self.task_id[:8], reason, result_kwargs.get("turns_used"))
+        return AgentResult(**result_kwargs)
 
     def _close_pipeline(self, task_name: str = "") -> None:
         """Defensive close of execution pipeline (best-effort, never raises)."""

@@ -4,6 +4,13 @@ import threading
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+# Loki-C 2026-08-15（Mimir 条件1）：宽 except 白名单——AgentLoopExit 是正常退出信号，
+# 不能被下面 run_conversation 的 `except Exception` 吞成 "⚠️ Agent error"。
+try:
+    from agent.agent_loop import AgentLoopExit
+except Exception:  # import 失败不影响启动（AgentLoopExit 只在异常路径用）
+    AgentLoopExit = None  # type: ignore
+
 # Keep gateway inactivity watchdog alive during long LLM/tool stretches (STAB-01).
 _ACTIVITY_HEARTBEAT_INTERVAL = 30.0
 
@@ -247,6 +254,9 @@ class AIAgent:
                 "total_tokens": 0,
             }
         except Exception as exc:
+            if AgentLoopExit is not None and isinstance(exc, AgentLoopExit):
+                # Loki-C（Mimir 条件1）：AgentLoopExit 是统一出口信号，不吞——继续冒泡
+                raise
             self._current_tool = None
             self._touch_activity("run_conversation error")
             return {
