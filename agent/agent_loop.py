@@ -931,11 +931,24 @@ class MimirAgentLoop:
     async def _finalize_exit(self, reason: str, result_kwargs: dict) -> AgentResult:
         """统一出口（Loki-C）：所有退出路径汇聚于此。
 
-        commit 1（重构，行为不变）：只加 [EXIT] 日志，不改变任何 AgentResult 语义。
-        commit 2（行为）：在此加 _has_written 校验 + 强制产出提示 + 白名单。
+        commit 2（行为）：_has_written 校验 + [EXIT] 四要素日志（可观测性）。
+        让"探索完就停"（探索完 0 落盘静默结束）在日志现形为 has_written=false。
+        natural 路径的强制产出提示仍在 _loop_body 循环内（L824-870 架构修复2，保留）。
         """
-        logger.info("[%s] [EXIT] reason=%s turns=%s",
-                    self.task_id[:8], reason, result_kwargs.get("turns_used"))
+        messages = result_kwargs.get("messages") or []
+        # 白名单：interrupt/tool_storm 是主动停止（非"探索完就停"），不视为漏产出
+        _NO_FORCE_WHITELIST = {"interrupt", "tool_storm"}
+        _WRITE_TOOLS = {"write_file", "patch", "create_file", "edit", "write"}
+        _has_written = any(
+            m.get("role") == "assistant" and any(
+                _get_tc_name(tc) in _WRITE_TOOLS for tc in (m.get("tool_calls") or [])
+            )
+            for m in messages
+        )
+        # SRE 三件套之二：exit 四要素日志（reason/has_written/task/turns）
+        logger.info("[%s] [EXIT] reason=%s turns=%s has_written=%s whitelisted=%s",
+                    self.task_id[:8], reason, result_kwargs.get("turns_used"),
+                    _has_written, reason in _NO_FORCE_WHITELIST)
         return AgentResult(**result_kwargs)
 
     def _close_pipeline(self, task_name: str = "") -> None:
