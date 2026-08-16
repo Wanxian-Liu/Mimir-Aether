@@ -891,18 +891,36 @@ class MimirAgentLoop:
             return await self._finalize_exit(_exit.reason, _exit.result_kwargs)
 
     def _check_has_written(self, messages: List[Dict[str, Any]]) -> bool:
-        """检查会话是否产生过写盘产出（Loki-C commit 3 提取）。
+        """检查会话是否产生过写盘产出（Loki-C commit 3 提取 + 2026-08-16 目标校验升级）。
 
         复用修复 A（2026-08-15）：按 assistant tool_calls 的 function.name 精确判断，
         弃用 content 字符串匹配（"bytes" 太宽泛，read_file 读大文件返回 "large bytes" 误判已写盘）。
+
+        2026-08-16 升级（治"写了工作记忆≠写了交付物"）：提取 write_file/patch 的目标路径，
+        排除工作记忆（search-notes.md 等），只有写到真实交付物才算"有产出"。
+        根因：Mimir 写 search-notes.md（工作记忆）后 _check_has_written=True 放过，
+        但目标交付物（讨论卡段）没写——"写到别处不算"。
         """
+        import re as _re
         _WRITE_TOOLS = {"write_file", "patch", "create_file", "edit", "write"}
-        return any(
-            m.get("role") == "assistant" and any(
-                _get_tc_name(tc) in _WRITE_TOOLS for tc in (m.get("tool_calls") or [])
-            )
-            for m in messages
-        )
+        _WORK_MEMORY_KEYS = ("search-notes.md", "/tmp/", "PROGRESS.md")
+        for m in messages:
+            if m.get("role") != "assistant":
+                continue
+            for tc in (m.get("tool_calls") or []):
+                if _get_tc_name(tc) not in _WRITE_TOOLS:
+                    continue
+                args_raw = _get_tc_args(tc)
+                args_str = args_raw if isinstance(args_raw, str) else json.dumps(args_raw, ensure_ascii=False)
+                # 提取目标路径（write_file 的 path / patch 的 path / file_path 等）
+                _paths = _re.findall(
+                    r'["\']?([\w./~-]+\.(?:md|py|json|txt|yaml|yml|sh|log))["\']?',
+                    args_str,
+                )
+                # 只要有一个非工作记忆的交付物路径，就算有产出
+                if any(p and not any(k in p for k in _WORK_MEMORY_KEYS) for p in _paths):
+                    return True
+        return False
 
     async def _inject_production_nudge(self, messages: List[Dict[str, Any]]) -> None:
         """注入产出提示（架构修复2 + Loki-C commit 3 提取）：无写盘产出时引导落盘（best-effort，不抛）。"""
