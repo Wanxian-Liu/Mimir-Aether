@@ -944,10 +944,36 @@ class MimirAgentLoop:
                 if _msg is None and (hasattr(_resp, "content") or isinstance(_resp, dict)):
                     _msg = _resp
                 _text = None
+                _tool_calls = None
                 if isinstance(_msg, dict):
                     _text = _msg.get("content")
+                    _tool_calls = _msg.get("tool_calls")
                 elif _msg is not None:
                     _text = getattr(_msg, "content", None)
+                    _tool_calls = getattr(_msg, "tool_calls", None)
+                # 2026-08-16 修复（Code Reviewer）：产出提示后的写盘 tool_call 必须执行，否则"提醒了但动作被丢弃"
+                # 根因：旧实现只提取 content 文本，丢弃 tool_calls——Mimir 响应产出提示想 write_file 时动作被丢，仍 0 落盘
+                if _tool_calls:
+                    _executor = get_tool_executor()
+                    for _tc in _tool_calls:
+                        _tname = _get_tc_name(_tc)
+                        if _tname not in {"write_file", "patch", "create_file", "edit", "write"}:
+                            continue
+                        _targs_raw = _get_tc_args(_tc)
+                        _tid = _get_tc_id(_tc)
+                        try:
+                            _ta = json.loads(_targs_raw) if isinstance(_targs_raw, str) else (_targs_raw or {})
+                        except Exception:
+                            _ta = {}
+                        try:
+                            _result = await asyncio.get_running_loop().run_in_executor(
+                                _executor,
+                                lambda tn=_tname, ta=_ta, tid=_tid: self.tool_dispatcher(tn, ta, tid),
+                            )
+                            messages.append({"role": "tool", "tool_call_id": _tid, "content": str(_result)})
+                            logger.info("[%s] 产出提示后写盘执行: %s", self.task_id[:8], _tname)
+                        except Exception as _te:
+                            logger.warning("[%s] 产出提示后写盘失败: %s", self.task_id[:8], _te)
                 if _text:
                     messages.append({"role": "assistant", "content": _text})
         except Exception as _pexc:
