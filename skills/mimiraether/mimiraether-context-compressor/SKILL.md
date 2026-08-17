@@ -233,7 +233,7 @@ _概念溯源: Hermes Agent context compressor；实现真源: 本仓库 `agent/
 |--------|------|---------|
 | 压缩器是否在运行 | `grep "auto-compress failed" ~/.mimiraether/logs/gateway.log \| wc -l` | =0（有则先查 coroutine 链） |
 | 压缩是否真生效 | gateway.log `Session hygiene: compressed` 前后消息数/token 口径 | 消息数大幅下降；token 用同口径比（勿被"翻倍"误导） |
-| 参数与代码是否一致 | 对比本技能"运行时真源" vs `agent/context_compressor.py` / `agent/core_loop.py` 实参 | threshold 0.85 / tail 4000 硬编码一致 |
+| 参数与代码是否一致 | 对比本技能"运行时真源" vs `agent/context_compressor.py` / `agent/core_loop.py` 实参 | 2026-08-17 实测：gateway 卫生触发=固定 200K actual（agent_route_mixin.py L322，非 85%×ctx，85% 仅日志残留文案 bug）；agent 内 threshold_tokens=1M×0.35=350K（tuned_thresholds.json `compressor.threshold_percent: 0.35`，core_loop L397-421 env>tuned>0.50）；tail=4000 |
 | 是否需要迭代 | 技能内知识是否落后于代码（代码改版后本技能未同步） | 若代码变动而本技能未更新 → 需迭代 |
 
 _审计记录：每次使用/检查后在此节下方追加一行（日期 + 检查项 + 结果），形成审计轨迹。_
