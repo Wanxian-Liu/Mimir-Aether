@@ -2,10 +2,12 @@
 
 在 assistant 回复含有声明性结论时，强制触发验证提醒。
 env 门控: MIMIR_VERIFY_BEFORE_REPORT=1
+TD-04（2026-08-18）：空洞确认模板硬拦截——"收到——落盘"式无工具承诺回复直接 block。
 """
 
 import os
 import json
+import re
 from typing import Any
 
 VERIFY_TRIGGERS = [
@@ -64,6 +66,35 @@ def _task_requires_write(messages: list[dict[str, Any]]) -> bool:
     return any(m in last_user for m in WRITE_TASK_MARKERS)
 
 
+# ── TD-04（2026-08-18）：空洞确认模板硬拦截 ──
+# 8/17 论文任务失败根因：Mimir 连续输出"收到——落盘"式空洞确认（无工具调用、无实质内容），
+# 不触发 VERIFY_TRIGGERS（无"已完成/已验证"等声明词）→ guard 放行 → 产出校验被绕过。
+# 修复：检测"收到/好的 + 承诺词 + 无工具调用 + 短回复"组合 → 直接 block。
+HOLLOW_ACK_PREFIX = re.compile(r"^(收到|好的|好|ok|OK|可以)[，,。\s]*(?:——|-|—|:)*")
+HOLLOW_ACK_PROMISE_WORDS = ("落盘", "写盘", "记录", "探索", "补上", "入库", "固化", "沉淀")
+_HOLLOW_ACK_MAX_LEN = 80
+
+
+def _is_hollow_ack(assistant_text: str | None) -> bool:
+    """空洞确认模板检测：收到/好的开头 + 承诺词 + 短回复（无工具调用由调用方判定）。"""
+    t = (assistant_text or "").strip()
+    if not t or len(t) >= _HOLLOW_ACK_MAX_LEN:
+        return False
+    if not HOLLOW_ACK_PREFIX.match(t):
+        return False
+    return any(w in t for w in HOLLOW_ACK_PROMISE_WORDS)
+
+
+def _has_any_tool_call_this_turn(messages: list[dict[str, Any]]) -> bool:
+    """检查本轮（最近 user 之后）是否有任何工具调用。"""
+    for msg in reversed(messages):
+        if msg.get("role") == "assistant" and msg.get("tool_calls"):
+            return True
+        if msg.get("role") == "user":
+            break
+    return False
+
+
 def _has_written_this_turn(messages: list[dict[str, Any]]) -> bool:
     """检查本轮是否有写盘动作（write_file/patch等）"""
     for msg in reversed(messages):
@@ -95,6 +126,10 @@ def should_block_finish(messages: list[dict[str, Any]], assistant_text: str) -> 
     # 非写盘任务：保持原逻辑（调过验证工具即放行）
     if _has_verified_this_turn(messages):
         return False
+    # ── TD-04（2026-08-18）：空洞确认模板硬拦截 ──
+    # "收到——落盘"式承诺回复（无工具调用、无验证）→ 直接 block，LLM 无法绕过
+    if _is_hollow_ack(assistant_text) and not _has_any_tool_call_this_turn(messages):
+        return True
     text = (assistant_text or "").lower()
     return any(trigger.lower() in text for trigger in VERIFY_TRIGGERS)
 

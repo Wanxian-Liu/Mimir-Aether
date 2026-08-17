@@ -1,8 +1,13 @@
 """IQ-EVO-47 IntentPredictor MVP."""
-
 from __future__ import annotations
 
-import os
+import sys
+from pathlib import Path
+
+# Add repo root so we can import intent_predictor
+_repo_root = Path(__file__).resolve().parent.parent.parent
+if str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
 
 from agent.intent_predictor import (
     IntentPrediction,
@@ -84,3 +89,37 @@ def test_predict_and_format_low_confidence_general():
     assert pred is not None
     assert pred.confidence < 0.5
     assert "low-confidence" in block
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TD-01（2026-08-18）：research 口语 pattern 扩展
+# 8/17 论文任务失败根因之一：口语化请求（"了解一下"/"帮我找找"）不命中 research
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _intent(text: str) -> str:
+    return predict(text).intent
+
+
+def test_research_casual_liaojie() -> None:
+    """「了解一下」→ research（口语触发词）。"""
+    assert _intent("了解一下") == "research"
+
+
+def test_research_casual_zhaozhao() -> None:
+    """「帮我找找」→ research（找找触发词）。"""
+    assert _intent("帮我找找") == "research"
+
+
+def test_research_casual_geiwozhao() -> None:
+    """「给我找一篇数学论文」→ research。"""
+    assert _intent("给我找一篇数学论文") == "research"
+
+
+def test_research_casual_kankan() -> None:
+    """「帮我看看有什么好东西」→ research。"""
+    assert _intent("帮我看看有什么好东西") == "research"
+
+
+def test_research_followup_question() -> None:
+    """追问「什么论文？」→ research（8/17 场景：用户追问仍要识别为 research）。"""
+    assert _intent("什么论文？") == "research"

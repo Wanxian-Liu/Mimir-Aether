@@ -30,6 +30,9 @@ _INTENT_PATTERNS: Tuple[Tuple[str, re.Pattern[str]], ...] = (
     ("recall", re.compile(r"(?i)上次|之前|记得|session_search|搜.*会话|历史.*对话|还记得")),
     ("ops", re.compile(r"(?i)gateway|health_check|mimir_ops|tier0|restart|/new|日志|agent\.log")),
     ("chat", re.compile(r"(?i)^(hi|hello|你好|谢谢|在吗|早上好)[\s!?.。]*$")),
+    # 2026-08-17 根治：research 意图——找论文/找资料/搜索/调研类请求必须触发搜索（刘哥"找数学论文"被误判 general/simple 的修复）
+    # 2026-08-18 TD-01：补口语触发词——了解一下/帮我找找/给我找/找找/看看/了解（8/17 追问"什么论文？"仍识别 research）
+    ("research", re.compile(r"(?i)论文|research|调研|找.*(论文|资料|信息|项目|仓库|卡)|查.*(论文|资料|信息)|搜.*|热门|炙手可热|推荐|看看.*(什么|论文)|了解.*(什么|方向)|了解一下|找找|帮我找|给我找|帮我看看|有.*(论文|项目|资料)|讲.*(论文|项目)")),
 )
 
 
@@ -85,10 +88,10 @@ _CONTINUE_PATTERNS = re.compile(r"(?i)继续|接着|cont|resume|继续离席|new
 def predict(user_message: str) -> IntentPrediction:
     intent, confidence = _classify_intent(user_message)
     complexity = _estimate_complexity(user_message)
-    prefer_search = intent == "recall" or (
+    prefer_search = intent in ("recall", "research") or (
         intent in ("code", "debug", "ops") and complexity != "simple"
     )
-    block_cheap = complexity == "complex" or intent in ("code", "debug", "ops")
+    block_cheap = complexity == "complex" or intent in ("code", "debug", "ops", "research")
 
     # P0 override: 续执行时强制走工具验证 + 搜历史
     if _CONTINUE_PATTERNS.search(user_message):
@@ -124,6 +127,8 @@ def build_intent_context_block(prediction: IntentPrediction) -> str:
         lines.append("Grounded task: use tools in this turn; do not defer with text-only plans.")
     if prediction.intent == "recall":
         lines.append("User likely refers to prior work — search sessions or MEMORY.md first.")
+    if prediction.intent == "research":
+        lines.append("Research task: MUST use web_search/read_file this turn; do NOT answer from memory alone.")
     lines.append("</intent-context>")
     return "\n".join(lines)
 
