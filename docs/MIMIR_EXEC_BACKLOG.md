@@ -1342,3 +1342,21 @@ _level_5_   auto_retrospective.py (74行)    ❌ 已被守卫内置复盘取代
 - SA-02 依赖 SA-01（skills_hub 需先确认 skills_qa 是否可用）
 - SA-03 独立（可并行）
 - SA-04 最后（涉及面最广）
+
+---
+
+## §23 系统层技术债：8/17 论文任务失败系统修复（2026-08-18 · 待刘哥拍板）
+
+> **来源**：`docs/MIMIR_TECHDEBT_SYSTEM3FIXES_20260818.md`（完整方案 + 验证清单 + 回滚预案）
+> **背景**：8/17 论文任务 8 追问 7 空洞确认——行为层已固化（AGENTS.md §11），系统层 3 帮凶待修
+> **规则**：每粒独立 commit · env 门控可回滚 · 改动 agent/gateway 需刘哥拍板
+
+| ID | 优先级 | 问题 | 方案摘要 | 改动位置 | 状态 |
+|----|--------|------|----------|----------|------|
+| **TD-01** | P0 | IntentPredictor 只预测首条消息，后续追问无提示 | 每轮重估 `predict_and_format` + research pattern 补口语 | `agent/core_loop.py` L750-768 + `agent/intent_predictor.py` L34 | [ ] |
+| **TD-02** | P1 | History window 双重截断（gateway 50 → agent 25）跨轮失忆 | 截断前结构化摘要注入 + 双窗口对齐 50 | `gateway/agent_mixin.py` L1088-1103 + `agent/core_loop.py` L640-656 | [ ] |
+| **TD-03** | P1 | 产出提示软提示可被空洞确认绕过 | 三级强制：L1 软 → L2 硬拦截（复用 guard）→ L3 中断 has_written=False | `agent/agent_loop.py` L846-859 | [ ] |
+| **TD-04** | P0 | 空洞确认模板（"收到——落盘"）无触发词不拦截 | `_is_hollow_ack()` 检测 + `should_block_finish` 分支 | `agent/verify_before_report_guard.py` | [ ] |
+
+**建议批次**：批1 = TD-04 + TD-01（小改直接治事故）→ 批2 = TD-03 → 批3 = TD-02
+**验收**：8/17 场景 e2e（"去网上找论文"必须出现 web_search 工具调用）+ tier0 全绿 + 新增单测 8 个
