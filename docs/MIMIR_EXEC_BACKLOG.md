@@ -1353,10 +1353,15 @@ _level_5_   auto_retrospective.py (74行)    ❌ 已被守卫内置复盘取代
 
 | ID | 优先级 | 问题 | 方案摘要 | 改动位置 | 状态 |
 |----|--------|------|----------|----------|------|
-| **TD-01** | P0 | IntentPredictor 只预测首条消息，后续追问无提示 | 每轮重估 `predict_and_format` + research pattern 补口语 | `agent/core_loop.py` L750-768 + `agent/intent_predictor.py` L34 | [ ] |
+| **TD-01** | P0 | IntentPredictor 只预测首条消息，后续追问无提示 | pattern 补口语 ✅（`agent/intent_predictor.py` L34，commit 116a1b5）；**每轮重估 ⏸ 需工程侧**——`agent/agent_loop.py` L291-308 `if turn == 0` → 每轮重估（受 self_evolution 保护，agent 不能改） | `agent/agent_loop.py` L291-308（工程侧）+ `agent/intent_predictor.py` L34 ✅ | [~] pattern ✅ / 每轮重估 ⏸ |
 | **TD-02** | P1 | History window 双重截断（gateway 50 → agent 25）跨轮失忆 | 截断前结构化摘要注入 + 双窗口对齐 50 | `gateway/agent_mixin.py` L1088-1103 + `agent/core_loop.py` L640-656 | [ ] |
-| **TD-03** | P1 | 产出提示软提示可被空洞确认绕过 | 三级强制：L1 软 → L2 硬拦截（复用 guard）→ L3 中断 has_written=False | `agent/agent_loop.py` L846-859 | [ ] |
-| **TD-04** | P0 | 空洞确认模板（"收到——落盘"）无触发词不拦截 | `_is_hollow_ack()` 检测 + `should_block_finish` 分支 | `agent/verify_before_report_guard.py` | [ ] |
+| **TD-03** | P1 | 产出提示软提示可被空洞确认绕过 | 三级强制：L1 软 → L2 硬拦截（复用 guard）→ L3 中断 has_written=False | `agent/agent_loop.py` L846-859（受保护，需工程侧） | [ ] |
+| **TD-04** | P0 | 空洞确认模板（"收到——落盘"）无触发词不拦截 | `_is_hollow_ack()` 检测 + `should_block_finish` 分支 ✅（commit 116a1b5，测试 11 个） | `agent/verify_before_report_guard.py` | [x] 2026-08-18 |
+
+**TD-01 每轮重估（工程侧任务卡）**：
+- 位置：`agent/agent_loop.py` L291-308
+- 改动：`if turn == 0 and intent_predictor_enabled():` → 每轮检查（`intent_predictor_enabled()`），仅当最新 user 消息与上次注入不同且非系统注入前缀（`[BLOCKED`/`[SEARCH-FIRST`/`【架构`/`[intent-action-guard]`）时重新 `intent_predict_and_format` 并 append
+- 验证：`pytest tests/agent/test_intent_predictor.py -q` 全绿 + 日志出现多轮 `intent-context injected`
 
 **建议批次**：批1 = TD-04 + TD-01（小改直接治事故）→ 批2 = TD-03 → 批3 = TD-02
 **验收**：8/17 场景 e2e（"去网上找论文"必须出现 web_search 工具调用）+ tier0 全绿 + 新增单测 8 个
