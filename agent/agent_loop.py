@@ -184,6 +184,8 @@ class MimirAgentLoop:
         self.valid_tool_names = valid_tool_names
         self.tool_dispatcher = tool_dispatcher
         self.max_turns = max_turns
+        self._read_paths: set = set()  # ADR-008 重复读检测
+        self._read_paths_count: dict = {}  # ADR-008 重复计数
         self.task_id = task_id or str(uuid.uuid4())
         self.temperature = temperature
         self.max_tokens = max_tokens
@@ -572,6 +574,23 @@ class MimirAgentLoop:
                                 error_message=err_msg, duration_ms=telapsed * 1000,
                                 result_summary=str(tool_result)[:200],
                             )
+                            # ADR-008 重复读检测（第一阶段·零行为改变·仅日志）——2026-08-18
+                            if tname == "read_file":
+                                try:
+                                    import json as _json
+                                    _args = _json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
+                                    _rpath = str(_args.get("path", "")).strip()
+                                    if _rpath:
+                                        if _rpath in self._read_paths:
+                                            self._read_paths_count[_rpath] = self._read_paths_count.get(_rpath, 1) + 1
+                                            import logging as _logging
+                                            _logging.getLogger("agent.agent_loop").warning(
+                                                f"[dup-read] 重复读取同一文件 {_rpath} 第{self._read_paths_count[_rpath]}次——若已连续多轮无落盘，请停止读取直接产出（ADR-008）")
+                                        else:
+                                            self._read_paths.add(_rpath)
+                                            self._read_paths_count[_rpath] = 1
+                                except Exception:
+                                    pass
                             if not ok:
                                 tool_errors.append(ToolError(
                                     turn=turn + 1, tool_name=tname,
@@ -825,7 +844,9 @@ class MimirAgentLoop:
                 # 问题：no tools 正常结束路径无产出检查——若最后 assistant 只是"调查总结"无落盘动作→0产出静默
                 # 修复：检查本会话是否真的产出过（写盘动作）——若无→注入产出提示（引导补产出）
                 _has_written = self._check_has_written(messages)
-                if not _has_written and any(m.get("role") == "assistant" for m in messages):
+                if (self._nudge_enabled() and not _has_written
+                        and any(m.get("role") == "assistant" for m in messages)
+                        and self._should_nudge_production(messages)):
                     logger.info(
                         "[%s] turn %d: 主动结束但无写盘产出——追加产出提示", self.task_id[:8], turn + 1
                     )
@@ -922,6 +943,28 @@ class MimirAgentLoop:
                     return True
         return False
 
+    def _nudge_enabled(self) -> bool:
+        """nudge 机制总开关（2026-08-17 刘哥拍板停用）：MIMIR_NUDGE_ENABLED=0 → 停用，靠提示词主动落盘。"""
+        return os.environ.get("MIMIR_NUDGE_ENABLED", "1").strip().lower() not in ("0", "false", "no")
+
+    def _should_nudge_production(self, messages: List[Dict[str, Any]]) -> bool:
+        """问答型豁免（2026-08-17 刘哥根治）：最后一条 user 消息是简短问答/催促（无任务词）→ 不触发产出提示。
+        根因：刘哥问"怎么不回答了？"被 nudge 劫持成"收到——落盘"模板，答非所问。"""
+        _task_words = ("落盘", "记录", "报告", "分析", "审计", "整理", "写", "总结",
+                       "查找", "找", "搜索", "任务", "生成", "创建", "修复", "执行",
+                       "论文", "调研", "查", "评估", "检查", "对比")
+        for m in reversed(messages):
+            if m.get("role") == "user":
+                _t = m.get("content", "")
+                if isinstance(_t, list):
+                    _t = " ".join(str(x.get("text", "")) for x in _t if isinstance(x, dict))
+                _t = str(_t).strip()
+                _is_question = _t.endswith(("？", "?", "吗", "呢", "了", "？"))
+                if (len(_t) < 40 and not any(w in _t for w in _task_words)) or (_is_question and len(_t) < 60):
+                    return False  # 简短催促/追问/问答 → 豁免，直接回答即可
+                break
+        return True
+
     async def _inject_production_nudge(self, messages: List[Dict[str, Any]]) -> None:
         """注入产出提示（架构修复2 + Loki-C commit 3 提取）：无写盘产出时引导落盘（best-effort，不抛）。"""
         try:
@@ -930,7 +973,8 @@ class MimirAgentLoop:
                 "content": (
                     "【架构产出提示】你即将结束任务，但本会话尚未产生任何写盘产出（write_file/patch）。\n"
                     "如果任务要求产出（分析结论/审计报告/记录），请立即用 write_file/patch 落盘到指定路径——"
-                    "否则任务视为未完成。"
+                    "否则任务视为未完成。\n"
+                    "如果用户只是问答/闲聊/催促（不需要落盘产出），直接回答用户问题即可——回答本身就是完成。"
                 ),
             }
             messages.append(_prod_msg)
