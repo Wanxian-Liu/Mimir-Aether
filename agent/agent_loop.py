@@ -844,11 +844,17 @@ class MimirAgentLoop:
                 # 问题：no tools 正常结束路径无产出检查——若最后 assistant 只是"调查总结"无落盘动作→0产出静默
                 # 修复：检查本会话是否真的产出过（写盘动作）——若无→注入产出提示（引导补产出）
                 _has_written = self._check_has_written(messages)
-                if (self._nudge_enabled() and not _has_written
+                # ===== 架构修复（2026-08-18 拆关注点）：产出校验独立于 nudge 开关 =====
+                # 问题：nudge 停用（MIMIR_NUDGE_ENABLED=0 治空洞确认）→ _nudge_enabled()=False
+                #       → 本 if 短路 → 产出校验失效 → run 无交付也能自然结束
+                #       （2026-08-18 实证：872d92cc 12步 / a0b777b 6步 均无写盘结束）
+                # 修复：_has_written 校验独立触发——nudge 开关只控制"记忆/技能 nudge"（空洞确认源），
+                #       不控制"产出校验"（写盘强制）——两个关注点解耦
+                if (not _has_written
                         and any(m.get("role") == "assistant" for m in messages)
                         and self._should_nudge_production(messages)):
                     logger.info(
-                        "[%s] turn %d: 主动结束但无写盘产出——追加产出提示", self.task_id[:8], turn + 1
+                        "[%s] turn %d: 主动结束但无写盘产出——追加产出提示（产出校验独立于nudge开关）", self.task_id[:8], turn + 1
                     )
                     await self._inject_production_nudge(messages)
                 self._close_pipeline(user_task)
