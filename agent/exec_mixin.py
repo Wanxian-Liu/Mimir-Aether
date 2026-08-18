@@ -419,7 +419,8 @@ class ExecMixin:
         _low = content.lower()
         # M2 修复（2026-08-18）：英文词用 \b 词边界（防 "you" 类误报）——中文保持 contains（.lower() 等价原串）
         def _hit(w: str) -> bool:
-            if w.isascii() and w[0].isalpha():
+            # 词边界仅用于"纯字母单词"（you are now 等）——含符号/非字母结尾的模式（exec( 等）直接 contains
+            if w.isascii() and w.isalpha():
                 return re.search(r"\b" + re.escape(w.lower()) + r"\b", _low) is not None
             return w.lower() in _low
         _inject_hits = [w for w in self._INJECTION_PATTERNS if _hit(w)]
