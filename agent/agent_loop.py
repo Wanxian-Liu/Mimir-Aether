@@ -575,8 +575,8 @@ class MimirAgentLoop:
                     "role": "assistant", "content": content or "",
                     "tool_calls": normalized,
                 }
-                if _reasoning:
-                    msg_dict["reasoning_content"] = _reasoning
+                # DeepSeek 思考模式必须回传 reasoning_content（空串也回传——否则 400）
+                msg_dict["reasoning_content"] = _reasoning or ""
                 messages.append(msg_dict)
 
                 # Use normalized calls for dispatch so missing `id` matches assistant.tool_calls
@@ -831,8 +831,8 @@ class MimirAgentLoop:
             else:
                 # No tool calls — finish unless intent-action guard blocks deferral.
                 msg_dict = {"role": "assistant", "content": content or ""}
-                if _reasoning:
-                    msg_dict["reasoning_content"] = _reasoning
+                # DeepSeek 思考模式必须回传 reasoning_content（空串也回传——否则 400）
+                msg_dict["reasoning_content"] = _reasoning or ""
                 messages.append(msg_dict)
 
                 if (
