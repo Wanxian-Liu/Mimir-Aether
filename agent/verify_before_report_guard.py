@@ -28,9 +28,28 @@ def guard_enabled() -> bool:
     return os.environ.get("MIMIR_VERIFY_BEFORE_REPORT", "1") == "1"
 
 
+# ── 系统注入消息识别（2026-08-18 Hermes 修复 · Mimir 审计 P0-1 根因链第二环）──
+# 根因：TD-03 L1 软提示注入文本含"落盘/write_file"字样 → _task_requires_write 误判为写盘任务
+#       → verify guard 对后续所有无写盘回复硬拦（"Done!" 等收尾语被拦）→ 与 TD-03 叠加死循环。
+# 修复：_last_user_text 等只认真实用户消息，跳过系统注入（guard 提示/软提示/intent-context/skill nudge）。
+_SYSTEM_INJECT_PREFIXES = (
+    "[MIMIR_", "[BLOCKED:", "[SEARCH-FIRST", "<intent-context>",
+    "【架构产出提示】", "[intent-action-guard]",
+)
+
+def _is_system_inject(msg: dict[str, Any]) -> bool:
+    """系统注入的 user 消息（guard 提示/软提示/intent 上下文）——非真实用户指令。"""
+    if msg.get("role") != "user":
+        return False
+    c = msg.get("content")
+    if not isinstance(c, str):
+        return False
+    return c.startswith(_SYSTEM_INJECT_PREFIXES)
+
+
 def _last_user_text(messages: list[dict[str, Any]]) -> str:
     for msg in reversed(messages):
-        if msg.get("role") == "user" and isinstance(msg.get("content"), str):
+        if msg.get("role") == "user" and isinstance(msg.get("content"), str) and not _is_system_inject(msg):
             return msg["content"]
     return ""
 
@@ -44,6 +63,8 @@ def _has_verified_this_turn(messages: list[dict[str, Any]]) -> bool:
                 if tc.get("function", {}).get("name", "") in VERIFICATION_TOOLS:
                     return True
         if msg.get("role") == "user":
+            if _is_system_inject(msg):
+                continue  # 系统注入消息不构成边界——继续找真实 user
             break
     return False
 
@@ -86,11 +107,13 @@ def _is_hollow_ack(assistant_text: str | None) -> bool:
 
 
 def _has_any_tool_call_this_turn(messages: list[dict[str, Any]]) -> bool:
-    """检查本轮（最近 user 之后）是否有任何工具调用。"""
+    """检查本轮（最近真实 user 之后）是否有任何工具调用。"""
     for msg in reversed(messages):
         if msg.get("role") == "assistant" and msg.get("tool_calls"):
             return True
         if msg.get("role") == "user":
+            if _is_system_inject(msg):
+                continue
             break
     return False
 
@@ -103,6 +126,8 @@ def _has_written_this_turn(messages: list[dict[str, Any]]) -> bool:
                 if tc.get("function", {}).get("name", "") in WRITE_TOOLS:
                     return True
         if msg.get("role") == "user":
+            if _is_system_inject(msg):
+                continue
             break
     return False
 

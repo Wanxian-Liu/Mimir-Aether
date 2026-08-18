@@ -1031,9 +1031,29 @@ class MimirAgentLoop:
         """nudge 机制总开关（2026-08-17 刘哥拍板停用）：MIMIR_NUDGE_ENABLED=0 → 停用，靠提示词主动落盘。"""
         return os.environ.get("MIMIR_NUDGE_ENABLED", "1").strip().lower() not in ("0", "false", "no")
 
+    # 系统注入消息前缀（guard 提示/软提示/intent 上下文/skill nudge）——非真实用户指令
+    _SYSTEM_INJECT_PREFIXES = (
+        "[MIMIR_", "[BLOCKED:", "[SEARCH-FIRST", "<intent-context>",
+        "【架构产出提示】", "[intent-action-guard]",
+    )
+
     def _should_nudge_production(self, messages: List[Dict[str, Any]]) -> bool:
-        """问答型豁免（2026-08-17 刘哥根治）：最后一条 user 消息是简短问答/催促（无任务词）→ 不触发产出提示。
+        """问答型豁免（2026-08-17 刘哥根治）：最后一条真实 user 消息是简短问答/催促（无任务词）→ 不触发产出提示。
         根因：刘哥问"怎么不回答了？"被 nudge 劫持成"收到——落盘"模板，答非所问。"""
+        # TD-03 修订5（2026-08-18 Mimir 审计 P0-1）：intent=chat 豁免——意图分类器已判纯对话，
+        # 不强制写盘产出（对齐 OpenClaw R4 预警"长回复正常收尾误伤" + 5 回归根因：纯文本 chat 被 L2/L3 硬拦）。
+        # 修订6（同轮）：跳过全部系统注入消息（intent-context/skill nudge/软提示/guard 提示）——
+        # 只看最后一条真实用户消息，与 verify guard 的 _is_system_inject 对齐（防"软提示含落盘字样"误判链）。
+        for m in reversed(messages):
+            if m.get("role") == "user":
+                _c = m.get("content", "")
+                if not isinstance(_c, str):
+                    continue
+                if "intent=chat" in _c:
+                    return False  # 纯对话 → 豁免产出强制，自然退出即可
+                if _c.startswith(self._SYSTEM_INJECT_PREFIXES):
+                    continue  # 系统注入消息 → 跳过，继续找真实 user 消息
+                break
         _task_words = ("落盘", "记录", "报告", "分析", "审计", "整理", "写", "总结",
                        "查找", "找", "搜索", "任务", "生成", "创建", "修复", "执行",
                        "论文", "调研", "查", "评估", "检查", "对比")
@@ -1043,6 +1063,8 @@ class MimirAgentLoop:
                 if isinstance(_t, list):
                     _t = " ".join(str(x.get("text", "")) for x in _t if isinstance(x, dict))
                 _t = str(_t).strip()
+                if _t.startswith(self._SYSTEM_INJECT_PREFIXES):
+                    continue  # 同上：系统注入消息不参与问答型豁免判断
                 _is_question = _t.endswith(("？", "?", "吗", "呢", "了", "？"))
                 if (len(_t) < 40 and not any(w in _t for w in _task_words)) or (_is_question and len(_t) < 60):
                     return False  # 简短催促/追问/问答 → 豁免，直接回答即可
