@@ -410,8 +410,11 @@ class ExecMixin:
         #    避免纯 JSON/纯文本误报）
         if func_name in ("web_extract", "web_fetch", "fetch_url", "http_request", "curl"):
             _has_status = bool(
-                re.search(r"HTTP/[12]\.\d\s+\d{3}", content[:2000])
-                or re.search(r"""status[_ ]?code["']?\s*[:=]\s*\d{3}""", content[:2000])
+                # B4 修复（2026-08-18 OpenClaw B4）：只认 2xx（HTTP/1.1 200 / status_code: 2xx）——
+                # 404/500 不算"正常响应"（原 \d{3} 过宽——404 也通过）
+                re.search(r"HTTP/[12]\.\d\s+2\d{2}", content[:2000])
+                or re.search(r"""status[_ ]?code["']?\s*[:=]\s*2\d{2}""", content[:2000])
+                or re.search(r"""statusCode["']?\s*[:=]\s*2\d{2}""", content[:2000])
             )
             if not _has_status:
                 _notes.append("无 HTTP 状态信息")
