@@ -480,18 +480,24 @@ class ExecMixin:
                 if isinstance(_v, str) and _v.strip():
                     _path = _v
                     break
+        # L5 修复（2026-08-18 23:10 · OpenClaw 二轮 🔴 + Mimir R1 复现）：高危命令检查必须无条件执行
+        # （原挂在 if not _path 下——S4 后 _path 对 exec 永远非空 → 死代码——7 种高危命令全放行）
+        # 命令类工具：无论 _path 空否——先做命令内容扫描（独立于路径检查）
+        if func_name in ("exec", "terminal", "bash"):
+            _cmd = str(arguments.get("command") or arguments.get("cmd") or "")
+            _low_cmd = _cmd.lower()
+            for _d in ("rm -rf /", "rm -fr /", "rm -rf ~", "sudo rm", "dd if=/dev/zero",
+                       "mkfs", "> /dev/sda", "chmod 777 /", "chown -r", ":(){", "shutdown",
+                       "curl | bash", "curl|bash", "wget | bash", "wget|bash",
+                       "curl | sh", "curl|sh", "wget | sh", "wget|sh",
+                       "python -c", "python3 -c", "eval(", "bash -i", "nc -e",
+                       "find / -delete", "base64 -d",
+                       "| bash", "| sh", "| python", "| python3", "| perl", "| nc"):
+                if _d in _low_cmd:
+                    logger.warning("HardRule#1: %s 高危命令被拒: %s", func_name, _cmd[:80])
+                    return f"Blocked by path whitelist: dangerous command pattern '{_d}'"
         if not _path:
-            # L5：exec/terminal 无路径参数——高危命令模式扫描（阶段 1.5）
-            if func_name in ("exec", "terminal", "bash"):
-                _cmd = str(arguments.get("command") or arguments.get("cmd") or "")
-                _low_cmd = _cmd.lower()
-                for _d in ("rm -rf /", "rm -fr /", "dd if=/dev/zero", "mkfs", "> /dev/sda",
-                           "chmod 777 /", "chown -r", ":(){", "shutdown",
-                           "curl | bash", "curl|bash", "wget | bash", "wget|bash"):
-                    if _d in _low_cmd:
-                        logger.warning("HardRule#1: %s 高危命令被拒: %s", func_name, _cmd[:80])
-                        return f"Blocked by path whitelist: dangerous command pattern '{_d}'"
-            return None  # 真无路径（如 list_dir 无参）→ 放行
+            return None  # 真无路径（如 list_dir 无参）→ 放行（命令类已在上方检查）
         # 路径规范化（S3 unquote → S2 normcase → S1 realpath）
         try:
             from urllib.parse import unquote
