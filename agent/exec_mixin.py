@@ -22,33 +22,51 @@ from typing import List, Dict, Optional, Any, TYPE_CHECKING
 import threading
 import queue as _queue
 import re
+import atexit
+from collections import deque
 
-# P3 审计修复（2026-08-18）：审计日志异步写入——磁盘慢/满不阻塞工具调用
-_AUDIT_QUEUE = _queue.Queue(maxsize=2000)
+# P3/B5 审计修复（2026-08-18）：异步写入 + ring buffer（满丢最旧保最新）+ 丢弃计数告警 + atexit flush
+_AUDIT_QUEUE: deque = deque(maxlen=2000)
 _AUDIT_LOGGER_STARTED = False
+_AUDIT_DROPPED = [0]  # 列表封装——worker/主线程计数
+
+
+def _audit_log_path() -> str:
+    _d = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "..", ".mimiraether", "data", "audit",
+    )
+    _d = os.path.abspath(_d)
+    try:
+        os.makedirs(_d, exist_ok=True)
+    except Exception:
+        _d = "/tmp/mimiraether-audit"  # 兜底
+    return os.path.join(_d, "external_traffic.log")
+
+
+def _audit_flush() -> None:
+    """atexit 钩子（P3）：进程退出前排空队列——daemon 线程被杀前写出。"""
+    try:
+        while _AUDIT_QUEUE:
+            _line = _AUDIT_QUEUE.popleft()
+            with open(_audit_log_path(), "a", encoding="utf-8") as _af:
+                _af.write(_line)
+    except Exception:
+        pass
 
 
 def _audit_writer_worker() -> None:
     """后台审计写入线程：队列取一条写一条——磁盘慢不影响主流程。"""
-    _audit_dir = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "..", ".mimiraether", "data", "audit",
-    )
-    _audit_dir = os.path.abspath(_audit_dir)
-    try:
-        os.makedirs(_audit_dir, exist_ok=True)
-    except Exception:
-        _audit_dir = "/tmp/mimiraether-audit"  # 兜底
-    _log_path = os.path.join(_audit_dir, "external_traffic.log")
+    _log_path = _audit_log_path()
     while True:
         try:
-            _line = _AUDIT_QUEUE.get(timeout=60)
-            if _line is None:
-                break
+            _line = _AUDIT_QUEUE.popleft()
+        except IndexError:
+            time.sleep(0.1)
+            continue
+        try:
             with open(_log_path, "a", encoding="utf-8") as _af:
                 _af.write(_line)
-        except _queue.Empty:
-            continue
         except Exception:
             pass
 
@@ -59,6 +77,7 @@ def _start_audit_writer() -> None:
         return
     _AUDIT_LOGGER_STARTED = True
     threading.Thread(target=_audit_writer_worker, daemon=True).start()
+    atexit.register(_audit_flush)  # P3：shutdown 排空
 
 
 
@@ -447,10 +466,13 @@ class ExecMixin:
         # P3 修复（2026-08-18）：异步队列投递——磁盘慢/满不阻塞工具调用
         try:
             _start_audit_writer()
-            _AUDIT_QUEUE.put(
+            if len(_AUDIT_QUEUE) >= _AUDIT_QUEUE.maxlen:
+                _AUDIT_DROPPED[0] += 1
+                if _AUDIT_DROPPED[0] % 100 == 1:
+                    logger.warning("HardRule#5: 审计队列满——已丢弃 %d 条（ring buffer 保最新）", _AUDIT_DROPPED[0])
+            _AUDIT_QUEUE.append(
                 f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {func_name} len={len(content)}"
-                f" notes={';'.join(_notes) if _notes else 'clean'}\n",
-                block=False,  # 队列满 → 丢弃（审计不阻塞主流程）
+                f" notes={';'.join(_notes) if _notes else 'clean'}\n"
             )
         except Exception:
             pass  # 审计失败不阻塞
