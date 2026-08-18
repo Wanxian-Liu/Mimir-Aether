@@ -7,6 +7,16 @@ import os
 import sys
 import pytest
 
+# 固定真实 HOME（2026-08-18 偏差根因修复：Mimir execute_code 沙箱 HOME 被覆盖为
+# ~/.mimiraether，导致 expanduser("~") 解析错位——project 用例硬编码真实路径被判
+# "outside allowed paths"（32+2 假失败，与 Hermes 收束声明 34 passed 冲突）。
+# 从 passwd 数据库取真实 home，不受沙箱 HOME env 覆盖影响。）
+try:
+    import pwd
+    os.environ["HOME"] = pwd.getpwuid(os.getuid()).pw_dir
+except (ImportError, KeyError):
+    pass  # 非 POSIX 平台保持原样
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agent.exec_mixin import ExecMixin
