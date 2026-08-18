@@ -228,6 +228,10 @@ class MimirAgentLoop:
         tool_errors: List[ToolError] = []
         verify_nudges = 0  # verify guard attempts计数（修复：防freeze loop，OpenClaw发现）
         self._task_state = TaskState.PROBING  # task_state注入点1（四方共识：初始探测阶段）
+        # B2 (2026-08-19 v2): 任务开始钩子——重置一次性 nudge 标志（防跨任务失效）。
+        # core_loop 每次任务新建实例时 __init__ 已重置；此处为实例复用场景的显式保险，
+        # 语义从"实例级一次性"升级为"任务级一次性"。
+        self.on_task_start()
 
         user_task = None
         for msg in messages:
@@ -1043,6 +1047,16 @@ class MimirAgentLoop:
             return await self._loop_body(messages)
         except AgentLoopExit as _exit:
             return await self._finalize_exit(_exit.reason, _exit.result_kwargs)
+
+    def on_task_start(self) -> None:
+        """B2 (2026-08-19 v2): 任务开始钩子——重置一次性 nudge 标志（防跨任务失效）。
+
+        _parallel_read_nudge_done 语义为"每个任务最多注入一次并行读 nudge"。
+        __init__ 仅在实例创建时重置；若同一实例被复用执行多个任务
+        （如会话级长驻 loop / benchmark 循环复用），第二个任务将因 flag 残留
+        而不再收到 nudge。本钩子在 _loop_body（每次 run 即每个任务）开头调用。
+        """
+        self._parallel_read_nudge_done = False
 
     def _check_has_written(self, messages: List[Dict[str, Any]]) -> bool:
         """检查会话是否产生过写盘产出（Loki-C commit 3 提取 + 2026-08-16 目标校验升级）。
