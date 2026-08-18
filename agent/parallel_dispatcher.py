@@ -95,11 +95,43 @@ async def dispatch_all(
                 args = json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
             except Exception:
                 args = {}
-            result = await asyncio.get_running_loop().run_in_executor(
-                executor,
-                lambda n=name, a=args, tid=tid: tool_dispatcher(n, a, tid),
-            )
-            return (name, tid, raw_args, result)
+            # P0-1 (2026-08-19): per-tool 超时 + 单工具 retry（不重试全部——失败隔离）
+            # env: MIMIR_BATCH_READ_NUDGE=0 关 retry（降级为原行为）; MIMIR_TOOL_TIMEOUT 默认 60s
+            retry_enabled = os.environ.get("MIMIR_BATCH_READ_NUDGE", "1").strip().lower() not in ("0", "false", "no", "off")
+            timeout_s = float(os.environ.get("MIMIR_TOOL_TIMEOUT", "60"))
+            max_retries = int(os.environ.get("MIMIR_TOOL_RETRY", "1"))
+
+            async def _invoke() -> Any:
+                return await asyncio.get_running_loop().run_in_executor(
+                    executor,
+                    lambda n=name, a=args, tid=tid: tool_dispatcher(n, a, tid),
+                )
+
+            attempts = max_retries + 1 if retry_enabled else 1
+            last_err: Exception = None
+            for attempt in range(attempts):
+                try:
+                    result = await asyncio.wait_for(_invoke(), timeout=timeout_s)
+                    if attempt > 0:
+                        logger.warning(
+                            "[%s] parallel tool %s retry %d OK (was %s)",
+                            task_id[:8] if task_id else "", name, attempt, type(last_err).__name__,
+                        )
+                    return (name, tid, raw_args, result)
+                except asyncio.TimeoutError:
+                    last_err = TimeoutError(f"{name} timed out after {timeout_s}s")
+                    logger.warning(
+                        "[%s] parallel tool %s timeout (%.0fs) attempt %d/%d",
+                        task_id[:8] if task_id else "", name, timeout_s, attempt + 1, attempts,
+                    )
+                except Exception as e:
+                    last_err = e
+                    logger.warning(
+                        "[%s] parallel tool %s failed (attempt %d/%d): %s",
+                        task_id[:8] if task_id else "", name, attempt + 1, attempts, e,
+                    )
+            # 全部尝试失败——返回错误（不中断其他并行工具）
+            raise last_err if last_err else RuntimeError(f"{name} failed")
 
         ro_futures = [_run_one(i, tc) for i, tc in ro_specs]
         ro_outcomes = await asyncio.gather(*ro_futures, return_exceptions=True)
