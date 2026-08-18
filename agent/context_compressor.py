@@ -10,6 +10,7 @@ import re
 import time
 import logging
 import os
+import json
 import aiohttp
 from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
@@ -814,12 +815,66 @@ class MimirContextCompressor(ContextCompressorV2):
         self._iterative_summary = True  # 迭代摘要
         self._tool_pruning_enabled = True
         self._context_probed = False
+        # P2-1 (2026-08-19 执行卡): 绝对 token 阈值 env 覆盖（MIMIR_COMPRESS_THRESHOLD_TOKENS）
+        # 落地值 150000（350K→150K）；=0 或空 = 保持默认（可回退）
+        _abs = os.environ.get("MIMIR_COMPRESS_THRESHOLD_TOKENS", "").strip()
+        if _abs:
+            try:
+                _abs_n = int(_abs)
+                if _abs_n > 0:
+                    self.threshold_tokens = _abs_n
+                    self.tail_token_budget = int(self.threshold_tokens * self.summary_target_ratio)
+                    logger.info("[P2-1] threshold overridden by env MIMIR_COMPRESS_THRESHOLD_TOKENS=%d", self.threshold_tokens)
+            except ValueError:
+                logger.warning("[P2-1] invalid MIMIR_COMPRESS_THRESHOLD_TOKENS=%r", _abs)
     
     def reset_step(self) -> None:
         """Reset per-step state."""
         super().reset_step()
         self._context_probed = False
         self._previous_summary = None
+
+    # ── P2-1/P5-2 (2026-08-19 执行卡): 压缩验证钩子 ──────────────────────────
+    async def compress(self, messages, current_tokens=None, focus_topic=None):
+        """覆写基类 compress——压缩后验证关键实体保留率 ≥80%，<80% 告警+回滚。"""
+        pre = messages
+        try:
+            post, result = await super().compress(messages, current_tokens, focus_topic)
+        except Exception as _e:
+            logger.warning("[P2-1] compress failed: %s — keep original messages", _e)
+            return messages, CompressionResult(
+                original_count=len(messages), compressed_count=len(messages),
+            )
+        # 实体保留率验证（env MIMIR_COMPRESS_VERIFY=0 关闭）
+        _verify = os.environ.get("MIMIR_COMPRESS_VERIFY", "1").strip().lower()
+        if _verify not in ("0", "false", "no", "off"):
+            try:
+                rate, missing = self._verify_entity_retention(pre, post)
+                if rate < 0.80:
+                    logger.warning(
+                        "[P2-1] 实体保留率 %.0f%% < 80%% —— 回滚压缩 (missing=%s)",
+                        rate * 100, missing[:3],
+                    )
+                    return messages, result  # 回滚：返回压缩前（保状态不丢）
+                logger.info("[P2-1] 实体保留率 %.0f%% OK (missing=%d)", rate * 100, len(missing))
+            except Exception as _ve:
+                logger.warning("[P2-1] verify hook failed (degrade: keep compressed): %s", _ve)
+        return post, result
+
+    def _verify_entity_retention(self, pre, post):
+        """关键实体保留率：讨论卡路径 / status 字段 / 任务路径 / commit 哈希。"""
+        pre_text = json.dumps(pre, ensure_ascii=False) if isinstance(pre, list) else str(pre)
+        post_text = json.dumps(post, ensure_ascii=False) if isinstance(post, list) else str(post)
+        entities = set()
+        for _m in re.finditer(
+            r"(discussions/[\w\-\.]+\.md|status:\s*\w+|~/wiki/[\w/\.]+|~/src/MimirAether|commit [0-9a-f]{7})",
+            pre_text,
+        ):
+            entities.add(_m.group(1))
+        if not entities:
+            return 1.0, []
+        missing = [e for e in entities if e not in post_text]
+        return (len(entities) - len(missing)) / len(entities), missing
     
     def mark_context_probed(self) -> None:
         """标记上下文已探测（从上下文错误恢复后）"""
