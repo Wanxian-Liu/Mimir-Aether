@@ -46,10 +46,18 @@ def test_source_annotation(exec_obj):
     assert "[来源: web_search @" in out
 
 
-# ── ③ 格式校验（http 工具无状态信息标记）──
+# ── ③ 格式校验（http 工具状态码识别——L2 修复：纯 JSON 不误报）──
 def test_format_check_http(exec_obj):
     out = exec_obj._validate_external_content("web_extract", "纯文本内容没有协议信息")
     assert "无 HTTP 状态信息" in out
+
+
+def test_format_http_status_ok(exec_obj):
+    """L2 修复：含 HTTP 状态码的内容不误报（纯 JSON 带 status 也不误报）"""
+    out = exec_obj._validate_external_content("web_extract", "HTTP/1.1 200 OK\n{\"data\": \"ok\"}")
+    assert "无 HTTP 状态信息" not in out
+    out2 = exec_obj._validate_external_content("web_fetch", "{\"status_code\": 200, \"result\": \"ok\"}")
+    assert "无 HTTP 状态信息" not in out2
 
 
 # ── ④ 注入扫描（6 类注入模式 100% 标记）──

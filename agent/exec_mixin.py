@@ -21,6 +21,7 @@ _tool_executor = get_tool_executor()
 from typing import List, Dict, Optional, Any, TYPE_CHECKING
 import threading
 import queue as _queue
+import re
 
 # P3 审计修复（2026-08-18）：审计日志异步写入——磁盘慢/满不阻塞工具调用
 _AUDIT_QUEUE = _queue.Queue(maxsize=2000)
@@ -404,9 +405,14 @@ class ExecMixin:
             _notes.append("超1MB已截断")
         # ② 来源标注（防 repudiation——可溯源）
         content = f"[来源: {func_name} @ {time.strftime('%Y-%m-%d %H:%M:%S')}]\n" + content
-        # ③ 格式校验（http 工具应含 200/content-type）
+        # ③ 格式校验（http 工具应含状态码——L2 修复 2026-08-18：正则匹配 HTTP/1.x 200 或 status 字段，
+        #    避免纯 JSON/纯文本误报）
         if func_name in ("web_extract", "web_fetch", "fetch_url", "http_request", "curl"):
-            if "HTTP" not in content[:500] and "http" not in content[:200]:
+            _has_status = bool(
+                re.search(r"HTTP/[12]\.\d\s+\d{3}", content[:2000])
+                or re.search(r"""status[_ ]?code["']?\s*[:=]\s*\d{3}""", content[:2000])
+            )
+            if not _has_status:
                 _notes.append("无 HTTP 状态信息")
         # ④ 敏感词/注入扫描
         _low = content.lower()
