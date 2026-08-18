@@ -455,7 +455,7 @@ class ExecMixin:
     # ── 架构硬规则 #1 阶段 1：路径白名单（2026-08-18 Hermes 执行 · OpenClaw security 方案）──
     # 文件操作工具（read/write/exec）路径分级：workspace 允许读写 / project 允许读 / 系统目录禁止。
     # env 门控 MIMIR_PATH_WHITELIST（默认 workspace,project；off 回全权限）
-    _PATH_TOOLS = ("read_file", "write_file", "patch", "exec", "terminal", "bash", "list_dir")
+    _PATH_TOOLS = ("read_file", "write_file", "patch", "exec", "terminal", "bash", "list_dir", "execute_code")
     _DENY_PATH_FRAGMENTS = (
         "/etc/", "/usr/", "/bin/", "/sbin/", "/var/", "/root/", "/proc/", "/sys/",
         "/.ssh/", "/.aws/", "/.kube/", "/.gnupg/", "/.config/", "/.git/",
@@ -486,8 +486,8 @@ class ExecMixin:
         # L5 修复（2026-08-18 23:10 · OpenClaw 二轮 🔴 + Mimir R1 复现）：高危命令检查必须无条件执行
         # （原挂在 if not _path 下——S4 后 _path 对 exec 永远非空 → 死代码——7 种高危命令全放行）
         # 命令类工具：无论 _path 空否——先做命令内容扫描（独立于路径检查）
-        if func_name in ("exec", "terminal", "bash"):
-            _cmd = str(arguments.get("command") or arguments.get("cmd") or "")
+        if func_name in ("exec", "terminal", "bash", "execute_code"):
+            _cmd = str(arguments.get("command") or arguments.get("cmd") or arguments.get("code") or "")
             _low_cmd = _cmd.lower()
             for _d in ("rm -rf /", "rm -fr /", "rm -rf ~", "sudo rm", "dd if=/dev/zero",
                        "mkfs", "> /dev/sda", "chmod 777 /", "chown -r", ":(){", "shutdown",
