@@ -19,6 +19,48 @@ import tools.registry as _tool_registry_module
 _tool_executor = get_tool_executor()
 
 from typing import List, Dict, Optional, Any, TYPE_CHECKING
+import threading
+import queue as _queue
+
+# P3 审计修复（2026-08-18）：审计日志异步写入——磁盘慢/满不阻塞工具调用
+_AUDIT_QUEUE = _queue.Queue(maxsize=2000)
+_AUDIT_LOGGER_STARTED = False
+
+
+def _audit_writer_worker() -> None:
+    """后台审计写入线程：队列取一条写一条——磁盘慢不影响主流程。"""
+    _audit_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "..", ".mimiraether", "data", "audit",
+    )
+    _audit_dir = os.path.abspath(_audit_dir)
+    try:
+        os.makedirs(_audit_dir, exist_ok=True)
+    except Exception:
+        _audit_dir = "/tmp/mimiraether-audit"  # 兜底
+    _log_path = os.path.join(_audit_dir, "external_traffic.log")
+    while True:
+        try:
+            _line = _AUDIT_QUEUE.get(timeout=60)
+            if _line is None:
+                break
+            with open(_log_path, "a", encoding="utf-8") as _af:
+                _af.write(_line)
+        except _queue.Empty:
+            continue
+        except Exception:
+            pass
+
+
+def _start_audit_writer() -> None:
+    global _AUDIT_LOGGER_STARTED
+    if _AUDIT_LOGGER_STARTED:
+        return
+    _AUDIT_LOGGER_STARTED = True
+    threading.Thread(target=_audit_writer_worker, daemon=True).start()
+
+
+
 
 if TYPE_CHECKING:
     from agent.core_loop import MimirAetherAgent
@@ -382,15 +424,14 @@ class ExecMixin:
         content = content.replace("[EXTERNAL_DATA_START]", "[EXTERNAL_DATA_BOM]")
         content = "[EXTERNAL_DATA_START]\n" + content + "\n[EXTERNAL_DATA_END]"
         # #5 第 4 层：审计日志（外部流量记录——可溯源）
+        # P3 修复（2026-08-18）：异步队列投递——磁盘慢/满不阻塞工具调用
         try:
-            _audit_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", ".mimiraether", "data", "audit")
-            _audit_dir = os.path.abspath(_audit_dir)
-            os.makedirs(_audit_dir, exist_ok=True)
-            with open(os.path.join(_audit_dir, "external_traffic.log"), "a", encoding="utf-8") as _af:
-                _af.write(
-                    f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {func_name} len={len(content)}"
-                    f" notes={';'.join(_notes) if _notes else 'clean'}\n"
-                )
+            _start_audit_writer()
+            _AUDIT_QUEUE.put(
+                f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {func_name} len={len(content)}"
+                f" notes={';'.join(_notes) if _notes else 'clean'}\n",
+                block=False,  # 队列满 → 丢弃（审计不阻塞主流程）
+            )
         except Exception:
             pass  # 审计失败不阻塞
         return content
