@@ -33,6 +33,20 @@ from gateway._shared import _build_media_placeholder, _dequeue_pending_event
 logger = logging.getLogger(__name__)
 
 
+# --- #2 截断通知纯函数（2026-08-18 架构硬规则·T3 边界可测） ---
+def _format_truncation_notice(dropped: int, window: int) -> str | None:
+    """生成用户可见截断通知。边界：dropped<=0 → None（不注入）；异常值兜底。"""
+    if not dropped or dropped <= 0:
+        return None
+    if dropped < 0 or window <= 0:
+        return None
+    return (
+        f"[CONTEXT TRUNCATED: 已丢弃 {dropped} 条早期消息"
+        f"（窗口上限 MIMIR_HISTORY_WINDOW={window}）"
+        "——如需回溯请查会话历史]"
+    )
+
+
 # --- TD-02 history summary helpers (2026-08-18 四方批准 · Hermes 代执行) ---
 def _build_history_summarizer():
     """轻量复用 context_compressor 的摘要 LLM 调用（_call_summary_llm）。
@@ -1324,15 +1338,9 @@ class AgentMixin:
                 message = _msn + "\n\n" + message
 
             # #2 截断通知（2026-08-18 架构硬规则——不静默截断——用户可见）
-            if _truncated_count > 0:
-                agent_history.insert(0, {
-                    "role": "system",
-                    "content": (
-                        f"[CONTEXT TRUNCATED: 已丢弃 {_truncated_count} 条早期消息"
-                        f"（窗口上限 MIMIR_HISTORY_WINDOW={_truncated_window}）"
-                        "——如需回溯请查会话历史]"
-                    ),
-                })
+            _trunc_notice = _format_truncation_notice(_truncated_count, _truncated_window)
+            if _trunc_notice:
+                agent_history.insert(0, {"role": "system", "content": _trunc_notice})
                 logger.info("HardRule#2: truncated-notice injected (%d msgs dropped)", _truncated_count)
 
             # TD-02: 注入历史摘要（system 角色）。agent_history 构造循环已结束，
