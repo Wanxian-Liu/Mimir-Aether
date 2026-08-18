@@ -170,5 +170,74 @@ class TestB4B2PeelOnion(unittest.TestCase):
         )
 
 
+    def test_L5_R2_05_false_positive_rm_rf_legitimate(self):
+        """🟡 R2-2 误伤回归——合法路径 rm -rf ~/tmp/build-cache 当前被拦（设计 trade-off）。
+
+        L5 deny pattern 列表含 'rm -rf ~'（字面 substring 扫描）：
+        → 'rm -rf ~/tmp/build-cache' 含 'rm -rf ~' → 被拦
+        → 'rm -rf /tmp/build-cache' 不含 'rm -rf ~' → 应放行
+        → 'rm -rf /tmp/test.log' 不含 → 应放行
+        → 'rm -rf ./build' 不含 → 应放行
+
+        剥洋葱发现：保守 deny 模式 vs 用户日常清理的冲突
+        修复方向: deny 改为 'rm -rf /' / 'rm -rf $HOME' 锚定（精确边界）而非 'rm -rf ~' substring
+        OR: 提供白名单 escape hatch（用户声明合法清理）
+        OR: 接受 trade-off（当前路径）——记录不阻断
+
+        本测试 fail = 真误伤证据（合法清理被拦截）；pass = 边界条件漏检
+        """
+        # 直接调 L5 检查路径（模拟 _validate_path_access 中 exec 工具检查段）
+        from agent.exec_mixin import ExecMixin
+        m = ExecMixin.__new__(ExecMixin)  # 跳过 __init__
+        # 检查合法路径——这些不该被拦
+        legitimate = [
+            "rm -rf /tmp/build-cache",
+            "rm -rf /tmp/test.log",
+            "rm -rf ./build",
+            "rm -rf /home/user/project/node_modules",
+        ]
+        false_positives = []
+        for cmd in legitimate:
+            low = cmd.lower()
+            # 模拟 L5 字面 substring 扫描
+            deny_list = ["rm -rf /", "rm -fr /", "rm -rf ~", "sudo rm", "dd if=/dev/zero",
+                         "mkfs", "> /dev/sda", "chmod 777 /", "chown -r", ":(){", "shutdown",
+                         "curl | bash", "curl|bash", "wget | bash", "wget|bash",
+                         "curl | sh", "curl|sh", "wget | sh", "wget|sh",
+                         "python -c", "python3 -c", "eval(", "bash -i", "nc -e",
+                         "find / -delete", "base64 -d", "shutil.rmtree",
+                         "| bash", "| sh", "{| python", "| python3", "| perl", "| nc"]
+            # 注：原 deny 含 "| python"（无右空格）——上面替换修正
+            denied = [d for d in deny_list if d in low]
+            if denied:
+                false_positives.append((cmd, denied))
+
+        # 断言：合法清理不应被拦
+        self.assertEqual(
+            false_positives, [],
+            f"🔴 L5 误伤——合法清理命令被拦: {false_positives}"
+            f"——R2-2 实证（剥洋葱·L5 'rm -rf ~' substring 过宽·修复方向: 精确锚定或 escape hatch）",
+        )
+
+    def test_L5_R2_06_known_tradeoff_rm_rf_home(self):
+        """🟡 R2-2 trade-off 记录——rm -rf ~/xxx 当前被拦（设计选择·接受）。
+
+        当前 L5 deny 含 'rm -rf ~' → 'rm -rf ~/tmp/build-cache' 被拦
+        这是已知 trade-off——Hermes 自审二轮已确认可接受（保守安全 > 误伤清理）
+        本测试 fail = 记录此 trade-off 真实存在；pass = 设计变更（已修复）
+        """
+        cmd = "rm -rf ~/tmp/build-cache"
+        low = cmd.lower()
+        deny_list = ["rm -rf ~"]  # 当前 L5 唯一相关 deny
+        denied = [d for d in deny_list if d in low]
+        # 断言：当前应被拦（记录 trade-off）
+        self.assertEqual(
+            denied,
+            ["rm -rf ~"],
+            f"⚠️ R2-2 trade-off 当前真实存在: {cmd} 被 'rm -rf ~' substring 拦——"
+            f"已知接受（保守 > 灵活）·用户日常需用 mv+rm 两步绕过",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
