@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import functools
 import json
+import os
 import time
 
 from agent.async_bridge import get_tool_executor
@@ -323,6 +324,60 @@ class ExecMixin:
 
         return processed_results
 
+    # ── 架构硬规则 #5 第 1 层：外部内容校验（2026-08-18 Hermes 执行 · OpenClaw security 方案）──
+    # 外部工具（web/网络/抓取）返回内容统一收口校验：大小限制 + 来源标注 + 格式校验 + 敏感词扫描。
+    # env 门控 MIMIR_EXTERNAL_VALIDATION（默认 on；off 降级只做大小限制）
+    _EXTERNAL_TOOLS = (
+        "web_search", "web_extract", "web_fetch", "fetch_url", "http_request",
+        "curl", "browser_navigate", "browser_snapshot", "browser_console",
+    )
+    _INJECTION_PATTERNS = (
+        "ignore previous instructions", "ignore all previous", "system prompt",
+        "you are now", "you are an", "bypass", "disregard", "执行以下指令",
+        "忽略之前", "你现在是", "系统提示词", "注入", "攻击",
+    )
+    _SENSITIVE_PATTERNS = (
+        "script>", "shellcode", "exec(", "eval(", "base64 -d", "/etc/passwd",
+        "rm -rf /", "chmod 777",
+    )
+
+    def _validate_external_content(self, func_name: str, content: str) -> str:
+        """外部内容校验（#5 第 1 层）——返回校验后（可能被标记/截断）的内容。"""
+        if func_name not in self._EXTERNAL_TOOLS:
+            return content
+        try:
+            _enabled = os.environ.get("MIMIR_EXTERNAL_VALIDATION", "1").strip().lower()
+            _on = _enabled not in ("0", "false", "no", "off")
+        except Exception:
+            _on = True
+        if not _on:
+            # off：仅大小保护（最低安全底线）
+            if len(content) > 1_048_576:
+                return content[:1_048_576] + "\n[TRUNCATED: 外部内容超 1MB]"
+            return content
+        _notes = []
+        # ① 大小限制（<1MB）
+        if len(content) > 1_048_576:
+            content = content[:1_048_576]
+            _notes.append("超1MB已截断")
+        # ② 来源标注（防 repudiation——可溯源）
+        content = f"[来源: {func_name} @ {time.strftime('%Y-%m-%d %H:%M:%S')}]\n" + content
+        # ③ 格式校验（http 工具应含 200/content-type）
+        if func_name in ("web_extract", "web_fetch", "fetch_url", "http_request", "curl"):
+            if "HTTP" not in content[:500] and "http" not in content[:200]:
+                _notes.append("无 HTTP 状态信息")
+        # ④ 敏感词/注入扫描
+        _low = content.lower()
+        _inject_hits = [w for w in self._INJECTION_PATTERNS if w.lower() in _low]
+        _sens_hits = [w for w in self._SENSITIVE_PATTERNS if w.lower() in _low]
+        if _inject_hits or _sens_hits:
+            _flag = f"[SUSPECTED INJECTION: 注入词={_inject_hits[:3]} 敏感词={_sens_hits[:3]}]"
+            _notes.append(_flag)
+            logger.warning("HardRule#5: %s 外部内容含可疑模式 %s", func_name, _flag)
+        if _notes:
+            content = content + "\n[外部内容校验: " + "; ".join(_notes) + "]"
+        return content
+
     async def _execute_single_tool(self, tool_call: Dict, turn: int = 0) -> ToolResult:
         """
         执行单个工具调用
@@ -582,6 +637,8 @@ class ExecMixin:
                 pass
 
             content = str(result)
+            # 架构硬规则 #5 第 1 层：外部内容校验（收口统一出口）
+            content = self._validate_external_content(func_name, content)
             if should_cache_tool(func_name):
                 set_cached(func_name, arguments, content)
             tracker = getattr(self, "_subdirectory_hints", None)
