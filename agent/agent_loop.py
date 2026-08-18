@@ -31,6 +31,7 @@ from .async_bridge import get_tool_executor
 from .conversation_nudges import (
     maybe_memory_nudge_message,
     maybe_skill_nudge_message,
+    maybe_parallel_read_nudge,
 )
 from .intent_action_guard import (
     MAX_INTENT_NUDGES,
@@ -207,6 +208,7 @@ class MimirAgentLoop:
         self._recorder = None
         # Interval nudge flag: once per session (MW-04)
         self._interval_nudge_done = False
+        self._parallel_read_nudge_done = False
         # TD-01（2026-08-18 Hermes代改）：intent 重估的原始输入快照——防自触发循环
         self._last_intent_source: Optional[str] = None
         # TD-03（2026-08-18 Hermes代改）：产出校验硬拦截计数（L2 触发后累计）
@@ -432,6 +434,17 @@ class MimirAgentLoop:
                         self.task_id[:8], turn + 1, _nudge_interval,
                     )
                 self._interval_nudge_done = True
+
+            # P0-4: parallel-read nudge (turn>=3, 一次性——防重复注入噪声)
+            if not getattr(self, "_parallel_read_nudge_done", False):
+                _pr_nudge = maybe_parallel_read_nudge(turn, tool_calls_so_far)
+                if _pr_nudge:
+                    messages.append({"role": "user", "content": _pr_nudge})
+                    logger.info(
+                        "[%s] turn %d: parallel-read nudge injected (turn>=3, tools=%d)",
+                        self.task_id[:8], turn + 1, tool_calls_so_far,
+                    )
+                self._parallel_read_nudge_done = True
 
             # --- In-loop compression (P0-3) ---
             # core_loop pre-compresses once before entering the loop; messages keep

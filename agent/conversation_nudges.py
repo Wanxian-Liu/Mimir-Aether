@@ -50,9 +50,40 @@ def maybe_skill_nudge_message(turn: int, tool_calls_so_far: int) -> Optional[str
     return _SKILL_NUDGE_TEXT
 
 
+PARALLEL_READ_NUDGE_MARKER = "[MIMIR_PARALLEL_READ_NUDGE]"
+
+_PARALLEL_READ_NUDGE_TEXT = (
+    f"{PARALLEL_READ_NUDGE_MARKER} 当前任务已连续多轮调用工具。"
+    "若本轮仍需只读查询（search_files / read_file / terminal 的 grep/stat 类），"
+    "请一次返回 ≥2 个只读 tool_calls 并行执行（模型并行工具调用）——"
+    "写工具（write_file / patch / terminal 写操作）保持串行。"
+    "并行只读 = 每轮省 1 次 API 往返（~20s）。"
+)
+
+
+def maybe_parallel_read_nudge(turn: int, tool_calls_so_far: int) -> Optional[str]:
+    """P0-4 (2026-08-19)：turn≥3 且已有多轮工具调用时，注入"并行只读"提示。
+
+    架构钩子（非 AGENTS.md 静态纪律）：运行时注入——模型可拒绝，但显式提示如何并行。
+    env 开关 MIMIR_PARALLEL_READ_NUDGE（默认 1=开，0=关回退）。
+    """
+    enabled = os.environ.get("MIMIR_PARALLEL_READ_NUDGE", "1").strip().lower()
+    if enabled in ("0", "false", "no", "off"):
+        return None
+    # turn 是 0-based；turn >= 3 即第 4 轮起（执行卡：turn≥3 注入）
+    if turn < 3:
+        return None
+    # 至少 2 次工具调用后才提示（防首轮打扰）
+    if tool_calls_so_far < 2:
+        return None
+    return _PARALLEL_READ_NUDGE_TEXT
+
+
 __all__ = [
     "MEMORY_NUDGE_MARKER",
     "SKILL_NUDGE_MARKER",
     "maybe_memory_nudge_message",
     "maybe_skill_nudge_message",
+    "PARALLEL_READ_NUDGE_MARKER",
+    "maybe_parallel_read_nudge",
 ]
