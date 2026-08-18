@@ -56,7 +56,7 @@ class TestValidationIntegration:
         验证 E2（off 放弃黑名单）审计发现——off 时不应放过所有路径"""
         with mock_patch.dict(os.environ, {"MIMIR_PATH_WHITELIST": "off"}):
             result = self.mixin._validate_path_access("read_file", {"path": "/etc/passwd"})
-            # 当前实现：off → return None（放行）—— 审计 E2 警告
-            assert result is None, "当前实现：off 状态放弃所有权限（审计 E2 警告）"
+            # E2 修复（2026-08-18 21:00）：off 仅解除分级——DENY 永远生效
+            assert result is not None and "Blocked" in result, "E2 修复：off 也拒绝 DENY 路径"
             # 修复后应仍保留 DENY 黑名单
             # 期望行为：off → 仍拦截 /etc/passwd 但放行 /home/rayliu/wiki/

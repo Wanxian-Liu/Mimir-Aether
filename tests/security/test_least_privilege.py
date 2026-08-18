@@ -68,6 +68,8 @@ def test_project_read_ok(exec_obj):
 
 
 # ── env 门控 off 回全权限 ──
-def test_gate_off_returns_all(exec_obj, monkeypatch):
+def test_gate_off_deny_still_active(exec_obj, monkeypatch):
+    """E2 审计修复：off 仅解除白名单分级——DENY 路径永远拒绝"""
     monkeypatch.setenv("MIMIR_PATH_WHITELIST", "off")
-    assert exec_obj._validate_path_access("read_file", {"path": "/etc/passwd"}) is None
+    err = exec_obj._validate_path_access("read_file", {"path": "/etc/passwd"})
+    assert err and "Blocked" in err  # DENY 永远生效（E2）

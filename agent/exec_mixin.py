@@ -403,44 +403,74 @@ class ExecMixin:
     )
 
     def _validate_path_access(self, func_name: str, arguments: dict) -> Optional[str]:
-        """路径白名单校验（#1 阶段 1）——返回错误消息（拦截）或 None（放行）。"""
+        """路径白名单校验（#1 阶段 1 + 审计修复 S1/S2/S3/S4/L5/E2——2026-08-18 21:00）：
+        ① unquote 解码（S3 URL 编码绕过）② normcase 统一大小写（S2）③ realpath 解析符号链接（S1）
+        ④ DENY 永远生效（E2：off 仅解除分级，不解除禁止路径）⑤ kwargs 多参数名扫描（S4）
+        ⑥ exec 无路径命令高危模式扫描（L5）
+        """
         if func_name not in self._PATH_TOOLS:
             return None
         try:
             _enabled = os.environ.get("MIMIR_PATH_WHITELIST", "workspace,project").strip().lower()
-            if _enabled in ("off", "0", "false", "no"):
-                return None  # 门控关闭 → 全权限
+            _whitelist_on = _enabled not in ("off", "0", "false", "no")
         except Exception:
-            return None
-        # 提取路径参数
+            _whitelist_on = True
+        # 提取路径（S4：多参数名扫描——不只 3 个固定 key）
         _path = ""
         if isinstance(arguments, dict):
-            _path = str(arguments.get("path") or arguments.get("cwd") or arguments.get("command") or "")
+            for _k in ("path", "cwd", "command", "script_path", "cmd", "bash_cmd", "shell_cmd", "workdir", "file_path"):
+                _v = arguments.get(_k)
+                if isinstance(_v, str) and _v.strip():
+                    _path = _v
+                    break
         if not _path:
-            return None  # 无路径参数（如 exec 的纯命令）→ 不拦截（阶段 1 只挡路径）
-        # 禁止片段检查
+            # L5：exec/terminal 无路径参数——高危命令模式扫描（阶段 1.5）
+            if func_name in ("exec", "terminal", "bash"):
+                _cmd = str(arguments.get("command") or arguments.get("cmd") or "")
+                _low_cmd = _cmd.lower()
+                for _d in ("rm -rf /", "rm -fr /", "dd if=/dev/zero", "mkfs", "> /dev/sda",
+                           "chmod 777 /", "chown -r", ":(){", "shutdown",
+                           "curl | bash", "curl|bash", "wget | bash", "wget|bash"):
+                    if _d in _low_cmd:
+                        logger.warning("HardRule#1: %s 高危命令被拒: %s", func_name, _cmd[:80])
+                        return f"Blocked by path whitelist: dangerous command pattern '{_d}'"
+            return None  # 真无路径（如 list_dir 无参）→ 放行
+        # 路径规范化（S3 unquote → S2 normcase → S1 realpath）
+        try:
+            from urllib.parse import unquote
+            _path_n = unquote(_path)
+        except Exception:
+            _path_n = _path
+        _path_n = os.path.normcase(_path_n).lower()  # Linux normcase 不转小写——显式 lower（S2）
+        try:
+            _path_r = os.path.normpath(os.path.realpath(os.path.expanduser(_path_n))).lower()  # normpath 消 ..（S3）+ realpath（S1）
+        except Exception:
+            _path_r = _path_n
+        # DENY 检查（永远生效——E2：off 仅解除分级，不解除禁止路径）
         for _frag in self._DENY_PATH_FRAGMENTS:
-            if _frag in _path:
+            if _frag in _path_r or _frag in _path_n:
                 logger.warning("HardRule#1: %s 访问被拒路径 %s (fragment=%s)", func_name, _path[:80], _frag)
                 return f"Blocked by path whitelist: '{_path[:80]}' contains denied path segment '{_frag}'"
-        # 允许读写（workspace/wiki/mimiraether 数据）+ 允许读（src 项目）
+        if not _whitelist_on:
+            return None  # 白名单分级关闭（DENY 已查）→ 放行
+        # 白名单分级（workspace 允许读写 / project 只读）
         _home = os.path.expanduser("~")
         _allowed_rw = (_home + "/.mimiraether", _home + "/wiki", _home + "/.openclaw/workspace")
         _allowed_r = (_home + "/src/MimirAether",)
-        _p = os.path.abspath(os.path.expanduser(_path.split()[0] if " " in _path[:1] else _path))
+        _p = os.path.abspath(_path_r)
         for _a in _allowed_rw:
-            if _p.startswith(_a):
+            if _p.startswith(os.path.normcase(os.path.abspath(_a)).lower()):
                 return None
         for _a in _allowed_r:
-            if _p.startswith(_a):
+            if _p.startswith(os.path.normcase(os.path.abspath(_a)).lower()):
                 if func_name in ("write_file", "patch"):
                     return f"Blocked by path whitelist: '{_path[:80]}' is read-only (project dir)"
                 return None
-        # 其他路径（白名单外）→ 读允许？——阶段 1：白名单外禁止（保守）
-        if _path.startswith(("/", "~")) and _p not in ("/tmp",) and not _p.startswith("/tmp/"):
-            logger.warning("HardRule#1: %s 访问白名单外路径 %s", func_name, _path[:80])
-            return f"Blocked by path whitelist: '{_path[:80]}' outside allowed paths"
-        return None
+        # 白名单外路径（保守拒绝——/tmp 例外）
+        if _p.startswith(os.path.normcase("/tmp/")):
+            return None
+        logger.warning("HardRule#1: %s 访问白名单外路径 %s", func_name, _path[:80])
+        return f"Blocked by path whitelist: '{_path[:80]}' outside allowed paths"
 
     async def _execute_single_tool(self, tool_call: Dict, turn: int = 0) -> ToolResult:
         """
