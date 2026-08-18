@@ -494,7 +494,7 @@ class ExecMixin:
                        "curl | bash", "curl|bash", "wget | bash", "wget|bash",
                        "curl | sh", "curl|sh", "wget | sh", "wget|sh",
                        "python -c", "python3 -c", "eval(", "bash -i", "nc -e",
-                       "find / -delete", "base64 -d",
+                       "find / -delete", "base64 -d", "shutil.rmtree",
                        "| bash", "| sh", "| python", "| python3", "| perl", "| nc"):
                 if _d in _low_cmd:
                     logger.warning("HardRule#1: %s 高危命令被拒: %s", func_name, _cmd[:80])
