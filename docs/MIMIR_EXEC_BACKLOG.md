@@ -1354,9 +1354,9 @@ _level_5_   auto_retrospective.py (74行)    ❌ 已被守卫内置复盘取代
 
 | ID | 优先级 | 问题 | 方案摘要 | 改动位置 | 状态 |
 |----|--------|------|----------|----------|------|
-| **TD-01** | P0 | IntentPredictor 只预测首条消息，后续追问无提示 | pattern 补口语 ✅（`agent/intent_predictor.py` L34，commit 116a1b5）；**每轮重估 ⏸ 四方已批准方案 → 待刘哥拍板 → Hermes 代改**——`agent/agent_loop.py` L291-308 `if turn == 0` → 每轮重估（基于原始 user 输入快照防自触发循环 + 跳过前缀常量化） | `agent/agent_loop.py` L291-308（工程侧）+ `agent/intent_predictor.py` L34 ✅ | [~] pattern ✅ / 每轮重估待拍板 |
-| **TD-02** | P1 | History window 双重截断（gateway 50 → agent 25）跨轮失忆 | 截断前 **system 角色**结构化摘要注入（异步 + `MIMIR_SUMMARY_MAX_TOKENS=1000`）+ 双窗口对齐 50 | `gateway/agent_mixin.py` L1088-1103（**Mimir 自主，待开工**）+ `agent/core_loop.py` L640-656（Hermes 代改） | [~] 方案已修订（四方共识 system 角色）→ gateway 侧待开工 |
-| **TD-03** | P1 | 产出提示软提示可被空洞确认绕过 | 三级强制：L1 软 → L2 硬拦截（**判定独立于 TD-04** + research 豁免 4 条件 + 工具结果已返回放行）→ L3 中断（INTERRUPTED + 消费方同步）| `agent/agent_loop.py` L846-859（受保护，待拍板 → Hermes 代改） | [~] 方案已修订（OpenClaw R4-7 补强）→ 待拍板 |
+| **TD-01** | P0 | IntentPredictor 只预测首条消息，后续追问无提示 | pattern 补口语 ✅（`agent/intent_predictor.py` L34，commit 116a1b5）；**每轮重估 ✅（2026-08-18 落地 commit 2fc10e2）**——`agent/agent_loop.py` L306-321 每轮重估（基于原始 user 输入快照防自触发循环 + `_INTENT_SKIP_PREFIXES` 跳过前缀常量化） | `agent/agent_loop.py` + `agent/intent_predictor.py` L34 ✅ | [x] 2026-08-18（2fc10e2） |
+| **TD-02** | P1 | History window 双重截断（gateway 50 → agent 25）跨轮失忆 | 截断前 **system 角色**结构化摘要注入（异步 + `MIMIR_SUMMARY_MAX_TOKENS=300` 门控）+ 双窗口对齐 50 | `gateway/agent_mixin.py` L1152/L1333 ✅（6b0b97c）+ `agent/core_loop.py` L637-672 ✅（610bcfe） | [x] 2026-08-18（6b0b97c + 610bcfe） |
+| **TD-03** | P1 | 产出提示软提示可被空洞确认绕过 | 三级强制：L1 软 → L2 硬拦截（判定独立于 TD-04 + research 豁免 4 条件 + 工具结果已返回放行）→ L3 中断（INTERRUPTED + 消费方同步）；**修订5/6（823f288）：intent=chat 豁免 + 系统注入消息跳过（治 5 回归）** | `agent/agent_loop.py` L876-939（598d29e + 823f288） | [x] 2026-08-18（598d29e 落地 + 823f288 回归修复） |
 | **TD-04** | P0 | 空洞确认模板（"收到——落盘"）无触发词不拦截 | `_is_hollow_ack()` 检测 + `should_block_finish` 分支 ✅（commit 116a1b5，测试 11 个） | `agent/verify_before_report_guard.py` | [x] 2026-08-18 |
 
 **TD-01 每轮重估（工程侧任务卡）**：
