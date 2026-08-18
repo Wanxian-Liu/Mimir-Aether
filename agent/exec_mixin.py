@@ -22,6 +22,7 @@ from typing import List, Dict, Optional, Any, TYPE_CHECKING
 import threading
 import queue as _queue
 import re
+import shlex
 import atexit
 from collections import deque
 
@@ -431,9 +432,11 @@ class ExecMixin:
             _has_status = bool(
                 # B4 修复（2026-08-18 OpenClaw B4）：只认 2xx（HTTP/1.1 200 / status_code: 2xx）——
                 # 404/500 不算"正常响应"（原 \d{3} 过宽——404 也通过）
-                re.search(r"HTTP/[12]\.\d\s+2\d{2}", content[:2000])
-                or re.search(r"""status[_ ]?code["']?\s*[:=]\s*2\d{2}""", content[:2000])
-                or re.search(r"""statusCode["']?\s*[:=]\s*2\d{2}""", content[:2000])
+                re.search(r"HTTP/[12](?:\.\d)?\s+2\d{2}", content[:2000])
+                or re.search(r"""[Ss]tatus["']?\s*[:=]\s*"?2\d{2}""", content[:2000])
+                or re.search(r"""status[_ ]?code["']?\s*[:=]\s*"?2\d{2}""", content[:2000])
+                or re.search(r"""statusCode["']?\s*[:=]\s*"?2\d{2}""", content[:2000])
+                or re.search(r"""(?:http_code|http_status|code)["']?\s*[:=]\s*"?2\d{2}""", content[:2000])
             )
             if not _has_status:
                 _notes.append("无 HTTP 状态信息")
@@ -488,6 +491,58 @@ class ExecMixin:
         "id_rsa", "id_ed25519", ".pem", ".key", "credentials", ".env",
     )
 
+
+    def _scan_dangerous_command(self, cmd: str) -> Optional[str]:
+        """L5 高危命令 tokenize 扫描（2026-08-19 二轮补丁·Loki 方案 B）：
+        substring -> shlex.split 词组扫描。修：
+        ① 参数变体（find -delete 顺序 / --no-preserve-root 插参）
+        ② 空白变体（双空格/tab）——shlex.split 归一
+        ③ R2-2 误伤（rm -rf /tmp/build-cache 合法清理）——目标路径精确判定
+        ④ $HOME 变量变体——归一化 $HOME/${HOME}->~
+        """
+        if not cmd:
+            return None
+        _low = cmd.lower()
+        # 快速字面路径（管道/编码类——tokenize 难覆盖，保留）
+        for _d in ("sudo rm", "dd if=/dev/zero", "mkfs", "> /dev/sda", "chmod 777 /",
+                   "chown -r", ":(){", "shutdown",
+                   "curl | bash", "curl|bash", "wget | bash", "wget|bash",
+                   "curl | sh", "curl|sh", "wget | sh", "wget|sh",
+                   "python -c", "python3 -c", "eval(", "bash -i", "nc -e",
+                   "base64 -d", "shutil.rmtree",
+                   "| bash", "| sh", "| python", "| python3", "| perl", "| nc"):
+            if _d in _low:
+                return f"Blocked by path whitelist: dangerous command pattern '{_d}'"
+        try:
+            _toks = shlex.split(_low)
+        except Exception:
+            _toks = _low.split()
+        # 展平含空格 token（引号内子命令如 sh -c 'rm -rf /' -> rm,-rf,/）
+        _flat = []
+        for _t in _toks:
+            _flat.extend(_t.split())
+        _toks = _flat
+        # rm 家族：rm 或 */rm + -rf/-fr 类 flag + 目标是根/家目录（/ ~ $HOME）-> 拦；具体路径 -> 放行
+        _rm_i = next((i for i, t in enumerate(_toks) if t == "rm" or t.endswith("/rm")), None)
+        if _rm_i is not None:
+            _flags = [t for t in _toks[_rm_i+1:] if t.startswith("-")]
+            _targets = [t for t in _toks[_rm_i+1:] if not t.startswith("-")]
+            _has_force = any((not f.startswith("--") and "f" in f) or f == "--force" for f in _flags)
+            _has_rec = any((not f.startswith("--") and "r" in f) or f == "--recursive" for f in _flags)
+            _tgt = _targets[0] if _targets else ""
+            _tgt = _tgt.replace("${home}", "~").replace("$home", "~")
+            _tgt = os.path.normpath(_tgt)
+            if _has_force and _has_rec and _tgt in ("/", "~", "/*", "~/*"):
+                return "Blocked by path whitelist: dangerous command pattern 'rm -rf /'"
+        # find 家族：find + 根路径 + -delete/-exec（任意参数顺序）
+        if "find" in _toks:
+            _fi = _toks.index("find")
+            _after = _toks[_fi+1:]
+            _path = _after[0] if _after else ""
+            if _path == "/" and ("-delete" in _after or "-exec" in _after):
+                return "Blocked by path whitelist: dangerous command pattern 'find / -delete'"
+        return None
+
     def _validate_path_access(self, func_name: str, arguments: dict) -> Optional[str]:
         """路径白名单校验（#1 阶段 1 + 审计修复 S1/S2/S3/S4/L5/E2——2026-08-18 21:00）：
         ① unquote 解码（S3 URL 编码绕过）② normcase 统一大小写（S2）③ realpath 解析符号链接（S1）
@@ -514,17 +569,21 @@ class ExecMixin:
         # 命令类工具：无论 _path 空否——先做命令内容扫描（独立于路径检查）
         if func_name in ("exec", "terminal", "bash", "execute_code"):
             _cmd = str(arguments.get("command") or arguments.get("cmd") or arguments.get("code") or "")
+            # L5 二轮补丁（2026-08-19）：tokenize 语义扫描——修参数变体/空白变体/R2-2 误伤
+            _block = self._scan_dangerous_command(_cmd)
+            if _block:
+                logger.warning("HardRule#1: %s 高危命令被拒: %s", func_name, _cmd[:80])
+                return _block
+            # 命令类工具：DENY 片段扫描（/etc/ /usr/ 等系统路径仍拦）——但不参与路径白名单分级
+            # （M5 修复：command 不是路径——realpath 解析无意义且造成 cwd 依赖误拦）
             _low_cmd = _cmd.lower()
-            for _d in ("rm -rf /", "rm -fr /", "rm -rf ~", "sudo rm", "dd if=/dev/zero",
-                       "mkfs", "> /dev/sda", "chmod 777 /", "chown -r", ":(){", "shutdown",
-                       "curl | bash", "curl|bash", "wget | bash", "wget|bash",
-                       "curl | sh", "curl|sh", "wget | sh", "wget|sh",
-                       "python -c", "python3 -c", "eval(", "bash -i", "nc -e",
-                       "find / -delete", "base64 -d", "shutil.rmtree",
-                       "| bash", "| sh", "| python", "| python3", "| perl", "| nc"):
-                if _d in _low_cmd:
-                    logger.warning("HardRule#1: %s 高危命令被拒: %s", func_name, _cmd[:80])
-                    return f"Blocked by path whitelist: dangerous command pattern '{_d}'"
+            for _frag in self._DENY_PATH_FRAGMENTS:
+                # 片段尾斜杠变体兼容：/etc/ 也匹配 rm -rf /etc（无尾斜杠）
+                _frag_a = _frag.rstrip("/")
+                if _frag in _low_cmd or (_frag_a and _frag_a in _low_cmd):
+                    logger.warning("HardRule#1: %s 命令含被拒路径片段 %s", func_name, _frag)
+                    return f"Blocked by path whitelist: '{_cmd[:80]}' contains denied path segment '{_frag}'"
+            return None  # 命令类工具 L5+DENY 通过即放行——不进路径分级
         if not _path:
             return None  # 真无路径（如 list_dir 无参）→ 放行（命令类已在上方检查）
         # 路径规范化（S3 unquote → S2 normcase → S1 realpath）

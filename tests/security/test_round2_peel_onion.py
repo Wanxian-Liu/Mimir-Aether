@@ -46,9 +46,10 @@ class TestL5PeelOnion(unittest.TestCase):
         L5 `_d in _low_cmd` 仅字面 substring——`-delete` 与 `find` 之间隔了别的参数 → 不命中。
         """
         r = self.m._validate_path_access("exec", {"command": "find / -name '*.log' -delete"})
-        self.assertIsNotNone(
-            r,
-            f"🔴 find -delete 顺序变体应被拦（L5 substring 漏），实际: {r!r}",
+        self.assertIn(
+            "dangerous command pattern",
+            r or "",
+            f"🔴 find -delete 顺序变体应由 L5 层拦（非路径检查层），实际: {r!r}",
         )
 
     def test_L5_R2_02_no_preserve_root_unblocked(self):
@@ -65,9 +66,10 @@ class TestL5PeelOnion(unittest.TestCase):
             "rm -rf --no-preserve-root /*",
         ]:
             r = self.m._validate_path_access("exec", {"command": cmd})
-            self.assertIsNotNone(
-                r,
-                f"🔴 {cmd!r} 应被拦（L5 substring 漏参数变体），实际: {r!r}",
+            self.assertIn(
+                "dangerous command pattern",
+                r or "",
+                f"🔴 {cmd!r} 应由 L5 层拦（非路径检查层），实际: {r!r}",
             )
 
     def test_L5_R2_03_shell_c_nested_unblocked(self):
@@ -79,9 +81,10 @@ class TestL5PeelOnion(unittest.TestCase):
         """
         for cmd in ["sh -c 'rm -rf /'", "bash -c 'rm -rf /'", "ls; rm -rf /"]:
             r = self.m._validate_path_access("exec", {"command": cmd})
-            self.assertIsNotNone(
-                r,
-                f"⚠️ {cmd!r} 当前拦下（字面命中），但根因是 substring 不是 tokenize——回归基线",
+            self.assertIn(
+                "dangerous command pattern",
+                r or "",
+                f"⚠️ {cmd!r} 应由 L5 层拦——回归基线，实际: {r!r}",
             )
 
     def test_L5_R2_04_positive_controls_still_blocked(self):
@@ -101,14 +104,18 @@ class TestL5PeelOnion(unittest.TestCase):
             "rm -rf /tmp/../",
         ]:
             r = self.m._validate_path_access("exec", {"command": cmd})
-            self.assertIsNotNone(
-                r,
-                f"回归: {cmd!r} 应被拦（L5 主路径），实际: {r!r}",
+            self.assertIn(
+                "dangerous command pattern",
+                r or "",
+                f"回归: {cmd!r} 应由 L5 层拦，实际: {r!r}",
             )
 
 
 class TestB4B2PeelOnion(unittest.TestCase):
     """B4/B2 剥洋葱——以 HTTP regex 修复 + 词边界修复为线索挖覆盖变体。"""
+
+    def setUp(self):
+        self.m = _M()
 
     def test_B4_R2_01_missing_http_variants(self):
         """🟡 #4 B4 覆盖变体——Hermes R2-1 已发现的 '{\"status\": 200}' (无 code 字段) + 'HTTP/2 200' (无 .0 点) 仍漏报"无 HTTP 状态信息"。
@@ -119,17 +126,13 @@ class TestB4B2PeelOnion(unittest.TestCase):
           - 'HTTP/2 200' (R2-1 已发现·确认) —— 无 '.0 小版本' 不命中第一段
         实测: 当前两者均 miss——验证 R2-1 真实（剥洋葱相邻缺口）。
         """
-        import re
-        # B4 pattern 三段或（实测取自 _validate_external_content L431-436）
-        _has_status = lambda content: bool(
-            re.search(r"HTTP/[12]\.\d\s+2\d{2}", content[:2000])
-            or re.search(r"""status[_ ]?code["']?\s*[:=]\s*2\d{2}""", content[:2000])
-            or re.search(r"""statusCode["']?\s*[:=]\s*2\d{2}""", content[:2000])
-        )
+        # 真实调用 B4（二轮补丁后：_validate_external_content 应识别 status/HTTP2 变体）
         for c in ['{"status": 200}', "HTTP/2 200", "HTTP/2 200 OK", '{"status": "200 OK"}']:
-            self.assertTrue(
-                _has_status(c),
-                f"🔴 B4 漏检 {c!r}——R2-1 真实（剥洋葱相邻缺口·修复方向: 加 status 字段 + HTTP/2 兼容）",
+            _out = self.m._validate_external_content("web_extract", c)
+            self.assertNotIn(
+                "无 HTTP 状态信息",
+                _out,
+                f"🔴 B4 漏检 {c!r}——二轮补丁后应识别（status 字段/HTTP2 无点/值类型放宽）",
             )
 
     def test_B2_R2_01_zero_width_bypass(self):
@@ -186,10 +189,7 @@ class TestB4B2PeelOnion(unittest.TestCase):
 
         本测试 fail = 真误伤证据（合法清理被拦截）；pass = 边界条件漏检
         """
-        # 直接调 L5 检查路径（模拟 _validate_path_access 中 exec 工具检查段）
-        from agent.exec_mixin import ExecMixin
-        m = ExecMixin.__new__(ExecMixin)  # 跳过 __init__
-        # 检查合法路径——这些不该被拦
+        # 真实调用 L5（二轮补丁后：tokenize 语义——合法清理路径应放行）
         legitimate = [
             "rm -rf /tmp/build-cache",
             "rm -rf /tmp/test.log",
@@ -198,25 +198,15 @@ class TestB4B2PeelOnion(unittest.TestCase):
         ]
         false_positives = []
         for cmd in legitimate:
-            low = cmd.lower()
-            # 模拟 L5 字面 substring 扫描
-            deny_list = ["rm -rf /", "rm -fr /", "rm -rf ~", "sudo rm", "dd if=/dev/zero",
-                         "mkfs", "> /dev/sda", "chmod 777 /", "chown -r", ":(){", "shutdown",
-                         "curl | bash", "curl|bash", "wget | bash", "wget|bash",
-                         "curl | sh", "curl|sh", "wget | sh", "wget|sh",
-                         "python -c", "python3 -c", "eval(", "bash -i", "nc -e",
-                         "find / -delete", "base64 -d", "shutil.rmtree",
-                         "| bash", "| sh", "{| python", "| python3", "| perl", "| nc"]
-            # 注：原 deny 含 "| python"（无右空格）——上面替换修正
-            denied = [d for d in deny_list if d in low]
-            if denied:
-                false_positives.append((cmd, denied))
+            r = self.m._validate_path_access("exec", {"command": cmd})
+            if r is not None:
+                false_positives.append((cmd, r))
 
-        # 断言：合法清理不应被拦
+        # 断言：合法清理不应被拦（R2-2 误伤已修复）
         self.assertEqual(
             false_positives, [],
             f"🔴 L5 误伤——合法清理命令被拦: {false_positives}"
-            f"——R2-2 实证（剥洋葱·L5 'rm -rf ~' substring 过宽·修复方向: 精确锚定或 escape hatch）",
+            f"——R2-2 修复验证（tokenize 后精确目标判定应放行）",
         )
 
     def test_L5_R2_06_known_tradeoff_rm_rf_home(self):
@@ -226,16 +216,13 @@ class TestB4B2PeelOnion(unittest.TestCase):
         这是已知 trade-off——Hermes 自审二轮已确认可接受（保守安全 > 误伤清理）
         本测试 fail = 记录此 trade-off 真实存在；pass = 设计变更（已修复）
         """
+        # 真实调用 L5（二轮补丁后：~/tmp/build-cache 是具体路径——应放行，trade-off 解除）
         cmd = "rm -rf ~/tmp/build-cache"
-        low = cmd.lower()
-        deny_list = ["rm -rf ~"]  # 当前 L5 唯一相关 deny
-        denied = [d for d in deny_list if d in low]
-        # 断言：当前应被拦（记录 trade-off）
-        self.assertEqual(
-            denied,
-            ["rm -rf ~"],
-            f"⚠️ R2-2 trade-off 当前真实存在: {cmd} 被 'rm -rf ~' substring 拦——"
-            f"已知接受（保守 > 灵活）·用户日常需用 mv+rm 两步绕过",
+        r = self.m._validate_path_access("exec", {"command": cmd})
+        # 断言：修复后应放行（tokenize 精确目标判定——home 下具体路径合法清理）
+        self.assertIsNone(
+            r,
+            f"⚠️ R2-2 trade-off 已解除: {cmd} 应放行（具体路径非根/家本身），实际被拦: {r!r}",
         )
 
 
