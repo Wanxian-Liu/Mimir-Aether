@@ -33,6 +33,52 @@ from gateway._shared import _build_media_placeholder, _dequeue_pending_event
 logger = logging.getLogger(__name__)
 
 
+# --- TD-02 history summary helpers (2026-08-18 四方批准 · Hermes 代执行) ---
+def _build_history_summarizer():
+    """轻量复用 context_compressor 的摘要 LLM 调用（_call_summary_llm）。
+
+    构造失败返回 None —— 调用方降级为无摘要（保持原截断行为）。
+    """
+    try:
+        from agent.context_compressor import ContextCompressorV2
+    except Exception:
+        try:
+            from context_compressor import ContextCompressorV2
+        except Exception:
+            return None
+    try:
+        _model = (
+            os.environ.get("MIMIR_SUMMARY_MODEL", "")
+            or os.environ.get("DEFAULT_MODEL", "deepseek/deepseek-v4-flash")
+        )
+        _model = _model.split("/")[-1]  # 去掉 provider 前缀（deepseek/…）
+        return ContextCompressorV2(
+            model=_model,
+            summary_model=_model,
+            base_url=os.environ.get(
+                "DEEPSEEK_BASE_URL", "https://api.deepseek.com"
+            ),
+            api_key=os.environ.get("DEEPSEEK_API_KEY", ""),
+            quiet_mode=True,
+        )
+    except Exception as _e:
+        logger.debug("TD-02: summarizer build failed: %s", _e)
+        return None
+
+
+async def _generate_history_summary(summarizer, dropped_text: str, max_tokens: int):
+    """对丢弃的历史消息段生成结构化摘要。失败/超时返回 None（不阻塞主流程）。"""
+    if not summarizer or not dropped_text.strip():
+        return None
+    try:
+        return await asyncio.wait_for(
+            summarizer._call_summary_llm(dropped_text[:12000], max_tokens),
+            timeout=20,
+        )
+    except Exception:
+        return None
+
+
 class AgentMixin:
     """Agent execution: _run_agent + callbacks + vision/transcription enrichment.
 
@@ -1084,6 +1130,8 @@ class AgentMixin:
             # (tool 必须跟随 assistant tool_calls，否则 API 500)。
             # 只影响喂给 agent 的初始历史，不动 transcript 存储。
             # ---------------------------------------------------------
+            # TD-02: 历史摘要 Future 句柄（run_sync 线程 → 主 loop 异步生成）
+            _history_summary_future = None
             try:
                 _window_size = int(os.environ.get("MIMIR_HISTORY_WINDOW", "50") or "50")
             except (TypeError, ValueError):
@@ -1100,7 +1148,38 @@ class AgentMixin:
                     "(MIMIR_HISTORY_WINDOW=%s)",
                     _dropped, len(window), _window_size,
                 )
+                # TD-02: 截断前对丢弃段生成结构化摘要（异步，system 注入）。
+                # S2 去重: 保留窗口内已有 [HISTORY SUMMARY] 则跳过，防重复注入叠加。
+                _dropped_msgs = history[:_i]
                 history = window
+                if _dropped_msgs and not any(
+                    "[HISTORY SUMMARY]" in str(m.get("content", "")) for m in history
+                ):
+                    try:
+                        _sum_max = int(
+                            os.environ.get("MIMIR_SUMMARY_MAX_TOKENS", "300") or "300"
+                        )
+                    except (TypeError, ValueError):
+                        _sum_max = 300
+                    _summarizer = _build_history_summarizer()
+                    if _summarizer is not None:
+                        _dropped_txt = "\n".join(
+                            f"[{m.get('role', '?')}] {str(m.get('content', ''))[:500]}"
+                            for m in _dropped_msgs
+                            if m.get("content")
+                        )
+                        if _dropped_txt.strip():
+                            # run_sync 在 executor 线程执行（无 running loop），
+                            # 摘要协程提交到主事件循环并发生成（不阻塞本线程）。
+                            try:
+                                _history_summary_future = asyncio.run_coroutine_threadsafe(
+                                    _generate_history_summary(
+                                        _summarizer, _dropped_txt, _sum_max
+                                    ),
+                                    _loop_for_step,
+                                )
+                            except Exception:
+                                _history_summary_future = None
 
             agent_history = []
             for msg in history:
@@ -1238,6 +1317,26 @@ class AgentMixin:
             _msn = _pending_notes.pop(session_key, None) if session_key else None
             if _msn:
                 message = _msn + "\n\n" + message
+
+            # TD-02: 注入历史摘要（system 角色）。agent_history 构造循环已结束，
+            # 此处的 system 消息不会被"跳过 system"逻辑过滤。
+            # 摘要生成不阻塞主流程：协程在主 loop 并发生成，取结果限时 25s，
+            # 超时/失败降级为无摘要（与原行为一致）。
+            if _history_summary_future is not None:
+                try:
+                    _summary_text = _history_summary_future.result(timeout=25)
+                except Exception:
+                    _summary_text = None
+                if _summary_text:
+                    agent_history.insert(0, {
+                        "role": "system",
+                        "content": "[HISTORY SUMMARY] 以下为截断的早期历史结构化摘要：\n"
+                                    + _summary_text.strip(),
+                    })
+                    logger.info(
+                        "TD-02: injected history summary (%d chars, %d msgs)",
+                        len(_summary_text), len(agent_history),
+                    )
 
             _approval_session_key = session_key or ""
             _approval_session_token = set_current_session_key(_approval_session_key)
