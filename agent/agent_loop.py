@@ -79,6 +79,15 @@ from .types import AgentLoopToolError as ToolError, AgentLoopResult as AgentResu
 
 logger = logging.getLogger(__name__)
 
+# TD-01（2026-08-18 四方批准·Hermes代改）：intent 重估跳过前缀——集中常量，禁止散落 if
+# 覆盖：系统注入 nudge（[BLOCKED/[SEARCH-FIRST/【架构/[intent-action-guard]）
+#      + intent-context 注入文本自身（<intent-context> 开头，user 角色）
+#      + TD-02 摘要注入（[HISTORY SUMMARY]）
+_INTENT_SKIP_PREFIXES = (
+    "[BLOCKED", "[SEARCH-FIRST", "【架构", "[intent-action-guard]",
+    "[intent-context]", "[HISTORY SUMMARY]", "<intent-context>",
+)
+
 
 # ============== Helpers ==============
 
@@ -198,6 +207,8 @@ class MimirAgentLoop:
         self._recorder = None
         # Interval nudge flag: once per session (MW-04)
         self._interval_nudge_done = False
+        # TD-01（2026-08-18 Hermes代改）：intent 重估的原始输入快照——防自触发循环
+        self._last_intent_source: Optional[str] = None
 
     async def _loop_body(self, messages: List[Dict[str, Any]]) -> AgentResult:
         """Execute the full agent loop (Loki-C 2026-08-15: run() 改名 _loop_body，薄 run() 在外层 try/except 包装)。
@@ -288,14 +299,24 @@ class MimirAgentLoop:
             if skill_nudge:
                 messages.append({"role": "user", "content": skill_nudge})
 
-            # Intent predictor context: inject <intent-context> metadata (turn 0 only)
-            if turn == 0 and intent_predictor_enabled():
+            # Intent predictor context: 每轮重估（TD-01 · 2026-08-18 四方批准 · Hermes代改）
+            # 原实现仅 turn 0 注入——长会话用户新输入（追问/换任务）不再重估意图。
+            # 修订 1（防自触发循环）：重估对比基于"原始 user 输入快照"（_last_intent_source），
+            #   非 messages 尾部——intent-context 注入文本本身是 user 角色，对比尾部会每轮自触发。
+            # 修订 2（跳过前缀常量化）：_INTENT_SKIP_PREFIXES 集中管理，禁止散落 if。
+            # 逻辑：仅当最新 user 原始文本 != _last_intent_source 且非跳过前缀时重估。
+            if intent_predictor_enabled():
                 try:
                     _user_text = last_user_text(messages) or ""
-                    if _user_text:
+                    if (
+                        _user_text
+                        and _user_text != self._last_intent_source
+                        and not _user_text.startswith(_INTENT_SKIP_PREFIXES)
+                    ):
                         _pred, _ctx = intent_predict_and_format(_user_text)
                         if _ctx:
                             messages.append({"role": "user", "content": _ctx})
+                            self._last_intent_source = _user_text
                             logger.info(
                                 "[%s] turn %d: intent-context injected (intent=%s)",
                                 self.task_id[:8], turn + 1,
