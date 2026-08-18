@@ -377,6 +377,9 @@ class ExecMixin:
         if _notes:
             content = content + "\n[外部内容校验: " + "; ".join(_notes) + "]"
         # #5 第 3 层：上下文隔离（双重包裹——外部内容与系统/用户指令物理隔离）
+        # L3 审计修复（2026-08-18）：内容内若含边界标记 → 转义（防边界错位/注入变体）
+        content = content.replace("[EXTERNAL_DATA_END]", "[EXTERNAL_DATA_EOM]")
+        content = content.replace("[EXTERNAL_DATA_START]", "[EXTERNAL_DATA_BOM]")
         content = "[EXTERNAL_DATA_START]\n" + content + "\n[EXTERNAL_DATA_END]"
         # #5 第 4 层：审计日志（外部流量记录——可溯源）
         try:
