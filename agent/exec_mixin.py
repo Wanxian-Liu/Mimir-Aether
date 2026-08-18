@@ -369,7 +369,8 @@ class ExecMixin:
 
     # ── 架构硬规则 #5 第 1 层：外部内容校验（2026-08-18 Hermes 执行 · OpenClaw security 方案）──
     # 外部工具（web/网络/抓取）返回内容统一收口校验：大小限制 + 来源标注 + 格式校验 + 敏感词扫描。
-    # env 门控 MIMIR_EXTERNAL_VALIDATION（默认 on；off 降级只做大小限制）
+    # env 门控 MIMIR_EXTERNAL_VALIDATION（默认 on；off 降级仅保留 1MB 大小保护——
+    # 注入/敏感词扫描关闭（E1/E3 文档化：off 是"降级"非"全关"——DENY 类安全底线不随 off 解除）
     _EXTERNAL_TOOLS = (
         "web_search", "web_extract", "web_fetch", "fetch_url", "http_request",
         "curl", "browser_navigate", "browser_snapshot", "browser_console",
@@ -416,8 +417,13 @@ class ExecMixin:
                 _notes.append("无 HTTP 状态信息")
         # ④ 敏感词/注入扫描
         _low = content.lower()
-        _inject_hits = [w for w in self._INJECTION_PATTERNS if w.lower() in _low]
-        _sens_hits = [w for w in self._SENSITIVE_PATTERNS if w.lower() in _low]
+        # M2 修复（2026-08-18）：英文词用 \b 词边界（防 "you" 类误报）——中文保持 contains（.lower() 等价原串）
+        def _hit(w: str) -> bool:
+            if w.isascii() and w[0].isalpha():
+                return re.search(r"\b" + re.escape(w.lower()) + r"\b", _low) is not None
+            return w.lower() in _low
+        _inject_hits = [w for w in self._INJECTION_PATTERNS if _hit(w)]
+        _sens_hits = [w for w in self._SENSITIVE_PATTERNS if _hit(w)]
         if _inject_hits or _sens_hits:
             _flag = f"[SUSPECTED INJECTION: 注入词={_inject_hits[:3]} 敏感词={_sens_hits[:3]}]"
             _notes.append(_flag)
