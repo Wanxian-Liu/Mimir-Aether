@@ -17,12 +17,15 @@ class TaskState(str, Enum):
     - WRITING:   写盘阶段（write_file/patch 已调用）——nudge 跳过、压缩器延迟
     - VERIFYING: 验证阶段（verify guard 放行/回读）
     - DONE:      自然退出（只有 DONE 才允许自然结束，防"假完成"）
+    - INTERRUPTED: TD-03 L3 中断（2026-08-18 四方批准·Hermes代改）——连续硬拦截后仍无产出，
+      任务未完成被中断。消费方不得当 DONE/IN_PROGRESS 处理（防隐式卡死）。
     """
 
     PROBING = "probing"
     WRITING = "writing"
     VERIFYING = "verifying"
     DONE = "done"
+    INTERRUPTED = "interrupted"
 
     @classmethod
     def from_tool_name(cls, tool_name: str) -> "TaskState | None":

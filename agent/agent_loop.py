@@ -209,6 +209,8 @@ class MimirAgentLoop:
         self._interval_nudge_done = False
         # TD-01（2026-08-18 Hermes代改）：intent 重估的原始输入快照——防自触发循环
         self._last_intent_source: Optional[str] = None
+        # TD-03（2026-08-18 Hermes代改）：产出校验硬拦截计数（L2 触发后累计）
+        self._production_hard_nudges: int = 0
 
     async def _loop_body(self, messages: List[Dict[str, Any]]) -> AgentResult:
         """Execute the full agent loop (Loki-C 2026-08-15: run() 改名 _loop_body，薄 run() 在外层 try/except 包装)。
@@ -871,13 +873,68 @@ class MimirAgentLoop:
                 #       （2026-08-18 实证：872d92cc 12步 / a0b777b 6步 均无写盘结束）
                 # 修复：_has_written 校验独立触发——nudge 开关只控制"记忆/技能 nudge"（空洞确认源），
                 #       不控制"产出校验"（写盘强制）——两个关注点解耦
+                # ===== TD-03（2026-08-18 四方批准·Hermes代改）：产出校验三级强制 =====
+                # L1 软提示（现状）→ L2 硬拦截（移除无产出回复+明确指令）→ L3 中断（INTERRUPTED 透传用户）
+                # env 门控：MIMIR_PRODUCTION_ENFORCE=1 开启三级；关闭时保持现状（L1 后自然退出）
                 if (not _has_written
                         and any(m.get("role") == "assistant" for m in messages)
                         and self._should_nudge_production(messages)):
-                    logger.info(
-                        "[%s] turn %d: 主动结束但无写盘产出——追加产出提示（产出校验独立于nudge开关）", self.task_id[:8], turn + 1
-                    )
-                    await self._inject_production_nudge(messages)
+                    _enforce = os.environ.get("MIMIR_PRODUCTION_ENFORCE", "0").strip().lower() not in ("0", "false", "no")
+                    _max_hard = int(os.environ.get("MIMIR_PRODUCTION_HARD_NUDGES", "2") or "2")
+                    # TD-03 修订1：research 实质回答豁免（≥50字+实词≥10+无未完成信号+无系统标记 → 视为产出）
+                    if self._is_substantive_research_answer(messages):
+                        logger.info(
+                            "[%s] turn %d: research 实质回答豁免（≥50字+实词≥10）——视为产出，自然退出",
+                            self.task_id[:8], turn + 1,
+                        )
+                    elif _enforce and self._production_hard_nudges >= _max_hard:
+                        # L3 中断：连续 _max_hard 次硬拦截后仍无产出 → INTERRUPTED 透传用户
+                        logger.warning(
+                            "[%s] turn %d: TD-03 L3 中断（has_written=False，硬拦截 %d/%d）——透传用户",
+                            self.task_id[:8], turn + 1,
+                            self._production_hard_nudges, _max_hard,
+                        )
+                        self._close_pipeline(user_task)
+                        self._task_state = TaskState.INTERRUPTED  # L3 中断状态（四方共识：禁止标 DONE）
+                        raise AgentLoopExit("interrupt", {
+                            "messages": messages, "turns_used": turn + 1,
+                            "finished_naturally": False, "reasoning_per_turn": reasoning_per_turn,
+                            "tool_errors": tool_errors, "interrupted": True,
+                        })
+                    elif _enforce and self._production_hard_nudges >= 1:
+                        # L2 硬拦截：移除最后无产出 assistant 回复 + 注入明确指令（复用 verify guard 移除机制）
+                        # R5（OpenClaw）：工具结果已返回则放行——用户应看到结果
+                        _tool_result_pending = any(m.get("role") == "tool" for m in messages[-4:])
+                        if not _tool_result_pending:
+                            while messages and messages[-1].get("role") == "assistant":
+                                messages.pop()
+                            messages.append({
+                                "role": "user",
+                                "content": self._build_production_hard_nudge(self._production_hard_nudges, _max_hard),
+                            })
+                            self._production_hard_nudges += 1
+                            logger.warning(
+                                "[%s] turn %d: TD-03 L2 硬拦截 %d/%d（移除无产出回复+明确指令）",
+                                self.task_id[:8], turn + 1,
+                                self._production_hard_nudges, _max_hard,
+                            )
+                            continue
+                        # 工具结果已返回 → 放行（用户应看到结果）
+                    elif _enforce:
+                        # L1（enforce 开启）：软提示后 continue——给 LLM 下一轮补产出机会（不直接自然退出）
+                        logger.info(
+                            "[%s] turn %d: TD-03 L1 软提示（enforce 开启）——注入产出提示后继续",
+                            self.task_id[:8], turn + 1,
+                        )
+                        await self._inject_production_nudge(messages)
+                        self._production_hard_nudges = 1
+                        continue
+                    else:
+                        # 门控关闭：保持现状 L1 软提示后自然退出
+                        logger.info(
+                            "[%s] turn %d: 主动结束但无写盘产出——追加产出提示（产出校验独立于nudge开关）", self.task_id[:8], turn + 1
+                        )
+                        await self._inject_production_nudge(messages)
                 self._close_pipeline(user_task)
                 self._task_state = TaskState.DONE  # task_state注入点3（四方共识：自然退出→DONE）
                 raise AgentLoopExit("natural", {
@@ -991,6 +1048,48 @@ class MimirAgentLoop:
                     return False  # 简短催促/追问/问答 → 豁免，直接回答即可
                 break
         return True
+
+    # ===== TD-03（2026-08-18 四方批准·Hermes代改）：research 实质回答豁免 + L2 硬拦截指令 =====
+    _UNFINISHED_SIGNALS = ("准备", "接下来", "将要", "即将")
+    _SYS_MARKS = ("[WAIT]", "[TODO]", "[BLOCKED]")
+    _STOP_WORDS = {"一个", "我们", "你们", "他们", "这个", "那个", "可以", "需要",
+                   "进行", "以及", "对于", "因为", "所以", "但是", "然后", "就是", "已经"}
+
+    def _is_substantive_research_answer(self, messages: List[Dict[str, Any]]) -> bool:
+        """TD-03 修订1（OpenClaw R4）：research 实质回答豁免——≥50字 + 实词≥10 + 无未完成信号 + 无系统标记 → 视为产出。
+
+        误伤场景防住：综述型 research 回答本身即产出（不要求写盘）。
+        """
+        import re as _re
+        # 取最后一条 assistant 文本
+        _text = ""
+        for m in reversed(messages):
+            if m.get("role") == "assistant" and m.get("content"):
+                _c = m["content"]
+                _text = _c if isinstance(_c, str) else str(_c)
+                break
+        if len(_text) < 50:
+            return False
+        if any(w in _text for w in self._UNFINISHED_SIGNALS):
+            return False
+        if any(mk in _text for mk in self._SYS_MARKS):
+            return False
+        # 实词统计：中文字词 + 英文单词（粗粒度过滤停用词）
+        _words = _re.findall(r"[\u4e00-\u9fff]{2,}|[a-zA-Z]{3,}", _text)
+        _content_words = [w for w in _words if w not in self._STOP_WORDS]
+        return len(_content_words) >= 10
+
+    def _build_production_hard_nudge(self, attempt: int, max_hard: int) -> str:
+        """TD-03 修订4（OpenClaw R7）：L2 硬拦截明确指令——告诉 LLM 已移除 1 次未落盘回复。"""
+        return (
+            f"[BLOCKED:production-enforce] 你的上一条回复已被移除——本会话仍无写盘产出"
+            f"（write_file/patch），且已软提示过 1 次。这是第 {attempt + 1}/{max_hard} 次硬拦截。\n"
+            "请立即执行以下之一：\n"
+            "1. 如果任务要求落盘：现在就用 write_file/patch 写入交付物（先写盘再总结）\n"
+            "2. 如果已完成调研但未落盘：把结论落盘到指定路径，再输出简短总结\n"
+            "3. 如果用户只是问答/闲聊：直接给出完整回答（≥50字实质内容即可）\n"
+            "不要输出'收到——落盘'式空洞确认。"
+        )
 
     async def _inject_production_nudge(self, messages: List[Dict[str, Any]]) -> None:
         """注入产出提示（架构修复2 + Loki-C commit 3 提取）：无写盘产出时引导落盘（best-effort，不抛）。"""
