@@ -376,6 +376,20 @@ class ExecMixin:
             logger.warning("HardRule#5: %s 外部内容含可疑模式 %s", func_name, _flag)
         if _notes:
             content = content + "\n[外部内容校验: " + "; ".join(_notes) + "]"
+        # #5 第 3 层：上下文隔离（双重包裹——外部内容与系统/用户指令物理隔离）
+        content = "[EXTERNAL_DATA_START]\n" + content + "\n[EXTERNAL_DATA_END]"
+        # #5 第 4 层：审计日志（外部流量记录——可溯源）
+        try:
+            _audit_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", ".mimiraether", "data", "audit")
+            _audit_dir = os.path.abspath(_audit_dir)
+            os.makedirs(_audit_dir, exist_ok=True)
+            with open(os.path.join(_audit_dir, "external_traffic.log"), "a", encoding="utf-8") as _af:
+                _af.write(
+                    f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {func_name} len={len(content)}"
+                    f" notes={';'.join(_notes) if _notes else 'clean'}\n"
+                )
+        except Exception:
+            pass  # 审计失败不阻塞
         return content
 
     async def _execute_single_tool(self, tool_call: Dict, turn: int = 0) -> ToolResult:
