@@ -1,0 +1,73 @@
+"""架构硬规则 #1 阶段 1：路径白名单测试（2026-08-18 Hermes · OpenClaw security 方案）
+
+验证：文件操作工具路径分级——workspace 允许读写 / project 只读 / 系统与密钥目录禁止；
+env 门控 MIMIR_PATH_WHITELIST=off 回全权限。
+"""
+import os
+import sys
+import pytest
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from agent.exec_mixin import ExecMixin
+
+
+class _FakeExec(ExecMixin):
+    def __init__(self):
+        self._tool_errors = []
+
+
+@pytest.fixture()
+def exec_obj():
+    return _FakeExec()
+
+
+# ── 非文件工具放行 ──
+def test_non_path_tool_ok(exec_obj):
+    assert exec_obj._validate_path_access("web_search", {"query": "x"}) is None
+
+
+# ── 系统目录拒绝 ──
+def test_etc_passwd_denied(exec_obj):
+    err = exec_obj._validate_path_access("read_file", {"path": "/etc/passwd"})
+    assert err and "Blocked by path whitelist" in err
+
+
+# ── 密钥目录拒绝 ──
+def test_ssh_key_denied(exec_obj):
+    err = exec_obj._validate_path_access("read_file", {"path": os.path.expanduser("~/.ssh/id_rsa")})
+    assert err and "Blocked" in err
+
+
+def test_aws_credentials_denied(exec_obj):
+    err = exec_obj._validate_path_access("read_file", {"path": os.path.expanduser("~/.aws/credentials")})
+    assert err and "Blocked" in err
+
+
+# ── workspace 允许读写 ──
+def test_workspace_write_ok(exec_obj):
+    p = os.path.expanduser("~/.mimiraether/tmp/test.md")
+    assert exec_obj._validate_path_access("write_file", {"path": p}) is None
+
+
+def test_wiki_read_ok(exec_obj):
+    p = os.path.expanduser("~/wiki/discussions/x.md")
+    assert exec_obj._validate_path_access("read_file", {"path": p}) is None
+
+
+# ── project 只读 ──
+def test_project_write_denied(exec_obj):
+    p = "/home/rayliu/src/MimirAether/agent/agent_loop.py"
+    err = exec_obj._validate_path_access("write_file", {"path": p})
+    assert err and "read-only" in err
+
+
+def test_project_read_ok(exec_obj):
+    p = "/home/rayliu/src/MimirAether/agent/agent_loop.py"
+    assert exec_obj._validate_path_access("read_file", {"path": p}) is None
+
+
+# ── env 门控 off 回全权限 ──
+def test_gate_off_returns_all(exec_obj, monkeypatch):
+    monkeypatch.setenv("MIMIR_PATH_WHITELIST", "off")
+    assert exec_obj._validate_path_access("read_file", {"path": "/etc/passwd"}) is None

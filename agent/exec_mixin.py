@@ -392,6 +392,56 @@ class ExecMixin:
             pass  # 审计失败不阻塞
         return content
 
+    # ── 架构硬规则 #1 阶段 1：路径白名单（2026-08-18 Hermes 执行 · OpenClaw security 方案）──
+    # 文件操作工具（read/write/exec）路径分级：workspace 允许读写 / project 允许读 / 系统目录禁止。
+    # env 门控 MIMIR_PATH_WHITELIST（默认 workspace,project；off 回全权限）
+    _PATH_TOOLS = ("read_file", "write_file", "patch", "exec", "terminal", "bash", "list_dir")
+    _DENY_PATH_FRAGMENTS = (
+        "/etc/", "/usr/", "/bin/", "/sbin/", "/var/", "/root/", "/proc/", "/sys/",
+        "/.ssh/", "/.aws/", "/.kube/", "/.gnupg/", "/.config/", "/.git/",
+        "id_rsa", "id_ed25519", ".pem", ".key", "credentials", ".env",
+    )
+
+    def _validate_path_access(self, func_name: str, arguments: dict) -> Optional[str]:
+        """路径白名单校验（#1 阶段 1）——返回错误消息（拦截）或 None（放行）。"""
+        if func_name not in self._PATH_TOOLS:
+            return None
+        try:
+            _enabled = os.environ.get("MIMIR_PATH_WHITELIST", "workspace,project").strip().lower()
+            if _enabled in ("off", "0", "false", "no"):
+                return None  # 门控关闭 → 全权限
+        except Exception:
+            return None
+        # 提取路径参数
+        _path = ""
+        if isinstance(arguments, dict):
+            _path = str(arguments.get("path") or arguments.get("cwd") or arguments.get("command") or "")
+        if not _path:
+            return None  # 无路径参数（如 exec 的纯命令）→ 不拦截（阶段 1 只挡路径）
+        # 禁止片段检查
+        for _frag in self._DENY_PATH_FRAGMENTS:
+            if _frag in _path:
+                logger.warning("HardRule#1: %s 访问被拒路径 %s (fragment=%s)", func_name, _path[:80], _frag)
+                return f"Blocked by path whitelist: '{_path[:80]}' contains denied path segment '{_frag}'"
+        # 允许读写（workspace/wiki/mimiraether 数据）+ 允许读（src 项目）
+        _home = os.path.expanduser("~")
+        _allowed_rw = (_home + "/.mimiraether", _home + "/wiki", _home + "/.openclaw/workspace")
+        _allowed_r = (_home + "/src/MimirAether",)
+        _p = os.path.abspath(os.path.expanduser(_path.split()[0] if " " in _path[:1] else _path))
+        for _a in _allowed_rw:
+            if _p.startswith(_a):
+                return None
+        for _a in _allowed_r:
+            if _p.startswith(_a):
+                if func_name in ("write_file", "patch"):
+                    return f"Blocked by path whitelist: '{_path[:80]}' is read-only (project dir)"
+                return None
+        # 其他路径（白名单外）→ 读允许？——阶段 1：白名单外禁止（保守）
+        if _path.startswith(("/", "~")) and _p not in ("/tmp",) and not _p.startswith("/tmp/"):
+            logger.warning("HardRule#1: %s 访问白名单外路径 %s", func_name, _path[:80])
+            return f"Blocked by path whitelist: '{_path[:80]}' outside allowed paths"
+        return None
+
     async def _execute_single_tool(self, tool_call: Dict, turn: int = 0) -> ToolResult:
         """
         执行单个工具调用
@@ -462,6 +512,15 @@ class ExecMixin:
             # P0-1: 统一参数修复 → agent/tools/repair.py
             from .tools.repair import repair_tool_arguments
             arguments = repair_tool_arguments(func_name, raw_args)
+
+            # 架构硬规则 #1 阶段 1：路径白名单（文件操作工具）
+            _path_err = self._validate_path_access(func_name, arguments)
+            if _path_err:
+                self._tool_errors.append(ToolError(
+                    turn=turn, tool_name=func_name, arguments=str(raw_args)[:200],
+                    error=_path_err, tool_result=f"Error: {_path_err}",
+                ))
+                return ToolResult(tool_call_id=tool_call_id, content=f"Error: {_path_err}", is_error=True)
             
             # write_file 修复失败 → 返回错误
             if func_name == "write_file" and isinstance(arguments, dict) and "path" not in arguments:
