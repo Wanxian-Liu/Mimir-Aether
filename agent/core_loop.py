@@ -651,9 +651,25 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
                 pass
 
             # 截断到最近 N 条（在过滤前截断以保留最近的有效消息）
+            # TD-02（2026-08-18 Hermes代改）：[HISTORY SUMMARY] 摘要消息豁免截断——
+            #   gateway 注入摘要在窗口头部，若按 -N 切片会把摘要切掉 → 摘要白做
             _history_slice = conversation_history
             if len(conversation_history) > _max_recent:
-                _history_slice = conversation_history[-_max_recent:]
+                _summary_msgs = [
+                    m for m in conversation_history
+                    if m.get("role") == "system"
+                    and isinstance(m.get("content", ""), str)
+                    and m["content"].startswith("[HISTORY SUMMARY]")
+                ]
+                _rest = [
+                    m for m in conversation_history
+                    if not (
+                        m.get("role") == "system"
+                        and isinstance(m.get("content", ""), str)
+                        and m["content"].startswith("[HISTORY SUMMARY]")
+                    )
+                ]
+                _history_slice = _summary_msgs + _rest[-_max_recent:]
 
             injected = 0
             for hmsg in _history_slice:
