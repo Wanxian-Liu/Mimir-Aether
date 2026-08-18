@@ -1132,12 +1132,17 @@ class AgentMixin:
             # ---------------------------------------------------------
             # TD-02: 历史摘要 Future 句柄（run_sync 线程 → 主 loop 异步生成）
             _history_summary_future = None
+            # #2 截断通知（2026-08-18 架构硬规则——不静默截断）：记录丢弃数，注入用户可见通知
+            _truncated_count = 0
+            _truncated_window = 50
             try:
                 _window_size = int(os.environ.get("MIMIR_HISTORY_WINDOW", "50") or "50")
             except (TypeError, ValueError):
                 _window_size = 50
             if _window_size > 0 and len(history) > _window_size:
                 _dropped = len(history) - _window_size
+                _truncated_count = _dropped
+                _truncated_window = _window_size
                 window = history[-_window_size:]
                 _i = _dropped
                 while window and window[0].get("role") == "tool" and _i > 0:
@@ -1317,6 +1322,18 @@ class AgentMixin:
             _msn = _pending_notes.pop(session_key, None) if session_key else None
             if _msn:
                 message = _msn + "\n\n" + message
+
+            # #2 截断通知（2026-08-18 架构硬规则——不静默截断——用户可见）
+            if _truncated_count > 0:
+                agent_history.insert(0, {
+                    "role": "system",
+                    "content": (
+                        f"[CONTEXT TRUNCATED: 已丢弃 {_truncated_count} 条早期消息"
+                        f"（窗口上限 MIMIR_HISTORY_WINDOW={_truncated_window}）"
+                        "——如需回溯请查会话历史]"
+                    ),
+                })
+                logger.info("HardRule#2: truncated-notice injected (%d msgs dropped)", _truncated_count)
 
             # TD-02: 注入历史摘要（system 角色）。agent_history 构造循环已结束，
             # 此处的 system 消息不会被"跳过 system"逻辑过滤。
