@@ -269,6 +269,30 @@ class MimirAgentLoop:
                     "tool_errors": tool_errors, "interrupted": True,
                 })
 
+            # P1-1 熔断（2026-08-19 执行卡 #5 · OpenClaw cap 修正 + Mimir 细化）：
+            # 80 软警告（注入评估提示）——100 硬中断（强制 summary）——env 可关
+            _cb_soft = int(os.environ.get("MIMIR_CIRCUIT_SOFT", "80"))
+            _cb_hard = int(os.environ.get("MIMIR_CIRCUIT_HARD", "100"))
+            if _cb_soft > 0 and turn == _cb_soft - 1:
+                _cb_msg = {
+                    "role": "user",
+                    "content": (
+                        "[MIMIR_CIRCUIT_BREAKER] 已运行 80 轮——请评估：当前是在循环/原地打转，"
+                        "还是在持续产生新进展？若有进展请简述并继续（预计还需几轮）；"
+                        "若在循环请立即收敛：总结已得结论并输出最终答复（不再调用新工具）。"
+                    ),
+                }
+                messages.append(_cb_msg)
+                logger.warning("[%s] turn %d: circuit-breaker SOFT warning injected (80 turns)", self.task_id[:8], turn + 1)
+            if _cb_hard > 0 and turn >= _cb_hard:
+                logger.warning("[%s] turn %d: circuit-breaker HARD cut at %d turns — forcing summary", self.task_id[:8], turn + 1, _cb_hard)
+                self._close_pipeline(user_task)
+                raise AgentLoopExit("circuit_breaker", {
+                    "messages": messages, "turns_used": turn + 1,
+                    "finished_naturally": False, "reasoning_per_turn": reasoning_per_turn,
+                    "tool_errors": tool_errors, "interrupted": False,
+                })
+
             # 修复（2026-08-05，核心体检-1 P0）：错误风暴检测——工具错误过多=循环卡死信号
             # （原来无上限：工具持续失败会无限continue，浪费token且可能死循环）
             if len(tool_errors) >= 50:
@@ -331,6 +355,18 @@ class MimirAgentLoop:
                         "[%s] intent predictor skipped: %s",
                         self.task_id[:8], _exc,
                     )
+
+            # P1-1 PI 自动触发（2026-08-19 执行卡 #5 · Loki 修正：轮次预估≥8 才 delegate 非关键词）
+            # turn 0 注入一次：任务含"调研/审计/多源验证"且预估轮次≥8 → 提示可 delegate（env MIMIR_PI_FORCE=0 关闭）
+            if turn == 0 and os.environ.get("MIMIR_PI_FORCE", "1").strip().lower() not in ("0", "false", "no", "off"):
+                try:
+                    from agent.pi_trigger import maybe_pi_delegate_nudge
+                    _pi_nudge = maybe_pi_delegate_nudge(messages)
+                    if _pi_nudge:
+                        messages.append({"role": "user", "content": _pi_nudge})
+                        logger.info("[%s] turn 1: PI-delegate nudge injected (预估轮次≥8 任务)", self.task_id[:8])
+                except Exception as _pie:
+                    logger.warning("[%s] PI nudge skipped: %s", self.task_id[:8], _pie)
 
             # Meta-cognition: scenario → skill_view (turn 0 only, once per user message)
             if turn == 0:
