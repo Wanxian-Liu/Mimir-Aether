@@ -170,3 +170,45 @@ def _is_hollow_ack(assistant_text: str) -> bool:
 - 规矩（AGENTS.md §11）管"我该怎么做" → TD-04 管"系统不让我不这么做"
 - 审计（自我审计报告）管"事后复盘" → TD-03 L3 管"事前中断"
 - 三层合一：规矩 → 强制 → 中断，8/17 事故不再重演
+
+---
+
+## 四方讨论修订结论（2026-08-18 12:30 · Mimir 汇总 · 等刘哥拍板）
+
+> 讨论卡：`~/wiki/discussions/TD剩余工程-四方讨论.md`（Hermes 11:47 / OpenClaw 11:48 / Loki 12:08 / Mimir 汇总 12:30）
+> 角色：Mimir 以 Software Architect（concepts/角色-engineering-SoftwareArchitect.md）执行汇总——核心规则"决策要可逆，优先选容易改的方案"
+
+### 修订要点（相对本母卡原方案）
+
+| 原方案 | 四方修订 | 来源 |
+|:--|:--|:--|
+| TD-02 摘要注入方式未定 | **system 角色注入**（纯文本不含 tool 块）；否决 user 角色（打乱交替 → 400） | OpenClaw R1 + Loki 验证 |
+| TD-02 摘要同步生成 | **异步化**：首次截断不等摘要，下一轮补；失败保留最后 user 全文 | OpenClaw R3 |
+| TD-02 摘要长度未限 | `MIMIR_SUMMARY_MAX_TOKENS` env（默认 1000）+ 字段 ≤200 字 | OpenClaw R2 |
+| TD-03 L2 复用 TD-04 判定 | **L2 判定独立**（判无写盘≠判空洞），仅复用回复移除机制 | Hermes#4 + OpenClaw R4 |
+| TD-03 research 豁免待议 | 豁免写进判定：>50 字 **且** 实词≥10 **且** 无未完成信号 **且** 无系统标记 | Hermes#5 + OpenClaw R4 |
+| TD-03 L3 无状态定义 | task_state=INTERRUPTED + 同步改所有消费方 | OpenClaw R6 |
+| TD-03 无防误伤累加 | L2/L3 前置明确指令（3 选项转用户决策）| OpenClaw R7 |
+| TD-03 NUDGES 固定 2 | `MIMIR_PRODUCTION_HARD_NUDGES` env 化（默认 2）| Hermes#5 + OpenClaw |
+| TD-01 重估对比 messages 尾部 | **对比原始 user 输入快照**（防 [intent-context] 自触发循环）+ 跳过前缀常量化 | Hermes#2/#3 |
+| 验收 = 落地后复测 | **实施即测型**——3 项全需先实施才能测；e2e 场景 A（真 SDK 无 400）最高优先 | Loki#14/#15 |
+| 批次：TD-04+TD-01 → TD-03 → TD-02 | **TD-02 gateway 侧先行**（风险可控）→ 拍板 → TD-01/TD-02 agent 侧/TD-03 同批代改 | OpenClaw#13 + Loki#16 |
+
+### 修订后执行路径（等刘哥拍板）
+
+1. **Mimir 自主**（不在保护名单）：`gateway/agent_mixin.py` L1088-1103——TD-02 gateway 侧（system 角色摘要 + 异步 + token 上限）
+2. **工程侧**：建 `tests/e2e/test_td02_summary_injection.py`（真 SDK 场景 A/B，挂 ANTHROPIC_API_KEY）
+3. **刘哥拍板**：授权 agent 侧代改（agent_core 保护组）
+4. **Hermes 代改**：`agent_loop.py`（TD-01 每轮重估 + TD-03 三级强制）+ `core_loop.py`（TD-02 agent 侧：_max_recent 25→50 + 放行 [HISTORY SUMMARY] system 消息）
+5. **工程侧测试**：`test_history_summary.py` / `test_production_enforcement.py` / intent 重估测试（4 文件）
+6. **回归**：tier0 串行全绿 + 8/17 e2e 场景复现（基线 tests/agent 333 passed）
+
+### 状态更新（Loki 盘上实查核对）
+
+| TD | 状态 | 证据 |
+|:--|:--|:--|
+| TD-04 | ✅ 完全落地 | commit 116a1b5（35 行 + 107 行测试）|
+| TD-01 pattern | ✅ 落地 | intent_predictor.py L34 已加口语，commit 116a1b5 |
+| TD-01 每轮重估 | ⏸ 四方批准后 Hermes 代改 | core_loop.py L751-765 仍单点首轮 |
+| TD-02 摘要注入 | 🔶 gateway 侧 Mimir 待开工 + agent 侧待拍板 | 框架代码无摘要注入调用 |
+| TD-03 分级强制 | 🔶 部分（豁免分支有 + L3 中断无）→ 补强后实施 | commit e40a8fe + 待代改 |
