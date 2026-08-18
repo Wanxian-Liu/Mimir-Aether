@@ -148,3 +148,32 @@ class TestDispatchAll:
         assert call_order[0] == "read_file"
         assert call_order[1] == "write_file"
         assert call_order[2] == "patch"
+
+
+class TestRetryEnv:
+    """B1 (2026-08-19 v2): retry 由独立 env MIMIR_PARALLEL_RETRY 控制（默认 1=启用）。"""
+
+    def _flaky_dispatcher(self):
+        calls = {"n": 0}
+
+        def dispatcher(name, args, tid):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise RuntimeError("boom")
+            return '{"ok": true}'
+
+        return dispatcher, calls
+
+    @patch.dict("os.environ", {"MIMIR_PARALLEL_RETRY": "1"}, clear=True)
+    def test_retry_enabled_retries_failed_tool(self):
+        dispatcher, calls = self._flaky_dispatcher()
+        tool_calls = [{"id": "call_1", "type": "function", "function": {"name": "read_file", "arguments": '{"path": "/tmp/a"}'}}]
+        _run_dispatch(tool_calls, dispatcher)
+        assert calls["n"] == 2  # 失败 1 次 + 重试成功
+
+    @patch.dict("os.environ", {"MIMIR_PARALLEL_RETRY": "0"}, clear=True)
+    def test_retry_disabled_single_attempt(self):
+        dispatcher, calls = self._flaky_dispatcher()
+        tool_calls = [{"id": "call_1", "type": "function", "function": {"name": "read_file", "arguments": '{"path": "/tmp/a"}'}}]
+        _run_dispatch(tool_calls, dispatcher)
+        assert calls["n"] == 1  # 不重试

@@ -96,8 +96,8 @@ async def dispatch_all(
             except Exception:
                 args = {}
             # P0-1 (2026-08-19): per-tool 超时 + 单工具 retry（不重试全部——失败隔离）
-            # env: MIMIR_BATCH_READ_NUDGE=0 关 retry（降级为原行为）; MIMIR_TOOL_TIMEOUT 默认 60s
-            retry_enabled = os.environ.get("MIMIR_BATCH_READ_NUDGE", "1").strip().lower() not in ("0", "false", "no", "off")
+            # B1 (2026-08-19 v2): retry 由独立 env MIMIR_PARALLEL_RETRY 控制（默认 1=启用）
+            retry_enabled = os.getenv("MIMIR_PARALLEL_RETRY", "1").strip().lower() not in ("0", "false", "no", "off")
             timeout_s = float(os.environ.get("MIMIR_TOOL_TIMEOUT", "60"))
             max_retries = int(os.environ.get("MIMIR_TOOL_RETRY", "1"))
 
