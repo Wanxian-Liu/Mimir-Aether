@@ -806,7 +806,10 @@ SEARCH_FILES_SCHEMA = {
 
 def _handle_read_file(args, **kw):
     tid = kw.get("task_id") or "default"
-    return read_file_tool(path=args.get("path", ""), offset=args.get("offset", 1), limit=args.get("limit", 500), task_id=tid)
+    return read_file_tool(
+        path=args.get("path", ""), offset=args.get("offset", 1),
+        limit=args.get("limit", 500), task_id=tid,
+        force_full=bool(args.get("force_full", False)))
 
 
 def _handle_write_file(args, **kw):
