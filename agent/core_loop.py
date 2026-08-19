@@ -952,7 +952,9 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
                 return result.content
             
             # ── 创建并运行 MimirAgentLoop ──
-            from agent.task_completion import extract_task_spec  # 四方会议 2026-08-19：任务书提取（B-L2）
+            from agent.task_completion import extract_task_spec, _CHECKBOX_RE, _CN_TASK_MARKERS  # 四方会议 2026-08-19：任务书提取（B-L2）+ R1 修复
+            # R1 修复（2026-08-20 Mimir 第3轮审计）：user_message 无清单结构时走 extract——防短路成死代码（续作任务失效）
+            _um = (user_message or "")
             _loop = MimirAgentLoop(
                 model_call=_model_call_adapter,
                 tool_schemas=_tool_schemas,
@@ -971,8 +973,9 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
                 # 四方会议（2026-08-19 Loki B-L2）：任务书完成度检查——task_spec 从全量消息历史提取
                 # （_build_full_messages 含历史 → 续作任务仍可追溯到首次任务书；extract_task_spec 取最后一条含清单的 user 消息）
                 # 2026-08-20 治本（对照 Hermes turn_finalizer completed 语义）：user_message（/v1/runs input）直接传入——
-                # 不依赖 extract 匹配格式（中文任务书/无 markdown 结构也能强制检查）——extract 仅兜底
-                task_spec=(user_message or "") or extract_task_spec(_loop_messages),
+                # 不依赖 extract 匹配格式（中文任务书/无 markdown 结构也能强制检查）
+                # R1 修复（2026-08-20 Mimir 第3轮审计）：user_message 无清单结构时走 extract——防短路成死代码（续作任务失效）
+                task_spec=(_um if (_CHECKBOX_RE.search(_um) or any(m in _um for m in _CN_TASK_MARKERS)) else extract_task_spec(_loop_messages)),
             )
             _result = await _loop.run(_loop_messages)
 

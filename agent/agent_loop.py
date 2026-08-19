@@ -72,7 +72,7 @@ from .verify_before_report_guard import (
     should_block_finish as should_block_verify_finish,
 )
 from .task_state import TaskState  # task_state（四方共识，2026-08-05）
-from .task_completion import check_task_completion, extract_task_spec  # 四方会议 2026-08-19：任务书完成度检查（B-L2/B-L4）
+from .task_completion import check_task_completion, extract_task_spec, _UNFINISHED_SIGNALS  # 四方会议 2026-08-19：任务书完成度检查（B-L2/B-L4）+ M4 修复（2026-08-20：信号统一到模块级——防类体内 import 脆弱）
 MAX_VERIFY_NUDGES = 3  # verify guard最大nudge次数（修复：防freeze loop——对齐MAX_INTENT_NUDGES模式）
 # OC-01: auto_retrospective archived
 # from .auto_retrospective import enabled as retro_enabled, record as record_retro
@@ -1213,8 +1213,7 @@ class MimirAgentLoop:
         return True
 
     # ===== TD-03（2026-08-18 四方批准·Hermes代改）：research 实质回答豁免 + L2 硬拦截指令 =====
-    # B1 修复（2026-08-20 四方审计）：信号统一——引用 task_completion 的 8 词版（单一来源——防漂移）
-    from agent.task_completion import _UNFINISHED_SIGNALS
+    # B1/M4 修复（2026-08-20）：信号统一到模块级 import（task_completion 单一来源——类体内 import 脆弱模式已消除）
     _SYS_MARKS = ("[WAIT]", "[TODO]", "[BLOCKED]")
     _STOP_WORDS = {"一个", "我们", "你们", "他们", "这个", "那个", "可以", "需要",
                    "进行", "以及", "对于", "因为", "所以", "但是", "然后", "就是", "已经"}
@@ -1234,7 +1233,7 @@ class MimirAgentLoop:
                 break
         if len(_text) < 50:
             return False
-        if any(w in _text for w in self._UNFINISHED_SIGNALS):
+        if any(w in _text for w in _UNFINISHED_SIGNALS):
             return False
         if any(mk in _text for mk in self._SYS_MARKS):
             return False

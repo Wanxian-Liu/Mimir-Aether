@@ -118,22 +118,26 @@ def _item_delivered(item: str, texts: List[str]) -> bool:
     if not item:
         return False
     # 模糊完成声明信号（B-Loki-3：语义级绕过——"完成度80%"/"部分完成"/"快好了" 不算完成）
-    _FUZZY_SIGNALS = ("完成度", "%", "部分完成", "快完成", "快了", "差不多", "80%", "90%")
+    # M1 修复（2026-08-20 Mimir 第3轮审计）：移除裸 "%"——"100% 完成！"是明确完成声明——误伤
+    # "完成度"已覆盖"完成度 80%"场景
+    _FUZZY_SIGNALS = ("完成度", "部分完成", "快完成", "快了", "差不多")
     _ITEM = re.escape(item)
     for text in texts:
+        # M2 修复（2026-08-20 Mimir 第3轮审计）：[x] 勾选 = 最强信号——先查（勾选后不被模糊信号压制）
+        if re.search(r"\[[xX]\]\s*" + _ITEM, text):
+            return True
         # 0) 模糊声明 → 明确不算完成（B-Loki-3——防"完成度80%"绕过）
         if any(sig in text for sig in _FUZZY_SIGNALS) and item in text:
             continue
-        # 1) 已勾状态优先（最强信号——模型明确勾选）
-        if re.search(r"\[[xX]\]\s*" + _ITEM, text):
-            return True
-        # 2) 完整关键词 + 前边界感知（B2 简化：中文无分词——只查前边界防 "S2X" 粘连；
+        # 1) 完整关键词 + 前边界感知（B2 简化：中文无分词——只查前边界防 "S2X" 粘连；
         #    后边界由第 3 步"末次出现后无未完成信号"兜底——emoji 问题（B-Loki-1）自然解决）
         if len(item) >= _MIN_ITEM_LEN and re.search(
             r"(?<![\w\u4e00-\u9fff])" + _ITEM, text
         ):
             # 3) 末次出现后无未完成信号 → 完成
             _tail = text[text.rfind(item):]
-            if not any(sig in _tail for sig in _UNFINISHED_SIGNALS):
+            # M3 修复（2026-08-20 Mimir 第3轮审计）：item 前窗口也查未完成信号（"还没做 S2"——信号在 item 前）
+            _head = text[max(0, text.rfind(item) - 15):text.rfind(item)]
+            if not any(sig in _tail for sig in _UNFINISHED_SIGNALS) and not any(sig in _head for sig in _UNFINISHED_SIGNALS):
                 return True
     return False
