@@ -369,17 +369,46 @@ class MimirAgentLoop:
                         self.task_id[:8], _exc,
                     )
 
-            # P1-1 PI 自动触发（2026-08-19 执行卡 #5 · Loki 修正：轮次预估≥8 才 delegate 非关键词）
-            # turn 0 注入一次：任务含"调研/审计/多源验证"且预估轮次≥8 → 提示可 delegate（env MIMIR_PI_FORCE=0 关闭）
+            # P1-1 PI 自动触发（2026-08-20 段6 · S3 自动委派：条件满足 → 实际并行委派；失败 → 降级不静默）
+            # turn 0 执行一次：预估轮次≥8 且可并行度达标且反向清单通过 → spawn_multi 实际委派
+            # （段 5 只注入指令文本——模型可能不执行；段 6 由代码真正触发 delegate_task 逻辑）
             if turn == 0 and os.environ.get("MIMIR_PI_FORCE", "1").strip().lower() not in ("0", "false", "no", "off"):
                 try:
-                    from agent.pi_trigger import maybe_pi_delegate_nudge
-                    _pi_nudge = maybe_pi_delegate_nudge(messages)
-                    if _pi_nudge:
-                        messages.append({"role": "user", "content": _pi_nudge})
-                        logger.info("[%s] turn 1: PI-delegate nudge injected (预估轮次≥8 任务)", self.task_id[:8])
+                    from agent.pi_trigger import maybe_pi_delegate_execute
+                    _pi_res = maybe_pi_delegate_execute(messages)
+                    if _pi_res.get("triggered"):
+                        if _pi_res.get("delegated"):
+                            _subs = _pi_res.get("subtasks", [])
+                            _res = _pi_res.get("results", [])
+                            _lines = []
+                            for _i, (_st, _r) in enumerate(zip(_subs, _res), 1):
+                                _ok = "OK" if _r.get("success") else "FAIL"
+                                _body = (_r.get("stdout") or _r.get("error") or "(no output)")[:400]
+                                _lines.append(f"{_i}. [{_ok}] subtask 「{_st[:60]}」 -> {_body}")
+                            _summary = (
+                                "[MIMIR_PI_NUDGE] [auto-delegate result] "
+                                f"dispatched {len(_subs)} subtasks in parallel, results below "
+                                "(verify then summarize):\n" + "\n".join(_lines)
+                            )
+                            messages.append({"role": "user", "content": _summary})
+                            logger.info(
+                                "[%s] turn 1: PI auto-delegate done (%d subtasks parallel)",
+                                self.task_id[:8], len(_subs),
+                            )
+                        else:
+                            # 委派失败 → 降级（不静默——注入降级说明，回退单 agent 继续）
+                            _fallback = (
+                                "[MIMIR_PI_NUDGE] [delegate-degraded] auto-delegate did not run "
+                                f"({_pi_res.get('error', 'unknown')}) — falling back to single-agent "
+                                "execution for this task."
+                            )
+                            messages.append({"role": "user", "content": _fallback})
+                            logger.warning(
+                                "[%s] turn 1: PI delegate degraded: %s",
+                                self.task_id[:8], _pi_res.get("error"),
+                            )
                 except Exception as _pie:
-                    logger.warning("[%s] PI nudge skipped: %s", self.task_id[:8], _pie)
+                    logger.warning("[%s] PI delegate skipped: %s", self.task_id[:8], _pie)
 
             # Meta-cognition: scenario → skill_view (turn 0 only, once per user message)
             if turn == 0:

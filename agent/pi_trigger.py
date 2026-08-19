@@ -16,6 +16,10 @@ v3（2026-08-20 段5 · B-Loki-Audit-1 修复）：maybe_pi_delegate_nudge 从"�
 - 触发条件不满足 → 静默（不注入）
 - env 门控：MIMIR_DELEGATE_ENABLE=1 默认开；=0 回退关闭触发
 - 条件骨架用段 2（parallel_eligibility.parallel_elig_ok）+ 段 4（delegation_guard.check_delegation_guard）函数
+
+v4（2026-08-20 段6 · S3 自动委派）：maybe_pi_delegate_execute 实际执行委派
+- 条件满足 → 拆 task_spec 的 `- [ ]` 子步骤 → subagent_bridge.spawn_multi 并行委派（非仅注入指令）
+- 委派失败/依赖缺失 → 降级 fallback=True（调用方回退单 agent——不静默）
 """
 from __future__ import annotations
 
@@ -195,4 +199,89 @@ def maybe_pi_delegate_nudge(messages: List[Dict]) -> Optional[str]:
     )
 
 
-__all__ = ["PI_NUDGE_MARKER", "maybe_pi_delegate_nudge", "_estimate_turns", "_extract_user_task"]
+
+
+def extract_subtasks(task_spec: str) -> List[str]:
+    """从任务书拆出可并行子任务（段 6 · S3）。
+
+    规则：
+    - 解析 `- [ ]` / `- [x]` checkbox 行 → 每行一个子任务（去标记）
+    - 无 checkbox → 整体作为单个子任务
+    - 过滤空行/纯标记行
+    """
+    if not task_spec:
+        return []
+    subtasks: List[str] = []
+    for line in task_spec.splitlines():
+        line = line.strip()
+        m = re.match(r"^[-*]\s*\[[ xX]?\]\s*(.+)$", line)
+        if m:
+            subtasks.append(m.group(1).strip())
+    if not subtasks:
+        # 无 checkbox：整体一个子任务（保守——不拆散无结构任务）
+        return [task_spec.strip()] if task_spec.strip() else []
+    return subtasks
+
+
+def maybe_pi_delegate_execute(messages: List[Dict]) -> Dict:
+    """段 6 · S3 自动委派执行：条件满足 → 实际并行委派（非仅注入指令）。
+
+    流程：
+      1. 条件链复用 maybe_pi_delegate_nudge（env 门控 + est_turns + parallel_elig + guard）
+      2. 条件满足 → 从用户任务拆 `- [ ]` 子步骤 → subagent_bridge.spawn_multi 并行委派
+      3. 委派失败/依赖缺失 → 降级：返回 fallback=True（调用方回退单 agent——不静默）
+
+    返回 dict：
+      {"triggered": False}                      — 条件不满足（静默）
+      {"triggered": True, "delegated": True, "subtasks": [...], "results": [...]}
+      {"triggered": True, "delegated": False, "fallback": True, "error": "..."}
+    """
+    nudge = maybe_pi_delegate_nudge(messages)
+    if nudge is None:
+        return {"triggered": False}
+
+    task_text = _extract_user_task(messages) or ""
+    subtasks = extract_subtasks(task_text)
+    if not subtasks:
+        subtasks = [task_text]
+
+    try:
+        from subagent_bridge import spawn_multi
+    except ImportError:
+        try:
+            from ..subagent_bridge import spawn_multi  # type: ignore
+        except ImportError:
+            return {
+                "triggered": True, "delegated": False, "fallback": True,
+                "error": "subagent_bridge 不可导入——回退单 agent 执行",
+            }
+
+    try:
+        tasks = [
+            {"type": "general-purpose", "prompt": s}
+            for s in subtasks
+        ]
+        results = spawn_multi(tasks, parallel=True)
+        return {
+            "triggered": True,
+            "delegated": True,
+            "subtasks": subtasks,
+            "results": [
+                {"success": r.success, "stdout": (r.stdout or "")[:600], "error": r.error}
+                for r in results
+            ],
+        }
+    except Exception as exc:  # 委派异常 → 降级（不静默——带错误信息）
+        return {
+            "triggered": True, "delegated": False, "fallback": True,
+            "error": f"delegate 执行异常: {exc}",
+        }
+
+__all__ = [
+    "PI_NUDGE_MARKER",
+    "maybe_pi_delegate_nudge",
+    "maybe_pi_delegate_execute",
+    "extract_subtasks",
+    "_estimate_turns",
+    "_extract_user_task",
+]
