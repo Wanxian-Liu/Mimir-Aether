@@ -952,6 +952,7 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
                 return result.content
             
             # ── 创建并运行 MimirAgentLoop ──
+            from agent.task_completion import extract_task_spec  # 四方会议 2026-08-19：任务书提取（B-L2）
             _loop = MimirAgentLoop(
                 model_call=_model_call_adapter,
                 tool_schemas=_tool_schemas,
@@ -967,6 +968,9 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
                 # A1: 传入 compressor → agent_loop P0-3 in-loop 压缩钩子启用
                 # (core_loop 预压缩一次后，loop 内每轮 API 调用前再检查)
                 compressor=self.compressor,
+                # 四方会议（2026-08-19 Loki B-L2）：任务书完成度检查——task_spec 从全量消息历史提取
+                # （_build_full_messages 含历史 → 续作任务仍可追溯到首次任务书；extract_task_spec 取最后一条含清单的 user 消息）
+                task_spec=extract_task_spec(_loop_messages),
             )
             _result = await _loop.run(_loop_messages)
 

@@ -19,6 +19,9 @@ class TaskState(str, Enum):
     - DONE:      自然退出（只有 DONE 才允许自然结束，防"假完成"）
     - INTERRUPTED: TD-03 L3 中断（2026-08-18 四方批准·Hermes代改）——连续硬拦截后仍无产出，
       任务未完成被中断。消费方不得当 DONE/IN_PROGRESS 处理（防隐式卡死）。
+    - TASK_COMPLETE: 任务书完成度检查通过（2026-08-19 四方会议 Loki B-L5）——任务真正完成。
+      区分"自然结束（DONE）" vs "任务完成（TASK_COMPLETE）"：有任务书（含子步骤清单）且
+      全部完成时标注 TASK_COMPLETE；无任务书的纯问答自然退出仍标 DONE（旧语义）。
     """
 
     PROBING = "probing"
@@ -26,6 +29,7 @@ class TaskState(str, Enum):
     VERIFYING = "verifying"
     DONE = "done"
     INTERRUPTED = "interrupted"
+    TASK_COMPLETE = "task_complete"  # 四方会议 2026-08-19（Loki B-L5）：任务书完成度检查通过——任务真正完成
 
     @classmethod
     def from_tool_name(cls, tool_name: str) -> "TaskState | None":

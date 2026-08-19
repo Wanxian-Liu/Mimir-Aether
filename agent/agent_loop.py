@@ -72,6 +72,7 @@ from .verify_before_report_guard import (
     should_block_finish as should_block_verify_finish,
 )
 from .task_state import TaskState  # task_state（四方共识，2026-08-05）
+from .task_completion import check_task_completion, extract_task_spec  # 四方会议 2026-08-19：任务书完成度检查（B-L2/B-L4）
 MAX_VERIFY_NUDGES = 3  # verify guard最大nudge次数（修复：防freeze loop——对齐MAX_INTENT_NUDGES模式）
 # OC-01: auto_retrospective archived
 # from .auto_retrospective import enabled as retro_enabled, record as record_retro
@@ -188,6 +189,7 @@ class MimirAgentLoop:
         budget_config: Any = None,
         interrupt_check: Optional[Callable[[], bool]] = None,
         compressor: Any = None,  # P0-3: optional in-loop compressor; None = disabled
+        task_spec: str = "",  # B-L2（Loki 2026-08-19）：任务书（含 - [ ] 子步骤清单）——运行时由 caller 传入
     ):
         self.model_call = model_call
         self.tool_schemas = tool_schemas
@@ -213,6 +215,9 @@ class MimirAgentLoop:
         self._last_intent_source: Optional[str] = None
         # TD-03（2026-08-18 Hermes代改）：产出校验硬拦截计数（L2 触发后累计）
         self._production_hard_nudges: int = 0
+        # 四方会议（2026-08-19 Loki B-L2/B-L3）：任务书完成度检查——task_spec 外部传入 + 完成度 nudge 计数
+        self._task_spec = task_spec or ""
+        self._task_completion_nudges: int = 0  # 完成度 L1 注入计数（L2 硬拦截 / L3 中断渐进触发）
 
     async def _loop_body(self, messages: List[Dict[str, Any]]) -> AgentResult:
         """Execute the full agent loop (Loki-C 2026-08-15: run() 改名 _loop_body，薄 run() 在外层 try/except 包装)。
@@ -988,8 +993,66 @@ class MimirAgentLoop:
                             "[%s] turn %d: 主动结束但无写盘产出——追加产出提示（产出校验独立于nudge开关）", self.task_id[:8], turn + 1
                         )
                         await self._inject_production_nudge(messages)
+                # ===== 四方会议（2026-08-19 · Loki 5 项清单 B-L2/B-L3/B-L4/B-L5 实施）：任务书完成度检查 =====
+                # 触发：任务书含 "- [ ]" 子步骤清单 + MIMIR_TASK_COMPLETION_ENFORCE=1（默认开——独立于 TD-03）
+                # 位置：natural 退出前（产出校验后）——未完成项 > 0 → 禁止自然结束
+                # 渐进：L1 软提示（注入"还有 N 步未完成"→continue）→ L2 硬拦截（移除未完成回复+明确指令）
+                #       → L3 中断（INTERRUPTED 透传用户——对齐 TD-03 L3 模板，不重复造轮子）
+                _tc_enforce = os.getenv("MIMIR_TASK_COMPLETION_ENFORCE", "1").strip().lower() not in ("0", "false", "no")
+                _tc_spec = self._task_spec or ""
+                _tc_block: Optional[str] = None
+                if _tc_enforce:
+                    _tc_spec = self._task_spec or extract_task_spec(messages)
+                    _tc_block = check_task_completion(_tc_spec, messages)
+                if _tc_block:
+                    _max_tc_hard = int(os.getenv("MIMIR_TASK_COMPLETION_HARD_NUDGES", "2") or "2")
+                    if self._task_completion_nudges >= _max_tc_hard:
+                        # L3 中断：连续硬拦截后仍未完成 → INTERRUPTED（透传用户——禁止标 DONE）
+                        logger.warning(
+                            "[%s] turn %d: 任务书完成度 L3 中断（%s，nudges=%d/%d）——透传用户",
+                            self.task_id[:8], turn + 1, _tc_block,
+                            self._task_completion_nudges, _max_tc_hard,
+                        )
+                        self._close_pipeline(user_task)
+                        self._task_state = TaskState.INTERRUPTED
+                        raise AgentLoopExit("task_incomplete", {
+                            "messages": messages, "turns_used": turn + 1,
+                            "finished_naturally": False, "reasoning_per_turn": reasoning_per_turn,
+                            "tool_errors": tool_errors, "interrupted": True,
+                        })
+                    if self._task_completion_nudges >= 1:
+                        # L2 硬拦截：移除最后未完成 assistant 回复 + 注入明确指令
+                        while messages and messages[-1].get("role") == "assistant":
+                            messages.pop()
+                        messages.append({
+                            "role": "user",
+                            "content": self._build_task_completion_hard_nudge(
+                                _tc_block, self._task_completion_nudges, _max_tc_hard
+                            ),
+                        })
+                        self._task_completion_nudges += 1
+                        logger.warning(
+                            "[%s] turn %d: 任务书完成度 L2 硬拦截 %d/%d（%s）",
+                            self.task_id[:8], turn + 1,
+                            self._task_completion_nudges, _max_tc_hard, _tc_block,
+                        )
+                        continue
+                    # L1 软提示：注入"还有 N 步未完成"→ continue（给 LLM 下一轮补完成机会）
+                    messages.append({"role": "user", "content": self._build_task_completion_nudge(_tc_block)})
+                    self._task_completion_nudges += 1
+                    logger.warning(
+                        "[%s] turn %d: 任务书完成度 L1 软提示（%s）——继续完成",
+                        self.task_id[:8], turn + 1, _tc_block,
+                    )
+                    continue
                 self._close_pipeline(user_task)
-                self._task_state = TaskState.DONE  # task_state注入点3（四方共识：自然退出→DONE）
+                # B-L5（OpenClaw 投票 + Loki 5 项清单）：区分"自然结束 vs 任务完成"
+                # - 有任务书（含清单）且完成度检查通过 → TASK_COMPLETE（任务真正完成）
+                # - 无任务书（纯问答 / enforce 关闭）→ DONE（旧语义——自然结束）
+                if _tc_enforce and _tc_spec:
+                    self._task_state = TaskState.TASK_COMPLETE
+                else:
+                    self._task_state = TaskState.DONE  # task_state注入点3（四方共识：自然退出→DONE）
                 raise AgentLoopExit("natural", {
                     "messages": messages, "turns_used": turn + 1,
                     "finished_naturally": True, "reasoning_per_turn": reasoning_per_turn,
@@ -1057,6 +1120,7 @@ class MimirAgentLoop:
         而不再收到 nudge。本钩子在 _loop_body（每次 run 即每个任务）开头调用。
         """
         self._parallel_read_nudge_done = False
+        self._task_completion_nudges = 0  # 四方会议 2026-08-19：完成度 nudge 计数每任务重置（防跨任务残留）
 
     def _check_has_written(self, messages: List[Dict[str, Any]]) -> bool:
         """检查会话是否产生过写盘产出（Loki-C commit 3 提取 + 2026-08-16 目标校验升级）。
@@ -1174,6 +1238,27 @@ class MimirAgentLoop:
             "2. 如果已完成调研但未落盘：把结论落盘到指定路径，再输出简短总结\n"
             "3. 如果用户只是问答/闲聊：直接给出完整回答（≥50字实质内容即可）\n"
             "不要输出'收到——落盘'式空洞确认。"
+        )
+
+    def _build_task_completion_nudge(self, block: str) -> str:
+        """四方会议（2026-08-19 Loki B-L3）：完成度 L1 软提示——告诉 LLM 还有 N 步未完成。"""
+        return (
+            "【任务完成度提示】任务书仍有未完成子步骤：" + block + "。\n"
+            "请继续完成剩余步骤（执行交付动作并在任务书中将已完成项勾为 - [x]），"
+            "全部完成后才能结束任务。\n"
+            "如果任务书清单已实际完成（勾选或已交付），请明确输出完成声明。"
+        )
+
+    def _build_task_completion_hard_nudge(self, block: str, attempt: int, max_hard: int) -> str:
+        """四方会议（2026-08-19 Loki B-L3）：完成度 L2 硬拦截——移除回复后注入明确指令。"""
+        return (
+            f"[BLOCKED:task-completion] 任务书未完成子步骤：" + block +
+            f"——你的上一条回复已被移除（第 {attempt}/{max_hard} 次硬拦截）。\n"
+            "请立即继续完成：\n"
+            "1. 执行剩余子步骤（用 write_file/patch 落盘交付物）\n"
+            "2. 在任务书中将已完成项勾为 - [x]\n"
+            "3. 全部完成后输出简短总结\n"
+            "禁止以未完成状态结束任务。"
         )
 
     async def _inject_production_nudge(self, messages: List[Dict[str, Any]]) -> None:
@@ -1368,6 +1453,7 @@ class MimirAetherAgentLoop:
         tools: Optional[List[Dict[str, Any]]] = None,
         max_turns: int = 90,
         task_id: Optional[str] = None,
+        task_spec: str = "",  # B-L2（2026-08-19 四方会议）：任务书透传
     ):
         self._chat_fn = chat_fn
         self._handlers: Dict[str, Callable[[str, dict, Optional[str]], Any]] = {}
@@ -1401,6 +1487,7 @@ class MimirAetherAgentLoop:
             tool_dispatcher=_dispatch,
             max_turns=max_turns,
             task_id=task_id,
+            task_spec=task_spec,
         )
         self.valid_tool_names = self._loop.valid_tool_names
 
@@ -1424,8 +1511,9 @@ class SimpleAgentLoop(MimirAetherAgentLoop):
         tools: Optional[List[Dict[str, Any]]] = None,
         max_turns: int = 90,
         task_id: Optional[str] = None,
+        task_spec: str = "",  # B-L2（2026-08-19 四方会议）：任务书透传
     ):
-        super().__init__(chat_fn=chat_fn, tools=tools, max_turns=max_turns, task_id=task_id)
+        super().__init__(chat_fn=chat_fn, tools=tools, max_turns=max_turns, task_id=task_id, task_spec=task_spec)
 
     def tool(self, name: str) -> Callable[[Callable[[dict], Any]], Callable[[dict], Any]]:
         def _decorator(fn: Callable[[dict], Any]) -> Callable[[dict], Any]:
