@@ -20,6 +20,7 @@ import json
 import logging
 logger = logging.getLogger(__name__)
 import os
+import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -151,6 +152,11 @@ def _build_child_system_prompt(
         "If no exact local path is provided, discover it first before issuing git/workdir-specific commands.\n\n"
         "Be thorough but concise -- your response is returned to the "
         "parent agent as a summary."
+    )
+    parts.append(
+        "If your task produces any artifact files (reports, data, code, results), write them to disk "
+        "and report the absolute path(s) with marker: OUTPUT_PATH=<abs path> (one per line). "
+        "If no artifact, omit the marker. (K2 2026-08-20 块3·段3)"
     )
     return "\n".join(parts)
 
@@ -591,10 +597,16 @@ def _run_single_child(
         _output_tokens = getattr(child, "session_completion_tokens", 0)
         _model = getattr(child, "model", None)
 
+        # K2（2026-08-20 块3·段3）：output_path 提取——子代理产物落盘路径
+        # （orchestrator 验证存在性——防"子代理自述不可信"——段 3 执行清单）
+        _output_path_match = re.search(r"OUTPUT_PATH[=:]\s*(.+)$", (summary or ""), re.MULTILINE)
+        _output_path = _output_path_match.group(1).strip() if _output_path_match else None
+
         entry: Dict[str, Any] = {
             "task_index": task_index,
             "status": status,
             "summary": summary,
+            "output_path": _output_path,
             "api_calls": api_calls,
             "duration_seconds": duration,
             "model": _model if isinstance(_model, str) else None,
