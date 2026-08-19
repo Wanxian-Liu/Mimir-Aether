@@ -59,7 +59,8 @@ def _get_max_read_chars() -> int:
 
 # If the total file size exceeds this AND the caller didn't specify a narrow
 # range (limit <= 200), we include a hint encouraging targeted reads.
-_LARGE_FILE_HINT_BYTES = 512_000  # 512 KB
+# E2 对齐（2026-08-19 · Loki 审计 P1-C）：512KB → 30KB——消除 30-512KB hint 真空区
+_LARGE_FILE_HINT_BYTES = 30_000  # 30 KB（与句柄化阈值对齐）
 
 # ---------------------------------------------------------------------------
 # Device path blocklist — reading these hangs the process (infinite output
@@ -420,10 +421,21 @@ def read_file_tool(path: str, offset: int = 1, limit: int = 500, task_id: str = 
         except (TypeError, ValueError):
             _artifact_kb = 30
         if (not force_full and _artifact_kb > 0 and file_size
-                and file_size > _artifact_kb * 1024 and limit >= 500):
+                and file_size >= _artifact_kb * 1024 and limit >= 500):
             _total_lines = result_dict.get("total_lines", "unknown")
             _preview_lines = (result.content or "").split("\n")[:10]
             _preview = "\n".join(_preview_lines) if _preview_lines else "(empty)"
+            # P1-A（Loki 审计）：句柄化路径也写 dedup cache——防重复读浪费 IO
+            with _read_tracker_lock:
+                _td = _read_tracker.setdefault(task_id, {
+                    "last_key": None, "consecutive": 0,
+                    "read_history": set(), "dedup": {},
+                })
+                try:
+                    _td["dedup"][dedup_key] = os.path.getmtime(resolved_str)
+                    _td.setdefault("read_timestamps", {})[resolved_str] = os.path.getmtime(resolved_str)
+                except OSError:
+                    pass
             result_dict = {
                 "path": path,
                 "file_size": file_size,
@@ -741,7 +753,7 @@ def _check_file_reqs():
 
 READ_FILE_SCHEMA = {
     "name": "read_file",
-    "description": "Read a text file with line numbers and pagination. Use this instead of cat/head/tail in terminal. Output format: 'LINE_NUM|CONTENT'. Suggests similar filenames if not found. Use offset and limit for large files. Reads exceeding ~100K characters are rejected; use offset and limit to read specific sections of large files. NOTE: Cannot read images or binary files — use vision_analyze for images.",
+    "description": "Read a text file with line numbers and pagination. Use this instead of cat/head/tail in terminal. Output format: 'LINE_NUM|CONTENT'. Suggests similar filenames if not found. Use offset and limit for large files. Reads exceeding ~100K characters are rejected; use offset and limit to read specific sections of large files. NOTE: Cannot read images or binary files — use vision_analyze for images. NOTE: files larger than 30KB return a handle (preview + instructions) instead of full content to save context — pass force_full=true to bypass, or use offset/limit for pagination.",
     "parameters": {
         "type": "object",
         "properties": {
