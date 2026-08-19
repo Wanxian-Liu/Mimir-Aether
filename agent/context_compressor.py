@@ -815,6 +815,8 @@ class MimirContextCompressor(ContextCompressorV2):
         self._iterative_summary = True  # 迭代摘要
         self._tool_pruning_enabled = True
         self._context_probed = False
+        # E1 (2026-08-19 block4): compaction summary writeback callback (optional)
+        self._writeback_callback = None
         # P2-1 (2026-08-19 执行卡): 绝对 token 阈值 env 覆盖（MIMIR_COMPRESS_THRESHOLD_TOKENS）
         # 落地值 150000（350K→150K）；=0 或空 = 保持默认（可回退）
         _abs = os.environ.get("MIMIR_COMPRESS_THRESHOLD_TOKENS", "").strip()
@@ -833,6 +835,17 @@ class MimirContextCompressor(ContextCompressorV2):
         super().reset_step()
         self._context_probed = False
         self._previous_summary = None
+
+    # ── E1 (2026-08-19 block4): writeback callback injection ─────────────────
+    def set_writeback_callback(self, callback) -> None:
+        """E1: inject compaction summary writeback callback (optional).
+
+        callback(event_data: dict) — event_data contains summary/pruned_count/ts.
+        compressor stays store-agnostic (callback injection — 四方卡 L748);
+        session_id is captured by the core_loop closure (compress has no
+        session_id param — Mimir audit L1141 gap, filled on core_loop side).
+        """
+        self._writeback_callback = callback
 
     # ── P2-1/P5-2 (2026-08-19 执行卡): 压缩验证钩子 ──────────────────────────
     async def compress(self, messages, current_tokens=None, focus_topic=None):
@@ -855,11 +868,56 @@ class MimirContextCompressor(ContextCompressorV2):
                         "[P2-1] 实体保留率 %.0f%% < 80%% —— 回滚压缩 (missing=%s)",
                         rate * 100, missing[:3],
                     )
+                    # E1/E5 (2026-08-20): 质量告警落盘 + 回滚分支不写回（防记录未生效压缩）
+                    self._record_quality_alert(rate, missing, result, outcome="rollback")
                     return messages, result  # 回滚：返回压缩前（保状态不丢）
                 logger.info("[P2-1] 实体保留率 %.0f%% OK (missing=%d)", rate * 100, len(missing))
             except Exception as _ve:
                 logger.warning("[P2-1] verify hook failed (degrade: keep compressed): %s", _ve)
+        # E1 (2026-08-20): 压缩成功且验证通过 → 摘要写回（callback 可空；异常降级不阻断压缩）
+        self._emit_writeback(result)
         return post, result
+
+    # ── E1/E5 (2026-08-20): 写回与质量落盘 ───────────────────────────────────
+    def _emit_writeback(self, result: CompressionResult) -> None:
+        """E1: 通过注入回调写回压缩摘要事件（失败降级 warning，不阻断压缩）。
+
+        event_data = {summary, pruned_count, ts}——compressor 保持 store-agnostic，
+        session_id 由 core_loop 闭包捕获（见 set_writeback_callback docstring）。
+        """
+        cb = self._writeback_callback
+        if cb is None:
+            return
+        try:
+            cb({
+                "summary": result.summary or "",
+                "pruned_count": result.pruned_tool_count,
+                "ts": result.timestamp,
+            })
+            logger.info("[E1] compaction writeback emitted (pruned=%d)", result.pruned_tool_count)
+        except Exception as _e:
+            logger.warning("[E1] writeback callback failed (non-blocking): %s", _e)
+
+    def _record_quality_alert(self, rate, missing, result: CompressionResult, outcome: str) -> None:
+        """E5: 压缩质量告警行落盘 ~/.mimiraether/data/compression_quality.jsonl（不阻断）。"""
+        try:
+            from mimir_constants import get_mimir_home
+            _q_path = get_mimir_home() / "data" / "compression_quality.jsonl"
+            _q_path.parent.mkdir(parents=True, exist_ok=True)
+            _line = {
+                "ts": datetime.now().isoformat(),
+                "entity_retention_rate": round(float(rate), 4),
+                "missing": list(missing)[:5],
+                "outcome": outcome,
+                "original_count": result.original_count,
+                "compressed_count": result.compressed_count,
+                "summary_mode": result.summary_mode,
+            }
+            with open(_q_path, "a", encoding="utf-8") as _f:
+                _f.write(json.dumps(_line, ensure_ascii=False) + "\n")
+            logger.warning("[E1/E5] compression quality alert appended: %s", _q_path)
+        except Exception as _e:
+            logger.warning("[E1/E5] quality alert write failed (non-blocking): %s", _e)
 
     def _verify_entity_retention(self, pre, post):
         """关键实体保留率：讨论卡路径 / status 字段 / 任务路径 / commit 哈希。"""

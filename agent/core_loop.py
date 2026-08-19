@@ -882,6 +882,23 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
             # 构建消息列表
             _loop_messages = self._build_full_messages()
             
+            # E1 (2026-08-20): 压缩摘要写回——闭包捕获本作用域 session_id（L622）
+            # env MIMIR_COMPRESS_WRITEBACK=0 关闭（默认开）——关时不注入回调
+            _wb_flag = os.environ.get("MIMIR_COMPRESS_WRITEBACK", "1").strip().lower()
+            if _wb_flag not in ("0", "false", "no", "off"):
+                def _compaction_writeback(event_data: dict) -> None:
+                    """E1: 写回压缩摘要事件到 session_tracker（失败仅 warning 不阻断压缩）。"""
+                    try:
+                        from agent.session_tracker import get_session_tracker
+                        get_session_tracker().record_event(
+                            session_id, "context_compaction", event_data,
+                        )
+                        logger.info("[E1] compaction writeback recorded (session=%s)", session_id[:8])
+                    except Exception as _e:
+                        logger.warning("[E1] compaction writeback failed (non-blocking): %s", _e)
+
+                self.compressor.set_writeback_callback(_compaction_writeback)
+
             # 预压缩一次（MimirAgentLoop 内部不做压缩）
             if self.compressor.needs_compression(_loop_messages):
                 if self.compressor.has_content_to_compress(_loop_messages):
