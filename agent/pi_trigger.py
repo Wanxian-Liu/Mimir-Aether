@@ -10,6 +10,12 @@ v2（2026-08-19 Mimir 第 4 项）：修复 Loki 10 边界用例 60% 漏触发�
 - commit 哈希识别（7-40 位 hex）→+2
 - 短文本长任务组合：<100 字且 ≥2 个 hint 命中 → +2
 - 验证：Loki 10 边界用例 0 漏触发 + 负向 10 例 0 误触发
+
+v3（2026-08-20 段5 · B-Loki-Audit-1 修复）：maybe_pi_delegate_nudge 从"提示词 nudge"改为"强制触发"
+- 触发条件满足（est_turns>=8 AND parallel_elig>=2 AND 反向清单通过）→ 注入**强制指令**（必须使用 delegate_task）
+- 触发条件不满足 → 静默（不注入）
+- env 门控：MIMIR_DELEGATE_ENABLE=1 默认开；=0 回退关闭触发
+- 条件骨架用段 2（parallel_eligibility.parallel_elig_ok）+ 段 4（delegation_guard.check_delegation_guard）函数
 """
 from __future__ import annotations
 
@@ -124,19 +130,68 @@ def _estimate_turns(task_text: str) -> int:
 
 
 def maybe_pi_delegate_nudge(messages: List[Dict]) -> Optional[str]:
-    """任务启动评估：预估轮次 ≥8 → 注入 delegate 提示（MIMIR_PI_MIN_TURNS 可调）。"""
+    """nudge→force v3（2026-08-20 段5 · B-Loki-Audit-1 修复）：条件满足 → 注入**强制指令**；不满足 → 静默。
+
+    段 1 触发公式（四方卡 L3496-3504）条件骨架：
+        触发 = est_turns>=8 AND parallel_elig>=2 AND 反向清单通过
+      - est_turns：本文件 _estimate_turns（MIMIR_PI_MIN_TURNS 可调，默认 8）
+      - parallel_elig：段 2 产出 parallel_eligibility.parallel_elig_ok
+        （MIMIR_PI_MIN_PARALLEL 默认 2——三信号且无强依赖链）
+      - 反向清单：段 4 产出 delegation_guard.check_delegation_guard
+        （MIMIR_DELEGATION_GUARD 默认 1 开——12 类五类永拒）
+
+    env 门控：MIMIR_DELEGATE_ENABLE=1 默认开——=0 回退关闭触发（静默不注入）。
+
+    边界（段 5）：只改注入强度（nudge→force）+ 条件判断骨架——不接 agent_loop
+    自动调 delegate_task（段 6 集成）。
+    """
+    # env 门控：MIMIR_DELEGATE_ENABLE=1 默认开；=0 回退关闭触发
+    if os.environ.get("MIMIR_DELEGATE_ENABLE", "1").strip().lower() in (
+        "0", "false", "no", "off",
+    ):
+        return None
+
     min_turns = int(os.environ.get("MIMIR_PI_MIN_TURNS", "8"))
     task_text = _extract_user_task(messages)
     if not task_text:
         return None
+
+    # 条件①：预估轮次 ≥ min_turns
     est = _estimate_turns(task_text)
     if est < min_turns:
         return None
+
+    # 条件②：可并行度达标（段 2 函数——三信号 ≥MIMIR_PI_MIN_PARALLEL 且无强依赖链）
+    try:
+        from agent.parallel_eligibility import parallel_elig_ok
+    except ImportError:
+        try:
+            from parallel_eligibility import parallel_elig_ok
+        except ImportError:
+            return None  # 依赖缺失 → 静默（宁漏勿滥）
+    if not parallel_elig_ok(task_text):
+        return None
+
+    # 条件③：反向清单前置闸通过（段 4 函数——12 类五类永拒）
+    try:
+        from agent.delegation_guard import check_delegation_guard
+    except ImportError:
+        try:
+            from delegation_guard import check_delegation_guard
+        except ImportError:
+            return None
+    allow, _reason = check_delegation_guard(task_text, messages=messages)
+    if not allow:
+        return None
+
     return (
-        f"{PI_NUDGE_MARKER} 当前任务预估需 {est} 轮（≥{min_turns}）。"
-        "若该任务可拆分为 ≥3 个独立子任务（多源调研/批量验证/多文件扫描），"
-        "请考虑使用 delegate_task 并行派发（每子任务独立上下文+工具，结果精简回传）——"
-        "并行执行省 2-4 倍总耗时。若任务强依赖链不可拆，忽略本提示继续串行。"
+        f"{PI_NUDGE_MARKER} [强制委派] 当前任务预估需 {est} 轮（≥{min_turns}），"
+        "且可并行度达标、反向清单通过——**必须使用 delegate_task 委派以下子任务，"
+        "禁止自行串行执行**：\n"
+        "1. 将任务拆分为 ≥3 个独立子任务（多源调研/批量验证/多文件扫描），列出子任务清单；\n"
+        "2. 对每个子任务调用 delegate_task 并行派发（每子任务独立上下文+工具，结果精简回传）；\n"
+        "3. 全部子任务返回后统一验证结果并汇总输出。\n"
+        "若子任务存在强依赖无法拆分，必须说明原因——否则不允许绕过 delegate_task 直接串行。"
     )
 
 
