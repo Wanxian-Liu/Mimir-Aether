@@ -385,6 +385,7 @@ class CallersMixin:
         # 检测是否需要reasoning_content传播(DeepSeek V4 Pro等模型需要)
         needs_propagation = self._needs_reasoning_propagation()
         has_seen_reasoning = False  # 标记是否已见过带reasoning的assistant消息
+        _last_reasoning = ""  # 2026-08-20 治本：最近非空 reasoning（压缩/存储丢的补偿）
 
         # 对话历史(从开始到最新,全部包含)
         for msg in self.conversation_history:
@@ -405,14 +406,13 @@ class CallersMixin:
             # reasoning_content传播: DeepSeek V4 Pro要求所有assistant消息必须包含该字段
             if msg.role == MessageRole.ASSISTANT:
                 if needs_propagation:
-                    # 如果之前已见过带reasoning的assistant，当前必须也有
-                    if has_seen_reasoning:
-                        msg_dict["reasoning_content"] = msg.reasoning_content or ""
-                    else:
-                        # 第一个assistant消息，有就传，没有就不传
-                        msg_dict["reasoning_content"] = msg.reasoning_content
-                    if msg.reasoning_content:
-                        has_seen_reasoning = True
+                    # 治本（2026-08-20 块3·段3修复）：DeepSeek thinking 模式——assistant 消息
+                    # 无条件回传 reasoning_content（字段必须存在——None 也设空串——否则 400
+                    # "must be passed back"）——压缩/存储丢 reasoning 的补偿：用最近非空值
+                    _rc = msg.reasoning_content or _last_reasoning or ""
+                    msg_dict["reasoning_content"] = _rc
+                    if _rc:
+                        _last_reasoning = _rc
                 elif msg.reasoning_content:
                     msg_dict["reasoning_content"] = msg.reasoning_content
             elif msg.reasoning_content:
