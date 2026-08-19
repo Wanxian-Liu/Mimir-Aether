@@ -24,7 +24,9 @@ _TASK_SPEC_HEADING_RE = re.compile(r"^#{1,3}\s+\S", re.MULTILINE)
 _CHECKBOX_RE = re.compile(r"^-\s+\[([ xX])\]\s*(.+)$", re.MULTILINE)
 
 # 未完成信号（对齐 agent_loop._UNFINISHED_SIGNALS + 补充）：item 末次出现后若含这些词 → 视为未完成
-_UNFINISHED_SIGNALS = ("准备", "接下来", "将要", "即将", "待完成", "还没", "稍后", "下一步")
+# 2026-08-20 四方审计修正：移除"准备"——太泛（"完成！准备进入 S3"=下一步——误伤正常完成）
+# "还没准备"场景由"还没"兜底
+_UNFINISHED_SIGNALS = ("接下来", "将要", "即将", "待完成", "还没", "稍后", "下一步")
 
 # item 完整关键词匹配的最小长度门槛（防 "S2" 这类泛串字面误判完成——Loki B-L4 核心关切）
 _MIN_ITEM_LEN = 4
@@ -65,7 +67,6 @@ def check_task_completion(task_spec: str, messages: List[Dict[str, Any]]) -> Opt
     unchecked = _unchecked_items(task_spec)
     if not unchecked:
         return None  # 无 `- [ ]` 未勾项（全 [x] 或清单已完成）→ 通过
-
     texts = _recent_assistant_texts(messages, n=3)
     remaining = [it for it in unchecked if not _item_delivered(it, texts)]
     if not remaining:
@@ -113,14 +114,20 @@ def _item_delivered(item: str, texts: List[str]) -> bool:
     item = item.strip()
     if not item:
         return False
+    # 模糊完成声明信号（B-Loki-3：语义级绕过——"完成度80%"/"部分完成"/"快好了" 不算完成）
+    _FUZZY_SIGNALS = ("完成度", "%", "部分完成", "快完成", "快了", "差不多", "80%", "90%")
     _ITEM = re.escape(item)
     for text in texts:
+        # 0) 模糊声明 → 明确不算完成（B-Loki-3——防"完成度80%"绕过）
+        if any(sig in text for sig in _FUZZY_SIGNALS) and item in text:
+            continue
         # 1) 已勾状态优先（最强信号——模型明确勾选）
         if re.search(r"\[[xX]\]\s*" + _ITEM, text):
             return True
-        # 2) 完整关键词 + 边界感知（非子串）
+        # 2) 完整关键词 + 前边界感知（B2 简化：中文无分词——只查前边界防 "S2X" 粘连；
+        #    后边界由第 3 步"末次出现后无未完成信号"兜底——emoji 问题（B-Loki-1）自然解决）
         if len(item) >= _MIN_ITEM_LEN and re.search(
-            r"(?<![\w\u4e00-\u9fff])" + _ITEM + r"(?![\w\u4e00-\u9fff])", text
+            r"(?<![\w\u4e00-\u9fff])" + _ITEM, text
         ):
             # 3) 末次出现后无未完成信号 → 完成
             _tail = text[text.rfind(item):]

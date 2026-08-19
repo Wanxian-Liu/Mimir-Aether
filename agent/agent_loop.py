@@ -216,6 +216,10 @@ class MimirAgentLoop:
         # TD-03（2026-08-18 Hermes代改）：产出校验硬拦截计数（L2 触发后累计）
         self._production_hard_nudges: int = 0
         # 四方会议（2026-08-19 Loki B-L2/B-L3）：任务书完成度检查——task_spec 外部传入 + 完成度 nudge 计数
+        # B5 修复（2026-08-20 四方审计）：task_spec 类型检查——非 str 时告警降级（防静默空）
+        if task_spec is not None and not isinstance(task_spec, str):
+            logger.warning("task_spec 非字符串类型 %s——强制转 str", type(task_spec).__name__)
+            task_spec = str(task_spec)
         self._task_spec = task_spec or ""
         self._task_completion_nudges: int = 0  # 完成度 L1 注入计数（L2 硬拦截 / L3 中断渐进触发）
 
@@ -999,14 +1003,23 @@ class MimirAgentLoop:
                 # 渐进：L1 软提示（注入"还有 N 步未完成"→continue）→ L2 硬拦截（移除未完成回复+明确指令）
                 #       → L3 中断（INTERRUPTED 透传用户——对齐 TD-03 L3 模板，不重复造轮子）
                 _tc_enforce = os.getenv("MIMIR_TASK_COMPLETION_ENFORCE", "1").strip().lower() not in ("0", "false", "no")
+                if not _tc_enforce:
+                    # B4 修复（2026-08-20 四方审计）：env 关闭时重置 nudges——防切换后残留状态
+                    self._task_completion_nudges = 0
                 _tc_spec = self._task_spec or ""
                 _tc_block: Optional[str] = None
                 if _tc_enforce:
                     _tc_spec = self._task_spec or extract_task_spec(messages)
+                    if not _tc_spec and turn > 2:
+                        # B-Loki-5（2026-08-20 四方审计）：任务书提取失败但已多轮工具调用——静默跳过
+                        logger.warning(
+                            "[%s] turn %d: task_spec 提取为空（多轮任务疑似有任务书）——完成度检查跳过",
+                            self.task_id[:8], turn + 1,
+                        )
                     _tc_block = check_task_completion(_tc_spec, messages)
                 if _tc_block:
                     _max_tc_hard = int(os.getenv("MIMIR_TASK_COMPLETION_HARD_NUDGES", "2") or "2")
-                    if self._task_completion_nudges >= _max_tc_hard:
+                    if self._task_completion_nudges >= _max_tc_hard + 1:
                         # L3 中断：连续硬拦截后仍未完成 → INTERRUPTED（透传用户——禁止标 DONE）
                         logger.warning(
                             "[%s] turn %d: 任务书完成度 L3 中断（%s，nudges=%d/%d）——透传用户",
@@ -1020,8 +1033,9 @@ class MimirAgentLoop:
                             "finished_naturally": False, "reasoning_per_turn": reasoning_per_turn,
                             "tool_errors": tool_errors, "interrupted": True,
                         })
-                    if self._task_completion_nudges >= 1:
+                    if self._task_completion_nudges >= 2:
                         # L2 硬拦截：移除最后未完成 assistant 回复 + 注入明确指令
+                        # B3 修复（2026-08-20 四方审计）：nudges>=2 才 L2——给 L1 软提示 1 轮缓冲
                         while messages and messages[-1].get("role") == "assistant":
                             messages.pop()
                         messages.append({
@@ -1199,7 +1213,8 @@ class MimirAgentLoop:
         return True
 
     # ===== TD-03（2026-08-18 四方批准·Hermes代改）：research 实质回答豁免 + L2 硬拦截指令 =====
-    _UNFINISHED_SIGNALS = ("准备", "接下来", "将要", "即将")
+    # B1 修复（2026-08-20 四方审计）：信号统一——引用 task_completion 的 8 词版（单一来源——防漂移）
+    from agent.task_completion import _UNFINISHED_SIGNALS
     _SYS_MARKS = ("[WAIT]", "[TODO]", "[BLOCKED]")
     _STOP_WORDS = {"一个", "我们", "你们", "他们", "这个", "那个", "可以", "需要",
                    "进行", "以及", "对于", "因为", "所以", "但是", "然后", "就是", "已经"}

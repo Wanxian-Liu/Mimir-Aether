@@ -67,3 +67,31 @@ def test_extract_task_spec_empty():
 def test_empty_content_skips():
     """空消息 → 跳过"""
     assert check_task_completion("", [{"role": "user", "content": ""}]) is None
+
+
+def test_emoji_surrounded_completes():
+    """B-Loki-1 修复验证：emoji 包围的完成声明（"🎉 S2 起步完成！"）应判完成（不再误判）"""
+    spec = "## 任务\n- [ ] S2 起步\n- [ ] S3 收尾"
+    r = check_task_completion(spec, [
+        {"role": "assistant", "content": "🎉 S2 起步完成！准备进入 S3"},
+        {"role": "assistant", "content": "S3 收尾：落盘已提交"},
+    ])
+    assert r is None, f"emoji 场景应通过但返回: {r}"
+
+
+def test_fuzzy_completion_not_bypassed():
+    """B-Loki-3 修复验证：模糊完成声明（"完成度80%"）不能绕过检查"""
+    spec = "## 任务\n- [ ] S2 实现\n- [ ] S3 测试"
+    r = check_task_completion(spec, [
+        {"role": "assistant", "content": "S2 实现 完成度80% 快好了"},
+    ])
+    assert isinstance(r, str) and "未完成" in r, f"模糊声明应阻断但返回: {r}"
+
+
+def test_digit_boundary_no_false_positive():
+    """B2 修复验证：数字标点边界（S2 在 S20 中不应误判完成）"""
+    spec = "## 任务\n- [ ] S2 起步"
+    r = check_task_completion(spec, [
+        {"role": "assistant", "content": "S20 的方案里提到了 S2 相关的思路"},
+    ])
+    assert isinstance(r, str) and "未完成" in r, f"数字边界应阻断但返回: {r}"
