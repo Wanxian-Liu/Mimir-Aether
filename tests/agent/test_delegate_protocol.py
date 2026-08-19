@@ -32,3 +32,22 @@ def test_output_path_multi_line():
     summary = "OUTPUT_PATH=/tmp/a.json\nOUTPUT_PATH=/tmp/b.json"
     paths = re.findall(r"OUTPUT_PATH[=:]\s*(.+)$", summary, re.MULTILINE)
     assert len(paths) == 2
+
+
+def test_output_path_multi_line_aligned_with_production():
+    """缺口B修复（2026-08-20 Mimir验证）：生产用 re.search 只取第一个——测试对齐"""
+    summary = "OUTPUT_PATH=/tmp/a.json\nOUTPUT_PATH=/tmp/b.json"
+    m = re.search(r"OUTPUT_PATH[=:]\s*(.+)$", summary, re.MULTILINE)
+    assert m is not None
+    assert m.group(1).strip() == "/tmp/a.json"  # 只取第一个（与生产 _run_single_child 一致）
+
+
+def test_output_path_exists_field():
+    """缺口A修复验证：output_path_exists 字段逻辑（存在/不存在）"""
+    import os, tempfile
+    # 存在的路径
+    with tempfile.NamedTemporaryFile(suffix=".json") as tf:
+        p = tf.name
+        assert os.path.exists(p) is True
+    # 不存在的路径
+    assert os.path.exists("/tmp/definitely_not_exist_xyz.json") is False

@@ -601,12 +601,14 @@ def _run_single_child(
         # （orchestrator 验证存在性——防"子代理自述不可信"——段 3 执行清单）
         _output_path_match = re.search(r"OUTPUT_PATH[=:]\s*(.+)$", (summary or ""), re.MULTILINE)
         _output_path = _output_path_match.group(1).strip() if _output_path_match else None
+        _output_path_exists = bool(_output_path and os.path.exists(_output_path))  # 缺口A(2026-08-20 Mimir验证): 验证存在性——防子代理自述不可信
 
         entry: Dict[str, Any] = {
             "task_index": task_index,
             "status": status,
             "summary": summary,
             "output_path": _output_path,
+            "output_path_exists": _output_path_exists,
             "api_calls": api_calls,
             "duration_seconds": duration,
             "model": _model if isinstance(_model, str) else None,
@@ -816,6 +818,8 @@ def delegate_task(
                         "task_index": idx,
                         "status": "error",
                         "summary": None,
+                        "output_path": None,
+                        "output_path_exists": False,
                         "error": str(exc),
                         "api_calls": 0,
                         "duration_seconds": 0,
