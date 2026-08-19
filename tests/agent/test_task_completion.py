@@ -95,3 +95,13 @@ def test_digit_boundary_no_false_positive():
         {"role": "assistant", "content": "S20 的方案里提到了 S2 相关的思路"},
     ])
     assert isinstance(r, str) and "未完成" in r, f"数字边界应阻断但返回: {r}"
+
+
+def test_cn_task_marker_extract():
+    """2026-08-20 修复验证：中文派发格式（【任务】文字）能被提取"""
+    messages = [
+        {"role": "user", "content": "【任务】必须用 engineering-code-reviewer\n【原子化】拆步骤（S1 读卡 → S2 验证）\n【收尾】落盘+commit"},
+        {"role": "assistant", "content": "收到"},
+    ]
+    spec = extract_task_spec(messages)
+    assert "【任务】" in spec, f"中文任务书应被提取: {spec[:50]}"

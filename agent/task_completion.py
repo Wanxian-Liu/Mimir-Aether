@@ -22,6 +22,9 @@ from typing import Any, Dict, List, Optional
 # 任务书结构特征：markdown 标题（## S1 ...）或 checkbox 清单（- [ ] / - [x]）
 _TASK_SPEC_HEADING_RE = re.compile(r"^#{1,3}\s+\S", re.MULTILINE)
 _CHECKBOX_RE = re.compile(r"^-\s+\[([ xX])\]\s*(.+)$", re.MULTILINE)
+# 中文任务书标记（2026-08-20 四方审计发现：派发格式【任务】【原子化】文字——extract 提取失败
+# → 完成度检查跳过 → natural 结束无保护。兜底识别中文任务书特征）
+_CN_TASK_MARKERS = ("【任务】", "任务书：", "任务书：\n")
 
 # 未完成信号（对齐 agent_loop._UNFINISHED_SIGNALS + 补充）：item 末次出现后若含这些词 → 视为未完成
 # 2026-08-20 四方审计修正：移除"准备"——太泛（"完成！准备进入 S3"=下一步——误伤正常完成）
@@ -49,7 +52,7 @@ def extract_task_spec(messages: List[Dict[str, Any]]) -> str:
         c = m.get("content", "")
         if not isinstance(c, str) or not c.strip():
             continue
-        if _TASK_SPEC_HEADING_RE.search(c) or _CHECKBOX_RE.search(c):
+        if _TASK_SPEC_HEADING_RE.search(c) or _CHECKBOX_RE.search(c) or any(m in c for m in _CN_TASK_MARKERS):
             found = c
     return found
 
