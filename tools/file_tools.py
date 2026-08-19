@@ -288,7 +288,7 @@ def clear_file_ops_cache(task_id: str = None):
             _file_ops_cache.clear()
 
 
-def read_file_tool(path: str, offset: int = 1, limit: int = 500, task_id: str = "default") -> str:
+def read_file_tool(path: str, offset: int = 1, limit: int = 500, task_id: str = "default", force_full: bool = False) -> str:
     """Read a file with pagination and line numbers."""
     try:
         # ── Device path guard ─────────────────────────────────────────
@@ -409,6 +409,36 @@ def read_file_tool(path: str, offset: int = 1, limit: int = 500, task_id: str = 
                 "Consider reading only the section you need with offset and limit "
                 "to keep context usage efficient."
             ))
+
+        # ── E2 句柄化（2026-08-19 · Hermes 代做 · 治"大卡整塞上下文"）──
+        # 大文件（> MIMIR_ARTIFACT_HANDLE_THRESHOLD_KB 默认 30KB）且未 force_full
+        # 且是全量读（limit >= 500）→ 返回"引用"（名字+大小+行数+前10行预览）
+        # 模型可判断"要不要加载全文"（offset/limit 分页 或 force_full=true）
+        # env=0 关闭（回退原行为）
+        try:
+            _artifact_kb = int(os.environ.get("MIMIR_ARTIFACT_HANDLE_THRESHOLD_KB", "30"))
+        except (TypeError, ValueError):
+            _artifact_kb = 30
+        if (not force_full and _artifact_kb > 0 and file_size
+                and file_size > _artifact_kb * 1024 and limit >= 500):
+            _total_lines = result_dict.get("total_lines", "unknown")
+            _preview_lines = (result.content or "").split("\n")[:10]
+            _preview = "\n".join(_preview_lines) if _preview_lines else "(empty)"
+            result_dict = {
+                "path": path,
+                "file_size": file_size,
+                "total_lines": _total_lines,
+                "handle": True,
+                "content": (
+                    f"[E2-HANDLE] File is large ({file_size:,} bytes / {_total_lines} lines). "
+                    f"Full content NOT loaded to save context (handle threshold: {_artifact_kb}KB).\n"
+                    f"--- Preview (first 10 lines) ---\n{_preview}\n"
+                    f"--- End preview ---\n"
+                    f"To read the full content: call read_file with offset/limit pagination, "
+                    f"or pass force_full=true to bypass this optimization."
+                ),
+            }
+            return json.dumps(result_dict, ensure_ascii=False)
 
         # ── Track for consecutive-loop detection ──────────────────────
         read_key = ("read", path, offset, limit)
@@ -717,7 +747,8 @@ READ_FILE_SCHEMA = {
         "properties": {
             "path": {"type": "string", "description": "Path to the file to read (absolute, relative, or ~/path)"},
             "offset": {"type": "integer", "description": "Line number to start reading from (1-indexed, default: 1)", "default": 1, "minimum": 1},
-            "limit": {"type": "integer", "description": "Maximum number of lines to read (default: 500, max: 2000)", "default": 500, "maximum": 2000}
+            "limit": {"type": "integer", "description": "Maximum number of lines to read (default: 500, max: 2000)", "default": 500, "maximum": 2000},
+            "force_full": {"type": "boolean", "description": "If true, bypass the large-file handle optimization and return full content (default: false)", "default": False}
         },
         "required": ["path"]
     }
