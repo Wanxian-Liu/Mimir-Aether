@@ -478,7 +478,7 @@ async def handle_v1_runs(request: web.Request) -> web.Response:
         
         run_id = f"run_{uuid.uuid4().hex[:12]}"
         
-        logger.info(f"[api] run 创建成功 run_id={run_id} req={req_id}, task={task[:50]}...")
+        _api_logger.info(f"[api] run 创建成功 run_id={run_id} req={req_id}, task={task[:50]}...")
         
         # 在后台运行任务
         asyncio.create_task(_run_task_background(run_id, task, model))
