@@ -444,6 +444,22 @@ async def handle_models(request: web.Request) -> web.Response:
     })
 
 
+_api_logger = logging.getLogger("gateway.api_service")
+# 待办1治本（2026-08-20）：[api] 请求日志固定落盘——stderr handler 受 verbosity 控制（默认 WARNING）
+# INFO 被过滤——独立 FileHandler 写 gateway-api.log——不受 verbosity 影响
+if not any(h.__class__.__name__ == "FileHandler" for h in _api_logger.handlers):
+    try:
+        import os as _os
+        _log_dir = _os.path.expanduser("~/.mimiraether/logs")
+        _os.makedirs(_log_dir, exist_ok=True)
+        _fh = logging.FileHandler(_os.path.join(_log_dir, "gateway-api.log"), encoding="utf-8")
+        _fh.setLevel(logging.INFO)
+        _fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+        _api_logger.addHandler(_fh)
+        _api_logger.setLevel(logging.INFO)
+    except Exception:
+        pass
+
 async def handle_v1_runs(request: web.Request) -> web.Response:
     """
     启动任务运行
@@ -454,7 +470,7 @@ async def handle_v1_runs(request: web.Request) -> web.Response:
     """
     # 待办1（2026-08-20）：请求层日志——入口即记录——防"202但run未启动"无法定位
     req_id = uuid.uuid4().hex[:8]
-    logger.info(f"[api] POST /v1/runs 请求到达 req={req_id}")
+    _api_logger.info(f"[api] POST /v1/runs 请求到达 req={req_id}")
     try:
         body = await request.json()
         task = body.get("task", "") or body.get("input", "")  # 兼容 input 字段（Hermes 派发用 input）
