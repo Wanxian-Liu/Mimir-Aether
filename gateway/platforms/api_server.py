@@ -1564,8 +1564,20 @@ class APIServerAdapter(BasePlatformAdapter):
 
         return _callback
 
+def _api_log(msg: str):
+    """[api] 请求日志（2026-08-20 Hermes 待办1）：直接 append 写 gateway-api.log——不依赖 logger verbosity"""
+    try:
+        import os as _os, datetime as _dt
+        _p = _os.path.expanduser("~/.mimiraether/logs/gateway-api.log")
+        _os.makedirs(_os.path.dirname(_p), exist_ok=True)
+        with open(_p, "a", encoding="utf-8") as _f:
+            _f.write(f"{_dt.datetime.now():%Y-%m-%d %H:%M:%S} {msg}\n")
+    except Exception:
+        pass
+
     async def _handle_runs(self, request: "web.Request") -> "web.Response":
         """POST /v1/runs — start an agent run, return run_id immediately."""
+        _api_log("[api] POST /v1/runs 请求到达")
         auth_err = self._check_auth(request)
         if auth_err:
             return auth_err
@@ -1591,6 +1603,7 @@ class APIServerAdapter(BasePlatformAdapter):
             return web.json_response(_openai_error("No user message found in input"), status=400)
 
         run_id = f"run_{uuid.uuid4().hex}"
+        _api_log(f"[api] run 创建成功 run_id={run_id}")
         loop = asyncio.get_running_loop()
         q: "asyncio.Queue[Optional[Dict]]" = asyncio.Queue()
         self._run_streams[run_id] = q
