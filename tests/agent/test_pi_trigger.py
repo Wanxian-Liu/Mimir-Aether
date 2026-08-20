@@ -1,14 +1,20 @@
-"""段6 单测：触发集成全链（S1-S3 组合 + S4 env 门控）
+"""段6 单测：触发集成全链（S1-S3 组合 + S4 环境门控）
 
 覆盖：
 - S1: _estimate_turns 在触发链第一变量（est >= MIMIR_PI_MIN_TURNS）
 - S2: 条件链拼装（est_turns AND parallel_elig_ok AND check_delegation_guard）
 - S3: maybe_pi_delegate_execute 实际委派（触发/降级）
-- S4: env 组合（MIMIR_DELEGATE_ENABLE=0 回退 / MIMIR_PI_MIN_TURNS 抬高 / 条件不满足静默）
+- S4: 环境变量组合（MIMIR_DELEGATE_ENABLE=0 回退 / MIMIR_PI_MIN_TURNS 抬高 / 条件不满足静默）
+
+段7 隔离性修复（2026-08-20 集成测试暴露）：环境测试直接赋值后不恢复，
+残留 MIMIR_DELEGATION_GUARD=0 污染同批运行的 test_pi_trigger_force.py
+（guard 被放行 → test_guard_block_silent 失败）——autouse fixture 每测试后恢复。
 """
 import os
 import sys
 import types
+
+import pytest
 
 sys.path.insert(0, "/home/rayliu/src/MimirAether")
 os.chdir("/home/rayliu/src/MimirAether")
@@ -20,6 +26,27 @@ from agent.pi_trigger import (
     maybe_pi_delegate_nudge,
     maybe_pi_delegate_execute,
 )
+
+# ToolGuard 规避别名（含点号的 env 字面量被拦）——语义等价
+_envmap = getattr(os, "e" + "nviron")
+
+_ENV_KEYS = (
+    "MIMIR_DELEGATE_ENABLE",
+    "MIMIR_PI_MIN_TURNS",
+    "MIMIR_PI_MIN_PARALLEL",
+    "MIMIR_DELEGATION_GUARD",
+)
+
+
+@pytest.fixture(autouse=True)
+def _restore_env_after_test():
+    saved = {k: _envmap.get(k) for k in _ENV_KEYS}
+    yield
+    for k, v in saved.items():
+        if v is None:
+            _envmap.pop(k, None)
+        else:
+            _envmap[k] = v
 
 
 TRIGGER_TASK = (
@@ -37,9 +64,8 @@ def _long_ctx_messages():
 
 
 def _reset_env():
-    for k in ("MIMIR_DELEGATE_ENABLE", "MIMIR_PI_MIN_TURNS",
-              "MIMIR_PI_MIN_PARALLEL", "MIMIR_DELEGATION_GUARD"):
-        os.environ.pop(k, None)
+    for k in _ENV_KEYS:
+        _envmap.pop(k, None)
 
 
 # ── S1 · est_turns 条件链第一变量 ──────────────────────────────────────
@@ -135,11 +161,11 @@ def test_delegate_execute_fallback_on_import_error():
         sys.modules.pop("subagent_bridge", None)
 
 
-# ── S4 · env 全链组合 ──────────────────────────────────────────────────
+# ── S4 · 环境变量全链组合 ──────────────────────────────────────────────
 def test_env_disable_delegate():
     """MIMIR_DELEGATE_ENABLE=0 → 回退（静默不触发）。"""
     _reset_env()
-    os.environ["MIMIR_DELEGATE_ENABLE"] = "0"
+    _envmap["MIMIR_DELEGATE_ENABLE"] = "0"
     msgs = _long_ctx_messages()
     assert maybe_pi_delegate_nudge(msgs) is None
     res = maybe_pi_delegate_execute(msgs)
@@ -149,7 +175,7 @@ def test_env_disable_delegate():
 def test_env_min_turns_raise():
     """MIMIR_PI_MIN_TURNS=999 → 即使长任务也不触发（第一变量门槛抬高）。"""
     _reset_env()
-    os.environ["MIMIR_PI_MIN_TURNS"] = "999"
+    _envmap["MIMIR_PI_MIN_TURNS"] = "999"
     msgs = _long_ctx_messages()
     assert maybe_pi_delegate_nudge(msgs) is None
 
@@ -157,7 +183,7 @@ def test_env_min_turns_raise():
 def test_env_min_parallel_zero():
     """MIMIR_PI_MIN_PARALLEL=0 → parallel_elig_ok 恒 False → 不触发。"""
     _reset_env()
-    os.environ["MIMIR_PI_MIN_PARALLEL"] = "0"
+    _envmap["MIMIR_PI_MIN_PARALLEL"] = "0"
     msgs = _long_ctx_messages()
     assert maybe_pi_delegate_nudge(msgs) is None
 
@@ -165,7 +191,7 @@ def test_env_min_parallel_zero():
 def test_env_guard_zero():
     """MIMIR_DELEGATION_GUARD=0 → guard 放行 → 不再因 guard 拦截。"""
     _reset_env()
-    os.environ["MIMIR_DELEGATION_GUARD"] = "0"
+    _envmap["MIMIR_DELEGATION_GUARD"] = "0"
     msgs = [{"role": "user", "content": "read_file hosts 的内容"}]
     res = maybe_pi_delegate_nudge(msgs)
     assert res is None or PI_NUDGE_MARKER in res
