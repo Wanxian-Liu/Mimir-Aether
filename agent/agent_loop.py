@@ -144,6 +144,72 @@ def _get_tc_id(tc) -> str:
         return tc.get("id", "")
     return tc.id
 
+def _orphan_sanitize_enabled() -> bool:
+    """400B env gate: MIMIR_SANITIZE_ORPHAN_TOOLS=1 default on; 0/false/no = full fallback."""
+    return os.getenv("MIMIR_SANITIZE_ORPHAN_TOOLS", "1").strip().lower() not in ("0", "false", "no")
+
+
+def _sanitize_orphan_tools(messages: List[Dict[str, Any]]) -> int:
+    """In-place cleanup of orphan tool messages / unpaired tool_calls. Returns removed count.
+
+    400B fix (2026-08-20 Mimir impl-400B, engineering-code-reviewer role):
+    DeepSeek 400 "tool must be a response to preceding tool_calls" - orphan tool guard.
+    Modeled on context_compressor._sanitize_tool_pairs, but fixes the missing-branch
+    fake-patch problem (Loki B-2):
+
+      1. orphan branch (canonical kept): role=tool whose tool_call_id has NO preceding
+         assistant.tool_calls -> drop whole message (list-slice in place - caller ref sync)
+      2. missing branch (fixed): assistant.tool_calls entries with NO role=tool response ->
+         remove those entries from the assistant message (do NOT inject fake
+         "[Result from earlier conversation]" text patch - pollutes context, DeepSeek rejects)
+
+    Env gate: MIMIR_SANITIZE_ORPHAN_TOOLS (default 1 on; 0/false/no = full fallback).
+    """
+    surviving_ids: Set[str] = set()
+    for msg in messages:
+        if msg.get("role") == "assistant":
+            for tc in msg.get("tool_calls") or []:
+                cid = tc.get("id") or ""
+                if cid:
+                    surviving_ids.add(cid)
+
+    result_ids: Set[str] = set()
+    for msg in messages:
+        if msg.get("role") == "tool":
+            cid = msg.get("tool_call_id")
+            if cid:
+                result_ids.add(cid)
+
+    removed = 0
+
+    # 1) orphan branch: tool result with no preceding tool_calls -> drop (canonical)
+    orphaned = result_ids - surviving_ids
+    if orphaned:
+        before = len(messages)
+        messages[:] = [
+            m for m in messages
+            if not (m.get("role") == "tool" and m.get("tool_call_id") in orphaned)
+        ]
+        removed += before - len(messages)
+
+    # 2) missing branch: assistant.tool_calls with no tool response -> drop those entries
+    #    (fix Loki B-2: no more fake "[Result from earlier conversation]" patch)
+    missing = surviving_ids - result_ids
+    if missing:
+        for msg in messages:
+            if msg.get("role") == "assistant" and msg.get("tool_calls"):
+                kept = [tc for tc in msg["tool_calls"] if (tc.get("id") or "") not in missing]
+                if len(kept) != len(msg["tool_calls"]):
+                    removed += len(msg["tool_calls"]) - len(kept)
+                    if kept:
+                        msg["tool_calls"] = kept
+                    else:
+                        msg.pop("tool_calls", None)
+
+    if removed:
+        logger.info("[400B] _sanitize_orphan_tools removed %d orphan/missing tool entries", removed)
+    return removed
+
 
 class AgentLoopExit(Exception):
     """Raised inside the agent loop to exit through the unified validation path.
@@ -544,6 +610,16 @@ class MimirAgentLoop:
                                    self.task_id[:8], turn + 1, _comp_exc)
 
             # --- Call model ---
+            # 400B 修复（2026-08-20 Mimir 实施段-400B）：发送前 sanitize 孤儿 tool
+            # （DeepSeek 400 "tool must be a response to preceding tool_calls"——
+            #  并行分发 _br None 跳过 / verify guard pop / TD-03 pop 均可能产生孤儿）
+            # env 门控：MIMIR_SANITIZE_ORPHAN_TOOLS=1 默认开；0/false/no = 完全回退
+            if _orphan_sanitize_enabled():
+                _pre_san = len(messages)
+                _removed_san = _sanitize_orphan_tools(messages)
+                if _removed_san:
+                    logger.info("[%s] turn %d: [400B] sanitize removed %d orphan tool entries (%d->%d msgs)",
+                                self.task_id[:8], turn + 1, _removed_san, _pre_san, len(messages))
             api_start = _time.monotonic()
             try:
                 response = await self.model_call(messages)
@@ -1073,6 +1149,8 @@ class MimirAgentLoop:
                 }
                 messages.append(_force_msg)
                 try:
+                    if _orphan_sanitize_enabled():
+                        _sanitize_orphan_tools(messages)
                     _resp = await self.model_call(messages)
                     if _resp is not None:
                         _text = getattr(_resp, "content", None) or (getattr(_resp, "message", None) or {}).get("content") if not hasattr(_resp, "content") else getattr(_resp, "content", None)
@@ -1263,6 +1341,8 @@ class MimirAgentLoop:
                 ),
             }
             messages.append(_prod_msg)
+            if _orphan_sanitize_enabled():
+                _sanitize_orphan_tools(messages)
             _resp = await self.model_call(messages)
             if _resp is not None:
                 _msg = None
