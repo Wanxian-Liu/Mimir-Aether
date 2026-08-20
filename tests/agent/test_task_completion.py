@@ -27,7 +27,7 @@ def test_all_checked_passes():
 def test_unfinished_blocks():
     """有未勾项 + 无交付 → 阻断（返回理由）"""
     r = check_task_completion(TASK_SPEC, [{"role": "assistant", "content": "我完成了设计部分"}])
-    assert isinstance(r, str) and "未完成" in r
+    assert isinstance(r, str) and "未交付" in r
 
 
 def test_delivered_by_recent_assistant_passes():
@@ -45,7 +45,7 @@ def test_generic_string_no_false_positive():
     r = check_task_completion(TASK_SPEC, [
         {"role": "assistant", "content": "关于 S2 的解释：这个步骤指的是实现回调，S2 这个编号在计划里"},
     ])
-    assert isinstance(r, str) and "未完成" in r, f"应阻断但返回: {r}"
+    assert isinstance(r, str) and "未交付" in r, f"应阻断但返回: {r}"
 
 
 def test_extract_task_spec_from_history():
@@ -85,7 +85,7 @@ def test_fuzzy_completion_not_bypassed():
     r = check_task_completion(spec, [
         {"role": "assistant", "content": "S2 实现 完成度80% 快好了"},
     ])
-    assert isinstance(r, str) and "未完成" in r, f"模糊声明应阻断但返回: {r}"
+    assert isinstance(r, str) and "未交付" in r, f"模糊声明应阻断但返回: {r}"
 
 
 def test_digit_boundary_no_false_positive():
@@ -94,7 +94,7 @@ def test_digit_boundary_no_false_positive():
     r = check_task_completion(spec, [
         {"role": "assistant", "content": "S20 的方案里提到了 S2 相关的思路"},
     ])
-    assert isinstance(r, str) and "未完成" in r, f"数字边界应阻断但返回: {r}"
+    assert isinstance(r, str) and "未交付" in r, f"数字边界应阻断但返回: {r}"
 
 
 def test_cn_task_marker_extract():

@@ -1,143 +1,59 @@
-"""task_completion.py — 任务书完成度检查（四方会议 2026-08-19 实施 · Loki reality-check 5 项清单）。
+"""task_completion.py — 任务书完成度辅助检查（2026-08-20 精简版——对齐 Hermes completed 语义）。
 
-设计来源（盘上参照）：
-- Hermes 方案（会议卡 L47-58）：natural EXIT 前加"任务完成度检查"——任务书含子步骤清单时，
-  未完成禁止自然结束。
-- OpenClaw 强化（会议卡 L185-208）：独立 plain function（不引入类/状态机）+ 强边界
-  （无任务书结构跳过）+ env 门控回退。
-- Loki reality-check（会议卡 L299-325）：
-  B-L2 task_spec 来源（选项 A 外部传入 + 运行时从消息历史兜底提取——覆盖续作场景）；
-  B-L4 item 匹配收紧（[x] 已勾状态优先 + 完整关键词匹配 + 首次/末次出现位置——取代子串匹配）。
+对照（Hermes 源码——turn_finalizer.py L193-195）：
+    completed = final_response is not None and not failed and (api_call_count < max_iterations or normal_text_response)
+    —— 完成判定 = 有最终交付 + 未失败——简单——无 - [ ] 清单强制、无 L1/L2/L3 渐进、无信号表。
 
-边界（OpenClaw L210-215）：
-- 无任务书结构 → 跳过（返回 None）
-- 任务书结构但无 `- [ ]` 未勾项（全 [x]）→ 跳过
-- 任务书含 `- [ ]` 但最近 assistant 已交付（勾选/完整关键词+末次出现）→ 视为完成
-- 读清单失败 → 调用方回退现行为（降级安全，不阻断）
+Mimir 对齐：完成判定由 agent_loop 的 has_written（写盘产出 = final_response 语义）+ 未失败负责。
+本模块降级为"可选辅助"：
+- 任务书含 - [ ] 清单时——未勾项未交付 → 返回提醒文本（供 agent_loop 注入提示——**非阻断**）
+- 无清单 / 无未勾项 / 已交付 → None（不打扰——完成与否交给 has_written 判定）
+
+历史（去机制记录）：
+- 2026-08-19 四方会议实施（清单强制 + L1/L2/L3 + 模糊信号 + emoji 防绕过 + _MIN_ITEM_LEN）
+- 2026-08-20 刘哥判断"左加右加加多了成阻碍"——对照 Hermes 源码精简（本版）
+  —— 去：清单强制依赖/L1L2L3 渐进/模糊信号表/emoji 防绕过/信号词表/_MIN_ITEM_LEN 边界
 """
 
 import re
 from typing import Any, Dict, List, Optional
 
-# 任务书结构特征：markdown 标题（## S1 ...）或 checkbox 清单（- [ ] / - [x]）
-_TASK_SPEC_HEADING_RE = re.compile(r"^#{1,3}\s+\S", re.MULTILINE)
 _CHECKBOX_RE = re.compile(r"^-\s+\[([ xX])\]\s*(.+)$", re.MULTILINE)
-# 中文任务书标记（2026-08-20 四方审计发现：派发格式【任务】【原子化】文字——extract 提取失败
-# → 完成度检查跳过 → natural 结束无保护。兜底识别中文任务书特征）
-_CN_TASK_MARKERS = ("【任务】", "任务书：", "任务书：\n")
-
-# 未完成信号（对齐 agent_loop._UNFINISHED_SIGNALS + 补充）：item 末次出现后若含这些词 → 视为未完成
-# 2026-08-20 四方审计修正：移除"准备"——太泛（"完成！准备进入 S3"=下一步——误伤正常完成）
-# "还没准备"场景由"还没"兜底
-_UNFINISHED_SIGNALS = ("接下来", "将要", "即将", "待完成", "还没", "稍后", "下一步")
-
-# item 完整关键词匹配的最小长度门槛（防 "S2" 这类泛串字面误判完成——Loki B-L4 核心关切）
-_MIN_ITEM_LEN = 4
+_CN_TASK_MARKERS = ("【任务】", "任务书：")
 
 
 def extract_task_spec(messages: List[Dict[str, Any]]) -> str:
-    """从消息历史提取任务书文本（B-L2 运行时兜底）。
-
-    优先取"最后一条含任务书结构（markdown 标题或 checkbox）的 user 消息"：
-    - 首次任务：首条 user 消息即任务书
-    - 续作任务：任务书在历史更早处（core_loop._build_full_messages 含全量历史）——
-      取最后一条仍含结构的 user 消息，覆盖续作场景（E1 二次失败即续作任务书失效场景）
-
-    返回 "" = 无任务书（检查跳过）。
-    """
+    """从消息历史提取任务书（可选——辅助提醒用）。无任务书结构返回 ""。"""
     found = ""
     for m in messages:
         if m.get("role") != "user":
             continue
         c = m.get("content", "")
-        if not isinstance(c, str) or not c.strip():
-            continue
-        if _TASK_SPEC_HEADING_RE.search(c) or _CHECKBOX_RE.search(c) or any(m in c for m in _CN_TASK_MARKERS):
+        if isinstance(c, str) and (_CHECKBOX_RE.search(c) or any(mk in c for mk in _CN_TASK_MARKERS)):
             found = c
     return found
 
 
 def check_task_completion(task_spec: str, messages: List[Dict[str, Any]]) -> Optional[str]:
-    """任务书完成度检查（OpenClaw 工程化建议签名）。
+    """可选提醒（非阻断——对齐 Hermes：完成判定交给 has_written）。
 
     Returns:
-        None: 通过（无任务书 / 无未勾项 / 未交付项已由最近 assistant 交付）——允许自然结束
-        str:  阻断理由（"任务书未完成 (N 项未交付): [...]"）——调用方必须阻止自然结束
+        None: 无清单 / 无未勾项 / 未勾项已交付——不打扰（完成与否由 agent_loop 判定）
+        str:  提醒文本（"任务书有 N 项未交付（提醒）: [...]"——注入提示——不强制阻断）
     """
     if not task_spec or not task_spec.strip():
         return None
-
-    unchecked = _unchecked_items(task_spec)
+    unchecked = [m.group(2).strip() for m in _CHECKBOX_RE.finditer(task_spec) if m.group(1).lower() != "x"]
     if not unchecked:
-        return None  # 无 `- [ ]` 未勾项（全 [x] 或清单已完成）→ 通过
-    texts = _recent_assistant_texts(messages, n=3)
-    remaining = [it for it in unchecked if not _item_delivered(it, texts)]
-    if not remaining:
         return None
-
-    return f"任务书未完成（{len(remaining)} 项未交付）: {remaining[:3]}"
-
-
-def _unchecked_items(task_spec: str) -> List[str]:
-    """收集任务书中 `- [ ]` 未勾项（`- [x]` / `- [X]` 视为已勾，不收集）。"""
-    items = []
-    for m in _CHECKBOX_RE.finditer(task_spec):
-        mark, text = m.group(1), m.group(2).strip()
-        if mark.lower() != "x":
-            items.append(text)
-    return items
-
-
-def _recent_assistant_texts(messages: List[Dict[str, Any]], n: int = 3) -> List[str]:
-    """最近 n 条 assistant 文本（B-L4：判定交付只看最近的对话，防旧消息误判）。"""
     texts = []
     for m in reversed(messages):
-        if m.get("role") != "assistant":
-            continue
-        c = m.get("content")
-        if not c:
-            continue
-        texts.append(c if isinstance(c, str) else str(c))
-        if len(texts) >= n:
-            break
-    return texts
-
-
-def _item_delivered(item: str, texts: List[str]) -> bool:
-    """B-L4 收紧判定：item 是否已交付（Loki 三条手段组合——取代 OpenClaw 子串匹配）。
-
-    1. [x] 已勾状态优先：模型在文本里写 `- [x] <item>` / `[x] <item>` → 直接判定完成
-    2. 完整关键词匹配：item 完整出现（边界感知，非子串）且长度 ≥ _MIN_ITEM_LEN
-       （防 "S2 起步" 被解释内容里的裸 "S2" 字面误判完成）
-    3. 首次/末次出现位置：item 末次出现后无未完成信号 → 判定完成
-       （首次出现是声明，末次出现是完成——Loki 建议 ③）
-
-    三项全不满足 → 未完成（保守侧：宁可不放行，不可误放行）。
-    """
-    item = item.strip()
-    if not item:
-        return False
-    # 模糊完成声明信号（B-Loki-3：语义级绕过——"完成度80%"/"部分完成"/"快好了" 不算完成）
-    # M1 修复（2026-08-20 Mimir 第3轮审计）：移除裸 "%"——"100% 完成！"是明确完成声明——误伤
-    # "完成度"已覆盖"完成度 80%"场景
-    _FUZZY_SIGNALS = ("完成度", "部分完成", "快完成", "快了", "差不多")
-    _ITEM = re.escape(item)
-    for text in texts:
-        # M2 修复（2026-08-20 Mimir 第3轮审计）：[x] 勾选 = 最强信号——先查（勾选后不被模糊信号压制）
-        if re.search(r"\[[xX]\]\s*" + _ITEM, text):
-            return True
-        # 0) 模糊声明 → 明确不算完成（B-Loki-3——防"完成度80%"绕过）
-        if any(sig in text for sig in _FUZZY_SIGNALS) and item in text:
-            continue
-        # 1) 完整关键词 + 前边界感知（B2 简化：中文无分词——只查前边界防 "S2X" 粘连；
-        #    后边界由第 3 步"末次出现后无未完成信号"兜底——emoji 问题（B-Loki-1）自然解决）
-        if len(item) >= _MIN_ITEM_LEN and re.search(
-            r"(?<![\w\u4e00-\u9fff])" + _ITEM, text
-        ):
-            # 3) 末次出现后无未完成信号 → 完成
-            _tail = text[text.rfind(item):]
-            # M3 修复（2026-08-20 Mimir 第3轮审计）：item 前窗口也查未完成信号（"还没做 S2"——信号在 item 前）
-            _head = text[max(0, text.rfind(item) - 15):text.rfind(item)]
-            if not any(sig in _tail for sig in _UNFINISHED_SIGNALS) and not any(sig in _head for sig in _UNFINISHED_SIGNALS):
-                return True
-    return False
+        if m.get("role") == "assistant" and m.get("content"):
+            texts.append(str(m["content"]))
+            if len(texts) >= 3:
+                break
+    joined = " ".join(texts)
+    remaining = [it for it in unchecked if it not in joined]
+    if not remaining:
+        return None
+    return f"任务书有 {len(remaining)} 项未交付（提醒——非阻断）: {remaining[:3]}"

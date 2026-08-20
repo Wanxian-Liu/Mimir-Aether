@@ -72,7 +72,7 @@ from .verify_before_report_guard import (
     should_block_finish as should_block_verify_finish,
 )
 from .task_state import TaskState  # task_state（四方共识，2026-08-05）
-from .task_completion import check_task_completion, extract_task_spec, _UNFINISHED_SIGNALS  # 四方会议 2026-08-19：任务书完成度检查（B-L2/B-L4）+ M4 修复（2026-08-20：信号统一到模块级——防类体内 import 脆弱）
+from .task_completion import check_task_completion, extract_task_spec  # 四方会议 2026-08-19：任务书完成度检查（B-L2/B-L4）+ 2026-08-20 精简（_UNFINISHED_SIGNALS 移本地——task_completion 单一职责）
 MAX_VERIFY_NUDGES = 3  # verify guard最大nudge次数（修复：防freeze loop——对齐MAX_INTENT_NUDGES模式）
 # OC-01: auto_retrospective archived
 # from .auto_retrospective import enabled as retro_enabled, record as record_retro
@@ -1027,80 +1027,26 @@ class MimirAgentLoop:
                         )
                         await self._inject_production_nudge(messages)
                 # ===== 四方会议（2026-08-19 · Loki 5 项清单 B-L2/B-L3/B-L4/B-L5 实施）：任务书完成度检查 =====
-                # 触发：任务书含 "- [ ]" 子步骤清单 + MIMIR_TASK_COMPLETION_ENFORCE=1（默认开——独立于 TD-03）
-                # 位置：natural 退出前（产出校验后）——未完成项 > 0 → 禁止自然结束
-                # 渐进：L1 软提示（注入"还有 N 步未完成"→continue）→ L2 硬拦截（移除未完成回复+明确指令）
-                #       → L3 中断（INTERRUPTED 透传用户——对齐 TD-03 L3 模板，不重复造轮子）
+                # 任务书完成度辅助提醒（2026-08-20 精简——对齐 Hermes completed 语义：
+                # 完成判定 = has_written（TD-03 产出检查负责）+ 未失败——不依赖清单强制。
+                # 本段只注入提醒（非阻断）——去掉 L1/L2/L3 强制/模糊信号/清单依赖（刘哥：机制加多了成阻碍）
                 _tc_enforce = os.getenv("MIMIR_TASK_COMPLETION_ENFORCE", "1").strip().lower() not in ("0", "false", "no")
-                if not _tc_enforce:
-                    # B4 修复（2026-08-20 四方审计）：env 关闭时重置 nudges——防切换后残留状态
-                    self._task_completion_nudges = 0
-                _tc_spec = self._task_spec or ""
-                _tc_block: Optional[str] = None
-                if _tc_enforce:
-                    _tc_spec = self._task_spec or extract_task_spec(messages)
-                    if not _tc_spec and turn > 2:
-                        # B-Loki-5（2026-08-20 四方审计）：任务书提取失败但已多轮工具调用——静默跳过
-                        logger.warning(
-                            "[%s] turn %d: task_spec 提取为空（多轮任务疑似有任务书）——完成度检查跳过",
-                            self.task_id[:8], turn + 1,
-                        )
-                    _tc_block = check_task_completion(_tc_spec, messages)
-                if _tc_block:
-                    _max_tc_hard = int(os.getenv("MIMIR_TASK_COMPLETION_HARD_NUDGES", "2") or "2")
-                    if self._task_completion_nudges >= _max_tc_hard + 1:
-                        # L3 中断：连续硬拦截后仍未完成 → INTERRUPTED（透传用户——禁止标 DONE）
-                        logger.warning(
-                            "[%s] turn %d: 任务书完成度 L3 中断（%s，nudges=%d/%d）——透传用户",
-                            self.task_id[:8], turn + 1, _tc_block,
-                            self._task_completion_nudges, _max_tc_hard,
-                        )
-                        self._close_pipeline(user_task)
-                        self._task_state = TaskState.INTERRUPTED
-                        raise AgentLoopExit("task_incomplete", {
-                            "messages": messages, "turns_used": turn + 1,
-                            "finished_naturally": False, "reasoning_per_turn": reasoning_per_turn,
-                            "tool_errors": tool_errors, "interrupted": True,
-                        })
-                    if self._task_completion_nudges >= 2:
-                        # L2 硬拦截：移除最后未完成 assistant 回复 + 注入明确指令
-                        # B3 修复（2026-08-20 四方审计）：nudges>=2 才 L2——给 L1 软提示 1 轮缓冲
-                        while messages and messages[-1].get("role") == "assistant":
-                            messages.pop()
-                        messages.append({
-                            "role": "user",
-                            "content": self._build_task_completion_hard_nudge(
-                                _tc_block, self._task_completion_nudges, _max_tc_hard
-                            ),
-                        })
-                        self._task_completion_nudges += 1
-                        logger.warning(
-                            "[%s] turn %d: 任务书完成度 L2 硬拦截 %d/%d（%s）",
-                            self.task_id[:8], turn + 1,
-                            self._task_completion_nudges, _max_tc_hard, _tc_block,
-                        )
-                        continue
-                    # L1 软提示：注入"还有 N 步未完成"→ continue（给 LLM 下一轮补完成机会）
-                    messages.append({"role": "user", "content": self._build_task_completion_nudge(_tc_block)})
-                    self._task_completion_nudges += 1
-                    logger.warning(
-                        "[%s] turn %d: 任务书完成度 L1 软提示（%s）——继续完成",
-                        self.task_id[:8], turn + 1, _tc_block,
-                    )
-                    continue
+                _tc_spec = self._task_spec or (extract_task_spec(messages) if _tc_enforce else "")
+                _tc_hint = check_task_completion(_tc_spec, messages) if (_tc_enforce and self._task_completion_nudges < 1) else None  # 提醒 1 次上限（防循环——对齐 Hermes 不强制）
+                if _tc_hint:
+                    logger.info("[%s] turn %d: 完成度提醒（非阻断）: %s", self.task_id[:8], turn + 1, _tc_hint[:100])
+                    messages.append({"role": "user", "content": _tc_hint})
+                    continue  # 注入提醒给模型补交付机会（不强制——对齐 Hermes）
                 self._close_pipeline(user_task)
-                # B-L5（OpenClaw 投票 + Loki 5 项清单）：区分"自然结束 vs 任务完成"
-                # - 有任务书（含清单）且完成度检查通过 → TASK_COMPLETE（任务真正完成）
-                # - 无任务书（纯问答 / enforce 关闭）→ DONE（旧语义——自然结束）
-                if _tc_enforce and _tc_spec:
-                    self._task_state = TaskState.TASK_COMPLETE
-                else:
-                    self._task_state = TaskState.DONE  # task_state注入点3（四方共识：自然退出→DONE）
+                # 任务书含清单且检查通过 → TASK_COMPLETE（有交付语义——对齐 Hermes completed）
+                # 无清单 → DONE（自然结束——has_written 由 TD-03 已检查）
+                self._task_state = TaskState.TASK_COMPLETE if _tc_spec else TaskState.DONE
                 raise AgentLoopExit("natural", {
                     "messages": messages, "turns_used": turn + 1,
                     "finished_naturally": True, "reasoning_per_turn": reasoning_per_turn,
                     "tool_errors": tool_errors,
                 })
+
 
         # Hit max turns
         logger.info("Agent hit max_turns (%d)", self.max_turns)
@@ -1262,7 +1208,7 @@ class MimirAgentLoop:
                 break
         if len(_text) < 50:
             return False
-        if any(w in _text for w in _UNFINISHED_SIGNALS):
+        if any(w in _text for w in ("接下来", "将要", "即将", "待完成", "还没", "稍后", "下一步")):  # TD-03 本地信号（2026-08-20 精简：task_completion 不再导出）
             return False
         if any(mk in _text for mk in self._SYS_MARKS):
             return False
