@@ -452,14 +452,17 @@ async def handle_v1_runs(request: web.Request) -> web.Response:
     
     返回202 Accepted和run_id
     """
+    # 待办1（2026-08-20）：请求层日志——入口即记录——防"202但run未启动"无法定位
+    req_id = uuid.uuid4().hex[:8]
+    logger.info(f"[api] POST /v1/runs 请求到达 req={req_id}")
     try:
         body = await request.json()
-        task = body.get("task", "")
+        task = body.get("task", "") or body.get("input", "")  # 兼容 input 字段（Hermes 派发用 input）
         model = body.get("model", get_model())
         
         run_id = f"run_{uuid.uuid4().hex[:12]}"
         
-        logger.info(f"启动任务: run_id={run_id}, task={task[:50]}...")
+        logger.info(f"[api] run 创建成功 run_id={run_id} req={req_id}, task={task[:50]}...")
         
         # 在后台运行任务
         asyncio.create_task(_run_task_background(run_id, task, model))
