@@ -1696,6 +1696,7 @@ class APIServerAdapter(BasePlatformAdapter):
         ephemeral_system_prompt = instructions
 
         async def _run_and_close():
+            _api_log(f"[api] run 启动 run_id={run_id}（请求到达后实际启动——延迟可测）")
             try:
                 agent = self._create_agent(
                     ephemeral_system_prompt=ephemeral_system_prompt,
