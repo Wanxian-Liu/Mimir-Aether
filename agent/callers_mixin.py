@@ -414,7 +414,9 @@ class CallersMixin:
                     if _rc:
                         _last_reasoning = _rc
                 elif msg.reasoning_content:
-                    msg_dict["reasoning_content"] = msg.reasoning_content
+                    # 2026-08-20 真治本：elif 分支也无条件——needs_propagation 依赖历史 reasoning
+                    # （存储丢弃→检查不到→False→走 elif→重建后丢失→不传→400）——覆盖全部路径
+                    msg_dict["reasoning_content"] = msg.reasoning_content or _last_reasoning or ""
             elif msg.reasoning_content:
                 # tool消息的reasoning_content也传递
                 msg_dict["reasoning_content"] = msg.reasoning_content
