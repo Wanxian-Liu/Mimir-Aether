@@ -364,6 +364,41 @@ def _derive_chat_session_id(
     return f"api-{digest}"
 
 
+def _api_log(msg: str) -> None:
+    """[api] 请求日志（2026-08-20 四方会议 L3+）：直接 append 写 gateway-api.log——不依赖 logger verbosity"""
+    try:
+        import os as _os, datetime as _dt
+        _p = _os.path.expanduser("~/.mimiraether/logs/gateway-api.log")
+        _os.makedirs(_os.path.dirname(_p), exist_ok=True)
+        with open(_p, "a", encoding="utf-8") as _f:
+            _f.write(f"{_dt.datetime.now():%Y-%m-%d %H:%M:%S} {msg}\n")
+    except Exception:
+        pass
+
+
+@web.middleware
+async def _api_log_middleware(request, handler):
+    """[api] 请求日志 middleware（L3——全路由——四方会议 2026-08-20）——请求到达即记录（req_id 关联）"""
+    req_id = uuid.uuid4().hex[:8]
+    path = request.path
+    if path.startswith("/v1/") or path in ("/health",):
+        _api_log(f"[api] {request.method} {path} 请求到达 req={req_id}")
+    try:
+        resp = await handler(request)
+        if path.startswith("/v1/") and resp is not None and getattr(resp, "status", 0) in (200, 202):
+            body = ""
+            try:
+                if resp.body:
+                    body = resp.body[:120].decode("utf-8", "ignore").replace("\n", " ")
+            except Exception:
+                pass
+            _api_log(f"[api] {request.method} {path} 完成 req={req_id} status={resp.status} {body}")
+        return resp
+    except Exception as e:
+        _api_log(f"[api] {request.method} {path} 异常 req={req_id}: {e}")
+        raise
+
+
 class APIServerAdapter(BasePlatformAdapter):
     """
     OpenAI-compatible HTTP API server adapter.
@@ -1793,7 +1828,7 @@ class APIServerAdapter(BasePlatformAdapter):
             return False
 
         try:
-            mws = [mw for mw in (cors_middleware, body_limit_middleware, security_headers_middleware) if mw is not None]
+            mws = [mw for mw in (cors_middleware, body_limit_middleware, security_headers_middleware, _api_log_middleware) if mw is not None]
             self._app = web.Application(middlewares=mws)
             self._app["api_server_adapter"] = self
             self._app.router.add_get("/health", self._handle_health)
