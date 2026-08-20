@@ -774,8 +774,15 @@ class MimirAgentLoop:
                                         if _rpath in self._read_paths:
                                             self._read_paths_count[_rpath] = self._read_paths_count.get(_rpath, 1) + 1
                                             import logging as _logging
-                                            _logging.getLogger("agent.agent_loop").warning(
-                                                f"[dup-read] 重复读取同一文件 {_rpath} 第{self._read_paths_count[_rpath]}次——若已连续多轮无落盘，请停止读取直接产出（ADR-008）")
+                                            _cnt = self._read_paths_count[_rpath]
+                                            if _cnt >= 3 and os.getenv("MIMIR_READ_DISCIPLINE", "1").strip().lower() not in ("0", "false", "no"):
+                                                # 块4段2（2026-08-20 轻量增强——不加机制：第3次重复读→强制指令（非建议））
+                                                _logging.getLogger("agent.agent_loop").warning(
+                                                    f"[dup-read] 重复读取 {_rpath} 第{_cnt}次——强制停止读取，立即写草稿落盘（MIMIR_READ_DISCIPLINE）")
+                                                messages.append({"role": "user", "content": f"【读闸】你已重复读取 {_rpath} 第 {_cnt} 次——必须停止读取，立即把已获得的信息写草稿落盘（write_file/patch）——再读=不合格"})
+                                            else:
+                                                _logging.getLogger("agent.agent_loop").warning(
+                                                    f"[dup-read] 重复读取同一文件 {_rpath} 第{_cnt}次——若已连续多轮无落盘，请停止读取直接产出（ADR-008）")
                                         else:
                                             self._read_paths.add(_rpath)
                                             self._read_paths_count[_rpath] = 1
