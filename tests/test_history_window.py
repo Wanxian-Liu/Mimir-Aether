@@ -98,4 +98,5 @@ w, d = apply_window(h, 50)
 check("空历史不崩溃", len(w) == 0 and d == 0)
 
 print(f"\n结果: {passed} 通过, {failed} 失败")
-sys.exit(1 if failed else 0)
+if __name__ == "__main__":  # SRE 修复（2026-08-21）：sys.exit 包 __main__——pytest 收集 import 时触发 SystemExit → INTERNALERROR（12 errors）
+    sys.exit(1 if failed else 0)
