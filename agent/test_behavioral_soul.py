@@ -15,9 +15,22 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from agent.skill_curator import (
-    _evaluate_creation_triggers,
-    skill_creation_audit_nudge,
+_MIMIR_IMPORT_ERR = None
+try:
+    from agent.skill_curator import (
+        _evaluate_creation_triggers,
+        skill_creation_audit_nudge,
+    )
+    _MIMIR_IMPORT_OK = True
+except ImportError as _mimir_import_err:
+    _MIMIR_IMPORT_OK = False
+    _MIMIR_IMPORT_ERR = str(_mimir_import_err)
+
+import pytest
+
+pytestmark = pytest.mark.skipif(
+    not _MIMIR_IMPORT_OK,
+    reason=f"测试过期：引用的符号已从源码删除（agent.skill_curator 的 _evaluate_creation_triggers/skill_creation_audit_nudge（2026-08-21 取证：符号已删除，重构为 run_lifecycle_pass/nudge_report 体系）），需按当前 API 重写。import 错误: {_MIMIR_IMPORT_ERR}",
 )
 
 

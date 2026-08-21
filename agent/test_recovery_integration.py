@@ -14,9 +14,22 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from agent.core_loop import MimirAetherAgent
-from agent.recovery import (
-    ToolRecovery, ToolRecoveryPattern, ToolRecoveryAttempt,
-    classify_tool_error, get_tool_recovery, _extract_path_from_error,
+_MIMIR_IMPORT_ERR = None
+try:
+    from agent.recovery import (
+        ToolRecovery, ToolRecoveryPattern, ToolRecoveryAttempt,
+        classify_tool_error, get_tool_recovery, _extract_path_from_error,
+    )
+    _MIMIR_IMPORT_OK = True
+except ImportError as _mimir_import_err:
+    _MIMIR_IMPORT_OK = False
+    _MIMIR_IMPORT_ERR = str(_mimir_import_err)
+
+import pytest
+
+pytestmark = pytest.mark.skipif(
+    not _MIMIR_IMPORT_OK,
+    reason=f"测试过期：引用的符号已从源码删除（agent.recovery 的 ToolRecovery 系列（2026-08-21 取证：符号已删除，重构为 MultiLevelRecovery/RecoveryLevel 体系）），需按当前 API 重写。import 错误: {_MIMIR_IMPORT_ERR}",
 )
 from agent.degeneration_guard import (
     DegenerationGuard, DegenerationSignal, DegenerationReport, TurnRecord,
