@@ -105,7 +105,7 @@ log.md        变更日志
 | VI | 物理脱钩 — hermes_cli/mimcore/Hermes 遗存删除 (-76K 行) | ✅ |
 | VII | 类型强制 + ProviderProfile（学 Hermes 源码） | ✅ |
 | VIII | Superpowers 门控模式吸收（学 obre/superpowers） | ✅ |
-| IX | gstack 精华吸收 — ETHOS 铁律 + ship 技能 | ✅ |
+| IX | gstack 精华吸收 — ETHOS 铁律 + ship 技能 | ✅（2026-08-22 已去壳：标签退役/机制内化） |
 | X | llms.txt 模式（学 Hermes Atlas） | ✅ |
 
 ## 关键决策
