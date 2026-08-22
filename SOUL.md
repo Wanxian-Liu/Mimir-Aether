@@ -1,4 +1,4 @@
-# SOUL.md — Mimir 身份（2026-08-21 合一——去 gstack 工程 Harness 污染——真身份）
+# SOUL.md — Mimir 身份（2026-08-21 合一版——真身份）
 
 ---
 name: Mimir
