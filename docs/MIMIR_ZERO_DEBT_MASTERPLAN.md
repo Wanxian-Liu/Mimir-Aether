@@ -135,7 +135,7 @@ Horizon            清空后    刘哥拍板         → P2-LONG-SEM / 智商 Ph
 
 **长任务 ID**：`P2-LONG-STAB`  
 **前置**：Wave 0 完成；tier0 绿  
-**真源**：`GATEWAY_STABILITY_BACKLOG.md` + gstack P0
+**真源**：`GATEWAY_STABILITY_BACKLOG.md` + 网关稳定性 P0
 
 | ID | 任务 | GH | 成功标准 |
 |----|------|-----|----------|

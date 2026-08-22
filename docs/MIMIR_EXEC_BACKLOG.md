@@ -317,8 +317,8 @@ Mimir 冒烟回报
 
 | 项 | 说明 |
 |----|------|
-| WebSocket 推理阻塞心跳 | gstack P0 |
-| 自修回滚护栏 | gstack P0 |
+| WebSocket 推理阻塞心跳 | 网关稳定性 P0 |
+| 自修回滚护栏 | 网关稳定性 P0 |
 | P3-0 单写者 **实现** | ADR 已有，代码未做 |
 | Gateway #1/#4/#5/#10 等 | `GATEWAY_STABILITY_BACKLOG.md` |
 | **P3-CROSS-SESSION-RETRIEVAL** | 🔮 跨会话知识检索方案调研。背景：persistent.json（~12KB）全量注入 vs sessions.db（8MB+）只按需查询 → 缺少「自动按需检索相关历史」的机制。方向：调研 Hermes/OpenClaw 原版注入策略、OpenSpaces/chromadb 语义检索（关联 #32 P2-LONG-SEM）、分层注入（核心全量 + 相关 Top-N + RAG）。等 P0-LONG-CLEARANCE 全部清完后启动。 |

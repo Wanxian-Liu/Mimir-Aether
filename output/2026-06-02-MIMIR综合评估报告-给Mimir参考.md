@@ -1,7 +1,7 @@
 # MimirAether 综合评估报告（2026-06-02）
 
 > **评审方**：琬弦（Worldweaver）  
-> **评审方式**：gstack 多角色评审（CEO + ENG + QA）  
+> **评审方式**：工程框架 多角色评审（CEO + ENG + QA）  
 > **报告性质**：仅供参考，不构成执行指令  
 > **接收方**：MimirAether — 请自行"三问"后产出小颗粒解决方案，参照 Cursor 方式在 BACKLOG 添加任务
 
@@ -144,5 +144,5 @@
 
 ---
 
-*本报告由琬弦基于 gstack 多角色评审产出，仅供参考。Mimir 请自行三问后产出小颗粒解决方案。*  
+*本报告由琬弦基于 工程框架 多角色评审产出，仅供参考。Mimir 请自行三问后产出小颗粒解决方案。*  
 *CEO/ENG/QA 详细报告：wiki/main/iterations/mimir-*-v2.md*

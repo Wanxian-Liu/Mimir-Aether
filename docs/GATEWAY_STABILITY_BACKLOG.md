@@ -76,16 +76,16 @@
 - **STAB-02**：`run_async` + gateway httpx 启停清理
 - Mimir：`agent.log` 无新 `Event loop is closed`
 
-### #5 自修回滚（gstack P0，非十条序号）
+### #5 自修回滚（稳定性基建，非十条序号）
 
 - **STAB-05**：`evolution_rollback` + `data/evolution_backups/` — 见 `OPERATIONS_GATEWAY.md` §4.1
 
 ---
 
-## 与 gstack P0 对照
+## 与网关稳定性 P0 对照
 
 
-| gstack P0       | 本表                         |
+| 稳定性基建 P0   | 本表                         |
 | --------------- | -------------------------- |
 | 上下文截断 / 孤儿 tool | #7 + PR #4 + STAB-04       |
 | WebSocket 断连    | #1 STAB-01/06              |
