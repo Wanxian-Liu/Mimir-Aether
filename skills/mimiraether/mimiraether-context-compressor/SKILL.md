@@ -237,3 +237,15 @@ _概念溯源: Hermes Agent context compressor；实现真源: 本仓库 `agent/
 | 是否需要迭代 | 技能内知识是否落后于代码（代码改版后本技能未同步） | 若代码变动而本技能未更新 → 需迭代 |
 
 _审计记录：每次使用/检查后在此节下方追加一行（日期 + 检查项 + 结果），形成审计轨迹。_
+
+| 日期 | 检查项 | 结果 |
+|------|--------|------|
+| 2026-08-23 | 压缩器运行健康 | `auto-compress failed` 计数=0（无 P0 coroutine 复发）；无近期 hygiene 事件（26K tokens 远未达 200K 实际阀） |
+| 2026-08-23 | 参数与代码一致 | 实测 threshold_tokens=350K（tuned 0.35×1M，core_loop env>tuned>0.50 链路），与 2026-08-17 记录一致 ✓ |
+| 2026-08-23 | 上下文占用 | prompt 26,096 / 阈值 350,000（7.5%），无需压缩 |
+| 2026-08-23 | 压缩器运行健康（复核） | `auto-compress failed` 计数=0（grep -c 实测）✓；无近期 hygiene 事件（26.5K tokens 远未达 200K 实际阀）✓ |
+| 2026-08-23 | 参数与代码一致（复核） | context_usage 实测 threshold_tokens=350,000（0.35×1M）✓；tuned 数据文件真实路径=`~/.mimiraether/data/tuned_thresholds.json`（不在 repo 内），`compressor.threshold_percent: 0.35` 盘上确认 ✓ |
+| 2026-08-23 | 上下文占用（复核） | prompt 26,486 / 阈值 350,000（7.6%），无需压缩 |
+| 2026-08-23 | 复核（Buzz 消息再触发） | ① `grep -c "auto-compress failed"` =0 ✓ ② gateway.log 无新 "Session hygiene" 记录 ✓（26K tokens 远未达 200K 实际阀）③ context_usage 实测 prompt=26,381 / threshold=350,000（7.5%）✓ ④ tuned_thresholds.json `compressor.threshold_percent: 0.35` 盘上复核 ✓（~/.mimiraether/data/tuned_thresholds.json:4，tune_audit.jsonl 显示 0.45→0.40→0.35 调参链）· 结论：压缩器健康、参数与代码对齐，无迭代需求 |
+- 2026-08-23 · Mimir 执行（Buzz 消息触发 skill 加载）· ① `grep -c "auto-compress failed"` = 0 ✅（P0 coroutine 无复发）② `grep -c "coroutine object"` = 0 ✅ ③ context_usage 实测 prompt=25,709 / threshold=350,000（= 1M×0.35，与 tuned_thresholds `compressor.threshold_percent: 0.35` 及本技能文档一致）✅ ④ 当前 gateway.log 无 "Session hygiene" 记录（本轮未触发卫生压缩/日志已轮转）· 结果：压缩器健康，参数与代码对齐，无迭代需求。
+- 2026-08-23 · 技能路由 NUDGE 加载 + 健康检查（证据：gateway.log 共 9348 行）：`grep -c "auto-compress failed"` = **0**（无 coroutine P0 复发）；`grep -c "coroutine object"` = **0**；compress/hygiene 相关命中 18 处，最近一次真实卫生压缩为 **L5173-5174（2026-08-15）**：`Session hygiene: compressed 162 → 162 msgs, ~200,280 → ~35,314 tokens`——口径一致（actual→粗估虽不同但方向为降）、真实生效非 no-op；8-15 后无新 hygiene 触发（上下文未达 200K actual / 400 条硬阀，属正常）。压缩器运行健康。
