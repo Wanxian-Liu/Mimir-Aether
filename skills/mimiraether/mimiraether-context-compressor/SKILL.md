@@ -238,6 +238,8 @@ _概念溯源: Hermes Agent context compressor；实现真源: 本仓库 `agent/
 
 _审计记录：每次使用/检查后在此节下方追加一行（日期 + 检查项 + 结果），形成审计轨迹。_
 
+> ⚠️ 操作注记（2026-08-23）：本技能 **skill_manage patch 报 "Skill not found"**——需直接 patch 两侧文件：home 侧 `~/.mimiraether/skills/mimiraether/mimiraether-context-compressor/SKILL.md`（权威）与 repo 侧 `~/src/MimirAether/skills/mimiraether/mimiraether-context-compressor/SKILL.md`，改后 cp 同步 + diff 确认。嵌套目录 `mimiraether-context-compressor/mimiraether-context-compressor/` 为 187 行旧版，勿改勿覆盖。
+
 | 日期 | 检查项 | 结果 |
 |------|--------|------|
 | 2026-08-23 | 压缩器运行健康 | `auto-compress failed` 计数=0（无 P0 coroutine 复发）；无近期 hygiene 事件（26K tokens 远未达 200K 实际阀） |
