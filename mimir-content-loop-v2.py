@@ -57,7 +57,7 @@ async def main():
         CONFIRM_PREFIX = ["【REPLY】", "【Mimir】", "【Loki 待命】", "【OpenClaw 待命】",
                           "✅ 已收", "✅ 收到", "已收", "收到。", "收到，", "停】",
                           "【REPLY", "【Mimir】收",
-                          "【Openclaw】写入路径", "【Openclaw】立场", "【Openclaw】✅",
+                          "【OpenClaw】写入路径", "【OpenClaw】立场", "【OpenClaw】✅",
                           "【Loki】写入路径", "【Loki】【Loki 待命", "【Loki】**", "【Loki】✅",
                           "【OpenClaw琬弦→Hermes】"]
         target = None
@@ -65,13 +65,19 @@ async def main():
             try:
                 d = json.loads(line)
                 mid = d.get("id", "")
-                content = d.get("content", "") or ""
+                # 2026-08-23 修复：兼容两种收件箱格式——watcher 收件箱为 {from,ts,msg}，
+                # 旧 relay 收件箱为 {ts,from,kind,content,id,source}。
+                # 旧代码只读 content 字段——watcher 消息读成空串 → 「协议模板无任务载荷」空跑。
+                content = d.get("content") or d.get("msg") or ""
                 # 跳过已处理
                 if mid and mid in seen:
                     continue
                 # 开头20字含确认标记 → 跳过（确认类）
                 head = content[:20]
                 if any(p in head for p in CONFIRM_PREFIX):
+                    continue
+                # 空载荷防御：解析后内容为空的消息不选为 target（2026-08-23）
+                if not content.strip():
                     continue
                 # 找到第一条真正的任务消息
                 target = d
@@ -84,15 +90,17 @@ async def main():
             raise SystemExit(0)
 
         latest = target
-        content = latest.get("content", "")
-        from_pub = latest.get("from", "")
-        msg_id = latest.get("id", "")
+        content = latest.get("content") or latest.get("msg") or ""
+        from_pub = latest.get("from", "unknown")
+        msg_id = latest.get("id", "") or f"{from_pub}:{latest.get('ts', '')}:{content[:32]}"
 
         # 去重：已处理过的不再处理（静默——no_agent cron空stdout不投递）
         if msg_id and msg_id in seen:
             raise SystemExit(0)
 
         print(f"📩 处理: {content[:70]}")
+    except SystemExit:
+        raise
     except Exception as e:
         print(f"读收件箱失败: {e}")
         return
