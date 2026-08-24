@@ -1486,6 +1486,7 @@ class AgentMixin:
                 "last_reasoning": result.get("last_reasoning"),
                 "messages": result_holder[0].get("messages", []) if result_holder[0] else [],
                 "api_calls": result_holder[0].get("api_calls", 0) if result_holder[0] else 0,
+                "failed": bool(result_holder[0].get("failed", False)) if result_holder[0] else False,  # 2026-08-25 修复卡改动3：透传失败标记（防伪装正常）
                 "tools": tools_holder[0] or [],
                 "history_offset": _effective_history_offset,
                 "last_prompt_tokens": _last_prompt_toks,

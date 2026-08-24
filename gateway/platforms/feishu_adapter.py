@@ -553,6 +553,11 @@ class FeishuAdapter(BasePlatformAdapter):
         self._domain_name: str = self._domain
         self._client: Any = None  # set by _build_lark_client() when needed
 
+        # 2026-08-25 fix-card change4: read receipts (liuge requirement 8/24)
+        self._read_receipts: Dict[str, dict] = {}  # message_id -> {reader_id, reader_type, read_at}
+        self._sent_msg_chat: Dict[str, str] = {}  # message_id -> chat_id (recorded on send ok)
+        self._last_read_feedback_at: Dict[str, float] = {}  # chat_id -> last feedback ts (60s throttle)
+
     def _origin(self) -> str:
         return _http_origin(self._domain)
 
@@ -738,9 +743,63 @@ class FeishuAdapter(BasePlatformAdapter):
         )
         cli.start()
 
-    def _lark_noop_message_read_v1(self, _data: Any) -> None:
-        """Read receipts — ignore (keeps lark_oapi from logging processor not found)."""
-        logger.debug("[%s] Ignoring im.message.message_read_v1", self.name)
+    def _lark_noop_message_read_v1(self, data: Any) -> None:
+        """Read receipts — 2026-08-25 fix-card change4: track read state and give a
+        lightweight read feedback in the Feishu chat (liuge 8/24: others show a read
+        avatar, Mimir does not — make read state perceivable). 60s throttle."""
+        try:
+            import lark_oapi as lark
+            raw = lark.JSON.marshal(data)
+            payload = json.loads(raw) if isinstance(raw, str) else raw
+        except Exception:
+            logger.exception("[%s] Failed to marshal P2ImMessageMessageReadV1", self.name)
+            return
+        ev = payload.get("event", {}) if isinstance(payload, dict) else {}
+        reader = ev.get("reader", {}) or {}
+        reader_id = str(reader.get("reader_id") or "")
+        reader_type = str(reader.get("reader_type") or "")
+        msg_ids = ev.get("message_id_list") or []
+        if not msg_ids:
+            logger.debug("[%s] message_read_v1: empty message_id_list", self.name)
+            return
+        now = time.time()
+        for mid in msg_ids:
+            self._read_receipts[str(mid)] = {
+                "reader_id": reader_id,
+                "reader_type": reader_type,
+                "read_at": now,
+            }
+        logger.info(
+            "[%s] message_read_v1: reader=%s type=%s messages=%d (read receipts tracked)",
+            self.name, reader_id, reader_type, len(msg_ids),
+        )
+        chat_id = self._sent_msg_chat.get(str(msg_ids[0])) if msg_ids else None
+        if not chat_id:
+            return
+        _now = time.time()
+        if _now - self._last_read_feedback_at.get(chat_id, 0.0) < 60.0:
+            return
+        self._last_read_feedback_at[chat_id] = _now
+        loop = self._main_loop
+        if loop is None:
+            return
+
+        async def _send_read_feedback() -> None:
+            try:
+                await self.send(chat_id, "已读你的消息（Mimir 已收到）")
+            except Exception as exc:
+                logger.warning("[%s] read feedback send failed: %s", self.name, exc)
+
+        fut = asyncio.run_coroutine_threadsafe(_send_read_feedback(), loop)
+
+        def _log_err(done: asyncio.Future) -> None:
+            if done.cancelled():
+                return
+            exc = done.exception()
+            if exc is not None:
+                logger.error("[%s] read feedback send error: %s", self.name, exc)
+
+        fut.add_done_callback(_log_err)
 
     def _lark_noop_bot_p2p_chat_entered_v1(self, _data: Any) -> None:
         """User entered bot DM — ignore for agent purposes."""
@@ -1026,6 +1085,9 @@ class FeishuAdapter(BasePlatformAdapter):
                     )
                     return SendResult(success=False, error=str(result))
                 mid = result.get("data", {}).get("message_id")
+                # 2026-08-25 fix-card change4: map message_id -> chat_id for read feedback
+                if mid:
+                    self._sent_msg_chat[str(mid)] = chat_id
                 logger.info(
                     "[%s] send success message_id=%s chat_id=%s…",
                     self.name,

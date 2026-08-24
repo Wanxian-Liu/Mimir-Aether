@@ -157,6 +157,7 @@ class AgentLoopResult:
     reasoning_per_turn: List[Optional[str]] = field(default_factory=list)
     tool_errors: List[AgentLoopToolError] = field(default_factory=list)
     interrupted: bool = False
+    exit_reason: str = ""  # 2026-08-25 修复卡改动3：退出原因（api_failure/empty_response/format_error/no_choices/max_turns/natural）——供 core_loop 区分"异常退出不得重发旧回复"
 
 
 # 向后兼容别名

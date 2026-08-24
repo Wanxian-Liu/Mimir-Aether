@@ -510,6 +510,38 @@ TURNS TO SUMMARIZE:
                             })
             messages = patched
         
+        # 改动2（2026-08-25 修复卡·读闸400根因修复）：合成 user 消息插在
+        # assistant(tool_calls) 与其 tool 结果之间会破坏 API 消息序列
+        # （"assistant message with 'tool_calls' must be followed by tool messages" 400）。
+        # 规则：扫描序列，若存在 role=user 的消息位于 assistant(tool_calls) 与对应
+        # tool 结果之间 → 移到序列尾部（保证修复后序列合法；语义保留——模型仍可见该指令）。
+        _pending_tool_ids = set()
+        _moved_users = []
+        _clean = []
+        for _msg in messages:
+            _role = _msg.get("role")
+            if _role == "assistant":
+                for _tc in _msg.get("tool_calls") or []:
+                    _cid = _tc.get("id") or ""
+                    if _cid:
+                        _pending_tool_ids.add(_cid)
+                _clean.append(_msg)
+            elif _role == "tool":
+                _cid = _msg.get("tool_call_id")
+                if _cid in _pending_tool_ids:
+                    _pending_tool_ids.discard(_cid)
+                _clean.append(_msg)
+            elif _role == "user" and _pending_tool_ids:
+                # 此 user 消息插在 assistant(tool_calls) 与 tool 结果之间 → 移到尾部
+                _moved_users.append(_msg)
+            else:
+                _clean.append(_msg)
+        if _moved_users:
+            _clean.extend(_moved_users)
+            messages = _clean
+            if not self.quiet_mode:
+                logger.info(f"Moved {len(_moved_users)} user message(s) inserted between assistant(tool_calls) and tool results to sequence tail (read-gate fix)")
+        
         return messages
     
     def _find_tail_cut_by_tokens(self, messages: List[Dict], head_end: int) -> int:

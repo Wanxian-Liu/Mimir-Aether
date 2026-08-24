@@ -264,6 +264,7 @@ class MimirAgentLoop:
         self.max_turns = max_turns
         self._read_paths: set = set()  # ADR-008 重复读检测
         self._read_paths_count: dict = {}  # ADR-008 重复计数
+        self._read_gate_directive: Optional[str] = None  # 读闸指令标志位（2026-08-25 修复卡改动1：不在 tool_calls 序列中插消息）
         self.task_id = task_id or str(uuid.uuid4())
         self.temperature = temperature
         self.max_tokens = max_tokens
@@ -620,6 +621,12 @@ class MimirAgentLoop:
                 if _removed_san:
                     logger.info("[%s] turn %d: [400B] sanitize removed %d orphan tool entries (%d->%d msgs)",
                                 self.task_id[:8], turn + 1, _removed_san, _pre_san, len(messages))
+            # 读闸指令标志位注入（2026-08-25 修复卡改动1）：此处所有 tool 结果已 append，
+            # 序列合法（assistant(tool_calls) → tool 结果 → 此 user 消息），不再破坏 API 消息序列
+            if getattr(self, "_read_gate_directive", None):
+                messages.append({"role": "user", "content": self._read_gate_directive})
+                logger.warning("[%s] turn %d: 读闸指令经标志位注入（安全通道）", self.task_id[:8], turn + 1)
+                self._read_gate_directive = None
             api_start = _time.monotonic()
             try:
                 response = await self.model_call(messages)
@@ -777,9 +784,11 @@ class MimirAgentLoop:
                                             _cnt = self._read_paths_count[_rpath]
                                             if _cnt >= 3 and os.getenv("MIMIR_READ_DISCIPLINE", "1").strip().lower() not in ("0", "false", "no"):
                                                 # 块4段2（2026-08-20 轻量增强——不加机制：第3次重复读→强制指令（非建议））
+                                                # 2026-08-25 修复卡改动1（根因修复）：删除 messages.append 直接插入——改标志位注入，
+                                                # 由 model_call 前统一前置（绝不在 assistant(tool_calls) 与 tool 结果之间插消息——8/24 400 事故根因）
                                                 _logging.getLogger("agent.agent_loop").warning(
                                                     f"[dup-read] 重复读取 {_rpath} 第{_cnt}次——强制停止读取，立即写草稿落盘（MIMIR_READ_DISCIPLINE）")
-                                                messages.append({"role": "user", "content": f"【读闸】你已重复读取 {_rpath} 第 {_cnt} 次——必须停止读取，立即把已获得的信息写草稿落盘（write_file/patch）——再读=不合格"})
+                                                self._read_gate_directive = f"【读闸】你已重复读取 {_rpath} 第 {_cnt} 次——必须停止读取，立即把已获得的信息写草稿落盘（write_file/patch）——再读=不合格"
                                             else:
                                                 _logging.getLogger("agent.agent_loop").warning(
                                                     f"[dup-read] 重复读取同一文件 {_rpath} 第{_cnt}次——若已连续多轮无落盘，请停止读取直接产出（ADR-008）")
@@ -1417,10 +1426,13 @@ class MimirAgentLoop:
                     and any(m.get("role") == "assistant" for m in messages)):
                 logger.info("[%s] [EXIT] 异常路径无写盘产出——注入产出提示", self.task_id[:8])
                 await self._inject_production_nudge(messages)
+            # 2026-08-25 修复卡改动3：透传 exit_reason——core_loop 据此区分异常退出（不重发旧回复）
+            result_kwargs["exit_reason"] = reason
             return AgentResult(**result_kwargs)
         except Exception as _exc:
             # 兜底：_finalize_exit 自身异常不崩 gateway，降级为带错误日志的 AgentResult
             logger.error("[%s] [EXIT] _finalize_exit 兜底: %s", self.task_id[:8], _exc)
+            result_kwargs["exit_reason"] = reason
             return AgentResult(**result_kwargs)
 
     def _close_pipeline(self, task_name: str = "") -> None:

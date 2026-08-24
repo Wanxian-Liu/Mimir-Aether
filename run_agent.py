@@ -252,6 +252,7 @@ class AIAgent:
                 "prompt_tokens": 0,
                 "completion_tokens": 0,
                 "total_tokens": 0,
+                "failed": False,  # 2026-08-25 修复卡改动3：显式失败标记（gateway 据此明示，不伪装正常）
             }
         except Exception as exc:
             if AgentLoopExit is not None and isinstance(exc, AgentLoopExit):
@@ -265,6 +266,7 @@ class AIAgent:
                 "prompt_tokens": 0,
                 "completion_tokens": 0,
                 "total_tokens": 0,
+                "failed": True,  # 2026-08-25 修复卡改动3：显式失败标记
             }
 
 

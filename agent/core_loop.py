@@ -1028,11 +1028,20 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
                 self.conversation_history = [self.conversation_history[0]] + _new_history
             
             # 提取最终文本响应
+            # 2026-08-25 修复卡改动3（兜底复读改明示）：异常退出（api_failure/empty_response/format_error/no_choices）
+            # 时 messages 里最后一条 assistant 可能是上一轮的旧回复——不得重发（8/24 复读事故：response=28 chars api_calls=0）。
+            # 改为给用户明示状态：故障必须可见，不许伪装成正常回复。
             _final_content = ""
-            for _md in reversed(_result.messages):
-                if _md.get("role") == "assistant" and _md.get("content"):
-                    _final_content = _md.get("content", "")
-                    break
+            _ABNORMAL_EXIT_REASONS = {"api_failure", "empty_response", "format_error", "no_choices"}
+            if (getattr(_result, "exit_reason", "") in _ABNORMAL_EXIT_REASONS
+                    and not getattr(_result, "interrupted", False)):
+                _final_content = "[故障明示] 我这轮没调到模型（连续错误），请让我重启或查看日志——故障已记录，不会伪装成正常回复"
+                logger.error("[%s] [EXIT] 异常退出 %s：不重发旧回复，明示故障状态", task_id[:8], _result.exit_reason)
+            else:
+                for _md in reversed(_result.messages):
+                    if _md.get("role") == "assistant" and _md.get("content"):
+                        _final_content = _md.get("content", "")
+                        break
             
             if _result.interrupted:
                 checkpoint_mgr.save_checkpoint(
