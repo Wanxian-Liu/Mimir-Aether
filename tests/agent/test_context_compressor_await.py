@@ -9,8 +9,20 @@ context_compressor.compress 是 async def，若调用方 sync 无 await 会拿�
 本测试确保 compress 的 async 契约不被破坏：await 后必须是真 tuple。
 """
 import asyncio
+import os
+
+import pytest
 
 from agent.context_compressor import MimirContextCompressor, CompressionResult
+
+# P2-1 (2026-08-19): MIMIR_COMPRESS_THRESHOLD_TOKENS env 覆盖会破坏本测试确定性——
+# 测试构造 8000 context_length/0.5 threshold 期望 threshold=4000 必压缩，
+# 若环境导出了该变量（生产/本地 shell），400 条消息 28700 tokens 可能 < env 阈值
+# → 压缩不触发 → 断言失败。autouse fixture 隔离 env，保证测试在任何环境确定性通过。
+@pytest.fixture(autouse=True)
+def _isolate_compressor_env(monkeypatch):
+    monkeypatch.delenv("MIMIR_COMPRESS_THRESHOLD_TOKENS", raising=False)
+    monkeypatch.delenv("MIMIR_COMPRESS_VERIFY", raising=False)
 
 
 def _build_messages(n: int, content: str = "x" * 200) -> list:
