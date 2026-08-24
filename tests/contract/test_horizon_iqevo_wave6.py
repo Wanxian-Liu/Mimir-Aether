@@ -9,7 +9,7 @@ WAVE6_PLAN = ROOT / "docs/phase0/p2-long-iqevo-wave6-qualified-agent.md"
 CLOSEOUT = ROOT / "docs/phase0/p2-long-iqevo-wave6-closeout.md"
 BACKLOG = ROOT / "docs/MIMIR_EXEC_BACKLOG.md"
 TIER0 = ROOT / "run_ralph_tier0.sh"
-HANDOFF = ROOT / "docs/superpowers/plans/2026-05-26-wave6-cursor-handoff.md"
+HANDOFF = ROOT / "docs/archive/superpowers-plans/2026-05-26-wave6-cursor-handoff.md"
 
 WAVE6_IDS = tuple(f"IQ-EVO-{n}" for n in range(27, 40))
 

@@ -115,6 +115,11 @@ def test_short_task_not_truncated() -> None:
     import asyncio
     from agent.agent_loop import MimirAgentLoop
 
+    # TD-03 隔离：本测试验证 max_turns 截断逻辑，不受产出校验环境变量影响
+    # （CI 未设置=0；本地开发环境可能开启 MIMIR_PRODUCTION_ENFORCE=1 → L3 中断干扰断言）
+    _saved_enforce = os.environ.get("MIMIR_PRODUCTION_ENFORCE")
+    os.environ["MIMIR_PRODUCTION_ENFORCE"] = "0"
+
     turns, tier, _ = resolve_max_turns_tier("[tier:short] 快速任务", default=90)
     assert turns == 20
 
@@ -161,12 +166,18 @@ def test_short_task_not_truncated() -> None:
         ])
         return result
 
-    result = asyncio.run(main())
-    assert result.turns_used <= 20
-    # 5 tool 轮 + 收尾轮 + 可能的 guard/nudge 注入轮，全部完成未被 20 截断
-    assert called >= 6
-    assert not result.interrupted
-    print(f"[regression] short tier: turns_used={result.turns_used}, called={called} — 未被 20 截断 ✅")
+    try:
+        result = asyncio.run(main())
+        assert result.turns_used <= 20
+        # 5 tool 轮 + 收尾轮 + 可能的 guard/nudge 注入轮，全部完成未被 20 截断
+        assert called >= 6
+        assert not result.interrupted
+        print(f"[regression] short tier: turns_used={result.turns_used}, called={called} — 未被 20 截断 ✅")
+    finally:
+        if _saved_enforce is None:
+            E.pop("MIMIR_PRODUCTION_ENFORCE", None)
+        else:
+            os.environ["MIMIR_PRODUCTION_ENFORCE"] = _saved_enforce
 
 
 if __name__ == "__main__":
