@@ -1,5 +1,9 @@
 # MimirAether
 
+![Ralph Tier-0](https://github.com/Wanxian-Liu/Mimir-Aether/actions/workflows/ralph.yml/badge.svg)
+![Lint](https://github.com/Wanxian-Liu/Mimir-Aether/actions/workflows/lint.yml/badge.svg)
+![Pytest wide](https://github.com/Wanxian-Liu/Mimir-Aether/actions/workflows/pytest-wide.yml/badge.svg)
+
 自主 Agent 运行时与技能库：**代码**在任意 git clone 根目录；**运行时数据**（`.env`、`config.yaml`、`data/` 等）默认在 **`~/.mimiraether`**，或由 **`MIMIR_AETHER_HOME`** 显式指定（见 `docs/path-contract.md`、`docs/MIMIR_ACTIVATE.md`）。
 
 ## 开发方向（防偏离）
@@ -29,3 +33,15 @@
 ```
 
 与 pre-push / CI 一致（见 `docs/ralph_tiers.md`）。
+
+## CI
+
+| 工作流 | 触发 | 门槛 |
+|--------|------|------|
+| Ralph Tier-0 (`ralph.yml`) | push main / PR | **强制**：Gate1 编译导入 + Gate2 pytest + Gate3 E2E |
+| Lint (`lint.yml`) | push main / PR | 咨询性（advisory） |
+| Pytest wide (`pytest-wide.yml`) | schedule / manual | 可选（optional）：全量测试，含可选依赖 |
+
+- 合并前必须 `./run_ralph_tier0.sh` 本地通过（与 CI 同源，见 `docs/ralph_tiers.md`）。
+- CI 依赖 `requirements-ci.txt`（单一真源）：若 Gate1 导入失败，把缺失包加进该文件。
+- 依赖注入超时/环境差异问题排查见 `docs/ralph_parity_contract_v1.md` 与技能 `mimiraether-ci-debug`。
