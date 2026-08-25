@@ -579,7 +579,7 @@ class FeishuAdapter(BasePlatformAdapter):
         # 2026-08-25 fix-card change4: read receipts (liuge requirement 8/24) | T1: _BoundedDict FIFO maxlen (cap unbounded growth)
         self._read_receipts: Dict[str, dict] = _BoundedDict()  # message_id -> {reader_id, reader_type, read_at}
         self._sent_msg_chat: Dict[str, str] = _BoundedDict()  # message_id -> chat_id (recorded on send ok)
-        self._last_read_feedback_at: Dict[str, float] = _BoundedDict()  # chat_id -> last feedback ts (60s throttle)
+        self._last_read_feedback_at: Dict[str, float] = _BoundedDict()  # chat_id -> last feedback ts (300s throttle)
 
     def _origin(self) -> str:
         return _http_origin(self._domain)
@@ -769,7 +769,7 @@ class FeishuAdapter(BasePlatformAdapter):
     def _lark_noop_message_read_v1(self, data: Any) -> None:
         """Read receipts — 2026-08-25 fix-card change4: track read state and give a
         lightweight read feedback in the Feishu chat (liuge 8/24: others show a read
-        avatar, Mimir does not — make read state perceivable). 60s throttle."""
+        avatar, Mimir does not — make read state perceivable). 300s throttle."""
         try:
             import lark_oapi as lark
             raw = lark.JSON.marshal(data)
@@ -800,7 +800,7 @@ class FeishuAdapter(BasePlatformAdapter):
         if not chat_id:
             return
         _now = time.time()
-        if _now - self._last_read_feedback_at.get(chat_id, 0.0) < 60.0:
+        if _now - self._last_read_feedback_at.get(chat_id, 0.0) < 300.0:
             return
         self._last_read_feedback_at[chat_id] = _now
         loop = self._main_loop
@@ -809,7 +809,7 @@ class FeishuAdapter(BasePlatformAdapter):
 
         async def _send_read_feedback() -> None:
             try:
-                await self.send(chat_id, "已读你的消息（Mimir 已收到）")
+                await self.send(chat_id, "刘哥读了你的消息")
             except Exception as exc:
                 logger.warning("[%s] read feedback send failed: %s", self.name, exc)
 
