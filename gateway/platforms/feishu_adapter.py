@@ -60,6 +60,29 @@ def _tracked_task(name: str, coro):
     return asyncio.create_task(_runner(), name=name)
 
 
+_READ_RECEIPT_MAXLEN = 10_000  # T1 (2026-08-25): cap read-receipt tracking maps (FIFO eviction)
+
+
+class _BoundedDict(dict):
+    """Bounded dict: FIFO eviction of the oldest key when size exceeds maxlen.
+
+    2026-08-25 T1 (fix-card 四方待办): _read_receipts / _sent_msg_chat /
+    _last_read_feedback_at were plain dicts that only ever grew — unbounded
+    memory in a long-running gateway process. Subclassing dict keeps
+    .get()/.pop() and insertion-order iteration; __setitem__ trims from the
+    oldest-inserted key (dict preserves insertion order since 3.7).
+    """
+
+    def __init__(self, maxlen: int = _READ_RECEIPT_MAXLEN, *args: Any, **kwargs: Any):
+        super().__init__(*args, **kwargs)
+        self._maxlen = maxlen
+
+    def __setitem__(self, key: Any, value: Any) -> None:
+        super().__setitem__(key, value)
+        if len(self) > self._maxlen:
+            self.pop(next(iter(self)))
+
+
 class CircuitBreaker:
     """P0-2: 三态断路器，WS 重连保底。
 
@@ -553,10 +576,10 @@ class FeishuAdapter(BasePlatformAdapter):
         self._domain_name: str = self._domain
         self._client: Any = None  # set by _build_lark_client() when needed
 
-        # 2026-08-25 fix-card change4: read receipts (liuge requirement 8/24)
-        self._read_receipts: Dict[str, dict] = {}  # message_id -> {reader_id, reader_type, read_at}
-        self._sent_msg_chat: Dict[str, str] = {}  # message_id -> chat_id (recorded on send ok)
-        self._last_read_feedback_at: Dict[str, float] = {}  # chat_id -> last feedback ts (60s throttle)
+        # 2026-08-25 fix-card change4: read receipts (liuge requirement 8/24) | T1: _BoundedDict FIFO maxlen (cap unbounded growth)
+        self._read_receipts: Dict[str, dict] = _BoundedDict()  # message_id -> {reader_id, reader_type, read_at}
+        self._sent_msg_chat: Dict[str, str] = _BoundedDict()  # message_id -> chat_id (recorded on send ok)
+        self._last_read_feedback_at: Dict[str, float] = _BoundedDict()  # chat_id -> last feedback ts (60s throttle)
 
     def _origin(self) -> str:
         return _http_origin(self._domain)
