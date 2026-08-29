@@ -195,8 +195,12 @@ class ExecutionRecorder:
         self._write_line({"type": "analysis", **asdict(rec)})
         return self._step_counter
 
-    def close(self) -> Dict[str, Any]:
-        """Finalize recording, return summary stats."""
+    def close(self, exit_reason: str = "", final_response_summary: str = "") -> Dict[str, Any]:
+        """Finalize recording, return summary stats.
+
+        B7 (2026-08-29): session_end 追加 exit_reason + final_response_summary
+        （FR-008 可回溯性——静默零产出从轨迹一行判定）。
+        """
         elapsed = time.monotonic() - self._start_time
         summary = {
             "type": "session_end",
@@ -204,6 +208,8 @@ class ExecutionRecorder:
             "total_steps": self._step_counter,
             "duration_seconds": round(elapsed, 2),
             "end_time": datetime.now(timezone.utc).isoformat(),
+            "exit_reason": exit_reason,
+            "final_response_summary": final_response_summary[:500],
         }
         self._write_line(summary)
         return summary

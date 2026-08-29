@@ -342,7 +342,6 @@ class MimirAgentLoop:
                 logger.info("[%s] turn %d: 上轮已有产出（assistant）——正常闭环", self.task_id[:8], turn + 1)
             if self.interrupt_check():
                 logger.info("Loop interrupted at turn %d", turn + 1)
-                self._close_pipeline(user_task)
                 raise AgentLoopExit("interrupt", {
                     "messages": messages, "turns_used": turn + 1,
                     "finished_naturally": False, "reasoning_per_turn": reasoning_per_turn,
@@ -366,7 +365,6 @@ class MimirAgentLoop:
                 logger.warning("[%s] turn %d: circuit-breaker SOFT warning injected (80 turns)", self.task_id[:8], turn + 1)
             if _cb_hard > 0 and turn >= _cb_hard:
                 logger.warning("[%s] turn %d: circuit-breaker HARD cut at %d turns — forcing summary", self.task_id[:8], turn + 1, _cb_hard)
-                self._close_pipeline(user_task)
                 raise AgentLoopExit("circuit_breaker", {
                     "messages": messages, "turns_used": turn + 1,
                     "finished_naturally": False, "reasoning_per_turn": reasoning_per_turn,
@@ -377,7 +375,6 @@ class MimirAgentLoop:
             # （原来无上限：工具持续失败会无限continue，浪费token且可能死循环）
             if len(tool_errors) >= 50:
                 logger.warning("Tool error storm detected (%d errors) at turn %d — aborting loop", len(tool_errors), turn + 1)
-                self._close_pipeline(user_task)
                 raise AgentLoopExit("tool_storm", {
                     "messages": messages, "turns_used": turn + 1,
                     "finished_naturally": False, "reasoning_per_turn": reasoning_per_turn,
@@ -633,7 +630,6 @@ class MimirAgentLoop:
             except Exception as e:
                 api_elapsed = _time.monotonic() - api_start
                 logger.error("API call failed on turn %d (%.1fs): %s", turn + 1, api_elapsed, e)
-                self._close_pipeline(user_task)
                 raise AgentLoopExit("api_failure", {
                     "messages": messages, "turns_used": turn + 1,
                     "finished_naturally": False, "reasoning_per_turn": reasoning_per_turn,
@@ -642,7 +638,6 @@ class MimirAgentLoop:
             api_elapsed = _time.monotonic() - api_start
 
             if not response:
-                self._close_pipeline(user_task)
                 raise AgentLoopExit("empty_response", {
                     "messages": messages, "turns_used": turn + 1,
                     "finished_naturally": False, "reasoning_per_turn": reasoning_per_turn,
@@ -664,7 +659,6 @@ class MimirAgentLoop:
                     _tool_calls = response.get("tool_calls")
                     _reasoning = response.get("reasoning_content")
                 else:
-                    self._close_pipeline(user_task)
                     raise AgentLoopExit("format_error", {
                         "messages": messages, "turns_used": turn + 1,
                         "finished_naturally": False, "reasoning_per_turn": reasoning_per_turn,
@@ -672,7 +666,6 @@ class MimirAgentLoop:
                     })
             else:
                 if not getattr(response, "choices", None):
-                    self._close_pipeline(user_task)
                     raise AgentLoopExit("no_choices", {
                         "messages": messages, "turns_used": turn + 1,
                         "finished_naturally": False, "reasoning_per_turn": reasoning_per_turn,
@@ -757,7 +750,7 @@ class MimirAgentLoop:
                                 emit_tool_execution_start,
                             )
                             emit_tool_execution_start(
-                                tname, {"raw_args": raw_args[:200]}, session_id=self.task_id,
+                                tname, {"raw_args": raw_args}, session_id=self.task_id,
                             )
                             telapsed = _time.monotonic() - t0
                             from agent.tool_outcome import infer_tool_success
@@ -767,7 +760,7 @@ class MimirAgentLoop:
                                 session_id=self.task_id, error=err_msg,
                             )
                             self._record_tool(
-                                tname, {"raw_args": raw_args[:200]}, success=ok,
+                                tname, {"raw_args": raw_args}, success=ok,
                                 error_message=err_msg, duration_ms=telapsed * 1000,
                                 result_summary=str(tool_result)[:200],
                             )
@@ -1077,7 +1070,6 @@ class MimirAgentLoop:
                             self.task_id[:8], turn + 1,
                             self._production_hard_nudges, _max_hard,
                         )
-                        self._close_pipeline(user_task)
                         self._task_state = TaskState.INTERRUPTED  # L3 中断状态（四方共识：禁止标 DONE）
                         raise AgentLoopExit("interrupt", {
                             "messages": messages, "turns_used": turn + 1,
@@ -1129,7 +1121,6 @@ class MimirAgentLoop:
                     logger.info("[%s] turn %d: 完成度提醒（非阻断）: %s", self.task_id[:8], turn + 1, _tc_hint[:100])
                     messages.append({"role": "user", "content": _tc_hint})
                     continue  # 注入提醒给模型补交付机会（不强制——对齐 Hermes）
-                self._close_pipeline(user_task)
                 # 任务书含清单且检查通过 → TASK_COMPLETE（有交付语义——对齐 Hermes completed）
                 # 无清单 → DONE（自然结束——has_written 由 TD-03 已检查）
                 self._task_state = TaskState.TASK_COMPLETE if _tc_spec else TaskState.DONE
@@ -1142,7 +1133,6 @@ class MimirAgentLoop:
 
         # Hit max turns
         logger.info("Agent hit max_turns (%d)", self.max_turns)
-        self._close_pipeline(user_task)
         # Nudge-only iterations should not count against budget.
         _nudge_turns = intent_nudges + search_first_nudges
         _effective_turns = max(1, self.max_turns - _nudge_turns)
@@ -1428,15 +1418,26 @@ class MimirAgentLoop:
                 await self._inject_production_nudge(messages)
             # 2026-08-25 修复卡改动3：透传 exit_reason——core_loop 据此区分异常退出（不重发旧回复）
             result_kwargs["exit_reason"] = reason
+            # B7 (2026-08-29): 统一出口记录 session_end——exit_reason + 最终回复摘要
+            self._close_pipeline(exit_reason=reason, messages=messages)
             return AgentResult(**result_kwargs)
         except Exception as _exc:
             # 兜底：_finalize_exit 自身异常不崩 gateway，降级为带错误日志的 AgentResult
             logger.error("[%s] [EXIT] _finalize_exit 兜底: %s", self.task_id[:8], _exc)
             result_kwargs["exit_reason"] = reason
+            try:
+                # B7 (2026-08-29): 兜底路径同样记录 session_end
+                self._close_pipeline(exit_reason=reason, messages=result_kwargs.get("messages") or [])
+            except Exception:
+                pass
             return AgentResult(**result_kwargs)
 
-    def _close_pipeline(self, task_name: str = "") -> None:
-        """Defensive close of execution pipeline (best-effort, never raises)."""
+    def _close_pipeline(self, task_name: str = "", exit_reason: str = "", messages=None) -> None:
+        """Defensive close of execution pipeline (best-effort, never raises).
+
+        B7 (2026-08-29): 透传 exit_reason + 从 messages 提取最终回复摘要
+        （最后一条 assistant content，截 500 字符）写入 session_end。
+        """
         try:
             from agent.execution_pipeline import (
                 close_execution_pipeline
@@ -1444,9 +1445,17 @@ class MimirAgentLoop:
             from agent.skill_curator import schedule_skill_curator_lifecycle_pass
 
             task = task_name or self.task_id
+            final_response_summary = ""
+            if messages:
+                for _m in reversed(messages):
+                    if _m.get("role") == "assistant" and _m.get("content"):
+                        final_response_summary = str(_m["content"])[:500]
+                        break
             result = close_execution_pipeline(
                 task_name=task,
                 session_id=self.task_id,
+                exit_reason=exit_reason,
+                final_response_summary=final_response_summary,
             )
             schedule_skill_curator_lifecycle_pass(
                 session_id=self.task_id,

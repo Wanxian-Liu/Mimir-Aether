@@ -173,6 +173,8 @@ def record_tool_call(
 def close_execution_pipeline(
     task_name: str = "",
     session_id: str = "",
+    exit_reason: str = "",
+    final_response_summary: str = "",
 ) -> Dict[str, Any]:
     """Finalize recording and generate analysis-ready data."""
     result: Dict[str, Any] = {
@@ -188,7 +190,10 @@ def close_execution_pipeline(
 
     session = _pop_session(task_name=task_name, session_id=session_id)
     if session and session.recorder:
-        session.recorder.close()
+        session.recorder.close(
+            exit_reason=exit_reason,
+            final_response_summary=final_response_summary,
+        )
         result["trajectory_path"] = str(session.recorder.file_path)
         result["summary"] = generate_summary(session.recorder.file_path)
         result["errors"] = extract_errors(session.recorder.file_path)
