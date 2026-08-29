@@ -216,8 +216,9 @@ class CallersMixin:
 
         try:
             async with aiohttp.ClientSession() as session:
+
                 async with session.post(
-                    f"{base_url}/v1/chat/completions",
+                    (f"{base_url}chat/completions" if base_url.rstrip('/').endswith('/v4') or base_url.endswith('/') else f"{base_url}/v1/chat/completions"),
                     headers=headers,
                     json=payload,
                     timeout=aiohttp.ClientTimeout(total=3600)
@@ -592,7 +593,7 @@ class CallersMixin:
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    f"{base_url}/v1/chat/completions",
+                    (f"{base_url}chat/completions" if base_url.rstrip('/').endswith('/v4') or base_url.endswith('/') else f"{base_url}/v1/chat/completions"),
                     headers=headers,
                     json=payload,
                     timeout=aiohttp.ClientTimeout(total=3600)
