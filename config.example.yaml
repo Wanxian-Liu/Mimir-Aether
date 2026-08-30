@@ -1,0 +1,28 @@
+FEISHU_HOME_CHANNEL: oc_8af3ea46411e607b3a2e7f2ceed694e8
+context:
+  max_recent_messages: 200
+model:
+  default: deepseek/deepseek-v4-flash
+platforms:
+  feishu:
+    enabled: true
+    extra:
+      app_id: ${FEISHU_APP_ID}
+      app_secret: ${FEISHU_APP_SECRET}
+      connection_mode: websocket
+      domain: feishu
+providers:
+  deepseek:
+    api_key: sk-YOUR-KEY-HERE
+web:
+  backend: tavily
+
+agent:
+  max_turns_tiers:
+    short: 20
+    medium: 40
+    long: 90
+
+# E2 句柄化（2026-08-19 · Loki 审计 P1-D——env 单一来源同步）
+tools:
+  artifact_handle_threshold_kb: 30  # 大文件句柄化阈值（>30KB 返回引用）——0=关闭
