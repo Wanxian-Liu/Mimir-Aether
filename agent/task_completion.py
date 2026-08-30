@@ -57,3 +57,35 @@ def check_task_completion(task_spec: str, messages: List[Dict[str, Any]]) -> Opt
     if not remaining:
         return None
     return f"任务书有 {len(remaining)} 项未交付（提醒——非阻断）: {remaining[:3]}"
+
+
+# ── 修复C（2026-08-30 self-fix）：input 预处理——序号 → [ ] 格式归一化 ──
+_STEP_NUM_RE = re.compile(r"^\s*(\d+)[.、)．]\s*(.+)$")
+
+
+def normalize_task_spec_checkboxes(text: str) -> str:
+    """若 input 不含 [ ] 但含多步骤序号（1. 2. 3. 或 1、2、3 或 1) 2)）→ 自动转换为 [ ] 格式。
+
+    治派发方格式不一（有的派发方用"1. xxx 2. xxx"传任务书，完成检查器只认 - [ ]）。
+    规则（保守，防误伤正文）：
+      - 文本已含 [ ]（或 - [ ）→ 原样返回（已是清单格式）
+      - 行首序号步骤 ≥ 2 个 → 每行转 "- [ ] <内容>"（保留序号文字不破坏语义）
+      - 否则原样返回
+    """
+    if not text:
+        return text
+    if "[ ]" in text or "- [" in text:
+        return text
+    lines = text.splitlines()
+    converted = []
+    step_count = 0
+    for line in lines:
+        m = _STEP_NUM_RE.match(line)
+        if m:
+            step_count += 1
+            converted.append(f"- [ ] {m.group(2).strip()}")
+        else:
+            converted.append(line)
+    if step_count >= 2:
+        return "\n".join(converted)
+    return text

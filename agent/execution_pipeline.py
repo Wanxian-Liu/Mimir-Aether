@@ -175,6 +175,7 @@ def close_execution_pipeline(
     session_id: str = "",
     exit_reason: str = "",
     final_response_summary: str = "",
+    task_spec: str = "",  # 修复B（2026-08-30 self-fix）：透传任务书——session_end 提取未完成 [ ] 项
 ) -> Dict[str, Any]:
     """Finalize recording and generate analysis-ready data."""
     result: Dict[str, Any] = {
@@ -193,6 +194,7 @@ def close_execution_pipeline(
         session.recorder.close(
             exit_reason=exit_reason,
             final_response_summary=final_response_summary,
+            task_spec=task_spec,  # 修复B：透传任务书
         )
         result["trajectory_path"] = str(session.recorder.file_path)
         result["summary"] = generate_summary(session.recorder.file_path)

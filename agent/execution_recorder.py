@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 import uuid
 from dataclasses import dataclass, field, asdict
@@ -195,11 +196,14 @@ class ExecutionRecorder:
         self._write_line({"type": "analysis", **asdict(rec)})
         return self._step_counter
 
-    def close(self, exit_reason: str = "", final_response_summary: str = "") -> Dict[str, Any]:
+    def close(self, exit_reason: str = "", final_response_summary: str = "", task_spec: str = "") -> Dict[str, Any]:
         """Finalize recording, return summary stats.
 
         B7 (2026-08-29): session_end 追加 exit_reason + final_response_summary
         （FR-008 可回溯性——静默零产出从轨迹一行判定）。
+
+        修复B（2026-08-30 self-fix）：session_end 自动落盘进度——task_name + 完成状态 +
+        未完成 [ ] 项追加写入 ~/.mimiraether/PROGRESS.md（治跨 run 记忆断裂）。
         """
         elapsed = time.monotonic() - self._start_time
         summary = {
@@ -212,7 +216,38 @@ class ExecutionRecorder:
             "final_response_summary": final_response_summary[:500],
         }
         self._write_line(summary)
+        self._append_progress_md(exit_reason=exit_reason, task_spec=task_spec)
         return summary
+
+    def _append_progress_md(self, exit_reason: str, task_spec: str) -> None:
+        """修复B（2026-08-30 self-fix）：进度落盘——追加式（不覆盖、不幂等去重）。
+
+        每次 run 结束追加一节：UTC 时间 + run(task_name) + 完成状态 + 未完成 [ ] 项。
+        完成状态判定：exit_reason == "natural" 且无未完成 [ ] 项 → completed，否则 incomplete。
+        """
+        try:
+            _home = Path(os.path.expanduser("~/.mimiraether"))
+            _progress = _home / "PROGRESS.md"
+            _now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+            # 提取未完成 [ ] 项（与 task_completion._CHECKBOX_RE 同款）
+            _unfinished = []
+            if task_spec:
+                for _m in re.finditer(r"^-\s+\[([ xX])\]\s*(.+)$", task_spec, re.MULTILINE):
+                    if _m.group(1).lower() != "x":
+                        _unfinished.append(_m.group(2).strip())
+            _status = "completed" if (exit_reason == "natural" and not _unfinished) else "incomplete"
+            with open(_progress, "a", encoding="utf-8") as f:
+                f.write(f"\n## {_now} · run: {self._task_name} · session: {self._session_id}\n")
+                f.write(f"- status: **{_status}** · exit_reason: `{exit_reason}`\n")
+                if _unfinished:
+                    f.write(f"- 未完成 [ ] 项（{len(_unfinished)}）:\n")
+                    for _item in _unfinished:
+                        f.write(f"  - [ ] {_item}\n")
+                else:
+                    f.write("- 未完成 [ ] 项：无\n")
+        except Exception as _exc:
+            # 进度落盘失败不阻断 close（best-effort——trajectory JSONL 仍是真源）
+            print(f"[execution_recorder] _append_progress_md skipped: {_exc}")
 
     # ── Internals ───────────────────────────────────────────────────────
 

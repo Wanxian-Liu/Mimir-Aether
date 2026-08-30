@@ -1529,6 +1529,12 @@ class APIServerAdapter(BasePlatformAdapter):
         loop = asyncio.get_event_loop()
 
         def _run():
+            # 修复C（2026-08-30 self-fix）：input 预处理——序号 → [ ] 格式（治派发方格式不一）
+            try:
+                from agent.task_completion import normalize_task_spec_checkboxes
+                _user_msg = normalize_task_spec_checkboxes(user_message)
+            except Exception:
+                _user_msg = user_message  # 归一化失败不阻断主流程
             agent = self._create_agent(
                 ephemeral_system_prompt=ephemeral_system_prompt,
                 session_id=session_id,
@@ -1538,7 +1544,7 @@ class APIServerAdapter(BasePlatformAdapter):
             if agent_ref is not None:
                 agent_ref[0] = agent
             result = agent.run_conversation(
-                user_message=user_message,
+                user_message=_user_msg,  # 修复C：归一化后入 loop
                 conversation_history=conversation_history,
                 task_id="default",
             )

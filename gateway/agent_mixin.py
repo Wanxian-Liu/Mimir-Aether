@@ -555,6 +555,13 @@ class AgentMixin:
         import queue
         from gateway._shared import _load_gateway_config, _platform_config_key, _resolve_gateway_model
 
+        # 修复C（2026-08-30 self-fix）：input 预处理——序号 → [ ] 格式（治派发方格式不一）
+        try:
+            from agent.task_completion import normalize_task_spec_checkboxes
+            message = normalize_task_spec_checkboxes(message)
+        except Exception:
+            pass  # 归一化失败不阻断主流程
+
         if session_key:
             try:
                 from tools.mimir_ops_tool import (

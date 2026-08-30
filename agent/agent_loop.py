@@ -23,6 +23,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Callable, Awaitable
@@ -1116,11 +1117,28 @@ class MimirAgentLoop:
                 # 本段只注入提醒（非阻断）——去掉 L1/L2/L3 强制/模糊信号/清单依赖（刘哥：机制加多了成阻碍）
                 _tc_enforce = os.getenv("MIMIR_TASK_COMPLETION_ENFORCE", "1").strip().lower() not in ("0", "false", "no")
                 _tc_spec = self._task_spec or (extract_task_spec(messages) if _tc_enforce else "")
-                _tc_hint = check_task_completion(_tc_spec, messages) if (_tc_enforce and self._task_completion_nudges < 1) else None  # 提醒 1 次上限（防循环——对齐 Hermes 不强制）
+                # ===== 修复A（2026-08-30 self-fix）：natural 退出前未完成计划检测 =====
+                # 问题（今晚复盘实锤）：17步/128秒退出·最后输出"读剩余5个文件全文："（半句冒号结尾）
+                #   ——deepseek 先说计划再动手 → 纯文本轮被 loop 误判 natural 完成（完成检查器空转：
+                #     任务书无 [ ] 时 check_task_completion 直接返回 None，不走提醒分支）
+                # 修复：raise natural 前检测最后 assistant 消息——冒号结尾（半句）或"读剩余/接下来"
+                #   开头+列表（计划复述）→ 注入"继续执行"user 消息并 continue（nudge 上限提到 3 次）
+                _tc_max_nudges = int(os.environ.get("MIMIR_TASK_COMPLETION_NUDGES", "3") or "3")
+                _tc_hint = check_task_completion(_tc_spec, messages) if (_tc_enforce and self._task_completion_nudges < _tc_max_nudges) else None  # 提醒 N 次上限（防循环——对齐 Hermes 不强制）
                 if _tc_hint:
                     logger.info("[%s] turn %d: 完成度提醒（非阻断）: %s", self.task_id[:8], turn + 1, _tc_hint[:100])
                     messages.append({"role": "user", "content": _tc_hint})
+                    self._task_completion_nudges += 1  # 修复A：提醒注入也计数（原实现注入但不计数→上限形同虚设）
                     continue  # 注入提醒给模型补交付机会（不强制——对齐 Hermes）
+                # 修复A：无 [ ] 任务书（检查器空转）时——最后 assistant 是否半句/计划复述
+                if _tc_enforce and self._task_completion_nudges < _tc_max_nudges and self._last_assistant_unfinished(messages):
+                    logger.info(
+                        "[%s] turn %d: 未完成计划检测命中（最后assistant半句/计划复述）——注入继续执行提示 %d/%d",
+                        self.task_id[:8], turn + 1, self._task_completion_nudges + 1, _tc_max_nudges,
+                    )
+                    messages.append({"role": "user", "content": "继续执行·不要只复述计划"})
+                    self._task_completion_nudges += 1
+                    continue
                 # 任务书含清单且检查通过 → TASK_COMPLETE（有交付语义——对齐 Hermes completed）
                 # 无清单 → DONE（自然结束——has_written 由 TD-03 已检查）
                 self._task_state = TaskState.TASK_COMPLETE if _tc_spec else TaskState.DONE
@@ -1194,6 +1212,43 @@ class MimirAgentLoop:
         """
         self._parallel_read_nudge_done = False
         self._task_completion_nudges = 0  # 四方会议 2026-08-19：完成度 nudge 计数每任务重置（防跨任务残留）
+
+    def _last_assistant_unfinished(self, messages: List[Dict[str, Any]]) -> bool:
+        """修复A（2026-08-30 self-fix）：最后一条 assistant 消息是否"未完成计划"。
+
+        信号1：以冒号结尾（: 或 ：）——半句（今晚实证："读剩余5个文件全文："）
+        信号2：以"读剩余"/"接下来"/"下一步"/"然后"开头 + 后随列表/序号 → 计划复述而非执行
+        命中 → True（应注入"继续执行"提示，而非 natural 退出）
+        """
+        for m in reversed(messages):
+            if m.get("role") != "assistant":
+                continue
+            content = m.get("content")
+            if not content:
+                continue
+            if isinstance(content, list):
+                # 多模态 content——取 text 段拼接
+                content = " ".join(
+                    seg.get("text", "") for seg in content
+                    if isinstance(seg, dict) and seg.get("type") == "text"
+                )
+            text = str(content).strip()
+            if not text:
+                continue
+            # 信号1：冒号结尾（半句）
+            if text.endswith(":") or text.endswith("："):
+                return True
+            # 信号2：计划性前缀开头 + 列表/序号（复述计划而非执行）
+            first_line = text.splitlines()[0].strip() if text.splitlines() else text
+            for _prefix in ("读剩余", "接下来", "下一步", "然后", "继续", "剩余", "还需", "还差"):
+                if first_line.startswith(_prefix):
+                    rest = text[len(first_line):]
+                    if re.search(r"(?m)^\s*(?:[-*•]|\d+[.、)])", rest) or len(text) < 60:
+                        return True
+                    break
+            # 只检查最后一条 assistant——前面消息不算（可能是历史正常完成）
+            return False
+        return False
 
     def _check_has_written(self, messages: List[Dict[str, Any]]) -> bool:
         """检查会话是否产生过写盘产出（Loki-C commit 3 提取 + 2026-08-16 目标校验升级）。
@@ -1456,6 +1511,7 @@ class MimirAgentLoop:
                 session_id=self.task_id,
                 exit_reason=exit_reason,
                 final_response_summary=final_response_summary,
+                task_spec=self._task_spec,  # 修复B（2026-08-30 self-fix）：session_end 进度落盘用
             )
             schedule_skill_curator_lifecycle_pass(
                 session_id=self.task_id,
