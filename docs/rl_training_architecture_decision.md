@@ -32,7 +32,7 @@ MimirAether 的 `rl_training_tool.py` 存在**引用路径错误**，导致整�
 ### 1.2 Hermes 的 tinker-atropos 状态
 
 ```
-位置: /home/rayliu/.openclaw/projects/hermes-agent/tinker-atropos/
+位置: ~/.openclaw/projects/hermes-agent/tinker-atropos/
 状态: 空目录（git submodule 未初始化）
 ```
 
@@ -146,7 +146,7 @@ HERMES_ROOT = Path(__file__).parent.parent
 TINKER_ATROPOS_ROOT = HERMES_ROOT / "tinker-atropos"
 
 # 修改为:
-TINKER_ATROPOS_ROOT = Path("/home/rayliu/.openclaw/projects/hermes-agent/tinker-atropos")
+TINKER_ATROPOS_ROOT = Path("~/.openclaw/projects/hermes-agent/tinker-atropos")
 ```
 
 **前提条件：**
@@ -353,7 +353,7 @@ registry.register(
 
 2. **tinker-atropos submodule 是否需要初始化？** 如果需要，执行：
    ```bash
-   cd /home/rayliu/.openclaw/projects/hermes-agent
+   cd ~/.openclaw/projects/hermes-agent
    git submodule update --init
    ```
 
@@ -373,9 +373,9 @@ registry.register(
 | MimirAether rl_training_tool.py | ``<MimirAether-repo-root>`/tools/rl_training_tool.py` |
 | MimirAether rl/ 模块 | ``<MimirAether-repo-root>`/rl/` |
 | grpo-rl-training 技能 | ``<MimirAether-repo-root>`/skills/mlops/training/grpo-rl-training/SKILL.md` |
-| Hermes rl_training_tool.py | `/home/rayliu/.openclaw/projects/hermes-agent/tools/rl_training_tool.py` |
-| Hermes tinker-atropos | `/home/rayliu/.openclaw/projects/hermes-agent/tinker-atropos/` |
-| Hermes environments | `/home/rayliu/.openclaw/projects/hermes-agent/environments/` |
+| Hermes rl_training_tool.py | `~/.openclaw/projects/hermes-agent/tools/rl_training_tool.py` |
+| Hermes tinker-atropos | `~/.openclaw/projects/hermes-agent/tinker-atropos/` |
+| Hermes environments | `~/.openclaw/projects/hermes-agent/environments/` |
 
 ---
 

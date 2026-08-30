@@ -30,7 +30,7 @@
 ## 4. 测试
 
 ```bash
-cd /home/rayliu/src/MimirAether
+cd ~/src/MimirAether
 python3 -m pytest tests/test_feishu_image_token.py -q
 ```
 

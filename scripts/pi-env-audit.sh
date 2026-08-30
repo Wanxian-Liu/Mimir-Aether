@@ -11,7 +11,7 @@
 set -uo pipefail
 
 PKG="${1:-pi-crew}"
-PI_BIN="${PI_BIN:-/home/rayliu/.bun/bin/pi}"
+PI_BIN="${PI_BIN:-~/.bun/bin/pi}"
 NODE_MODULES="${HOME}/.pi/agent/npm/node_modules"
 
 echo "=== pi 环境三口径审计: ${PKG} ==="

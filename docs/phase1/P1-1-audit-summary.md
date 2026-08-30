@@ -4,8 +4,8 @@
 |------|-----|
 | **日期** | 2026-05-19 |
 | **执行** | Cursor 战略窗口（本机审计） |
-| **数据根** | `MIMIR_AETHER_HOME=/home/rayliu/.mimiraether` |
-| **仓库根** | `/home/rayliu/src/MimirAether` |
+| **数据根** | `MIMIR_AETHER_HOME=~/.mimiraether` |
+| **仓库根** | `~/src/MimirAether` |
 | **契约** | [`docs/MIMIR_HTML_MEMORY_CONTRACT.md`](../MIMIR_HTML_MEMORY_CONTRACT.md) §3 |
 
 ---

@@ -41,7 +41,7 @@
 
 ## M4: `brain-metrics-latest.json` 齐全
 
-**判定**：✅ PASS — 文件存在于 `/home/rayliu/.mimiraether/data/ops/brain-metrics-latest.json`，包含 session_count(142)、evolution ok%(0.0)、tool_quality、context 数据。
+**判定**：✅ PASS — 文件存在于 `~//.mimiraether/data/ops/brain-metrics-latest.json`，包含 session_count(142)、evolution ok%(0.0)、tool_quality、context 数据。
 
 ---
 

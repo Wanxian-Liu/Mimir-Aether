@@ -1,7 +1,7 @@
 # MimirAether 项目审计报告
 
 **审计时间**: 2026-04-29  
-**审计范围**: `/home/rayliu/.openclaw/projects/MimirAether`  
+**审计范围**: `~/.openclaw/projects/MimirAether`  
 **核心文件**: agent/core_loop.py (2540L), agent/auxiliary_client.py (2628L), api_service.py (586L), cli.py (5714L), tools/ (40+个工具文件)
 
 ---

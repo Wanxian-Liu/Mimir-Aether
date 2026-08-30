@@ -8,7 +8,7 @@
 
 ```bash
 # 核心 tests/ 目录（687 tests）
-cd /home/rayliu/src/MimirAether
+cd ~/src/MimirAether
 python3 -m pytest tests/ --collect-only -q -o 'addopts='
 
 # 全量（含 skills 等 ≈984 tests, 但 skills 目录下有 sys.exit 测试导致 12 个 collection error）

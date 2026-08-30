@@ -13,13 +13,13 @@
 
 | 项 | 实测结果 |
 |----|----------|
-| **Git 仓库根** | `git rev-parse --show-toplevel` → **`/home/rayliu/src/MimirAether`** |
-| **`get_mimir_home()`** | **`/home/rayliu/.mimiraether`**（在**当前 shell** 中 `MIMIR_AETHER_HOME` 已设为该路径时测得） |
-| **`get_hermes_home()`** | **`/home/rayliu/.mimiraether`**（与上同） |
-| **干净 env 下默认 home** | `env -i` 仅保留 `HOME`/`PATH` 时，`get_mimir_home()` 仍为 **`/home/rayliu/.mimiraether`**（与 `mimir_constants` 默认一致） |
-| **仓库根 `.env`** | **`/home/rayliu/src/MimirAether/.env`** — **不存在** |
-| **数据根 `.env`** | **`/home/rayliu/.mimiraether/.env`** — **存在**（仅记录键名，无密钥真值）：`MINIMAX_API_KEY`, `DEEPSEEK_API_KEY`, `DEFAULT_MODEL`, `MIMIR_MODEL`, `FEISHU_*`, `TAVILY_API_KEY`, `BAIDU_API_KEY` 等 |
-| **数据根 `config.yaml`** | **`/home/rayliu/.mimiraether/config.yaml`** — 存在 |
+| **Git 仓库根** | `git rev-parse --show-toplevel` → **`~/src/MimirAether`** |
+| **`get_mimir_home()`** | **`~/.mimiraether`**（在**当前 shell** 中 `MIMIR_AETHER_HOME` 已设为该路径时测得） |
+| **`get_hermes_home()`** | **`~/.mimiraether`**（与上同） |
+| **干净 env 下默认 home** | `env -i` 仅保留 `HOME`/`PATH` 时，`get_mimir_home()` 仍为 **`~/.mimiraether`**（与 `mimir_constants` 默认一致） |
+| **仓库根 `.env`** | **`~/src/MimirAether/.env`** — **不存在** |
+| **数据根 `.env`** | **`~/.mimiraether/.env`** — **存在**（仅记录键名，无密钥真值）：`MINIMAX_API_KEY`, `DEEPSEEK_API_KEY`, `DEFAULT_MODEL`, `MIMIR_MODEL`, `FEISHU_*`, `TAVILY_API_KEY`, `BAIDU_API_KEY` 等 |
+| **数据根 `config.yaml`** | **`~/.mimiraether/config.yaml`** — 存在 |
 | **契约** | 与 [`path-contract.md`](./path-contract.md)、[`AGENTS.md`](../AGENTS.md) 一致：**代码在任意 clone 根；运行时数据在 `MIMIR_AETHER_HOME`（默认 `~/.mimiraether`）** |
 
 **说明**：当前会话/进程环境中 `HERMES_HOME` 未单独设置；以 `MIMIR_AETHER_HOME` 为准即可。
@@ -30,17 +30,17 @@
 
 | 项 | 实测结果 |
 |----|----------|
-| **`gateway/run.py`** | **有**。PID 示例：`558878` — `/usr/bin/python3 /home/rayliu/src/MimirAether/gateway/run.py`（**来自 git 真源 clone**，非 `~/.openclaw/projects/...`） |
+| **`gateway/run.py`** | **有**。PID 示例：`558878` — `/usr/bin/python3 ~/src/MimirAether/gateway/run.py`（**来自 git 真源 clone**，非 `~/.openclaw/projects/...`） |
 | **`openclaw-gateway`** | **未发现** 名为 `openclaw-gateway` 的进程（`pgrep -af openclaw` 仅命中 Cursor sandbox 与其它 `~/.openclaw/skills/...` 脚本，非 MA 网关） |
 | **`cli.py gateway start`** | **未测** 是否由 systemd/cron 拉起；当前可见进程为直接 `python3 .../gateway/run.py` |
-| **网关状态文件** | **`/home/rayliu/.mimiraether/data/gateway.pid`**、**`gateway_state.json`** 存在（数据根与进程分离） |
-| **日志（数据根）** | **`/home/rayliu/.mimiraether/logs/gateway.log`**（约 26KB，本机有写入）；另有 `agent.log`、`errors.log` |
+| **网关状态文件** | **`~/.mimiraether/data/gateway.pid`**、**`gateway_state.json`** 存在（数据根与进程分离） |
+| **日志（数据根）** | **`~/.mimiraether/logs/gateway.log`**（约 26KB，本机有写入）；另有 `agent.log`、`errors.log` |
 
 ---
 
 ## 3. mimicore 触点
 
-**子模块**：仓库内 **`/home/rayliu/src/MimirAether/mimicore`** 存在；`git rev-parse --short HEAD` → **`561aa18`**（子模块已检出）。
+**子模块**：仓库内 **`~/src/MimirAether/mimicore`** 存在；`git rev-parse --short HEAD` → **`561aa18`**（子模块已检出）。
 
 **`agent/`、`gateway/`**：**无** `mimicore` 字符串 import（tier0 主路径与网关未直接依赖子模块）。
 
@@ -71,8 +71,8 @@
 
 | 声明/代码 | 实测 |
 |-----------|------|
-| `mimircore_tool` 文档写 canonical：`{MIMIR_AETHER_HOME}/mimicore/` | **`/home/rayliu/.mimiraether/mimicore` 不存在** |
-| 子模块代码实际位置 | **`/home/rayliu/src/MimirAether/mimicore/`**（含 **`public/`**，大量 `*.md` 胶囊） |
+| `mimircore_tool` 文档写 canonical：`{MIMIR_AETHER_HOME}/mimicore/` | **`~/.mimiraether/mimicore` 不存在** |
+| 子模块代码实际位置 | **`~/src/MimirAether/mimicore/`**（含 **`public/`**，大量 `*.md` 胶囊） |
 | `import mimicore.capsule_generator` | 在本机**可成功**，解析到 **`.../src/MimirAether/mimicore/capsule_generator.py`**（依赖 repo 在 `sys.path` 上，而非数据根） |
 | `list_capsules` 扫描目录 | 扫描 **`MIMIR_CORE_PATH/public`** → 本机返回 **`total: 0`**（数据根下无 `mimicore/public`） |
 
@@ -86,7 +86,7 @@
 |----|-------------|
 | **发布扩展名** | **`*.md`**（`public_dir.glob("*.md")`） |
 | **代码声明的发布目录** | `Path(MIMIR_CORE_PATH) / "public"` → 本机为 **`~/.mimiraether/mimicore/public`**（**目录不存在**） |
-| **子模块内实际胶囊库** | **`/home/rayliu/src/MimirAether/mimicore/public/*.md`**（本机存在，文件数多） |
+| **子模块内实际胶囊库** | **`~/src/MimirAether/mimicore/public/*.md`**（本机存在，文件数多） |
 | **命名模式** | `{capsule_id前12位}_{标题slug}.md`（见 `produce_capsule` 写文件逻辑） |
 
 ### 4.2 技能侧「胶囊」元数据（非 mimicore）
@@ -121,7 +121,7 @@
 |----|----------|
 | **仓库内 `weavevault` 字符串** | **无匹配**（全仓 `grep`，含大小写变体） |
 | **`~/.openclaw/projects/MimirAether`** | **存在**（独立目录树，含 `agent/`、`gateway/`、`AGENTS.md` 等；**不是**当前 `git rev-parse` 真源） |
-| **与当前运行网关关系** | 运行中网关指向 **`/home/rayliu/src/MimirAether/gateway/run.py`**；OpenClaw 项目目录为**历史/并行 checkout**，勿当作 MA 数据或代码真源（见 [`path-contract.md`](./path-contract.md) §历史路径与豁免目录） |
+| **与当前运行网关关系** | 运行中网关指向 **`~/src/MimirAether/gateway/run.py`**；OpenClaw 项目目录为**历史/并行 checkout**，勿当作 MA 数据或代码真源（见 [`path-contract.md`](./path-contract.md) §历史路径与豁免目录） |
 | **本机其它 OpenClaw 痕迹** | `~/.openclaw/skills/...` 有独立技能仓（如 loki-blueprint），与 MA 仓库无 `weavevault` 耦合 |
 
 ---

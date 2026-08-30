@@ -12,7 +12,7 @@ TIMESTAMP=$(date --iso-8601=seconds)
 
 # 简单的活跃性检查：进程是否在运行、磁盘空间是否健康
 PROC_COUNT=$(ps aux --no-headers 2>/dev/null | wc -l || echo "0")
-DISK_USAGE=$(df /home/rayliu/.openclaw --output=pcent 2>/dev/null | tail -1 | tr -d ' %' || echo "0")
+DISK_USAGE=$(df ~/.openclaw --output=pcent 2>/dev/null | tail -1 | tr -d ' %' || echo "0")
 
 # 检查关键进程（可选）
 HERMES_RUNNING="no"

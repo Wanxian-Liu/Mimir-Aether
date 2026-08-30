@@ -1,7 +1,7 @@
 {
   "queries": 20,
-  "like_db": "/home/rayliu/.mimiraether/data/sessions_search.db",
-  "fts_db": "/home/rayliu/.mimiraether/data/fts5_search.db",
+  "like_db": "~/.mimiraether/data/sessions_search.db",
+  "fts_db": "~/.mimiraether/data/fts5_search.db",
   "like_hit_rate": 0.6,
   "fts_hit_rate": 0.5,
   "like_p50_ms": 4.89,

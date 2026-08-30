@@ -3,7 +3,7 @@
 | 字段 | 值 |
 |------|-----|
 | **Date (UTC)** | `2026-05-26T16:52:26Z`（C2 第三次 eval 完成时刻） |
-| **Home** | `MIMIR_AETHER_HOME=/home/rayliu/.mimiraether`（刘哥机 staging/生产同 home） |
+| **Home** | `MIMIR_AETHER_HOME=~//.mimiraether`（刘哥机 staging/生产同 home） |
 | **前置** | IQ-EVO-41 PASS — [`iqevo-gate-c-staging-write-evidence.md`](./iqevo-gate-c-staging-write-evidence.md) |
 | **§41 写入方式** | **B** 受控脚本（非 `data/ops/gate-b-pilot/`）；真实路径 `~/.mimiraether/skills/iqevo-41-gate-c-staging/SKILL.md` |
 
@@ -32,9 +32,9 @@ MIMIR_REPO_ROOT=~/src/MimirAether MIMIR_AETHER_HOME=~/.mimiraether \
 
 | Run | exit | compare JSON（绝对路径） | `pass` |
 |-----|:----:|--------------------------|:------:|
-| 1 | 0 | `/home/rayliu/.mimiraether/data/evolution_eval/memory-retrieval-compare-20260526T165224Z.json` | true |
-| 2 | 0 | `/home/rayliu/.mimiraether/data/evolution_eval/memory-retrieval-compare-20260526T165225Z.json` | true |
-| 3 | 0 | `/home/rayliu/.mimiraether/data/evolution_eval/memory-retrieval-compare-20260526T165226Z.json` | true |
+| 1 | 0 | `~//.mimiraether/data/evolution_eval/memory-retrieval-compare-20260526T165224Z.json` | true |
+| 2 | 0 | `~//.mimiraether/data/evolution_eval/memory-retrieval-compare-20260526T165225Z.json` | true |
+| 3 | 0 | `~//.mimiraether/data/evolution_eval/memory-retrieval-compare-20260526T165226Z.json` | true |
 
 **C2：** [x]
 
@@ -74,7 +74,7 @@ Gate C「生产」= 本 home 在 §41 证据后保持上述配置（见 wave7 pl
 
 ```text
 $ pgrep -af 'gateway/run.py' | head -1
-434462 python3 /home/rayliu/src/MimirAether/gateway/run.py
+434462 python3 ~//src/MimirAether/gateway/run.py
 
 $ curl -s http://127.0.0.1:18999/health
 {"status": "ok", "platform": "MimirAether", "gateway": "ok", "agent": "ok", ...}

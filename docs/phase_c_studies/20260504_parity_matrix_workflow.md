@@ -32,7 +32,7 @@
 
 ## 3. 与阶段 3 的关系
 
-- **独立学习** 的默认产出之一是 **读本仓库矩阵 + testmap**，而非必须先有上游仓；上游路径 **`/home/rayliu/.openclaw/projects/hermes-agent`** 为矩阵示例，换机自改。
+- **独立学习** 的默认产出之一是 **读本仓库矩阵 + testmap**，而非必须先有上游仓；上游路径 **`~//.openclaw/projects/hermes-agent`** 为矩阵示例，换机自改。
 - **H15** 工具名 diff：**`scripts/diff_tool_names_hermes_mimir.py`** 是矩阵 §5 的配套；退出码 1 为预期直至主动对齐工具面。
 
 ---

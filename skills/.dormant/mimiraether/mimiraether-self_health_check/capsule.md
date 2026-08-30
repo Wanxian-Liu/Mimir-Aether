@@ -98,7 +98,7 @@ python3 -c "import json,urllib.request; d=json.loads(urllib.request.urlopen('htt
 # 2. 工具使用统计（SQLite）
 python3 -c "
 import json,sqlite3
-db=sqlite3.connect('/home/rayliu/.mimiraether/data/tool_quality.db')
+db=sqlite3.connect('~/.mimiraether/data/tool_quality.db')
 tools=db.execute('SELECT tool_name,total_calls,success_count FROM tool_quality ORDER BY total_calls DESC LIMIT 15').fetchall()
 for t in tools:
     rate=t[2]/t[1]*100 if t[1]>0 else 0
@@ -109,7 +109,7 @@ db.close()
 # 3. 错误明细（文件读取）
 python3 -c "
 import json
-alerts=json.load(open('/home/rayliu/.mimiraether/data/monitor_alerts.json'))
+alerts=json.load(open('~/.mimiraether/data/monitor_alerts.json'))
 # 按工具名聚合
 from collecti
 

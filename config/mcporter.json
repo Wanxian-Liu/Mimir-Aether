@@ -1,7 +1,7 @@
 {
   "mcpServers": {
 "baidu-search": {
-    "command": "/home/rayliu/.local/bin/baidu-mcp-server"
+    "command": "~/.local/bin/baidu-mcp-server"
     }
   }
 }

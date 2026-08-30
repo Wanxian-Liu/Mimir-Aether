@@ -9,7 +9,7 @@ priority: medium
 # Wiki 知识源入库流水线（2026-08-15 三次实战固化：Graph RAG / DeepMind / AERIS-10）
 
 ## 何时用
-用户要求"把 X 论文/项目克隆到本地/入库/做知识储备"时。目标目录是四方共享 wiki：`/home/rayliu/wiki`（**必须用绝对路径**——沙盒 HOME=/home/rayliu/.mimiraether，`~/wiki` 会解析到空壳目录）。
+用户要求"把 X 论文/项目克隆到本地/入库/做知识储备"时。目标目录是四方共享 wiki：`~/wiki`（**必须用绝对路径**——沙盒 HOME=~/.mimiraether，`~/wiki` 会解析到空壳目录）。
 
 ## 三层结构（对齐 LLM Wiki 架构）
 | 层 | 位置 | 内容 |
@@ -26,11 +26,11 @@ priority: medium
 3. **验证原始层**：`%PDF` 魔数（`xxd -l 4` 或 Python `open(f,'rb').read(4)==b'%PDF'`）+ `ls -la` 大小；项目快照记录上游 SHA（git ls-remote 或下载前查）
 4. **写概念卡**：标准 frontmatter（title/created/type/tags/sources/relations/properties），含热度证据表、核心要点、与我们系统的关联、入库快照信息（路径/版本/日期）
 5. **更新索引**：`index.md` 加条目 + `log.md` 记 ingest 行
-6. **git commit**：wiki 侧 commit（`cd /home/rayliu/wiki && git add ... && git commit`）
+6. **git commit**：wiki 侧 commit（`cd ~/wiki && git add ... && git commit`）
 7. **（可选）四方共读卡**：若刘哥要求四方共读，开 discussion 卡标记 `status: pending`——**等刘哥主动提起再执行，不主动启动**；刘哥偏好"共读不分工"（每篇大家都要读，非各读一篇）
 
 ## 坑点（全部实战踩过）
-1. **沙盒 HOME 陷阱**：`~/wiki` 解析到 `/home/rayliu/.mimiraether/wiki`（空壳）——一律用绝对路径 `/home/rayliu/wiki/`
+1. **沙盒 HOME 陷阱**：`~/wiki` 解析到 `~/.mimiraether/wiki`（空壳）——一律用绝对路径 `~/wiki/`
 2. **tarball 而非 clone**：git clone 180s 超时 + 嵌套 .git 破坏 wiki 单仓历史——用 tarball 解压（断点续传用 curl -C -）
 3. **热度的证据链**：报告"最高星/前三"必须有 API 检索合并验证（多关键词 GitHub search + 星数对比 + "名字带 radar 的软件 ≠ 雷达硬件"这类排除逻辑），不拍脑袋
 4. **frontmatter 标准**：参考已有卡（如 concepts/actmem-arxiv-paper.md：title/created/type/tags/sources/relations/properties 含 code_github/paper_date/source_lab）

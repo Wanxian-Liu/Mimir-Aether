@@ -1,7 +1,7 @@
 OpenClaw文档与资源核心知识：
 
 1. 官方文档
-   - 本地: /home/rayliu/openclaw/docs
+   - 本地: ~/openclaw/docs
    - 镜像: https://docs.openclaw.ai
    - 源码: https://github.com/openclaw/openclaw
    - 社区: https://discord.com/invite/clawd

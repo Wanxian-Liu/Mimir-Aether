@@ -23,12 +23,12 @@ exec工具preflight限制与解决方案：
    正确：bash -c "python3 /path/script.py | grep something"
 
    方案4：直接调用脚本（如果脚本有执行权限）
-   错误：python3 /home/rayliu/.openclaw/sandbox/九重天量化系统/watch_300749.py
-   正确：/home/rayliu/.openclaw/sandbox/九重天量化系统/watch_300749.py（需要chmod +x）
+   错误：python3 ~/.openclaw/sandbox/九重天量化系统/watch_300749.py
+   正确：~/.openclaw/sandbox/九重天量化系统/watch_300749.py（需要chmod +x）
 
 4. 实际案例
    - 九重天量化盯盘脚本：
-     错误：python3 /home/rayliu/.openclaw/sandbox/九重天量化系统/watch_300749.py
+     错误：python3 ~/.openclaw/sandbox/九重天量化系统/watch_300749.py
      问题：找不到文件（路径错误）
      解决：find查找正确路径
 

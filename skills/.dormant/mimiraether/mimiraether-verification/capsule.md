@@ -48,7 +48,7 @@
 ```python
 # 修改前：读盘快照
 import json
-path = "/home/rayliu/.mimiraether/data/persistent.json"
+path = "~/.mimiraether/data/persistent.json"
 with open(path) as f:
     baseline = json.load(f)
 # 记录关键计数指标

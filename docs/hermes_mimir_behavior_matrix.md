@@ -14,7 +14,7 @@
 |------|-----|
 | **HERMES_REF** | `bcdd720741f4988b66877f2bfe6a8ef930640a0d`（`git describe`: `v2026.4.30-146-gbcdd72074`） |
 | **Hermes 远程** | `git@github.com:Wanxian-Liu/hermes-agent.git`（`upstream`: `NousResearch/hermes-agent`） |
-| **本机快照路径** | `/home/rayliu/.openclaw/projects/hermes-agent`（用于本地 `git show`/读源码；换机器请 `git fetch` 后 checkout 上表 SHA） |
+| **本机快照路径** | `~//.openclaw/projects/hermes-agent`（用于本地 `git show`/读源码；换机器请 `git fetch` 后 checkout 上表 SHA） |
 | **对照日期** | 2026-05-01 |
 | **备注** | 更新 Hermes 时：先改 **HERMES_REF**，再对本表做 diff，不要无表合并。 |
 

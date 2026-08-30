@@ -13,11 +13,11 @@ import_ok
 ......................                                                   [100%]
 =============================== warnings summary ===============================
 ../../.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/__init__.py:2
-  /home/rayliu/.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/__init__.py:2: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+  ~//.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/__init__.py:2: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
     __import__('pkg_resources').declare_namespace(__name__)
 
 ../../.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/__init__.py:2
-  /home/rayliu/.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/__init__.py:2: DeprecationWarning: Deprecated call to `pkg_resources.declare_namespace('lark_oapi.ws.pb.google')`.
+  ~//.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/__init__.py:2: DeprecationWarning: Deprecated call to `pkg_resources.declare_namespace('lark_oapi.ws.pb.google')`.
   Implementing implicit namespace packages (as specified in PEP 420) is preferred to `pkg_resources.declare_namespace`. See https://setuptools.pypa.io/en/latest/references/keywords.html#keyword-namespace-packages
     __import__('pkg_resources').declare_namespace(__name__)
 
@@ -37,23 +37,23 @@ import_ok
     declare_namespace(parent)
 
 ../../.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/protobuf/internal/well_known_types.py:91
-  /home/rayliu/.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/protobuf/internal/well_known_types.py:91: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+  ~//.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/protobuf/internal/well_known_types.py:91: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
     _EPOCH_DATETIME_NAIVE = datetime.datetime.utcfromtimestamp(0)
 
 ../../.local/lib/python3.12/site-packages/lark_oapi/ws/client.py:26
-  /home/rayliu/.local/lib/python3.12/site-packages/lark_oapi/ws/client.py:26: DeprecationWarning: There is no current event loop
+  ~//.local/lib/python3.12/site-packages/lark_oapi/ws/client.py:26: DeprecationWarning: There is no current event loop
     loop = asyncio.get_event_loop()
 
 ../../.local/lib/python3.12/site-packages/lark_oapi/ws/client.py:67
-  /home/rayliu/.local/lib/python3.12/site-packages/lark_oapi/ws/client.py:67: DeprecationWarning: websockets.InvalidStatusCode is deprecated
+  ~//.local/lib/python3.12/site-packages/lark_oapi/ws/client.py:67: DeprecationWarning: websockets.InvalidStatusCode is deprecated
     def _parse_ws_conn_exception(e: websockets.InvalidStatusCode):
 
 ../../.local/lib/python3.12/site-packages/websockets/legacy/__init__.py:6
-  /home/rayliu/.local/lib/python3.12/site-packages/websockets/legacy/__init__.py:6: DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html for upgrade instructions
+  ~//.local/lib/python3.12/site-packages/websockets/legacy/__init__.py:6: DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html for upgrade instructions
     warnings.warn(  # deprecated in 14.0 - 2024-11-09
 
 agent/test_m5_gateway_session_db_slice.py::test_session_store_append_dual_writes_sqlite
-  /home/rayliu/.local/lib/python3.12/site-packages/chromadb/api/collection_configuration.py:327: DeprecationWarning: legacy embedding function config: 'HashEmbeddingFunction' object has no attribute 'is_legacy'
+  ~//.local/lib/python3.12/site-packages/chromadb/api/collection_configuration.py:327: DeprecationWarning: legacy embedding function config: 'HashEmbeddingFunction' object has no attribute 'is_legacy'
     return json.dumps(create_collection_configuration_to_json(config, metadata))
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
@@ -79,11 +79,11 @@ import_ok
 ......................                                                   [100%]
 =============================== warnings summary ===============================
 ../../.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/__init__.py:2
-  /home/rayliu/.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/__init__.py:2: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+  ~//.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/__init__.py:2: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
     __import__('pkg_resources').declare_namespace(__name__)
 
 ../../.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/__init__.py:2
-  /home/rayliu/.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/__init__.py:2: DeprecationWarning: Deprecated call to `pkg_resources.declare_namespace('lark_oapi.ws.pb.google')`.
+  ~//.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/__init__.py:2: DeprecationWarning: Deprecated call to `pkg_resources.declare_namespace('lark_oapi.ws.pb.google')`.
   Implementing implicit namespace packages (as specified in PEP 420) is preferred to `pkg_resources.declare_namespace`. See https://setuptools.pypa.io/en/latest/references/keywords.html#keyword-namespace-packages
     __import__('pkg_resources').declare_namespace(__name__)
 
@@ -103,23 +103,23 @@ import_ok
     declare_namespace(parent)
 
 ../../.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/protobuf/internal/well_known_types.py:91
-  /home/rayliu/.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/protobuf/internal/well_known_types.py:91: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+  ~//.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/protobuf/internal/well_known_types.py:91: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
     _EPOCH_DATETIME_NAIVE = datetime.datetime.utcfromtimestamp(0)
 
 ../../.local/lib/python3.12/site-packages/lark_oapi/ws/client.py:26
-  /home/rayliu/.local/lib/python3.12/site-packages/lark_oapi/ws/client.py:26: DeprecationWarning: There is no current event loop
+  ~//.local/lib/python3.12/site-packages/lark_oapi/ws/client.py:26: DeprecationWarning: There is no current event loop
     loop = asyncio.get_event_loop()
 
 ../../.local/lib/python3.12/site-packages/lark_oapi/ws/client.py:67
-  /home/rayliu/.local/lib/python3.12/site-packages/lark_oapi/ws/client.py:67: DeprecationWarning: websockets.InvalidStatusCode is deprecated
+  ~//.local/lib/python3.12/site-packages/lark_oapi/ws/client.py:67: DeprecationWarning: websockets.InvalidStatusCode is deprecated
     def _parse_ws_conn_exception(e: websockets.InvalidStatusCode):
 
 ../../.local/lib/python3.12/site-packages/websockets/legacy/__init__.py:6
-  /home/rayliu/.local/lib/python3.12/site-packages/websockets/legacy/__init__.py:6: DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html for upgrade instructions
+  ~//.local/lib/python3.12/site-packages/websockets/legacy/__init__.py:6: DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html for upgrade instructions
     warnings.warn(  # deprecated in 14.0 - 2024-11-09
 
 agent/test_m5_gateway_session_db_slice.py::test_session_store_append_dual_writes_sqlite
-  /home/rayliu/.local/lib/python3.12/site-packages/chromadb/api/collection_configuration.py:327: DeprecationWarning: legacy embedding function config: 'HashEmbeddingFunction' object has no attribute 'is_legacy'
+  ~//.local/lib/python3.12/site-packages/chromadb/api/collection_configuration.py:327: DeprecationWarning: legacy embedding function config: 'HashEmbeddingFunction' object has no attribute 'is_legacy'
     return json.dumps(create_collection_configuration_to_json(config, metadata))
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
@@ -145,11 +145,11 @@ import_ok
 ......................                                                   [100%]
 =============================== warnings summary ===============================
 ../../.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/__init__.py:2
-  /home/rayliu/.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/__init__.py:2: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+  ~//.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/__init__.py:2: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
     __import__('pkg_resources').declare_namespace(__name__)
 
 ../../.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/__init__.py:2
-  /home/rayliu/.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/__init__.py:2: DeprecationWarning: Deprecated call to `pkg_resources.declare_namespace('lark_oapi.ws.pb.google')`.
+  ~//.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/__init__.py:2: DeprecationWarning: Deprecated call to `pkg_resources.declare_namespace('lark_oapi.ws.pb.google')`.
   Implementing implicit namespace packages (as specified in PEP 420) is preferred to `pkg_resources.declare_namespace`. See https://setuptools.pypa.io/en/latest/references/keywords.html#keyword-namespace-packages
     __import__('pkg_resources').declare_namespace(__name__)
 
@@ -169,23 +169,23 @@ import_ok
     declare_namespace(parent)
 
 ../../.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/protobuf/internal/well_known_types.py:91
-  /home/rayliu/.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/protobuf/internal/well_known_types.py:91: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+  ~//.local/lib/python3.12/site-packages/lark_oapi/ws/pb/google/protobuf/internal/well_known_types.py:91: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
     _EPOCH_DATETIME_NAIVE = datetime.datetime.utcfromtimestamp(0)
 
 ../../.local/lib/python3.12/site-packages/lark_oapi/ws/client.py:26
-  /home/rayliu/.local/lib/python3.12/site-packages/lark_oapi/ws/client.py:26: DeprecationWarning: There is no current event loop
+  ~//.local/lib/python3.12/site-packages/lark_oapi/ws/client.py:26: DeprecationWarning: There is no current event loop
     loop = asyncio.get_event_loop()
 
 ../../.local/lib/python3.12/site-packages/lark_oapi/ws/client.py:67
-  /home/rayliu/.local/lib/python3.12/site-packages/lark_oapi/ws/client.py:67: DeprecationWarning: websockets.InvalidStatusCode is deprecated
+  ~//.local/lib/python3.12/site-packages/lark_oapi/ws/client.py:67: DeprecationWarning: websockets.InvalidStatusCode is deprecated
     def _parse_ws_conn_exception(e: websockets.InvalidStatusCode):
 
 ../../.local/lib/python3.12/site-packages/websockets/legacy/__init__.py:6
-  /home/rayliu/.local/lib/python3.12/site-packages/websockets/legacy/__init__.py:6: DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html for upgrade instructions
+  ~//.local/lib/python3.12/site-packages/websockets/legacy/__init__.py:6: DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html for upgrade instructions
     warnings.warn(  # deprecated in 14.0 - 2024-11-09
 
 agent/test_m5_gateway_session_db_slice.py::test_session_store_append_dual_writes_sqlite
-  /home/rayliu/.local/lib/python3.12/site-packages/chromadb/api/collection_configuration.py:327: DeprecationWarning: legacy embedding function config: 'HashEmbeddingFunction' object has no attribute 'is_legacy'
+  ~//.local/lib/python3.12/site-packages/chromadb/api/collection_configuration.py:327: DeprecationWarning: legacy embedding function config: 'HashEmbeddingFunction' object has no attribute 'is_legacy'
     return json.dumps(create_collection_configuration_to_json(config, metadata))
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html

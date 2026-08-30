@@ -4,7 +4,7 @@
 |------|-----|
 | **日期** | 2026-05-19 |
 | **依据** | [`P1-1-audit-summary.md`](./P1-1-audit-summary.md)、[`MIMIR_HTML_MEMORY_CONTRACT.md`](../MIMIR_HTML_MEMORY_CONTRACT.md) §3.3 |
-| **数据根** | `MIMIR_AETHER_HOME=/home/rayliu/.mimiraether` |
+| **数据根** | `MIMIR_AETHER_HOME=~/.mimiraether` |
 | **抽检种子** | `random.Random(20260519)`（可复现） |
 
 ---

@@ -20,7 +20,7 @@
 
 ### Step 1: 扫描Hermes依赖
 ```bash
-cd /home/rayliu/.openclaw/projects/MimirAether
+cd ~/.openclaw/projects/MimirAether
 
 # 扫描Hermes引用
 grep -rn "hermes_agent\|hermes_cli\|from hermes\|import hermes" \

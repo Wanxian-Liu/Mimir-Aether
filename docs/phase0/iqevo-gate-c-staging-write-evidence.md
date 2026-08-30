@@ -6,7 +6,7 @@
 | **方式** | **B** 受控脚本（`scripts/iqevo_41_staging_write.py`） |
 | **会话** | `iqevo41-20260526T163209Z` |
 | **任务名** | `iqevo-41-staging-write` |
-| **运行时** | `MIMIR_AETHER_HOME=/home/rayliu/.mimiraether` |
+| **运行时** | `MIMIR_AETHER_HOME=~/.mimiraether` |
 | **非 pilot** | 是 — 写入路径不含 `data/ops/gate-b-pilot/` |
 
 ## 环境（步骤 1）
@@ -17,7 +17,7 @@ MIMIR_AUTO_ANALYSIS=1
 MIMIR_AUTO_EVOLVE=1
 
 $ pgrep -af 'gateway/run.py' | head -1
-401777 python3 /home/rayliu/src/MimirAether/gateway/run.py
+401777 python3 ~/src/MimirAether/gateway/run.py
 
 $ curl -s http://127.0.0.1:18999/health | head -c 200
 {"status": "ok", "platform": "MimirAether", "gateway": "ok", "agent": "ok", ...}
@@ -25,7 +25,7 @@ $ curl -s http://127.0.0.1:18999/health | head -c 200
 
 ## 被改 SKILL
 
-**绝对路径：** `/home/rayliu/.mimiraether/skills/iqevo-41-gate-c-staging/SKILL.md`
+**绝对路径：** `~/.mimiraether/skills/iqevo-41-gate-c-staging/SKILL.md`
 
 **mtime：** `2026-05-27 00:32:09 +0800`（`stat` 与 `find -mmin 30` 一致）
 
@@ -51,7 +51,7 @@ Written by run_post_analysis_sync → apply_evolution_from_analysis.
 
 ## Analysis artifact
 
-`/home/rayliu/.mimiraether/data/analysis_artifacts/20260527T003209_iqevo-41-staging-write.json`
+`~/.mimiraether/data/analysis_artifacts/20260527T003209_iqevo-41-staging-write.json`
 
 - `type`: `post_task_analysis`
 - `task_name`: `iqevo-41-staging-write`
@@ -70,7 +70,7 @@ Written by run_post_analysis_sync → apply_evolution_from_analysis.
 
 1. `pipeline_result` 含 `errors` + `degraded_tools`（受控信号，非生产破坏）。
 2. `run_post_analysis_sync` → `save_analysis_artifact` → `apply_analysis_to_pipeline`（mock `call_llm` 返回 fix 建议）。
-3. `apply_evolution_from_analysis`（`MIMIR_AUTO_EVOLVE=1`）→ `get_skills_dir()` → `/home/rayliu/.mimiraether/skills/` 下 FIX 写入。
+3. `apply_evolution_from_analysis`（`MIMIR_AUTO_EVOLVE=1`）→ `get_skills_dir()` → `~/.mimiraether/skills/` 下 FIX 写入。
 
 复现（需 env 已开）：
 

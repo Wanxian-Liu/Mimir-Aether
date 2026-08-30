@@ -7,7 +7,7 @@ alwaysApply: true
 
 对与 OpenClaw、`~/.openclaw`、Mimir 系列或本仓库相关的实现与修改，除用户消息与 Cursor 用户规则外，须对齐 **OpenClaw 工作区总则**：
 
-**权威文件（全文请用 Read 打开）：** 本机 **`~/.openclaw/workspace/CLAUDE.md`**（与 `/home/rayliu/.openclaw/workspace/CLAUDE.md` 等价时任选其一）。
+**权威文件（全文请用 Read 打开）：** 本机 **`~/.openclaw/workspace/CLAUDE.md`**（与 `~/.openclaw/workspace/CLAUDE.md` 等价时任选其一）。
 
 ## 摘要（不能与原文冲突；有歧义以原文为准）
 

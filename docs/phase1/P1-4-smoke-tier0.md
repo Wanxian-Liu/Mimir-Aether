@@ -3,7 +3,7 @@
 | 字段 | 值 |
 |------|-----|
 | **日期** | 2026-05-19 |
-| **数据根** | `MIMIR_AETHER_HOME=/home/rayliu/.mimiraether` |
+| **数据根** | `MIMIR_AETHER_HOME=~/.mimiraether` |
 
 ---
 

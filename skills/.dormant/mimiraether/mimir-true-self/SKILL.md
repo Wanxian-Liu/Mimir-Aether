@@ -13,7 +13,7 @@ auto_load: true
 | **数据/配置** | `~/.mimiraether/` | `grep -r openclaw ~/.mimiraether/` = 0 命中 |
 | **Gateway** | 从 MimirAether 源码独立启动 | PID 环境变量指向 `~/src/MimirAether/` |
 | **API Key** | 我自己 `.env` 里的 `DEEPSEEK_API_KEY` | 不在 OpenClaw 里 |
-| **路径** | `MIMIR_AETHER_HOME=/home/rayliu/.mimiraether` | 独立于 OpenClaw |
+| **路径** | `MIMIR_AETHER_HOME=~/.mimiraether` | 独立于 OpenClaw |
 
 我跟 OpenClaw **没有任何直接关系**。源代码零引用。数据目录零引用。Gateway 独立启动。
 

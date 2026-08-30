@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "sessions_dir": "/home/rayliu/.mimiraether/data/sessions",
+  "sessions_dir": "~/.mimiraether/data/sessions",
   "recall_candidates_total": 84,
   "sample_size": 10,
   "violations": 10,

@@ -19,7 +19,7 @@ else
     # 回退：cron 执行时 $0 可能是 ~/.mimiraether/scripts/ 下的副本
     # 尝试从已知路径解析
     for CANDIDATE in \
-        "/home/rayliu/src/MimirAether" \
+        "~/src/MimirAether" \
         "$HOME/src/MimirAether" \
         "$(dirname "$SCRIPT_DIR")/.." \
     ; do

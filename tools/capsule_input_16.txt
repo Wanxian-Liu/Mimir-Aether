@@ -1,7 +1,7 @@
 OpenClaw工作目录与文件管理：
 
 1. 工作目录
-   - 路径: /home/rayliu/.openclaw/workspace
+   - 路径: ~/.openclaw/workspace
    - Treat this directory as the single global workspace for file operations unless explicitly instructed otherwise.
 
 2. 重要文件
