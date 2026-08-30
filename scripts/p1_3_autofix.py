@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """P1-3 source 自动修复脚本（机械部分，确定性规则，不编造）。
 
-处理对象: /home/rayliu/wiki 下 concepts/discussions/comparisons 必填类卡
+处理对象: " + os.environ.get("MIMIR_WIKI_ROOT", os.path.expanduser("~/wiki")) + " 下 concepts/discussions/comparisons 必填类卡
 规则:
   1. 复数 `sources:` 字段 -> 单数 `source:`（内联列表保持内联，合法 YAML）
   2. 缺 source 或 "待补raw" -> 从正文正则提取真实来源:
@@ -15,7 +15,7 @@
 """
 import os, re, sys, json, glob
 
-WIKI = "/home/rayliu/wiki"
+WIKI = os.environ.get("MIMIR_WIKI_ROOT", os.path.expanduser("~/wiki"))
 DRY = "--dry-run" in sys.argv
 
 URL_RE = re.compile(r"https?://[^\s\)\]\}>\"'`，。、；：|]+")

@@ -10,7 +10,7 @@ for line in open(os.path.join(home, ".env")):
 
 TASK = """立即完成"Mimir核心体检第2部分（上下文/压缩）"的讨论卡段落。
 
-【任务】用write_file把这些内容**追加**到 /home/rayliu/wiki/discussions/Mimir核心体检-2上下文压缩.md 末尾（绝对路径，禁止/tmp）：
+【任务】用write_file把这些内容**追加**到 " + os.environ.get("MIMIR_WIKI_ROOT", os.path.expanduser("~/wiki")) + "/discussions/Mimir核心体检-2上下文压缩.md 末尾（绝对路径，禁止/tmp）：
 
 ### Mimir（被体检对象·自省）—— 2026-08-05 亲写版
 

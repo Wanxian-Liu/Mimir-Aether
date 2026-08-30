@@ -8,7 +8,7 @@ import asyncio, json, os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from subagent_bridge import _spawn_async
 
-WIKI = "/home/rayliu/wiki"
+WIKI = os.environ.get("MIMIR_WIKI_ROOT", os.path.expanduser("~/wiki"))
 
 PROMPT_TMPL = """你是 MimirAether 知识库（{wiki}）的 source 字段整理助手。SCHEMA 规范（{wiki}/SCHEMA.md）要求 concepts/discussions/comparisons 卡必须带**单数** source 字段（真实来源，禁止编造）。
 

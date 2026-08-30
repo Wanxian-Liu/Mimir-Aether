@@ -2,7 +2,7 @@
 import os, sys, json
 
 # 从 .env 加载 DEEPSEEK_API_KEY
-env_path = "/home/rayliu/.mimiraether/.env"
+env_path = os.environ.get("MIMIR_AETHER_HOME", os.path.expanduser("~/.mimiraether")) + "/.env"
 if os.path.exists(env_path):
     for line in open(env_path):
         line = line.strip()
@@ -11,7 +11,7 @@ if os.path.exists(env_path):
             os.environ["DEEPSEEK_API_KEY"] = key
             break
 
-sys.path.insert(0, "/home/rayliu/src/MimirAether")
+sys.path.insert(0, os.environ.get("MIMIR_REPO_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from agent.dream_memory import sync_run_dream_cycle, _get_persistent_path, _load_persistent
 
 # 跑之前状态

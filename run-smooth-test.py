@@ -8,7 +8,7 @@ for line in open(os.path.join(home, ".env")):
         os.environ["DEEPSEEK_API_KEY"] = line.strip().split("=", 1)[1]
         break
 
-TASK = """【顺畅性验证】把以下内容写入 /home/rayliu/wiki/concepts/Mimir顺畅性验证-20260805.md（绝对路径）：
+TASK = """【顺畅性验证】把以下内容写入 " + os.environ.get("MIMIR_WIKI_ROOT", os.path.expanduser("~/wiki")) + "/concepts/Mimir顺畅性验证-20260805.md（绝对路径）：
 
 # Mimir顺畅性验证
 收件箱噪音清理后，Mimir应顺畅落盘。

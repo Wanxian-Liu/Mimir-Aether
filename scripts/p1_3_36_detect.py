@@ -4,7 +4,7 @@
 输出每卡线索判定，供补溯人工确认。"""
 import os, re, sys, datetime
 
-WIKI = "/home/rayliu/wiki"
+WIKI = os.environ.get("MIMIR_WIKI_ROOT", os.path.expanduser("~/wiki"))
 DIRS = ["discussions", "entities"]
 
 # 与 p1_3_36_scan.py 相同的排除清单

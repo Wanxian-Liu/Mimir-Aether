@@ -13,7 +13,7 @@ import re
 import sys
 from pathlib import Path
 
-ROOT = Path("/home/rayliu/src/MimirAether")
+ROOT = Path(os.environ.get("MIMIR_REPO_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 TARGET = ROOT / "agent" / "core_loop.py"
 
 src = TARGET.read_text(encoding="utf-8")

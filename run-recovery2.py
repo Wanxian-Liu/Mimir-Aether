@@ -10,7 +10,7 @@ for line in open(os.path.join(home, ".env")):
 
 TASK = """【康复复验】写一段简短的双循环讨论复盘。
 
-【任务】用write_file把以下内容写入 /home/rayliu/wiki/concepts/Mimir康复复验-双循环-20260805.md（绝对路径）：
+【任务】用write_file把以下内容写入 " + os.environ.get("MIMIR_WIKI_ROOT", os.path.expanduser("~/wiki")) + "/concepts/Mimir康复复验-双循环-20260805.md（绝对路径）：
 
 # Mimir康复复验（双循环修复后）
 

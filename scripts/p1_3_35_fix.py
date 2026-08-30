@@ -12,11 +12,11 @@
 """
 import importlib.util, json, os, re
 
-WIKI = "/home/rayliu/wiki"
+WIKI = os.environ.get("MIMIR_WIKI_ROOT", os.path.expanduser("~/wiki"))
 
 # 加载 p1_3_31_fix 复用 fix_file / find_candidates
 spec = importlib.util.spec_from_file_location(
-    "p1_3_31_fix", "/home/rayliu/src/MimirAether/scripts/p1_3_31_fix.py")
+    "p1_3_31_fix", os.environ.get("MIMIR_REPO_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) + "/scripts/p1_3_31_fix.py")
 p131 = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(p131)
 fix_file = p131.fix_file
