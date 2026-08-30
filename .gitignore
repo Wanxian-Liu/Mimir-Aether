@@ -62,3 +62,4 @@ data/persistent.json.bak
 !.crew/graphs/
 !.crew/artifacts/.gitkeep
 !.crew/graphs/.gitkeep/data/persistent.json
+data/cross-session-context.md
