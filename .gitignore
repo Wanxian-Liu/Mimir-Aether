@@ -63,3 +63,5 @@ data/persistent.json.bak
 !.crew/artifacts/.gitkeep
 !.crew/graphs/.gitkeep/data/persistent.json
 data/cross-session-context.md
+NEXT_SESSION.md
+tasks/state.json
