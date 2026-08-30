@@ -36,7 +36,7 @@
 ```text
 你是 Mimir 工程轨（ENG-WF）。本轮顺序：
 
-1) ~/.openclaw/workspace/CLAUDE.md
+1) $WORKSPACE/CLAUDE.md
 2) ~/src/MimirAether/AGENTS.md
 3) 本文（MIMIR_ENGINEERING_WORKFLOW.md）§2 单粒循环
 4) ~/src/MimirAether/docs/MIMIR_TASK_QUEUE.md §12 第一条可执行 [ ]

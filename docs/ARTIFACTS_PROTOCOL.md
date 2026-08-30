@@ -10,7 +10,7 @@
 ```
 Agent 生成 HTML
   ├─→ Feishu: 转为 interactive 卡片（在线即时）
-  ├─→ Wiki:   归档到 wiki/raw/（持久化 + 可搜索）
+  ├─→ Wiki:   归档到 docs/raw/（持久化 + 可搜索）
   └─→ File:   保存为独立 .html 文件（浏览器可直接打开）
 ```
 
@@ -25,7 +25,7 @@ Agent 生成 HTML
   ├─→ 即时通道: Feishu Card 发送
   │
   ▼
-归档 (自动写入 wiki/raw/ + 更新 index.md)
+归档 (自动写入 docs/raw/ + 更新 index.md)
   │
   ▼
 引用 (后续会话可通过 wiki 索引检索)
@@ -88,7 +88,7 @@ Agent 生成 HTML
 ## 6. 存储路径
 
 ```
-wiki/raw/artifact-{date}-{slug}.html     ← artifact HTML 文件
+docs/raw/artifact-{date}-{slug}.html     ← artifact HTML 文件
 wiki/index.md                             ← 自动追加索引条目
 templates/html/{template}.html            ← 模板文件
 ```

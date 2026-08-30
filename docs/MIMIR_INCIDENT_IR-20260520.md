@@ -136,8 +136,8 @@ git push origin main   # 或你的事故修复分支
 
 ## References
 
-- HTML: `~/.openclaw/workspace/mimir-crash-report-2026-05-20.html`
+- HTML: `$WORKSPACE/mimir-crash-report-2026-05-20.html`
 - Wiki commentary: `docs/MIMIR_D17_WIKI_AUDIT_COMMENTARY.md`
 - Mimir tasks: `docs/MIMIR_D17_AUDIT_AND_TASKS.md`
-- Restart skill: `~/.openclaw/workspace/skills/mimir-restart/SKILL.md`
+- Restart skill: `$WORKSPACE/skills/mimir-restart/SKILL.md`
 - Ops: `docs/OPERATIONS_GATEWAY.md` §2.1

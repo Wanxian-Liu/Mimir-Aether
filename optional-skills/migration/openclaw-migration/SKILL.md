@@ -270,7 +270,7 @@ Do not use `$PWD` or the home directory as the workspace target by default. Ask 
 2. Do not migrate secrets by default. Tokens, auth blobs, device credentials, and raw gateway config should stay out of Hermes unless the user explicitly asks for secret migration.
 3. Do not silently overwrite non-empty Hermes targets unless the user explicitly wants that. The helper script will preserve backups when overwriting is enabled.
 4. Always give the user the skipped-items report. That report is part of the migration, not an optional extra.
-5. Prefer the primary OpenClaw workspace (`~/.openclaw/workspace/`) over `workspace.default/`. Only use the default workspace as fallback when the primary files are missing.
+5. Prefer the primary OpenClaw workspace (`$WORKSPACE/`) over `workspace.default/`. Only use the default workspace as fallback when the primary files are missing.
 6. Even in secret-migration mode, only migrate secrets with a clean Hermes destination. Unsupported auth blobs must still be reported as skipped.
 7. If the dry run shows a large asset copy, a conflicting `SOUL.md`, or overflowed memory entries, call those out separately before execution.
 8. Default to `user-data only` if the user is unsure.

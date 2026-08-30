@@ -269,7 +269,7 @@ Cursor **自行执行**（无需每轮再问）：
 **立即动作（Cursor）**：
 1. **只使用 `~/src/MimirAether/`** — 这是唯一真源。旧路径是 OpenClaw 打开的 workspace 镜像，已废弃。
 2. 以后任何审计、健康检查、文档扫描，**必须以 `~/src/MimirAether/` 为基准**。
-3. 把这条规则存入 `~/.openclaw/workspace/CLAUDE.md`（或你的持久记忆），防止以后再混淆。
+3. 把这条规则存入 `$WORKSPACE/CLAUDE.md`（或你的持久记忆），防止以后再混淆。
 
 **不要做的事**：
 - ❌ 不要「同时更新」两个仓库

@@ -110,7 +110,7 @@
 你是 Mimir 工程+智商主执行，Cursor 不复核。必读：
 1) ~/src/MimirAether/docs/MIMIR_BRAIN_AUTONOMY_CHAIN.md（全文）
 2) ~/src/MimirAether/docs/MIMIR_TASK_QUEUE.md §10 第一条 [ ]
-3) ~/.openclaw/workspace/CLAUDE.md + AGENTS.md
+3) $WORKSPACE/CLAUDE.md + AGENTS.md
 4) skills/mimiraether/mimiraether-ship/SKILL.md（每粒 push 前）
 
 纪律：

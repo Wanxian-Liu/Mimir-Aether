@@ -30,7 +30,7 @@
 | **记忆 HTML** | `memory/capsules`、`memory/wiki`、Obsidian 同根 | HTML_MEMORY_CONTRACT |
 | **mimicore 泉** | 胶囊 + evolve；归档第二套 gateway/cli/agent | MIMICORE_SPRING_SCOPE |
 | **Parity + 进化** | 学 Hermes 核心；tier0 + M6；非黑盒 | NORTH_STAR, M6_EVOLUTION |
-| **技能与学习** | SKILL 插件化吸收；不整仓融合 | hermes_skills_inventory, BACKLOG |
+| **技能与学习** | SKILL 插件化吸收；不整仓融合 | agent-skills-inventory, BACKLOG |
 
 ---
 

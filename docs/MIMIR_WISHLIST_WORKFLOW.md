@@ -44,7 +44,7 @@
 ```text
 你是 Mimir 心愿单轨（MW）。刘哥已拍板：§13 中无 🔴 项均可做；env 默认关；每粒 commit+push。
 
-1) ~/.openclaw/workspace/CLAUDE.md
+1) $WORKSPACE/CLAUDE.md
 2) ~/src/MimirAether/AGENTS.md
 3) 本文 §3 单粒循环
 4) TASK_QUEUE §13 第一条 [ ]（./scripts/mimir_wish_run_next.sh --dry-run）

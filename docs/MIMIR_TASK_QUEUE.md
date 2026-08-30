@@ -15,7 +15,7 @@
 你是 Mimir 运维轨。本轮开始前必读（顺序）：
 
 0) mimir_iq55_run_next → §14；否则 mimir_iq17/eng/wish → §11/12/13（均已收官则 NONE）
-1) ~/.openclaw/workspace/CLAUDE.md — 行为准则（Think/Simplicity/Surgical/Goal-Driven）
+1) $WORKSPACE/CLAUDE.md — 行为准则（Think/Simplicity/Surgical/Goal-Driven）
 2) ~/src/MimirAether/AGENTS.md — 仓库 vs MIMIR_AETHER_HOME、Ralph、M6
 3) §11 或 §12 第一条 [ ] 的真源计划（IQ17_EXECUTION_PLAN 或 MIMIR_ENGINEERING_WORKFLOW.md）
 4) ~/src/MimirAether/docs/MIMIR_IQ_EVOLUTION_DIRECTION.md — §0、§3.2 证据类型、§3.3 回报模板

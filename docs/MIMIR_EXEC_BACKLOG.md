@@ -91,7 +91,7 @@
 
 ---
 
-**交接文档**：`docs/MIMIR_HANDOFF_20260520.md` · **微信简报**：OpenClaw skill `mimir-handoff-weixin`（`~/.openclaw/workspace/skills/`）
+**交接文档**：`docs/MIMIR_HANDOFF_20260520.md` · **微信简报**：OpenClaw skill `mimir-handoff-weixin`（`$WORKSPACE/skills/`）
 
 ---
 
