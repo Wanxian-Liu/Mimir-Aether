@@ -16,8 +16,8 @@ import types
 
 import pytest
 
-sys.path.insert(0, "/home/rayliu/src/MimirAether")
-os.chdir("/home/rayliu/src/MimirAether")
+sys.path.insert(0, os.environ.get("MIMIR_REPO_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+os.chdir(os.environ.get("MIMIR_REPO_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from agent.pi_trigger import (
     PI_NUDGE_MARKER,

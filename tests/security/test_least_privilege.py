@@ -67,13 +67,13 @@ def test_wiki_read_ok(exec_obj):
 
 # ── project 只读 ──
 def test_project_write_denied(exec_obj):
-    p = "/home/rayliu/src/MimirAether/agent/agent_loop.py"
+    p = os.environ.get("MIMIR_REPO_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) + "/agent/agent_loop.py"
     err = exec_obj._validate_path_access("write_file", {"path": p})
     assert err and "read-only" in err
 
 
 def test_project_read_ok(exec_obj):
-    p = "/home/rayliu/src/MimirAether/agent/agent_loop.py"
+    p = os.environ.get("MIMIR_REPO_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) + "/agent/agent_loop.py"
     assert exec_obj._validate_path_access("read_file", {"path": p}) is None
 
 

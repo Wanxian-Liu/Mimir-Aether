@@ -1,7 +1,7 @@
 """段2 单测：parallel_eligibility（三信号 + 依赖过滤 + env 回退）"""
 import sys, os
-sys.path.insert(0, "/home/rayliu/src/MimirAether")
-os.chdir("/home/rayliu/src/MimirAether")
+sys.path.insert(0, os.environ.get("MIMIR_REPO_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+os.chdir(os.environ.get("MIMIR_REPO_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from agent.parallel_eligibility import estimate_parallel_elig, parallel_elig_ok
 

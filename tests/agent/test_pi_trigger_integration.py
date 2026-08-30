@@ -1,6 +1,6 @@
 """段 7 集成测试 · PI 自动委派端到端触发链（2026-08-20 · 块3 段7）。
 
-角色来源：engineering-code-reviewer（wiki raw: /home/rayliu/wiki/raw/agency-agents/engineering/engineering-code-reviewer.md）
+角色来源：engineering-code-reviewer（wiki raw: ~/wiki/raw/agency-agents/engineering/engineering-code-reviewer.md）
 核心规则引用：
   1. 覆盖重要路径的测试（🟡 Testing — Are the important paths tested?）
   2. 一次审查完整反馈（One review, complete feedback——4 场景一次覆盖）

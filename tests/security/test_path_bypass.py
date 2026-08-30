@@ -53,7 +53,7 @@ class TestPathBypass:
     def test_S2_case_insensitive_bypass(self):
         """🔴 S2: /.SSH/ vs /.ssh/ — Unix/Mac 文件系统不区分大小写，
         但 _DENY_PATH_FRAGMENTS 字符串精确小写匹配 → 大写路径绕过"""
-        _path = "/home/rayliu/.SSH/id_rsa"
+        _path = "/tmp/.SSH/id_rsa"
         _DENY = ("/.ssh/",)
         bypass = not any(frag in _path for frag in _DENY)
         assert bypass, "审计 S2 验证：大写 .SSH/ 100% 绕过"
@@ -65,10 +65,10 @@ class TestPathBypass:
     def test_S3_url_encoded_bypass(self):
         """🔴 S3: %2e%2e → ..  — _DENY 字符串 contains 不解码 URL 编码"""
         from urllib.parse import unquote
-        _path = "/home/rayliu/wiki/%2e%2e/.ssh/id_rsa"
+        _path = "/tmp/wiki/%2e%2e/.ssh/id_rsa"
         _DENY = ("/.ssh/",)
         # 原实现（不解码）：%2e%2e 不展开——但字符串仍含 "/.ssh/"（fixture 缺陷）——真实绕过用全编码
-        _fully_encoded = "/home/rayliu/wiki/%2e%2e%2f%2essh%2fid_rsa"
+        _fully_encoded = "/tmp/wiki/%2e%2e%2f%2essh%2fid_rsa"
         bypass_raw = not any(frag in _fully_encoded for frag in _DENY)
         assert bypass_raw, "全编码路径原实现绕过（%.2f 不含 /.ssh/）"
         # 修复：unquote 解码后应命中
@@ -81,8 +81,8 @@ class TestPathBypass:
         （当前 _DENY_PATH_FRAGMENTS 含 '/etc/' contains 会误伤）"""
         legal_paths = [
             "/etc/ssl/certs/ca-certificates.crt",   # 真实误伤（"/etc/" 前缀 contains）
-            "/home/rayliu/.ssh-not-real/notes.md",  # 不误伤（"/.ssh/" 需精确子串——".ssh-not-real" 不匹配）
-            "/home/rayliu/.awsome-but-not-aws/notes.md",  # 不误伤
+            "/tmp/.ssh-not-real/notes.md",  # 不误伤（"/.ssh/" 需精确子串——".ssh-not-real" 不匹配）
+            "/tmp/.awsome-but-not-aws/notes.md",  # 不误伤
         ]
         # 当前实现误伤（仅 /etc/ssl 真实误伤——contains 精确子串语义）
         _DENY = ("/etc/", "/.ssh/", "/.aws/")

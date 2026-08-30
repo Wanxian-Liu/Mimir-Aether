@@ -6,8 +6,8 @@
 import os
 import sys
 
-sys.path.insert(0, "/home/rayliu/src/MimirAether")
-os.chdir("/home/rayliu/src/MimirAether")
+sys.path.insert(0, os.environ.get("MIMIR_REPO_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+os.chdir(os.environ.get("MIMIR_REPO_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from agent.delegation_guard import (
     check_delegation_guard,

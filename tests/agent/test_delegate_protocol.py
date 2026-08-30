@@ -1,7 +1,7 @@
 """段3 单测：delegate 返回协议（K2——output_path 提取）"""
 import sys, os, re
-sys.path.insert(0, "/home/rayliu/src/MimirAether")
-os.chdir("/home/rayliu/src/MimirAether")
+sys.path.insert(0, os.environ.get("MIMIR_REPO_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+os.chdir(os.environ.get("MIMIR_REPO_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from tools.delegate_tool import _build_child_system_prompt
 

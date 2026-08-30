@@ -59,4 +59,4 @@ class TestValidationIntegration:
             # E2 修复（2026-08-18 21:00）：off 仅解除分级——DENY 永远生效
             assert result is not None and "Blocked" in result, "E2 修复：off 也拒绝 DENY 路径"
             # 修复后应仍保留 DENY 黑名单
-            # 期望行为：off → 仍拦截 /etc/passwd 但放行 /home/rayliu/wiki/
+            # 期望行为：off → 仍拦截 /etc/passwd 但放行 ~/wiki/

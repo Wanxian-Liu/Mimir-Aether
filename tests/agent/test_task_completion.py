@@ -1,7 +1,7 @@
 """S3 测试：任务书完成度检查（四方会议 5 项清单——Loki B-L2/B-L4/B-L5 + OpenClaw 边界）——pytest 格式"""
 import sys, os
-sys.path.insert(0, "/home/rayliu/src/MimirAether")
-os.chdir("/home/rayliu/src/MimirAether")
+sys.path.insert(0, os.environ.get("MIMIR_REPO_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+os.chdir(os.environ.get("MIMIR_REPO_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from agent.task_completion import check_task_completion, extract_task_spec
 

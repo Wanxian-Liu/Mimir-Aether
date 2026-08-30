@@ -99,7 +99,7 @@ def get_mimir_chroma_dir() -> Path:
 
 class LocalSentenceTransformerEmbeddingFunction:
     """Chroma-compatible embedding function backed by a local sentence-transformers
-    model (e.g. /home/rayliu/models/bge-m3). Retrieval-optimized:
+    model (e.g. ~/models/bge-m3). Retrieval-optimized:
     max_seq_length=512 truncation, 16 threads, L2-normalized vectors (cosine).
 
     P0 (2026-08-11): real bge-m3 replaces the deterministic hash placeholder.

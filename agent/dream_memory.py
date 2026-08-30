@@ -44,7 +44,7 @@ def _get_persistent_path() -> str:
     """获取 persistent.json 路径（与 CrossSessionMemory 同源）。
 
     注意：sandbox/terminal 环境中 HOME 可能被 OpenClaw 覆盖为
-    /home/rayliu/.mimiraether，此时 expanduser("~/.mimiraether") 会产
+    ~/.mimiraether，此时 expanduser("~/.mimiraether") 会产
     生双层嵌套。修复方案：先取 MIMIR_AETHER_HOME，fallback 时检测 HOME
     是否已指向 .mimiraether。
     """
