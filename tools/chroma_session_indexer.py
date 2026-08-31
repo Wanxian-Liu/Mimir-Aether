@@ -13,6 +13,63 @@ from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
 
 logger = logging.getLogger(__name__)
 
+# --- Loki 四条 fallback 加固 (议题六真根因修复) ---
+# 维度不匹配 (hash 384 vs bge-m3 1024) 曾导致 semantic_hit_rate 静默假 0.0。
+# 规则: 告警升级 error 级 + 写 audit_log + 连续失败熔断 + 启动 fail-fast。
+_EMBED_RESOLVE_FAILURES = 0
+EMBED_RESOLVE_CIRCUIT_LIMIT = 3  # 连续失败达此数 -> 熔断 (后续直接 raise)
+
+
+def _embedding_audit(event: str, detail: str, level: str = "error") -> None:
+    """追加一行 embedding fallback 审计日志 (fail-open: 审计失败不阻断主流程)。"""
+    try:
+        import json
+        import time as _time
+
+        from mimir_constants import get_mimir_home
+
+        log_path = Path(get_mimir_home()) / "data" / "audit_log.jsonl"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(log_path, "a", encoding="utf-8") as fh:
+            fh.write(
+                json.dumps(
+                    {"ts": _time.time(), "level": level, "event": event, "detail": detail},
+                    ensure_ascii=False,
+                )
+                + "\n"
+            )
+    except Exception as exc:  # noqa: BLE001 - audit must never mask the real error
+        logger.debug("embedding audit log write failed: %s", exc)
+
+
+def _embed_resolve_failed(reason: str) -> None:
+    """连续失败计数 + 告警升级 error + audit_log + 熔断判定 (fail-fast)。"""
+    global _EMBED_RESOLVE_FAILURES
+    _EMBED_RESOLVE_FAILURES += 1
+    _embedding_audit(
+        "embedding_resolve_failed",
+        f"{reason} (failure {_EMBED_RESOLVE_FAILURES}/{EMBED_RESOLVE_CIRCUIT_LIMIT})",
+    )
+    logger.error(
+        "embedding resolve FAILED (%d/%d): %s",
+        _EMBED_RESOLVE_FAILURES,
+        EMBED_RESOLVE_CIRCUIT_LIMIT,
+        reason,
+    )
+    if _EMBED_RESOLVE_FAILURES >= EMBED_RESOLVE_CIRCUIT_LIMIT:
+        _embedding_audit(
+            "embedding_circuit_open",
+            f"after {_EMBED_RESOLVE_FAILURES} consecutive failures",
+        )
+        logger.error(
+            "embedding resolve circuit OPEN after %d failures - fail-fast",
+            _EMBED_RESOLVE_FAILURES,
+        )
+        raise RuntimeError(
+            f"embedding resolve circuit breaker OPEN after {_EMBED_RESOLVE_FAILURES} consecutive "
+            f"failures: {reason}. Fix MIMIR_EMBED_MODEL / venv deps, then restart."
+        )
+
 COLLECTION_NAME = "session_messages"
 DEFAULT_EMBED_DIM = 384
 DEFAULT_BATCH_SIZE = 128
@@ -167,32 +224,39 @@ class LocalSentenceTransformerEmbeddingFunction:
 def resolve_embedding_function(model: Optional[str] = None):
     """Pick embedding backend: local ST model (e.g. bge-m3) when configured, else
     chromadb ST by name, else deterministic hash (tier0 / no ML deps)."""
+    global _EMBED_RESOLVE_FAILURES
     model = (model or os.getenv("MIMIR_EMBED_MODEL", "")).strip()
     if model:
         # 1) local path on disk -> retrieval-optimized local embedding (P0: bge-m3)
         model_path = Path(model).expanduser()
         if model_path.is_dir():
             try:
-                return LocalSentenceTransformerEmbeddingFunction(str(model_path))
-            except Exception as exc:
-                logger.warning(
-                    "MIMIR_EMBED_MODEL=%s local load failed (%s); falling back to chromadb ST / hash",
-                    model,
-                    exc,
+                ef = LocalSentenceTransformerEmbeddingFunction(str(model_path))
+                _EMBED_RESOLVE_FAILURES = 0  # 成功 -> 复位熔断计数
+                return ef
+            except Exception as exc:  # noqa: BLE001 - fail-fast per Loki
+                _embed_resolve_failed(
+                    f"MIMIR_EMBED_MODEL={model} local ST load failed: {exc}"
                 )
+                # 熔断未开且未达上限 -> 继续尝试 chromadb ST by name
         # 2) model name resolvable via chromadb sentence-transformers extras
         try:
             from chromadb.utils import embedding_functions
 
-            return embedding_functions.SentenceTransformerEmbeddingFunction(
-                model_name=model
+            ef = embedding_functions.SentenceTransformerEmbeddingFunction(model_name=model)
+            _EMBED_RESOLVE_FAILURES = 0  # 成功 -> 复位熔断计数
+            return ef
+        except (ImportError, ValueError):  # chromadb 缺 ST 时抛 ValueError 而非 ImportError
+            _embed_resolve_failed(
+                f"MIMIR_EMBED_MODEL={model} but sentence-transformers/chromadb extras unavailable"
             )
-        except ImportError:
-            logger.warning(
-                "MIMIR_EMBED_MODEL=%s but sentence-transformers/chromadb extras "
-                "unavailable; using hash embeddings",
-                model,
-            )
+        # 3) 配置了模型但两条路都失败 -> 绝不静默降级 hash (维度不匹配 -> 假 0.0)
+        raise RuntimeError(
+            f"MIMIR_EMBED_MODEL={model} configured but unresolvable; refusing hash fallback "
+            f"(dimension mismatch would fake semantic_hit_rate=0.0). "
+            f"Run under .venv with torch+sentence-transformers, or unset MIMIR_EMBED_MODEL "
+            f"to allow tier0 hash embeddings."
+        )
     return HashEmbeddingFunction()
 
 

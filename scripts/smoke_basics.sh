@@ -27,6 +27,10 @@ else
 fi
 
 echo "== Smoke: cli gateway health =="
-python3 cli.py gateway health
+PYTHON_BIN="${ROOT}/.venv/bin/python3"
+if [[ ! -x "${PYTHON_BIN}" ]]; then
+  PYTHON_BIN="python3"
+fi
+"${PYTHON_BIN}" cli.py gateway health
 
 echo "OK"

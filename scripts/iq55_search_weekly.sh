@@ -11,7 +11,11 @@ OUTPUT="$OPS_DIR/search-first-weekly.json"
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 cd "$REPO_ROOT"
-python3 scripts/search_first_audit.py 2>/dev/null | python3 -c "
+PYTHON_BIN="${REPO_ROOT}/.venv/bin/python3"
+if [[ ! -x "${PYTHON_BIN}" ]]; then
+  PYTHON_BIN="python3"
+fi
+"${PYTHON_BIN}" scripts/search_first_audit.py 2>/dev/null | "${PYTHON_BIN}" -c "
 import json, sys
 data = json.load(sys.stdin)
 summary = {

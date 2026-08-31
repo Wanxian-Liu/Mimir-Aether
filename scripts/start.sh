@@ -13,4 +13,9 @@ if [[ -f "$MIMIR_AETHER_HOME/.env" ]]; then
 fi
 # Optional hint for tooling; gateway reads bind/port from config / platform env, not CLI.
 export GATEWAY_PORT="${GATEWAY_PORT:-${PORT:-18789}}"
-exec python3 "$MIMIR_AETHER_HOME/gateway/run.py" "$@"
+# 统一用项目 venv（系统 python3 无 torch/ST -> chroma 维度不匹配假数据）
+PYTHON_BIN="${ROOT}/.venv/bin/python3"
+if [[ ! -x "${PYTHON_BIN}" ]]; then
+  PYTHON_BIN="python3"
+fi
+exec "${PYTHON_BIN}" "$MIMIR_AETHER_HOME/gateway/run.py" "$@"

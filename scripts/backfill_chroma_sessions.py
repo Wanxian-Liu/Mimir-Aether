@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/home/rayliu/src/MimirAether/.venv/bin/python3
 """Backfill Chroma session_messages from sessions_search.db (SEM-02)."""
 
 from __future__ import annotations

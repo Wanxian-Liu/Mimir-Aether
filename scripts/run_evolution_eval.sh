@@ -16,6 +16,16 @@ set -eu
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+# IEVO-04 FIX (议题六真根因): 评测必须跑在项目 venv 下。裸 python3 = 系统
+# python (/usr/bin/python3, 无 torch/sentence-transformers) -> embedding 解析
+# 静默降级 hash(384) vs collection bge-m3(1024) 维度不匹配 -> semantic_hit_rate
+# 假 0.0。统一用 ${ROOT}/.venv/bin/python3，缺失即 fail-fast。
+PYTHON_BIN="${ROOT}/.venv/bin/python3"
+if [[ ! -x "${PYTHON_BIN}" ]]; then
+  echo "run_evolution_eval: FATAL missing ${PYTHON_BIN} (venv with torch+sentence-transformers required)" >&2
+  exit 2
+fi
+
 BASELINE="${ROOT}/docs/phase0/memory-retrieval-benchmark-20260526.json"
 SKIP_COMPARE=0
 
@@ -70,7 +80,7 @@ echo "home=${MIMIR_AETHER_HOME}"
 echo "like_db=${LIKE_DB}"
 echo "out=${OUT_JSON}"
 
-python3 "${ROOT}/scripts/run_memory_retrieval_benchmark.py" --json-out "${OUT_JSON}"
+"${PYTHON_BIN}" "${ROOT}/scripts/run_memory_retrieval_benchmark.py" --json-out "${OUT_JSON}"
 cp -f "${OUT_JSON}" "${LATEST_JSON}"
 chmod 644 "${OUT_JSON}" "${LATEST_JSON}" 2>/dev/null || true
 echo "latest=${LATEST_JSON}"
@@ -81,7 +91,7 @@ if [[ "${SKIP_COMPARE}" -eq 1 ]]; then
 fi
 
 echo "=== compare vs baseline ${BASELINE} ==="
-python3 "${ROOT}/scripts/compare_memory_retrieval_baseline.py" \
+"${PYTHON_BIN}" "${ROOT}/scripts/compare_memory_retrieval_baseline.py" \
   "${OUT_JSON}" \
   --baseline "${BASELINE}" \
   --json-out "${COMPARE_JSON}"

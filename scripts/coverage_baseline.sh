@@ -10,7 +10,12 @@ echo "Date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "Commit: $(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
 echo ""
 
-python3 -m pytest \
+PYTHON_BIN="${REPO_ROOT}/.venv/bin/python3"
+if [[ ! -x "${PYTHON_BIN}" ]]; then
+  PYTHON_BIN="python3"
+fi
+
+"${PYTHON_BIN}" -m pytest \
   --cov=agent --cov=gateway --cov=tools \
   --cov-config=.coveragerc \
   --cov-report=term-missing \
