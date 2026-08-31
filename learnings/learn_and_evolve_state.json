@@ -1,9 +1,0 @@
-{
-  "index": 5,
-  "evolved": [
-    "InsightsEngine",
-    "SessionDB",
-    "CLI",
-    "MCPServer"
-  ]
-}
