@@ -45,7 +45,12 @@ if [[ -z "${SUMMARY}" ]]; then
 fi
 
 # IEVO-01 / D5-1: block pseudo-evolution markers before tier0
-if ! python3 -c "
+PYTHON_BIN="${ROOT}/.venv/bin/python3"
+if [[ ! -x "${PYTHON_BIN}" ]]; then
+  PYTHON_BIN="python3"
+fi
+
+if ! "${PYTHON_BIN}" -c "
 import sys
 sys.path.insert(0, '${ROOT}')
 from agent.evolution_audit import assert_evolution_summary_allowed

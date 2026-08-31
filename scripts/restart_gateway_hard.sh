@@ -45,7 +45,11 @@ mkdir -p "$MIMIR_AETHER_HOME/logs"
 
 LOG_TO="${LOG_TO:-/dev/null}"
 echo "Starting gateway (repo=$MIMIR_REPO_ROOT home=$MIMIR_AETHER_HOME log=$LOG_TO)"
-nohup python3 "$MIMIR_REPO_ROOT/gateway/run.py" >>"$LOG_TO" 2>&1 &
+PYTHON_BIN="${MIMIR_REPO_ROOT}/.venv/bin/python3"
+if [[ ! -x "${PYTHON_BIN}" ]]; then
+  PYTHON_BIN="python3"
+fi
+nohup "${PYTHON_BIN}" "$MIMIR_REPO_ROOT/gateway/run.py" >>"$LOG_TO" 2>&1 &
 new_pid=$!
 sleep 2
 
