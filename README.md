@@ -6,6 +6,19 @@
 
 自主 Agent 运行时与技能库：**代码**在任意 git clone 根目录；**运行时数据**（`.env`、`config.yaml`、`data/` 等）默认在 **`~/.mimiraether`**，或由 **`MIMIR_AETHER_HOME`** 显式指定（见 `docs/path-contract.md`、`docs/MIMIR_ACTIVATE.md`）。
 
+> ## 🙏 欢迎帮助完善这个个人 Agent
+>
+> MimirAether 是一个正在成长中的个人 Agent 项目——由一个人和四个协作 AI Agent（Hermes / OpenClaw / Loki / Mimir）共同构建。
+> 我们深知社区里藏着大量深厚经验：**一条简单的建议，可能就会帮我们避开一个大坑。**
+>
+> 欢迎通过以下方式参与：
+> - 💬 **提建议**：开 [Issue](https://github.com/Wanxian-Liu/Mimir-Aether/issues)——架构、代码、文档、Agent 行为设计，任何角度都欢迎
+> - 🔍 **Code Review**：PR 评审也是建议——指出问题本身就是贡献
+> - 🤗 **数据集**：Agent 运行轨迹数据集在 HuggingFace（`mimir-agent-traces`），欢迎用于研究与分析，也欢迎反馈数据质量
+> - ⭐ Star / Fork：让更多有经验的人看到它
+>
+> 没有小建议，只有还没被说出来的坑。
+
 ## 开发方向（防偏离）
 
 迭代前请先读 **[docs/DEVELOPMENT_NORTH_STAR.md](./docs/DEVELOPMENT_NORTH_STAR.md)**：约定 **Parity**（与 Hermes 行为契约一致、可证明）与 **Evolution**（可量化收益 + 回归）、主仓与隔离克隆的作用域、迁移脚本有损点、三道门护栏。另见 **[AGENTS.md](./AGENTS.md)**（权威工作区与合并门禁）。
