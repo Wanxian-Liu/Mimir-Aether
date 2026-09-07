@@ -324,6 +324,20 @@ class CallersMixin:
             usage = {}
         pt = int(usage.get("prompt_tokens") or usage.get("input_tokens") or 0)
         ct = int(usage.get("completion_tokens") or usage.get("output_tokens") or 0)
+        # S2-20260907: 前缀缓存指标统一提取（覆盖流式+非流式所有路径）
+        try:
+            _cache_hit = int(usage.get("prompt_cache_hit_tokens") or 0)
+            _cache_miss = int(usage.get("prompt_cache_miss_tokens") or 0)
+            if _cache_hit or _cache_miss:
+                _cached_total = _cache_hit + _cache_miss
+                _hit_pct = 100.0 * _cache_hit / _cached_total if _cached_total else 0.0
+                _sid = str(getattr(self, "session_id", "") or "")
+                logger.info(
+                    "[S2-cache] prompt=%s hit=%s miss=%s hit_pct=%.1f%% session=%s",
+                    pt, _cache_hit, _cache_miss, _hit_pct, _sid,
+                )
+        except Exception as _e:
+            logger.debug("S2-cache metrics skipped: %s", _e)
         if pt <= 0:
             try:
                 pt = int(model_metadata.estimate_messages_tokens_rough(messages))
@@ -411,6 +425,13 @@ class CallersMixin:
                     # 无条件回传 reasoning_content（字段必须存在——None 也设空串——否则 400
                     # "must be passed back"）——压缩/存储丢 reasoning 的补偿：用最近非空值
                     _rc = msg.reasoning_content or _last_reasoning or ""
+                    # S2-20260907: 冻结——补偿值写回消息本身，历史 assistant 字节不再随
+                    # _last_reasoning 逐轮漂移（DeepSeek 前缀缓存稳定；已发送消息只此一次定型）
+                    if _rc and not msg.reasoning_content:
+                        try:
+                            msg.reasoning_content = _rc
+                        except Exception:
+                            pass
                     msg_dict["reasoning_content"] = _rc
                     if _rc:
                         _last_reasoning = _rc
