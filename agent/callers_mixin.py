@@ -375,6 +375,30 @@ class CallersMixin:
         except Exception as _e:
             logger.debug("context_usage_snapshot skipped: %s", _e)
 
+    def _tiered_system_prompt(self) -> str:
+        """S2 刀2 (2026-09-07): 三级分区拼接 system prompt (stable -> context -> volatile).
+
+        DeepSeek(OpenAI兼容)路径此前用旧扁平 build_system_prompt() -- volatile 混排
+        中部(tq_guidance 等) -> 跨会话前缀脆弱(=手术卡 R2)。此处 stable/context 冻结
+        在前、volatile 置尾 -> 前缀缓存只 miss 尾部小段。parts 构建失败回退 system_prompt。
+        Anthropic 路径不受影响(_builtin_call_model_with_tokens L545-546 整体覆盖
+        messages[0].content 为 block list)。
+        """
+        try:
+            parts = self._build_system_prompt_parts()
+        except Exception as _e:
+            logger.debug("tiered system prompt fallback (parts error): %s", _e)
+            return self.system_prompt or ""
+        if not parts:
+            return self.system_prompt or ""
+        _sections = []
+        for _key in ("stable", "context", "volatile"):
+            _val = (parts.get(_key) or "").strip()
+            if _val:
+                _sections.append(_val)
+        _joined = "\n\n".join(_sections)
+        return _joined if _joined else (self.system_prompt or "")
+
     def _build_full_messages(self) -> List[Dict]:
         """构建完整消息列表(用于API调用)
 
@@ -383,8 +407,10 @@ class CallersMixin:
         """
         messages = []
 
-        # 系统提示（单字符串，非多block）+ 可选 IQ-EVO-47 intent 块
-        system_content = self.system_prompt
+        # S2 刀2 (2026-09-07): system 改三级分区拼接 -- stable/context 前缀字节冻结
+        # 在前、volatile 置尾; 替代旧扁平 self.system_prompt(volatile 混排中部)
+        system_content = self._tiered_system_prompt()
+        # 可选 IQ-EVO-47 intent 块（每 run 生成 -> 放最尾，只 miss 尾部小段）
         intent_block = getattr(self, "_intent_context_block", "") or ""
         if intent_block:
             system_content = f"{system_content}\n\n{intent_block}"
