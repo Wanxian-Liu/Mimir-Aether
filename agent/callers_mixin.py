@@ -376,14 +376,23 @@ class CallersMixin:
             logger.debug("context_usage_snapshot skipped: %s", _e)
 
     def _tiered_system_prompt(self) -> str:
-        """S2 刀2 (2026-09-07): 三级分区拼接 system prompt (stable -> context -> volatile).
+        """S2 刀2/刀3 (2026-09-07): 三级分区拼接 system prompt (stable -> context -> volatile).
 
         DeepSeek(OpenAI兼容)路径此前用旧扁平 build_system_prompt() -- volatile 混排
         中部(tq_guidance 等) -> 跨会话前缀脆弱(=手术卡 R2)。此处 stable/context 冻结
         在前、volatile 置尾 -> 前缀缓存只 miss 尾部小段。parts 构建失败回退 system_prompt。
         Anthropic 路径不受影响(_builtin_call_model_with_tokens L545-546 整体覆盖
         messages[0].content 为 block list)。
+
+        刀3 (2026-09-07 Hermes 接力): 静态区会话内字节级冻结 -- 同 agent 实例内
+        _build_system_prompt_parts() 只构建一次, 结果缓存为 (model, text)。后续调用
+        (含 retry / fallback 重发 / 同会话多轮) 直接复用冻结字节, 不重算不重排
+        (Loki B5: retry 重调 build 若插入 request_id/时间戳 = 前缀缓存全废)。
+        model 变更(fallback/restore) 时缓存自动失效重建 -- 无需外部失效点。
         """
+        _frozen = getattr(self, "_s2_tiered_frozen", None)
+        if _frozen is not None and _frozen[0] == self.model:
+            return _frozen[1]
         try:
             parts = self._build_system_prompt_parts()
         except Exception as _e:
@@ -397,7 +406,21 @@ class CallersMixin:
             if _val:
                 _sections.append(_val)
         _joined = "\n\n".join(_sections)
-        return _joined if _joined else (self.system_prompt or "")
+        if not _joined:
+            return self.system_prompt or ""
+        # 刀3: 首次构建成功 -> 冻结 (model, text)。intent block 由调用方追加(每 run 尾部小段)
+        try:
+            self._s2_tiered_frozen = (self.model, _joined)
+        except Exception:
+            pass
+        return _joined
+
+    def _invalidate_tiered_system_prompt(self) -> None:
+        """S2 刀3: 显式失效冻结缓存(model 变更已自动失效; 此钩子供外部重置)。"""
+        try:
+            self._s2_tiered_frozen = None
+        except Exception:
+            pass
 
     def _build_full_messages(self) -> List[Dict]:
         """构建完整消息列表(用于API调用)
