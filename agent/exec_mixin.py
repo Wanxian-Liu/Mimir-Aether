@@ -606,7 +606,7 @@ class ExecMixin:
             return None  # 白名单分级关闭（DENY 已查）→ 放行
         # 白名单分级（workspace 允许读写 / project 只读）
         _home = os.path.expanduser("~")
-        _allowed_rw = (_home + "/.mimiraether", _home + "/wiki", _home + "/.openclaw/workspace")
+        _allowed_rw = (_home + "/.mimiraether", _home + "/wiki", _home + "/.openclaw/workspace", _home + "/.openclaw/data")
         _allowed_r = (_home + "/src/MimirAether",)
         _p = os.path.abspath(_path_r)
         for _a in _allowed_rw:
