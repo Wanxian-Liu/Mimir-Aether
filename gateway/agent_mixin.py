@@ -1649,6 +1649,13 @@ class AgentMixin:
 
             _inactivity_timeout = False
             _POLL_INTERVAL = 5.0
+            # Anchor inactivity to THIS run's start.  The cached agent's
+            # activity tracker is reused across runs and is NOT reset when a
+            # new run begins; a session idle longer than the timeout would
+            # otherwise be killed the instant the next message arrives — the
+            # poll reads stale seconds_since_activity from the *previous* run,
+            # before the agent has made its first API call (api_calls=0).
+            _run_start_mono = time.monotonic()
 
             if _agent_timeout is None:
                 # Unlimited — still poll periodically for backup interrupt
@@ -1700,6 +1707,11 @@ class AgentMixin:
                             _idle_secs = _act.get("seconds_since_activity", 0.0)
                         except Exception:
                             pass
+                    # Clamp stale idle from the previous run: within this run
+                    # the agent cannot have been idle longer than the run has
+                    # been alive (cached agent tracker is not reset on new run).
+                    _run_elapsed = time.monotonic() - _run_start_mono
+                    _idle_secs = min(_idle_secs, _run_elapsed)
                     # Staged warning: fire once before escalating to full timeout.
                     if (not _warning_fired and _agent_warning is not None
                             and _idle_secs >= _agent_warning):
