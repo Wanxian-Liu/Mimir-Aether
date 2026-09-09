@@ -57,6 +57,9 @@ class ToolRegistry:
     def __init__(self):
         self._tools: Dict[str, ToolEntry] = {}
         self._toolset_checks: Dict[str, Callable] = {}
+        # R7/B6 (2026-09-09): 注册表变更计数器——工具新增/覆盖/注销/重排
+        # 时自增；_tiered_system_prompt 冻结键含此值 → schema 变化主动失效前缀缓存
+        self._mutation_count = 0
 
     # ------------------------------------------------------------------
     # Registration
@@ -97,6 +100,7 @@ class ToolRegistry:
             max_result_size_chars=max_result_size_chars,
             dynamic_schema_overrides=dynamic_schema_overrides,
         )
+        self._mutation_count += 1  # R7/B6: 工具注册/覆盖 → schema 版本变更
         if check_fn and toolset not in self._toolset_checks:
             self._toolset_checks[toolset] = check_fn
 
@@ -110,12 +114,26 @@ class ToolRegistry:
         entry = self._tools.pop(name, None)
         if entry is None:
             return
+        self._mutation_count += 1  # R7/B6: 工具注销(MCP list_changed) → schema 版本变更
         # Drop the toolset check if this was the last tool in that toolset
         if entry.toolset in self._toolset_checks and not any(
             e.toolset == entry.toolset for e in self._tools.values()
         ):
             self._toolset_checks.pop(entry.toolset, None)
         logger.debug("Deregistered tool: %s", name)
+
+    # ------------------------------------------------------------------
+    # Schema version (R7/B6)
+    # ------------------------------------------------------------------
+
+    @property
+    def mutation_count(self) -> int:
+        """R7/B6: 注册表变更计数——工具新增/覆盖/注销/重排后自增。
+
+        前缀缓存冻结键 (_s2_tiered_frozen) 携带此值；计数变化 = 工具 schema
+        版本变化 → 冻结自动失效重建（论文 §5.2：工具 schema 改 → 全 cache 失效）。
+        """
+        return self._mutation_count
 
     # ------------------------------------------------------------------
     # Schema retrieval

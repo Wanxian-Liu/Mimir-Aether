@@ -389,10 +389,22 @@ class CallersMixin:
         (含 retry / fallback 重发 / 同会话多轮) 直接复用冻结字节, 不重算不重排
         (Loki B5: retry 重调 build 若插入 request_id/时间戳 = 前缀缓存全废)。
         model 变更(fallback/restore) 时缓存自动失效重建 -- 无需外部失效点。
+
+        R7/B6 (2026-09-09): 冻结元组升为 (model, tool_schema_version, text) --
+        工具 schema 版本变化(工具新增/覆盖/注销/重排, 见 tools/registry.py
+        mutation_count)同样触发自动失效重建(论文 §5.2: 工具 schema 改 -> 全
+        cache 失效)。旧二元组 (model, text) 冻结视为不匹配 -> 首轮重建迁移。
         """
         _frozen = getattr(self, "_s2_tiered_frozen", None)
-        if _frozen is not None and _frozen[0] == self.model:
-            return _frozen[1]
+        _tsv = self._tool_schema_version()
+        # 兼容旧二元组 (model, text): len<3 视为无版本 -> 不命中 -> 重建迁移
+        if (
+            _frozen is not None
+            and len(_frozen) >= 3
+            and _frozen[0] == self.model
+            and _frozen[1] == _tsv
+        ):
+            return _frozen[2]
         try:
             parts = self._build_system_prompt_parts()
         except Exception as _e:
@@ -408,12 +420,27 @@ class CallersMixin:
         _joined = "\n\n".join(_sections)
         if not _joined:
             return self.system_prompt or ""
-        # 刀3: 首次构建成功 -> 冻结 (model, text)。intent block 由调用方追加(每 run 尾部小段)
+        # 刀3+R7/B6: 首次构建成功 -> 冻结 (model, tool_schema_version, text)。
+        # intent block 由调用方追加(每 run 尾部小段)
         try:
-            self._s2_tiered_frozen = (self.model, _joined)
+            self._s2_tiered_frozen = (self.model, _tsv, _joined)
         except Exception:
             pass
         return _joined
+
+    def _tool_schema_version(self) -> str:
+        """R7/B6: 工具 schema 版本签名 = 注册表变更计数。
+
+        计数在 tools/registry.py register/deregister 时自增 -- 工具新增/覆盖/
+        注销/重排(含 MCP tools/list_changed 动态变更)都会使签名变化, 从而
+        让 _s2_tiered_frozen 冻结键失配 -> 前缀缓存主动失效重建。
+        取不到注册表(极端)时回退 "tsv0" 仍可与旧冻结区隔。
+        """
+        try:
+            return f"tsv{_tool_registry_module.registry.mutation_count}"
+        except Exception:
+            return "tsv0"
+
 
     def _invalidate_tiered_system_prompt(self) -> None:
         """S2 刀3: 显式失效冻结缓存(model 变更已自动失效; 此钩子供外部重置)。"""
@@ -445,6 +472,20 @@ class CallersMixin:
             "role": "system",
             "content": system_content,
         })
+
+        # R7/B3B4 invariant (2026-09-09): system 前缀冻结一致性。
+        # 冻结键匹配时, 本次构建的 system 内容必须以冻结文本为前缀(intent 块是
+        # 允许的尾部追加); 若 stable/context 区被动态内容污染(B5: 时间戳/request_id
+        # 注入)或冻结被外部篡改, 前缀漂移 -> 主动失效冻结, 下轮重建(防御式, 不
+        # crash 主流量)。Debug 轮 L116/L118/L520: assert messages[:cache_boundary]
+        # == frozen_c; 失败处理 = 主动失效 + 重新 full request + log warning。
+        if not self._s2_prefix_invariant_ok(messages):
+            logger.error(
+                "B3/B4 invariant violated: system prefix drifted from frozen anchor "
+                "(model=%s) -> invalidating tiered cache, next call rebuilds",
+                self.model,
+            )
+            self._invalidate_tiered_system_prompt()
 
         # 检测是否需要reasoning_content传播(DeepSeek V4 Pro等模型需要)
         needs_propagation = self._needs_reasoning_propagation()
@@ -498,6 +539,34 @@ class CallersMixin:
         messages = self._sanitize_tool_messages(messages)
 
         return messages
+
+
+    def _s2_prefix_invariant_ok(self, messages: List[Dict]) -> bool:
+        """R7/B3B4: 校验 system 前缀与冻结锚点一致。
+
+        规则: 存在冻结元组且 (model, tool_schema_version) 匹配时, messages[0]
+        (system) 的 content 必须以冻结文本开头。意图块(_intent_context_block)
+        允许作为尾部追加——它只 miss 前缀缓存尾部小段, 不破坏前缀。
+        不匹配 = stable/context 区被污染(B5)或冻结被篡改 -> 返回 False,
+        调用方应主动失效重建。无冻结/键不匹配(即将重建) -> 恒 True。
+        """
+        try:
+            _frozen = getattr(self, "_s2_tiered_frozen", None)
+            if _frozen is None or len(_frozen) < 3:
+                return True  # 无冻结或旧二元组待迁移 -> 无可校验锚点
+            if _frozen[0] != self.model or _frozen[1] != self._tool_schema_version():
+                return True  # 键不匹配 -> 本次调用会重建, 旧锚点作废
+            if not messages:
+                return True
+            _sys = messages[0].get("content", "") if messages[0].get("role") == "system" else ""
+            if not isinstance(_sys, str):
+                return True  # Anthropic block-list 路径不走本 invariant
+            _frozen_text = _frozen[2] or ""
+            if not _frozen_text:
+                return True
+            return _sys.startswith(_frozen_text)
+        except Exception:
+            return True  # 防御式: invariant 自身异常不阻断主流量
 
     def _needs_reasoning_propagation(self) -> bool:
         """检测当前模型是否需要reasoning_content传播。
