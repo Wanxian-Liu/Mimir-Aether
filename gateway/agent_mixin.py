@@ -42,9 +42,46 @@ def _format_truncation_notice(dropped: int, window: int) -> str | None:
         return None
     return (
         f"[CONTEXT TRUNCATED: 已丢弃 {dropped} 条早期消息"
-        f"（窗口上限 MIMIR_HISTORY_WINDOW={window}）"
+        f"（窗口上限 {window} 条）"
         "——如需回溯请查会话历史]"
     )
+
+
+# --- P0-A 历史窗口单一真源（2026-09-10 上下文/Memory 体检修复） ---
+_DEFAULT_HISTORY_WINDOW = 200
+
+
+def resolve_history_window() -> Tuple[int, str]:
+    """解析历史窗口大小，返回 (窗口条数, 来源标签)。0 = 禁用窗口（全量重放）。
+
+    优先级：env MIMIR_HISTORY_WINDOW > config.yaml context.max_recent_messages
+    > 默认 _DEFAULT_HISTORY_WINDOW。
+
+    修复背景（2026-09-10 体检）：修复前 gateway 只读 env（未设置 → 硬编码 50），
+    而 config.yaml 的 context.max_recent_messages（200）由 agent 侧读取 ——
+    结果 200 是死配置、实际生效 50，两侧形成"双重截断 + 数值漂移"。
+    """
+    _raw = os.environ.get("MIMIR_HISTORY_WINDOW", "")
+    if _raw not in (None, ""):
+        try:
+            return int(_raw), "env:MIMIR_HISTORY_WINDOW"
+        except (TypeError, ValueError):
+            logger.warning(
+                "Invalid MIMIR_HISTORY_WINDOW=%r — falling back to config.yaml", _raw
+            )
+    try:
+        import yaml as _yaml
+
+        _cfg_path = _hermes_home / "config.yaml"
+        if _cfg_path.exists():
+            with open(_cfg_path, encoding="utf-8") as _f:
+                _cfg = _yaml.safe_load(_f) or {}
+            _val = (_cfg.get("context") or {}).get("max_recent_messages")
+            if _val is not None:
+                return int(_val), "config:context.max_recent_messages"
+    except Exception as _exc:  # noqa: BLE001 — 配置读取失败不阻断会话
+        logger.warning("Failed to read context.max_recent_messages: %s", _exc)
+    return _DEFAULT_HISTORY_WINDOW, "default"
 
 
 # --- TD-02 history summary helpers (2026-08-18 四方批准 · Hermes 代执行) ---
@@ -1145,7 +1182,8 @@ class AgentMixin:
             # ---------------------------------------------------------
             # A方案: 历史窗口化 (Mimir历史膨胀修复 2026-08-12)
             # 会话续接不再全量重放 transcript —— 只保留最近
-            # MIMIR_HISTORY_WINDOW 条完整消息，更早的丢弃。
+            # N 条完整消息，更早的丢弃（N 的单一真源见 resolve_history_window：
+            # env MIMIR_HISTORY_WINDOW > config.yaml > 默认 200）。
             # 防止历史无限膨胀 → token 浪费 + 每轮变慢。
             # 边界安全: 窗口首条不能是孤立的 tool 消息
             # (tool 必须跟随 assistant tool_calls，否则 API 500)。
@@ -1155,11 +1193,9 @@ class AgentMixin:
             _history_summary_future = None
             # #2 截断通知（2026-08-18 架构硬规则——不静默截断）：记录丢弃数，注入用户可见通知
             _truncated_count = 0
-            _truncated_window = 50
-            try:
-                _window_size = int(os.environ.get("MIMIR_HISTORY_WINDOW", "50") or "50")
-            except (TypeError, ValueError):
-                _window_size = 50
+            # P0-A（2026-09-10）：窗口单一真源 —— env > config.yaml > 默认。
+            _window_size, _window_src = resolve_history_window()
+            _truncated_window = _window_size
             if _window_size > 0 and len(history) > _window_size:
                 _dropped = len(history) - _window_size
                 _truncated_count = _dropped
@@ -1171,8 +1207,8 @@ class AgentMixin:
                     window.insert(0, history[_i])
                 logger.info(
                     "History window: dropped %s old message(s), keeping %s "
-                    "(MIMIR_HISTORY_WINDOW=%s)",
-                    _dropped, len(window), _window_size,
+                    "(window=%s, source=%s)",
+                    _dropped, len(window), _window_size, _window_src,
                 )
                 # TD-02: 截断前对丢弃段生成结构化摘要（异步，system 注入）。
                 # S2 去重: 保留窗口内已有 [HISTORY SUMMARY] 则跳过，防重复注入叠加。

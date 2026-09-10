@@ -634,10 +634,11 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
         # ── 注入前置对话历史（C1 飞书对话体验） ──
         # 从gateway transcript加载的历史消息，仅注入纯文本user/assistant轮次
         # 含 tool_calls 或 tool 角色的消息被跳过（Mimir自行管理工具调用）
-        # 受 context.max_recent_messages 限制，只取最近 N 条（默认50——TD-02 对齐 gateway 窗口，消除双重截断）
+        # 受 context.max_recent_messages 限制，只取最近 N 条（默认200——与 gateway
+        # resolve_history_window() 的 _DEFAULT_HISTORY_WINDOW 对齐，P0-A 2026-09-10 单一真源）
         if conversation_history:
-            # 加载配置中的 max_recent_messages（默认50，TD-02 2026-08-18 Hermes代改：25→50 对齐 gateway MIMIR_HISTORY_WINDOW）
-            _max_recent = 50
+            # 加载配置中的 max_recent_messages（默认200；TD-02 历史：25→50→200 对齐 gateway 窗口）
+            _max_recent = 200
             try:
                 import yaml as _yaml
                 _cfg_path = get_mimir_home() / "config.yaml"
@@ -645,7 +646,7 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
                     with open(_cfg_path, encoding="utf-8") as _f:
                         _cfg = _yaml.safe_load(_f) or {}
                     _max_recent = int(
-                        (_cfg.get("context") or {}).get("max_recent_messages", 50)
+                        (_cfg.get("context") or {}).get("max_recent_messages", 200)
                     )
             except Exception:
                 pass
