@@ -428,7 +428,9 @@ python3 -m pytest -q \
   tests/agent/test_search_first_guard.py \
   tests/agent/test_verify_before_report_guard.py \
   agent/test_persistent_store_akl.py \
-  tests/agent/test_context_compressor_await.py
+  tests/agent/test_context_compressor_await.py \
+  tests/agent/test_compress_threshold_source.py \
+  tests/gateway/test_hygiene_compress_observability.py
     fi
   )
   _GATE2_EXIT=$?

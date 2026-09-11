@@ -6,6 +6,7 @@ Extracted from MimirAetherAgent (agent/core_loop.py) as part of d4 split.
 
 from __future__ import annotations
 
+import hashlib
 import asyncio
 import copy
 import json
@@ -332,9 +333,21 @@ class CallersMixin:
                 _cached_total = _cache_hit + _cache_miss
                 _hit_pct = 100.0 * _cache_hit / _cached_total if _cached_total else 0.0
                 _sid = str(getattr(self, "session_id", "") or "")
+                # S2 遗留🟡 (2026-09-11): session 常为空 → 加静态区指纹，使
+                # 低命中可归因：指纹变=前缀重建（设计内失效）；指纹不变=服务端
+                # 未命中（驱逐/并发，需查 B3）。
+                _pfx = "none"
+                try:
+                    _frozen = getattr(self, "_s2_tiered_frozen", None)
+                    if _frozen:
+                        _pfx = hashlib.sha1(
+                            str(_frozen[-1]).encode("utf-8")
+                        ).hexdigest()[:8]
+                except Exception:
+                    pass
                 logger.info(
-                    "[S2-cache] prompt=%s hit=%s miss=%s hit_pct=%.1f%% session=%s",
-                    pt, _cache_hit, _cache_miss, _hit_pct, _sid,
+                    "[S2-cache] prompt=%s hit=%s miss=%s hit_pct=%.1f%% session=%s prefix=%s",
+                    pt, _cache_hit, _cache_miss, _hit_pct, _sid, _pfx,
                 )
         except Exception as _e:
             logger.debug("S2-cache metrics skipped: %s", _e)
