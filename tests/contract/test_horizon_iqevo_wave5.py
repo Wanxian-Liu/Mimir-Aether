@@ -38,7 +38,15 @@ def test_wiring():
         encoding="utf-8"
     )
     assert "get_tuned_int" in (ROOT / "agent/degeneration_guard.py").read_text(encoding="utf-8")
-    assert "get_tuned_float" in (ROOT / "agent/core_loop.py").read_text(encoding="utf-8")
+    # 2026-09-11 档2-②：阈值百分比解析收编到 context_compressor 单一实现
+    # （resolve_threshold_percent），core_loop 改为调用该函数。契约随之指向
+    # "接线"而非"实现位置"：core_loop 必须走单一真源；tuned 读取仍在
+    # context_compressor 内。
+    _core_loop = (ROOT / "agent/core_loop.py").read_text(encoding="utf-8")
+    assert "resolve_threshold_percent" in _core_loop
+    assert "get_tuned_float" in (
+        ROOT / "agent/context_compressor.py"
+    ).read_text(encoding="utf-8")
 
 
 def test_backlog_wave5():
