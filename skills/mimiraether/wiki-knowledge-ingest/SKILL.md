@@ -30,6 +30,11 @@ priority: medium
 7. **（可选）四方共读卡**：若刘哥要求四方共读，开 discussion 卡标记 `status: pending`——**等刘哥主动提起再执行，不主动启动**；刘哥偏好"共读不分工"（每篇大家都要读，非各读一篇）
 
 ## 坑点（全部实战踩过）
+0. **批量论文入库（10+ 篇）用 arXiv API 检索 + 后台下载**（2026-09-11 Contextual Retrieval 28 篇实战）：
+   - 检索：`export.arxiv.org/api/query`，**带引号的短语查询必须全 URL 编码**（`urllib.parse.quote(q, safe='')`）——保留 `"` 会让 arXiv 返回空响应（`no element found`），首轮 16 查询 12 条因此失败；查询间隔 ≥3s。
+   - 下载：**PDF 批量下载不能用 `execute_code`**（300s 硬上限，4-5 份即超时）→ 写脚本后 `terminal(background=True)` + `nohup python3 dl.py > dl.log 2>&1 &`，单份 arXiv PDF 约 20-60s，25 份约 12 分钟。
+   - 每份下完即 `open(f,'rb').read(4)==b'%PDF'` 校验 + 记录字节数（放进 `_manifest.json`）。
+   - 引用数别依赖 Semantic Scholar 单条接口（大量空/429）→ 用批量 endpoint，或直接读 arXiv 的 `comment` 字段判会议等级（ACL/NeurIPS/ICML/ECIR/S&P）。
 1. **沙盒 HOME 陷阱**：`~/wiki` 解析到 `~/.mimiraether/wiki`（空壳）——一律用绝对路径 `~/wiki/`
 2. **tarball 而非 clone**：git clone 180s 超时 + 嵌套 .git 破坏 wiki 单仓历史——用 tarball 解压（断点续传用 curl -C -）
 3. **热度的证据链**：报告"最高星/前三"必须有 API 检索合并验证（多关键词 GitHub search + 星数对比 + "名字带 radar 的软件 ≠ 雷达硬件"这类排除逻辑），不拍脑袋
@@ -37,6 +42,9 @@ priority: medium
 5. **大文件 git 策略**：218MB 快照入库后 commit 会很大（3.1M insertions）——确认 wiki 仓库可承受；若体积过大考虑只入库概念卡 + 记录外部引用
 6. **论文编号核实**：HippoRAG2 曾出现 2502.14802 vs 2502.14739 不一致——下载时用 arXiv 页面确认真实编号，概念卡与文件名保持一致
 7. **落盘纪律**：每层写完后 grep/stat 验证（字节>0 + 关键字段命中）再报告；"下载完成"= 文件在盘 + 魔数验证，不是 curl 输出
+8. **PDF 完整性：`%PDF` 魔数不够**（2026-09-11 实战）——27 份 arXiv PDF 中 **11 份实为截断文件却全部通过魔数检查**（首字节永远是 `%PDF`）。正确校验 = `pdfinfo <f> | grep '^Pages:'`（或尾部含 `%%EOF`）；失败用 `curl -sL -C -`（可续传）重下，慢链路用 Python `Range` 分块续传（每块 300-400KB + 独立 timeout）。报告「入库 N 份」前**逐份**校验。
+9. **同一派单可能被多会话并行执行**（2026-09-11 同一 Buzz 派单被唤醒三次）——**开工第一动作 = 查盘**：目标目录 / 索引 json / 讨论卡回执 / `inbox-processed.log`。已交付则只做「补 / 合 / 跳过」，禁重复交付（重复回执会污染审计链）。
+10. **收敛/删除重复目录前先 `git ls-files <dir>`**——本轮"重复"裸目录里藏着**已入库的 ROADMAP 文件**，`rm -rf` 会误删追踪交付物；用 `mv` 到 /tmp 代替删除（可回滚，且不需审批）。
 8. **PDF 不能靠 `read_file` 取正文（2026-09-11 实测）**：`read_file` 直读 `.pdf` 返回的是**原始字节流**（`%PDF-1.7` + FlateDecode 二进制），**不是文本层**；其中可用的只有 `/Title`、`/Author`、`/arXivID` 等**元数据**（xmp/Info 字典，通常在文件尾部 obj 中）。要标题+abstract 走 **arXiv API**（一次可批量）：
    `web_extract("https://export.arxiv.org/api/query?id_list=id1,id2,id3&max_results=10")` → 返回 Atom，含 `<title>`+`<summary>`（abstract）+ 作者+日期。**注意** `https://arxiv.org/abs/<id>` 经 web_extract 常只拿到标题/元表格，**拿不到 abstract**——abs 页不行就换 API。
    正文精读需要 PDF 文本提取工具（本技能当前不覆盖），别把「读过 PDF」写进报告——会被抓。
