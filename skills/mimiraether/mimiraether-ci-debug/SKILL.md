@@ -75,6 +75,13 @@ git ls-remote origin <submodule-branch>
 4. **fail-open 掩盖**：`return False` 的 fail-open 设计让依赖缺失表现为"测试失败"而非"环境错误"——查依赖链
 5. **旧提交垃圾行**：Gate1 之前一直挂在同一行垃圾上，Gate2 从未真正跑过——修好 Gate1 后 Gate2 才第一次暴露潜伏问题（这是好事，继续修）
 
+6. **子模块指针本地领先（2026-09-11 实证）**：主仓 push 了 `chore(submodule): bump to <sha>`，
+   但子模块自身未 push（`git -C <submodule> status -sb` 显示「领先 N」）→ CI `Init git submodules`
+   **exit 128**（fetch 不到该 SHA），整条流水线在 Gate1 之前就死。检查：`git -C <sub> status -sb`
+   + `git ls-remote origin <sub-branch> | grep <sha>`；修复：**先 push 子模块**，再 push 主仓。
+7. **`gh run rerun` 401**：只读权限的 token 无法重跑（`Requires authentication`，需 actions:write）。
+   触发重跑的现实路径 = 再 push 一个提交（用文档/技能更新提交，不用空提交凑数）。
+
 ## Anti-Rationalization Table
 
 | 借口 | 为什么错 | 正确行动 |
@@ -96,3 +103,13 @@ git ls-remote origin <submodule-branch>
 4 层问题一次清：broken_fu 垃圾行 / pytest 9.1.1 conftest 回归 / mimicore submodule 指针 / chromadb 缺失
 完整记录：`~/wiki/concepts/GitHub-CI全绿报告-20260815.md`
 commit 链：filter-branch 重写 → 1f1b9e5 → 4be1203（conftest）→ bbdb010（submodule）→ 2fd2cd5（chromadb）→ 8fe6a8d（M6）
+
+## 实战案例 2（2026-09-11 · DENY 边界修复推送后 CI 红）
+
+- 症状：Ralph Tier-0 在 `Init git submodules` 步骤 8 秒即失败，**Gate1/Gate2 根本没跑到**；
+  本地 `tests/` 全量 990 passed——本地绿而 CI 秒红 ⇒ 先看失败**步骤**，别急着怀疑自己的测试。
+- 根因链：推送批次里含 `chore(mimicore): bump to 2eecaa0`，而 mimicore 子模块当时**领先远端 1 个提交**
+  → CI checkout 拿不到该 SHA → exit 128。
+- 修复：`git -C mimicore push origin fix/p1-mimicore-openclaw-paths` → 远端确认含该 SHA → 重跑 CI。
+- 顺带发现：Gate2 是**显式文件清单**（非目录通配），新测试文件不加进 `run_ralph_tier0.sh` 就永不被门禁覆盖；
+  `pytest-wide` 只跑 `agent/ gateway/ tools/`，同样不覆盖 `tests/security/`。
