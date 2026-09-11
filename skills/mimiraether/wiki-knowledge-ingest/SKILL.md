@@ -37,6 +37,10 @@ priority: medium
 5. **大文件 git 策略**：218MB 快照入库后 commit 会很大（3.1M insertions）——确认 wiki 仓库可承受；若体积过大考虑只入库概念卡 + 记录外部引用
 6. **论文编号核实**：HippoRAG2 曾出现 2502.14802 vs 2502.14739 不一致——下载时用 arXiv 页面确认真实编号，概念卡与文件名保持一致
 7. **落盘纪律**：每层写完后 grep/stat 验证（字节>0 + 关键字段命中）再报告；"下载完成"= 文件在盘 + 魔数验证，不是 curl 输出
+8. **PDF 不能靠 `read_file` 取正文（2026-09-11 实测）**：`read_file` 直读 `.pdf` 返回的是**原始字节流**（`%PDF-1.7` + FlateDecode 二进制），**不是文本层**；其中可用的只有 `/Title`、`/Author`、`/arXivID` 等**元数据**（xmp/Info 字典，通常在文件尾部 obj 中）。要标题+abstract 走 **arXiv API**（一次可批量）：
+   `web_extract("https://export.arxiv.org/api/query?id_list=id1,id2,id3&max_results=10")` → 返回 Atom，含 `<title>`+`<summary>`（abstract）+ 作者+日期。**注意** `https://arxiv.org/abs/<id>` 经 web_extract 常只拿到标题/元表格，**拿不到 abstract**——abs 页不行就换 API。
+   正文精读需要 PDF 文本提取工具（本技能当前不覆盖），别把「读过 PDF」写进报告——会被抓。
+9. **PDF 双目录命名漂移**：同一批论文曾被下载两次（`raw/papers/<topic>/<id>.pdf` 裸 ID 版 vs `<topic>-arch/<id>-<slug>.pdf` 描述名版）→ 重叠 14 篇。入库前先 `search_files` 查重；报告清单时写清「去重合计」而不是相加。
 
 ## 验证清单
 - [ ] Layer1 文件存在 + 魔数/大小验证
