@@ -492,6 +492,66 @@ class ExecMixin:
     )
 
 
+    @staticmethod
+    def _is_deny_word_char(_c: str) -> bool:
+        """DENY 片段边界判定用：词字符 = 字母数字或下划线。"""
+        return bool(_c) and (_c.isalnum() or _c == "_")
+
+    @classmethod
+    def _deny_fragment_hits(cls, text: str, frag: str) -> bool:
+        """DENY 片段匹配——词/路径边界感知（2026-09-11 修纯子串误伤）。
+
+        原实现 `frag in text` 把合法内容当被拒路径（P1 实证）：
+          ".env"  inside "os.environ"       -> 写 os.environ 被拒
+          ".key"  inside "d.keys()"         -> 读 dict keys 被拒
+          "/sys/" inside "config/systemd"   -> 提 systemd 路径被拒
+          "/bin/" inside "~/.local/bin/uv"  -> 调 venv/本地解释器被拒
+
+        边界规则（词字符 = 字母数字或下划线）：
+          1) 含 "/"（系统路径段）-> 前边界须为串首或非词字符
+             仍拦 /etc/passwd、cat /etc/shadow；放行 config/systemd、.local/bin/uv
+          2) 以 "." 开头（扩展名）-> 后边界须为串尾或非词字符
+             仍拦 id.key、cert.pem、x/.env；放行 d.keys()、os.environ
+          3) 裸词（id_rsa / credentials 等）-> 前后边界均须成立
+             仍拦 ~/.ssh/id_rsa、credentials.json；放行 load_credentials()
+
+        尾斜杠变体在**函数内部**处理："/etc/" 同时匹配 "rm -rf /etc"（无尾斜杠），
+        此时剥离后的 "/etc" 额外要求后边界（避免误伤 "/etcetera"）。
+
+        安全取舍：相对路径（x/etc/passwd）解析后仍在工作区内，放行不降低防护；
+        系统绝对路径前边界必为串首/空格/引号等非词字符 -> 仍 100% 拦截。
+        """
+        if not text or not frag:
+            return False
+        _t = text.lower()
+        _full = frag.lower()
+        _cands = [(_full, False)]
+        if _full.endswith("/") and len(_full) > 1:
+            _cands.append((_full.rstrip("/"), True))
+        for _f, _stripped in _cands:
+            if not _f:
+                continue
+            _start = 0
+            while True:
+                _i = _t.find(_f, _start)
+                if _i < 0:
+                    break
+                _j = _i + len(_f)
+                _before = _t[_i - 1] if _i > 0 else ""
+                _after = _t[_j] if _j < len(_t) else ""
+                _b_ok = not cls._is_deny_word_char(_before)
+                _a_ok = not cls._is_deny_word_char(_after)
+                if "/" in _f:
+                    _ok = _b_ok and (_a_ok if _stripped else True)
+                elif _f.startswith("."):
+                    _ok = _a_ok
+                else:
+                    _ok = _b_ok and _a_ok
+                if _ok:
+                    return True
+                _start = _i + 1
+        return False
+
     def _scan_dangerous_command(self, cmd: str) -> Optional[str]:
         """L5 高危命令 tokenize 扫描（2026-08-19 二轮补丁·Loki 方案 B）：
         substring -> shlex.split 词组扫描。修：
@@ -580,7 +640,7 @@ class ExecMixin:
             for _frag in self._DENY_PATH_FRAGMENTS:
                 # 片段尾斜杠变体兼容：/etc/ 也匹配 rm -rf /etc（无尾斜杠）
                 _frag_a = _frag.rstrip("/")
-                if _frag in _low_cmd or (_frag_a and _frag_a in _low_cmd):
+                if self._deny_fragment_hits(_low_cmd, _frag):
                     logger.warning("HardRule#1: %s 命令含被拒路径片段 %s", func_name, _frag)
                     return f"Blocked by path whitelist: '{_cmd[:80]}' contains denied path segment '{_frag}'"
             return None  # 命令类工具 L5+DENY 通过即放行——不进路径分级
@@ -599,7 +659,7 @@ class ExecMixin:
             _path_r = _path_n
         # DENY 检查（永远生效——E2：off 仅解除分级，不解除禁止路径）
         for _frag in self._DENY_PATH_FRAGMENTS:
-            if _frag in _path_r or _frag in _path_n:
+            if self._deny_fragment_hits(_path_r, _frag) or self._deny_fragment_hits(_path_n, _frag):
                 logger.warning("HardRule#1: %s 访问被拒路径 %s (fragment=%s)", func_name, _path[:80], _frag)
                 return f"Blocked by path whitelist: '{_path[:80]}' contains denied path segment '{_frag}'"
         if not _whitelist_on:
