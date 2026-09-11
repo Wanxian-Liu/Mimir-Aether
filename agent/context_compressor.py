@@ -36,6 +36,81 @@ _PRUNED_TOOL_PLACEHOLDER = "[Old tool output cleared to save context space]"
 _PRUNED_TOOL_MIN_CHARS = 200
 
 
+# ── 压缩阈值单一真源（2026-09-11 档2-②）─────────────────────────────────────
+# 此前阈值解析散落三处、互相架空且无日志说明谁赢：
+#   1. core_loop:    MIMIR_COMPRESS_THRESHOLD(percent) > tuned > 默认 0.50
+#   2. __init__:     MIMIR_COMPRESS_THRESHOLD_TOKENS(absolute) 直接覆盖 threshold_tokens
+#   3. update_model: 用 percent 重算 threshold_tokens → 静默丢弃 absolute 覆盖（clobber）
+# 后果：改 tuned 可能完全无效（被 env 架空），不同代码路径还会得到不同阈值
+# （drift）。现统一由下面两个函数解析，日志一律带 source= 便于取证。
+_COMPRESS_THRESHOLD_PERCENT_ENV = "MIMIR_COMPRESS_THRESHOLD"
+_COMPRESS_THRESHOLD_TOKENS_ENV = "MIMIR_COMPRESS_THRESHOLD_TOKENS"
+_DEFAULT_THRESHOLD_PERCENT = 0.50
+
+
+def resolve_threshold_percent(env=None) -> Tuple[float, str]:
+    """阈值百分比真源：env MIMIR_COMPRESS_THRESHOLD > tuned > 默认 0.50。
+
+    Returns ``(percent, source)``；source 形如 ``env:MIMIR_COMPRESS_THRESHOLD`` /
+    ``tuned:compressor.threshold_percent`` / ``default:0.50``。
+    """
+    _env = os.environ if env is None else env
+    percent, source = _DEFAULT_THRESHOLD_PERCENT, "default:0.50"
+    try:
+        from agent.tuned_thresholds import get_tuned_float
+
+        percent = float(get_tuned_float("compressor.threshold_percent"))
+        source = "tuned:compressor.threshold_percent"
+    except Exception:
+        pass
+    raw = (_env.get(_COMPRESS_THRESHOLD_PERCENT_ENV) or "").strip()
+    if raw:
+        try:
+            percent = float(raw)
+            source = f"env:{_COMPRESS_THRESHOLD_PERCENT_ENV}"
+        except (TypeError, ValueError):
+            logger.warning(
+                "Invalid %s=%r — keeping %s (%s)",
+                _COMPRESS_THRESHOLD_PERCENT_ENV, raw, percent, source,
+            )
+    return percent, source
+
+
+def resolve_threshold_tokens(
+    context_length: int,
+    threshold_percent: Optional[float] = None,
+    env=None,
+) -> Tuple[int, str]:
+    """绝对阈值真源：env MIMIR_COMPRESS_THRESHOLD_TOKENS > percent x context_length。
+
+    绝对 token 数优先（运维一键钉死），否则按百分比解析——百分比本身也走
+    :func:`resolve_threshold_percent`，全链路单一实现。非法 env 值降级不抛。
+
+    Returns ``(threshold_tokens, source)``。
+    """
+    _env = os.environ if env is None else env
+    raw = (_env.get(_COMPRESS_THRESHOLD_TOKENS_ENV) or "").strip()
+    if raw:
+        try:
+            absolute = int(raw)
+            if absolute > 0:
+                return absolute, f"env:{_COMPRESS_THRESHOLD_TOKENS_ENV}"
+            logger.warning(
+                "Invalid %s=%r (must be >0) — falling back to percent",
+                _COMPRESS_THRESHOLD_TOKENS_ENV, raw,
+            )
+        except (TypeError, ValueError):
+            logger.warning(
+                "Invalid %s=%r (not an int) — falling back to percent",
+                _COMPRESS_THRESHOLD_TOKENS_ENV, raw,
+            )
+    if threshold_percent is None:
+        percent, source = resolve_threshold_percent(env=_env)
+    else:
+        percent, source = float(threshold_percent), "explicit"
+    return int(context_length * percent), f"{source} x {context_length}"
+
+
 @dataclass
 class CompressionResult:
     original_count: int = 0
@@ -849,19 +924,44 @@ class MimirContextCompressor(ContextCompressorV2):
         self._context_probed = False
         # E1 (2026-08-19 block4): compaction summary writeback callback (optional)
         self._writeback_callback = None
-        # P2-1 (2026-08-19 执行卡): 绝对 token 阈值 env 覆盖（MIMIR_COMPRESS_THRESHOLD_TOKENS）
-        # 落地值 150000（350K→150K）；=0 或空 = 保持默认（可回退）
-        _abs = os.environ.get("MIMIR_COMPRESS_THRESHOLD_TOKENS", "").strip()
-        if _abs:
-            try:
-                _abs_n = int(_abs)
-                if _abs_n > 0:
-                    self.threshold_tokens = _abs_n
-                    self.tail_token_budget = int(self.threshold_tokens * self.summary_target_ratio)
-                    logger.info("[P2-1] threshold overridden by env MIMIR_COMPRESS_THRESHOLD_TOKENS=%d", self.threshold_tokens)
-            except ValueError:
-                logger.warning("[P2-1] invalid MIMIR_COMPRESS_THRESHOLD_TOKENS=%r", _abs)
-    
+        # P2-1 (2026-08-19 执行卡) → 2026-09-11 档2-② 收编：绝对 token 阈值 env
+        # 覆盖（MIMIR_COMPRESS_THRESHOLD_TOKENS）。解析逻辑移入模块级
+        # resolve_threshold_tokens()，与 core_loop 的 percent 链共用同一真源，
+        # 消除"env 架空 tuned / update_model 架空 env"两条暗路。
+        _resolved_tokens, _resolved_source = resolve_threshold_tokens(
+            int(self.context_length or 0), self.threshold_percent
+        )
+        self.threshold_source = _resolved_source
+        if _resolved_source.startswith("env:") and _resolved_tokens != self.threshold_tokens:
+            self.threshold_tokens = _resolved_tokens
+            self.tail_token_budget = int(self.threshold_tokens * self.summary_target_ratio)
+        logger.info(
+            "[COMPRESS-INIT] threshold_tokens=%s source=%s context_length=%s percent=%s tail=%s",
+            self.threshold_tokens, self.threshold_source,
+            self.context_length, self.threshold_percent, self.tail_token_budget,
+        )
+
+    def update_model(self, *args, **kwargs) -> None:
+        """档2-②：update_model 不再静默丢弃 env 绝对阈值覆盖（修 clobber）。
+
+        基类实现用 ``context_length x threshold_percent`` 重算 threshold_tokens，
+        会静默抹掉环境变量给的绝对覆盖——即"配置改了不生效"的同一类病。此处
+        重算后按同一真源再解析一次。
+        """
+        super().update_model(*args, **kwargs)
+        _resolved_tokens, _resolved_source = resolve_threshold_tokens(
+            int(self.context_length or 0), self.threshold_percent
+        )
+        self.threshold_source = _resolved_source
+        if _resolved_source.startswith("env:") and _resolved_tokens != self.threshold_tokens:
+            self.threshold_tokens = _resolved_tokens
+            self.tail_token_budget = int(self.threshold_tokens * self.summary_target_ratio)
+            logger.info(
+                "[COMPRESS-UPDATE] threshold_tokens=%s source=%s (env override re-applied "
+                "after update_model)",
+                self.threshold_tokens, self.threshold_source,
+            )
+
     def reset_step(self) -> None:
         """Reset per-step state."""
         super().reset_step()
@@ -883,12 +983,50 @@ class MimirContextCompressor(ContextCompressorV2):
     async def compress(self, messages, current_tokens=None, focus_topic=None):
         """覆写基类 compress——压缩后验证关键实体保留率 ≥80%，<80% 告警+回滚。"""
         pre = messages
+        # ── 档2-① 三行日志：trigger / result / abort ──────────────────────
+        _pre_n = len(messages)
+        _pre_t0 = time.monotonic()
+        try:
+            _pre_tokens = self._estimate_tokens(messages)
+        except Exception:
+            _pre_tokens = 0
+        _thr = getattr(self, "threshold_tokens", 0) or 0
+        _thr_src = getattr(self, "threshold_source", "unknown")
+        logger.info(
+            "[COMPRESS] %s layer=agent tokens=%s threshold=%s msgs=%s source=%s current_tokens=%s",
+            "trigger" if _pre_tokens >= _thr else "skip",
+            _pre_tokens, _thr, _pre_n, _thr_src, current_tokens,
+        )
         try:
             post, result = await super().compress(messages, current_tokens, focus_topic)
         except Exception as _e:
             logger.warning("[P2-1] compress failed: %s — keep original messages", _e)
+            logger.warning("[P2-1] compress failed: %s — keep original messages", _e)
+            logger.warning(
+                "[COMPRESS] abort layer=agent reason=exception msgs=%s tokens=%s "
+                "threshold=%s source=%s err=%s",
+                _pre_n, _pre_tokens, _thr, _thr_src, _e,
+            )
             return messages, CompressionResult(
                 original_count=len(messages), compressed_count=len(messages),
+            )
+        # ── 档2-① result / abort(noop) ────────────────────────────────────
+        _elapsed = time.monotonic() - _pre_t0
+        _res_n = len(post)
+        _pruned = getattr(result, "pruned_tool_count", 0) or 0
+        if _res_n >= _pre_n and _pruned == 0:
+            logger.warning(
+                "[COMPRESS] abort layer=agent reason=noop msgs=%s->%s pruned=%s "
+                "tokens=%s threshold=%s source=%s elapsed=%.2fs (nothing compressed)",
+                _pre_n, _res_n, _pruned, _pre_tokens, _thr, _thr_src, _elapsed,
+            )
+        else:
+            logger.info(
+                "[COMPRESS] result layer=agent msgs=%s->%s pruned=%s mode=%s "
+                "tokens=%s->%s threshold=%s source=%s elapsed=%.2fs",
+                _pre_n, _res_n, _pruned, getattr(result, "summary_mode", "none"),
+                _pre_tokens, getattr(result, "compressed_tokens", 0) or 0,
+                _thr, _thr_src, _elapsed,
             )
         # 实体保留率验证（env MIMIR_COMPRESS_VERIFY=0 关闭）
         _verify = os.environ.get("MIMIR_COMPRESS_VERIFY", "1").strip().lower()
@@ -901,6 +1039,11 @@ class MimirContextCompressor(ContextCompressorV2):
                         rate * 100, missing[:3],
                     )
                     # E1/E5 (2026-08-20): 质量告警落盘 + 回滚分支不写回（防记录未生效压缩）
+                    logger.warning(
+                        "[COMPRESS] abort layer=agent reason=entity_retention_low "
+                        "rate=%.0f%% msgs=%s->%s (rolled back to original)",
+                        rate * 100, _pre_n, len(post),
+                    )
                     self._record_quality_alert(rate, missing, result, outcome="rollback")
                     return messages, result  # 回滚：返回压缩前（保状态不丢）
                 logger.info("[P2-1] 实体保留率 %.0f%% OK (missing=%d)", rate * 100, len(missing))

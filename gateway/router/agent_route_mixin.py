@@ -355,6 +355,13 @@ class AgentRouteMixin:
                         f"{_hyg_context_length:,}",
                         f"{_compress_token_threshold:,}",
                     )
+                    _hyg_t0 = time.monotonic()
+                    logger.info(
+                        "[COMPRESS] trigger layer=gateway msgs=%s tokens=%s source=%s "
+                        "threshold=%s hard_msg_limit=%s",
+                        _msg_count, f"{_approx_tokens:,}", _token_source,
+                        f"{_compress_token_threshold:,}", _HARD_MSG_LIMIT,
+                    )
 
                     _hyg_meta = {"thread_id": source.thread_id} if source.thread_id else None
 
@@ -366,6 +373,14 @@ class AgentRouteMixin:
                             session_key=session_key,
                             user_config=_hyg_data if isinstance(_hyg_data, dict) else None,
                         )
+                        if not _hyg_runtime.get("api_key"):
+                            # 档2-①：此前该分支静默 return（9-11 12:29 触发后
+                            # 既无 result 也无 failure 的元凶之一）
+                            logger.warning(
+                                "[COMPRESS] abort layer=gateway reason=no_api_key "
+                                "msgs=%s tokens=%s (compression skipped silently before)",
+                                _msg_count, f"{_approx_tokens:,}",
+                            )
                         if _hyg_runtime.get("api_key"):
                             _hyg_msgs = [
                                 {"role": m.get("role"), "content": m.get("content")}
@@ -374,6 +389,13 @@ class AgentRouteMixin:
                                 and m.get("content")
                             ]
 
+                            if len(_hyg_msgs) < 4:
+                                logger.warning(
+                                    "[COMPRESS] abort layer=gateway "
+                                    "reason=too_few_user_assistant_msgs kept=%s "
+                                    "of %s msgs (compression skipped silently before)",
+                                    len(_hyg_msgs), _msg_count,
+                                )
                             if len(_hyg_msgs) >= 4:
                                 _hyg_agent = AIAgent(
                                     **_hyg_runtime,
@@ -416,6 +438,30 @@ class AgentRouteMixin:
                                     _msg_count, _new_count,
                                     f"{_approx_tokens:,}", f"{_new_tokens:,}",
                                 )
+                                _hyg_elapsed = time.monotonic() - _hyg_t0
+                                # 档2-①：口径分离——actual 触发值 vs 粗估结果值不可
+                                # 直接比（见技能 pitfall"token 翻倍假象"），且必须把
+                                # "消息数没降=no-op"与"真压缩"分开报，否则 8-15 那种
+                                # 162->162 会被误读为成功。
+                                if _new_count >= _msg_count:
+                                    logger.warning(
+                                        "[COMPRESS] abort layer=gateway reason=noop "
+                                        "msgs=%s->%s tokens=%s(actual)->%s(rough) "
+                                        "threshold=%s elapsed=%.2fs "
+                                        "(compress returned messages unchanged)",
+                                        _msg_count, _new_count,
+                                        f"{_approx_tokens:,}", f"{_new_tokens:,}",
+                                        f"{_compress_token_threshold:,}", _hyg_elapsed,
+                                    )
+                                else:
+                                    logger.info(
+                                        "[COMPRESS] result layer=gateway msgs=%s->%s "
+                                        "tokens=%s(actual)->%s(rough) threshold=%s "
+                                        "elapsed=%.2fs",
+                                        _msg_count, _new_count,
+                                        f"{_approx_tokens:,}", f"{_new_tokens:,}",
+                                        f"{_compress_token_threshold:,}", _hyg_elapsed,
+                                    )
 
                                 if _new_tokens >= _warn_token_threshold:
                                     logger.warning(
@@ -427,6 +473,10 @@ class AgentRouteMixin:
                     except Exception as e:
                         logger.warning(
                             "Session hygiene auto-compress failed: %s", e
+                        )
+                        logger.warning(
+                            "[COMPRESS] abort layer=gateway reason=exception err=%s",
+                            e,
                         )
 
         # First-message onboarding -- only on the very first interaction ever

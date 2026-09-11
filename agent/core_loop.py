@@ -393,20 +393,16 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
         )
 
         # MimirAether 自研上下文压缩器（context_length 构造即正确，不依赖事后修正）
-        # A1: 阈值优先级 = env MIMIR_COMPRESS_THRESHOLD > tuned_thresholds > 默认 0.50
-        _threshold_percent = 0.50
+        # A1 → 2026-09-11 档2-②：阈值优先级（env percent > tuned > 0.50）收编
+        # 到 context_compressor.resolve_threshold_percent() 单一实现，
+        # 本处只取结果并记录 source（便于与 gateway 侧对账，防数值漂移）。
         try:
-            from agent.tuned_thresholds import get_tuned_float
+            from agent.context_compressor import resolve_threshold_percent
 
-            _threshold_percent = get_tuned_float("compressor.threshold_percent")
-        except Exception:
-            pass
-        try:
-            _env_threshold = os.environ.get("MIMIR_COMPRESS_THRESHOLD")
-            if _env_threshold is not None and _env_threshold.strip():
-                _threshold_percent = float(_env_threshold)
-        except (TypeError, ValueError):
-            logger.warning("Invalid MIMIR_COMPRESS_THRESHOLD=%r, using %s", _env_threshold, _threshold_percent)
+            _threshold_percent, _threshold_source = resolve_threshold_percent()
+        except Exception as _te:
+            logger.warning("threshold percent resolve failed (%s) — default 0.50", _te)
+            _threshold_percent, _threshold_source = 0.50, "default:0.50"
         try:
             from agent.decision_compressor_policy import compressor_init_kwargs_from_policy
 
@@ -418,6 +414,13 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
             context_length=int(self._context_length or 1048576),
             threshold_percent=_threshold_percent,  # 1b Top-3 only
             **_comp_policy,
+        )
+        logger.info(
+            "Agent compressor: context_length=%s threshold_percent=%s (source=%s) "
+            "threshold_tokens=%s",
+            getattr(self.compressor, "context_length", None),
+            _threshold_percent, _threshold_source,
+            getattr(self.compressor, "threshold_tokens", None),
         )
 
         ko = kernel_overrides
