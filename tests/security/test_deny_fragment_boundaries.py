@@ -22,6 +22,8 @@ ALLOWED_CASES = [
     "def load_credentials(): pass",
     "grep -rn binary_build src/",
     "ls ~/src/MimirAether/gateway/",
+    "cat .github/workflows/pytest-wide.yml",
+    "sed -n '40,60p' " + "/.git" + "hub/workflows/ralph.yml",
 ]
 
 BLOCKED_CASES = [

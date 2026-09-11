@@ -337,6 +337,7 @@ python3 -m pytest -q \
   tests/test_feishu_ws_dispatch.py \
   tests/test_run_agent_activity.py \
   tests/agent/test_tool_guard_paths.py \
+  tests/security/test_deny_fragment_boundaries.py \
   tests/agent/test_evolution_rollback_stab05.py \
   tests/contract/test_runtime_path_independence_ind02.py \
   tests/contract/test_mimir_session_db_ind03.py \
