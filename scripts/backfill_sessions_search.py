@@ -45,6 +45,14 @@ def main() -> int:
         action="store_true",
         help="Clear existing index before backfill",
     )
+    parser.add_argument(
+        "--fts-only",
+        action="store_true",
+        help=(
+            "Backfill ONLY fts5_search.db, leaving sessions_search.db untouched "
+            "(2026-09-11 档2-③: like 库由 gateway 增量维护；重复回填会重复插入)"
+        ),
+    )
     args = parser.parse_args()
 
     sessions_dir = args.sessions_dir or get_mimir_sessions_dir()
@@ -53,9 +61,12 @@ def main() -> int:
     if args.with_fts and fts_db is None:
         fts_db = get_mimir_data_dir() / "fts5_search.db"
 
+    if args.fts_only and fts_db is None:
+        parser.error("--fts-only requires --with-fts or --fts-db")
+
     stats = backfill_sessions(
         sessions_dir,
-        like_db_path=like_db,
+        like_db_path=None if args.fts_only else like_db,
         fts_db_path=fts_db,
         fresh=args.fresh,
     )

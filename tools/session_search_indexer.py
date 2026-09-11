@@ -111,11 +111,17 @@ def clear_like_db(db_path: Path) -> None:
 def backfill_sessions(
     sessions_dir: Path,
     *,
-    like_db_path: Path,
+    like_db_path: Optional[Path],
     fts_db_path: Optional[Path] = None,
     fresh: bool = False,
 ) -> BackfillStats:
-    """Index all *.jsonl transcripts under sessions_dir into search DB(s)."""
+    """Index all *.jsonl transcripts under sessions_dir into search DB(s).
+
+    ``like_db_path=None`` → **只回填 FTS5，完全跳过 like 库**（档2-③ 2026-09-11）。
+    必要性：like 库由 gateway 增量维护（已是全量），重复回填会重复插入消息；
+    而 FTS5 只能手工回填（gateway 增量路径不写 FTS——见 gateway/session.py
+    `_append_to_sessions_search_index`），故需要"仅 FTS"模式。
+    """
     from tools.session_search_tool import SessionSearchDB
 
     stats = BackfillStats()
@@ -123,16 +129,19 @@ def backfill_sessions(
         logger.warning("Sessions dir missing: %s", sessions_dir)
         return stats
 
-    like_db_path.parent.mkdir(parents=True, exist_ok=True)
-    if fresh and like_db_path.exists():
-        clear_like_db(like_db_path)
-
-    like_db = SessionSearchDB(str(like_db_path))
+    like_db = None
+    if like_db_path is not None:
+        like_db_path.parent.mkdir(parents=True, exist_ok=True)
+        if fresh and like_db_path.exists():
+            clear_like_db(like_db_path)
+        like_db = SessionSearchDB(str(like_db_path))
 
     fts_engine = None
     if fts_db_path is not None:
         if fresh and fts_db_path.exists():
             fts_db_path.unlink(missing_ok=True)
+        elif like_db is None:
+            logger.info("FTS-only backfill: appending into existing %s", fts_db_path)
         from tools.fts5_search.engine import FTS5SearchEngine
 
         fts_engine = FTS5SearchEngine(str(fts_db_path))
@@ -146,14 +155,16 @@ def backfill_sessions(
         title = str(meta.get("display_name") or meta.get("title") or session_id)
         msg_count = 0
 
-        like_db.add_session(session_id, source=source, title=title)
+        if like_db is not None:
+            like_db.add_session(session_id, source=source, title=title)
 
         for _line_no, record in iter_transcript_messages(path):
             parsed = extract_searchable_message(record)
             if parsed is None:
                 continue
             role, content, tool_name, _ts = parsed
-            like_db.add_message(session_id, role, content, tool_name=tool_name)
+            if like_db is not None:
+                like_db.add_message(session_id, role, content, tool_name=tool_name)
             msg_count += 1
             if fts_engine is not None:
                 fts_engine.index_message(
