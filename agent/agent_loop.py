@@ -211,6 +211,47 @@ def _sanitize_orphan_tools(messages: List[Dict[str, Any]]) -> int:
         logger.info("[400B] _sanitize_orphan_tools removed %d orphan/missing tool entries", removed)
     return removed
 
+# ---- 400C: DeepSeek thinking 模式 reasoning_content 补键（2026-09-13 B4-b 真因修复）----
+# 症状：DRIVE 连续 FAIL —— 模型侧 400 "The reasoning_content in the thinking mode
+#   must be passed back to the API" → empty_response → 会话从未累积 prompt_tokens。
+# 根因链：① core_loop 注入 conversation_history 时只构造 Message(role, content)
+#   （不传 reasoning_content，默认 None）；② callers_mixin._needs_reasoning_propagation()
+#   依赖「历史已见带 reasoning 的 assistant」→ 新 session 首 turn 恒 False → 这些注入
+#   消息发出的 dict 无该键；③ 同请求里本轮新 assistant 带键（空串）→ 混用 → 400。
+# 修法（最小·治本）：发请求前就地补空串键（DeepSeek 约定：字段必须存在，空串合法）。
+# env 门控 MIMIR_BACKFILL_REASONING_CONTENT（默认 1 开；0/false/no = 完全回退）。
+_THINKING_MODEL_HINTS = ("deepseek", "kimi", "moonshot")
+
+
+def _reasoning_backfill_enabled() -> bool:
+    """400C env gate: MIMIR_BACKFILL_REASONING_CONTENT=1 default on; 0/false/no = fallback."""
+    return os.getenv("MIMIR_BACKFILL_REASONING_CONTENT", "1").strip().lower() not in ("0", "false", "no")
+
+
+def _model_needs_reasoning_content(model: Optional[str]) -> bool:
+    """该模型是否 thinking 系（须回传 reasoning_content）。空/未知模型名 → False（保守不补）。"""
+    _m = (model or "").lower()
+    return any(_h in _m for _h in _THINKING_MODEL_HINTS)
+
+
+def _backfill_missing_reasoning_content(messages, model: Optional[str]) -> int:
+    """就地给「缺 reasoning_content 键」的 assistant 消息补空串，返回补的条数。
+
+    只补键不存在者——已有值（含空串）不覆盖：保护 callers_mixin L527-540 的
+    _last_reasoning 补偿与 S2-20260907 前缀冻结语义（已发出的消息字节不漂移）。
+    """
+    if not messages or not _reasoning_backfill_enabled() or not _model_needs_reasoning_content(model):
+        return 0
+    _filled = 0
+    for _m in messages:
+        if isinstance(_m, dict) and _m.get("role") == "assistant" and "reasoning_content" not in _m:
+            _m["reasoning_content"] = ""
+            _filled += 1
+    if _filled:
+        logger.info("[400C] backfilled reasoning_content empty on %d assistant msg(s) (model=%s)",
+                    _filled, model)
+    return _filled
+
 
 class AgentLoopExit(Exception):
     """Raised inside the agent loop to exit through the unified validation path.
@@ -257,8 +298,10 @@ class MimirAgentLoop:
         interrupt_check: Optional[Callable[[], bool]] = None,
         compressor: Any = None,  # P0-3: optional in-loop compressor; None = disabled
         task_spec: str = "",  # B-L2（Loki 2026-08-19）：任务书（含 - [ ] 子步骤清单）——运行时由 caller 传入
+        model: Optional[str] = None,  # 400C: thinking 模型名——决定是否补 reasoning_content
     ):
         self.model_call = model_call
+        self.model_name = model
         self.tool_schemas = tool_schemas
         self.valid_tool_names = valid_tool_names
         self.tool_dispatcher = tool_dispatcher
@@ -290,6 +333,13 @@ class MimirAgentLoop:
             task_spec = str(task_spec)
         self._task_spec = task_spec or ""
         self._task_completion_nudges: int = 0  # 完成度 L1 注入计数（L2 硬拦截 / L3 中断渐进触发）
+
+    def _ensure_reasoning_content(self, messages: List[Dict[str, Any]]) -> int:
+        """400C 发请求前保险：thinking 模式历史 assistant 缺 reasoning_content → 补空串。
+
+        调用点 = 全部 3 处 self.model_call(messages) 之前（主循环 / 强制总结 / 产出硬拦）。
+        """
+        return _backfill_missing_reasoning_content(messages, getattr(self, "model_name", None))
 
     async def _loop_body(self, messages: List[Dict[str, Any]]) -> AgentResult:
         """Execute the full agent loop (Loki-C 2026-08-15: run() 改名 _loop_body，薄 run() 在外层 try/except 包装)。
@@ -625,6 +675,7 @@ class MimirAgentLoop:
                 messages.append({"role": "user", "content": self._read_gate_directive})
                 logger.warning("[%s] turn %d: 读闸指令经标志位注入（安全通道）", self.task_id[:8], turn + 1)
                 self._read_gate_directive = None
+            self._ensure_reasoning_content(messages)
             api_start = _time.monotonic()
             try:
                 response = await self.model_call(messages)
@@ -1175,6 +1226,7 @@ class MimirAgentLoop:
                 try:
                     if _orphan_sanitize_enabled():
                         _sanitize_orphan_tools(messages)
+                    self._ensure_reasoning_content(messages)
                     _resp = await self.model_call(messages)
                     if _resp is not None:
                         _text = getattr(_resp, "content", None) or (getattr(_resp, "message", None) or {}).get("content") if not hasattr(_resp, "content") else getattr(_resp, "content", None)
@@ -1404,6 +1456,7 @@ class MimirAgentLoop:
             messages.append(_prod_msg)
             if _orphan_sanitize_enabled():
                 _sanitize_orphan_tools(messages)
+            self._ensure_reasoning_content(messages)
             _resp = await self.model_call(messages)
             if _resp is not None:
                 _msg = None
@@ -1607,6 +1660,7 @@ class MimirAetherAgentLoop:
         max_turns: int = 90,
         task_id: Optional[str] = None,
         task_spec: str = "",  # B-L2（2026-08-19 四方会议）：任务书透传
+        model: Optional[str] = None,  # 400C: 透传给 MimirAgentLoop
     ):
         self._chat_fn = chat_fn
         self._handlers: Dict[str, Callable[[str, dict, Optional[str]], Any]] = {}
@@ -1641,6 +1695,7 @@ class MimirAetherAgentLoop:
             max_turns=max_turns,
             task_id=task_id,
             task_spec=task_spec,
+            model=model,
         )
         self.valid_tool_names = self._loop.valid_tool_names
 

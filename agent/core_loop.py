@@ -978,6 +978,7 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
             _um = (user_message or "")
             _loop = MimirAgentLoop(
                 model_call=_model_call_adapter,
+                model=self.model,
                 tool_schemas=_tool_schemas,
                 valid_tool_names=_valid_names,
                 tool_dispatcher=_tool_dispatcher_adapter,

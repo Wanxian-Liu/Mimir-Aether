@@ -412,6 +412,7 @@ python3 -m pytest -q \
   tests/contract/test_horizon_herm_tgr_02.py \
   tests/agent/test_subdirectory_hints_prompt.py \
   tests/contract/test_horizon_herm_sdh_02.py \
+  tests/agent/test_agent_loop_reasoning_backfill.py \
   tests/agent/test_tool_quality_wiring.py \
   tests/agent/test_tool_quality_prompt_filter.py \
   tests/contract/test_horizon_os_tqm_02.py \
