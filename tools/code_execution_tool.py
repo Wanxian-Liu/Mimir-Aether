@@ -1132,6 +1132,16 @@ def execute_code(
         elif _mimir_data_root.is_dir():
             child_env["HOME"] = str(_mimir_data_root)
 
+        # Q3-B / X2-a: the whitelist above drops unknown names, so the two
+        # provenance keys are injected explicitly (exact keys, never a MIMIR_*
+        # wildcard -- the sandbox must not inherit unrelated runtime config).
+        try:
+            from agent.run_context import child_env_injection
+
+            child_env.update(child_env_injection())
+        except Exception:
+            pass
+
         proc = subprocess.Popen(
             [sys.executable, "script.py"],
             cwd=tmpdir,

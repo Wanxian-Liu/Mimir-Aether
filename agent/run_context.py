@@ -21,9 +21,22 @@ minimum fields needed to make run provenance measurable:
 ``session_key``    - which session the run belongs to (duplicate-wake detection)
 
 Plus :func:`audit_git_tool_call`: every ``git`` mutation attempted through a tool
-call is recorded with **repo + command class** (``commit`` / ``amend`` / ``push`` ...)
-into ``logs/git-audit.jsonl`` and one ``[GIT-AUDIT]`` log line - SRE acceptance
-criterion from the same receipt.
+call is recorded with **repo + command class(es)** (``commit`` / ``amend`` /
+``push`` ...) into ``logs/git-audit.jsonl`` and one ``[GIT-AUDIT]`` log line -
+SRE acceptance criterion from the same receipt.
+
+X-series follow-up (card ``2026-09-12-四方讨论-审计流三处缺口-Q3后续.md``,
+Hermes receipt 2026-09-12):
+
+* **X1-c** - one record carries the whole *set* of classes
+  (``classes: [add, commit, push]``). Real commands are chains, so the old
+  first-invocation-only classifier recorded ``add`` and *never* a commit
+  (measured: commit-level coverage 0%). ``repo`` is ``expanduser`` +
+  ``realpath`` normalised so it can serve as a cross-stream join key.
+* **X2-a** - :func:`child_env_injection` hands ``MIMIR_TRACE_ID`` /
+  ``MIMIR_AGENT_ID`` to child processes (shells / code sandbox) so the commit
+  hook - which runs *outside* this process - can write a non-empty trace and
+  the two audit streams finally share a join key.
 
 Design notes
 ------------
@@ -55,8 +68,12 @@ __all__ = [
     "current_run",
     "resolve_trigger_source",
     "classify_git_command",
+    "classify_git_command_classes",
     "audit_git_tool_call",
+    "child_env_injection",
+    "apply_child_env",
     "GIT_WRITE_CLASSES",
+    "PROVENANCE_ENV_KEYS",
 ]
 
 # Waking entry points known to exist (sec.4-A-5 of the Q3 card).
@@ -132,6 +149,10 @@ _GIT_READ_CLASSES = frozenset(
 # List form: subprocess.run(["git", "push"]) inside execute_code -- there is no
 # shell command position to anchor on, so the quoted-token form is matched.
 _GIT_LIST_RE = re.compile(r"['\"]git['\"]\s*,\s*['\"](?P<sub>[a-z][a-z-]*)['\"]")
+
+# ``git commit --amend`` is judged inside the invocation's own span, so
+# "git commit -m x && git commit --amend" classifies as [commit, amend].
+_AMEND_RE = re.compile(r"--amend\b")
 
 # "git" in a real *command position* (start, after ; | & ( or after wrappers such
 # as sudo/env/xargs), not as an argument of something else.
@@ -244,25 +265,78 @@ def current_run() -> Dict[str, Any]:
         return dict(_global_ctx) if _global_ctx else {}
 
 
+def _iter_git_invocations(command: str) -> list:
+    """Every git subcommand in a real command position, ordered by offset."""
+    found = []
+    for match in _GIT_INVOCATION_RE.finditer(command):
+        found.append((match.start(), match.group("sub")))
+    for match in _GIT_LIST_RE.finditer(command):
+        found.append((match.start(), match.group("sub")))
+    found.sort(key=lambda item: item[0])
+    seen = set()
+    ordered = []
+    for start, sub in found:
+        if (start, sub) in seen:
+            continue
+        seen.add((start, sub))
+        ordered.append((start, sub))
+    return ordered
+
+
+def _class_for_invocation(sub: str, span: str) -> str:
+    """Audit class of ONE invocation (``amend`` is distinct from ``commit``)."""
+    if sub == "commit":
+        return "amend" if _AMEND_RE.search(span) else "commit"
+    if sub in _GIT_WRITE_CLASSES:
+        return _GIT_WRITE_CLASSES[sub]
+    if sub in _GIT_READ_CLASSES:
+        return "read"
+    return sub or "unknown"
+
+
 def classify_git_command(command: str) -> Optional[str]:
-    """Return the audit class for a shell command, or ``None`` if it has no git call.
+    """Audit class of the *first* git call in a command, else ``None``.
+
+    Kept as the single-value API (callers that only need "is this a git write?").
+    For audit records use :func:`classify_git_command_classes`: a chained
+    command (``git add && git commit && git push``) has one class per call, and
+    taking only the first is exactly the X1 gap (commit-level coverage 0%).
 
     ``commit --amend`` reports ``"amend"`` (distinct from ``"commit"``) because
     amend is the operation that rewrote history in the 2026-09-12 incident.
     """
     if not command or not isinstance(command, str):
         return None
-    match = _GIT_INVOCATION_RE.search(command) or _GIT_LIST_RE.search(command)
-    if not match:
+    invocations = _iter_git_invocations(command)
+    if not invocations:
         return None
-    sub = match.group("sub")
-    if sub == "commit":
-        return "amend" if re.search(r"--amend\b", command) else "commit"
-    if sub in _GIT_WRITE_CLASSES:
-        return _GIT_WRITE_CLASSES[sub]
-    if sub in _GIT_READ_CLASSES:
-        return "read"
-    return sub or "unknown"
+    start, sub = invocations[0]
+    end = invocations[1][0] if len(invocations) > 1 else len(command)
+    return _class_for_invocation(sub, command[start:end])
+
+
+def classify_git_command_classes(command: str) -> list:
+    """Every audited (non read-only) class in the command, first-seen order.
+
+    X1-c ruling (Hermes receipt 2026-09-12): one record, one *set* of classes.
+    Real agent commands are chains - ``cd X && cp ... && git add ... && git
+    commit ... && git push`` - where the first-only classifier reported ``add``
+    forever, so the audit could never answer "which run made this commit".
+
+    Read-only subcommands are dropped (the trail answers "who changed what");
+    duplicate classes are collapsed but their order is preserved.
+    """
+    if not command or not isinstance(command, str):
+        return []
+    invocations = _iter_git_invocations(command)
+    classes = []
+    for idx, (start, sub) in enumerate(invocations):
+        end = invocations[idx + 1][0] if idx + 1 < len(invocations) else len(command)
+        klass = _class_for_invocation(sub, command[start:end])
+        if klass == "read" or klass in classes:
+            continue
+        classes.append(klass)
+    return classes
 
 
 def _extract_command(tool_name: str, arguments: Any) -> str:
@@ -276,6 +350,43 @@ def _extract_command(tool_name: str, arguments: Any) -> str:
     return ""
 
 
+# --- X2-a: provenance for CHILD processes -----------------------------------
+# The commit hook (scripts/git-hooks/pre-commit) reads $MIMIR_TRACE_ID to stamp
+# the B stream, but a hook runs in a *child* process: thread-local run state can
+# never reach it (measured 2026-09-12: every B record had trace_id="", and no
+# code in the repo ever exported the variable). So the two keys are injected
+# into the env of the shells / code sandboxes that tools spawn.
+PROVENANCE_ENV_KEYS = ("MIMIR_TRACE_ID", "MIMIR_AGENT_ID")
+
+
+def child_env_injection() -> Dict[str, str]:
+    """Provenance keys for a child process env; empty when no run is open.
+
+    The values are *run tokens*, not credentials - the security question raised
+    in the X2-a impact list is name collision, not leakage. Keys are exact
+    (``MIMIR_TRACE_ID`` / ``MIMIR_AGENT_ID``), never a ``MIMIR_*`` wildcard, so
+    the injection cannot widen itself into unrelated runtime config.
+    """
+    ctx = current_run()
+    trace = ctx.get("trace_id") or ""
+    if not trace:
+        return {}
+    return {
+        "MIMIR_TRACE_ID": str(trace),
+        "MIMIR_AGENT_ID": str(ctx.get("agent_id") or agent_id()),
+    }
+
+
+def apply_child_env(env: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Return a copy of ``env`` with :func:`child_env_injection` merged in."""
+    out: Dict[str, Any] = dict(env or {})
+    try:
+        out.update(child_env_injection())
+    except Exception:  # pragma: no cover - provenance must never break a run
+        pass
+    return out
+
+
 def _audit_log_path() -> Optional[str]:
     override = os.getenv("MIMIR_GIT_AUDIT_LOG")
     if override:
@@ -286,39 +397,57 @@ def _audit_log_path() -> Optional[str]:
     return os.path.join(home, "logs", "git-audit.jsonl")
 
 
+def _normalize_repo_path(raw: str) -> str:
+    """``expanduser`` + ``realpath`` so ``repo`` can be a join key (X1 note).
+
+    Same command, two spellings - ``/home/rayliu/wiki`` vs a literal ``~/wiki``
+    - made ``repo`` unusable for cross-stream joins (A stream carries trace_id
+    but no sha; B stream carries sha but no trace_id; ``repo`` is what ties a
+    record to a repository in both).
+    """
+    text = str(raw).strip().strip("'\"")
+    if not text:
+        return text
+    try:
+        return os.path.realpath(os.path.expanduser(text))
+    except Exception:  # pragma: no cover - normalisation is best-effort
+        return text
+
+
 def _repo_hint(command: str) -> str:
-    """Cheap repo hint from ``-C <path>`` / ``cd <path>`` when present, else cwd."""
+    """Repo path from ``-C <path>`` / ``cd <path>`` when present, else cwd."""
     if isinstance(command, str):
         m = re.search(r"git\s+-C\s+(\S+)", command) or re.search(r"\bcd\s+(\S+)\s*&&", command)
         if m:
-            return m.group(1)
-    return os.getcwd()
+            return _normalize_repo_path(m.group(1))
+    return _normalize_repo_path(os.getcwd())
 
 
 def audit_git_tool_call(tool_name: str, arguments: Any) -> Optional[Dict[str, Any]]:
     """Record a git-mutating tool call. Returns the audit record (or ``None``).
 
     Fires for any tool carrying shell text (``terminal``, ``execute_code`` ...).
-    A shell command may contain several git calls - only the first is classified,
-    which is enough for the three classes the audit asks for (commit/amend/push).
+    Every git write in the command is classified and the record carries the whole
+    set (X1-c): a single record for ``git add && git commit && git push`` has
+    ``classes = ["add", "commit", "push"]``, so no commit-level call is lost.
+
+    Read-only git (status/log/diff/...) is intentionally NOT audited: the trail
+    must stay small enough to read, and the question it answers is "which run
+    CHANGED which repo, how" (Hermes receipt sec.3, SRE item).
     """
     command = _extract_command(tool_name, arguments)
     if not command:
         return None
-    klass = classify_git_command(command)
-    if klass is None:
-        return None
-    # Read-only git (status/log/diff/...) is intentionally NOT audited: the
-    # trail must stay small enough to read, and the question it answers is
-    # "which run CHANGED which repo, how" (Hermes receipt sec.3, SRE item).
-    if klass == "read":
+    classes = classify_git_command_classes(command)
+    if not classes:
         return None
 
     ctx = current_run()
     record = {
         "ts": time.time(),
         "tool": tool_name,
-        "class": klass,
+        "class": classes[0],          # legacy single-value field
+        "classes": classes,           # X1-c: authoritative ordered set
         "repo": _repo_hint(command),
         "trace_id": ctx.get("trace_id", ""),
         "trigger_source": ctx.get("trigger_source", "unknown"),
@@ -326,12 +455,16 @@ def audit_git_tool_call(tool_name: str, arguments: Any) -> Optional[Dict[str, An
         "session_key": ctx.get("session_key", ""),
         "pid": os.getpid(),
         "command": command[:400],
+        # kept explicitly so a truncated `command` cannot hide the fact that
+        # the audit saw more than the stored 400 chars (X1 note)
+        "command_len": len(command),
     }
     try:
         logger.info(
-            "[GIT-AUDIT] class=%s repo=%s tool=%s trace_id=%s trigger_source=%s agent_id=%s",
-            klass, record["repo"], tool_name, record["trace_id"] or "-",
-            record["trigger_source"], record["agent_id"],
+            "[GIT-AUDIT] class=%s repo=%s tool=%s classes=%s trace_id=%s "
+            "trigger_source=%s agent_id=%s",
+            ",".join(classes), record["repo"], tool_name, ",".join(classes),
+            record["trace_id"] or "-", record["trigger_source"], record["agent_id"],
         )
     except Exception:  # pragma: no cover
         pass

@@ -101,6 +101,21 @@ def _build_provider_env_blocklist() -> frozenset:
 _HERMES_PROVIDER_ENV_BLOCKLIST = _build_provider_env_blocklist()
 
 
+def _provenance_env() -> dict:
+    """Q3-B / X2-a: run provenance keys for a CHILD process env.
+
+    Injected *after* the secret filtering on purpose -- the keys carry a run
+    token, not a credential, so they must not be droppable by the blocklist.
+    ``agent.run_context`` is imported lazily: this module must stay importable
+    without the agent package, and provenance must never break a command.
+    """
+    try:
+        from agent.run_context import child_env_injection
+        return child_env_injection()
+    except Exception:
+        return {}
+
+
 def _sanitize_subprocess_env(base_env: dict | None, extra_env: dict | None = None) -> dict:
     """Filter Hermes-managed secrets from a subprocess environment."""
     try:
@@ -122,6 +137,9 @@ def _sanitize_subprocess_env(base_env: dict | None, extra_env: dict | None = Non
             sanitized[real_key] = value
         elif key not in _HERMES_PROVIDER_ENV_BLOCKLIST or _is_passthrough(key):
             sanitized[key] = value
+
+    # Q3-B / X2-a: provenance for the commit hook (see _provenance_env).
+    sanitized.update(_provenance_env())
 
     # 自研: 不做特殊HOME隔离
 
@@ -191,6 +209,9 @@ def _make_run_env(env: dict) -> dict:
     existing_path = run_env.get("PATH", "")
     if "/usr/bin" not in existing_path.split(":"):
         run_env["PATH"] = f"{existing_path}:{_SANE_PATH}" if existing_path else _SANE_PATH
+
+    # Q3-B / X2-a: run provenance must reach the shell -> git -> hook chain.
+    run_env.update(_provenance_env())
 
     # 自研: 不做特殊HOME隔离
 

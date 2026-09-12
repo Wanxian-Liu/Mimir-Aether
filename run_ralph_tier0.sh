@@ -449,6 +449,8 @@ python3 -m pytest -q \
   tests/agent/test_context_compressor_await.py \
   tests/agent/test_compress_threshold_source.py \
   tests/agent/test_run_context.py \
+  tests/agent/test_run_context_x_series.py \
+  tests/scripts/test_install_git_hooks_chain.py \
   tests/gateway/test_foreign_amend_guard.py \
   tests/gateway/test_hygiene_compress_observability.py
       # --- U10（2026-09-12 刘哥批「门禁扩 tests/ 整树」）---
