@@ -170,6 +170,7 @@ def build_tool_quality_guidance() -> str:
         from agent.tool_quality import (
             ToolQualityManager,
             format_degraded_tools_guidance,
+            prompt_min_sample,
             tool_quality_prompt_enabled,
         )
 
@@ -182,7 +183,15 @@ def build_tool_quality_guidance() -> str:
             _tq_threshold = get_tuned_float("tool_quality.degraded_threshold")
         except Exception:
             _tq_threshold = 0.5
-        degraded = qm.get_degraded_tools(threshold=_tq_threshold)[:8]
+        try:
+            _tq_min_sample = prompt_min_sample()
+        except Exception:
+            _tq_min_sample = 20
+        degraded = qm.get_degraded_tools(
+            threshold=_tq_threshold,
+            min_sample=_tq_min_sample,
+            exclude_fixtures=True,
+        )[:8]
         return format_degraded_tools_guidance(degraded)
     except Exception:
         return ""

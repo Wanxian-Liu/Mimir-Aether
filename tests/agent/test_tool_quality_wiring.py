@@ -46,7 +46,9 @@ def test_prompt_includes_degraded_when_enabled(
     (tmp_path / "data").mkdir(parents=True)
     db = tmp_path / "data" / "tool_quality.db"
     qm = ToolQualityManager(db_path=db, enable_persistence=True)
-    for _ in range(5):
+    # min_sample default is 20 (2026-09-12): a handful of samples must NOT
+    # surface as a production telemetry signal.
+    for _ in range(25):
         qm.record("flaky_search", success=False, error_message="timeout")
     guidance = build_tool_quality_guidance()
     assert "flaky_search" in guidance

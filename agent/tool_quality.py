@@ -39,6 +39,44 @@ def tool_quality_prompt_enabled() -> bool:
     """Degraded-tool read-only block in system prompt (same gate as tracking)."""
     return tool_quality_enabled()
 
+# ── Prompt-hint hygiene (2026-09-12) ────────────────────────────────────────
+# 背景：测试夹具经生产 tool_quality.db 泄漏进 system prompt，被当成
+# "production telemetry shows low success rates"（crash_tool 433/0、
+# orphan_tool 430/0 等）。同时 total_calls>=3 的门槛让单样本工具
+# 也进入提示 —— 统计上无意义。
+_FIXTURE_TOOL_NAMES = frozenset({"crash_tool", "orphan_tool", "tool_a", "tool_b", "calc"})
+_DEFAULT_PROMPT_MIN_SAMPLE = 20
+
+
+def is_fixture_tool(tool_name: str) -> bool:
+    """True for known test-fixture tool names (never surfaced as degraded)."""
+    return (tool_name or "").strip().lower() in _FIXTURE_TOOL_NAMES
+
+
+def prompt_min_sample() -> int:
+    """Minimum total_calls before a tool may appear in the prompt hint.
+
+    Order: env ``MIMIR_TOOL_QUALITY_MIN_SAMPLE`` > tuned
+    ``tool_quality.prompt_min_sample`` > 20.
+    """
+    raw = os.environ.get("MIMIR_TOOL_QUALITY_MIN_SAMPLE")
+    if raw not in (None, ""):
+        try:
+            val = int(float(raw))
+            if val >= 1:
+                return val
+        except (TypeError, ValueError):
+            pass
+    try:
+        from agent.tuned_thresholds import get_tuned_float
+
+        val = int(get_tuned_float("tool_quality.prompt_min_sample"))
+        if val >= 1:
+            return val
+    except Exception:
+        pass
+    return _DEFAULT_PROMPT_MIN_SAMPLE
+
 
 def format_degraded_tools_guidance(
     degraded: List[Tuple[str, float]],
@@ -327,8 +365,19 @@ class ToolQualityManager:
             return True
         return False
 
-    def get_degraded_tools(self, threshold: Optional[float] = None) -> List[Tuple[str, float]]:
-        """Return tools below the quality threshold for evolution attention."""
+    def get_degraded_tools(
+        self,
+        threshold: Optional[float] = None,
+        min_sample: int = 3,
+        exclude_fixtures: bool = False,
+    ) -> List[Tuple[str, float]]:
+        """Return tools below the quality threshold for evolution attention.
+
+        ``min_sample`` guards against statistically meaningless entries (a tool
+        called once with a failure is not "degraded"). ``exclude_fixtures``
+        drops known test-fixture names so they never surface as production
+        telemetry in the system prompt.
+        """
         if threshold is None:
             try:
                 from agent.tuned_thresholds import get_tuned_float
@@ -338,7 +387,9 @@ class ToolQualityManager:
                 threshold = 0.5
         degraded = []
         for key, rec in self._records.items():
-            if rec.total_calls >= 3 and rec.quality_score < threshold:
+            if exclude_fixtures and is_fixture_tool(rec.tool_name):
+                continue
+            if rec.total_calls >= max(1, int(min_sample)) and rec.quality_score < threshold:
                 degraded.append((rec.tool_name, rec.quality_score))
         return sorted(degraded, key=lambda x: x[1])
 
