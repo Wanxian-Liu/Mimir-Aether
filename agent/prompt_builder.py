@@ -1161,6 +1161,19 @@ def _build_context_usage_hint() -> str:
     model = (snap.get("model") or "").strip()
     if model:
         parts.append(f"模型: {model}")
+    # B10 §4：提示里带**口径**（真源 main / 旁路 aux），避免主口径与旁路实例的
+    # 数字被混算（单槽 last-writer-wins 下二者互相覆盖，读端原本无从归因）。
+    try:
+        from agent.context_usage_snapshot import make_caliber
+
+        caliber = (snap.get("caliber") or "").strip() or make_caliber(
+            model, int(snap.get("context_length") or 0), threshold
+        )
+        if caliber:
+            kind = (snap.get("writer_kind") or "main").strip() or "main"
+            parts.append(f"口径: {kind}({caliber})")
+    except Exception:
+        pass
     return "[context-usage] " + " · ".join(parts)
 
 

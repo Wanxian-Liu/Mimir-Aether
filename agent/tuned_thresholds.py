@@ -48,6 +48,18 @@ _REGISTRY: Dict[str, Dict[str, Union[int, float]]] = {
         "step": 1,
         "type": "int",
     },
+    # B9（2026-09-13 · 阈值按有效窗口定）：一等公民上限。
+    # 语义：threshold_tokens = min(configured, cap, floor(0.75 x context_length))。
+    # **键缺失（overrides 未置位）⇒ 上限不生效**——resolve_effective_window_cap()
+    # 读的是 load_overrides() 的显式置位，不是本 default，故 default 只作文档锚点
+    # （1M = 1M 窗口模型下不夹紧），避免「配置没动、阈值却变了」。
+    "compressor.effective_window_tokens": {
+        "default": 1048576,
+        "min": 8000,
+        "max": 1048576,
+        "step": 1000,
+        "type": "int",
+    },
 }
 
 

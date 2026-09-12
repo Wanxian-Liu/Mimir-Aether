@@ -44,6 +44,12 @@ _PRUNED_TOOL_MIN_CHARS = 200
 # 后果：改 tuned 可能完全无效（被 env 架空），不同代码路径还会得到不同阈值
 # （drift）。现统一由下面两个函数解析，日志一律带 source= 便于取证。
 _COMPRESS_THRESHOLD_PERCENT_ENV = "MIMIR_COMPRESS_THRESHOLD"
+# B9（2026-09-13）：阈值按「有效窗口」定——一等公民上限。**仅当** tuned 键
+# compressor.effective_window_tokens 显式置位时生效：
+#   threshold_tokens = min(configured, cap, floor(0.75 x context_length))
+# 键缺失 ⇒ 该上限不生效（严格向后兼容，见 resolve_effective_window_cap）。
+_EFFECTIVE_WINDOW_TOKENS_KEY = "compressor.effective_window_tokens"
+_WINDOW_RATIO_CEILING = 0.75
 _COMPRESS_THRESHOLD_TOKENS_ENV = "MIMIR_COMPRESS_THRESHOLD_TOKENS"
 _DEFAULT_THRESHOLD_PERCENT = 0.50
 
@@ -62,6 +68,70 @@ def _strip_inline_comment(raw: str):
     if "#" not in raw:
         return raw, False
     return raw.split("#", 1)[0].strip(), True
+
+
+def resolve_effective_window_cap() -> Optional[int]:
+    """B9：有效窗口上限真源——tuned 键 ``compressor.effective_window_tokens``。
+
+    **只有显式置位（tuned overrides 里存在该键）才返回上限**；键缺失 / 非法 /
+    不可读 ⇒ 返回 ``None`` ⇒ 上限不生效（严格向后兼容：不改变现有行为）。
+
+    刻意不走 ``get_tuned_int`` 的 registry default：那会让任何 registry 默认值
+    把小窗口模型静默夹紧——即「配置没动、阈值却变了」的同一类暗路。
+    """
+    try:
+        from agent.tuned_thresholds import load_overrides
+
+        overrides = load_overrides()
+    except Exception:
+        return None
+    if not isinstance(overrides, dict) or _EFFECTIVE_WINDOW_TOKENS_KEY not in overrides:
+        return None
+    try:
+        cap = int(overrides[_EFFECTIVE_WINDOW_TOKENS_KEY])
+    except (TypeError, ValueError):
+        return None
+    return cap if cap > 0 else None
+
+
+def apply_effective_window_cap(
+    configured: int, source: str, context_length: int
+) -> Tuple[int, str]:
+    """B9：把阈值按「有效窗口」封顶（只降不升）。
+
+    ``threshold = min(configured, cap, floor(0.75 x context_length))``
+
+    * ``cap`` = tuned 键 :data:`_EFFECTIVE_WINDOW_TOKENS_KEY`；**键缺失 ⇒ 原样返回**
+      （见 :func:`resolve_effective_window_cap`）。
+    * ``source`` **只追加不重写**（既有断言匹配前缀 ``env:MIMIR_...`` 仍成立）：
+      取胜项以 ``+cap:effective_window_tokens`` / ``+cap:window_ratio`` 追加。
+    * 上限**生效时**打 INFO ``[COMPRESS-CAP]``，含 context_length / configured /
+      cap / window_ratio / 最终值 / 取胜原因 —— 「哪一项取胜」可取证。
+    """
+    ctx = int(context_length or 0)
+    base = int(configured)
+    if ctx <= 0:
+        return base, source
+    cap = resolve_effective_window_cap()
+    if cap is None:
+        return base, source  # 键缺失：零行为变化
+    window_ratio = int(_WINDOW_RATIO_CEILING * ctx)
+    # 元组顺序即优先级：configured > cap > window_ratio（并列时前者胜）。
+    candidates = (
+        (base, None),
+        (cap, "+cap:effective_window_tokens"),
+        (window_ratio, "+cap:window_ratio"),
+    )
+    winner_value, winner_suffix = min(candidates, key=lambda item: item[0])
+    if winner_suffix is None or winner_value >= base:
+        return base, source  # configured 本就更小 → 上限未生效，source 不动
+    logger.info(
+        "[COMPRESS-CAP] context_length=%s configured=%s cap=%s window_ratio=%s "
+        "final=%s winner=%s reason=%s",
+        ctx, base, cap, window_ratio, winner_value, winner_suffix,
+        f"{winner_value} < configured({base})",
+    )
+    return winner_value, f"{source} {winner_suffix}"
 
 
 def resolve_threshold_percent(env=None) -> Tuple[float, str]:
@@ -109,9 +179,15 @@ def resolve_threshold_tokens(
     绝对 token 数优先（运维一键钉死），否则按百分比解析——百分比本身也走
     :func:`resolve_threshold_percent`，全链路单一实现。非法 env 值降级不抛。
 
-    Returns ``(threshold_tokens, source)``。
+    B9（2026-09-13）：解析出 ``configured`` 之后再过一层**有效窗口上限**
+    （:func:`apply_effective_window_cap`）——``min(configured, cap, 0.75 x ctx)``；
+    tuned 键 compressor.effective_window_tokens 缺失时该层完全不生效。
+
+    Returns ``(threshold_tokens, source)``；上限取胜时 source 以
+    ``+cap:effective_window_tokens`` / ``+cap:window_ratio`` **追加**（不改前缀）。
     """
     _env = os.environ if env is None else env
+    ctx = int(context_length or 0)
     raw = (_env.get(_COMPRESS_THRESHOLD_TOKENS_ENV) or "").strip()
     if raw:
         raw, _stripped = _strip_inline_comment(raw)
@@ -124,7 +200,10 @@ def resolve_threshold_tokens(
         try:
             absolute = int(raw)
             if absolute > 0:
-                return absolute, f"env:{_COMPRESS_THRESHOLD_TOKENS_ENV}"
+                # B9：env 绝对覆盖只是「configured」，仍须过有效窗口上限。
+                return apply_effective_window_cap(
+                    absolute, f"env:{_COMPRESS_THRESHOLD_TOKENS_ENV}", ctx
+                )
             logger.warning(
                 "Invalid %s=%r (must be >0) — falling back to percent",
                 _COMPRESS_THRESHOLD_TOKENS_ENV, raw,
@@ -138,7 +217,7 @@ def resolve_threshold_tokens(
         percent, source = resolve_threshold_percent(env=_env)
     else:
         percent, source = float(threshold_percent), "explicit"
-    return int(context_length * percent), f"{source} x {context_length}"
+    return apply_effective_window_cap(int(ctx * percent), f"{source} x {ctx}", ctx)
 
 
 @dataclass
@@ -962,7 +1041,11 @@ class MimirContextCompressor(ContextCompressorV2):
             int(self.context_length or 0), self.threshold_percent
         )
         self.threshold_source = _resolved_source
-        if _resolved_source.startswith("env:") and _resolved_tokens != self.threshold_tokens:
+        # B9：env 绝对覆盖 **或** 有效窗口上限生效（source 含 "+cap:"）时同步
+        # threshold_tokens。上限只把阈值往下夹，故与原 env 分支同构、无副作用。
+        if (
+            _resolved_source.startswith("env:") or "+cap:" in _resolved_source
+        ) and _resolved_tokens != self.threshold_tokens:
             self.threshold_tokens = _resolved_tokens
             self.tail_token_budget = int(self.threshold_tokens * self.summary_target_ratio)
         logger.info(
@@ -983,11 +1066,15 @@ class MimirContextCompressor(ContextCompressorV2):
             int(self.context_length or 0), self.threshold_percent
         )
         self.threshold_source = _resolved_source
-        if _resolved_source.startswith("env:") and _resolved_tokens != self.threshold_tokens:
+        # B9：env 绝对覆盖 **或** 有效窗口上限生效（source 含 "+cap:"）时同步
+        # threshold_tokens。上限只把阈值往下夹，故与原 env 分支同构、无副作用。
+        if (
+            _resolved_source.startswith("env:") or "+cap:" in _resolved_source
+        ) and _resolved_tokens != self.threshold_tokens:
             self.threshold_tokens = _resolved_tokens
             self.tail_token_budget = int(self.threshold_tokens * self.summary_target_ratio)
             logger.info(
-                "[COMPRESS-UPDATE] threshold_tokens=%s source=%s (env override re-applied "
+                "[COMPRESS-UPDATE] threshold_tokens=%s source=%s (env/cap override re-applied "
                 "after update_model)",
                 self.threshold_tokens, self.threshold_source,
             )

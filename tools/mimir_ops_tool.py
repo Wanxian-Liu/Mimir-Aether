@@ -195,17 +195,67 @@ def _action_gateway_restart(*, confirm: bool = False) -> Dict[str, Any]:
 
 
 def _action_context_usage() -> Dict[str, Any]:
-    from agent.context_usage_snapshot import read_context_usage_snapshot
+    """B10 §4：读端标注口径 —— 本记录来自哪个 model/ctx/thr（真源 vs 旁路）。
+
+    单槽 last-writer-wins 下主会话与旁路实例互相覆盖，读端原本分不清数字归属。
+    现在：主口径 = ``context_usage`` + ``caliber_annotation``（含 writer_kind / pid /
+    caliber / fresh）；旁路文件存在时额外附 ``aux`` 块并显式标注为旁路。
+    """
+    from agent.context_usage_snapshot import (
+        AUX_TTL_SECONDS,
+        is_fresh,
+        make_caliber,
+        read_aux_context_usage_snapshot,
+        read_context_usage_snapshot,
+    )
     from agent.monitor import snapshot_for_health
 
     snap = read_context_usage_snapshot() or {}
+    aux = read_aux_context_usage_snapshot()
     monitor = snapshot_for_health()
     ctx_len = int(snap.get("context_length") or 0)
     prompt = int(snap.get("prompt_tokens") or 0)
     remaining = max(ctx_len - prompt, 0) if ctx_len > 0 else None
+
+    kind = str(snap.get("writer_kind") or "main").strip().lower() or "main"
+    caliber = str(snap.get("caliber") or "").strip() or make_caliber(
+        str(snap.get("model") or ""), ctx_len, int(snap.get("threshold_tokens") or 0)
+    )
+    annotation: Dict[str, Any] = {
+        "source": "main",
+        "writer_kind": kind,
+        "pid": snap.get("pid"),
+        "caliber": caliber,
+        "fresh": is_fresh(snap),
+        "ttl_seconds": AUX_TTL_SECONDS,
+        "note": (
+            f"本记录来自 {kind} 写者口径 {caliber}（真源：main = config.yaml "
+            "model.default）。旁路实例口径见 aux 块——勿与主口径混算。"
+        ),
+    }
+    if isinstance(aux, dict) and aux:
+        annotation["aux"] = {
+            "bypass": True,
+            "writer_kind": str(aux.get("writer_kind") or "aux"),
+            "pid": aux.get("pid"),
+            "model": aux.get("model"),
+            "caliber": str(aux.get("caliber") or "").strip()
+            or make_caliber(
+                str(aux.get("model") or ""),
+                int(aux.get("context_length") or 0),
+                int(aux.get("threshold_tokens") or 0),
+            ),
+            "prompt_tokens": int(aux.get("prompt_tokens") or 0),
+            "total_tokens": int(aux.get("total_tokens") or 0),
+            "context_length": int(aux.get("context_length") or 0),
+            "threshold_tokens": int(aux.get("threshold_tokens") or 0),
+            "fresh": is_fresh(aux),
+            "note": "旁路实例（非 config.yaml model.default）口径 —— 不可与主口径混算",
+        }
     return {
         "ok": True,
         "context_usage": snap,
+        "caliber_annotation": annotation,
         "remaining_tokens_estimate": remaining,
         "monitor": monitor,
         "note": (

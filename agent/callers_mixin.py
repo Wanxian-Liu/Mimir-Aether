@@ -372,10 +372,19 @@ class CallersMixin:
         except Exception as _e:
             logger.debug("compressor.ingest_usage skipped: %s", _e)
         try:
-            from agent.context_usage_snapshot import write_context_usage_snapshot
+            from agent.context_usage_snapshot import (
+                resolve_writer_kind,
+                write_context_usage_snapshot,
+            )
 
             comp = self.compressor
-            write_context_usage_snapshot(
+            # B10 §3（写点判定）：agent.model == config.yaml model.default ⇒ main，
+            # 否则 aux（旁路实例，如 delegate/subagent 用 deepseek-chat ctx=163840）。
+            # 配置读不到时 resolve_writer_kind 内 fail-open 判 main
+            # （宁保留遥测不丢失——错误的归属可事后由 caliber 字段纠正）。
+            _model = str(getattr(self, "model", "") or "")
+            _writer_kind = resolve_writer_kind(_model)
+            _snap_path = write_context_usage_snapshot(
                 prompt_tokens=pt,
                 completion_tokens=ct,
                 total_tokens=int(total),
@@ -383,7 +392,12 @@ class CallersMixin:
                 threshold_tokens=int(getattr(comp, "threshold_tokens", 0) or 0),
                 message_count=len(messages) if messages else 0,
                 session_id=str(getattr(self, "session_id", "") or ""),
-                model=str(getattr(self, "model", "") or ""),
+                model=_model,
+                writer_kind=_writer_kind,
+            )
+            logger.debug(
+                "[TELEMETRY] wrote %s writer_kind=%s model=%s",
+                _snap_path, _writer_kind, _model,
             )
         except Exception as _e:
             logger.debug("context_usage_snapshot skipped: %s", _e)
