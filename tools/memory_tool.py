@@ -97,6 +97,9 @@ def get_memory_dir() -> Path:
 
 ENTRY_DELIMITER = "\n§\n"
 
+# Suffix of the pre-compaction recovery snapshot: MEMORY.md -> MEMORY.md.precompact
+PRECOMPACT_SUFFIX = ".precompact"
+
 
 # ---------------------------------------------------------------------------
 # Memory content scanning — lightweight check for injection/exfiltration
@@ -269,6 +272,54 @@ class MemoryStore:
             return self.user_char_limit
         return self.memory_char_limit
 
+    @staticmethod
+    def _snapshot_write(path: Path, content: str) -> None:
+        """Atomically write a pre-compaction snapshot (tmp file + os.replace).
+
+        Written in the same directory as the target file so os.replace stays
+        atomic on a single filesystem. Raises on failure; callers degrade.
+        """
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp_path = tempfile.mkstemp(
+            dir=str(path.parent), suffix=".tmp", prefix=".mem_precompact_"
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(content)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_path, str(path))
+        except BaseException:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
+
+    def _write_precompact_snapshot(self, target: str) -> Optional[Path]:
+        """Snapshot the FULL untruncated entry text before any mutation.
+
+        Writes ``<MEMORY.md>.precompact`` atomically. Runs before Phase 1 so the
+        file holds exactly what compaction is about to truncate or drop.
+        Never raises: a failed snapshot must not abort compaction.
+        """
+        try:
+            path = self._path_for(target)
+            entries = list(self._entries_for(target))
+            payload = ENTRY_DELIMITER.join(entries) if entries else ""
+            snapshot_path = path.with_name(path.name + PRECOMPACT_SUFFIX)
+            self._snapshot_write(snapshot_path, payload)
+            logger.info(
+                "[MEMORY-PRECOMPACT] target=%s entries=%d chars=%d snapshot=%s",
+                target, len(entries), len(payload), snapshot_path,
+            )
+            return snapshot_path
+        except Exception as e:
+            logger.warning(
+                "[MEMORY-PRECOMPACT] snapshot failed for %s: %s", target, e
+            )
+            return None
+
     def _maybe_compact(self, target: str) -> Dict[str, Any]:
         """Auto-compact memory when usage > 80% of char limit.
 
@@ -291,6 +342,11 @@ class MemoryStore:
         original_count = len(entries)
         original_chars = current
         logger.info(f"Compacting {target}: {current:,}/{limit:,} chars ({original_count} entries)")
+
+        # Guard: recoverable snapshot of the full pre-truncation text.
+        # Must run BEFORE any mutation (Phase 1 onward) so nothing is lost.
+        # Failure is non-fatal by design (see _write_precompact_snapshot).
+        self._write_precompact_snapshot(target)
 
         # Phase 1: Exact dedup (preserves order, keeps first occurrence)
         entries = list(dict.fromkeys(entries))
