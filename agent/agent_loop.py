@@ -235,16 +235,16 @@ def _model_needs_reasoning_content(model: Optional[str]) -> bool:
 
 
 def _backfill_missing_reasoning_content(messages, model: Optional[str]) -> int:
-    """就地给「缺 reasoning_content 键」的 assistant 消息补空串，返回补的条数。
+    """就地给「缺 reasoning_content 键 / 值非 str」的 assistant 消息补空串，返回补的条数。
 
-    只补键不存在者——已有值（含空串）不覆盖：保护 callers_mixin L527-540 的
+    只补「缺失 / None / 非 str」者——已有值（含空串）不覆盖：保护 callers_mixin L527-540 的
     _last_reasoning 补偿与 S2-20260907 前缀冻结语义（已发出的消息字节不漂移）。
     """
     if not messages or not _reasoning_backfill_enabled() or not _model_needs_reasoning_content(model):
         return 0
     _filled = 0
     for _m in messages:
-        if isinstance(_m, dict) and _m.get("role") == "assistant" and "reasoning_content" not in _m:
+        if isinstance(_m, dict) and _m.get("role") == "assistant" and not isinstance(_m.get("reasoning_content"), str):
             _m["reasoning_content"] = ""
             _filled += 1
     if _filled:

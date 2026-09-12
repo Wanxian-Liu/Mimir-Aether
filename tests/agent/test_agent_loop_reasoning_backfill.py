@@ -98,3 +98,16 @@ def test_env_gate_default_on(monkeypatch):
     msgs = [{"role": "assistant", "content": "x"}]
     assert _backfill_missing_reasoning_content(msgs, "deepseek-chat") == 1
     assert msgs[0]["reasoning_content"] == ""
+
+
+def test_none_reasoning_normalized():
+    """`reasoning_content: None`（非 str）同样不算「passed back」→ 归一等空串（不覆盖合规值）。"""
+    msgs = [
+        {"role": "assistant", "content": "a", "reasoning_content": None},
+        {"role": "assistant", "content": "b", "reasoning_content": ""},
+        {"role": "assistant", "content": "c", "reasoning_content": "keep-me"},
+    ]
+    assert _backfill_missing_reasoning_content(msgs, "deepseek-chat") == 1
+    assert msgs[0]["reasoning_content"] == ""
+    assert msgs[1]["reasoning_content"] == ""
+    assert msgs[2]["reasoning_content"] == "keep-me"
