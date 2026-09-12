@@ -119,3 +119,95 @@ def test_guidance_excludes_fixture_and_small_sample(
     for _ in range(2):
         qm.record("vision_analyze", success=False, error_message="nope")
     assert build_tool_quality_guidance() == ""
+
+
+# ── R-② 单一真源 + R-① 窄异常 + R2 观测点（2026-09-12 审计整改）────────────
+
+_CANONICAL_FIXTURE_NAMES = {
+    "calc",
+    "crash_tool",
+    "echo",
+    "nonexistent",
+    "noop_tool",
+    "orphan_tool",
+    "tool_a",
+    "tool_b",
+}
+_REAL_TOOL_NAMES = (
+    "read_file",
+    "session_search",
+    "terminal",
+    "execute_code",
+    "write_file",
+    "patch",
+    "web_search",
+)
+
+
+def test_fixture_name_set_is_canonical() -> None:
+    from agent.tool_quality import _FIXTURE_TOOL_NAMES
+
+    assert set(_FIXTURE_TOOL_NAMES) == _CANONICAL_FIXTURE_NAMES
+
+
+def test_real_tools_are_never_fixtures() -> None:
+    """BUG-08 教训守卫：真实工具永不进夹具名单。"""
+    for name in _REAL_TOOL_NAMES:
+        assert not is_fixture_tool(name)
+
+
+def test_fixture_names_have_single_live_definition() -> None:
+    """R-② 守卫：除 agent/tool_quality.py 外，活代码不得再定义夹具名单。
+
+    docs/archive/ 下的世界模型死代码（_SELF_HEAL_EXCLUDE）不计——不参与运行时、
+    不被任何活模块 import。
+    """
+    root = Path(__file__).resolve().parents[2]
+    offenders = []
+    for sub in ("agent", "gateway", "tools", "core"):
+        base = root / sub
+        if not base.is_dir():
+            continue
+        for path in base.rglob("*.py"):
+            if "test" in path.name:
+                continue
+            rel = path.relative_to(root).as_posix()
+            if rel == "agent/tool_quality.py":
+                continue
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            if "_SELF_HEAL_EXCLUDE" in text or (
+                "crash_tool" in text and "orphan_tool" in text
+            ):
+                offenders.append(rel)
+    assert offenders == []
+
+
+def test_tuned_reads_are_not_silently_swallowed() -> None:
+    """R-① 契约：tuned 读取段不得再出现裸 except Exception: pass。"""
+    src = (Path(__file__).resolve().parents[2] / "agent" / "tool_quality.py").read_text(
+        encoding="utf-8"
+    )
+    assert "except Exception:\n        pass" not in src
+    assert "MIMIR_TOOL_QUALITY_MIN_SAMPLE" in src  # env 段仍在
+    # 未注册键走显式 KeyError 分支（不是裸 Exception 吞咽）
+    assert "ImportError, KeyError" in src
+
+
+def test_resolved_params_logged_once_per_change(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """R2：同参不重复记，参数变化再记一行。"""
+    import logging as _logging
+
+    from agent import prompt_builder as pb
+
+    pb._TQ_LAST_RESOLVED = None
+    with caplog.at_level(_logging.INFO, logger="agent.prompt_builder"):
+        pb._log_tool_quality_resolution(0.3, 20, 1)
+        pb._log_tool_quality_resolution(0.3, 20, 5)  # 同参 → 不重复
+        pb._log_tool_quality_resolution(0.3, 5, 1)  # 参数变 → 再记
+    lines = [r.getMessage() for r in caplog.records if "resolved_threshold" in r.getMessage()]
+    pb._TQ_LAST_RESOLVED = None
+    assert len(lines) == 2
+    assert "resolved_min_sample=20" in lines[0]
+    assert "resolved_min_sample=5" in lines[1]

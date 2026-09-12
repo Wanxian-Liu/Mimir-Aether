@@ -164,6 +164,33 @@ def build_analysis_artifact_guidance() -> str:
         return ""
 
 
+# R2 observation point (2026-09-12 · Hermes 审计裁决)：提示里**实际解析到**的
+# threshold / min_sample。按 (threshold, min_sample) 去重，避免每轮刷 gateway.log，
+# 同时一行解释 §十 记录的「盘上 tuned 与实例内不一致（0.31 vs 0.30）」。
+_TQ_LAST_RESOLVED: Optional[tuple] = None
+
+
+def _log_tool_quality_resolution(
+    threshold: float, min_sample: int, n_degraded: int
+) -> None:
+    """Emit one INFO line per change of the resolved tool-quality parameters."""
+    global _TQ_LAST_RESOLVED
+    try:
+        key = (round(float(threshold), 6), int(min_sample))
+    except (TypeError, ValueError):
+        return
+    if key == _TQ_LAST_RESOLVED:
+        return
+    _TQ_LAST_RESOLVED = key
+    logger.info(
+        "[TOOL-QUALITY] resolved_threshold=%s resolved_min_sample=%s "
+        "degraded=%s exclude_fixtures=True",
+        key[0],
+        key[1],
+        n_degraded,
+    )
+
+
 def build_tool_quality_guidance() -> str:
     """Read-only degraded-tool hints from persisted tool_quality.db (IQ-EVO-17 / OS-TQM-02)."""
     try:
@@ -181,17 +208,30 @@ def build_tool_quality_guidance() -> str:
             from agent.tuned_thresholds import get_tuned_float
 
             _tq_threshold = get_tuned_float("tool_quality.degraded_threshold")
-        except Exception:
+        except (TypeError, ValueError, OSError, ImportError) as exc:
+            # R-①：静默兜底 → 收窄 + WARN（与 tool_quality.py 同款约定）。
+            logger.warning(
+                "prompt_builder: tuned degraded_threshold unreadable (%s: %s) -> 0.5",
+                type(exc).__name__,
+                exc,
+            )
             _tq_threshold = 0.5
         try:
             _tq_min_sample = prompt_min_sample()
-        except Exception:
+        except Exception as exc:
+            # prompt_min_sample() 自身已内置兜底；此处保留防御性保护但不静默。
+            logger.warning(
+                "prompt_builder: prompt_min_sample() raised (%s: %s) -> 20",
+                type(exc).__name__,
+                exc,
+            )
             _tq_min_sample = 20
         degraded = qm.get_degraded_tools(
             threshold=_tq_threshold,
             min_sample=_tq_min_sample,
             exclude_fixtures=True,
         )[:8]
+        _log_tool_quality_resolution(_tq_threshold, _tq_min_sample, len(degraded))
         return format_degraded_tools_guidance(degraded)
     except Exception:
         return ""

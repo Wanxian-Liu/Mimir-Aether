@@ -15,6 +15,7 @@ Persistence to <MIMIR_AETHER_HOME>/data/tool_quality.db
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sqlite3
 import threading
@@ -23,6 +24,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 
 def tool_quality_enabled() -> bool:
@@ -44,7 +47,28 @@ def tool_quality_prompt_enabled() -> bool:
 # "production telemetry shows low success rates"（crash_tool 433/0、
 # orphan_tool 430/0 等）。同时 total_calls>=3 的门槛让单样本工具
 # 也进入提示 —— 统计上无意义。
-_FIXTURE_TOOL_NAMES = frozenset({"crash_tool", "orphan_tool", "tool_a", "tool_b", "calc"})
+# ⚠️ **单一真源（2026-09-12 · 审计整改 R-②）**：本常量是全仓**唯一**「夹具工具名」
+# 定义。历史上存在第二份：docs/archive/world-model-20260803/wm_voe_learning.py:305
+# `_SELF_HEAL_EXCLUDE`。该文件属**归档死代码**（世界模型已废弃，全仓零 import）——
+# 因此**不反向 import**（活的 agent/ 不得依赖 docs/archive/），改为把其**有生产库
+# 证据支持**的成员收编到本常量。差异与依据（生产 data/tool_quality.db 只读实测 2026-09-12）：
+#   · echo(4722/4722) · nonexistent(2/0) → 生产库存在，且 tools/ 注册表**无**同名工具
+#     （仅出现于 agent/test_agent_loop*.py 的本地 register_tool）⇒ 测试循环自注册夹具。
+#   · noop_tool · tool_a → 生产库未出现，但既有测试/基线声明 ⇒ 防御性保留。
+#   · calc / crash_tool / orphan_tool / tool_b → 生产库存在，测试夹具（既有）。
+# 保留 **BUG-08 教训**：真实工具（read_file / session_search / terminal …）**永不**进
+# 本名单——误排会让 self-heal 与提示学到噪音。日后新增成员必须附生产库计数证据，
+# 并由 tests/agent/test_tool_quality_prompt_filter.py 的单一真源守卫锁定。
+_FIXTURE_TOOL_NAMES = frozenset({
+    "calc",
+    "crash_tool",
+    "echo",
+    "nonexistent",
+    "noop_tool",
+    "orphan_tool",
+    "tool_a",
+    "tool_b",
+})
 _DEFAULT_PROMPT_MIN_SAMPLE = 20
 
 
@@ -58,6 +82,13 @@ def prompt_min_sample() -> int:
 
     Order: env ``MIMIR_TOOL_QUALITY_MIN_SAMPLE`` > tuned
     ``tool_quality.prompt_min_sample`` > 20.
+
+    ⚠️ 盘上状态（2026-09-12，R-① 收窄时实测）：该 tuned 键**当前未注册**于
+    ``tuned_thresholds._REGISTRY``（该表只有 ``tool_quality.degraded_threshold``），
+    ``get_tuned_value`` 对其抛 ``KeyError`` → 中间环节实为**死链**，实际生效链
+    为 env > 20。是否注册属 ``docs/phase0/iqevo-1c-boundary.md`` F4 边界
+    （无界新增 registry 键为禁止项）→ 列为整改项 W-① 待裁决；本函数保留
+    显式 KeyError 分支 + WARN，确保**不再静默**。
     """
     raw = os.environ.get("MIMIR_TOOL_QUALITY_MIN_SAMPLE")
     if raw not in (None, ""):
@@ -73,8 +104,18 @@ def prompt_min_sample() -> int:
         val = int(get_tuned_float("tool_quality.prompt_min_sample"))
         if val >= 1:
             return val
-    except Exception:
-        pass
+    except (TypeError, ValueError, OSError, ImportError, KeyError) as exc:
+        # KeyError = 该键未注册于 tuned_thresholds._REGISTRY（显式、具名，非
+        # 宽泛吞咽）——注册与否属 1c 边界 F4，待裁决（整改项 W-①）。
+        # R-①（2026-09-12 审计裁决）：不再 `except Exception: pass` 静默兜底——
+        # 只吞可预期的读取/解析失败，且留一行 WARN，便于事后判定
+        # 「提示里用的是 env 值还是 tuned 值」。
+        logger.warning(
+            "tool_quality: tuned prompt_min_sample unreadable (%s: %s) -> default %s",
+            type(exc).__name__,
+            exc,
+            _DEFAULT_PROMPT_MIN_SAMPLE,
+        )
     return _DEFAULT_PROMPT_MIN_SAMPLE
 
 
@@ -383,7 +424,14 @@ class ToolQualityManager:
                 from agent.tuned_thresholds import get_tuned_float
 
                 threshold = get_tuned_float("tool_quality.degraded_threshold")
-            except Exception:
+            except (TypeError, ValueError, OSError, ImportError) as exc:
+                # R-① 同类风险（检查单 G7 类风险扫）：同款静默兜底会掩盖真实
+                # 读取失败 → 收窄 + WARN。
+                logger.warning(
+                    "tool_quality: tuned degraded_threshold unreadable (%s: %s) -> 0.5",
+                    type(exc).__name__,
+                    exc,
+                )
                 threshold = 0.5
         degraded = []
         for key, rec in self._records.items():
