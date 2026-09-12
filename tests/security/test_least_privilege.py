@@ -66,15 +66,44 @@ def test_wiki_read_ok(exec_obj):
 
 
 # ── project 只读 ──
+def _project_root():
+    """project 只读根：与生产**同源**（agent 包所在仓库根）。
+
+    2026-09-13 CI 根因修复：旧写法 ``dirname(dirname(测试文件))`` 得到的是 ``<repo>/tests``
+    （少一层），本地因 ``$HOME/src/MimirAether`` 命中白名单而侥幸通过；CI 上仓库位于
+    ``/home/runner/work/...`` → 两用例恒红（``outside allowed paths``）。改为与生产
+    同一判据（env ``MIMIR_REPO_ROOT`` 优先，否则从 ``agent`` 包位置派生）。
+    """
+    env = os.environ.get("MIMIR_REPO_ROOT", "").strip()
+    if env:
+        return os.path.expanduser(env)
+    import agent.exec_mixin as _em
+    return os.path.dirname(os.path.dirname(os.path.abspath(_em.__file__)))
+
+
 def test_project_write_denied(exec_obj):
-    p = os.environ.get("MIMIR_REPO_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) + "/agent/agent_loop.py"
+    p = os.path.join(_project_root(), "agent", "agent_loop.py")
     err = exec_obj._validate_path_access("write_file", {"path": p})
     assert err and "read-only" in err
 
 
 def test_project_read_ok(exec_obj):
-    p = os.environ.get("MIMIR_REPO_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) + "/agent/agent_loop.py"
+    p = os.path.join(_project_root(), "agent", "agent_loop.py")
     assert exec_obj._validate_path_access("read_file", {"path": p}) is None
+
+
+def test_project_root_not_home_dependent(exec_obj, monkeypatch, tmp_path):
+    """project 根必须由**代码位置**派生，不得依赖 ``$HOME/src/MimirAether`` 硬编码。
+
+    反例场景（CI / 任意 checkout 目录 / 他人机器）：HOME 下没有 src/MimirAether，
+    此时 agent 自己所在的仓库仍须被判为 project（只读），而不是「白名单外」。
+    """
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("MIMIR_REPO_ROOT", raising=False)
+    p = os.path.join(_project_root(), "agent", "exec_mixin.py")
+    assert exec_obj._validate_path_access("read_file", {"path": p}) is None
+    err = exec_obj._validate_path_access("write_file", {"path": p})
+    assert err and "read-only" in err
 
 
 # ── env 门控 off 回全权限 ──
