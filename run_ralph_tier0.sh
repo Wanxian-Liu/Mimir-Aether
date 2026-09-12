@@ -449,6 +449,29 @@ python3 -m pytest -q \
   tests/agent/test_context_compressor_await.py \
   tests/agent/test_compress_threshold_source.py \
   tests/gateway/test_hygiene_compress_observability.py
+      # --- U10（2026-09-12 刘哥批「门禁扩 tests/ 整树」）---
+      # 显式清单维护不了：69/187 个 tests/ 文件既不在 Gate2 也不在 CI ⇒「假绿区间」
+      # （修复有测试、门禁不执行——8/12 tool_quality 过滤器、9/12 skip_db 契约均踩过）。
+      # 自维护做法：每次跑时用 find 对比本脚本内嵌清单，只补跑「清单外的 tests/ 文件」，
+      # 新加测试文件自动纳入 → 结构性消除假绿，且不产生重复收集（清单内文件不重跑）。
+      _GATE2_EXPLICIT_EXIT=$?
+      _GATE2_TREE_GAP=$(comm -23 \
+        <(find "$ROOT_DIR/tests" -name 'test_*.py' | sed "s|^$ROOT_DIR/||" | sort) \
+        <(grep -oE 'tests/[A-Za-z0-9_/]+\.py' "$ROOT_DIR/run_ralph_tier0.sh" | sort -u) \
+        | tr '\n' ' ')
+      _GATE2_SWEEP_EXIT=0
+      if [ -n "${_GATE2_TREE_GAP// /}" ]; then
+        echo "(U10 full-tree sweep: $(echo $_GATE2_TREE_GAP | wc -w) tests/ file(s) absent from explicit list)"
+        python3 -m pytest -q $_GATE2_TREE_GAP
+        _GATE2_SWEEP_EXIT=$?
+      else
+        echo "(U10 full-tree sweep: no gap — explicit list already covers tests/ tree)"
+      fi
+      # 退出码合并：只看最后一条命令会把显式清单的失败吞掉
+      if [ "$_GATE2_EXPLICIT_EXIT" -ne 0 ]; then
+        exit "$_GATE2_EXPLICIT_EXIT"
+      fi
+      exit "$_GATE2_SWEEP_EXIT"
     fi
   )
   _GATE2_EXIT=$?

@@ -17,7 +17,7 @@ Hermes 侧 reader（消费端真源，硬编码读此文件）：
 用法（terminal 调用，避免 write_file 被 ToolGuard 拦）：
   python3 ~/src/MimirAether/scripts/signal-deliver.py "任务名" "摘要" ["讨论卡路径"] ["commit"]
 
-输出：追加一行 JSON 到 ~/.buzz-nostr/buzz-inbox-hermes.jsonl
+输出：追加一行 JSON 到 canonical ~/.openclaw/data/buzz-inbox-hermes.jsonl（U1，2026-09-12 归正）
 """
 import json
 import os
@@ -25,7 +25,7 @@ import sys
 import time
 import datetime
 
-INBOX = os.environ.get("BUZZ_INBOX_HERMES", os.path.expanduser("~/.buzz-nostr/buzz-inbox-hermes.jsonl"))
+INBOX = os.environ.get("BUZZ_INBOX_HERMES", os.path.expanduser("~/.openclaw/data/buzz-inbox-hermes.jsonl")  # U1 canonical（2026-09-12 归正）)
 MIMIR_PUB_PREFIX = "79127bf251eb"  # Mimir pubkey 前缀（buzz-mimir-v2 启动日志实测）
 
 
