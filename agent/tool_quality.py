@@ -83,12 +83,14 @@ def prompt_min_sample() -> int:
     Order: env ``MIMIR_TOOL_QUALITY_MIN_SAMPLE`` > tuned
     ``tool_quality.prompt_min_sample`` > 20.
 
-    ⚠️ 盘上状态（2026-09-12，R-① 收窄时实测）：该 tuned 键**当前未注册**于
-    ``tuned_thresholds._REGISTRY``（该表只有 ``tool_quality.degraded_threshold``），
-    ``get_tuned_value`` 对其抛 ``KeyError`` → 中间环节实为**死链**，实际生效链
-    为 env > 20。是否注册属 ``docs/phase0/iqevo-1c-boundary.md`` F4 边界
-    （无界新增 registry 键为禁止项）→ 列为整改项 W-① 待裁决；本函数保留
-    显式 KeyError 分支 + WARN，确保**不再静默**。
+    ✅ 盘上状态（2026-09-12 · W-① 已批并落地）：该 tuned 键**已注册**于
+    ``tuned_thresholds._REGISTRY``（default 20 / min 8 / max 100 / int）——
+    此前未注册使 ``get_tuned_value`` 抛 ``KeyError``（被吞）→ 中间环节成
+    **死链**（R-① 收窄时实测暴露）。注册经刘哥授权（整改项 W-①，原属
+    ``docs/phase0/iqevo-1c-boundary.md`` F4「不单方面扩 registry」禁项）；
+    min=8 取 R3 分布数据的同解区间下界。本函数仍保留显式 KeyError 分支 +
+    WARN：键被回退或 override 文件损坏时不得静默，且便于判定「生效的是
+    env 值还是 tuned 值」。
     """
     raw = os.environ.get("MIMIR_TOOL_QUALITY_MIN_SAMPLE")
     if raw not in (None, ""):

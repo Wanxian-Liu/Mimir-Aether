@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -102,6 +103,61 @@ def test_prompt_min_sample_garbage_env_falls_back(
 ) -> None:
     monkeypatch.setenv("MIMIR_TOOL_QUALITY_MIN_SAMPLE", "abc")
     assert prompt_min_sample() >= 1
+
+
+# ── W-①（2026-09-12 刘哥批）：tuned 键注册 + env>tuned>20 链路实测 ──────────
+# 回归背景：该键此前**未注册**于 tuned_thresholds._REGISTRY，
+# prompt_min_sample() 调 get_tuned_float() 必抛 KeyError（被吞）→
+# 文档宣称的 env>tuned>20 中间环节是死链（R-① 收窄时实测暴露）。
+
+def _write_override(home: Path, key: str, value: object) -> None:
+    data = home / "data"
+    data.mkdir(parents=True, exist_ok=True)
+    (data / "tuned_thresholds.json").write_text(
+        json.dumps({"updated_at": 0, "overrides": {key: value}}), encoding="utf-8"
+    )
+
+
+def test_prompt_min_sample_tuned_key_is_registered() -> None:
+    """键必须在 registry 内 —— 否则中间环节恒为死链。"""
+    from agent.tuned_thresholds import registry_keys
+
+    assert "tool_quality.prompt_min_sample" in registry_keys()
+
+
+def test_prompt_min_sample_tuned_default_matches_module_default() -> None:
+    """registry default 与 _DEFAULT_PROMPT_MIN_SAMPLE 必须同值（防两处漂移）。"""
+    from agent.tuned_thresholds import get_tuned_int
+
+    assert get_tuned_int("tool_quality.prompt_min_sample") == 20
+
+
+def test_prompt_min_sample_tuned_override_wins(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("MIMIR_AETHER_HOME", str(tmp_path))
+    monkeypatch.delenv("MIMIR_TOOL_QUALITY_MIN_SAMPLE", raising=False)
+    _write_override(tmp_path, "tool_quality.prompt_min_sample", 8)
+    assert prompt_min_sample() == 8
+
+
+def test_prompt_min_sample_tuned_override_clamped_to_min(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """越界 override 被有界 clamp —— 不允许把门槛压到 1（等于关闭闸门）。"""
+    monkeypatch.setenv("MIMIR_AETHER_HOME", str(tmp_path))
+    monkeypatch.delenv("MIMIR_TOOL_QUALITY_MIN_SAMPLE", raising=False)
+    _write_override(tmp_path, "tool_quality.prompt_min_sample", 1)
+    assert prompt_min_sample() == 8
+
+
+def test_prompt_min_sample_env_beats_tuned(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("MIMIR_AETHER_HOME", str(tmp_path))
+    monkeypatch.setenv("MIMIR_TOOL_QUALITY_MIN_SAMPLE", "33")
+    _write_override(tmp_path, "tool_quality.prompt_min_sample", 8)
+    assert prompt_min_sample() == 33
 
 
 # ── end-to-end: guidance never contains fixtures ───────────────────────────

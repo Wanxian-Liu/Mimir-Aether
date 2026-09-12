@@ -35,6 +35,19 @@ _REGISTRY: Dict[str, Dict[str, Union[int, float]]] = {
         "step": 0.05,
         "type": "float",
     },
+    # W-①（2026-09-12 · 刘哥批授权）——prompt 提示块的「最小样本」门槛。
+    # 此前该键**未注册**：tool_quality.prompt_min_sample() 调 get_tuned_float()
+    # 必抛 KeyError（被吞）→ 注释宣称的 env>tuned>20 中间环节是**死链**，
+    # 实际生效链只有 env>20。现注册为有界键：default 20（与 _DEFAULT_PROMPT_MIN_SAMPLE
+    # 同值）、min 8（R3 分布数据的同解区间下界：真实工具 sub-threshold 全部
+    # ≤7 次调用，≥20 次调用者全部 ≥0.3 质量分）、max 100。
+    "tool_quality.prompt_min_sample": {
+        "default": 20,
+        "min": 8,
+        "max": 100,
+        "step": 1,
+        "type": "int",
+    },
 }
 
 
