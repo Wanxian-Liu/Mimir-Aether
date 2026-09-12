@@ -67,3 +67,48 @@ def test_read_only_tool_skips_path_guard(tmp_path, monkeypatch):
     result = guard_tool_call("read_file", {"path": "../../../etc/passwd"})
     assert result.ok is True
     assert not result.warnings
+
+
+# ── D1 (2026-09-13) — non-path params that merely *look* like paths ─────────
+
+
+def test_memory_target_enum_not_treated_as_path(tmp_path, monkeypatch):
+    """POSITIVE: memory's `target` is a store enum ('memory'|'user') — no warning."""
+    monkeypatch.setenv("MIMIR_BASE_DIR", str(tmp_path))
+    monkeypatch.chdir(tmp_path)
+    result = guard_tool_call(
+        "memory", {"action": "add", "target": "memory", "content": "x"}
+    )
+    assert result.ok is True
+    assert result.warnings == []
+    assert not result.block_reason
+
+
+def test_memory_target_not_blocked_when_cwd_outside_base(tmp_path, monkeypatch):
+    """REGRESSION: outside the allowed base the pseudo-path used to BLOCK memory.
+
+    Same call shape, cwd outside MIMIR_BASE_DIR: memory must pass while a real
+    write_file path in that cwd is still blocked (negative control).
+    """
+    base = tmp_path / "base"
+    base.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    monkeypatch.setenv("MIMIR_BASE_DIR", str(base))
+    monkeypatch.chdir(outside)
+
+    assert guard_tool_call("memory", {"target": "memory"}).ok is True
+    assert guard_tool_call("memory", {"target": "user"}).ok is True
+
+    blocked = guard_tool_call("write_file", {"path": "notes.txt"})
+    assert blocked.ok is False
+    assert "blocked by ToolGuard" in blocked.block_reason
+
+
+def test_generic_path_name_matching_preserved_for_other_tools(tmp_path, monkeypatch):
+    """NEGATIVE: the override is per-tool — other FILE_WRITE tools still warn."""
+    monkeypatch.setenv("MIMIR_BASE_DIR", str(tmp_path))
+    monkeypatch.chdir(tmp_path)
+    result = guard_tool_call("patch", {"target": "notes.txt"})
+    assert result.ok is True
+    assert any("relative path" in w for w in result.warnings)

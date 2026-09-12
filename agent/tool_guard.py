@@ -122,6 +122,29 @@ _PATH_PARAM_NAMES: set[str] = {
     "workdir", "output", "input", "db_path", "dst", "src",
 }
 
+# Per-tool exceptions: parameters that *share a name* with the generic path
+# list above but carry non-path values (enums, identifiers, store selectors).
+#
+# D1 fix (2026-09-13): ``memory`` takes ``target`` as a *store selector*
+# (``"memory"`` | ``"user"``), not a filesystem path.  Generic name matching
+# resolved ``target=memory`` to ``<cwd>/memory`` and emitted a false
+# "relative path" warning on every memory call (13 hits in errors.log);
+# worse, whenever the process cwd sat outside ``MIMIR_BASE_DIR`` the resolved
+# pseudo-path failed containment and would have *blocked* the memory tool
+# outright.  Name matching stays the default for every other tool — only the
+# tools listed here subtract names.
+_NON_PATH_PARAM_OVERRIDES: dict[str, frozenset[str]] = {
+    "memory": frozenset({"target"}),  # enum: 'memory' | 'user'
+}
+
+
+def _path_param_names(tool_name: str) -> set[str]:
+    """Path-typed parameter names for ``tool_name`` (generic set minus overrides)."""
+    excluded = _NON_PATH_PARAM_OVERRIDES.get(tool_name)
+    if not excluded:
+        return _PATH_PARAM_NAMES
+    return _PATH_PARAM_NAMES - excluded
+
 
 def _guard_base_dir() -> str:
     """Absolute base for path containment checks (aligned with tools.builtin._ALLOWED_BASE_DIR)."""
@@ -178,9 +201,10 @@ def _validate_file_paths(tool_name: str, args: dict) -> tuple[list[str], str]:
     warnings: list[str] = []
     cwd = os.getcwd()
     allowed_base = _guard_base_dir()
+    param_names = _path_param_names(tool_name)
 
     for key, value in (args or {}).items():
-        if key not in _PATH_PARAM_NAMES:
+        if key not in param_names:
             continue
         if not isinstance(value, str) or not value.strip():
             continue

@@ -632,7 +632,15 @@ class ExecMixin:
             # L5 二轮补丁（2026-08-19）：tokenize 语义扫描——修参数变体/空白变体/R2-2 误伤
             _block = self._scan_dangerous_command(_cmd)
             if _block:
-                logger.warning("HardRule#1: %s 高危命令被拒: %s", func_name, _cmd[:80])
+                # D2 fix (2026-09-13): log the *matched rule* too.  The reason
+                # string was computed and returned (and shown to the caller) but
+                # dropped from this warning, so every past rejection in
+                # errors.log recorded only the command head -- making
+                # "保留 vs 收窄" triage guesswork instead of mechanical.
+                logger.warning(
+                    "HardRule#1: %s 高危命令被拒: %s | rule=%s",
+                    func_name, _cmd[:80], _block,
+                )
                 return _block
             # 命令类工具：DENY 片段扫描（/etc/ /usr/ 等系统路径仍拦）——但不参与路径白名单分级
             # （M5 修复：command 不是路径——realpath 解析无意义且造成 cwd 依赖误拦）
@@ -667,7 +675,25 @@ class ExecMixin:
         # 白名单分级（workspace 允许读写 / project 只读）
         _home = os.path.expanduser("~")
         _allowed_rw = (_home + "/.mimiraether", _home + "/wiki", _home + "/.openclaw/workspace", _home + "/.openclaw/data")
-        _allowed_r = (_home + "/src/MimirAether",)
+        # project 只读根：**从代码位置派生**，不再硬编码 $HOME/src/MimirAether。
+        # 2026-09-13 CI 根因修复：原实现下「agent 自己所在的仓库」在非 $HOME/src/MimirAether
+        # 的 checkout（如 CI /home/runner/work/...）被判「outside allowed paths」——
+        # tests/security/test_least_privilege.py 的两个 project 用例因此在 CI 恒红（本地绿）。
+        # 优先级：MIMIR_REPO_ROOT（项目既定约定）> 代码位置派生 > 旧默认（向后兼容）。
+        _repo_roots = []
+        _env_root = os.environ.get("MIMIR_REPO_ROOT", "").strip()
+        if _env_root:
+            _repo_roots.append(os.path.expanduser(_env_root))
+        try:
+            _repo_roots.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        except Exception:
+            pass
+        _repo_roots.append(_home + "/src/MimirAether")
+        _seen_roots = set()
+        _allowed_r = tuple(
+            _r for _r in _repo_roots
+            if _r and not (_r.lower() in _seen_roots or _seen_roots.add(_r.lower()))
+        )
         _p = os.path.abspath(_path_r)
         for _a in _allowed_rw:
             if _p.startswith(os.path.normcase(os.path.abspath(_a)).lower()):

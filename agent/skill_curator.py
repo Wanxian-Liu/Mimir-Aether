@@ -222,12 +222,35 @@ def run_lifecycle_pass() -> Dict[str, Any]:
     try:
         qa = SkillsQA(str(SKILLS_ROOT))
         qa.run_qa_check()
-        qa_ghosts = qa.detect_ghost_skills()
+        # B3 fix (2026-09-13): detect_ghost_skills() returns a *category-keyed
+        # dict* that always carries the three keys.  The old gate
+        # ``if qa_ghosts:`` was therefore unconditionally true and
+        # ``len(qa_ghosts)`` was a constant 3, so every curator run logged
+        # "3 ghost skill(s) detected: empty_shells, no_frontmatter,
+        # no_description" -- category names printed as if they were skill
+        # names, with no offenders present (the /health noise source).
+        # Flatten to offenders and warn only when the list is non-empty.
+        _ghost_map = qa.detect_ghost_skills() or {}
+        qa_ghosts = [
+            f"{name} [{cat}]" for cat, names in _ghost_map.items() for name in names
+        ]
         if qa_ghosts:
             logger.warning(
                 "SkillsQA: %d ghost skill(s) detected: %s",
-                len(qa_ghosts), ", ".join(qa_ghosts),
+                len(qa_ghosts), "; ".join(qa_ghosts),
             )
+        else:
+            # B3 (2026-09-13): keep the archive visible without raising an alarm.
+            _archived = sum(
+                len(v)
+                for v in (qa.detect_ghost_skills(include_archived=True) or {}).values()
+            )
+            if _archived:
+                logger.info(
+                    "SkillsQA: 0 live ghost skills (%d archived .dormant entries "
+                    "excluded from the alarm)",
+                    _archived,
+                )
     except Exception as exc:
         logger.warning("SkillsQA pass failed (non-fatal): %s", exc)
 

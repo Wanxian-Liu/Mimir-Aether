@@ -1,3 +1,9 @@
+---
+name: mimiraether-distillation-execution
+description: "确保蒸馏操作（`sync_run_dream_cycle()`）在正确的路径上执行，可写成可验证的结果， 避免'我以为做了但盘上没变'的循环。 `sync_run_dream_cycle()` 的 `_save_persistent()` 写入 20 kd 到 main 文件是正常的。但 `CrossSessionMemory.save()`（由 `persistent_store.py` 驱动）"
+auto_load: false
+---
+
 # MimirAether 蒸馏执行技能
 
 ## 目的

@@ -1,6 +1,6 @@
 ---
 name: mimiraether-ci-debug
-description: Use when GitHub Actions CI (Ralph Tier-0 / pytest-wide / lint) fails, or when local tests pass but CI is red. Systematic 4-layer diagnosis: Gate1 syntax/import, Gate2 pytest parity, submodule init, CI dependency gaps.
+description: "Use when GitHub Actions CI (Ralph Tier-0 / pytest-wide / lint) fails, or when local tests pass but CI is red. Systematic 4-layer diagnosis: Gate1 syntax/import, Gate2 pytest parity, submodule init, CI dependency gaps."
 version: 1.0.0
 auto_load: false
 ---

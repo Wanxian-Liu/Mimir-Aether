@@ -1,3 +1,9 @@
+---
+name: dispatching-parallel-agents
+description: "**Core principle:** Dispatch one subagent per independent problem domain. Let them work concurrently. When facing 2+ independent tasks that can be worked on without shared state or sequential dependen"
+auto_load: false
+---
+
 # Dispatching Parallel Agents
 
 **Core principle:** Dispatch one subagent per independent problem domain. Let them work concurrently.

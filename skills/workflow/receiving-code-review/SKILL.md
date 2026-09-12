@@ -1,3 +1,9 @@
+---
+name: receiving-code-review
+description: "**Core principle:** Verify before implementing. Ask before assuming. Technical correctness over social comfort. Code review requires **technical evaluation**, not emotional performance. When receiving"
+auto_load: false
+---
+
 # Receiving Code Review
 
 **Core principle:** Verify before implementing. Ask before assuming. Technical correctness over social comfort.

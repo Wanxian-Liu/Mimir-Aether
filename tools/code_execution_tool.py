@@ -1132,6 +1132,15 @@ def execute_code(
         elif _mimir_data_root.is_dir():
             child_env["HOME"] = str(_mimir_data_root)
 
+        # B5 fix (2026-09-13): HOME above is *redirected* into the mimir home,
+        # so any consumer resolving the default root via
+        # ``Path("~/.mimiraether").expanduser()`` lands on the nested
+        # ``<home>/.mimiraether`` (that is where the two 0-byte
+        # sessions_search.db / tool_quality.db artifacts came from).
+        # Pin the runtime root explicitly (exact key, no MIMIR_* wildcard --
+        # same discipline as the X2-a provenance injection below).
+        child_env["MIMIR_AETHER_HOME"] = str(_mimir_data_root)
+
         # Q3-B / X2-a: the whitelist above drops unknown names, so the two
         # provenance keys are injected explicitly (exact keys, never a MIMIR_*
         # wildcard -- the sandbox must not inherit unrelated runtime config).

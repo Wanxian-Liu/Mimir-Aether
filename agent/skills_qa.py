@@ -478,8 +478,22 @@ class SkillsQA:
 
     GHOST_SHELL_MIN_BODY_LENGTH = 500
 
-    def detect_ghost_skills(self) -> Dict[str, List[str]]:
+    # B3 fix (2026-09-13): ``.dormant`` is an *archive* (休眠≠停用) and holds
+    # historical nested copies (``x/x/SKILL.md``).  Judging archived entries by
+    # live-skill standards raises an alarm that can never reach zero.
+    GHOST_ARCHIVE_DIR_NAME = ".dormant"
+
+    def _is_archived_skill(self, skill_name: str) -> bool:
+        """True when the skill lives under the ``.dormant`` archive tree."""
+        return self.GHOST_ARCHIVE_DIR_NAME in Path(skill_name).parts
+
+    def detect_ghost_skills(self, include_archived: bool = False) -> Dict[str, List[str]]:
         """检测幽灵技能
+
+        Args:
+            include_archived: when False (default) entries under ``.dormant``
+                are skipped — archived skills are parked, not ghosts.  Pass
+                True to audit the archive itself.
 
         Returns:
             Dict with keys: 'empty_shells', 'no_frontmatter', 'no_description'
@@ -487,6 +501,8 @@ class SkillsQA:
         ghosts = {"empty_shells": [], "no_frontmatter": [], "no_description": []}
 
         for skill_name in self.discover_skills():
+            if not include_archived and self._is_archived_skill(skill_name):
+                continue
             skill_md = self.skills_dir / skill_name / "SKILL.md"
             if not skill_md.exists():
                 continue

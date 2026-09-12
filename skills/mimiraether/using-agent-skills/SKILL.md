@@ -1,3 +1,10 @@
+---
+name: using-agent-skills
+description: 元技能 — 用户意图到正确技能的路由表。当用户说修 bug/写代码/审查一下/写文档时，判定应加载哪个具体技能，避免多个技能并列时无从选择的瘫痪状态。
+auto_load: true
+priority: 0
+---
+
 # using-agent-skills
 
 **元技能 — 用户意图 → 正确技能路由**

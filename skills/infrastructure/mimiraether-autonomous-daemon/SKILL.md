@@ -1,3 +1,9 @@
+---
+name: mimiraether-autonomous-daemon
+description: "**`scripts/mimir-daemon.py`（18791 端口）已 DEPRECATED**——文件头明示 'Port 18999 is the real Gateway. This daemon is no longer needed'，它只是 HTTP 状态服务器，**不扫描讨论室、不处理卡**。按本技能旧'三步部署'执行 = 部署一个无用的状态服务，**不能修复自主接管**（202"
+auto_load: false
+---
+
 # Mimir 自主守护进程套件
 
 ## ⚠️ 2026-08-18 重大更新：方案已修正（P1 排查实证）
