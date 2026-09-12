@@ -52,6 +52,10 @@ MimirContextCompressor(
 
 阈值优先级（core_loop.py L395-421）：**`MIMIR_COMPRESS_THRESHOLD` env > `get_tuned_float("compressor.threshold_percent")`（agent/tuned_thresholds.py）> 默认 0.50**。
 
+**绝对阈值通路（2026-09-13 实测补充——此前本节只记了百分比 env，属文档缺口）**：`agent/context_compressor.py` 另有一条 **`MIMIR_COMPRESS_THRESHOLD_TOKENS`**（模块常量 `_COMPRESS_THRESHOLD_TOKENS_ENV`，L47；解析函数 `resolve_threshold_tokens()` L79），在 compressor **`__init__` 时直接覆盖 `threshold_tokens`（绝对值，优先级高于 percent×context_length）**。实测（`.venv/bin/python3` 断言）：`=5000` → `resolved_tokens=5000` / `source=env:MIMIR_COMPRESS_THRESHOLD_TOKENS`；`=abc` → 记 WARNING 并降级回 percent（350,000），不抛。**用途**：把阈值临时钉到 5K 即可**必然触发一次真压缩**（无需等自然越线）——即四方卡 Q7 的构造法，验收后须还原 350K。
+
+⚠️ **注记（易误判）**：`read_file`/`grep` 的输出层会把该长大写常量**折叠显示**为 `"MIMIR_...KENS"`，看起来像文件里的字符串写坏了——**是显示层假象，非文件内容**。判据必须用运行时断言（`len(_COMPRESS_THRESHOLD_TOKENS_ENV)==31` 且等于预期），不能凭输出截图定性。
+
 ⚠️ 压缩器类为 **`MimirContextCompressor(ContextCompressorV2)`**（agent/context_compressor.py:799），**已不是 HermesStyleCompressor**；`protect_first_n / protect_last_n / tail_token_budget` 不再由 core_loop 硬编码传入，改为 `compressor_init_kwargs_from_policy()`（agent/decision_compressor_policy.py:221）提供的 `_comp_policy`。`HermesStyleCompressor` 类仍存在（供 ACP/兼容路径），但 MimirAetherAgent 主循环用的是 MimirContextCompressor。
 
 ### ContextCompressorV2 类默认值（直接 `new` 实例时）
