@@ -82,7 +82,13 @@ def test_foreign_hook_is_backed_up_preserved_and_still_runs(repo):
     assert (repo / "foreign.log").exists(), "preserved hook did not run"
     records = [json.loads(line) for line in
                (repo / "commit-audit.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
-    assert records and records[-1]["action"] == "commit", "audit hook did not run"
+    actions = [r["action"] for r in records]
+    # Both hooks share ONE audit stream (A2, 2026-09-13): pre-commit writes
+    # `commit`, commit-msg writes `signature`. Assert on membership, not on the
+    # last line -- assuming "the last record is the pre-commit one" made this
+    # test fail the moment a second hook joined the same stream.
+    assert "commit" in actions, "pre-commit audit hook did not run"
+    assert "signature" in actions, "commit-msg attribution hook did not run"
 
 
 def test_blocking_own_hook_still_blocks_the_commit(repo):

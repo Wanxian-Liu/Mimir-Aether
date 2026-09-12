@@ -1,0 +1,105 @@
+#!/bin/sh
+# MimirAether commit-msg hook -- agent attribution trailer (A2; 2026-09-13)
+# ---------------------------------------------------------------------------
+# Ruling: 刘哥, 2026-09-13 -- attribution marking becomes standard practice; the
+# hook must NOT block. Quote: "do not block; after it is done, take it to the
+# four-party room and agree the rule together".
+#
+# Purpose: every commit in this repo carries  Agent: <id>  so "who did this"
+# is answerable from the commit alone, without trusting anyone's word.
+#
+# Behaviour (all paths exit 0 -- non-blocking by design)
+#   1. message already carries an  Agent:  trailer  -> signed_by=explicit
+#      (whatever the author wrote wins; never rewritten)
+#   2. no trailer, but MIMIR_AGENT_ID is set (env-injected by agent/
+#      run_context.py at every subprocess spawn point) -> trailer appended,
+#      signed_by=auto
+#   3. neither -> message left untouched, warning only, signed_by=none
+#   4. the id is checked against the four agreed ids; an unknown id is WARNED
+#      about and recorded (signed-*-unknown-id), never rejected
+#   5. every invocation appends one JSON line to the SAME audit stream the
+#      pre-commit hook uses (one stream, no third file -- see X1/X2/X3)
+#
+# Trailer format:  Agent: mimir      (machine-parseable id only; Chinese display
+# names live in wiki/discussions/README.md section 1)
+#
+# Install:  sh scripts/install-git-hooks.sh
+# Bypass:   git commit --no-verify   (absence of a trace line is itself the
+#           signal, same convention as the pre-commit hook)
+# ---------------------------------------------------------------------------
+MSG_FILE="$1"
+if [ -z "${MSG_FILE:-}" ] || [ ! -f "$MSG_FILE" ]; then
+  exit 0
+fi
+
+TRACE_LOG="${MIMIR_GIT_COMMIT_AUDIT_LOG:-$HOME/.mimiraether/logs/git-commit-audit.jsonl}"
+AGENT_ID_ENV="${MIMIR_AGENT_ID:-}"
+TRACE_ID="${MIMIR_TRACE_ID:-}"
+ALLOWED_IDS="mimir hermes openclaw loki"
+
+_repo=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || printf '')
+_head=$(git rev-parse -q --verify HEAD 2>/dev/null || printf 'no-head')
+
+# an existing trailer: last matching line, value only, trailing spaces stripped
+_existing=$(grep -i '^agent:' "$MSG_FILE" 2>/dev/null | tail -1 | sed 's/^[^:]*:[[:space:]]*//' | tr -d '\r' | sed 's/[[:space:]]*$//')
+
+if [ -n "$_existing" ]; then
+  _agent_id="$_existing"
+  _signed_by="explicit"
+elif [ -n "$AGENT_ID_ENV" ]; then
+  _agent_id="$AGENT_ID_ENV"
+  _signed_by="auto"
+else
+  _agent_id=""
+  _signed_by="none"
+fi
+
+_id_known="n/a"
+if [ -n "$_agent_id" ]; then
+  _id_known="unknown"
+  for _cand in $ALLOWED_IDS; do
+    [ "$_agent_id" = "$_cand" ] && _id_known="known"
+  done
+fi
+
+# append the trailer only when it is missing and we have an id to write
+if [ "$_signed_by" = "auto" ]; then
+  if [ -s "$MSG_FILE" ]; then
+    _last_byte=$(tail -c 1 "$MSG_FILE" 2>/dev/null | od -An -c 2>/dev/null | tr -d ' ')
+    [ "$_last_byte" = "\\n" ] || printf '\n' >> "$MSG_FILE"
+  fi
+  printf '\nAgent: %s\n' "$_agent_id" >> "$MSG_FILE"
+fi
+
+_outcome="signed-$_signed_by"
+if [ "$_signed_by" != "none" ] && [ "$_id_known" = "unknown" ]; then
+  _outcome="signed-$_signed_by-unknown-id"
+fi
+
+case "$_signed_by" in
+  explicit)
+    printf 'commit-msg: attribution trailer present (Agent: %s)\n' "$_agent_id" >&2
+    ;;
+  auto)
+    printf 'commit-msg: attribution trailer added automatically (Agent: %s, from MIMIR_AGENT_ID)\n' "$_agent_id" >&2
+    ;;
+  none)
+    printf 'commit-msg: note -- no attribution trailer and no MIMIR_AGENT_ID in the environment;\n' >&2
+    printf '            this commit is unsigned. Add "Agent: <id>" to the message, or set\n' >&2
+    printf '            MIMIR_AGENT_ID (ids: %s). Not blocking -- see A2 / four-party rule.\n' "$ALLOWED_IDS" >&2
+    ;;
+esac
+if [ "$_id_known" = "unknown" ]; then
+  printf 'commit-msg: note -- "%s" is not one of the agreed ids (%s); recorded, not rejected\n' \
+    "$_agent_id" "$ALLOWED_IDS" >&2
+fi
+
+_dir=$(dirname "$TRACE_LOG" 2>/dev/null)
+[ -n "$_dir" ] && mkdir -p "$_dir" 2>/dev/null
+printf '{"ts":"%s","agent_id":"%s","trace_id":"%s","action":"signature","outcome":"%s","signed_by":"%s","id_known":"%s","repo":"%s","branch":"%s","head":"%s","pid":%s}\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$_agent_id" "$TRACE_ID" \
+  "$_outcome" "$_signed_by" "$_id_known" "$_repo" "$_branch" "$_head" "$$" \
+  >> "$TRACE_LOG" 2>/dev/null
+
+exit 0

@@ -138,3 +138,64 @@ sh scripts/install-git-hooks.sh --repo ~/wiki      # 共享仓（幂等，可重
 两流 join：**`trace_id` 相同 + `repo` 相同 ⇒ 哪个 run 产生哪个 commit**。
 
 **兜底（X2-c，明示不可判场景）**：当某次提交的 `trace_id` 为空时——`git commit --no-verify` 旁路、无 run 上下文的手工 shell 提交、或注入上线前的历史记录——只能退化为 `(repo, branch, head, ts)` **秒级近似对齐**；**同秒多提交不可判**（恰是 2026-09-12 事故场景）。此时必须显式记为「不可判」，**不得用时间近似冒充归因**。
+
+---
+
+## 7. Agent 归属 trailer（A2 · 2026-09-13 刘哥裁定「不拦」）
+
+**背景**：公开仓近 50 条提交中 **48 条署名「琬弦」**、四方卡明文记为 Mimir 交付的 4 个 commit 也在其中（分界点 09-12 22:43 B1 本仓身份上线前，全局 git 身份为琬弦）。`~/wiki` 共享 checkout 更彻底——**四人都共用 committer `MimirAether <mimir@worldweaver.ai>`**（本仓为 `Mimir <mimir@mimiraether.local>`），git 身份**无法**区分四人。结论：**trailer 是共享仓唯一可行的归因手段**。
+
+**约定值**（与 `wiki/discussions/README.md` §一 成员表一致）：
+
+| id | 显示名 |
+|:--|:--|
+| `mimir` | 弥米尔 |
+| `hermes` | 琬弦·姐 |
+| `openclaw` | 琬弦·妹 |
+| `loki` | 洛基 |
+
+**trailer 形式**：`Agent: <id>`（仅机器可读 id；中文显示名以 README 成员表为真源）。卡片 frontmatter 用 `author: <id>`。
+
+### 机制（非阻塞，所有路径 exit 0）
+
+`scripts/git-hooks/commit-msg`（链式安装为 `commit-msg-mimir-sign`）：
+
+| 情形 | 行为 | `signed_by` |
+|:--|:--|:--|
+| 消息里已有 `Agent:` | **原样保留**，不重写不重复 | `explicit` |
+| 无 trailer，环境有 `MIMIR_AGENT_ID`（`agent/run_context.py` 在子进程 spawn 点注入） | 自动追加 trailer | `auto` |
+| 都无 | 消息**不变**，仅警告 | `none` |
+| id 不在四值内 | **记录**，不拒绝 | `signed-*-unknown-id` |
+
+每次调用向**同一**审计流 `~/.mimiraether/logs/git-commit-audit.jsonl` 追加一行（`action: "signature"`）——不新开第三个文件（X1/X2/X3 教训：审计流碎片化本身就是缺口）。
+
+```sh
+# 安装 / 刷新（含 commit-msg，链式、幂等）
+sh scripts/install-git-hooks.sh                 # 本仓
+sh scripts/install-git-hooks.sh --only commit-msg
+sh scripts/install-git-hooks.sh --repo ~/wiki   # 共享仓（待四方立规后再执行）
+# 旁路
+git commit --no-verify
+```
+
+**卡片归属检查**（非阻塞，脚本而非钩子——卡是内容，不该因一行 frontmatter 被 git 拒）：
+
+```sh
+.venv/bin/python3 scripts/check_card_author.py                 # 默认 ~/wiki/discussions（非递归）
+.venv/bin/python3 scripts/check_card_author.py --recursive     # 含 archive/ 等工作目录
+.venv/bin/python3 scripts/check_card_author.py --json
+```
+
+**实测底盘（2026-09-13）**：顶层 46 张卡中 **5 张 `author: mimir`、1 张 `by: mimir`、40 张无归属字段**；递归 340 个 md 中 7 张 canonical。→ 归因缺口是**多数状态**，非个别笔误。
+
+### 归属判据（此后照此执行）
+
+| 判据 | 说明 |
+|:--|:--|
+| **看得见的** | `git log --format='%h %(trailers:key=Agent)'`；卡片 `author:` |
+| **不采信的** | git `user.name`（共享仓恒为 `MimirAether`）· 卡内正文自述 · 任何口头声明 |
+| **不可判时** | `trace_id` 为空（`--no-verify` / 无 run 上下文的手工提交）时退化为「不可判」，**不得用时间近似冒充归因**（沿用 §6 兜底口径，X2-c） |
+
+**范围与待办**：本仓已启用；`~/wiki` 的 `commit-msg` 链式安装**待四方立规后**执行（共享仓规矩不由单方设定）。回归锁：`tests/scripts/test_attribution_trailer.py`（14 项）· 已登记 Gate2 显式清单。
+
+> **口径补充（2026-09-13，两种视角都要看）**：上表「5 张 `author:` / 1 张 `by:`」是**字符串 grep** 视角（`grep -iE "^author:"` 命中即算）；检查脚本按**frontmatter 结构**判定（首行必须是 `---`），实测 46 张顶层卡的分布为 **ok 2 / legacy 2 / missing 28 / no-frontmatter 14**。差异在于**部分卡有归属字段却没有合法 frontmatter 块**（归入 no-frontmatter）。两个数字都对，**不要互相覆盖**：grep 用于"字段有没有写过"，脚本用于"读卡的程序能不能取到"。
