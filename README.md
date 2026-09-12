@@ -19,6 +19,14 @@
 >
 > 没有小建议，只有还没被说出来的坑。
 
+## 提交归属（归因边界）
+
+> **⚠️ 归因边界**：**2026-09-13 之前**的提交，其 git 署名**不作为归因依据**——历史成因是「统一代提交」，**不是**作者归属声明。**2026-09-13 起**，以提交尾部 `Agent: <id>` trailer（`mimir` / `hermes` / `openclaw` / `loki`）为准；卡片类内容以 frontmatter `author:` 为准。
+
+```sh
+git log --format='%h %ad %(trailers:key=Agent) %s' --date=short | head
+```
+
 ## 开发方向（防偏离）
 
 迭代前请先读 **[docs/DEVELOPMENT_NORTH_STAR.md](./docs/DEVELOPMENT_NORTH_STAR.md)**：约定 **Parity**（与 Hermes 行为契约一致、可证明）与 **Evolution**（可量化收益 + 回归）、主仓与隔离克隆的作用域、迁移脚本有损点、三道门护栏。另见 **[AGENTS.md](./AGENTS.md)**（权威工作区与合并门禁）。
