@@ -11,6 +11,22 @@ fi
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT_DIR"
 
+# --- 解释器单一真源（2026-09-12 F2）-------------------------------------------------
+# 为什么：裸 python3（/usr/bin/python3）没有 torch / sentence-transformers，导致
+#   ① chroma 嵌入解析失败 → 语义检索熔断（circuit OPEN）；
+#   ② Gate2 的裸 python3 直写生产索引（2026-09-12 审计：805 夹具行 / 704 夹具向量）。
+# 做法：默认优先项目 venv（与 gateway 运行时一致），可用 MIMIR_TIER0_PYTHON 覆盖。
+if [[ -z "${MIMIR_TIER0_PYTHON:-}" ]]; then
+  if [[ -x "${ROOT_DIR}/.venv/bin/python3" ]]; then
+    MIMIR_TIER0_PYTHON="${ROOT_DIR}/.venv/bin/python3"
+  else
+    MIMIR_TIER0_PYTHON="$(command -v python3 || echo python3)"
+  fi
+fi
+export MIMIR_TIER0_PYTHON
+export PATH="$(dirname "${MIMIR_TIER0_PYTHON}"):${PATH}"
+echo "[tier0] interpreter → ${MIMIR_TIER0_PYTHON}"
+
 # --retry=N: Ralph Wiggum Loop — retry failing gates up to N times
 RETRY_COUNT=0  # default: no retry
 if [[ "${1:-}" =~ ^--retry=([0-9]+)$ ]]; then
