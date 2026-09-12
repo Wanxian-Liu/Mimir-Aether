@@ -1,0 +1,128 @@
+#!/usr/bin/sh
+# MimirAether pre-commit hook -- attribution guard (Q3-B / B4 / G-5)
+# ---------------------------------------------------------------------------
+# Ruling: 2026-09-12 Hermes audit receipt on card
+#   wiki/discussions/2026-09-12-四方讨论-唤醒单例与并发写治理-Q3.md
+#   "B4 (do not amend a commit you did not author) becomes a commit-time gate,
+#    not prose -- hook + overridable + traceable."
+#
+# Why a hook: on 2026-09-12 two runs of the same gateway process interleaved
+# commits and one amended a commit made two seconds earlier. At runtime nobody
+# can tell "not mine" when attribution is broken, so the rule is designed as
+# "if it cannot be decided, forbid it".
+#
+# Behaviour
+#   1. amend of a commit whose author/committer identity differs from the
+#      current committer identity  ->  BLOCK
+#      override: MIMIR_ALLOW_FOREIGN_AMEND=1 (allowed, but traced as override)
+#   2. every invocation is traced (one JSON line) to
+#      $MIMIR_GIT_COMMIT_AUDIT_LOG or ~/.mimiraether/logs/git-commit-audit.jsonl
+#   3. non-amend commits are never blocked; a non-Mimir identity only warns
+#      (Hermes may land audit segments in this repo -- see
+#       docs/AGENT_REPO_OWNERSHIP.md).
+#
+# Amend detection (git 2.43 exposes neither GIT_REFLOG_ACTION nor an amend flag
+# to pre-commit -- measured 2026-09-12): walk the process ancestry (ps) to the
+# FIRST ancestor that is a git command and inspect its argv for --amend.
+# prepare-commit-msg would be unreliable here: `git commit --amend -m X` passes
+# source=message, indistinguishable from a normal commit.
+#
+# Install:  sh scripts/install-git-hooks.sh
+# Bypass:   git commit --no-verify  (deliberately NOT traced: the *absence* of a
+#           trace line next to a commit is itself the signal)
+# ---------------------------------------------------------------------------
+
+TRACE_LOG="${MIMIR_GIT_COMMIT_AUDIT_LOG:-$HOME/.mimiraether/logs/git-commit-audit.jsonl}"
+AGENT_ID="${MIMIR_AGENT_ID:-mimir}"
+TRACE_ID="${MIMIR_TRACE_ID:-}"
+
+_detect_amend() {
+  case "${GIT_REFLOG_ACTION:-}" in *amend*) return 0 ;; esac
+  [ "${MIMIR_HOOK_FORCE_AMEND:-0}" = "1" ] && return 0
+  _p=$$
+  _i=0
+  while [ "$_i" -lt 6 ]; do
+    _pp=$(ps -o ppid= -p "$_p" 2>/dev/null | tr -d ' ')
+    [ -z "$_pp" ] && break
+    [ "$_pp" = "0" ] && break
+    _args=$(ps -o args= -p "$_pp" 2>/dev/null)
+    case "$_args" in
+      git\ *|*/git\ *)
+        case "$_args" in
+          *--amend*) return 0 ;;
+        esac
+        return 1
+        ;;
+    esac
+    _p=$_pp
+    _i=$((_i + 1))
+  done
+  return 1
+}
+
+_is_amend=0
+_detect_amend && _is_amend=1
+
+_repo=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+_cur_name=$(git config user.name 2>/dev/null || printf '')
+_cur_email=$(git config user.email 2>/dev/null || printf '')
+_head_author_name=$(git log -1 --format='%an' 2>/dev/null || printf '')
+_head_author_email=$(git log -1 --format='%ae' 2>/dev/null || printf '')
+_head_committer_name=$(git log -1 --format='%cn' 2>/dev/null || printf '')
+_head_committer_email=$(git log -1 --format='%ce' 2>/dev/null || printf '')
+_head=$(git rev-parse -q --verify HEAD 2>/dev/null || printf 'no-head')
+_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || printf '')
+_diff_files=$(git diff --cached --name-only 2>/dev/null | wc -l | tr -d ' ')
+
+_trace() {
+  _outcome="$1"
+  _override="$2"
+  _dir=$(dirname "$TRACE_LOG" 2>/dev/null)
+  [ -n "$_dir" ] && mkdir -p "$_dir" 2>/dev/null
+  printf '{"ts":"%s","agent_id":"%s","trace_id":"%s","action":"%s","outcome":"%s","override":"%s","repo":"%s","branch":"%s","head":"%s","committer":"%s <%s>","head_author":"%s <%s>","staged_files":%s,"pid":%s}\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$AGENT_ID" "$TRACE_ID" \
+    "$([ "$_is_amend" = "1" ] && printf 'amend' || printf 'commit')" \
+    "$_outcome" "$_override" "$_repo" "$_branch" "$_head" \
+    "$_cur_name" "$_cur_email" "$_head_author_name" "$_head_author_email" \
+    "$_diff_files" "$$" >> "$TRACE_LOG" 2>/dev/null
+}
+
+if [ "$_is_amend" = "1" ] && [ "$_head" != "no-head" ]; then
+  _foreign=0
+  [ "$_head_author_name" != "$_cur_name" ] && _foreign=1
+  [ "$_head_author_email" != "$_cur_email" ] && _foreign=1
+  [ -n "$_head_committer_name" ] && [ "$_head_committer_name" != "$_cur_name" ] && _foreign=1
+  [ -n "$_head_committer_email" ] && [ "$_head_committer_email" != "$_cur_email" ] && _foreign=1
+
+  if [ "$_foreign" = "1" ]; then
+    if [ "${MIMIR_ALLOW_FOREIGN_AMEND:-0}" = "1" ]; then
+      printf 'pre-commit: WARNING -- amending a commit authored by %s <%s> with identity %s <%s> (override traced)\n' \
+        "$_head_author_name" "$_head_author_email" "$_cur_name" "$_cur_email" >&2
+      _trace "amend-foreign-override" "true"
+    else
+      _trace "amend-foreign-blocked" "false"
+      printf '\n' >&2
+      printf 'pre-commit: BLOCKED -- foreign amend\n' >&2
+      printf '  HEAD was authored/committed by : %s <%s>\n' "$_head_author_name" "$_head_author_email" >&2
+      printf '  your committer identity is     : %s <%s>\n' "$_cur_name" "$_cur_email" >&2
+      printf '  rule   : Q3-B / B4 -- do not amend a commit that is not yours\n' >&2
+      printf '  reason : when attribution is broken "not mine" cannot be judged at\n' >&2
+      printf '           runtime, so the rule is "if undecidable, forbid"\n' >&2
+      printf '  instead: make a follow-up commit (squash/fixup = explicit attributed\n' >&2
+      printf '           history rewrite; amend = silent rewrite)\n' >&2
+      printf '  override (traced): MIMIR_ALLOW_FOREIGN_AMEND=1 git commit --amend ...\n\n' >&2
+      exit 1
+    fi
+  else
+    _trace "amend-own" "false"
+  fi
+else
+  if [ "$_cur_name" != "Mimir" ]; then
+    printf 'pre-commit: note -- committer identity is "%s" (repo default is "Mimir"; see docs/AGENT_REPO_OWNERSHIP.md)\n' "$_cur_name" >&2
+    _trace "commit-non-mimir-identity" "false"
+  else
+    _trace "commit" "false"
+  fi
+fi
+
+exit 0

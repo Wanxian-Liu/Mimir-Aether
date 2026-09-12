@@ -942,6 +942,20 @@ class AgentMixin:
             # without triggering an UnboundLocalError at `len(history)`.
             nonlocal history
 
+            # Q3-B / A2: run provenance (trace_id + trigger_source + agent_id +
+            # session_key). Must run INSIDE run_sync: tool execution happens on this
+            # same executor thread, which is what makes the thread-local context
+            # visible to the git audit in agent/exec_mixin.py.
+            try:
+                from agent.run_context import begin_run
+                begin_run(
+                    platform=source.platform.value,
+                    text=message,
+                    session_key=session_key,
+                )
+            except Exception as _run_ctx_err:
+                logger.debug(f"run context skipped: {_run_ctx_err}")
+
             # session_key is now set via contextvars in _set_session_env()
             # (concurrency-safe). Keep os.environ as fallback for CLI/cron.
             os.environ["HERMES_SESSION_KEY"] = session_key or ""

@@ -448,6 +448,8 @@ python3 -m pytest -q \
   agent/test_persistent_store_akl.py \
   tests/agent/test_context_compressor_await.py \
   tests/agent/test_compress_threshold_source.py \
+  tests/agent/test_run_context.py \
+  tests/gateway/test_foreign_amend_guard.py \
   tests/gateway/test_hygiene_compress_observability.py
       # --- U10（2026-09-12 刘哥批「门禁扩 tests/ 整树」）---
       # 显式清单维护不了：69/187 个 tests/ 文件既不在 Gate2 也不在 CI ⇒「假绿区间」

@@ -1655,6 +1655,11 @@ class APIServerAdapter(BasePlatformAdapter):
 
         instructions = body.get("instructions")
         previous_response_id = body.get("previous_response_id")
+        # Q3-B / A2: waking source declared by the caller (e.g. the buzz inbox
+        # watcher posts metadata={"source": "buzz-inbox-watcher"}). Previously this
+        # field was parsed by nobody, so an API wake was indistinguishable from a
+        # user wake -- the exact blind spot in the Q3 card sec.3.3.
+        _run_metadata = body.get("metadata") if isinstance(body.get("metadata"), dict) else {}
 
         # Accept explicit conversation_history from the request body.
         # Precedence: explicit conversation_history > previous_response_id.
@@ -1711,6 +1716,18 @@ class APIServerAdapter(BasePlatformAdapter):
                     tool_progress_callback=event_cb,
                 )
                 def _run_sync():
+                    # Q3-B / A2: API-path run provenance (run_id IS the trace_id).
+                    try:
+                        from agent.run_context import begin_run
+                        begin_run(
+                            trace_id=run_id,
+                            metadata=_run_metadata,
+                            platform="api",
+                            text=user_message,
+                            session_key=session_id,
+                        )
+                    except Exception as _run_ctx_err:
+                        logger.debug(f"run context skipped: {_run_ctx_err}")
                     r = agent.run_conversation(
                         user_message=user_message,
                         conversation_history=conversation_history,

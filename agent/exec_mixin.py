@@ -832,6 +832,17 @@ class ExecMixin:
             from model_tools import coerce_tool_args
             arguments = coerce_tool_args(func_name, arguments)
 
+            # Q3-B / A2+G-4 (2026-09-12 Hermes ruling): git write audit trail.
+            # Records repo + command class (commit/amend/push...) + trace_id/
+            # trigger_source/agent_id. Basis: Hermes audit sec.3 (SRE) -- git tool
+            # calls must log repo + command class, else the next incident is again
+            # reconstructed by millisecond extrapolation. Never blocks execution.
+            try:
+                from agent.run_context import audit_git_tool_call
+                audit_git_tool_call(func_name, arguments)
+            except Exception as _audit_err:
+                logger.debug(f"git audit skipped: {_audit_err}")
+
             from agent.tool_call_cache import get_cached, set_cached, should_cache_tool
 
             if should_cache_tool(func_name):

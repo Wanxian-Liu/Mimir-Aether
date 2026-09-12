@@ -1366,3 +1366,21 @@ _level_5_   auto_retrospective.py (74行)    ❌ 已被守卫内置复盘取代
 
 **建议批次**：批1 = TD-04 + TD-01（小改直接治事故）→ 批2 = TD-03 → 批3 = TD-02
 **验收**：8/17 场景 e2e（"去网上找论文"必须出现 web_search 工具调用）+ tier0 全绿 + 新增单测 8 个
+
+---
+
+## §24 U11+（Q3 裁决并入序列 · 2026-09-12 Hermes 审计回执）
+
+> **来源**：`~/wiki/discussions/2026-09-12-四方讨论-唤醒单例与并发写治理-Q3.md` 回执区「方案的分级裁决」——*「进 U 序列（U11+）：A① 单飞闸（threading.Lock 版+租约+≥20 用例）· A④ /health 指标 · Q3-13 用例基线 —— 需设计+测试，勿平行施工」*
+> **本轮已做（不入本表）**：B① git 身份 · A②+G-4（trigger_source / agent_id / trace_id + git 调用日志）· B③ 仓归属声明（`docs/AGENT_REPO_OWNERSHIP.md`）· B④ amend 闸门（`scripts/git-hooks/pre-commit`）
+> **纪律**：A① **无租约不上线**；上线前必须 ≥20 用例 + 基线（防重演「假绿区间」）。
+
+| ID | 优先级 | 项 | 硬约束（裁决） | 状态 |
+|----|--------|----|---------------|------|
+| **U11** | P1 | **A① 运行级单飞闸**：按 session_key 在 run 提交点之前取锁；取不到**不静默丢弃**——写可见日志（`被 <token> 占用，trigger_source=<源>`）并回执 | 进程内 `threading.Lock` + 活跃 run 注册表；跨进程才用 `acquire_scoped_lock` 且 identity **必须含 run token**（`gateway/status.py:319` 的同进程重入判定会放行同 PID，直接用 = 假锁）；**必须带租约**（默认 = run 最大时限，正常结束显式 release，到期**只报警不强夺**）；**≥20 用例 + 基线**；同 session 排队上限 = 1（超限才拒，拒时回执带当前 run 剩余时间） | [ ] |
+| **U12** | P1 | **A④ `/health` 指标**：`wake_duplicate_total` / `run_rejected_by_gate_total` / `run_concurrent_peak` | SRE 裁决「进 /health」；依据 = 零指标曾造成 3.5 个月认知盲区 | [ ] |
+| **U13** | P2 | **Q3-13 单飞闸用例基线**：≥20 用例 + 「run 干净提交率」基线对照（当前 24/25） | 与 U11 同批，不得后补 | [ ] |
+| **U14** | P2 | **A③ watcher 语义澄清**：`buzz-inbox-watcher.sh` 的 `LOCK` 改名/注释为**冷却窗口（cooldown）**，写明「冷却 ≠ 互斥」 | 极低成本，文档一致性 | [ ] |
+| **U15** | P3 | **产物级幂等（G-2，裁决提级为优先于 U11）**：提交前 `git log --grep` 逻辑变更指纹比对 | 角色裁决：锁治「同时」，幂等治「重复」——09-12 的真实形态是**产物重复**（同秒双提交 + amend） | [ ] |
+
+**已否决（不再入表）**：watcher 加锁（单点修补，Q3 卡 §5-A 已否决）· watchdog 重写（其 `/tmp` 落点属另一债，不混本卡）
