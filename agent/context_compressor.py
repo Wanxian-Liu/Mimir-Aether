@@ -48,6 +48,22 @@ _COMPRESS_THRESHOLD_TOKENS_ENV = "MIMIR_COMPRESS_THRESHOLD_TOKENS"
 _DEFAULT_THRESHOLD_PERCENT = 0.50
 
 
+def _strip_inline_comment(raw: str):
+    """Return ``(value_without_inline_comment, was_comment_stripped)``.
+
+    Why (2026-09-13 D-plan step 3): systemd's ``EnvironmentFile=`` parser does
+    **not** strip a trailing ``# comment`` (python-dotenv does) and writes it into
+    the value verbatim, so ``KEY=350000  # was 80000`` reaches the process as
+    ``'350000  # was 80000'`` (len=19). A bare ``int(raw)`` then raises
+    ``ValueError`` and the threshold **silently falls back to percent** - a
+    configuration bug disguised as normal operation (real case: ``.env`` L35).
+    Strip defensively.
+    """
+    if "#" not in raw:
+        return raw, False
+    return raw.split("#", 1)[0].strip(), True
+
+
 def resolve_threshold_percent(env=None) -> Tuple[float, str]:
     """阈值百分比真源：env MIMIR_COMPRESS_THRESHOLD > tuned > 默认 0.50。
 
@@ -65,6 +81,13 @@ def resolve_threshold_percent(env=None) -> Tuple[float, str]:
         pass
     raw = (_env.get(_COMPRESS_THRESHOLD_PERCENT_ENV) or "").strip()
     if raw:
+        raw, _stripped = _strip_inline_comment(raw)
+        if _stripped:
+            logger.warning(
+                "%s carried an inline comment - stripped to %r (systemd "
+                "EnvironmentFile does not strip it; python-dotenv does)",
+                _COMPRESS_THRESHOLD_PERCENT_ENV, raw,
+            )
         try:
             percent = float(raw)
             source = f"env:{_COMPRESS_THRESHOLD_PERCENT_ENV}"
@@ -91,6 +114,13 @@ def resolve_threshold_tokens(
     _env = os.environ if env is None else env
     raw = (_env.get(_COMPRESS_THRESHOLD_TOKENS_ENV) or "").strip()
     if raw:
+        raw, _stripped = _strip_inline_comment(raw)
+        if _stripped:
+            logger.warning(
+                "%s carried an inline comment - stripped to %r (systemd "
+                "EnvironmentFile does not strip it; python-dotenv does)",
+                _COMPRESS_THRESHOLD_TOKENS_ENV, raw,
+            )
         try:
             absolute = int(raw)
             if absolute > 0:

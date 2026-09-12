@@ -13,6 +13,20 @@ from dotenv import load_dotenv
 #: fixture rows into the production search index and 703 vectors into the prod chroma).
 _HOME_KEYS = ("MIMIR_AETHER_HOME", "MIMIRAETHER_HOME", "HERMES_HOME")
 
+#: Break-glass for the 2026-09-13 precedence fix. ``load_hermes_dotenv`` now
+#: loads the user env file with ``override=False`` so keys **explicitly
+#: injected** by the launcher (systemd ``EnvironmentFile=`` / drop-in /
+#: shell) survive; the file only fills absent keys. Set this truthy to
+#: restore the legacy "dotenv wins over the process env" behaviour.
+_DOTENV_FORCE_OVERRIDE_ENV = "MIMIR_DOTENV_OVERRIDE_KEYS"
+_TRUTHY = ("1", "true", "yes", "on")
+
+
+def dotenv_should_override() -> bool:
+    """True when legacy dotenv-wins behaviour was explicitly re-enabled."""
+    raw = (os.environ.get(_DOTENV_FORCE_OVERRIDE_ENV) or "").strip().lower()
+    return raw in _TRUTHY
+
 
 def _load_dotenv_with_fallback(path: Path, *, override: bool) -> None:
     try:
@@ -74,7 +88,9 @@ def load_hermes_dotenv(
     """Load Hermes environment files with user config taking precedence.
 
     Behavior:
-    - `~/.mimir/.env` overrides stale shell-exported values when present.
+    - explicitly injected process env (systemd EnvironmentFile= / drop-in /
+      shell) is **never** overwritten by the user env file; the file only
+      fills absent keys (break-glass: MIMIR_DOTENV_OVERRIDE_KEYS=1).
     - project `.env` acts as a dev fallback and only fills missing values when
       the user env exists.
     - if no user env exists, the project `.env` also overrides stale shell vars.
@@ -97,7 +113,7 @@ def load_hermes_dotenv(
         _sanitize_env_file_if_needed(user_env)
 
     if user_env.exists():
-        _load_dotenv_with_fallback(user_env, override=True)
+        _load_dotenv_with_fallback(user_env, override=dotenv_should_override())
         loaded.append(user_env)
 
     if project_env_path and project_env_path.exists():

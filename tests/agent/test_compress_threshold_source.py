@@ -189,3 +189,40 @@ def test_compress_logs_noop_or_skip_never_fake_success(caplog):
     assert ("[COMPRESS] skip layer=agent" in caplog.text) or (
         "[COMPRESS] abort layer=agent reason=noop" in caplog.text
     )
+
+
+# ── 6. 行内注释防御（2026-09-13 D-plan §③）───────────────────────────────
+# 背景：systemd `EnvironmentFile=` 不像 python-dotenv 那样剥行内注释——
+# `KEY=350000  # was 80000` 会**原样**进进程环境（实测 len=19）。裸 int() 抛
+# ValueError → 静默降级回 percent（比现状更隐蔽）。生产实证：.env L35。
+def test_tokens_tolerates_systemd_inline_comment(caplog):
+    tokens, source = resolve_threshold_tokens(
+        1_000_000, 0.35, env={"MIMIR_COMPRESS_THRESHOLD_TOKENS": "350000  # was 80000"}
+    )
+    assert tokens == 350_000
+    assert source == "env:MIMIR_COMPRESS_THRESHOLD_TOKENS"
+
+
+def test_tokens_comment_stripping_is_logged(caplog):
+    with caplog.at_level(logging.WARNING, logger=cc.logger.name):
+        resolve_threshold_tokens(
+            1_000_000, 0.35, env={"MIMIR_COMPRESS_THRESHOLD_TOKENS": "5000  # pin"}
+        )
+    assert "inline comment" in caplog.text
+
+
+def test_tokens_comment_only_value_falls_back(caplog):
+    """注释后无数字 → 降级回 percent（不抛、不静默变成 0）。"""
+    tokens, source = resolve_threshold_tokens(
+        1_000_000, 0.35, env={"MIMIR_COMPRESS_THRESHOLD_TOKENS": "# only a comment"}
+    )
+    assert tokens == 350_000
+    assert source == "explicit x 1000000"
+
+
+def test_percent_tolerates_inline_comment():
+    percent, source = resolve_threshold_percent(
+        env={"MIMIR_COMPRESS_THRESHOLD": "0.25  # trimmed"}
+    )
+    assert percent == pytest.approx(0.25)
+    assert source == "env:MIMIR_COMPRESS_THRESHOLD"
