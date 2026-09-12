@@ -153,7 +153,9 @@ def _next_session_snippet(max_len: int = 400) -> str:
         return ""
     if not text:
         return ""
-    return text[:max_len]
+    from agent.text_sections import latest_dated_section
+
+    return latest_dated_section(text, max_len)
 
 
 def derive_retrieval_query(state: Optional[Dict[str, Any]] = None) -> str:

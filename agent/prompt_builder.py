@@ -1253,7 +1253,11 @@ def _build_cross_session_context() -> str:
             with open(next_path, encoding="utf-8") as f:
                 remaining = cap - sum(len(p) for p in parts)
                 if remaining > 80:
-                    parts.append(f.read()[: min(500, remaining)])
+                    from agent.text_sections import latest_dated_section
+
+                    parts.append(
+                        latest_dated_section(f.read(), min(500, remaining))
+                    )
         except Exception:
             pass
 

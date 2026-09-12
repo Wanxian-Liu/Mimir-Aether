@@ -453,7 +453,8 @@ python3 -m pytest -q \
   tests/scripts/test_install_git_hooks_chain.py \
   tests/scripts/test_attribution_trailer.py \
   tests/gateway/test_foreign_amend_guard.py \
-  tests/gateway/test_hygiene_compress_observability.py
+  tests/gateway/test_hygiene_compress_observability.py \
+  tests/agent/test_next_session_latest_section.py
       # --- U10（2026-09-12 刘哥批「门禁扩 tests/ 整树」）---
       # 显式清单维护不了：69/187 个 tests/ 文件既不在 Gate2 也不在 CI ⇒「假绿区间」
       # （修复有测试、门禁不执行——8/12 tool_quality 过滤器、9/12 skip_db 契约均踩过）。
