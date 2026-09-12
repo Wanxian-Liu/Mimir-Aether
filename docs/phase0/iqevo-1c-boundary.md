@@ -34,6 +34,20 @@
 - 不得扩 `agent/tuned_thresholds.py` 的 `_REGISTRY` 新增「第四 Top 键」冒充 1c（扩 registry 属 **禁止项 B-5**，非本波范围）。
 - 1c 仅通过 **`decision_compressor_policy.json`** 管理 DecisionRing 面（D*）与 Compressor 第二档（C*）；见 spike §2–§3.2。
 
+### B-2.1 · 非 Top 有界键例外（2026-09-12 · 刘哥授权）
+
+**键**：`tool_quality.prompt_min_sample`（default 20 / min 8 / max 100 / step 1 / int）
+
+| 判据 | 本键状态 | 为何不违 F4 |
+|------|----------|-------------|
+| 有界？ | ✅ min/max/step/type 全给，`_clamp` 生效 | F4 禁的是「**无界**新增」 |
+| 是 Top 键？ | ❌ 非 Top-3 | 1b `AutoTuner` 只按**硬编码键名**写三键、不遍历 `registry_keys()`，故本键**不会**获得自动调参路径 |
+| 冒充 1c？ | ❌ | 1c 只写 `decision_compressor_policy.json`；本键由 `agent/tool_quality.py::prompt_min_sample()` **只读**消费 |
+| 动机 | 修复死链：键未注册时 `get_tuned_value` 抛 `KeyError`（被吞），文档宣称的 `env > tuned > 20` 中间环节恒不可达 | — |
+
+**边界**：本例外为**单键、具名、有界**。新增任何**第四个** registry 键仍须走授权流程，不得以本小节为依据批量扩键。
+
+
 ---
 
 ## B-3 · 1c 与 `MIMIR_AUTO_EVOLVE` / E-009 分工
@@ -89,7 +103,7 @@ close_execution_pipeline()
 | F1 | 写/改任意 `skills/**/SKILL.md` | → AUTO_EVOLVE only（B-1） |
 | F2 | 写 Top-3 三键入 `tuned_thresholds.json` | → 1b only（B-2） |
 | F3 | 运行时改写仓库内 `degeneration_guard.json` **源文件** | guard 仅消费 1b 键 + 静态默认 |
-| F4 | 无界新增 `tuned_thresholds._REGISTRY` 键 | Wave 7 不扩 Top-3；新旋钮走 1c policy schema |
+| F4 | 无界新增 `tuned_thresholds._REGISTRY` 键 | Wave 7 不扩 Top-3；新旋钮走 1c policy schema。**例外留痕（2026-09-12）**：`tool_quality.prompt_min_sample` 经刘哥授权注册——属**有界非 Top 键**，见 §B-2.1 |
 | F5 | 1c 调用 `set_override()` | 必须失败或 no-op（contract 断言） |
 | F6 | 全量 IntentPredictor / 语义记忆引擎 | §51 可选，非 1c |
 | F7 | 无 audit 的 policy 写入 | 每次 nudge 须 `decision_compressor_audit.jsonl` 一行 |
