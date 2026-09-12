@@ -559,6 +559,7 @@ class SessionStore:
         config: GatewayConfig,
         has_active_processes_fn=None,
         transcript_session_db: Optional[Any] = None,
+        sessions_search_db_path: Optional[Any] = None,
     ):
         self.sessions_dir = sessions_dir
         self.config = config
@@ -569,6 +570,12 @@ class SessionStore:
 
         #: Optional SQLite store for transcript dual-write (same object as ``GatewayRunner._session_db``).
         self._db = transcript_session_db
+        #: Optional explicit落点 for the derived ``session_search`` index DB.
+        #: ``None`` → ``mimir_constants.get_mimir_session_search_db_path()`` (which itself
+        #: honours ``MIMIR_SESSION_DB``). 注入存在的意义（2026-09-12 R1）：调用方/测试
+        #: 可以沙箱化派生写入，而不必改进程全局 env —— 这正是 800 夹具行沉积 3.5 个月的
+        #: 结构性缺口（旁路写入只认进程全局目录）。
+        self._sessions_search_db_path = sessions_search_db_path
         #: Lazy ``SessionSearchDB`` for ``session_search`` tool (``MIMIR_SESSION_SEARCH_INDEX=0`` disables).
         self._sessions_search_db: Any = None
     
@@ -1041,13 +1048,25 @@ class SessionStore:
             # 397 行落在生产索引里）。
             self._append_to_sessions_search_index(session_id, message)
     
-    def rewrite_transcript(self, session_id: str, messages: List[Dict[str, Any]]) -> None:
+    def rewrite_transcript(
+        self,
+        session_id: str,
+        messages: List[Dict[str, Any]],
+        skip_db: bool = False,
+    ) -> None:
         """Replace the entire transcript for a session with new messages.
 
         Used by /retry, /undo, and /compress to persist modified conversation history.
         Writes JSONL, then when ``self._db`` is set: ``clear_messages`` (if present)
         and re-append each row to SQLite using the same mapping as
         ``append_to_transcript``.
+
+        Args:
+            skip_db: When True, only write JSONL — skip BOTH the SQLite rewrite and the
+                derived ``session_search`` index rewrite (same contract as
+                ``append_to_transcript``; 2026-09-12 R1 关闭「派生写入」类缺陷的最后一块：
+                此前 rewrite 路径无闸门，``agent/test_m5_gateway_session_db_slice.py``
+                的 ``sid`` / ``sid-rw`` 夹具即由此进入生产索引）。
         """
         self.sessions_dir.mkdir(parents=True, exist_ok=True)
         transcript_path = self.get_transcript_path(session_id)
@@ -1055,7 +1074,7 @@ class SessionStore:
             for msg in messages:
                 f.write(json.dumps(msg, ensure_ascii=False) + "\n")
 
-        if self._db:
+        if self._db and not skip_db:
             try:
                 clear = getattr(self._db, "clear_messages", None)
                 if not callable(clear):
@@ -1070,7 +1089,10 @@ class SessionStore:
             except Exception as e:
                 logger.debug("Session DB transcript rewrite failed: %s", e)
 
-        self._rewrite_sessions_search_index(session_id, messages)
+        if not skip_db:
+            # skip_db 是「只写 JSONL」契约：它必须一并覆盖派生搜索索引——否则 rewrite 路径
+            # 仍会往 data/sessions_search.db 写（2026-09-12 R1，与 append 路径同源）。
+            self._rewrite_sessions_search_index(session_id, messages)
 
     def _sessions_search_index_enabled(self) -> bool:
         return os.environ.get("MIMIR_SESSION_SEARCH_INDEX", "1").strip().lower() not in (
@@ -1088,7 +1110,12 @@ class SessionStore:
             try:
                 from tools.session_search_tool import SessionSearchDB
 
-                self._sessions_search_db = SessionSearchDB()
+                db_path = getattr(self, "_sessions_search_db_path", None)
+                self._sessions_search_db = (
+                    SessionSearchDB(db_path=str(db_path))
+                    if db_path
+                    else SessionSearchDB()
+                )
                 db = self._sessions_search_db
             except Exception as e:
                 logger.debug("sessions_search DB init failed: %s", e)
@@ -1269,8 +1296,10 @@ class SessionManager:
     def append_to_transcript(self, session_id: str, message: dict, skip_db: bool = False) -> None:
         self._store.append_to_transcript(session_id, message, skip_db)
     
-    def rewrite_transcript(self, session_id: str, messages: list) -> None:
-        self._store.rewrite_transcript(session_id, messages)
+    def rewrite_transcript(
+        self, session_id: str, messages: list, skip_db: bool = False
+    ) -> None:
+        self._store.rewrite_transcript(session_id, messages, skip_db)
     
     def load_transcript(self, session_id: str) -> list:
         return self._store.load_transcript(session_id)
