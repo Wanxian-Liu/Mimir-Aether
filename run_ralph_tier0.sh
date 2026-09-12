@@ -386,6 +386,7 @@ python3 -m pytest -q \
   tests/agent/test_feedback_collector.py \
   tests/agent/test_auto_tuner_wave5.py \
   tests/tools/test_chroma_incremental.py \
+  tests/gateway/test_skip_db_index_contract.py \
   tests/agent/test_post_close_analysis.py \
   tests/agent/test_tool_outcome.py \
   tests/agent/test_skill_curator_lifecycle.py \

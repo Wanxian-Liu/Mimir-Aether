@@ -6,6 +6,12 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
+#: Runtime-root keys. A dotenv file must never *relocate* the runtime home: the home
+#: anchors every other path, and this repo's env file carries
+#: ``MIMIR_AETHER_HOME=~/.mimiraether`` — with ``override=True`` that silently replaced a
+#: test sandbox home with the production root (2026-09-12 bare-python3 Gate2 wrote 800
+#: fixture rows into the production search index and 703 vectors into the prod chroma).
+_HOME_KEYS = ("MIMIR_AETHER_HOME", "MIMIRAETHER_HOME", "HERMES_HOME")
 
 
 def _load_dotenv_with_fallback(path: Path, *, override: bool) -> None:
@@ -74,6 +80,8 @@ def load_hermes_dotenv(
     - if no user env exists, the project `.env` also overrides stale shell vars.
     """
     loaded: list[Path] = []
+    # Snapshot the runtime root *before* any file is read — it must survive the load.
+    _home_anchor = {k: os.environ[k] for k in _HOME_KEYS if k in os.environ}
 
     if hermes_home:
         home_path = Path(hermes_home)
@@ -95,5 +103,9 @@ def load_hermes_dotenv(
     if project_env_path and project_env_path.exists():
         _load_dotenv_with_fallback(project_env_path, override=not loaded)
         loaded.append(project_env_path)
+
+    # dotenv files may fill *other* keys, but never move the runtime root (see _HOME_KEYS).
+    for _key, _value in _home_anchor.items():
+        os.environ[_key] = _value
 
     return loaded

@@ -1034,7 +1034,12 @@ class SessionStore:
             except Exception as e:
                 logger.debug("Session DB transcript append failed: %s", e)
 
-        self._append_to_sessions_search_index(session_id, message)
+        if not skip_db:
+            # skip_db 是「只写 JSONL」契约（docs/phase_c_studies/...）：它必须一并覆盖
+            # 派生搜索索引——否则「跳过 SQLite 写入」的调用方仍会往
+            # data/sessions_search.db 追加行（2026-09-12 审计: skip_db 测试载荷
+            # 397 行落在生产索引里）。
+            self._append_to_sessions_search_index(session_id, message)
     
     def rewrite_transcript(self, session_id: str, messages: List[Dict[str, Any]]) -> None:
         """Replace the entire transcript for a session with new messages.
