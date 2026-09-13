@@ -60,6 +60,13 @@ MimirContextCompressor(
 
 ⚠️ **2026-09-13 实测补充（钉阈值式验收必读）**：上述「一键钉死」**只对 shell / 进程内注入有效；对 systemd drop-in 无效**。盘上实证（批 2 B4-b v1/v2 两窗口连续 FAIL 的真因）：drop-in `mimiraether.service.d/b4b-threshold.conf` 写了 `Environment=<KEY>=5000` 且 `systemctl show -p Environment` 也显示带 key，但**阈值始终 350000** —— 因为该键被**两层** `.env` 压掉：① **systemd 层**：单元 `EnvironmentFile=-~/.mimiraether/.env` 的赋值**优先于** `Environment=`，`/proc/<pid>/environ` 实测该键**只有一条**（值来自 `.env`，drop-in 的值根本没进进程）；② **应用层**：`gateway/run.py:88 load_hermes_dotenv` → `mimir_cli/env_loader.py:100 _load_dotenv_with_fallback(user_env, override=True)` 用 python-dotenv **再次覆盖**。⇒ **凡「env 注入式验收」必须先证明目标键在 dotenv 之后仍存活**：对账两处 = `dotenv_values(~/.mimiraether/.env)[KEY]` 与 `/proc/<gateway pid>/environ`（后者若仍是 `.env` 的值，则 drop-in 无效）；`[COMPRESS-INIT] source=` 字段可交叉验证（`env:<KEY>` 才是真生效）。另注：`.env` 里的**行内注释会被 systemd `EnvironmentFile=` 吞进值**（`KEY=350000  # was 80000` → 值非法，实测 `int()` 失败），只是常被 dotenv 清洗 + 数值巧合掩盖 —— 别把这种巧合当「生效」。
 
+⚠️ **注记 2（2026-09-13 F1 实测 · 更危险的显示层陷阱）**：**键名含 `TOKEN`/`KEY`/`SECRET` 的行，其值会被工具输出层脱敏成 `***`** ——
+`.env` 里 `MIMIR_COMPRESS_THRESHOLD_TOKENS=120000` 在 `read_file`/`search_files`/部分 `execute_code` 打印中**显示为 `=***`**，
+极易被误判为「`.env` 又被 write_file 覆盖成占位符」（与 `DEEPSEEK_API_KEY=***` 那次误诊同型）。
+**判据（唯一可靠）**：不要凭输出截图定性；在 Python 里对**磁盘原文**做 **sha256 断言**——
+`hashlib.sha256(line.encode()).hexdigest()` 与候选串（`[...]=120000` / `[...]=350000` / `[...]=***`）逐一比对，命中即真值；
+或比对 `/proc/<gateway pid>/environ`。**本文件已知真值（2026-09-13 实测）**：`.env` 的 `MIMIR_COMPRESS_THRESHOLD_TOKENS=120000`（hash 命中候选 120000）。
+
 ⚠️ **注记（易误判）**：`read_file`/`grep` 的输出层会把该长大写常量**折叠显示**为 `"MIMIR_...KENS"`，看起来像文件里的字符串写坏了——**是显示层假象，非文件内容**。判据必须用运行时断言（`len(_COMPRESS_THRESHOLD_TOKENS_ENV)==31` 且等于预期），不能凭输出截图定性。
 
 ⚠️ 压缩器类为 **`MimirContextCompressor(ContextCompressorV2)`**（agent/context_compressor.py:799），**已不是 HermesStyleCompressor**；`protect_first_n / protect_last_n / tail_token_budget` 不再由 core_loop 硬编码传入，改为 `compressor_init_kwargs_from_policy()`（agent/decision_compressor_policy.py:221）提供的 `_comp_policy`。`HermesStyleCompressor` 类仍存在（供 ACP/兼容路径），但 MimirAetherAgent 主循环用的是 MimirContextCompressor。
