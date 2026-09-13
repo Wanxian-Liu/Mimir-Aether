@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import threading
 import time
 from pathlib import Path
@@ -10,7 +11,14 @@ from typing import Any, Dict, Optional, Union
 
 from mimir_constants import get_mimir_home
 
+logger = logging.getLogger(__name__)
+
 _lock = threading.Lock()
+
+# RS12（2026-09-13）：被静默夹紧的 (key, requested) 只记一次 INFO，避免每次读盘重复刷日志。
+# 有界：最多 256 个签名；超出后不再新增签名（日志降级为"不重复记"，不阻断功能）。
+_CLAMP_LOGGED: set = set()
+_CLAMP_LOGGED_MAX = 256
 
 # Top-3 from docs/phase0/hardcoded-thresholds.md (🔴)
 _REGISTRY: Dict[str, Dict[str, Union[int, float]]] = {
@@ -77,8 +85,23 @@ def _clamp(key: str, value: Union[int, float]) -> Union[int, float]:
     spec = _REGISTRY[key]
     lo, hi = spec["min"], spec["max"]
     if spec["type"] == "int":
-        return int(max(lo, min(hi, round(value))))
-    return float(max(lo, min(hi, round(float(value), 4))))
+        clamped: Union[int, float] = int(max(lo, min(hi, round(value))))
+    else:
+        clamped = float(max(lo, min(hi, round(float(value), 4))))
+    # RS12（2026-09-13）：夹紧必须留痕。此前 `compressor.threshold_percent: 0.12`
+    # （低于 min=0.35）被静默夹到 0.35 —— 文件里写 0.12、运行时拿 0.35，
+    # 属「声明 ≠ 生效」的第 3 例（前两例：窗口 50/200 双值、B9 env 架空 tuned）。
+    # 判据：日志出现 [TUNED-CLAMP] 即说明该键的配置值不可达。
+    if clamped != value:
+        _sig = (key, value)
+        if _sig not in _CLAMP_LOGGED:
+            if len(_CLAMP_LOGGED) < _CLAMP_LOGGED_MAX:
+                _CLAMP_LOGGED.add(_sig)
+            logger.info(
+                "[TUNED-CLAMP] %s requested=%s clamped=%s bounds=[%s, %s]",
+                key, value, clamped, lo, hi,
+            )
+    return clamped
 
 
 def load_overrides() -> Dict[str, Union[int, float]]:

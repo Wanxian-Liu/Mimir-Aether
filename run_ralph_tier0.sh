@@ -462,6 +462,8 @@ python3 -m pytest -q \
   tests/gateway/test_foreign_amend_guard.py \
   tests/gateway/test_hygiene_compress_observability.py \
   tests/agent/test_next_session_latest_section.py \
+  tests/agent/test_compress_unified_caliber.py \
+  tests/agent/test_tuned_clamp_observability.py \
   tests/gateway/test_wake_gate_wiring.py \
   tests/gateway/test_wake_gate_observability.py \
   tests/gateway/test_buzz_watcher_ledger.py \

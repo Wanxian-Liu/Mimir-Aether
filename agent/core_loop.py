@@ -906,7 +906,15 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
             # 预压缩一次（MimirAgentLoop 内部不做压缩）
             if self.compressor.needs_compression(_loop_messages):
                 if self.compressor.has_content_to_compress(_loop_messages):
-                    _loop_messages, _ = await self.compressor.compress(_loop_messages)
+                    # RS5/R5（2026-09-13）：needs_compression 用 API prompt_tokens 口径，
+                    # 必须把同一口径传给 compress()。否则内层用字符粗估二次判定 →
+                    # 上层开门、下层关门 → 永真 noop（09-13 实测：skip/abort 各 268 次、
+                    # result 0 次，日志字段自证 current_tokens=None）。
+                    # 取不到 API 计数时传 None → compress() 自动回退旧的粗估行为。
+                    _loop_messages, _ = await self.compressor.compress(
+                        _loop_messages,
+                        current_tokens=getattr(self.compressor, "last_prompt_tokens", 0) or None,
+                    )
             
             # 构建 tool schemas + valid names
             from tools.toolsets import resolve_enabled_tools

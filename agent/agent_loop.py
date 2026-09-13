@@ -647,7 +647,12 @@ class MimirAgentLoop:
                     if self.compressor.needs_compression(messages):
                         if self.compressor.has_content_to_compress(messages):
                             _pre_n = len(messages)
-                            messages, _comp_res = await self.compressor.compress(messages)
+                            # RS5/R5（2026-09-13）：与 core_loop.py 同源——门用 API 口径、
+                            # 内层用粗估会互相抵消。传同一口径；取不到则 None 回退旧行为。
+                            messages, _comp_res = await self.compressor.compress(
+                                messages,
+                                current_tokens=getattr(self.compressor, "last_prompt_tokens", 0) or None,
+                            )
                             logger.info(
                                 "[%s] turn %d: in-loop compress %d->%d msgs (mode=%s)",
                                 self.task_id[:8], turn + 1, _pre_n, len(messages),
