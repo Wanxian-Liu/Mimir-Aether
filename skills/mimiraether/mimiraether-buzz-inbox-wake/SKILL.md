@@ -67,5 +67,9 @@ auto_load: false
 - **追加记账行到 dotfile 会触发安全审批**（2026-09-13 12:32 实测）：`printf … >> ~/.mimiraether/logs/inbox-processed.log` 被判 **HIGH「Dotfile overwrite」→ 需人工批准**才执行成功（本次因刘哥飞书 turn 在场而放行）。**自治唤醒无人在场时不得依赖它** —— 稳妥路径：先 `write_file` 一行到 `~/.mimiraether/scripts/<name>.line`，再用 `.venv/bin/python3` 脚本 `open(ledger,'a')` 单次 write（原子性与 `>>` 等价）。
 - **`git rev-list --left-right --count origin/main...HEAD` 会因遥控 ref 陈旧而假报「有未推」**（2026-09-13 12:30 实测：报 `0 2`，实跑 `git push` 得 `Everything up-to-date`，`git fetch` 后 `0 0`）⇒ 判据必须先 `git fetch`（或 `git ls-remote`）再比对，不得据旧 ref 宣告未推/已推。
 
+- **「段正文写临时文件 + 脚本再拼一次标题」必产出重复标题**（2026-09-13 L5 §M 实测，且已 commit 一次才发现）：段正文首行本身就是 `## §X …`，再 `open(card).write("## §X …\n\n"+sec)` ⇒ 卡里出现两个同题标题。**判据**：落卡后 `grep -c '^## §X'` 必须 == 1（`grep -n '^## §'` 看全卡标题序列最直观）。发现重复用 `git commit --amend` 以修正版重提，**不要追加第二个 commit**。
+- **提交「只含自己段」的卡版本，勿把他人未提交段卷进 commit**（2026-09-13 L5 实测：盘上 §O 已由 OpenClaw 写好但**未 commit**，`git add -A` 会替他人落卡、污染署名）。做法：① `cp` 存下完整盘上版 ② `git show HEAD:<card>` 取已提交版 ③ 在已提交版上只替换**自己段**的占位符 ④ `git add` + `commit` ⑤ 把完整盘上版 `cp` 回原路径（他人段仍保持未提交）。提交后 `git show --stat` 的行数增量应 ≈ 自己段行数（L5 实例 113 行 = §M），若显著偏大即说明卷入了他人改动。
+- **「论文引用成立」≠「引用里的数字成立」**（2026-09-13 L5 文献守卫实测）：二手概括常把论文的**平均增益**升格为「下限/必然」。判据 = 回原文读表格逐格：2409.04701 Table 2 AVG 实测 +1.4~+1.9、最差格 −0.1，而卡上被引作 +3%/≥+2%。**引论文必附「哪个表/哪一档模型」**，并显式标注「该结论是否覆盖我们用的模型」（论文未测 bge-m3 ⇒ 属外推）。
+
 ## 3. 完成判据
 ① 日志行已追加（含动作/去重标注）② 卡段已落并 commit ③（若有新笔记）索引判据 `VERDICT: PASS` ④ 汇报区分「声明」与「盘上实测」，未闭项显式列出。
