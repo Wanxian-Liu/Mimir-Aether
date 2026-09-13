@@ -231,6 +231,11 @@ def compressor_init_kwargs_from_policy() -> Dict[str, Any]:
     }
 
 
+# RS3（四方裁决 2026-09-13）：公开别名供压缩器消费。不新建函数、不新建
+# bounds 真源 —— 夹紧语义只有一处实现（_clamp_compressor_key），此处仅导出。
+clamp_compressor_key = _clamp_compressor_key
+
+
 def merge_ring_policy_into_config(config: Any) -> None:
     """Apply persisted ring.* values onto ``DecisionRingConfig`` (in-place)."""
     ring = load_ring_section()

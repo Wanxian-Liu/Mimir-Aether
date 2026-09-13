@@ -28,6 +28,7 @@ gateway/run.py 的 _agent_cache_lock 先例：跨事件循环与线程池共享�
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import threading
 import time
@@ -57,6 +58,8 @@ DEFAULT_LEASE_S = 3600.0
 DEFAULT_DEDUP_WINDOW_S = 900.0
 
 # 急停开关 env 名。
+logger = logging.getLogger(__name__)
+
 GATE_ENV = "MIMIR_WAKE_GATE"
 
 _OFF_VALUES = {"off", "0", "false", "no", "disabled", "none"}
@@ -71,7 +74,15 @@ REASONS = frozenset(
         "occupied",
         "occupied_lease_expired",
         "duplicate_event",
+        "gate_internal_error",
     }
+)
+
+# 自主唤醒触发源（mode="wake"）；其余（含裸 "api" / "feishu"）判交互（mode="user"）。
+# 理由见 agent/run_context.resolve_trigger_source：buzz watcher 经 API 唤醒、
+# watchdog 经飞书唤醒，裸看平台无法区分 ⇒ 以「触发源」为判据（U11 方案 §2）。
+WAKE_TRIGGER_SOURCES = frozenset(
+    {"buzz-watcher", "watchdog", "cron", "self-restart"}
 )
 
 
@@ -182,6 +193,7 @@ class WakeGate:
             "gate_off_total": 0,
             "interactive_bypass_total": 0,
             "no_session_key_total": 0,
+            "gate_errors_total": 0,
         }
 
     # -- 取锁 -------------------------------------------------------------
@@ -271,6 +283,17 @@ class WakeGate:
             return GateDecision(True, "granted", session_key, run_token)
 
     # -- 释放 -------------------------------------------------------------
+
+    def note_internal_error(self, session_key: str, run_token: str) -> GateDecision:
+        """闸自身异常时的 fail-closed 裁决（U11 接线 · CR2）。
+
+        「闸坏了等于没闸」⇒ 自治通路不得放行；同时计数入 snapshot()，使
+        「闸故障」可被 /health 观测（否则静默 fail-closed 无人知）。
+        交互通路（mode="user"）不取锁，故不受闸故障影响。
+        """
+        with self._lock:
+            self._metrics["gate_errors_total"] += 1
+        return GateDecision(False, "gate_internal_error", session_key, run_token)
 
     def release(self, session_key: str, run_token: str) -> bool:
         """显式释放。run_token 不匹配则不释放（防误放他人锁）。"""
@@ -380,6 +403,53 @@ def get_wake_gate() -> WakeGate:
             if _GATE is None:
                 _GATE = WakeGate()
     return _GATE
+
+
+def acquire_for_run(
+    *,
+    session_key: str,
+    trigger_source: str = "unknown",
+    run_token: str = "",
+    message: str = "",
+    interrupt_depth: int = 0,
+) -> Optional[GateDecision]:
+    """U11 接线契约 —— run_sync() 唯一收口点调用的**唯一**取锁入口。
+
+    返回 ``None`` = 本次不持锁（续轮续跑 / 交互通路遇闸故障），**无需释放**。
+    返回 ``GateDecision`` = 持锁与否由 ``granted`` 决定，``granted`` 为真则
+    调用方**必须**在 finally 中 ``release(session_key, run_token)``。
+
+    三条策略（对齐 U11 方案 §1/§3 与四方裁决 CR2）：
+    1. **续轮旁路**：``interrupt_depth > 0`` 是同 run 的续跑，同 session 已被
+       自己持有 ⇒ 再取必 occupied ⇒ 自锁掐死 interrupt 通路。直接返回 None。
+    2. **mode 判定**：以触发源为准（裸 ``api``/``feishu`` 判交互）——buzz watcher
+       经 API 唤醒、watchdog 经飞书唤醒，裸看平台无法区分。
+    3. **闸自身异常 fail-closed**：自治通路返回拒裁决（闸坏了等于没闸）；
+       交互通路返回 None（**自治故障不得外溢到用户通路**）。
+    """
+    if (interrupt_depth or 0) > 0:
+        logger.debug("wake-gate: 续轮跳过取锁 (interrupt_depth=%s)", interrupt_depth)
+        return None
+
+    mode = "wake" if trigger_source in WAKE_TRIGGER_SOURCES else "user"
+    try:
+        return get_wake_gate().acquire(
+            session_key=session_key or "",
+            run_token=run_token,
+            trigger_source=trigger_source,
+            fingerprint=event_fingerprint(
+                trigger_source, session_key or "", (message or "")[:200]
+            ),
+            mode=mode,
+        )
+    except Exception as exc:
+        logger.error("wake-gate 内部错误: %s", exc)
+        if mode != "wake":
+            return None
+        try:
+            return get_wake_gate().note_internal_error(session_key or "", run_token)
+        except Exception:  # pragma: no cover - 闸彻底不可用
+            return GateDecision(False, "gate_internal_error", session_key or "", run_token)
 
 
 def reset_wake_gate() -> None:

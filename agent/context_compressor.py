@@ -16,6 +16,9 @@ from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
 
+# RS3（四方裁决 2026-09-13）：夹紧真源在 policy 模块，此处只消费公开名。
+from agent.decision_compressor_policy import clamp_compressor_key
+
 logger = logging.getLogger(__name__)
 
 # ============================================================================
@@ -280,9 +283,13 @@ class ContextCompressorV2:
         # Dynamic tail token budget
         # tail_budget = threshold_tokens * summary_target_ratio
         if tail_token_budget is None:
-            self.tail_token_budget = int(self.threshold_tokens * summary_target_ratio)
+            self.tail_token_budget = clamp_compressor_key(
+                "tail_token_budget", int(self.threshold_tokens * summary_target_ratio)
+            )
         else:
-            self.tail_token_budget = tail_token_budget
+            self.tail_token_budget = clamp_compressor_key(
+                "tail_token_budget", int(tail_token_budget)
+            )
         # 修复（2026-08-05，核心体检-2 OpenClaw发现）：cooldown/anti-thrashing状态
         self._last_compress_time = 0.0        # cooldown：上次压缩时间戳
         self._last_savings: list[float] = []   # anti-thrashing：最近压缩节省比例
@@ -1047,7 +1054,9 @@ class MimirContextCompressor(ContextCompressorV2):
             _resolved_source.startswith("env:") or "+cap:" in _resolved_source
         ) and _resolved_tokens != self.threshold_tokens:
             self.threshold_tokens = _resolved_tokens
-            self.tail_token_budget = int(self.threshold_tokens * self.summary_target_ratio)
+            self.tail_token_budget = clamp_compressor_key(
+                "tail_token_budget", int(self.threshold_tokens * self.summary_target_ratio)
+            )
         logger.info(
             "[COMPRESS-INIT] threshold_tokens=%s source=%s context_length=%s percent=%s tail=%s",
             self.threshold_tokens, self.threshold_source,
@@ -1072,7 +1081,9 @@ class MimirContextCompressor(ContextCompressorV2):
             _resolved_source.startswith("env:") or "+cap:" in _resolved_source
         ) and _resolved_tokens != self.threshold_tokens:
             self.threshold_tokens = _resolved_tokens
-            self.tail_token_budget = int(self.threshold_tokens * self.summary_target_ratio)
+            self.tail_token_budget = clamp_compressor_key(
+                "tail_token_budget", int(self.threshold_tokens * self.summary_target_ratio)
+            )
             logger.info(
                 "[COMPRESS-UPDATE] threshold_tokens=%s source=%s (env/cap override re-applied "
                 "after update_model)",

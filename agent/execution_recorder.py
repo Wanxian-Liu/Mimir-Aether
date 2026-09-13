@@ -41,6 +41,58 @@ def _today_dir() -> Path:
 
 # ── Run provenance (X2-a 同源) ──────────────────────────────────────────────
 
+def _resolve_model_name() -> str:
+    """当前模型名（坑三 F1 根治：session_start 自带 model）。
+
+    与 ``last_context_usage.json`` **同源** —— ``context_usage_snapshot``
+    的 ``_config_default_model()`` 读同一处 ``config.yaml`` 的 ``model.default``，
+    使两条流可直接比对（验收判据：两值相等）。兜底 ``MIMIR_MODEL``。
+
+    Best-effort：任何异常返回空串，绝不让归因字段阻断轨迹落盘。
+    """
+    try:
+        from agent.context_usage_snapshot import _config_default_model
+        value = str(_config_default_model() or "").strip()
+        if value:
+            return value
+    except Exception:  # pragma: no cover - 归因不得阻断记录
+        pass
+    return (os.getenv("MIMIR_MODEL") or "").strip()
+
+
+def _trajectory_id_used(session_id: str) -> bool:
+    """该 session_id 是否已在**任何日期目录**下被用作轨迹文件名（F4 判据）。"""
+    if not session_id:
+        return False
+    try:
+        root = _get_trajectory_dir()
+        if not root.exists():
+            return False
+        for day in root.iterdir():
+            if not day.is_dir():
+                continue
+            if (day / ("%s.jsonl" % session_id)).exists():
+                return True
+    except Exception:  # pragma: no cover
+        return False
+    return False
+
+
+def _unique_session_id(base: str) -> str:
+    """F4 根治：同一 id 已存在 ⇒ 追加短唯一后缀，保证 raw id 跨文件唯一。
+
+    不变量：返回值的 ``<id>.jsonl`` 在任何日期目录中都不存在。
+    """
+    candidate = (base or "").strip() or uuid.uuid4().hex[:12]
+    if not _trajectory_id_used(candidate):
+        return candidate
+    for _ in range(64):
+        candidate = "%s-%s" % (base, uuid.uuid4().hex[:6])
+        if not _trajectory_id_used(candidate):
+            return candidate
+    return "%s-%s" % (base, uuid.uuid4().hex[:12])
+
+
 def _resolve_provenance() -> Dict[str, str]:
     """``trace_id`` / ``trigger_source`` / ``agent_id`` for the session_start line.
 
@@ -104,6 +156,7 @@ def _resolve_provenance() -> Dict[str, str]:
         "trace_id": trace_id,
         "trigger_source": trigger_source,
         "agent_id": agent_id_value,
+        "model": _resolve_model_name(),
     }
 
 
@@ -173,7 +226,12 @@ class ExecutionRecorder:
 
     def __init__(self, task_name: str = "", session_id: str = ""):
         self._task_name = task_name or "unnamed"
-        self._session_id = session_id or uuid.uuid4().hex[:12]
+        # F4 根治（四方裁决 2026-09-13 · 窗口项 5）：调用方传入的 id 可能
+        # 跨会话复用（agent_loop 传 self.task_id），导致同一 raw id 落在多个
+        # 轨迹文件、HF 侧被当重复而静默丢弃。此处统一唯一化。
+        self._session_id = _unique_session_id(
+            session_id or uuid.uuid4().hex[:12]
+        )
         self._step_counter = 0
         self._start_time = time.monotonic()
         self._start_ts = datetime.now(timezone.utc).isoformat()
@@ -198,6 +256,7 @@ class ExecutionRecorder:
                         "trace_id": _prov["trace_id"],
                         "trigger_source": _prov["trigger_source"],
                         "agent_id": _prov["agent_id"],
+                        "model": _prov.get("model", ""),
                     },
                     ensure_ascii=False,
                 )

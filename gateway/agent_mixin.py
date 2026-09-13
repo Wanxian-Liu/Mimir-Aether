@@ -958,608 +958,658 @@ class AgentMixin:
                 )
             except Exception as _run_ctx_err:
                 logger.debug(f"run context skipped: {_run_ctx_err}")
-
-            # session_key is now set via contextvars in _set_session_env()
-            # (concurrency-safe). Keep os.environ as fallback for CLI/cron.
-            os.environ["HERMES_SESSION_KEY"] = session_key or ""
-
-            # Read from env var or use default (same as CLI)
-            max_iterations = int(os.getenv("HERMES_MAX_ITERATIONS", "90"))
-            
-            # Map platform enum to the platform hint key the agent understands.
-            # Platform.LOCAL ("local") maps to "cli"; others pass through as-is.
-            platform_key = "cli" if source.platform == Platform.LOCAL else source.platform.value
-            
-            # Combine platform context with user-configured ephemeral system prompt
-            combined_ephemeral = context_prompt or ""
-            if self._ephemeral_system_prompt:
-                combined_ephemeral = (combined_ephemeral + "\n\n" + self._ephemeral_system_prompt).strip()
-
-            # Re-read .env and config for fresh credentials (gateway is long-lived,
-            # keys may change without restart). Explicitly injected keys are
-            # preserved (D-plan §②: override=dotenv_should_override()).
+            # ── U11 运行级单飞闸接线（RS1 · 四方裁决 2026-09-13）──────────────
+            # 唯一收口：6 个 _run_agent 调用点全部经 run_sync 落地，故只在此取锁。
+            # 续轮（_interrupt_depth > 0）跳过 —— 同 session 已被自己持有，再取必
+            # occupied ⇒ 自锁掐死 interrupt 通路（U11 方案 §1 纠正 2）。
+            # 闸自身异常：自治通路 fail-closed（闸坏了等于没闸），交互通路不取锁
+            # 故不受影响（CR2：自治故障不得外溢到刘哥的交互通路）。
+            _wake_decision = None
+            _wake_token = ""
             try:
-                load_dotenv(_env_path, override=dotenv_should_override(),
-                            encoding="utf-8")
-            except UnicodeDecodeError:
-                load_dotenv(_env_path, override=dotenv_should_override(),
-                            encoding="latin-1")
+                from agent.run_context import current_run
+                _wake_ctx = current_run() or {}
             except Exception:
-                pass
-
+                _wake_ctx = {}
+            _wake_trigger = str(_wake_ctx.get("trigger_source") or "unknown")
+            _wake_token = str(_wake_ctx.get("trace_id") or "")
             try:
-                model, runtime_kwargs = self._resolve_session_agent_runtime(
-                    source=source,
-                    session_key=session_key,
-                    user_config=user_config,
+                from gateway.wake_gate import acquire_for_run
+                _wake_decision = acquire_for_run(
+                    session_key=session_key or "",
+                    trigger_source=_wake_trigger,
+                    run_token=_wake_token,
+                    message=message or "",
+                    interrupt_depth=_interrupt_depth or 0,
                 )
-                logger.debug(
-                    "run_agent resolved: model=%s provider=%s session=%s",
-                    model, runtime_kwargs.get("provider"), (session_key or "")[:30],
-                )
-            except Exception as exc:
-                import traceback
-                logger.exception("Provider auth exn traceback")
+            except Exception as _wake_err:  # pragma: no cover - 闸是可选增强
+                logger.debug("wake-gate skipped: %s", _wake_err)
+                _wake_decision = None
+            if _wake_decision is not None and not _wake_decision.granted:
+                logger.warning("wake-gate 拒：%s", _wake_decision.receipt())
                 return {
-                    "final_response": f"⚠️ Provider authentication failed: {exc}",
-                    "messages": [],
+                    "final_response": _wake_decision.receipt(),
+                    "messages": history,
                     "api_calls": 0,
-                    "tools": [],
+                    "completed": False,
+                    "error": (
+                        "wake_gate_internal_error"
+                        if _wake_decision.reason == "gate_internal_error"
+                        else None
+                    ),
+                    "gate_decision": _wake_decision.reason,
                 }
+            try:
 
-            pr = self._provider_routing
-            reasoning_config = self._load_reasoning_config()
-            self._reasoning_config = reasoning_config
-            self._service_tier = self._load_service_tier()
-            # Set up stream consumer for token streaming or interim commentary.
-            _stream_consumer = None
-            _stream_delta_cb = None
-            _scfg = getattr(getattr(self, 'config', None), 'streaming', None)
-            if _scfg is None:
-                from gateway.config import StreamingConfig
-                _scfg = StreamingConfig()
+                # session_key is now set via contextvars in _set_session_env()
+                # (concurrency-safe). Keep os.environ as fallback for CLI/cron.
+                os.environ["HERMES_SESSION_KEY"] = session_key or ""
 
-            # Per-platform streaming gate: display.platforms.<plat>.streaming
-            # can disable streaming for specific platforms even when the global
-            # streaming config is enabled.
-            _plat_streaming = resolve_display_setting(
-                user_config, platform_key, "streaming"
-            )
-            # None = no per-platform override → follow global config
-            _streaming_enabled = (
-                _scfg.enabled and _scfg.transport != "off"
-                if _plat_streaming is None
-                else bool(_plat_streaming)
-            )
-            _want_stream_deltas = _streaming_enabled
-            _want_interim_messages = interim_assistant_messages_enabled
-            _want_interim_consumer = _want_interim_messages
-            if _want_stream_deltas or _want_interim_consumer:
-                try:
-                    from gateway.stream_consumer import GatewayStreamConsumer, StreamConsumerConfig
-                    _adapter = self.adapters.get(source.platform)
-                    if _adapter:
-                        # Platforms that don't support editing sent messages
-                        # (e.g. WeChat) must not show a cursor in intermediate
-                        # sends — the cursor would be permanently visible because
-                        # it can never be edited away.  Use an empty cursor for
-                        # such platforms so streaming still delivers the final
-                        # response, just without the typing indicator.
-                        _adapter_supports_edit = getattr(_adapter, "SUPPORTS_MESSAGE_EDITING", True)
-                        _effective_cursor = _scfg.cursor if _adapter_supports_edit else ""
-                        # Some Matrix clients render the streaming cursor
-                        # as a visible tofu/white-box artifact.  Keep
-                        # streaming text on Matrix, but suppress the cursor.
-                        if source.platform == Platform.MATRIX:
-                            _effective_cursor = ""
-                        _consumer_cfg = StreamConsumerConfig(
-                            edit_interval=_scfg.edit_interval,
-                            buffer_threshold=_scfg.buffer_threshold,
-                            cursor=_effective_cursor,
-                        )
-                        _stream_consumer = GatewayStreamConsumer(
-                            adapter=_adapter,
-                            chat_id=source.chat_id,
-                            config=_consumer_cfg,
-                            metadata={"thread_id": _progress_thread_id} if _progress_thread_id else None,
-                        )
-                        if _want_stream_deltas:
-                            _stream_delta_cb = _stream_consumer.on_delta
-                        stream_consumer_holder[0] = _stream_consumer
-                except Exception as _sc_err:
-                    logger.debug("Could not set up stream consumer: %s", _sc_err)
-
-            def _interim_assistant_cb(text: str, *, already_streamed: bool = False) -> None:
-                if _stream_consumer is not None:
-                    if already_streamed:
-                        _stream_consumer.on_segment_break()
-                    else:
-                        _stream_consumer.on_commentary(text)
-                    return
-                if already_streamed or not _status_adapter or not str(text or "").strip():
-                    return
-                try:
-                    asyncio.run_coroutine_threadsafe(
-                        _status_adapter.send(
-                            _status_chat_id,
-                            text,
-                            metadata=_status_thread_metadata,
-                        ),
-                        _loop_for_step,
-                    )
-                except Exception as _e:
-                    logger.debug("interim_assistant_callback error: %s", _e)
-
-            turn_route = self._resolve_turn_agent_config(message, model, runtime_kwargs)
-
-            # Re-bind session identity after load_dotenv(override=True) and before
-            # agent init (system prompt may consume cross-session prefetch here).
-            os.environ["HERMES_SESSION_KEY"] = session_key or ""
-            os.environ["MIMIR_SESSION_KEY"] = session_key or ""
-            from tools.approval import set_current_session_key
-
-            set_current_session_key(session_key or "")
-
-            # Check agent cache — reuse the AIAgent from the previous message
-            # in this session to preserve the frozen system prompt and tool
-            # schemas for prompt cache hits.
-            _sig = self._agent_config_signature(
-                turn_route["model"],
-                turn_route["runtime"],
-                enabled_toolsets,
-                combined_ephemeral,
-            )
-            agent = None
-            _cache_lock = getattr(self, "_agent_cache_lock", None)
-            _cache = getattr(self, "_agent_cache", None)
-            if _cache_lock and _cache is not None:
-                with _cache_lock:
-                    cached = _cache.get(session_key)
-                    if cached and cached[1] == _sig:
-                        agent = cached[0]
-                        _cache.move_to_end(session_key)  # LRU: mark as recently used
-                        logger.debug("Reusing cached agent for session %s", session_key)
-
-            if agent is None:
-                # Config changed or first message — create fresh agent
-                agent = AIAgent(
-                    model=turn_route["model"],
-                    **turn_route["runtime"],
-                    max_iterations=max_iterations,
-                    quiet_mode=True,
-                    verbose_logging=False,
-                    enabled_toolsets=enabled_toolsets,
-                    ephemeral_system_prompt=combined_ephemeral or None,
-                    prefill_messages=self._prefill_messages or None,
-                    reasoning_config=reasoning_config,
-                    service_tier=self._service_tier,
-                    request_overrides=turn_route.get("request_overrides"),
-                    providers_allowed=pr.get("only"),
-                    providers_ignored=pr.get("ignore"),
-                    providers_order=pr.get("order"),
-                    provider_sort=pr.get("sort"),
-                    provider_require_parameters=pr.get("require_parameters", False),
-                    provider_data_collection=pr.get("data_collection"),
-                    session_id=session_id,
-                    platform=platform_key,
-                    user_id=source.user_id,
-                    session_db=self._session_db,
-                    fallback_model=self._fallback_model,
-                )
-                if _cache_lock and _cache is not None:
-                    with _cache_lock:
-                        # LRU eviction: if at capacity, remove oldest entry
-                        if len(_cache) >= self._AGENT_CACHE_MAXSIZE:
-                            oldest_key, _ = _cache.popitem(last=False)
-                            logger.debug("Agent cache LRU evicted session=%s (cache=%d/%d)",
-                                         oldest_key, len(_cache), self._AGENT_CACHE_MAXSIZE)
-                        _cache[session_key] = (agent, _sig)
-                        _cache.move_to_end(session_key)
-                logger.debug("Created new agent for session %s (sig=%s)", session_key, _sig)
-
-            # Per-message state — callbacks and reasoning config change every
-            # turn and must not be baked into the cached agent constructor.
-            agent.tool_progress_callback = progress_callback if tool_progress_enabled else None
-            agent.step_callback = _step_callback_sync if _hooks_ref.loaded_hooks else None
-            agent.stream_delta_callback = _stream_delta_cb
-            agent.interim_assistant_callback = _interim_assistant_cb if _want_interim_messages else None
-            agent.status_callback = _status_callback_sync
-            agent.reasoning_config = reasoning_config
-            agent.service_tier = self._service_tier
-            agent.request_overrides = turn_route.get("request_overrides")
-
-            # Background review delivery — send "💾 Memory updated" etc. to user
-            def _bg_review_send(message: str) -> None:
-                if not _status_adapter:
-                    return
-                try:
-                    asyncio.run_coroutine_threadsafe(
-                        _status_adapter.send(
-                            _status_chat_id,
-                            message,
-                            metadata=_status_thread_metadata,
-                        ),
-                        _loop_for_step,
-                    )
-                except Exception as _e:
-                    logger.debug("background_review_callback error: %s", _e)
-
-            agent.background_review_callback = _bg_review_send
-
-            # Store agent reference for interrupt support
-            agent_holder[0] = agent
-            # Capture the full tool definitions for transcript logging
-            tools_holder[0] = agent.tools if hasattr(agent, 'tools') else None
+                # Read from env var or use default (same as CLI)
+                max_iterations = int(os.getenv("HERMES_MAX_ITERATIONS", "90"))
             
-            # Convert history to agent format.
-            # Two cases:
-            #   1. Normal path (from transcript): simple {role, content, timestamp} dicts
-            #      - Strip timestamps, keep role+content
-            #   2. Interrupt path (from agent result["messages"]): full agent messages
-            #      that may include tool_calls, tool_call_id, reasoning, etc.
-            #      - These must be passed through intact so the API sees valid
-            #        assistant→tool sequences (dropping tool_calls causes 500 errors)
-            # ---------------------------------------------------------
-            # A方案: 历史窗口化 (Mimir历史膨胀修复 2026-08-12)
-            # 会话续接不再全量重放 transcript —— 只保留最近
-            # N 条完整消息，更早的丢弃（N 的单一真源见 resolve_history_window：
-            # env MIMIR_HISTORY_WINDOW > config.yaml > 默认 200）。
-            # 防止历史无限膨胀 → token 浪费 + 每轮变慢。
-            # 边界安全: 窗口首条不能是孤立的 tool 消息
-            # (tool 必须跟随 assistant tool_calls，否则 API 500)。
-            # 只影响喂给 agent 的初始历史，不动 transcript 存储。
-            # ---------------------------------------------------------
-            # TD-02: 历史摘要 Future 句柄（run_sync 线程 → 主 loop 异步生成）
-            _history_summary_future = None
-            # #2 截断通知（2026-08-18 架构硬规则——不静默截断）：记录丢弃数，注入用户可见通知
-            _truncated_count = 0
-            # P0-A（2026-09-10）：窗口单一真源 —— env > config.yaml > 默认。
-            _window_size, _window_src = resolve_history_window()
-            _truncated_window = _window_size
-            if _window_size > 0 and len(history) > _window_size:
-                _dropped = len(history) - _window_size
-                _truncated_count = _dropped
-                _truncated_window = _window_size
-                window = history[-_window_size:]
-                _i = _dropped
-                while window and window[0].get("role") == "tool" and _i > 0:
-                    _i -= 1
-                    window.insert(0, history[_i])
-                logger.info(
-                    "History window: dropped %s old message(s), keeping %s "
-                    "(window=%s, source=%s)",
-                    _dropped, len(window), _window_size, _window_src,
+                # Map platform enum to the platform hint key the agent understands.
+                # Platform.LOCAL ("local") maps to "cli"; others pass through as-is.
+                platform_key = "cli" if source.platform == Platform.LOCAL else source.platform.value
+            
+                # Combine platform context with user-configured ephemeral system prompt
+                combined_ephemeral = context_prompt or ""
+                if self._ephemeral_system_prompt:
+                    combined_ephemeral = (combined_ephemeral + "\n\n" + self._ephemeral_system_prompt).strip()
+
+                # Re-read .env and config for fresh credentials (gateway is long-lived,
+                # keys may change without restart). Explicitly injected keys are
+                # preserved (D-plan §②: override=dotenv_should_override()).
+                try:
+                    load_dotenv(_env_path, override=dotenv_should_override(),
+                                encoding="utf-8")
+                except UnicodeDecodeError:
+                    load_dotenv(_env_path, override=dotenv_should_override(),
+                                encoding="latin-1")
+                except Exception:
+                    pass
+
+                try:
+                    model, runtime_kwargs = self._resolve_session_agent_runtime(
+                        source=source,
+                        session_key=session_key,
+                        user_config=user_config,
+                    )
+                    logger.debug(
+                        "run_agent resolved: model=%s provider=%s session=%s",
+                        model, runtime_kwargs.get("provider"), (session_key or "")[:30],
+                    )
+                except Exception as exc:
+                    import traceback
+                    logger.exception("Provider auth exn traceback")
+                    return {
+                        "final_response": f"⚠️ Provider authentication failed: {exc}",
+                        "messages": [],
+                        "api_calls": 0,
+                        "tools": [],
+                    }
+
+                pr = self._provider_routing
+                reasoning_config = self._load_reasoning_config()
+                self._reasoning_config = reasoning_config
+                self._service_tier = self._load_service_tier()
+                # Set up stream consumer for token streaming or interim commentary.
+                _stream_consumer = None
+                _stream_delta_cb = None
+                _scfg = getattr(getattr(self, 'config', None), 'streaming', None)
+                if _scfg is None:
+                    from gateway.config import StreamingConfig
+                    _scfg = StreamingConfig()
+
+                # Per-platform streaming gate: display.platforms.<plat>.streaming
+                # can disable streaming for specific platforms even when the global
+                # streaming config is enabled.
+                _plat_streaming = resolve_display_setting(
+                    user_config, platform_key, "streaming"
                 )
-                # TD-02: 截断前对丢弃段生成结构化摘要（异步，system 注入）。
-                # S2 去重: 保留窗口内已有 [HISTORY SUMMARY] 则跳过，防重复注入叠加。
-                _dropped_msgs = history[:_i]
-                history = window
-                if _dropped_msgs and not any(
-                    "[HISTORY SUMMARY]" in str(m.get("content", "")) for m in history
-                ):
+                # None = no per-platform override → follow global config
+                _streaming_enabled = (
+                    _scfg.enabled and _scfg.transport != "off"
+                    if _plat_streaming is None
+                    else bool(_plat_streaming)
+                )
+                _want_stream_deltas = _streaming_enabled
+                _want_interim_messages = interim_assistant_messages_enabled
+                _want_interim_consumer = _want_interim_messages
+                if _want_stream_deltas or _want_interim_consumer:
                     try:
-                        _sum_max = int(
-                            os.environ.get("MIMIR_SUMMARY_MAX_TOKENS", "300") or "300"
-                        )
-                    except (TypeError, ValueError):
-                        _sum_max = 300
-                    _summarizer = _build_history_summarizer()
-                    if _summarizer is not None:
-                        _dropped_txt = "\n".join(
-                            f"[{m.get('role', '?')}] {str(m.get('content', ''))[:500]}"
-                            for m in _dropped_msgs
-                            if m.get("content")
-                        )
-                        if _dropped_txt.strip():
-                            # run_sync 在 executor 线程执行（无 running loop），
-                            # 摘要协程提交到主事件循环并发生成（不阻塞本线程）。
-                            try:
-                                _history_summary_future = asyncio.run_coroutine_threadsafe(
-                                    _generate_history_summary(
-                                        _summarizer, _dropped_txt, _sum_max
-                                    ),
-                                    _loop_for_step,
-                                )
-                            except Exception:
-                                _history_summary_future = None
+                        from gateway.stream_consumer import GatewayStreamConsumer, StreamConsumerConfig
+                        _adapter = self.adapters.get(source.platform)
+                        if _adapter:
+                            # Platforms that don't support editing sent messages
+                            # (e.g. WeChat) must not show a cursor in intermediate
+                            # sends — the cursor would be permanently visible because
+                            # it can never be edited away.  Use an empty cursor for
+                            # such platforms so streaming still delivers the final
+                            # response, just without the typing indicator.
+                            _adapter_supports_edit = getattr(_adapter, "SUPPORTS_MESSAGE_EDITING", True)
+                            _effective_cursor = _scfg.cursor if _adapter_supports_edit else ""
+                            # Some Matrix clients render the streaming cursor
+                            # as a visible tofu/white-box artifact.  Keep
+                            # streaming text on Matrix, but suppress the cursor.
+                            if source.platform == Platform.MATRIX:
+                                _effective_cursor = ""
+                            _consumer_cfg = StreamConsumerConfig(
+                                edit_interval=_scfg.edit_interval,
+                                buffer_threshold=_scfg.buffer_threshold,
+                                cursor=_effective_cursor,
+                            )
+                            _stream_consumer = GatewayStreamConsumer(
+                                adapter=_adapter,
+                                chat_id=source.chat_id,
+                                config=_consumer_cfg,
+                                metadata={"thread_id": _progress_thread_id} if _progress_thread_id else None,
+                            )
+                            if _want_stream_deltas:
+                                _stream_delta_cb = _stream_consumer.on_delta
+                            stream_consumer_holder[0] = _stream_consumer
+                    except Exception as _sc_err:
+                        logger.debug("Could not set up stream consumer: %s", _sc_err)
 
-            agent_history = []
-            for msg in history:
-                role = msg.get("role")
-                if not role:
-                    continue
-                
-                # Skip metadata entries (tool definitions, session info)
-                # -- these are for transcript logging, not for the LLM
-                if role in ("session_meta",):
-                    continue
-                
-                # Skip system messages -- the agent rebuilds its own system prompt
-                if role == "system":
-                    continue
-                
-                # Rich agent messages (tool_calls, tool results) must be passed
-                # through intact so the API sees valid assistant→tool sequences
-                has_tool_calls = "tool_calls" in msg
-                has_tool_call_id = "tool_call_id" in msg
-                is_tool_message = role == "tool"
-                
-                if has_tool_calls or has_tool_call_id or is_tool_message:
-                    clean_msg = {k: v for k, v in msg.items() if k != "timestamp"}
-                    agent_history.append(clean_msg)
-                else:
-                    # Simple text message - just need role and content
-                    content = msg.get("content")
-                    if content:
-                        # Tag cross-platform mirror messages so the agent knows their origin
-                        if msg.get("mirror"):
-                            mirror_src = msg.get("mirror_source", "another session")
-                            content = f"[Delivered from {mirror_src}] {content}"
-                        entry = {"role": role, "content": content}
-                        # Preserve reasoning fields on assistant messages so
-                        # multi-turn reasoning context survives session reload.
-                        # The agent's _build_api_kwargs converts these to the
-                        # provider-specific format (reasoning_content, etc.).
-                        if role == "assistant":
-                            for _rkey in ("reasoning", "reasoning_details",
-                                          "codex_reasoning_items"):
-                                _rval = msg.get(_rkey)
-                                if _rval:
-                                    entry[_rkey] = _rval
-                        agent_history.append(entry)
-            
-            # Collect MEDIA paths already in history so we can exclude them
-            # from the current turn's extraction. This is compression-safe:
-            # even if the message list shrinks, we know which paths are old.
-            _history_media_paths: set = set()
-            for _hm in agent_history:
-                if _hm.get("role") in ("tool", "function"):
-                    _hc = _hm.get("content", "")
-                    if "MEDIA:" in _hc:
-                        for _match in re.finditer(r'MEDIA:(\S+)', _hc):
-                            _p = _match.group(1).strip().rstrip('",}')
-                            if _p:
-                                _history_media_paths.add(_p)
-            
-            # Register per-session gateway approval callback so dangerous
-            # command approval blocks the agent thread (mirrors CLI input()).
-            # The callback bridges sync→async to send the approval request
-            # to the user immediately.
-            from tools.approval import (
-                register_gateway_notify,
-                reset_current_session_key,
-                set_current_session_key,
-                unregister_gateway_notify,
-            )
-
-            def _approval_notify_sync(approval_data: dict) -> None:
-                """Send the approval request to the user from the agent thread.
-
-                If the adapter supports interactive button-based approvals
-                (e.g. Discord's ``send_exec_approval``), use that for a richer
-                UX.  Otherwise fall back to a plain text message with
-                ``/approve`` instructions.
-                """
-                # Pause the typing indicator while the agent waits for
-                # user approval.  Critical for Slack's Assistant API where
-                # assistant_threads_setStatus disables the compose box — the
-                # user literally cannot type /approve while "is thinking..."
-                # is active.  The approval message send auto-clears the Slack
-                # status; pausing prevents _keep_typing from re-setting it.
-                # Typing resumes in _handle_approve_command/_handle_deny_command.
-                _status_adapter.pause_typing_for_chat(_status_chat_id)
-
-                cmd = approval_data.get("command", "")
-                desc = approval_data.get("description", "dangerous command")
-
-                # Prefer button-based approval when the adapter supports it.
-                # Check the *class* for the method, not the instance — avoids
-                # false positives from MagicMock auto-attribute creation in tests.
-                if getattr(type(_status_adapter), "send_exec_approval", None) is not None:
+                def _interim_assistant_cb(text: str, *, already_streamed: bool = False) -> None:
+                    if _stream_consumer is not None:
+                        if already_streamed:
+                            _stream_consumer.on_segment_break()
+                        else:
+                            _stream_consumer.on_commentary(text)
+                        return
+                    if already_streamed or not _status_adapter or not str(text or "").strip():
+                        return
                     try:
                         asyncio.run_coroutine_threadsafe(
-                            _status_adapter.send_exec_approval(
-                                chat_id=_status_chat_id,
-                                command=cmd,
-                                session_key=_approval_session_key,
-                                description=desc,
+                            _status_adapter.send(
+                                _status_chat_id,
+                                text,
+                                metadata=_status_thread_metadata,
+                            ),
+                            _loop_for_step,
+                        )
+                    except Exception as _e:
+                        logger.debug("interim_assistant_callback error: %s", _e)
+
+                turn_route = self._resolve_turn_agent_config(message, model, runtime_kwargs)
+
+                # Re-bind session identity after load_dotenv(override=True) and before
+                # agent init (system prompt may consume cross-session prefetch here).
+                os.environ["HERMES_SESSION_KEY"] = session_key or ""
+                os.environ["MIMIR_SESSION_KEY"] = session_key or ""
+                from tools.approval import set_current_session_key
+
+                set_current_session_key(session_key or "")
+
+                # Check agent cache — reuse the AIAgent from the previous message
+                # in this session to preserve the frozen system prompt and tool
+                # schemas for prompt cache hits.
+                _sig = self._agent_config_signature(
+                    turn_route["model"],
+                    turn_route["runtime"],
+                    enabled_toolsets,
+                    combined_ephemeral,
+                )
+                agent = None
+                _cache_lock = getattr(self, "_agent_cache_lock", None)
+                _cache = getattr(self, "_agent_cache", None)
+                if _cache_lock and _cache is not None:
+                    with _cache_lock:
+                        cached = _cache.get(session_key)
+                        if cached and cached[1] == _sig:
+                            agent = cached[0]
+                            _cache.move_to_end(session_key)  # LRU: mark as recently used
+                            logger.debug("Reusing cached agent for session %s", session_key)
+
+                if agent is None:
+                    # Config changed or first message — create fresh agent
+                    agent = AIAgent(
+                        model=turn_route["model"],
+                        **turn_route["runtime"],
+                        max_iterations=max_iterations,
+                        quiet_mode=True,
+                        verbose_logging=False,
+                        enabled_toolsets=enabled_toolsets,
+                        ephemeral_system_prompt=combined_ephemeral or None,
+                        prefill_messages=self._prefill_messages or None,
+                        reasoning_config=reasoning_config,
+                        service_tier=self._service_tier,
+                        request_overrides=turn_route.get("request_overrides"),
+                        providers_allowed=pr.get("only"),
+                        providers_ignored=pr.get("ignore"),
+                        providers_order=pr.get("order"),
+                        provider_sort=pr.get("sort"),
+                        provider_require_parameters=pr.get("require_parameters", False),
+                        provider_data_collection=pr.get("data_collection"),
+                        session_id=session_id,
+                        platform=platform_key,
+                        user_id=source.user_id,
+                        session_db=self._session_db,
+                        fallback_model=self._fallback_model,
+                    )
+                    if _cache_lock and _cache is not None:
+                        with _cache_lock:
+                            # LRU eviction: if at capacity, remove oldest entry
+                            if len(_cache) >= self._AGENT_CACHE_MAXSIZE:
+                                oldest_key, _ = _cache.popitem(last=False)
+                                logger.debug("Agent cache LRU evicted session=%s (cache=%d/%d)",
+                                             oldest_key, len(_cache), self._AGENT_CACHE_MAXSIZE)
+                            _cache[session_key] = (agent, _sig)
+                            _cache.move_to_end(session_key)
+                    logger.debug("Created new agent for session %s (sig=%s)", session_key, _sig)
+
+                # Per-message state — callbacks and reasoning config change every
+                # turn and must not be baked into the cached agent constructor.
+                agent.tool_progress_callback = progress_callback if tool_progress_enabled else None
+                agent.step_callback = _step_callback_sync if _hooks_ref.loaded_hooks else None
+                agent.stream_delta_callback = _stream_delta_cb
+                agent.interim_assistant_callback = _interim_assistant_cb if _want_interim_messages else None
+                agent.status_callback = _status_callback_sync
+                agent.reasoning_config = reasoning_config
+                agent.service_tier = self._service_tier
+                agent.request_overrides = turn_route.get("request_overrides")
+
+                # Background review delivery — send "💾 Memory updated" etc. to user
+                def _bg_review_send(message: str) -> None:
+                    if not _status_adapter:
+                        return
+                    try:
+                        asyncio.run_coroutine_threadsafe(
+                            _status_adapter.send(
+                                _status_chat_id,
+                                message,
+                                metadata=_status_thread_metadata,
+                            ),
+                            _loop_for_step,
+                        )
+                    except Exception as _e:
+                        logger.debug("background_review_callback error: %s", _e)
+
+                agent.background_review_callback = _bg_review_send
+
+                # Store agent reference for interrupt support
+                agent_holder[0] = agent
+                # Capture the full tool definitions for transcript logging
+                tools_holder[0] = agent.tools if hasattr(agent, 'tools') else None
+            
+                # Convert history to agent format.
+                # Two cases:
+                #   1. Normal path (from transcript): simple {role, content, timestamp} dicts
+                #      - Strip timestamps, keep role+content
+                #   2. Interrupt path (from agent result["messages"]): full agent messages
+                #      that may include tool_calls, tool_call_id, reasoning, etc.
+                #      - These must be passed through intact so the API sees valid
+                #        assistant→tool sequences (dropping tool_calls causes 500 errors)
+                # ---------------------------------------------------------
+                # A方案: 历史窗口化 (Mimir历史膨胀修复 2026-08-12)
+                # 会话续接不再全量重放 transcript —— 只保留最近
+                # N 条完整消息，更早的丢弃（N 的单一真源见 resolve_history_window：
+                # env MIMIR_HISTORY_WINDOW > config.yaml > 默认 200）。
+                # 防止历史无限膨胀 → token 浪费 + 每轮变慢。
+                # 边界安全: 窗口首条不能是孤立的 tool 消息
+                # (tool 必须跟随 assistant tool_calls，否则 API 500)。
+                # 只影响喂给 agent 的初始历史，不动 transcript 存储。
+                # ---------------------------------------------------------
+                # TD-02: 历史摘要 Future 句柄（run_sync 线程 → 主 loop 异步生成）
+                _history_summary_future = None
+                # #2 截断通知（2026-08-18 架构硬规则——不静默截断）：记录丢弃数，注入用户可见通知
+                _truncated_count = 0
+                # P0-A（2026-09-10）：窗口单一真源 —— env > config.yaml > 默认。
+                _window_size, _window_src = resolve_history_window()
+                _truncated_window = _window_size
+                if _window_size > 0 and len(history) > _window_size:
+                    _dropped = len(history) - _window_size
+                    _truncated_count = _dropped
+                    _truncated_window = _window_size
+                    window = history[-_window_size:]
+                    _i = _dropped
+                    while window and window[0].get("role") == "tool" and _i > 0:
+                        _i -= 1
+                        window.insert(0, history[_i])
+                    logger.info(
+                        "History window: dropped %s old message(s), keeping %s "
+                        "(window=%s, source=%s)",
+                        _dropped, len(window), _window_size, _window_src,
+                    )
+                    # TD-02: 截断前对丢弃段生成结构化摘要（异步，system 注入）。
+                    # S2 去重: 保留窗口内已有 [HISTORY SUMMARY] 则跳过，防重复注入叠加。
+                    _dropped_msgs = history[:_i]
+                    history = window
+                    if _dropped_msgs and not any(
+                        "[HISTORY SUMMARY]" in str(m.get("content", "")) for m in history
+                    ):
+                        try:
+                            _sum_max = int(
+                                os.environ.get("MIMIR_SUMMARY_MAX_TOKENS", "300") or "300"
+                            )
+                        except (TypeError, ValueError):
+                            _sum_max = 300
+                        _summarizer = _build_history_summarizer()
+                        if _summarizer is not None:
+                            _dropped_txt = "\n".join(
+                                f"[{m.get('role', '?')}] {str(m.get('content', ''))[:500]}"
+                                for m in _dropped_msgs
+                                if m.get("content")
+                            )
+                            if _dropped_txt.strip():
+                                # run_sync 在 executor 线程执行（无 running loop），
+                                # 摘要协程提交到主事件循环并发生成（不阻塞本线程）。
+                                try:
+                                    _history_summary_future = asyncio.run_coroutine_threadsafe(
+                                        _generate_history_summary(
+                                            _summarizer, _dropped_txt, _sum_max
+                                        ),
+                                        _loop_for_step,
+                                    )
+                                except Exception:
+                                    _history_summary_future = None
+
+                agent_history = []
+                for msg in history:
+                    role = msg.get("role")
+                    if not role:
+                        continue
+                
+                    # Skip metadata entries (tool definitions, session info)
+                    # -- these are for transcript logging, not for the LLM
+                    if role in ("session_meta",):
+                        continue
+                
+                    # Skip system messages -- the agent rebuilds its own system prompt
+                    if role == "system":
+                        continue
+                
+                    # Rich agent messages (tool_calls, tool results) must be passed
+                    # through intact so the API sees valid assistant→tool sequences
+                    has_tool_calls = "tool_calls" in msg
+                    has_tool_call_id = "tool_call_id" in msg
+                    is_tool_message = role == "tool"
+                
+                    if has_tool_calls or has_tool_call_id or is_tool_message:
+                        clean_msg = {k: v for k, v in msg.items() if k != "timestamp"}
+                        agent_history.append(clean_msg)
+                    else:
+                        # Simple text message - just need role and content
+                        content = msg.get("content")
+                        if content:
+                            # Tag cross-platform mirror messages so the agent knows their origin
+                            if msg.get("mirror"):
+                                mirror_src = msg.get("mirror_source", "another session")
+                                content = f"[Delivered from {mirror_src}] {content}"
+                            entry = {"role": role, "content": content}
+                            # Preserve reasoning fields on assistant messages so
+                            # multi-turn reasoning context survives session reload.
+                            # The agent's _build_api_kwargs converts these to the
+                            # provider-specific format (reasoning_content, etc.).
+                            if role == "assistant":
+                                for _rkey in ("reasoning", "reasoning_details",
+                                              "codex_reasoning_items"):
+                                    _rval = msg.get(_rkey)
+                                    if _rval:
+                                        entry[_rkey] = _rval
+                            agent_history.append(entry)
+            
+                # Collect MEDIA paths already in history so we can exclude them
+                # from the current turn's extraction. This is compression-safe:
+                # even if the message list shrinks, we know which paths are old.
+                _history_media_paths: set = set()
+                for _hm in agent_history:
+                    if _hm.get("role") in ("tool", "function"):
+                        _hc = _hm.get("content", "")
+                        if "MEDIA:" in _hc:
+                            for _match in re.finditer(r'MEDIA:(\S+)', _hc):
+                                _p = _match.group(1).strip().rstrip('",}')
+                                if _p:
+                                    _history_media_paths.add(_p)
+            
+                # Register per-session gateway approval callback so dangerous
+                # command approval blocks the agent thread (mirrors CLI input()).
+                # The callback bridges sync→async to send the approval request
+                # to the user immediately.
+                from tools.approval import (
+                    register_gateway_notify,
+                    reset_current_session_key,
+                    set_current_session_key,
+                    unregister_gateway_notify,
+                )
+
+                def _approval_notify_sync(approval_data: dict) -> None:
+                    """Send the approval request to the user from the agent thread.
+
+                    If the adapter supports interactive button-based approvals
+                    (e.g. Discord's ``send_exec_approval``), use that for a richer
+                    UX.  Otherwise fall back to a plain text message with
+                    ``/approve`` instructions.
+                    """
+                    # Pause the typing indicator while the agent waits for
+                    # user approval.  Critical for Slack's Assistant API where
+                    # assistant_threads_setStatus disables the compose box — the
+                    # user literally cannot type /approve while "is thinking..."
+                    # is active.  The approval message send auto-clears the Slack
+                    # status; pausing prevents _keep_typing from re-setting it.
+                    # Typing resumes in _handle_approve_command/_handle_deny_command.
+                    _status_adapter.pause_typing_for_chat(_status_chat_id)
+
+                    cmd = approval_data.get("command", "")
+                    desc = approval_data.get("description", "dangerous command")
+
+                    # Prefer button-based approval when the adapter supports it.
+                    # Check the *class* for the method, not the instance — avoids
+                    # false positives from MagicMock auto-attribute creation in tests.
+                    if getattr(type(_status_adapter), "send_exec_approval", None) is not None:
+                        try:
+                            asyncio.run_coroutine_threadsafe(
+                                _status_adapter.send_exec_approval(
+                                    chat_id=_status_chat_id,
+                                    command=cmd,
+                                    session_key=_approval_session_key,
+                                    description=desc,
+                                    metadata=_status_thread_metadata,
+                                ),
+                                _loop_for_step,
+                            ).result(timeout=15)
+                            return
+                        except Exception as _e:
+                            logger.warning(
+                                "Button-based approval failed, falling back to text: %s", _e
+                            )
+
+                    # Fallback: plain text approval prompt
+                    cmd_preview = cmd[:200] + "..." if len(cmd) > 200 else cmd
+                    msg = (
+                        f"⚠️ **Dangerous command requires approval:**\n"
+                        f"```\n{cmd_preview}\n```\n"
+                        f"Reason: {desc}\n\n"
+                        f"Reply `/approve` to execute, `/approve session` to approve this pattern "
+                        f"for the session, `/approve always` to approve permanently, or `/deny` to cancel."
+                    )
+                    try:
+                        asyncio.run_coroutine_threadsafe(
+                            _status_adapter.send(
+                                _status_chat_id,
+                                msg,
                                 metadata=_status_thread_metadata,
                             ),
                             _loop_for_step,
                         ).result(timeout=15)
-                        return
                     except Exception as _e:
-                        logger.warning(
-                            "Button-based approval failed, falling back to text: %s", _e
+                        logger.error("Failed to send approval request: %s", _e)
+
+                # Prepend pending model switch note so the model knows about the switch
+                _pending_notes = getattr(self, '_pending_model_notes', {})
+                _msn = _pending_notes.pop(session_key, None) if session_key else None
+                if _msn:
+                    message = _msn + "\n\n" + message
+
+                # #2 截断通知（2026-08-18 架构硬规则——不静默截断——用户可见）
+                _trunc_notice = _format_truncation_notice(_truncated_count, _truncated_window)
+                if _trunc_notice:
+                    agent_history.insert(0, {"role": "system", "content": _trunc_notice})
+                    logger.info("HardRule#2: truncated-notice injected (%d msgs dropped)", _truncated_count)
+
+                # TD-02: 注入历史摘要（system 角色）。agent_history 构造循环已结束，
+                # 此处的 system 消息不会被"跳过 system"逻辑过滤。
+                # 摘要生成不阻塞主流程：协程在主 loop 并发生成，取结果限时 25s，
+                # 超时/失败降级为无摘要（与原行为一致）。
+                if _history_summary_future is not None:
+                    try:
+                        _summary_text = _history_summary_future.result(timeout=25)
+                    except Exception:
+                        _summary_text = None
+                    if _summary_text:
+                        agent_history.insert(0, {
+                            "role": "system",
+                            "content": "[HISTORY SUMMARY] 以下为截断的早期历史结构化摘要：\n"
+                                        + _summary_text.strip(),
+                        })
+                        logger.info(
+                            "TD-02: injected history summary (%d chars, %d msgs)",
+                            len(_summary_text), len(agent_history),
                         )
 
-                # Fallback: plain text approval prompt
-                cmd_preview = cmd[:200] + "..." if len(cmd) > 200 else cmd
-                msg = (
-                    f"⚠️ **Dangerous command requires approval:**\n"
-                    f"```\n{cmd_preview}\n```\n"
-                    f"Reason: {desc}\n\n"
-                    f"Reply `/approve` to execute, `/approve session` to approve this pattern "
-                    f"for the session, `/approve always` to approve permanently, or `/deny` to cancel."
-                )
+                _approval_session_key = session_key or ""
+                _approval_session_token = set_current_session_key(_approval_session_key)
+                register_gateway_notify(_approval_session_key, _approval_notify_sync)
                 try:
-                    asyncio.run_coroutine_threadsafe(
-                        _status_adapter.send(
-                            _status_chat_id,
-                            msg,
-                            metadata=_status_thread_metadata,
-                        ),
-                        _loop_for_step,
-                    ).result(timeout=15)
-                except Exception as _e:
-                    logger.error("Failed to send approval request: %s", _e)
+                    result = agent.run_conversation(message, conversation_history=agent_history, task_id=session_id)
+                finally:
+                    unregister_gateway_notify(_approval_session_key)
+                    reset_current_session_key(_approval_session_token)
+                result_holder[0] = result
 
-            # Prepend pending model switch note so the model knows about the switch
-            _pending_notes = getattr(self, '_pending_model_notes', {})
-            _msn = _pending_notes.pop(session_key, None) if session_key else None
-            if _msn:
-                message = _msn + "\n\n" + message
-
-            # #2 截断通知（2026-08-18 架构硬规则——不静默截断——用户可见）
-            _trunc_notice = _format_truncation_notice(_truncated_count, _truncated_window)
-            if _trunc_notice:
-                agent_history.insert(0, {"role": "system", "content": _trunc_notice})
-                logger.info("HardRule#2: truncated-notice injected (%d msgs dropped)", _truncated_count)
-
-            # TD-02: 注入历史摘要（system 角色）。agent_history 构造循环已结束，
-            # 此处的 system 消息不会被"跳过 system"逻辑过滤。
-            # 摘要生成不阻塞主流程：协程在主 loop 并发生成，取结果限时 25s，
-            # 超时/失败降级为无摘要（与原行为一致）。
-            if _history_summary_future is not None:
-                try:
-                    _summary_text = _history_summary_future.result(timeout=25)
-                except Exception:
-                    _summary_text = None
-                if _summary_text:
-                    agent_history.insert(0, {
-                        "role": "system",
-                        "content": "[HISTORY SUMMARY] 以下为截断的早期历史结构化摘要：\n"
-                                    + _summary_text.strip(),
-                    })
-                    logger.info(
-                        "TD-02: injected history summary (%d chars, %d msgs)",
-                        len(_summary_text), len(agent_history),
-                    )
-
-            _approval_session_key = session_key or ""
-            _approval_session_token = set_current_session_key(_approval_session_key)
-            register_gateway_notify(_approval_session_key, _approval_notify_sync)
-            try:
-                result = agent.run_conversation(message, conversation_history=agent_history, task_id=session_id)
-            finally:
-                unregister_gateway_notify(_approval_session_key)
-                reset_current_session_key(_approval_session_token)
-            result_holder[0] = result
-
-            # Signal the stream consumer that the agent is done
-            if _stream_consumer is not None:
-                _stream_consumer.finish()
+                # Signal the stream consumer that the agent is done
+                if _stream_consumer is not None:
+                    _stream_consumer.finish()
             
-            # Return final response, or a message if something went wrong
-            final_response = result.get("final_response")
+                # Return final response, or a message if something went wrong
+                final_response = result.get("final_response")
 
-            # Extract actual token counts from the agent instance used for this run
-            _last_prompt_toks = 0
-            _input_toks = 0
-            _output_toks = 0
-            _agent = agent_holder[0]
-            if _agent and hasattr(_agent, "context_compressor"):
-                _last_prompt_toks = getattr(_agent.context_compressor, "last_prompt_tokens", 0)
-                _input_toks = getattr(_agent, "session_prompt_tokens", 0)
-                _output_toks = getattr(_agent, "session_completion_tokens", 0)
-            _resolved_model = getattr(_agent, "model", None) if _agent else None
+                # Extract actual token counts from the agent instance used for this run
+                _last_prompt_toks = 0
+                _input_toks = 0
+                _output_toks = 0
+                _agent = agent_holder[0]
+                if _agent and hasattr(_agent, "context_compressor"):
+                    _last_prompt_toks = getattr(_agent.context_compressor, "last_prompt_tokens", 0)
+                    _input_toks = getattr(_agent, "session_prompt_tokens", 0)
+                    _output_toks = getattr(_agent, "session_completion_tokens", 0)
+                _resolved_model = getattr(_agent, "model", None) if _agent else None
 
-            if not final_response:
-                error_msg = f"⚠️ {result['error']}" if result.get("error") else "(No response generated)"
+                if not final_response:
+                    error_msg = f"⚠️ {result['error']}" if result.get("error") else "(No response generated)"
+                    return {
+                        "final_response": error_msg,
+                        "messages": result.get("messages", []),
+                        "api_calls": result.get("api_calls", 0),
+                        "tools": tools_holder[0] or [],
+                        "history_offset": len(agent_history),
+                        "last_prompt_tokens": _last_prompt_toks,
+                        "input_tokens": _input_toks,
+                        "output_tokens": _output_toks,
+                        "model": _resolved_model,
+                    }
+            
+                # Scan tool results for MEDIA:<path> tags that need to be delivered
+                # as native audio/file attachments.  The TTS tool embeds MEDIA: tags
+                # in its JSON response, but the model's final text reply usually
+                # doesn't include them.  We collect unique tags from tool results and
+                # append any that aren't already present in the final response, so the
+                # adapter's extract_media() can find and deliver the files exactly once.
+                #
+                # Uses path-based deduplication against _history_media_paths (collected
+                # before run_conversation) instead of index slicing. This is safe even
+                # when context compression shrinks the message list. (Fixes #160)
+                if "MEDIA:" not in final_response:
+                    media_tags = []
+                    has_voice_directive = False
+                    for msg in result.get("messages", []):
+                        if msg.get("role") in ("tool", "function"):
+                            content = msg.get("content", "")
+                            if "MEDIA:" in content:
+                                for match in re.finditer(r'MEDIA:(\S+)', content):
+                                    path = match.group(1).strip().rstrip('",}')
+                                    if path and path not in _history_media_paths:
+                                        media_tags.append(f"MEDIA:{path}")
+                                if "[[audio_as_voice]]" in content:
+                                    has_voice_directive = True
+                
+                    if media_tags:
+                        seen = set()
+                        unique_tags = []
+                        for tag in media_tags:
+                            if tag not in seen:
+                                seen.add(tag)
+                                unique_tags.append(tag)
+                        if has_voice_directive:
+                            unique_tags.insert(0, "[[audio_as_voice]]")
+                        final_response = final_response + "\n" + "\n".join(unique_tags)
+            
+                # Sync session_id: the agent may have created a new session during
+                # mid-run context compression (_compress_context splits sessions).
+                # If so, update the session store entry so the NEXT message loads
+                # the compressed transcript, not the stale pre-compression one.
+                agent = agent_holder[0]
+                _session_was_split = False
+                if agent and session_key and hasattr(agent, 'session_id') and agent.session_id != session_id:
+                    _session_was_split = True
+                    logger.info(
+                        "Session split detected: %s → %s (compression)",
+                        session_id, agent.session_id,
+                    )
+                    entry = self.session_store._entries.get(session_key)
+                    if entry:
+                        entry.session_id = agent.session_id
+                        self.session_store._save()
+
+                effective_session_id = getattr(agent, 'session_id', session_id) if agent else session_id
+
+                # When compression created a new session, the messages list was
+                # shortened.  Using the original history offset would produce an
+                # empty new_messages slice, causing the gateway to write only a
+                # user/assistant pair — losing the compressed summary and tail.
+                # Reset to 0 so the gateway writes ALL compressed messages.
+                _effective_history_offset = 0 if _session_was_split else len(agent_history)
+
+                # Auto-generate session title after first exchange (non-blocking)
+                if final_response and self._session_db:
+                    try:
+                        from agent.title_generator import maybe_auto_title
+                        all_msgs = result_holder[0].get("messages", []) if result_holder[0] else []
+                        maybe_auto_title(
+                            self._session_db,
+                            effective_session_id,
+                            message,
+                            final_response,
+                            all_msgs,
+                        )
+                    except Exception:
+                        pass
+
                 return {
-                    "final_response": error_msg,
-                    "messages": result.get("messages", []),
-                    "api_calls": result.get("api_calls", 0),
+                    "final_response": final_response,
+                    "last_reasoning": result.get("last_reasoning"),
+                    "messages": result_holder[0].get("messages", []) if result_holder[0] else [],
+                    "api_calls": result_holder[0].get("api_calls", 0) if result_holder[0] else 0,
+                    "failed": bool(result_holder[0].get("failed", False)) if result_holder[0] else False,  # 2026-08-25 修复卡改动3：透传失败标记（防伪装正常）
                     "tools": tools_holder[0] or [],
-                    "history_offset": len(agent_history),
+                    "history_offset": _effective_history_offset,
                     "last_prompt_tokens": _last_prompt_toks,
                     "input_tokens": _input_toks,
                     "output_tokens": _output_toks,
                     "model": _resolved_model,
+                    "session_id": effective_session_id,
+                    "response_previewed": result.get("response_previewed", False),
                 }
-            
-            # Scan tool results for MEDIA:<path> tags that need to be delivered
-            # as native audio/file attachments.  The TTS tool embeds MEDIA: tags
-            # in its JSON response, but the model's final text reply usually
-            # doesn't include them.  We collect unique tags from tool results and
-            # append any that aren't already present in the final response, so the
-            # adapter's extract_media() can find and deliver the files exactly once.
-            #
-            # Uses path-based deduplication against _history_media_paths (collected
-            # before run_conversation) instead of index slicing. This is safe even
-            # when context compression shrinks the message list. (Fixes #160)
-            if "MEDIA:" not in final_response:
-                media_tags = []
-                has_voice_directive = False
-                for msg in result.get("messages", []):
-                    if msg.get("role") in ("tool", "function"):
-                        content = msg.get("content", "")
-                        if "MEDIA:" in content:
-                            for match in re.finditer(r'MEDIA:(\S+)', content):
-                                path = match.group(1).strip().rstrip('",}')
-                                if path and path not in _history_media_paths:
-                                    media_tags.append(f"MEDIA:{path}")
-                            if "[[audio_as_voice]]" in content:
-                                has_voice_directive = True
-                
-                if media_tags:
-                    seen = set()
-                    unique_tags = []
-                    for tag in media_tags:
-                        if tag not in seen:
-                            seen.add(tag)
-                            unique_tags.append(tag)
-                    if has_voice_directive:
-                        unique_tags.insert(0, "[[audio_as_voice]]")
-                    final_response = final_response + "\n" + "\n".join(unique_tags)
-            
-            # Sync session_id: the agent may have created a new session during
-            # mid-run context compression (_compress_context splits sessions).
-            # If so, update the session store entry so the NEXT message loads
-            # the compressed transcript, not the stale pre-compression one.
-            agent = agent_holder[0]
-            _session_was_split = False
-            if agent and session_key and hasattr(agent, 'session_id') and agent.session_id != session_id:
-                _session_was_split = True
-                logger.info(
-                    "Session split detected: %s → %s (compression)",
-                    session_id, agent.session_id,
-                )
-                entry = self.session_store._entries.get(session_key)
-                if entry:
-                    entry.session_id = agent.session_id
-                    self.session_store._save()
-
-            effective_session_id = getattr(agent, 'session_id', session_id) if agent else session_id
-
-            # When compression created a new session, the messages list was
-            # shortened.  Using the original history offset would produce an
-            # empty new_messages slice, causing the gateway to write only a
-            # user/assistant pair — losing the compressed summary and tail.
-            # Reset to 0 so the gateway writes ALL compressed messages.
-            _effective_history_offset = 0 if _session_was_split else len(agent_history)
-
-            # Auto-generate session title after first exchange (non-blocking)
-            if final_response and self._session_db:
-                try:
-                    from agent.title_generator import maybe_auto_title
-                    all_msgs = result_holder[0].get("messages", []) if result_holder[0] else []
-                    maybe_auto_title(
-                        self._session_db,
-                        effective_session_id,
-                        message,
-                        final_response,
-                        all_msgs,
-                    )
-                except Exception:
-                    pass
-
-            return {
-                "final_response": final_response,
-                "last_reasoning": result.get("last_reasoning"),
-                "messages": result_holder[0].get("messages", []) if result_holder[0] else [],
-                "api_calls": result_holder[0].get("api_calls", 0) if result_holder[0] else 0,
-                "failed": bool(result_holder[0].get("failed", False)) if result_holder[0] else False,  # 2026-08-25 修复卡改动3：透传失败标记（防伪装正常）
-                "tools": tools_holder[0] or [],
-                "history_offset": _effective_history_offset,
-                "last_prompt_tokens": _last_prompt_toks,
-                "input_tokens": _input_toks,
-                "output_tokens": _output_toks,
-                "model": _resolved_model,
-                "session_id": effective_session_id,
-                "response_previewed": result.get("response_previewed", False),
-            }
         
+            finally:
+                if _wake_decision is not None and _wake_decision.granted:
+                    try:
+                        from gateway.wake_gate import get_wake_gate as _gwg_rel
+                        _gwg_rel().release(session_key or "", _wake_token)
+                    except Exception as _rel_err:
+                        # 释放失败不判 run 失败（只记日志）；闸内指标已计数
+                        logger.debug("wake-gate release failed: %s", _rel_err)
         # Start progress message sender if enabled
         progress_task = None
         if tool_progress_enabled:
