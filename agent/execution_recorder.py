@@ -39,6 +39,74 @@ def _today_dir() -> Path:
     return _get_trajectory_dir() / datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
+# ── Run provenance (X2-a 同源) ──────────────────────────────────────────────
+
+def _resolve_provenance() -> Dict[str, str]:
+    """``trace_id`` / ``trigger_source`` / ``agent_id`` for the session_start line.
+
+    Same provenance **source** as X2-a (``agent/run_context.py``), reached through
+    whichever channel is actually available to this process:
+
+    1. **in-process** — ``run_context.current_run()``. The gateway opens the run
+       (``begin_run``) *before* the agent loop and the recorder is created inside
+       that same run, so the context is directly visible (thread-local, plus
+       ``run_context``'s own process-wide fallback for executor threads).
+    2. **child process** — the X2-a env keys (``MIMIR_TRACE_ID`` /
+       ``MIMIR_AGENT_ID``) plus ``MIMIR_TRIGGER_SOURCE``: a child spawned by a
+       tool cannot see the parent's thread state, which is exactly why X2-a
+       exports those keys. (``child_env_injection()`` is useless here - in a
+       child, no run is open locally, so it returns ``{}``.)
+
+    ``agent_id`` always resolves (``run_context.agent_id()`` defaults to
+    ``"mimir"``). ``trace_id`` / ``trigger_source`` stay ``""`` when no run was
+    ever opened (CLI / scripts / tests) - the same "no run => no provenance" rule
+    ``child_env_injection()`` is locked to, so a session_start line never
+    fabricates a join key that no other stream can match.
+
+    Best-effort by design: provenance must never stop a trajectory being written.
+    """
+    trace_id = ""
+    trigger_source = ""
+    agent_id_value = ""
+
+    # 1. in-process run context.
+    try:
+        from agent.run_context import agent_id as _rc_agent_id
+        from agent.run_context import current_run as _rc_current_run
+    except Exception:  # pragma: no cover - provenance must never break recording
+        _rc_current_run = None
+        _rc_agent_id = None
+
+    if _rc_current_run is not None:
+        try:
+            ctx = _rc_current_run() or {}
+        except Exception:  # pragma: no cover
+            ctx = {}
+        trace_id = str(ctx.get("trace_id") or "")
+        trigger_source = str(ctx.get("trigger_source") or "")
+        agent_id_value = str(ctx.get("agent_id") or "")
+
+    if _rc_agent_id is not None and not agent_id_value:
+        try:
+            agent_id_value = str(_rc_agent_id() or "")
+        except Exception:  # pragma: no cover
+            pass
+
+    # 2. X2-a env channel (keys injected into tool-spawned child processes).
+    if not trace_id:
+        trace_id = (os.getenv("MIMIR_TRACE_ID") or "").strip()
+    if not trigger_source:
+        trigger_source = (os.getenv("MIMIR_TRIGGER_SOURCE") or "").strip()
+    if not agent_id_value:
+        agent_id_value = (os.getenv("MIMIR_AGENT_ID") or "").strip()
+
+    return {
+        "trace_id": trace_id,
+        "trigger_source": trigger_source,
+        "agent_id": agent_id_value,
+    }
+
+
 # ── Data types ──────────────────────────────────────────────────────────────
 
 @dataclass
@@ -116,6 +184,9 @@ class ExecutionRecorder:
         self._file_path = _today_dir() / f"{self._session_id}.jsonl"
 
         # Fresh session file (avoid appending to stale trajectories on session reuse)
+        # 坑三支持（Hermes 开工令 · X2-a 同源）: session_start 自带归因字段，
+        # 使 HF v2 数据管线可直接消费每个会话文件，无需 join。
+        _prov = _resolve_provenance()
         with open(self._file_path, "w", encoding="utf-8") as f:
             f.write(
                 json.dumps(
@@ -124,6 +195,9 @@ class ExecutionRecorder:
                         "session_id": self._session_id,
                         "task_name": self._task_name,
                         "start_time": self._start_ts,
+                        "trace_id": _prov["trace_id"],
+                        "trigger_source": _prov["trigger_source"],
+                        "agent_id": _prov["agent_id"],
                     },
                     ensure_ascii=False,
                 )
