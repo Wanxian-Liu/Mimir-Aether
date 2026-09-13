@@ -145,3 +145,37 @@ def test_module_is_read_only_over_archive(ma, tmp_path):
     ma.read_memory_archive(query="2026-")
     ma.archive_stats()
     assert arch.read_bytes() == before
+
+
+# ---------------------------------------------------------------------------
+# F1 终审（2026-09-13）回归：读入口 home 解析必须与写入侧同源
+# 事故：memory_archive 曾用 agent.mimir_constants.get_mimir_home()（只认 MIMIR_HOME/~/.mimir）
+#       → 实测 archive_exists=false / blocks=0（读入口指向不存在目录）。
+# ---------------------------------------------------------------------------
+def test_memories_dir_matches_writer_resolver():
+    """读入口目录 == 写入侧 tools/memory_tool.get_memory_dir()。"""
+    from agent import memory_archive as ma
+    from tools import memory_tool
+
+    assert ma._memories_dir() == memory_tool.get_memory_dir()
+
+
+def test_memories_dir_honors_mimir_aether_home(tmp_path, monkeypatch):
+    """MIMIR_AETHER_HOME 必须被读到（不被 MIMIR_HOME 掩盖）。"""
+    monkeypatch.setenv("MIMIR_AETHER_HOME", str(tmp_path))
+    monkeypatch.delenv("MIMIRAETHER_HOME", raising=False)
+    monkeypatch.delenv("HERMES_HOME", raising=False)
+    from agent import memory_archive as ma
+
+    assert ma._memories_dir() == tmp_path / "memories"
+
+
+def test_legacy_agent_mimir_constants_not_used():
+    """防回归：实现里不得再出现 agent.mimir_constants（旧 ~/.mimir 解析器）。"""
+    import inspect
+
+    from agent import memory_archive as ma
+
+    src = inspect.getsource(ma._memories_dir)
+    assert "from agent.mimir_constants import" not in src  # 旧解析器导入不得复活
+    assert "get_mimiraether_home" in src  # 与写入侧同源

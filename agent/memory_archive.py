@@ -1,5 +1,17 @@
 """记忆归档层 L3 读入口（B8）。
 
+路径真源（F1 终审 质询 1 · 2026-09-13）
+-------------------------------------
+* **L3 归档路径 = `memories/archive/MEMORY.archive-l3.md`**（`ARCHIVE_REL`，唯一真源）。
+  历史批次原始归档 `memories/ARCHIVE-2026-09-13.md` 已于 F1 终审期间**逐条原文迁入**
+  本约定路径（确定性锚点 `uuid5`，原文备份 `backups/<ts>-f1-archive-migration/`），
+  源文件仅留指针 stub —— 旧「双位置」不再存在。
+* **home 解析必须与写入侧同源**：用 `mimiraether_constants.get_mimiraether_home()`
+  （顶层 `mimir_constants.get_mimir_home()`：`MIMIR_AETHER_HOME` → `MIMIRAETHER_HOME`
+  → `HERMES_HOME` → `~/.mimiraether`）。**禁止**改用 `agent.mimir_constants.get_mimir_home()`
+  —— 那个只认 `MIMIR_HOME`／`~/.mimir`，与 `tools/memory_tool.get_memory_dir()` **不同源**，
+  会让读入口指向不存在的目录（2026-09-13 F1 实测：`archive_exists=false`、`blocks=0`）。
+
 背景：`memories/MEMORY.md` 是注入层（MemoryStore 的 55,000 字符上限），
 超限时把**最旧、已被取代**的条目折叠进 `memories/archive/MEMORY.archive-l3.md`
 （逐字原文 + 锚点注释），锚点→内容映射写在 `memories/memory_anchors.json`。
@@ -30,9 +42,12 @@ ANCHOR_TOKEN = "<!-- anchor: "
 def _memories_dir() -> Path:
     """记忆目录（与 tools/memory_tool.get_memory_dir 同源）。"""
     try:
-        from agent.mimir_constants import get_mimir_home  # type: ignore
+        # 与写入侧（tools/memory_tool.get_memory_dir）同源：顶层 mimiraether_constants
+        # → mimir_constants.get_mimir_home（MIMIR_AETHER_HOME > MIMIRAETHER_HOME > HERMES_HOME）。
+        # 不得用 agent.mimir_constants.get_mimir_home（只认 MIMIR_HOME／~/.mimir）。
+        from mimiraether_constants import get_mimiraether_home  # type: ignore
 
-        return Path(get_mimir_home()) / "memories"
+        return Path(get_mimiraether_home()) / "memories"
     except Exception:
         home = os.environ.get("MIMIR_AETHER_HOME") or (Path.home() / ".mimiraether")
         return Path(home) / "memories"
