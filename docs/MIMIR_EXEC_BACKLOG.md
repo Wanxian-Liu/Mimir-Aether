@@ -1377,10 +1377,13 @@ _level_5_   auto_retrospective.py (74行)    ❌ 已被守卫内置复盘取代
 
 | ID | 优先级 | 项 | 硬约束（裁决） | 状态 |
 |----|--------|----|---------------|------|
-| **U11** | P1 | **A① 运行级单飞闸**：按 session_key 在 run 提交点之前取锁；取不到**不静默丢弃**——写可见日志（`被 <token> 占用，trigger_source=<源>`）并回执 | 进程内 `threading.Lock` + 活跃 run 注册表；跨进程才用 `acquire_scoped_lock` 且 identity **必须含 run token**（`gateway/status.py:319` 的同进程重入判定会放行同 PID，直接用 = 假锁）；**必须带租约**（默认 = run 最大时限，正常结束显式 release，到期**只报警不强夺**）；**≥20 用例 + 基线**；同 session 排队上限 = 1（超限才拒，拒时回执带当前 run 剩余时间） | [ ] |
+| **U11** | P1 | **A① 运行级单飞闸**：按 session_key 在 run 提交点之前取锁；取不到**不静默丢弃**——写可见日志（`被 <token> 占用，trigger_source=<源>`）并回执 | 进程内 `threading.Lock` + 活跃 run 注册表；跨进程才用 `acquire_scoped_lock` 且 identity **必须含 run token**（`gateway/status.py:319` 的同进程重入判定会放行同 PID，直接用 = 假锁）；**必须带租约**（默认 = run 最大时限，正常结束显式 release，到期**只报警不强夺**）；**≥20 用例 + 基线**；同 session 排队上限 = 1（超限才拒，拒时回执带当前 run 剩余时间） | **[~] 主体已接线**（`f620345` + 验收卡 RS1）· **余项未做**：租约 / 排队上限 1 / ≥20 用例基线（验收卡 §8 Q4 确认留 U11+） |
 | **U12** | P1 | **A④ `/health` 指标**：`wake_duplicate_total` / `run_rejected_by_gate_total` / `run_concurrent_peak` | SRE 裁决「进 /health」；依据 = 零指标曾造成 3.5 个月认知盲区 | [ ] |
 | **U13** | P2 | **Q3-13 单飞闸用例基线**：≥20 用例 + 「run 干净提交率」基线对照（当前 24/25） | 与 U11 同批，不得后补 | [ ] |
 | **U14** | P2 | **A③ watcher 语义澄清**：`buzz-inbox-watcher.sh` 的 `LOCK` 改名/注释为**冷却窗口（cooldown）**，写明「冷却 ≠ 互斥」 | 极低成本，文档一致性 | [ ] |
 | **U15** | P3 | **产物级幂等（G-2，裁决提级为优先于 U11）**：提交前 `git log --grep` 逻辑变更指纹比对 | 角色裁决：锁治「同时」，幂等治「重复」——09-12 的真实形态是**产物重复**（同秒双提交 + amend） | [ ] |
+| **U16** | P2 | **wake_gate 可观测补口（RS1-②/③ 验收缺口 · Hermes §8.2 新工单）**：8 个计数器**只在进程内存**——grant 侧零日志（`gateway/wake_gate.py` 仅 `_metrics[...]+=1`）、`wake_gate_snapshot()` 全仓消费者 = **0** ⇒ 验收永久停留「逻辑验证」，答不了「某次闸跑没跑 / 为何被拒」 | **与 U12 合并同一窗口**（`/health` 挂载点只改一次）：① `agent/monitor.py::snapshot_for_health()` 加 `"wake_gate": wake_gate_snapshot()` ② `gateway/wake_gate.py` grant 处补 1 行 INFO ③ 落盘 `data/ops/wake_gate_metrics.json`（轮转，非仅拉取）。**零回归已核**（`test_e006_health_endpoint.py` 用成员断言非精确键集）· **噪声中性**（grant ≤26 行/日 vs 现噪声 `window dropped` 163 行/日）。**需 1 个重启窗口** | [ ] |
 
 **已否决（不再入表）**：watcher 加锁（单点修补，Q3 卡 §5-A 已否决）· watchdog 重写（其 `/tmp` 落点属另一债，不混本卡）
+
+**Mimir 排期（2026-09-13 定）**：① 批 4（E3 → B9 → B10 → B8）现役；② 批 4 收口后开**独立小窗口「W-gate-obs」= U16 + U12 合并**（一次 `/health` 改动 + **一次** `self_restart.sh` v5 重启），并入 U13 的 grant 侧用例；③ U11 余项（租约 / 排队 / 用例基线）紧随其后，不跨批。方案细化：`~/.mimiraether/notes/2026-09-13-Q7-observability-recommendation.md`。
