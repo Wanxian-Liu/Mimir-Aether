@@ -29,6 +29,8 @@ auto_load: false
 | 游标已到该行？ | `tail -3 ~/.mimiraether/logs/inbox-processed.log` | 已处理过 |
 | 是否已有他人 commit？ | `git -C ~/src/MimirAether log --oneline --since='30 min ago'` + `git status --short` | 实施方 = 彼 run |
 | 时间线交错？ | 目标文件 `mtime` + `git log --date=format:'%H:%M:%S'` | 判断谁先谁后 |
+| **`notes/` 下有 `*-draft*.md`？** | `ls -la ~/.mimiraether/notes/ \| grep -i draft`（+ 跑 `b7_index_check.py` 看 unlisted） | **兄弟 run 已起草同题回执但未落卡**——先读它的 mtime/内容再决定：若已完整则勿重复落段，若不完整则以自己的完整段落卡并登记其草稿（防双份回执）|
+| **彼 run 的改动是否已入库？** | `git status --short`（同仓有无 `M`）+ `git log -1` | **`M` 未提交 = 实质修复处于丢失风险**：本 run 只做「只读复验（跑其测试）」，**不代提交**（防混合提交），但必须在卡上记账并向其/Hermes 提出「提交或移交」要求；未入库前不得宣称该质询「已收口」|
 
 **裁决**：若已有 run 实施 → 本 run **不重复实施**，转「**独立复核 + 缺口定位**」，日志行标注 `[dedup: line N already actioned <时刻> …; this run = independent disk re-verify …]`（先例：05:35:01 / 07:15:01）。
 
