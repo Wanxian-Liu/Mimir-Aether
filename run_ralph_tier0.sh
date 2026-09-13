@@ -463,6 +463,7 @@ python3 -m pytest -q \
   tests/gateway/test_hygiene_compress_observability.py \
   tests/agent/test_next_session_latest_section.py \
   tests/gateway/test_wake_gate_wiring.py \
+  tests/gateway/test_wake_gate_observability.py \
   tests/gateway/test_buzz_watcher_ledger.py \
   tests/contract/test_compressor_bounds_enforced.py \
   tests/agent/test_execution_recorder_session_identity.py

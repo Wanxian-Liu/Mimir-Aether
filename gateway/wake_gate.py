@@ -28,12 +28,14 @@ gateway/run.py 的 _agent_cache_lock 先例：跨事件循环与线程池共享�
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import os
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional
 
 __all__ = [
     "DEFAULT_LEASE_S",
@@ -61,6 +63,28 @@ DEFAULT_DEDUP_WINDOW_S = 900.0
 logger = logging.getLogger(__name__)
 
 GATE_ENV = "MIMIR_WAKE_GATE"
+
+# U16/RS1-②：落盘急停开关（=0/off/false… 时不做任何写盘）。
+PERSIST_ENV = "MIMIR_WAKE_GATE_PERSIST"
+
+# U16：落盘事件环上界（轮转）——读端不必翻全量日志即可回溯「某次闸为何被拒」。
+# 排除 occupied：wait_for_slot 每 50ms 轮询一次 acquire，落盘会成为写盘风暴。
+_MAX_PERSISTED_EVENTS = 200
+
+
+def _metrics_path() -> Path:
+    """``<MIMIR_AETHER_HOME>/data/ops/wake_gate_metrics.json``。
+
+    懒解析（每次调用重读 env）——测试用 ``monkeypatch.setenv`` 重定向 home 后
+    立即生效；不复制 ``mimir_constants`` 的解析顺序（单一真源）。
+    """
+    try:
+        from mimir_constants import get_mimir_data_dir
+
+        base = get_mimir_data_dir()
+    except Exception:  # pragma: no cover - 极端环境降级
+        base = Path.home() / ".mimiraether" / "data"
+    return base / "ops" / "wake_gate_metrics.json"
 
 _OFF_VALUES = {"off", "0", "false", "no", "disabled", "none"}
 
@@ -195,10 +219,31 @@ class WakeGate:
             "no_session_key_total": 0,
             "gate_errors_total": 0,
         }
+        # U16：回溯式事件环（落盘用；进程内存快照不够——重启即丢）。
+        self._events: List[Dict[str, Any]] = []
 
     # -- 取锁 -------------------------------------------------------------
 
     def acquire(
+        self,
+        session_key: str,
+        run_token: str,
+        trigger_source: str = "unknown",
+        fingerprint: str = "",
+        mode: str = "wake",
+        now: Optional[float] = None,
+    ) -> GateDecision:
+        """取锁 + U16 观测（薄包装；裁决逻辑在 :meth:`_acquire_impl`）。
+
+        观测**永不改变裁决**：任何异常都被 :meth:`_observe_decision` 吞掉。
+        """
+        decision = self._acquire_impl(
+            session_key, run_token, trigger_source, fingerprint, mode, now
+        )
+        self._observe_decision(decision, trigger_source)
+        return decision
+
+    def _acquire_impl(
         self,
         session_key: str,
         run_token: str,
@@ -359,6 +404,88 @@ class WakeGate:
                 "lease_s": self.lease_s,
                 "dedup_window_s": self.dedup_window_s,
             }
+
+    # -- U16 观测：日志 + 落盘 ---------------------------------------------
+
+    #: 需要落盘的原因（**排除** ``occupied``：``wait_for_slot`` 每 50ms 轮询一次
+    #: ``acquire``，落盘会成为写盘风暴 —— 2026-09-13 设计注记）。
+    _PERSIST_REASONS = frozenset(
+        {
+            "granted",
+            "duplicate_event",
+            "occupied_lease_expired",
+            "gate_internal_error",
+            "gate_off",
+            "interactive_bypass",
+            "no_session_key",
+        }
+    )
+
+    def _observe_decision(self, decision: GateDecision, trigger_source: str) -> None:
+        """U16 / RS1-②：让「闸跑了并放行」与「闸根本没跑」可区分。
+
+        此前 grant 侧**零日志**（仅 ``_metrics[...] += 1``），``snapshot()`` 又
+        没有任何消费者 ⇒ 验收永久停在「逻辑验证」。deny 侧已由
+        ``gateway/agent_mixin.py`` 打 WARNING，故此处**只补 grant / gate_off**，
+        不重复打 deny（避免噪声翻倍）。
+        """
+        try:
+            if decision.reason == "granted":
+                logger.info(
+                    "wake-gate grant: session=%s source=%s active_runs=%s",
+                    decision.session_key,
+                    trigger_source or "unknown",
+                    self.snapshot().get("active_runs", 0),
+                )
+            elif decision.reason == "gate_off":
+                logger.info(
+                    "wake-gate OFF (%s): 放行不占位 session=%s",
+                    GATE_ENV,
+                    decision.session_key,
+                )
+            if decision.reason in self._PERSIST_REASONS:
+                self._persist_metrics(decision, trigger_source)
+        except Exception:  # pragma: no cover - 观测永不影响裁决
+            logger.debug("wake-gate observe failed", exc_info=True)
+
+    def _persist_metrics(self, decision: GateDecision, trigger_source: str) -> None:
+        """落盘 ``data/ops/wake_gate_metrics.json``（best-effort，原子替换）。
+
+        与 :meth:`snapshot` 的分工：快照是**拉取式**（只答「此刻状态」），
+        落盘是**回溯式**（答「某次闸为何被拒」——事故取证必需）。
+        ``PERSIST_ENV=0`` 关闭；任何 OSError 静默吞。
+        """
+        if str(self._env_getter().get(PERSIST_ENV, "")).strip().lower() in _OFF_VALUES:
+            return
+        event = {
+            "ts": time.time(),
+            "reason": decision.reason,
+            "granted": bool(decision.granted),
+            "session_key": decision.session_key,
+            "run_token": decision.run_token,
+            "trigger_source": trigger_source or "unknown",
+        }
+        with self._lock:
+            self._events.append(event)
+            if len(self._events) > _MAX_PERSISTED_EVENTS:
+                del self._events[: len(self._events) - _MAX_PERSISTED_EVENTS]
+            payload = {
+                "updated_at": event["ts"],
+                "pid": os.getpid(),
+                "metrics": dict(self._metrics),
+                "active_runs": len(self._holders),
+                "events": list(self._events),
+            }
+        path = _metrics_path()
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(".json.tmp")
+            tmp.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            os.replace(tmp, path)
+        except OSError:
+            pass
 
     def active_holders(self) -> Dict[str, Holder]:
         with self._lock:

@@ -153,13 +153,24 @@ def get_tool_duration_percentiles(
 def snapshot_for_health() -> Dict[str, Any]:
     rate = get_agent_error_rate()
     pct = get_tool_duration_percentiles()
-    return {
+    payload = {
         "agent": get_agent_health_status(),
         "agent_error_rate": round(rate, 4),
         "agent_tool_p50_ms": round(pct["p50_ms"], 1),
         "agent_tool_p95_ms": round(pct["p95_ms"], 1),
         "agent_tool_p99_ms": round(pct["p99_ms"], 1),
     }
+    # U16/RS1-③（2026-09-13）：wake_gate 计数器此前**只在进程内存**，且
+    # wake_gate_snapshot() 全仓**零消费者** ⇒ 无法区分「闸跑了并放行」与
+    # 「闸根本没跑」。挂到 /health（api_server._handle_health 已 update 本 dict）；
+    # 失败静默降级——观测不得拖垮健康端点。
+    try:
+        from gateway.wake_gate import wake_gate_snapshot
+
+        payload["wake_gate"] = wake_gate_snapshot()
+    except Exception:  # pragma: no cover - 可选增强
+        pass
+    return payload
 
 
 def _maybe_write_alert_locked() -> None:
