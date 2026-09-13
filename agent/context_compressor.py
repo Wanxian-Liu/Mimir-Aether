@@ -19,6 +19,32 @@ from datetime import datetime
 # RS3（四方裁决 2026-09-13）：夹紧真源在 policy 模块，此处只消费公开名。
 from agent.decision_compressor_policy import clamp_compressor_key
 
+
+def _resolve_api_model_name(model: str) -> str:
+    """把 provider 命名空间形式（deepseek/deepseek-flash）归一到官方 API 认的裸名。
+
+    F-A (2026-09-14)：官方 api.deepseek.com **只接受裸模型名**
+    （实测 HTTP 400: "The supported API model names are deepseek-flash,
+    deepseek-v4-pro, but you passed deepseek/deepseek-flash"）。
+    主对话路径在 `agent/callers_mixin.py`（约 L743）已做同样归一；
+    本函数复用公共实现 `agent.model_metadata.strip_provider_prefix`
+    —— 同一逻辑只应有一份（G11 单一真源）。
+    """
+    if not model:
+        return model
+    try:
+        from agent.model_metadata import strip_provider_prefix
+
+        stripped = strip_provider_prefix(model)
+        if stripped:
+            return stripped
+    except Exception:
+        pass
+    # 兜底：与主路径同款行为（provider/model -> model），避免 import 失败时退回未归一
+    if "/" in model and not model.startswith("http"):
+        return model.split("/")[-1]
+    return model
+
 logger = logging.getLogger(__name__)
 
 # ============================================================================
@@ -274,6 +300,7 @@ class ContextCompressorV2:
         self.preflight_relax_ratio = float(preflight_relax_ratio)
         self.summary_failure_cooldown_s = int(summary_failure_cooldown_s)
         self.summary_model = summary_model or model
+        self._last_summary_error = ""
         self.quiet_mode = quiet_mode
         
         self.context_length = context_length
@@ -581,6 +608,10 @@ class ContextCompressorV2:
             self._previous_summary
         )
         self._previous_summary = template_summary
+        logger.warning(
+            "[COMPRESS] summary degraded to template reason=%s (llm path unavailable)",
+            getattr(self, "_last_summary_error", "") or "unknown",
+        )
         return self._with_prefix(template_summary), "template"
     
     async def _call_summary_llm(self, content: str, max_tokens: int) -> Optional[str]:
@@ -588,7 +619,14 @@ class ContextCompressorV2:
         
         api_key = self.api_key or os.environ.get("DEEPSEEK_API_KEY", "")
         if not api_key:
+            self._last_summary_error = "no_api_key"
+            logger.warning(
+                "[COMPRESS] summary LLM skipped: no API key (arg + DEEPSEEK_API_KEY both empty)"
+            )
             return None
+
+        # F-A (2026-09-14)：发给官方 API 的必须是裸模型名，见 _resolve_api_model_name。
+        api_model_name = _resolve_api_model_name(self.summary_model)
         
         headers = {
             "Authorization": f"Bearer {api_key}",
@@ -631,7 +669,7 @@ TURNS TO SUMMARIZE:
 {template.format(budget=max_tokens)}"""
         
         payload = {
-            "model": self.summary_model,
+            "model": api_model_name,
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": max_tokens * 2,
             "temperature": 0.3
@@ -647,12 +685,24 @@ TURNS TO SUMMARIZE:
                     headers=headers,
                 ) as resp:
                     if resp.status != 200:
-                        logger.debug(f"Summary LLM HTTP {resp.status}")
+                        _body = ""
+                        try:
+                            _body = (await resp.text())[:200].replace("\n", " ")
+                        except Exception:
+                            pass
+                        self._last_summary_error = f"http_{resp.status}"
+                        logger.warning(
+                            "[COMPRESS] summary LLM rejected http=%s model=%s base_url=%s body=%s",
+                            resp.status, api_model_name, self.base_url, _body,
+                        )
                         return None
                     result = await resp.json()
                     return result["choices"][0]["message"]["content"]
         except Exception as e:
-            logger.debug(f"LLM call error: {e}")
+            self._last_summary_error = f"exc_{type(e).__name__}"
+            logger.warning(
+                "[COMPRESS] summary LLM call failed (%s): %s", type(e).__name__, e
+            )
             return None
     
     def _with_prefix(self, summary: str) -> str:
