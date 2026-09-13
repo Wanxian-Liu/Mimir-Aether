@@ -1,0 +1,174 @@
+#!/bin/sh
+# MimirAether pre-push hook -- immutable evidence (A6; 2026-09-13)
+# ---------------------------------------------------------------------------
+# Ruling: 刘哥, 2026-09-13 (four-party card 2026-09-13-四方审计-Mimir归因署名与
+# 注入修复-闭环与联合计划.md, Q4): "本仓 pre-push 做; wiki 禁 force-push 做;
+# GitHub branch protection 留刘哥". Layer 1 (this repo) and layer 2 (~/wiki) are
+# the same hook; layer 3 is outside this process.
+#
+# Why a gate and not prose: an attribution that a rewrite can silently erase is
+# not evidence. Section 8 of docs/AGENT_REPO_OWNERSHIP.md says rewrites are never
+# acceptable here -- so the rule becomes a push-time gate, overridable and
+# traced, instead of a sentence nobody can check afterwards.
+#
+# Behaviour
+#   1. non-fast-forward (the remote tip is not an ancestor of the local tip)
+#      -> BLOCK. This is the rewrite that silently deletes other people's
+#      history, whether or not the command line said the word "force".
+#   2. an explicit force form in the push argv -- "--force" / "-f" /
+#      "--force-with-lease" / "--force-if-includes" / a "+refspec" -> BLOCK.
+#      Rationale: a lease protects against a third party writing, not against
+#      rewriting shared history; and the ruling names these forms explicitly.
+#   3. the remote tip object is missing locally, so fast-forward cannot be
+#      decided -> BLOCK ("if it cannot be decided, forbid" -- the same rule as
+#      the pre-commit foreign-amend gate).
+#   4. deleting a remote branch -> recorded and warned, NOT blocked (deletion is
+#      not a rewrite; the record is what makes it reviewable).
+#   5. every invocation appends one JSON line to the SAME audit stream the other
+#      two hooks use (no third file -- X1/X2/X3).
+#
+# Override (traced): export MIMIR_ALLOW_FORCE_PUSH=1 before the push.
+# Test seam: MIMIR_HOOK_FORCE_PUSH_ARGS="..." substitutes the push argv that
+#            would otherwise be read from the process ancestry (same pattern as
+#            MIMIR_HOOK_FORCE_AMEND in the pre-commit hook).
+#
+# Install:  sh scripts/install-git-hooks.sh                 (this repo)
+#           sh scripts/install-git-hooks.sh --repo ~/wiki   (shared repo)
+# Bypass:   add --no-verify to the push command (absence of a trace line is
+#           itself the signal).
+# ---------------------------------------------------------------------------
+set -u
+
+TRACE_LOG="${MIMIR_GIT_COMMIT_AUDIT_LOG:-$HOME/.mimiraether/logs/git-commit-audit.jsonl}"
+AGENT_ID="${MIMIR_AGENT_ID:-mimir}"
+TRACE_ID="${MIMIR_TRACE_ID:-}"
+ZERO=0000000000000000000000000000000000000000
+
+_remote="${1:-}"
+_url="${2:-}"
+_repo=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || printf '')
+
+_tmp="${TMPDIR:-/tmp}/mimir-prepush.$$"
+if ! cat > "$_tmp" 2>/dev/null; then
+  : > "$_tmp"
+fi
+
+# The push command line is not passed to the hook, so walk the process ancestry
+# to the first git command and read its argv (measured working in the pre-commit
+# hook; git 2.43 exposes no flag for this).
+_push_argv() {
+  if [ -n "${MIMIR_HOOK_FORCE_PUSH_ARGS:-}" ]; then
+    printf '%s' "$MIMIR_HOOK_FORCE_PUSH_ARGS"
+    return 0
+  fi
+  _p=$$
+  _i=0
+  while [ "$_i" -lt 6 ]; do
+    _pp=$(ps -o ppid= -p "$_p" 2>/dev/null | tr -d ' ')
+    [ -z "$_pp" ] && return 1
+    [ "$_pp" = "0" ] && return 1
+    _args=$(ps -o args= -p "$_pp" 2>/dev/null)
+    case "$_args" in
+      git\ push*|*/git\ push*) printf '%s' "$_args"; return 0 ;;
+      git\ *|*/git\ *) return 1 ;;
+    esac
+    _p=$_pp
+    _i=$((_i + 1))
+  done
+  return 1
+}
+
+_force_intent=0
+_argv=$(_push_argv 2>/dev/null || printf '')
+if [ -n "$_argv" ]; then
+  case "$_argv" in
+    *--force-with-lease*|*--force-if-includes*|*--force*) _force_intent=1 ;;
+  esac
+  case " $_argv " in
+    *" -f "*) _force_intent=1 ;;
+  esac
+  case " $_argv " in
+    *" +"*) _force_intent=1 ;;
+  esac
+fi
+
+_block=0
+_reason=""
+_outcome="push-fast-forward"
+_refs=0
+_deleted=0
+
+while read -r _lref _lsha _rref _rsha; do
+  [ -z "${_lref:-}" ] && continue
+  _refs=$((_refs + 1))
+  case "$_lsha" in
+    "$ZERO")
+      _deleted=$((_deleted + 1))
+      printf 'pre-push: note -- deleting remote ref %s (recorded; a deletion is not a rewrite)\n' "$_rref" >&2
+      continue
+      ;;
+  esac
+  case "$_rsha" in
+    "$ZERO") continue ;;
+  esac
+  if ! git cat-file -e "${_rsha}^{commit}" 2>/dev/null; then
+    if [ "$_block" = "0" ]; then
+      _block=1
+      _outcome="push-undecidable-blocked"
+      _reason="remote object ${_rsha} is not present locally: fast-forward cannot be decided"
+    fi
+    continue
+  fi
+  if ! git merge-base --is-ancestor "$_rsha" "$_lsha" 2>/dev/null; then
+    if [ "$_block" = "0" ]; then
+      _block=1
+      _outcome="push-non-fast-forward-blocked"
+      _reason="remote ${_rsha} is not an ancestor of local ${_lsha} (non-fast-forward)"
+    fi
+  fi
+done < "$_tmp"
+rm -f "$_tmp"
+
+if [ "$_force_intent" = "1" ]; then
+  if [ "$_block" = "0" ]; then
+    _block=1
+    _outcome="push-force-intent-blocked"
+    _reason="the push argv carries an explicit force form (--force / -f / --force-with-lease / +refspec)"
+  else
+    _reason="$_reason; plus an explicit force form in the push argv"
+  fi
+fi
+
+if [ "$_refs" = "0" ]; then
+  _outcome="push-no-refs"
+  _reason="no refs on stdin (invoked by hand, or an empty push)"
+elif [ "$_block" = "0" ] && [ "$_deleted" = "$_refs" ]; then
+  _outcome="push-delete"
+fi
+
+if [ "$_block" = "1" ] && [ "${MIMIR_ALLOW_FORCE_PUSH:-0}" = "1" ]; then
+  printf 'pre-push: WARNING -- %s (override traced, MIMIR_ALLOW_FORCE_PUSH=1)\n' "$_reason" >&2
+  _outcome="${_outcome}-override"
+  _block=0
+fi
+
+_dir=$(dirname "$TRACE_LOG" 2>/dev/null)
+[ -n "$_dir" ] && mkdir -p "$_dir" 2>/dev/null
+printf '{"ts":"%s","agent_id":"%s","trace_id":"%s","action":"push","outcome":"%s","override":"%s","repo":"%s","branch":"%s","remote":"%s","remote_url":"%s","refs":%s,"detail":"%s","pid":%s}\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$AGENT_ID" "$TRACE_ID" "$_outcome" \
+  "$([ "$_block" = "0" ] && printf false || printf true)" \
+  "$_repo" "$_branch" "$_remote" "$_url" "$_refs" "$_reason" "$$" >> "$TRACE_LOG" 2>/dev/null
+
+if [ "$_block" = "1" ]; then
+  printf '\n' >&2
+  printf 'pre-push: BLOCKED -- immutable evidence (A6)\n' >&2
+  printf '  reason : %s\n' "$_reason" >&2
+  printf '  rule   : pushed history is evidence; a rewrite erases attribution\n' >&2
+  printf '           (docs/AGENT_REPO_OWNERSHIP.md sections 3 and 8, four-party ruling Q4)\n' >&2
+  printf '  instead: make a new commit and push it forward; if the rewrite is truly\n' >&2
+  printf '           required, export MIMIR_ALLOW_FORCE_PUSH=1 (traced as an override)\n\n' >&2
+  exit 1
+fi
+
+exit 0

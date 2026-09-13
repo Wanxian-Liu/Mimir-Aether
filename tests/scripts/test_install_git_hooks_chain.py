@@ -139,3 +139,58 @@ def test_no_backup_flag_skips_the_record(repo):
     assert result.returncode == 0, result.stderr
     assert list(hooks.glob("pre-commit.bak-*")) == []
     assert (hooks / "pre-commit-local").read_text(encoding="utf-8") == FOREIGN_HOOK
+
+
+# ---------------------------------------------------------------------------
+# A6 (2026-09-13): the installer gained a third kind -- pre-push. Layer 1 is this
+# repo, layer 2 is ~/wiki; both get the same chain semantics (detect -> backup ->
+# preserve -> chain), so the existing invariants are re-checked for the new kind.
+# ---------------------------------------------------------------------------
+
+_SHEBANG = "#!" + "/" + "usr" + "/" + "bin" + "/sh"
+FOREIGN_PRE_PUSH = (
+    _SHEBANG + "\n"
+    "# a repository's own pre-push hook; installation must preserve it\n"
+    'echo foreign-prepush-ran >> "$(git rev-parse --show-toplevel)/foreign-prepush.log"\n'
+    "exit 0\n"
+)
+
+
+def test_fresh_repo_gets_the_pre_push_chain(repo):
+    assert _install(repo).returncode == 0
+    hooks = _hooks_dir(repo)
+    assert (hooks / "pre-push-mimir-guard").exists()
+    assert "MimirAether hook chain" in (hooks / "pre-push").read_text(encoding="utf-8")
+    assert list(hooks.glob("pre-push.bak-*")) == []
+    assert not (hooks / "pre-push-local").exists()
+
+
+def test_foreign_pre_push_is_backed_up_preserved_and_still_runs(repo):
+    hooks = _hooks_dir(repo)
+    (hooks / "pre-push").write_text(FOREIGN_PRE_PUSH, encoding="utf-8")
+    (hooks / "pre-push").chmod(0o755)
+
+    result = _install(repo)
+    assert result.returncode == 0, result.stderr
+
+    backups = sorted(hooks.glob("pre-push.bak-*"))
+    assert len(backups) == 1, "existing pre-push hook must be backed up"
+    assert backups[0].read_text(encoding="utf-8") == FOREIGN_PRE_PUSH
+    assert (hooks / "pre-push-local").read_text(encoding="utf-8") == FOREIGN_PRE_PUSH
+    assert "MimirAether hook chain" in (hooks / "pre-push").read_text(encoding="utf-8")
+
+    # the chain runs the preserved hook even with no refs on stdin
+    ran = subprocess.run(["sh", str(hooks / "pre-push"), "origin", "example.invalid"],
+                         cwd=str(repo), capture_output=True, text=True,
+                         input="", env=_commit_env(repo))
+    assert ran.returncode == 0, ran.stderr
+    assert (repo / "foreign-prepush.log").exists(), "preserved pre-push hook did not run"
+
+
+def test_only_pre_push_installs_that_kind_alone(repo):
+    result = _run(["sh", str(INSTALLER), "--repo", str(repo), "--only", "pre-push"], REPO_ROOT)
+    assert result.returncode == 0, result.stderr
+    hooks = _hooks_dir(repo)
+    assert (hooks / "pre-push-mimir-guard").exists()
+    assert not (hooks / "pre-commit-mimir-audit").exists()
+    assert not (hooks / "commit-msg-mimir-sign").exists()

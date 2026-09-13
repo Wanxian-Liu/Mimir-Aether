@@ -124,7 +124,7 @@ sh scripts/install-git-hooks.sh                    # 本仓
 sh scripts/install-git-hooks.sh --repo ~/wiki      # 共享仓（幂等，可重复跑）
 ```
 
-脚本语义：**检测 → 备份 `pre-commit.bak-<UTC 时间戳>` → 原钩子保留为 `pre-commit-local` → 写链式 `pre-commit`（先原钩子后审计钩子，首个非零状态向外传播）**。已是本链的仓只刷新审计钩子、**不覆盖** `pre-commit-local`；`MIMIR_HOOKS_NO_BACKUP=1` 可跳过备份副本。回归锁：`tests/scripts/test_install_git_hooks_chain.py`（5 项：备份 / 保留 / 链式真跑 / 阻断传播 / 幂等）。
+脚本语义：**检测 → 备份 `pre-commit.bak-<UTC 时间戳>` → 原钩子保留为 `pre-commit-local` → 写链式 `pre-commit`（先原钩子后审计钩子，首个非零状态向外传播）**。已是本链的仓只刷新审计钩子、**不覆盖** `pre-commit-local`；`MIMIR_HOOKS_NO_BACKUP=1` 可跳过备份副本。回归锁：`tests/scripts/test_install_git_hooks_chain.py`（8 项：备份 / 保留 / 链式真跑 / 阻断传播 / 幂等 + A6 的 pre-push 三态）。
 
 **新仓纳入审计**：`--repo <path>` 一条命令，无需手工改钩子。
 
@@ -196,7 +196,7 @@ git commit --no-verify
 | **不采信的** | git `user.name`（共享仓恒为 `MimirAether`）· 卡内正文自述 · 任何口头声明 |
 | **不可判时** | `trace_id` 为空（`--no-verify` / 无 run 上下文的手工提交）时退化为「不可判」，**不得用时间近似冒充归因**（沿用 §6 兜底口径，X2-c） |
 
-**范围与待办**：本仓已启用；`~/wiki` 的 `commit-msg` 链式安装**待四方立规后**执行（共享仓规矩不由单方设定）。回归锁：`tests/scripts/test_attribution_trailer.py`（14 项）· 已登记 Gate2 显式清单。
+**范围与状态（2026-09-13 更新）**：本仓已启用；`~/wiki` 的 `commit-msg` 链式安装**已执行**——Hermes 回执 Q8「批准：wiki 装 commit-msg 钩子，链式+备份，同 pre-commit 先例」，与 pre-push（A6）同批落地，`pre-commit-local` 未被覆盖（见 §10）。回归锁：`tests/scripts/test_attribution_trailer.py`（14 项）· 已登记 Gate2 显式清单。
 
 > **口径补充（2026-09-13，两种视角都要看）**：上表「5 张 `author:` / 1 张 `by:`」是**字符串 grep** 视角（`grep -iE "^author:"` 命中即算）；检查脚本按**frontmatter 结构**判定（首行必须是 `---`），实测 46 张顶层卡的分布为 **ok 2 / legacy 2 / missing 28 / no-frontmatter 14**。差异在于**部分卡有归属字段却没有合法 frontmatter 块**（归入 no-frontmatter）。两个数字都对，**不要互相覆盖**：grep 用于"字段有没有写过"，脚本用于"读卡的程序能不能取到"。
 
@@ -224,3 +224,80 @@ git commit --no-verify
 | **不可判时** | `trace_id` 为空（`--no-verify` / 无 run 上下文的手工提交 / 分界点前的历史）→ 记「不可判」，**不得用时间近似冒充归因**（沿用 §6 兜底口径 X2-c） |
 
 **范围**：本仓与公开 README（对外可见）已写入；`~/wiki` 的边界声明**随四方立规一并落**（共享仓规矩不由单方设定；A5/A3/A6 同批）。
+
+
+---
+
+## 9. 归因自查入口（A5 · ф2 · 2026-09-13 四方裁定 Q3）
+
+**裁定**：**ф2 采纳**，三种入口（commit / 文件 / 卡片）；**「不可判」语义是灵魂**——延续 §6 X2-c 口径，**不拿时间近似冒充归因**（Hermes 回执 Q3）。
+
+**入口**（`scripts/who_did.py`，**只读**——不写任何状态、不改任何流）：
+
+```sh
+python3 scripts/who_did.py --commit HEAD                       # 一条提交
+python3 scripts/who_did.py --file agent/run_context.py         # 文件（最后一次触碰它的提交）
+python3 scripts/who_did.py --card ~/wiki/discussions/<卡>.md    # 四方卡（frontmatter + 该卡提交）
+python3 scripts/who_did.py <path-or-rev>                       # 自动判定入口
+python3 scripts/who_did.py --commit HEAD --json                # 机器可读（含两流记录数/状态）
+```
+
+**输出两件互相独立的事**——声明可以写，机器记录不能编：
+
+| 面 | 来源 | join 键 |
+|:--|:--|:--|
+| **声明** | 提交 trailer `Agent: <id>`（`%(trailers:key=Agent)`）· 卡片 frontmatter `author:` | —— |
+| **旁证** | 钩子级 `logs/git-commit-audit.jsonl`（**主**）· 工具级 `logs/git-audit.jsonl`（**兜底**） | 钩子级：`repo` + `head == <commit>^`（**精确**，无时钟猜测）；工具级：`repo` + 时间窗（**近似**） |
+
+**判定与退出码**：
+
+| 判定 | 语义 | 退出码 |
+|:--|:--|:--:|
+| `consistent` | 声明与旁证一致 | 0 |
+| `mismatch` | 两侧都在、但不同 | 3 |
+| `undetermined`（**不可判**） | 缺一侧 / 证据歧义（同 parent 多 run、窗口内多 `trace_id`、`trace_id` 为空）/ 分界点前历史（§8） | 2 |
+| error | 参数或路径错 | 1 |
+
+**权威层级（2026-09-13 实测修正 · 易误判）**：钩子级 join 精确（`head == parent`）⇒ **单独即可定案**；工具级是墙钟近似 ⇒ **仅在钩子级沉默时兜底**。同窗口出现多个 run 时，工具级**不采信**（照打印，不当证据）。
+
+> **注意（首版假阴性）**：首版把工具级的窗口噪声升级成了「歧义」⇒ HEAD 提交被判 `不可判`——而钩子级精确命中同一 run，属于**假阴性**。修正后同一提交判 `consistent`。**教训**：把「粗仪器的噪声」当「证据冲突」= 用更差的证据推翻更好的证据。判据：**先看精确 join，再看近似 join；有精确解时不引入近似解。**
+
+**值域闭集**（Identity & Trust Architect 建议）：id ∈ {`mimir`, `hermes`, `openclaw`, `loki`}；闭集外**标黄记录、不拒绝**（钩子保持非阻塞纯记录）。
+
+**回归锁**：`tests/scripts/test_who_did.py`（**16 项**）= 一致 / 不一致 / 缺旁证 / 分界点前（带 trailer 仍不可判）/ 同 parent 多 run → 歧义 / 空 `trace_id` / 工具级兜底 / 工具级歧义不采信 / 闭集外标黄 / 卡片入口 / 文件入口 / 未提交文件 / 缺路径报错 / CLI 三退出码 / 自动判定入口 / 双入口互斥。
+
+---
+
+## 10. 不可变证据 · pre-push 闸门（A6 · 2026-09-13 四方裁定 Q4）
+
+**裁定（Q4）**：本仓 pre-push **做**；`~/wiki` 禁改写远端历史 **做**（Hermes 批准，Q8 同权）；**GitHub branch protection 留刘哥**（账号域，一次点击）。
+
+| 层 | 域 | 状态 | 证据 |
+|:--|:--|:--|:--|
+| **L1 本仓** | Mimir 域内 | **已装** | `.git/hooks/pre-push`（链式）+ `pre-push-mimir-guard`（6,696 B）· `sh scripts/install-git-hooks.sh` 实测输出 |
+| **L2 `~/wiki`** | 四方共域 | **已装**（Q4/Q8 批准） | `~/wiki/.git/hooks/{pre-push, pre-push-mimir-guard, commit-msg, commit-msg-mimir-sign}`；`pre-commit-local` 未被覆盖（X3 先例） |
+| **L3 GitHub** | 刘哥账号域 | **留刘哥** | 建议：Settings → Branches → main：Require pull request + 禁 force push |
+
+**钩子语义**（`scripts/git-hooks/pre-push`，全部**可留痕覆盖**）：
+
+| 情形 | 行为 | trace `outcome` |
+|:--|:--|:--|
+| 非快进（远端 tip 不是本地 tip 的祖先） | **拦** | `push-non-fast-forward-blocked` |
+| push 命令行含显式改写形式（长旗标 / `-f` / lease 变体 / `+refspec`） | **拦**（lease 防的是第三方写，不防改写共享历史） | `push-force-intent-blocked` |
+| 远端对象本地不存在 ⇒ 是否快进**不可判** | **拦**（「判不了就禁」——同 pre-commit 外来 amend 口径） | `push-undecidable-blocked` |
+| 删除远端分支 | **不拦**，记录 + 告警（删除不是改写；有记录才可复核） | `push-delete` |
+| 快进 / 新分支 / 手工调用无 ref | 放过 | `push-fast-forward` / `push-no-refs` |
+
+**覆盖（留痕）**：`MIMIR_ALLOW_FORCE_PUSH=1` 环境变量；trace 里 `override` 与 `-override` 后缀即证据。**旁路**：push 命令加 `--no-verify`（**缺 trace 行本身就是信号**，与另两个钩子同约）。
+
+```sh
+sh scripts/install-git-hooks.sh                 # L1 本仓（幂等）
+sh scripts/install-git-hooks.sh --only pre-push # 只装这一种
+sh scripts/install-git-hooks.sh --repo ~/wiki   # L2 共享仓（链式 + 备份，沿用 X3 语义）
+```
+
+**实测事实（必读 · 防误判）**：当**所有** ref 都是非快进时，**git 自己在把 ref 交给钩子之前就拒绝了**——钩子被调用时 stdin **是空的**（记 `push-no-refs`），远端不受影响。⇒ 两个闸门落在同一处（改写不会落地），但**「钩子拦下了」只能由显式改写形式那条路径证明**。回归锁因此分成两半：直接调用（判定逻辑）与经 git 真跑（端到端）。
+
+**回归锁**：`tests/scripts/test_pre_push_guard.py`（**15 项**）+ `tests/scripts/test_install_git_hooks_chain.py` 新增 3 项（新仓链式 / 外来 pre-push 备份保留且真跑 / `--only pre-push` 单装）。
+
+**「不可变」的边界（不粉饰）**：本闸门挡的是**本机经 git 的改写路径**；`--no-verify` 旁路、直接对远端库操作、GitHub 侧 force push、以及 L2 上其他三方的本机操作都**不在它的射程内**——所以 L3 必须由刘哥在 GitHub 上补。

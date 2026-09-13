@@ -11,6 +11,7 @@
 # Hooks installed (both chained, both non-blocking unless the hook itself says so)
 #   pre-commit  -> pre-commit-mimir-audit  (attribution guard: foreign-amend block)
 #   commit-msg  -> commit-msg-mimir-sign   (attribution trailer: Agent: <id>)
+#   pre-push    -> pre-push-mimir-guard    (immutable evidence: force push gate, A6)
 #
 # Behaviour (per hook kind)
 #   1. always (re)install the Mimir hook as  <hooks>/<kind>-mimir-<audit|sign>
@@ -39,21 +40,21 @@ _only=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --repo)
-      [ $# -ge 2 ] || { printf 'usage: install-git-hooks.sh [--repo <path>] [--only pre-commit|commit-msg]\n' >&2; exit 2; }
+      [ $# -ge 2 ] || { printf 'usage: install-git-hooks.sh [--repo <path>] [--only pre-commit|commit-msg|pre-push]\n' >&2; exit 2; }
       _target_arg="$2"; shift 2 ;;
     --only)
-      [ $# -ge 2 ] || { printf 'usage: install-git-hooks.sh [--repo <path>] [--only pre-commit|commit-msg]\n' >&2; exit 2; }
+      [ $# -ge 2 ] || { printf 'usage: install-git-hooks.sh [--repo <path>] [--only pre-commit|commit-msg|pre-push]\n' >&2; exit 2; }
       _only="$2"; shift 2 ;;
     -h|--help)
-      printf 'usage: install-git-hooks.sh [--repo <path>] [--only pre-commit|commit-msg]\n'; exit 0 ;;
+      printf 'usage: install-git-hooks.sh [--repo <path>] [--only pre-commit|commit-msg|pre-push]\n'; exit 0 ;;
     *)
       printf 'install-git-hooks.sh: unknown argument: %s\n' "$1" >&2; exit 2 ;;
   esac
 done
 
 case "$_only" in
-  ""|pre-commit|commit-msg) ;;
-  *) printf 'install-git-hooks.sh: --only must be pre-commit or commit-msg\n' >&2; exit 2 ;;
+  ""|pre-commit|commit-msg|pre-push) ;;
+  *) printf 'install-git-hooks.sh: --only must be pre-commit, commit-msg or pre-push\n' >&2; exit 2 ;;
 esac
 
 _script_repo=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
@@ -137,16 +138,30 @@ install_one() {
   fi
 }
 
-if [ "$_only" != "commit-msg" ]; then
+# _wanted <kind>: install every kind by default, or only the one named by --only
+_wanted() {
+  [ -z "$_only" ] && return 0
+  [ "$_only" = "$1" ]
+}
+
+if _wanted pre-commit; then
   install_one "pre-commit" \
     "$_script_repo/scripts/git-hooks/pre-commit" \
     "pre-commit-mimir-audit" \
     "MimirAether pre-commit hook"
 fi
 
-if [ "$_only" != "pre-commit" ]; then
+if _wanted commit-msg; then
   install_one "commit-msg" \
     "$_script_repo/scripts/git-hooks/commit-msg" \
     "commit-msg-mimir-sign" \
     "MimirAether commit-msg hook"
+fi
+
+# A6 (2026-09-13): layer 1 = this repo, layer 2 = ~/wiki; both use the same hook.
+if _wanted pre-push; then
+  install_one "pre-push" \
+    "$_script_repo/scripts/git-hooks/pre-push" \
+    "pre-push-mimir-guard" \
+    "MimirAether pre-push hook"
 fi

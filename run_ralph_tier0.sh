@@ -456,6 +456,8 @@ python3 -m pytest -q \
   tests/contract/test_no_forced_dotenv_override.py \
   tests/scripts/test_install_git_hooks_chain.py \
   tests/scripts/test_attribution_trailer.py \
+  tests/scripts/test_who_did.py \
+  tests/scripts/test_pre_push_guard.py \
   tests/gateway/test_foreign_amend_guard.py \
   tests/gateway/test_hygiene_compress_observability.py \
   tests/agent/test_next_session_latest_section.py
