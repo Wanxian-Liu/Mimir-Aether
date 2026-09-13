@@ -46,18 +46,25 @@ def _resolve_model_name() -> str:
 
     与 ``last_context_usage.json`` **同源** —— ``context_usage_snapshot``
     的 ``_config_default_model()`` 读同一处 ``config.yaml`` 的 ``model.default``，
-    使两条流可直接比对（验收判据：两值相等）。兜底 ``MIMIR_MODEL``。
+    使两条流可直接比对（验收判据：两值相等）。兜底 ``MIMIR_MODEL``；
+    两条来源皆空时返回哨兵 ``"unknown"`` —— **不返回空串**（见下方注释）。
 
-    Best-effort：任何异常返回空串，绝不让归因字段阻断轨迹落盘。
+    Best-effort：任何异常都不阻断轨迹落盘。
     """
+    value = ""
     try:
         from agent.context_usage_snapshot import _config_default_model
         value = str(_config_default_model() or "").strip()
-        if value:
-            return value
     except Exception:  # pragma: no cover - 归因不得阻断记录
-        pass
-    return (os.getenv("MIMIR_MODEL") or "").strip()
+        value = ""
+    if not value:
+        value = (os.getenv("MIMIR_MODEL") or "").strip()
+    # F1 判据是「session_start 自带**非空** model」：两条来源都取不到时写哨兵，
+    # 不写空串。空串 = 字段在但无信息 ⇒ 归因链静默断掉（下游按 model join 时
+    # 只会看到空白，无法区分「没记录」与「记录了但为空」）。2026-09-13 CI 实证：
+    # 无 config.yaml 且无 MIMIR_MODEL 的 runner 上写 ''，而本地因进程内
+    # MIMIR_MODEL 假绿 —— 与「字段在、信息不在」同型，故双修（产品 + 测试）。
+    return value or "unknown"
 
 
 def _trajectory_id_used(session_id: str) -> bool:

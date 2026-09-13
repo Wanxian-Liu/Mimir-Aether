@@ -18,6 +18,10 @@ import pytest
 def _isolated_home(tmp_path, monkeypatch):
     monkeypatch.setenv("MIMIR_AETHER_HOME", str(tmp_path))
     monkeypatch.delenv("MIMIR_TRACE_ID", raising=False)
+    # 关键（CI 假绿根因，2026-09-13）：``MIMIR_MODEL`` 是 model 解析的第二兜底。
+    # 本地进程内常带该变量 ⇒ 即使 tmp home 无 config.yaml 也解析出模型，测试假绿；
+    # CI runner（干净 env）则落空。必须 scrub 才与 CI 同条件。
+    monkeypatch.delenv("MIMIR_MODEL", raising=False)
     yield tmp_path
 
 
@@ -71,12 +75,33 @@ def test_case3_reused_id_across_different_day_dirs(_isolated_home):
 
 
 def test_case4_session_start_has_model(_isolated_home):
-    """F1 根治：session_start 行自带非空 model。"""
+    """F1 根治：session_start 行自带非空 model（无 config / 无 env ⇒ 哨兵）。"""
     r = _rec(task_name="t", session_id="with-model")
     first = json.loads(r._file_path.read_text(encoding="utf-8").splitlines()[0])
     assert first["type"] == "session_start"
     assert first.get("model"), "model 字段不得为空"
     assert first["session_id"] == r._session_id
+    # 本夹具已 scrub MIMIR_MODEL 且 tmp home 无 config.yaml ⇒ 必须落到哨兵分支，
+    # 而不是空串（空串等于「字段在、信息不在」）。
+    assert first["model"] == "unknown"
+
+
+def test_case4b_model_prefers_config_default(_isolated_home):
+    """有 home ``config.yaml`` ⇒ 取 ``model.default``（与 last_context_usage 同源）。"""
+    (_isolated_home / "config.yaml").write_text(
+        "model:\n  default: test/model-x\n", encoding="utf-8"
+    )
+    r = _rec(task_name="t", session_id="cfg-model")
+    first = json.loads(r._file_path.read_text(encoding="utf-8").splitlines()[0])
+    assert first["model"] == "test/model-x"
+
+
+def test_case4c_model_falls_back_to_env(_isolated_home, monkeypatch):
+    """无 config、有 ``MIMIR_MODEL`` ⇒ 取 env（生产 gateway 路径）。"""
+    monkeypatch.setenv("MIMIR_MODEL", "env/model-y")
+    r = _rec(task_name="t", session_id="env-model")
+    first = json.loads(r._file_path.read_text(encoding="utf-8").splitlines()[0])
+    assert first["model"] == "env/model-y"
 
 
 def test_case5_model_matches_context_usage_source(_isolated_home):
