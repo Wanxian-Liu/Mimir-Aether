@@ -113,3 +113,30 @@ commit 链：filter-branch 重写 → 1f1b9e5 → 4be1203（conftest）→ bbdb0
 - 修复：`git -C mimicore push origin fix/p1-mimicore-openclaw-paths` → 远端确认含该 SHA → 重跑 CI。
 - 顺带发现：Gate2 是**显式文件清单**（非目录通配），新测试文件不加进 `run_ralph_tier0.sh` 就永不被门禁覆盖；
   `pytest-wide` 只跑 `agent/ gateway/ tools/`，同样不覆盖 `tests/security/`。
+
+## 实战案例 3（2026-09-13 · 本地 Ralph PASS 但 CI ralph=failure：**环境变量兜底导致的假绿**）
+
+- 症状：`f620345`（RS 窗口）提交信息写「门禁 Ralph Tier-0/1 PASS」，本地 `logs/rs-window-ralph.log` 末行
+  确为 `Ralph Tier-0/1: PASS / EXIT=0`；**CI（HEAD `8d6d5c5`）ralph = failure**，Lint = success。
+  唯一失败用例 = `tests/agent/test_execution_recorder_session_identity.py::test_case4_session_start_has_model`
+  → `AssertionError: model 字段不得为空 · assert ''`。
+- 根因：被测代码 `_resolve_model_name()` 的**末行兜底**是 `(os.getenv("MIMIR_MODEL") or "").strip()`
+  —— 本地 shell/gateway 进程 env **带了 `MIMIR_MODEL`**（`env | grep -c MIMIR_MODEL` = 1），于是
+  「无 config.yaml」这条分支在本地**永不被测到**；CI runner 干净 env 则直接返回**空串**。
+- **隔离取证法（决定性，可复用）**：干净 worktree + **同时清空环境变量**跑 CI 同条件：
+  ```bash
+  git worktree add -q /tmp/ci-repro-<sha> <sha> && cd /tmp/ci-repro-<sha>
+  env -u MIMIR_MODEL HOME=$(mktemp -d) MIMIR_AETHER_HOME=$(mktemp -d) \
+    <repo>/.venv/bin/python3 -m pytest <同一文件> -q
+  git worktree remove /tmp/ci-repro-<sha> --force
+  ```
+  对照结果：带该变量 `7 passed`（复现假绿）／`env -u` 后 `1 failed 6 passed`（**与 CI 日志逐字同型**）。
+  ⚠️ 只 `HOME=$(mktemp -d)` 而不 `env -u` 是**不够**的——那正好复现假绿，会误导结论。
+- **判据纪律**：凡「本地门禁 PASS」结论**必须声明环境条件**；凡代码里存在
+  `os.getenv("X") or ""` 式**环境兜底**，就要问「X 缺失这条路径，门禁有没有覆盖」。
+- **修复的正确形态**（本次由他人工作树持有）：① 被测代码补**哨兵**（两来源皆空写 `"unknown"`，
+  **不写空串**——空串 = 字段在、信息不在，归因链静默断）；② 夹具 `monkeypatch.delenv(...)` **scrub**
+  环境兜底变量，与 CI 同条件；③ 把各来源分支各补一例（config 路径 / env 路径）。
+- **推送达 CI 的耦合**：同分支**新 push 会取消在跑 run**（本次 `f620345` 的 ralph 因随后推 `8d6d5c5`
+  被 `cancelled`，`gh run view` 显示 conclusion=cancelled，**既非失败也非通过**）⇒ 连续小推送 =
+  CI 反复取消；**攒批推**，且判定「CI 绿」必须指明**哪个 sha**。
