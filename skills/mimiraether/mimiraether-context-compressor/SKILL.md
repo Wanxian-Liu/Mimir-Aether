@@ -314,7 +314,10 @@ _概念溯源: Hermes Agent context compressor；实现真源: 本仓库 `agent/
 > ④ **攒批提交（2026-09-12 Hermes 实盘审计非阻塞建议 · 已采纳）**：单行审计轨迹**不逐行单推**——同类审计行（含两侧同步）**攒批合并为一个 commit 再推**，对齐「压 commit 不逐推」纪律（审计实测：当日 6 个单行审计 commit 使 GitHub 历史略碎）。例外：状态变化同时伴随代码/阈值改动时，仍按「代码+对应审计行」一并提交。
 
 
-> ⚠️ 操作注记（2026-08-23）：本技能 **skill_manage patch 报 "Skill not found"**——需直接 patch 两侧文件：home 侧 `~/.mimiraether/skills/mimiraether/mimiraether-context-compressor/SKILL.md`（权威）与 repo 侧 `~/src/MimirAether/skills/mimiraether/mimiraether-context-compressor/SKILL.md`，改后 cp 同步 + diff 确认。嵌套目录 `mimiraether-context-compressor/mimiraether-context-compressor/` 为 187 行旧版，勿改勿覆盖。
+> ✅ 操作注记**更正**（2026-09-14 · B1 ACI 自查受控双探针）：2026-08-23 记的「skill_manage patch 报 Skill not found」**已不可复现**——负对照 `patch name=zzz-mimir-aci-negative-control-probe` → `Skill not found: <name>`；正样本 `patch name=mimiraether-context-compressor`（锚点=不可能存在的字符串）→ `old_string not found in skill`。两者**可区分** ⇒ `skill_manage` 对本人技能解析**正常**，且锚点缺失时**拒绝编辑**（无幻影改动）。
+>
+> 🔴 **写侧方向（2026-09-14 实测 · 我当场踩过）**：`skill_manage(action='patch')` 写入的是 **repo 侧**（`~/src/MimirAether/skills/...`），**不是** home 侧；而本注记下文（2026-08-23 版）称 home 侧"权威" ⇒ 若照旧文 `cp home→repo` 同步，会**把 skill_manage 的改动抹掉**（本轮已发生：patch 成功 → cp 后被清空 → 用 `patch` 工具对 home 侧重打同锚点恢复 → md5 双侧一致）。**正确同步方向 = 先改哪侧，就以哪侧为准 `cp` 到另一侧；改完必须 `grep` 关键串双侧各 1 次确认，不能只比 md5。**
+> ⚠️ 操作注记（2026-08-23 · **保留供回溯，勿再据此绕过 skill_manage**）：需直接 patch 两侧文件：home 侧 `~/.mimiraether/skills/mimiraether/mimiraether-context-compressor/SKILL.md`（权威）与 repo 侧 `~/src/MimirAether/skills/mimiraether/mimiraether-context-compressor/SKILL.md`，改后 cp 同步 + diff 确认。嵌套目录 `mimiraether-context-compressor/mimiraether-context-compressor/` 为 187 行旧版，勿改勿覆盖。
 
 | 日期 | 检查项 | 结果 |
 |------|--------|------|
