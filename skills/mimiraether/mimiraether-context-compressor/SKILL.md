@@ -221,7 +221,7 @@ MimirContextCompressor(
 > **两个取证陷阱（本卡自曝）**：`missing` 落盘被截断为 `list(missing)[:5]`（`context_compressor.py:1345`）⇒ **历史 rate 不可复算**；索引上限 `_ENTITY_INDEX_MAX_ITEMS=120 / _ENTITY_INDEX_MAX_CHARS=6000` 在实测负载（仅需 **964 字符**）**永不绑定** ⇒ C1 后 rate ≡ 1.0，**闸门降级为「摘要消息+索引块是否存活」的结构检查**。另：阶段 1 掩码（修剪 tool 输出）对实体**零影响**（实测 97% 实体只在 assistant 段、tool 段 0 实体）——「掩码优先」不是实体保留方案。
 > 完整四方审计：`~/wiki/discussions/2026-09-14-四方审计-Mimir压缩永不应用根因与修复-RS14.md`（Mimir 应答段 commit `04a0366`）· 决策记录：`~/.mimiraether/notes/2026-09-14-RS14-decisions.md`
 > **D-1/D-2 执行（2026-09-14 · 四方终审 §13.2 P0）**：`compression_quality.jsonl` 现在
-> **applied 与 rollback 两条路都落盘**，字段 19 个：`ts` / `gate_version` / `entity_retention_rate` /
+> **applied 与 rollback 两条路都落盘**，字段 18 个：`ts` / `gate_version` / `entity_retention_rate` /
 > `entity_count` / `missing_count` / `missing`(全量, ≤`_QUALITY_MISSING_MAX_ITEMS`=200) / `missing_capped` /
 > `index_items` / `index_chars` / `index_capped` / `summary_elapsed_s` / `requested_max_tokens` /
 > `summary_budget_raw` / `summary_attempts` / `outcome` / `original_count` / `compressed_count` / `summary_mode`。
