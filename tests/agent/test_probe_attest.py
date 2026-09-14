@@ -2,7 +2,8 @@
 
 覆盖：
   ① 控制组语义——好探针 VERIFIED；坏探针（正控/负控失败）UNVERIFIED
-  ② 三类结构性无效探针：无占位符 / 控制组相同 / 空探针
+  ② 五类结构性无效探针：无占位符 / 控制组相同 / 空探针 /
+     空洞期望（vacuous_expectations）/ 控制组即目标（control_is_target）——后两类 T10 加固
   ③ 历史误报回归：未转义 [COMPRESS-RESULT] 正则（09-13 真实误报）
   ④ 闸门语义：无自证拦截 + UNVERIFIED 落账；有自证放行；nudge 只拦一次（反死锁）；hard 模式
   ⑤ 与 verify_before_report_guard 的接线
@@ -103,6 +104,47 @@ def test_identical_controls_rejected(samples, ledger):
                     negative=str(pos), ledger=ledger)
     assert rec["verdict"] == pa.UNVERIFIED
     assert rec["reason"] == "controls_identical"
+
+
+def test_vacuous_expectations_rejected(samples, ledger):
+    """T10-①：两控制组期望同一观测值 -> 死探针也通过（空洞控制组）。
+
+    取证：2026-09-14 实测 true {INPUT} + 两边 expect=none 曾被判 VERIFIED。
+    """
+    pos, neg, tgt = samples
+    rec = pa.attest(claim="死探针", probe="true {INPUT}", positive=str(pos),
+                    negative=str(neg), target=str(tgt),
+                    expect_positive=pa.NONE, expect_negative=pa.NONE, ledger=ledger)
+    assert rec["verdict"] == pa.UNVERIFIED
+    assert rec["reason"] == "vacuous_expectations"
+
+
+def test_control_is_target_rejected(samples, ledger):
+    """T10-②：目标样本兼作控制样本 -> 同义反复。
+
+    已知边界：仅样本字符串相同时可判；内容同而路径不同不可检测（残余风险）。
+    """
+    pos, neg, _ = samples
+    rec = pa.attest(claim="同义反复", probe=GOOD_PROBE, positive=str(pos),
+                    negative=str(neg), target=str(pos), ledger=ledger)
+    assert rec["verdict"] == pa.UNVERIFIED
+    assert rec["reason"] == "control_is_target"
+
+
+def test_target_reuses_negative_sample_rejected(samples, ledger):
+    """T10-③：目标 = 负控样本 -> 目标未经独立测量（单独 reason 便于审计）。"""
+    pos, neg, _ = samples
+    rec = pa.attest(claim="复用负控", probe=GOOD_PROBE, positive=str(pos),
+                    negative=str(neg), target=str(neg), ledger=ledger)
+    assert rec["verdict"] == pa.UNVERIFIED
+    assert rec["reason"] == "target_reuses_negative"
+
+
+def test_nudge_states_output_contract():
+    """T9：契约必须明示——0/1 计数，字面量 none 会被读成 seen。"""
+    txt = pa.build_nudge()
+    assert "输出契约" in txt
+    assert "echo 1 || echo 0" in txt
 
 
 def test_empty_probe_rejected(samples, ledger):
@@ -224,10 +266,12 @@ def test_guard_passes_claim_with_verified_attestation(tmp_path, monkeypatch):
     ledger = tmp_path / "data" / "ops" / "probe_attest.jsonl"
     pos = tmp_path / "t.log"
     neg = tmp_path / "f.log"
+    tgt = tmp_path / "target.log"   # T10：独立目标样本（原用 pos 兼作 target = 同义反复）
     pos.write_text(REAL_LOG, encoding="utf-8")
     neg.write_text(FALSE_LOG, encoding="utf-8")
+    tgt.write_text(REAL_LOG, encoding="utf-8")
     pa.attest(claim="result 行存在", probe=GOOD_PROBE, positive=str(pos), negative=str(neg),
-              target=str(pos), ledger=ledger)
+              target=str(tgt), ledger=ledger)
 
     from agent.verify_before_report_guard import should_block_finish
 

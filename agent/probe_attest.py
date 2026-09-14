@@ -169,6 +169,15 @@ def attest(
         reason = "no_input_placeholder"
     elif positive == negative:
         reason = "controls_identical"
+    elif expect_positive == expect_negative:
+        # 两个控制组期待同一个观测值 => 无论探针死活都能通过（空洞控制组）
+        reason = "vacuous_expectations"
+    elif target is not None and target == positive:
+        # 目标 = 正控样本 => 用被测对象自证被测对象（同义反复）
+        reason = "control_is_target"
+    elif target is not None and target == negative:
+        # 目标 = 负控样本 => 目标未经独立测量（与上者区分，便于审计）
+        reason = "target_reuses_negative"
     elif pos["observed"] != expect_positive:
         reason = "positive_control_failed"
     elif neg["observed"] != expect_negative:
@@ -262,7 +271,12 @@ def build_nudge() -> str:
         "python3 -m agent.probe_attest --claim '<结论>' "
         "--probe '<探针命令，用 {INPUT} 占位>' --positive <已知为真的样本> "
         "--negative <已知为假的样本> --target <真实样本>\n"
-        "两个控制组必须分别报 seen / none；否则探针无鉴别力，结论只能标 UNVERIFIED。"
+        "两个控制组必须分别报 seen / none；否则探针无鉴别力，结论只能标 UNVERIFIED。\n"
+        "【输出契约】探针 stdout 必须是 0/1 或 grep -c 的计数：0 或空 = none，其余 = seen。\n"
+        "  反例：test -e {INPUT} && echo seen || echo none —— 字面量 none 被读成 seen，负控必失。\n"
+        "  正例：test -e {INPUT} && echo 1 || echo 0。\n"
+        "【三条硬约束】① 两控制组样本必须不同 ② 期望值必须不同（都写 none = 空洞控制组）\n"
+        "  ③ 目标样本不得兼作控制样本（同义反复 -> control_is_target）。"
     )
 
 
