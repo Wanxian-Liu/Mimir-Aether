@@ -15,6 +15,7 @@ import json
 import logging
 import os
 import re as _re
+import signal
 import subprocess
 import tempfile
 import uuid as _uuid
@@ -29,6 +30,16 @@ if TYPE_CHECKING:
     from gateway.run import GatewayRunner
 
 logger = logging.getLogger(__name__)
+
+# RS20 (2026-09-15): hard cap for cron *script* jobs.
+# Previously 600s, and — worse — the wait happened ON the event loop thread
+# (bare `subprocess.run` inside `async def execute_cron_job`), so a slow script
+# froze the whole gateway: HTTP /health -> 000, Feishu replies stalled, zero log
+# output.  py-spy showed MainThread stuck in
+#   select <- communicate <- run(subprocess) <- execute_cron_job.
+# The script is now executed in a worker thread (`asyncio.to_thread`) and this
+# cap is what actually kills a runaway child.  Override via env for tests.
+_CRON_SCRIPT_TIMEOUT_S = int(os.getenv("MIMIR_CRON_SCRIPT_TIMEOUT_S", "300"))
 
 
 class CronMixin:
@@ -803,13 +814,52 @@ class CronMixin:
                     mark_job_run(job_id, "error", f"script not found: {script_rel}")
                     return
                 try:
-                    proc = subprocess.run(
-                        ["/bin/bash", str(script_path)],
-                        capture_output=True,
-                        text=True,
-                        timeout=600,
-                        cwd=str(get_hermes_home()),
-                    )
+
+                    def _kill_script_tree(child: "subprocess.Popen") -> None:
+                        """SIGKILL the script's whole process group.
+
+                        A bare `proc.kill()` only reaches the /bin/bash wrapper;
+                        `mech_checks_cron.py` spawns a grandchild python runner,
+                        which would be orphaned and keep working.  Hence
+                        start_new_session=True + killpg.
+                        """
+                        try:
+                            os.killpg(os.getpgid(child.pid), signal.SIGKILL)
+                        except (ProcessLookupError, PermissionError, OSError):
+                            try:
+                                child.kill()
+                            except Exception:
+                                pass
+
+                    def _run_cron_script() -> "subprocess.CompletedProcess":
+                        """Blocking half — runs in a worker thread, never on the loop."""
+                        child = subprocess.Popen(
+                            ["/bin/bash", str(script_path)],
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            text=True,
+                            cwd=str(get_hermes_home()),
+                            start_new_session=True,
+                        )
+                        try:
+                            out, err = child.communicate(timeout=_CRON_SCRIPT_TIMEOUT_S)
+                        except subprocess.TimeoutExpired:
+                            _kill_script_tree(child)
+                            out, err = child.communicate()
+                            raise subprocess.TimeoutExpired(
+                                child.args,
+                                _CRON_SCRIPT_TIMEOUT_S,
+                                output=out,
+                                stderr=err,
+                            )
+                        return subprocess.CompletedProcess(
+                            child.args, child.returncode, out, err
+                        )
+
+                    # RS20: NEVER wait on a child process on the event loop
+                    # thread — that froze the gateway for up to `timeout`
+                    # seconds (HTTP /health -> 000, Feishu replies stalled).
+                    proc = await asyncio.to_thread(_run_cron_script)
                     final_text = proc.stdout or ""
                     if proc.stderr:
                         final_text = f"{final_text}\n--- stderr ---\n{proc.stderr}"
@@ -822,7 +872,13 @@ class CronMixin:
                     else:
                         mark_job_run(job_id, "ok", None)
                 except subprocess.TimeoutExpired:
-                    mark_job_run(job_id, "error", "script timeout (600s)")
+                    # RS20: distinct status so a hung script is legible in
+                    # `mimir cron list` instead of a generic "error".
+                    mark_job_run(
+                        job_id,
+                        "timeout",
+                        f"script timeout ({_CRON_SCRIPT_TIMEOUT_S}s)",
+                    )
                     final_text = "(timeout)"
                 except Exception as exc:
                     logger.exception("Cron job %s: script failed", job_id)
