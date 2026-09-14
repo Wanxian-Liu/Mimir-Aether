@@ -53,11 +53,20 @@ def test_noop_branch_precedes_success_branch():
     assert i_noop < i_result, "no-op 分支顺序错误：可能把 no-op 记为成功"
 
 
+def test_rs16_a2_creds_reuse_agent_layer_resolution():
+    """RS16 (a2)：卫生压缩凭据必须经 agent 层同源解析后再判（§23 裁决）。"""
+    src = _source()
+    assert "_merge_agent_layer_runtime(" in src
+    assert 'merged["cred_source"] = src or "agent-layer"' in src
+
+
 def test_skip_branches_are_logged_not_silent():
     """两个静默出口必须各有 warning 日志（此前无任何输出）。"""
     src = _source()
     for marker, branch in (
-        ("reason=no_api_key", 'if not _hyg_runtime.get("api_key")'),
+        # RS16 (a2)：门闸由 `if not _hyg_runtime.get("api_key")` 改为 `if not _hyg_cred:`
+        # （凭据先经 agent 层同源解析再判）；「静默出口必须落 warning」不变量不变。
+        ("reason=no_api_key", "if not _hyg_cred:"),
         ("reason=too_few_user_assistant_msgs", "if len(_hyg_msgs) < 4"),
     ):
         assert branch in src, f"缺少补日志的分支: {branch}"

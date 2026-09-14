@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -32,8 +33,100 @@ from utils import atomic_yaml_write
 logger = logging.getLogger(__name__)
 
 
+def _cred_fp8(value) -> str:
+    """RS16: 凭据指纹——只出 sha8，绝不出原值（字段名避开 key/token/secret）。"""
+    if not value:
+        return "EMPTY"
+    return hashlib.sha256(str(value).encode()).hexdigest()[:8]
+
+
+class _AgentLayerShim:
+    """RS16 (a2): 给 agent 层**未绑定**真源函数喂最小 self，不复制任何凭据规则。
+
+    `agent.config_mixin.ConfigMixin._get_api_key` / `_get_model_base_url` 只依赖
+    `self.model` 与 `self._credential_pool` ⇒ hygiene 因此调用的是**与 agent 真实
+    API 调用同一个函数**（core_loop.py:384 `api_key=self._get_api_key()`）。
+    """
+
+    __slots__ = ("model", "_credential_pool")
+
+    def __init__(self, model: str) -> None:
+        self.model = model or ""
+        self._credential_pool = None
+
+
 class AgentRouteMixin:
     """Router agent route mixin mixin for GatewayRunner."""
+
+    def _merge_agent_layer_runtime(
+        self,
+        gateway_runtime: dict,
+        model: str,
+        session_key: Optional[str] = None,
+    ) -> dict:
+        """RS16 (a2): 复用 agent 层已解析的 runtime，消灭第二条凭据通路。
+
+        gateway 侧 `_resolve_runtime_agent_kwargs()` 在 `HERMES_INFERENCE_PROVIDER`
+        未设时静默绑定 OpenRouter（auto 路径），**按构造**看不到
+        `DEEPSEEK_API_KEY`（卡 §22/§23 · C 分支单根因）。hygiene 跑在本轮 agent
+        **之前**（本块构造点 :400 vs 回合 agent :551），故按优先级序复用：
+          ① 本会话**已构造** agent 的 runtime（`_agent_cache[session_key]`）——
+             与真实对话同一个 runtime；
+          ② 否则调 agent 层**同一真源函数**（`ConfigMixin._get_api_key` /
+             `_get_model_base_url`）。
+        gateway 侧已有可用凭据时**完全不覆盖**（最小行为改变）；两层都取不到时
+        原样返回（由调用方 abort 并落终态行）。绝不打印凭据原值，只出 len/sha8。
+        """
+        merged = dict(gateway_runtime or {})
+        merged.setdefault("cred_source", "gateway")
+        if merged.get("api_key"):
+            return merged
+
+        cred, base, src = "", "", ""
+        cache = getattr(self, "_agent_cache", None)
+        if cache is not None and session_key:
+            lock = getattr(self, "_agent_cache_lock", None)
+            entry = None
+            try:
+                if lock is not None:
+                    with lock:
+                        entry = cache.get(session_key)
+                else:
+                    entry = cache.get(session_key)
+            except Exception:
+                entry = None
+            if entry:
+                agent = entry[0]
+                real = getattr(agent, "_real_agent", None) or agent
+                cred = getattr(real, "api_key", "") or ""
+                base = getattr(real, "base_url", "") or ""
+                if cred:
+                    src = "cache"
+
+        if not cred:
+            try:
+                from agent.config_mixin import ConfigMixin
+
+                shim = _AgentLayerShim(model)
+                cred = ConfigMixin._get_api_key(shim) or ""
+                base = base or ConfigMixin._get_model_base_url(shim) or ""
+                if cred:
+                    src = "agent-layer"
+            except Exception as exc:  # 真源不可用时保持 gateway 结果（fail-safe）
+                logger.debug("RS16 a2: agent-layer credential resolve failed: %s", exc)
+
+        if not cred:
+            return merged
+
+        merged["api_key"] = cred
+        if base:
+            merged["base_url"] = base
+        merged["cred_source"] = src or "agent-layer"
+        try:  # provider 提示：agent 层按模型名前缀判定（deepseek/... → deepseek）
+            merged["provider"] = ConfigMixin._guess_provider(_AgentLayerShim(model), model)
+        except Exception:
+            pass
+        return merged
 
     async def _handle_message_with_agent(self, event, source, _quick_key: str):
         """Inner handler that runs under the _running_agents sentinel guard."""
@@ -373,7 +466,25 @@ class AgentRouteMixin:
                             session_key=session_key,
                             user_config=_hyg_data if isinstance(_hyg_data, dict) else None,
                         )
-                        if not _hyg_runtime.get("api_key"):
+                        # RS16 (a2)（§22/§23 裁决）：凭据改走 agent 层同源解析。
+                        # gateway 侧 `_resolve_runtime_agent_kwargs()` 在
+                        # HERMES_INFERENCE_PROVIDER 未设时静默绑定 OpenRouter（auto），
+                        # 按构造看不到 DEEPSEEK_API_KEY ⇒ 200K 会话恒
+                        # `reason=no_api_key`（发现4：且 abort 后静默放行）。
+                        _hyg_runtime = self._merge_agent_layer_runtime(
+                            _hyg_runtime, _hyg_model, session_key=session_key
+                        )
+                        _hyg_cred = _hyg_runtime.get("api_key") or ""
+                        logger.info(
+                            "[COMPRESS] creds layer=gateway source=%s base=%s "
+                            "cred_len=%s cred_sha8=%s msgs=%s tokens=%s",
+                            _hyg_runtime.get("cred_source", "?"),
+                            _hyg_runtime.get("base_url") or "",
+                            len(_hyg_cred), _cred_fp8(_hyg_cred),
+                            _msg_count, f"{_approx_tokens:,}",
+                        )
+                        _hyg_outcome = "aborted_no_cred"
+                        if not _hyg_cred:
                             # 档2-①：此前该分支静默 return（9-11 12:29 触发后
                             # 既无 result 也无 failure 的元凶之一）
                             logger.warning(
@@ -381,7 +492,7 @@ class AgentRouteMixin:
                                 "msgs=%s tokens=%s (compression skipped silently before)",
                                 _msg_count, f"{_approx_tokens:,}",
                             )
-                        if _hyg_runtime.get("api_key"):
+                        if _hyg_cred:
                             _hyg_msgs = [
                                 {"role": m.get("role"), "content": m.get("content")}
                                 for m in history
@@ -390,6 +501,7 @@ class AgentRouteMixin:
                             ]
 
                             if len(_hyg_msgs) < 4:
+                                _hyg_outcome = "aborted_too_few_msgs"
                                 logger.warning(
                                     "[COMPRESS] abort layer=gateway "
                                     "reason=too_few_user_assistant_msgs kept=%s "
@@ -444,6 +556,7 @@ class AgentRouteMixin:
                                 # "消息数没降=no-op"与"真压缩"分开报，否则 8-15 那种
                                 # 162->162 会被误读为成功。
                                 if _new_count >= _msg_count:
+                                    _hyg_outcome = "noop"
                                     logger.warning(
                                         "[COMPRESS] abort layer=gateway reason=noop "
                                         "msgs=%s->%s tokens=%s(actual)->%s(rough) "
@@ -454,6 +567,7 @@ class AgentRouteMixin:
                                         f"{_compress_token_threshold:,}", _hyg_elapsed,
                                     )
                                 else:
+                                    _hyg_outcome = "applied"
                                     logger.info(
                                         "[COMPRESS] result layer=gateway msgs=%s->%s "
                                         "tokens=%s(actual)->%s(rough) threshold=%s "
@@ -469,6 +583,17 @@ class AgentRouteMixin:
                                         "compression",
                                         f"{_new_tokens:,}",
                                     )
+
+                        # 发现4（§23 本窗顺带修）：终态行必须**两条分支都出**——
+                        # abort 时也要有 result 行，否则会话带 200K+ 未压缩
+                        # transcript 继续而无任何终态日志（=「静默放行」）。
+                        logger.info(
+                            "[COMPRESS] result layer=gateway outcome=%s msgs=%s "
+                            "tokens=%s cred_source=%s elapsed=%.2fs",
+                            _hyg_outcome, _msg_count, f"{_approx_tokens:,}",
+                            _hyg_runtime.get("cred_source", "?"),
+                            time.monotonic() - _hyg_t0,
+                        )
 
                     except Exception as e:
                         logger.warning(
