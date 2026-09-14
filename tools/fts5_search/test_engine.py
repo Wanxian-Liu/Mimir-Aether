@@ -424,7 +424,7 @@ class TestSchema(unittest.TestCase):
     
     def test_schema_version(self):
         """Schema版本测试"""
-        self.assertEqual(SCHEMA_VERSION, 4)
+        self.assertEqual(SCHEMA_VERSION, 5)
     
     def test_init_script(self):
         """初始化脚本测试"""

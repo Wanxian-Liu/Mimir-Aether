@@ -221,3 +221,59 @@ def test_trigger_source_aliases_normalise():
 def test_begin_run_accepts_metadata_source_alias():
     ctx = run_context.begin_run(metadata={"trigger_source": "self_restart"})
     assert ctx["trigger_source"] == "self-restart"
+
+# --- RS11 pre-probe (sec.29 Q17) -------------------------------------------
+
+def test_sha1_12_matches_hashlib_and_handles_empty():
+    import hashlib
+
+    assert run_context.sha1_12("abc") == hashlib.sha1(b"abc").hexdigest()[:12]
+    assert run_context.sha1_12("") == "-"
+    assert run_context.sha1_12(None) == "-"
+    assert run_context.sha1_12("中文 body") == run_context.sha1_12("中文 body")
+
+
+def test_begin_run_logs_in_sha1(caplog):
+    with caplog.at_level("INFO"):
+        ctx = run_context.begin_run(trace_id="tr_in", text="hello world")
+    assert ctx["in_sha1"] == run_context.sha1_12("hello world")
+    assert ctx["in_len"] == len("hello world")
+    line = [r.getMessage() for r in caplog.records if "[RUN]" in r.getMessage()][-1]
+    assert "in_sha1=" in line and ctx["in_sha1"] in line
+
+
+def test_finish_run_pairs_in_and_out(caplog):
+    with caplog.at_level("INFO"):
+        run_context.begin_run(trace_id="tr_pair", text="question")
+        record = run_context.finish_run("answer")
+    assert record["in_sha1"] == run_context.sha1_12("question")
+    assert record["resp_sha1"] == run_context.sha1_12("answer")
+    assert record["resp_len"] == len("answer")
+    line = [r.getMessage() for r in caplog.records if "phase=finish" in r.getMessage()][-1]
+    assert "in_sha1=" in line and "resp_sha1=" in line
+
+
+def test_finish_run_without_begin_does_not_raise():
+    run_context.end_run()
+    record = run_context.finish_run("orphan response")
+    assert record["resp_sha1"] == run_context.sha1_12("orphan response")
+    assert record["trace_id"] == ""
+
+
+def test_run_lines_have_redaction_safe_field_names(caplog):
+    """RS16 教训：日志字段名含 key/token/secret 时，工具输出层会把**值**打成 `***`
+    （空串与真值不可区分）。裸 `session=` 而不是 `session_key=` 就是这个原因。"""
+    import re
+
+    with caplog.at_level("INFO"):
+        run_context.begin_run(trace_id="tr_r", text="q")
+        run_context.finish_run("a")
+    lines = [r.getMessage() for r in caplog.records if "[RUN]" in r.getMessage()]
+    finish = [line for line in lines if "phase=finish" in line][-1]
+    start = [line for line in lines if "phase=finish" not in line][-1]
+    for line in (start, finish):
+        names = re.findall(r"(\w+)=", line)
+        assert names, line
+        assert not any(("key" in name or "token" in name or "secret" in name) for name in names), names
+    finish_names = re.findall(r"(\w+)=", finish)
+    assert "resp_sha1" in finish_names and "in_sha1" in finish_names

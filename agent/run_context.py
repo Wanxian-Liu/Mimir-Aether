@@ -46,10 +46,27 @@ Design notes
 * Everything here is **best-effort and non-blocking**: provenance must never
   break a conversation. All file writes swallow OSError.
 * stdlib only.
+
+RS11 pre-probe (four-party ruling sec.29 Q17, 2026-09-14)
+-------------------------------------------------------
+"Duplicate reply" was observed at the **delivery** layer (same reply text sent
+twice, two different ``message_id``, gateway.log 11:39:21 + 11:42:53 on
+2026-09-13; >=8 groups since 08-18) yet could **not** be reproduced from the
+session transcripts. Root cause is therefore either the delivery layer or
+"stale history slice" - both need a join key that survives across runs.
+
+So every run now carries the two hashes of the message pair::
+
+    [RUN] ... in_sha1=<sha1(user text)[:12]>                    # at begin_run
+    [RUN] ... phase=finish in_sha1=<..> resp_sha1=<sha1(reply)[:12]>
+
+Two runs with *different* ``in_sha1`` but *identical* ``resp_sha1`` = one reply
+delivered twice. **No gate** (ruling: "先拿真数据") - this only records.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -57,6 +74,7 @@ import re
 import threading
 import time
 import uuid
+from typing import Union
 from typing import Any, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -65,6 +83,8 @@ __all__ = [
     "agent_id",
     "begin_run",
     "end_run",
+    "finish_run",
+    "sha1_12",
     "current_run",
     "resolve_trigger_source",
     "classify_git_command",
@@ -179,6 +199,22 @@ def _new_trace_id() -> str:
     return "tr_" + uuid.uuid4().hex[:12]
 
 
+def sha1_12(text: Optional[Union[str, bytes]]) -> str:
+    """12-hex-char digest of a message body (RS11 pre-probe join key).
+
+    The **field name** in log lines must stay free of``key`` / ``token`` /
+    ``secret`` (tool-output redaction turns those into ``***`` and makes an
+    empty value indistinguishable from a real one - RS16 lesson). ``*_sha1`` is
+    safe. Empty input -> ``"-"`` so "no body" never looks like a real digest.
+    """
+    if text is None:
+        return "-"
+    data = text if isinstance(text, bytes) else str(text).encode("utf-8", "replace")
+    if not data:
+        return "-"
+    return hashlib.sha1(data).hexdigest()[:12]
+
+
 def resolve_trigger_source(
     explicit: Optional[str] = None,
     platform: Optional[str] = None,
@@ -232,6 +268,9 @@ def begin_run(
         "started_at": time.time(),
         "pid": os.getpid(),
         "thread": threading.current_thread().name,
+        # RS11 pre-probe (Q17): inbound message identity
+        "in_sha1": sha1_12(text),
+        "in_len": len(text or "") if isinstance(text, (str, bytes)) else 0,
     }
     _thread_ctx.run = ctx
     global _global_ctx
@@ -239,13 +278,63 @@ def begin_run(
         _global_ctx = ctx
     try:
         logger.info(
-            "[RUN] trace_id=%s trigger_source=%s agent_id=%s platform=%s session=%s pid=%d",
+            "[RUN] trace_id=%s trigger_source=%s agent_id=%s platform=%s session=%s pid=%d "
+            "in_sha1=%s in_len=%d",
             ctx["trace_id"], ctx["trigger_source"], ctx["agent_id"],
             ctx["platform"] or "-", ctx["session_key"] or "-", ctx["pid"],
+            ctx["in_sha1"], ctx["in_len"],
         )
     except Exception:  # pragma: no cover - logging must never break a run
         pass
     return ctx
+
+
+def finish_run(
+    response_text: Optional[str] = None,
+    *,
+    already_sent: bool = False,
+    extra: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """RS11 pre-probe: log the **outbound** half of the run (``resp_sha1``).
+
+    Emitted as a second ``[RUN]`` line (``phase=finish``) so the two halves share
+    a prefix and one ``grep "[RUN]"`` sees a whole run::
+
+        [RUN] trace_id=tr_x ... in_sha1=ab.. resp_sha1=cd.. resp_len=2082 elapsed_s=41.7
+
+    Never raises and never changes behaviour (ruling Q17: probe, no gate).
+    """
+    ctx = current_run() or {}
+    resp_sha1 = sha1_12(response_text)
+    elapsed = 0.0
+    try:
+        elapsed = round(time.time() - float(ctx.get("started_at") or time.time()), 3)
+    except (TypeError, ValueError):
+        elapsed = 0.0
+    record: Dict[str, Any] = {
+        "trace_id": ctx.get("trace_id", ""),
+        "trigger_source": ctx.get("trigger_source", ""),
+        "session_key": ctx.get("session_key", ""),
+        "in_sha1": ctx.get("in_sha1", "-"),
+        "in_len": ctx.get("in_len", 0),
+        "resp_sha1": resp_sha1,
+        "resp_len": len(response_text or ""),
+        "already_sent": bool(already_sent),
+        "elapsed_s": elapsed,
+    }
+    if extra:
+        record.update(extra)
+    try:
+        logger.info(
+            "[RUN] phase=finish trace_id=%s trigger_source=%s session=%s in_sha1=%s in_len=%s "
+            "resp_sha1=%s resp_len=%s already_sent=%s elapsed_s=%s",
+            record["trace_id"], record["trigger_source"], record["session_key"] or "-",
+            record["in_sha1"], record["in_len"], resp_sha1, record["resp_len"],
+            record["already_sent"], record["elapsed_s"],
+        )
+    except Exception:  # pragma: no cover - logging must never break a run
+        pass
+    return record
 
 
 def end_run() -> None:

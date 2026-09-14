@@ -72,8 +72,15 @@ def main() -> int:
     )
     print(
         f"backfill done: sessions={stats.sessions} messages={stats.messages} "
-        f"skipped_files={stats.skipped_files} fts_messages={stats.fts_messages}"
+        f"skipped_files={stats.skipped_files} fts_messages={stats.fts_messages} "
+        f"fts_dup_skipped={stats.fts_duplicates_skipped}"
     )
+    # RS20（§29 Q16）：批写入行数 vs distinct hash —— 写路径自己报出非幂等
+    if fts_db:
+        print(
+            f"  fts_idempotency: rows={stats.fts_rows} distinct(session,hash)="
+            f"{stats.fts_distinct_pairs} ratio={stats.fts_ratio}"
+        )
     print(f"  sessions_dir={sessions_dir}")
     print(f"  like_db={like_db}")
     if fts_db:

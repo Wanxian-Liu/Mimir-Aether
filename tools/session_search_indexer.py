@@ -96,6 +96,11 @@ class BackfillStats:
     messages: int = 0
     skipped_files: int = 0
     fts_messages: int = 0
+    # ── RS20（§29 Q16 · 2026-09-14）幂等口径 ────────────────────────────────
+    fts_duplicates_skipped: int = 0   # 被唯一约束挡下的重复插入
+    fts_rows: int = 0                 # 回填后库内行数
+    fts_distinct_pairs: int = 0       # distinct(session_id, content_hash)
+    fts_ratio: float = 1.0            # rows / distinct_pairs（>1 = 非幂等）
 
 
 def clear_like_db(db_path: Path) -> None:
@@ -167,13 +172,19 @@ def backfill_sessions(
                 like_db.add_message(session_id, role, content, tool_name=tool_name)
             msg_count += 1
             if fts_engine is not None:
-                fts_engine.index_message(
+                # RS20：① 传 **transcript 真时间**（不再用 now()）——重跑得到同一行；
+                #       ② index_message 返回 0 = 命中去重，记数但不谎报"已索引"
+                inserted = fts_engine.index_message(
                     session_id,
                     role,
                     content,
                     metadata={"source": source, "title": title},
+                    created_at=_ts,
                 )
-                stats.fts_messages += 1
+                if inserted > 0:
+                    stats.fts_messages += 1
+                elif inserted == 0:
+                    stats.fts_duplicates_skipped += 1
 
         if msg_count:
             stats.sessions += 1
@@ -182,6 +193,31 @@ def backfill_sessions(
             stats.skipped_files += 1
 
     if fts_engine is not None:
+        # RS20：写完立刻自检 "批写入行数 vs distinct hash"。不是事后再跑一个脚本
+        # ——写路径自己报出非幂等（与本轮 RS17「让重复自己暴露」同族）。
+        try:
+            from tools.fts5_search.integrity import check_fts_integrity
+
+            report = check_fts_integrity(fts_db_path)
+            checks = report.get("checks") or {}
+            stats.fts_rows = int(checks.get("rows", 0) or 0)
+            stats.fts_distinct_pairs = int(checks.get("distinct_pairs", 0) or 0)
+            ratio = checks.get("ratio")
+            stats.fts_ratio = float(ratio) if isinstance(ratio, (int, float)) else 1.0
+            if report.get("verdict") != "PASS":
+                logger.warning(
+                    "FTS 幂等自检 FAIL：rows=%s distinct=%s ratio=%s failures=%s",
+                    stats.fts_rows, stats.fts_distinct_pairs, ratio,
+                    report.get("failures"),
+                )
+            else:
+                logger.info(
+                    "FTS 幂等自检 PASS：rows=%s distinct=%s ratio=1.0 dup_skipped=%s",
+                    stats.fts_rows, stats.fts_distinct_pairs,
+                    stats.fts_duplicates_skipped,
+                )
+        except Exception as exc:  # 自检不得让回填失败
+            logger.warning("FTS 幂等自检异常（回填结果仍有效）：%s", exc)
         fts_engine.close()
 
     return stats

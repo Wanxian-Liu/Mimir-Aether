@@ -286,6 +286,10 @@ class FTS5SearchEngine:
         
         # 初始化schema
         self._init_schema()
+
+        # RS20（§29 Q16 · 2026-09-14）：回填幂等的**机制**层 —— 唯一约束，
+        # 而不是"记得别重跑"的意志。历史库有重复时降级但留痕（见方法注释）。
+        self._ensure_unique_index()
     
     def _init_schema(self) -> None:
         """初始化数据库schema"""
@@ -323,6 +327,58 @@ class FTS5SearchEngine:
             if statement:
                 self._conn.execute(statement)
     
+    def _ensure_unique_index(self) -> None:
+        """RS20：建立 (session_id, content_hash) 唯一约束，让重复插入自己暴露。
+
+        历史库若已含重复行，``CREATE UNIQUE INDEX`` 抛 IntegrityError。这里**不吞**：
+        往 ``index_status`` 写一条 ``missing:dup_groups=..:dup_rows=..`` 留痕，引擎继续
+        可用 ⇒ **降级可见**，而不是静默失效。去重脚本
+        ``scripts/dedupe_fts_messages.py --apply`` 跑完后再开引擎即自动建立。
+        """
+        from .schema import MESSAGES_UNIQUE_INDEX, UNIQUE_INDEX_STATUS_KEY
+
+        try:
+            self._conn.execute(MESSAGES_UNIQUE_INDEX)
+        except sqlite3.IntegrityError:
+            groups, excess = self._duplicate_counts()
+            self._record_index_status(
+                UNIQUE_INDEX_STATUS_KEY,
+                f"missing:dup_groups={groups}:dup_rows={excess}",
+            )
+            logger.warning(
+                "[RS20] %s 未建立：库内已有 %d 组重复（超额 %d 行）⇒ 回填仍非幂等；"
+                "跑 scripts/dedupe_fts_messages.py --apply 后重启即自动生效",
+                UNIQUE_INDEX_STATUS_KEY, groups, excess,
+            )
+        except sqlite3.OperationalError as exc:  # pragma: no cover - 表缺失等
+            logger.warning("[RS20] 唯一索引创建跳过：%s", exc)
+        else:
+            self._record_index_status(UNIQUE_INDEX_STATUS_KEY, "ok")
+
+    def _duplicate_counts(self) -> Tuple[int, int]:
+        """(重复组数, 超额行数)，口径 = GROUP BY session_id, content_hash 且 n>1。"""
+        row = self._conn.execute(
+            """SELECT COUNT(*), COALESCE(SUM(n - 1), 0) FROM (
+                   SELECT COUNT(*) AS n FROM messages
+                   GROUP BY session_id, content_hash HAVING COUNT(*) > 1
+               )"""
+        ).fetchone()
+        if not row:
+            return (0, 0)
+        return (int(row[0] or 0), int(row[1] or 0))
+
+    def _record_index_status(self, key: str, value: str) -> None:
+        """写 ``index_status``（RS19 统一检查清单的读点）。自身失败只记 debug。"""
+        try:
+            self._conn.execute(
+                """INSERT INTO index_status (key, value, updated_at) VALUES (?, ?, ?)
+                   ON CONFLICT(key) DO UPDATE SET value = excluded.value,
+                                                  updated_at = excluded.updated_at""",
+                (key, value, datetime.now().timestamp()),
+            )
+        except sqlite3.Error as exc:  # pragma: no cover - 留痕失败不得影响索引
+            logger.debug("index_status 写入失败 %s: %s", key, exc)
+
     def _ensure_session(self, session_id: str, source: str = "cli", title: str = "") -> None:
         """确保会话存在"""
         now = datetime.now().timestamp()
@@ -338,6 +394,7 @@ class FTS5SearchEngine:
         content: str,
         metadata: Optional[Dict] = None,
         content_hash: Optional[str] = None,
+        created_at: Optional[float] = None,
     ) -> int:
         """索引单条消息
         
@@ -347,9 +404,13 @@ class FTS5SearchEngine:
             content: 消息内容
             metadata: 额外元数据
             content_hash: 内容哈希（用于去重）
+            created_at: 消息**真实**时间戳（缺省 = 当前时间）。RS20：回填路径必须
+                传 transcript 时间，否则重跑时同一消息拿到不同 created_at，
+                "重复"就只能靠唯一约束兜，而丢了真时间。
             
         Returns:
-            消息ID
+            消息ID；**0 = 同 (session_id, content_hash) 已存在，本次跳过**；
+            -1 = 内容为空
         """
         if not content or not content.strip():
             return -1
@@ -362,13 +423,19 @@ class FTS5SearchEngine:
         self._ensure_session(session_id)
         
         now = datetime.now().timestamp()
-        
-        # 插入消息
+        ts = float(created_at) if created_at is not None else now
+
+        # 插入消息 —— RS20：OR IGNORE + `uniq_messages_session_hash` 唯一约束
+        # ⇒ 幂等。无唯一索引（历史库未去重）时退化为原行为，不改变可用性。
         cursor = self._conn.execute("""
-            INSERT INTO messages (session_id, role, content, content_hash, created_at, metadata)
+            INSERT OR IGNORE INTO messages (session_id, role, content, content_hash, created_at, metadata)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, (session_id, role, content, content_hash, now, json.dumps(metadata) if metadata else None))
-        
+        """, (session_id, role, content, content_hash, ts, json.dumps(metadata) if metadata else None))
+
+        if cursor.rowcount == 0:
+            # 已存在同 (session_id, content_hash)：不重复写 FTS 行、不重复计数
+            return 0
+
         msg_id = cursor.lastrowid
         
         # 索引到FTS5 (使用标准FTS5插入)
@@ -399,6 +466,8 @@ class FTS5SearchEngine:
         
         indexed = 0
         now = datetime.now().timestamp()
+        # RS20：每个 session **实际插入**的行数（被唯一约束挡下的不计）
+        inserted_per_session: Dict[str, int] = {}
         
         # 收集所有会话ID
         session_ids = set(m.get("session_id") for m in messages if m.get("session_id"))
@@ -421,12 +490,16 @@ class FTS5SearchEngine:
                 
                 content_hash = msg.get("content_hash") or hashlib.sha256(content.encode()).hexdigest()[:32]
                 
+                # RS20：同 index_message —— OR IGNORE + 唯一约束 = 幂等
                 cursor = self._conn.execute("""
-                    INSERT INTO messages (session_id, role, content, content_hash, created_at, metadata)
+                    INSERT OR IGNORE INTO messages (session_id, role, content, content_hash, created_at, metadata)
                     VALUES (?, ?, ?, ?, ?, ?)
                 """, (session_id, role, content, content_hash, msg.get("created_at", now), 
                       json.dumps(metadata) if metadata else None))
                 
+                if cursor.rowcount == 0:
+                    continue  # 重复行：不写 FTS、不计数
+
                 msg_id = cursor.lastrowid
                 
                 # 索引到FTS5 (使用标准FTS5插入)
@@ -435,10 +508,13 @@ class FTS5SearchEngine:
                 """, (msg_id, content))
                 
                 indexed += 1
+                inserted_per_session[session_id] = inserted_per_session.get(session_id, 0) + 1
             
-            # 批量更新会话消息数
+            # 批量更新会话消息数 —— RS20：只统计真正插入的行
             for session_id in session_ids:
-                count = sum(1 for m in messages if m.get("session_id") == session_id)
+                count = inserted_per_session.get(session_id, 0)
+                if not count:
+                    continue
                 self._conn.execute("""
                     UPDATE sessions 
                     SET message_count = message_count + ?, updated_at = ?

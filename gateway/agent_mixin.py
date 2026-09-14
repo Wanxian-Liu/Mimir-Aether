@@ -2128,5 +2128,24 @@ class AgentMixin:
                 )
             ):
                 response["already_sent"] = True
-        
+
+        # ── RS11 前置探针（四方裁决 §29 Q17 · 2026-09-14）─────────────────────
+        # 在**唯一出口**记 run 的出站半场：resp_sha1 + 入站 in_sha1 同帧落 [RUN]。
+        # 判据：两个 run 的 in_sha1 不同而 resp_sha1 相同 ⇒ 同一份回复被投递两次
+        # （08-18 起 ≥8 组的形态）。**只记不拦**（裁决原文："同意不装闸，先拿真数据"）。
+        try:
+            from agent.run_context import finish_run
+
+            _resp_dict = response if isinstance(response, dict) else {}
+            finish_run(
+                _resp_dict.get("final_response"),
+                already_sent=bool(_resp_dict.get("already_sent")),
+                extra={
+                    "failed": bool(_resp_dict.get("failed")),
+                    "api_calls": _resp_dict.get("api_calls"),
+                },
+            )
+        except Exception as _fin_err:  # pragma: no cover - 探针不得影响投递
+            logger.debug("finish_run skipped: %s", _fin_err)
+
         return response

@@ -74,6 +74,39 @@ cd ~/src/MimirAether
 
 **回滚**：`MIMIR_PROBE_ATTEST=0`（秒级，无需回退代码）。
 
+## 实战补充（2026-09-14 · 闸**拦住了我自己的汇报正文**）
+
+真实发生：我把 RS18/RS11 两条结论整理成汇报时，**闸在飞书回复上直接 `[BLOCKED:probe-attest]`** ——
+因为汇报里含有「unlisted=0 / 命中 0 / NULL=0 / 连续相同=0」等否定句。这不是误拦，这是**正确拦截**：
+汇报正文**也是一个"声明类结论的出口"**。
+
+**纪律**：**落汇报 / 落卡之前，先把该文本里所有否定句自证跑完**（不是"发出去被拦再补"）。
+
+### 三种可复用的控制组造法（找不到样本时）
+
+| 场景 | positive（须 seen） | negative（须 none） | target |
+|:--|:--|:--|:--|
+| 令牌存在性（"X 未装载"） | 已知存在令牌（如 `wake_gate`） | 不可能令牌（如 `ZZQ_IMPOSSIBLE_TOKEN_9137`） | 被质疑令牌（如 `DUP-REPLY`） |
+| **聚合类判据**（"unlisted=0 / 无 FAIL"） | 判据字符串本身（`PASS`） | 不可能判据（`ZZQ_IMPOSSIBLE_VERDICT`） | 反向判据（`FAIL`） |
+| 盘上**找不到**已知为真样本 | **自己合成**（脚本加 `--selftest` 造夹具，如造一个含 2 条连续相同消息的 jsonl，期望输出 `1`） | 不存在的文件/路径 | 真实样本 |
+
+**要点**：第 3 行是通用解 —— "已知为真"的样本可以**造**，而且**合成正控往往比真实样本更有鉴别力**（因为你能控制它必然为真）。
+
+### 一次跑多条
+
+四条声明 = 四条 `probe_attest` 调用（同一台账 append-only），**逐条留 verdict**，再把
+`verdict + positive/negative observed + target` **贴进报告**。范例（本日实录）：
+
+```
+索引机械检查 unlisted=0   : VERIFIED  pos=seen(PASS) neg=none  target=none(FAIL)
+DUP-REPLY 未装载          : VERIFIED  pos=seen(wake_gate) neg=none  target=none
+fts5 NULL hash = 0        : VERIFIED  pos=seen(ALL) neg=none  target=none
+raw jsonl 连续相同 = 0     : VERIFIED  pos=seen(合成夹具) neg=none  target=none
+```
+
+**注意**：target 的 `none` **不等于**"没做事" —— 只有在正控 `seen` + 负控 `none` 都合格时，
+target 的 `none` 才读作"该模式确实不存在"。
+
 ## 取证纪律
 
 - 自证成功的记录要**贴在报告里**（`verdict` + 两个控制组的 observed + target）

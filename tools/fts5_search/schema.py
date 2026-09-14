@@ -11,7 +11,8 @@ from __future__ import annotations
 # SQL Schema 版本号
 # ============================================================================
 
-SCHEMA_VERSION = 4
+# RS20（§29 Q16 · 2026-09-14）起为 5：新增 (session_id, content_hash) 唯一索引。
+SCHEMA_VERSION = 5
 
 # ============================================================================
 # 主表Schema
@@ -59,6 +60,27 @@ CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_messages_role ON messages(role);
 CREATE INDEX IF NOT EXISTS idx_messages_hash ON messages(content_hash);
+"""
+
+# ============================================================================
+# RS20（§29 Q16 · 2026-09-14）：回填幂等的**机制**层 —— (session_id, content_hash)
+# 唯一约束。
+#
+# 背景（取证）：`backfill_sessions` → `index_message` 时 `created_at` 取 `now()`，
+# 每次重跑全量重插；09-11 16:08 档2 回填把同一条消息插了 1,213 份。盘上实测
+# rows=60,288 / distinct(session_id, content_hash)=54,188 ⇒ 6,100 行同批超额，
+# 且 1,771 个重复组的 created_at 跨度全部 ≤2s（同一批插入，非真实重复消息）。
+#
+# ⚠️ 刻意**不放进 INIT_SCRIPT**：`INIT_SCRIPT` 每次 open 都执行，而历史库若已含
+# 重复行，`CREATE UNIQUE INDEX` 会抛 IntegrityError ⇒ 整个引擎初始化打挂
+# （session_search 本体不可用）。改由 `FTS5SearchEngine._ensure_unique_index()`
+# 尽力创建 + 失败落 `index_status` 留痕（降级可见，非静默）。
+# ============================================================================
+UNIQUE_INDEX_STATUS_KEY = "uniq_messages_session_hash"
+
+MESSAGES_UNIQUE_INDEX = """
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_messages_session_hash
+    ON messages(session_id, content_hash);
 """
 
 # ============================================================================
