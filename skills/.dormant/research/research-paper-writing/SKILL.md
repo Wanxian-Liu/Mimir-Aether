@@ -2126,7 +2126,7 @@ Compose this skill with other Hermes skills for specific phases:
 | **subagent-driven-development** | Phase 5 (Drafting): parallel section writing with 2-stage review (spec compliance then quality) | `skill_view("subagent-driven-development")` |
 | **mimiraether-plan-mode** | Phase 0 (Setup): creating structured plans before execution. Writes to `.mimir/plans/` | `skill_view("mimiraether-plan-mode")` |
 | **qmd** | Phase 1 (Literature): searching local knowledge bases (notes, transcripts, docs) via hybrid BM25+vector search | Install: `skill_manage("install", "qmd")` |
-| **excalidraw** | Phase 4-5: creating Excalidraw-based figures and architecture diagrams | `skill_view("excalidraw")` |
+| **mimiraether-html-output** | Phase 4-5: 出图/图表交付（本机无 `excalidraw` 技能，改走 HTML 输出技能） | `skill_view("mimiraether-html-output")` |
 | **jupyter** | Phase 4 (Analysis): Jupyter live kernel for interactive analysis and visualization | 外部工具，无对应技能 |
 
 **This skill supersedes `ml-paper-writing`** — it contains all of ml-paper-writing's content plus the full experiment/analysis pipeline and autoreason methodology.

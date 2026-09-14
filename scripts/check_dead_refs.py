@@ -34,7 +34,8 @@ INLINE_PATH_RE = re.compile(
     r"`(~?(?:\.openclaw|\.mimiraether|\.hermes)/[^`]*\.(?:py|md|json|yaml|sh|yaml)[^`]*)`"
 )
 HARD_PATH_RE = re.compile(
-    r"/home/\w+/[^\s`\"']+\.(?:py|md|json|yaml|sh)"
+    # 扩链顺序重要：jsonl 必须在 json 之前，且尾部加 (?!\w) 防 `.json` 截断 `.jsonl`
+    r"/home/\w+/[^\s`\"']+\.(?:jsonl|json|yaml|yml|py|md|sh|log|txt)(?!\w)"
 )
 SKILL_REF_RE = re.compile(
     r'skill_view\s*\(\s*["\']([a-zA-Z0-9_-]+)["\']'
