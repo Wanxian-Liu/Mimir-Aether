@@ -65,6 +65,20 @@ _ENTITY_INDEX_MAX_ITEMS = 120      # 条数上限（超出则截断并告警）
 _ENTITY_INDEX_MAX_CHARS = 6000     # 字符上限（约 1.5K tokens，相对 120K 阈值可忽略）
 ENTITY_INDEX_HEADING = "## 实体索引（自动生成，非模型输出）"
 
+# ── RS14-D1 (2026-09-14)：质量记录仪器化 ─────────────────────────────────────
+# 为什么（RS14 §0 E5 盘上实测）：历史 275 条记录全 rollback，且
+#   ① `missing` 被 `missing[:5]` 截断 ⇒ 明细/分母不可复算（"历史 rate 不可复算"）；
+#   ② 无 `entity_count` ⇒ 率无法独立验算；
+#   ③ 无 `summary_elapsed_s` / `requested_max_tokens` ⇒ Q3 耗时分布只能拿
+#      「30.9s 超时截断值」推断（观测值被截断机制本身决定 = 循环论证）；
+#   ④ 无 `gate_version` ⇒ 跨闸门语义的率不可比（RS14 §13.3 约束）。
+# 这批字段是 D-3 的 R1/R2/Δ 基线、D-4 的 degraded_streak 与 A5 审计的唯一数据源。
+_QUALITY_MISSING_MAX_ITEMS = 200   # missing 明细落盘上限（超出保计数+missing_capped，不丢可复算性）
+
+# 闸门语义版本戳 —— 任何改变「实体收集口径 / 判据阈值 / 硬闸成员」的改动都必须
+# 改这个串，否则跨语义分布不可比。当前语义：实体集 = 整段 pre 去重集；判据 R1 >= 0.80。
+ENTITY_GATE_VERSION = "rs14.d1.v1.full-pre-set+r1>=0.80"
+
 # ── RS14-C2 (2026-09-14)：摘要输出 token 上限 ─────────────────────────────
 # 实测（09-14，真 API，同一 prompt）：请求 max_tokens=1000 → 5.5s OK；
 # 3000 → 13.0s OK；8000 → 30.5s **TimeoutError**（硬超时 30s）。
@@ -631,6 +645,11 @@ class ContextCompressorV2:
         索引块让「被压缩掉的中间段实体」在 post 里确定性地存在。
         """
         entities = self._collect_entities(messages)
+        # RS14-D1：索引统计初值（entity_total = 分母口径可见化）
+        self._last_index_stats = {
+            "index_items": 0, "index_chars": 0,
+            "index_capped": False, "entity_total": len(entities),
+        }
         if not entities:
             return ""
         kept, used = [], 0
@@ -641,6 +660,10 @@ class ContextCompressorV2:
                 break
             kept.append(_e)
             used += len(_e) + 3
+        self._last_index_stats = {
+            "index_items": len(kept), "index_chars": used,
+            "index_capped": len(kept) < len(entities), "entity_total": len(entities),
+        }
         if len(kept) < len(entities):
             logger.warning(
                 "[COMPRESS] entity index truncated: carried=%d total=%d "
@@ -651,14 +674,23 @@ class ContextCompressorV2:
 
     async def _generate_summary(self, turns_to_summarize: List[Dict]) -> Tuple[Optional[str], str]:
         now = time.monotonic()
+        # RS14-D1：本次尝试的仪器化初值（必须放在 cooldown 早退之前，否则早退时
+        # 记录会带上上一轮的残留耗时 —— 又一处"读数不可信"）
+        self._last_summary_attempts = 0
+        self._last_summary_elapsed_s = None
+        self._last_summary_requested_max_tokens = None
+        self._last_summary_budget_raw = None
         if now < self._summary_failure_cooldown_until:
             return None, "none"
         
         content = self._serialize_for_summary(turns_to_summarize)
         summary_budget = self._compute_summary_budget(turns_to_summarize)
         
+        _t0 = time.monotonic()
         try:
+            self._last_summary_attempts += 1
             summary = await self._call_summary_llm(content, summary_budget)
+            self._last_summary_elapsed_s = round(time.monotonic() - _t0, 3)
             if summary:
                 self._previous_summary = summary
                 self._summary_failure_cooldown_until = 0.0
@@ -667,6 +699,8 @@ class ContextCompressorV2:
                     + self._entity_index_block(turns_to_summarize)
                 ), "llm"
         except Exception as e:
+            # RS14-D1：失败样本同样落耗时（Q3 分布的分母必须含失败/超时样本）
+            self._last_summary_elapsed_s = round(time.monotonic() - _t0, 3)
             # 修复（2026-08-05，核心体检-2）：失败计数（触发cooldown）+日志升级（原debug盲区）
             self._compress_failures += 1
             logger.warning(f"LLM summary failed (failures={self._compress_failures}): {e}")
@@ -750,6 +784,9 @@ TURNS TO SUMMARIZE:
                 "[COMPRESS] summary output budget clamped: requested=%d used=%d (env=%s)",
                 _requested, _out_budget, _SUMMARY_MAX_OUTPUT_TOKENS_ENV,
             )
+        # RS14-D1：落盘「实际发出的输出预算」与「夹紧前的原始请求」（Q3 分布口径）
+        self._last_summary_requested_max_tokens = _out_budget
+        self._last_summary_budget_raw = _requested
         payload = {
             "model": api_model_name,
             "messages": [{"role": "user", "content": prompt}],
@@ -1172,6 +1209,16 @@ class MimirContextCompressor(ContextCompressorV2):
         self._context_probed = False
         # E1 (2026-08-19 block4): compaction summary writeback callback (optional)
         self._writeback_callback = None
+        # RS14-D1 (2026-09-14)：质量记录仪器化状态（每次 compress() 开头重置）
+        self._last_entity_stats = {"entity_count": 0, "missing_count": 0}
+        self._last_index_stats = {
+            "index_items": 0, "index_chars": 0,
+            "index_capped": False, "entity_total": 0,
+        }
+        self._last_summary_attempts = 0
+        self._last_summary_elapsed_s = None
+        self._last_summary_requested_max_tokens = None
+        self._last_summary_budget_raw = None
         # P2-1 (2026-08-19 执行卡) → 2026-09-11 档2-② 收编：绝对 token 阈值 env
         # 覆盖（MIMIR_COMPRESS_THRESHOLD_TOKENS）。解析逻辑移入模块级
         # resolve_threshold_tokens()，与 core_loop 的 percent 链共用同一真源，
@@ -1246,6 +1293,16 @@ class MimirContextCompressor(ContextCompressorV2):
         # ── 档2-① 三行日志：trigger / result / abort ──────────────────────
         _pre_n = len(messages)
         _pre_t0 = time.monotonic()
+        # RS14-D1：本轮仪器化状态重置（防上一轮残留值污染记录）
+        self._last_entity_stats = {"entity_count": 0, "missing_count": 0}
+        self._last_index_stats = {
+            "index_items": 0, "index_chars": 0,
+            "index_capped": False, "entity_total": 0,
+        }
+        self._last_summary_attempts = 0
+        self._last_summary_elapsed_s = None
+        self._last_summary_requested_max_tokens = None
+        self._last_summary_budget_raw = None
         try:
             _pre_tokens = self._estimate_tokens(messages)
         except Exception:
@@ -1294,9 +1351,22 @@ class MimirContextCompressor(ContextCompressorV2):
             try:
                 rate, missing = self._verify_entity_retention(pre, post)
                 if rate < 0.80:
+                    # RS14-D1：日志带全仪器化字段（可直接 grep 出分布，不必读 jsonl）
                     logger.warning(
-                        "[P2-1] 实体保留率 %.0f%% < 80%% —— 回滚压缩 (missing=%s)",
-                        rate * 100, missing[:3],
+                        "[P2-1] 实体保留率 %.0f%% < 80%% —— 回滚压缩 "
+                        "(entity_count=%s missing_count=%s head3=%s idx_items=%s "
+                        "idx_chars=%s idx_capped=%s summary_elapsed=%ss "
+                        "requested_max_tokens=%s gate=%s)",
+                        rate * 100,
+                        self._last_entity_stats.get("entity_count"),
+                        self._last_entity_stats.get("missing_count"),
+                        missing[:3],
+                        self._last_index_stats.get("index_items"),
+                        self._last_index_stats.get("index_chars"),
+                        self._last_index_stats.get("index_capped"),
+                        self._last_summary_elapsed_s,
+                        self._last_summary_requested_max_tokens,
+                        ENTITY_GATE_VERSION,
                     )
                     # E1/E5 (2026-08-20): 质量告警落盘 + 回滚分支不写回（防记录未生效压缩）
                     logger.warning(
@@ -1306,7 +1376,17 @@ class MimirContextCompressor(ContextCompressorV2):
                     )
                     self._record_quality_alert(rate, missing, result, outcome="rollback")
                     return messages, result  # 回滚：返回压缩前（保状态不丢）
-                logger.info("[P2-1] 实体保留率 %.0f%% OK (missing=%d)", rate * 100, len(missing))
+                logger.info(
+                    "[P2-1] 实体保留率 %.0f%% OK (entity_count=%s missing=%d "
+                    "summary_elapsed=%ss requested_max_tokens=%s gate=%s)",
+                    rate * 100, self._last_entity_stats.get("entity_count"), len(missing),
+                    self._last_summary_elapsed_s, self._last_summary_requested_max_tokens,
+                    ENTITY_GATE_VERSION,
+                )
+                # RS14-D1：**成功应用也落盘**。历史只有回滚落盘 ⇒ C1 生效后回滚率→0，
+                # 新数据将无处产生：Q3 分布 / D-3 的 R1·R2·Δ 基线 / D-4 的
+                # degraded_streak 全部无源。故 applied 与 rollback 两条路都记。
+                self._record_quality_alert(rate, missing, result, outcome="applied")
             except Exception as _ve:
                 logger.warning("[P2-1] verify hook failed (degrade: keep compressed): %s", _ve)
         # E1 (2026-08-20): 压缩成功且验证通过 → 摘要写回（callback 可空；异常降级不阻断压缩）
@@ -1334,15 +1414,44 @@ class MimirContextCompressor(ContextCompressorV2):
             logger.warning("[E1] writeback callback failed (non-blocking): %s", _e)
 
     def _record_quality_alert(self, rate, missing, result: CompressionResult, outcome: str) -> None:
-        """E5: 压缩质量告警行落盘 ~/.mimiraether/data/compression_quality.jsonl（不阻断）。"""
+        """E5 → RS14-D1: 质量记录落盘 ~/.mimiraether/data/compression_quality.jsonl（不阻断）。
+
+        outcome: ``"applied"``（压缩已应用）｜``"rollback"``（实体闸门回滚）。
+        RS14-D1 变更（2026-09-14 · 四方终审 §13.2 P0）：
+          · 新增 ``entity_count`` / ``missing_count`` ⇒ 率**可独立复算**（历史只有被截断的 missing）；
+          · ``missing`` 由 ``[:5]`` 改为全量（上限 ``_QUALITY_MISSING_MAX_ITEMS`` + ``missing_capped``）；
+          · 新增 ``index_items`` / ``index_chars`` / ``index_capped`` ⇒ 索引上限是否绑定可见；
+          · 新增 ``summary_elapsed_s`` / ``requested_max_tokens`` / ``summary_budget_raw``
+            / ``summary_attempts`` ⇒ Q3 耗时分布不再拿超时截断值反推；
+          · 新增 ``gate_version`` ⇒ 跨闸门语义分布不可比性显式化（RS14 §13.3）；
+          · 成功路径也落盘（``outcome="applied"``）⇒ C1 生效后仍有数据（历史 275/275 全 rollback）。
+        """
         try:
             from mimir_constants import get_mimir_home
             _q_path = get_mimir_home() / "data" / "compression_quality.jsonl"
             _q_path.parent.mkdir(parents=True, exist_ok=True)
+            _missing_full = list(missing or [])
+            _st = getattr(self, "_last_entity_stats", None) or {}
+            _idx = getattr(self, "_last_index_stats", None) or {}
+            # 兜底（验证钩子被替换 / 抛异常时）：由明细返推计数，绝不让 entity_count=0
+            # 与 missing 非空同时出现（那会让率无法复算 = 本卡要修的原始病）
+            _miss_n = max(int(_st.get("missing_count", 0) or 0), len(_missing_full))
+            _ent_n = max(int(_st.get("entity_count", 0) or 0), _miss_n)
             _line = {
                 "ts": datetime.now().isoformat(),
+                "gate_version": ENTITY_GATE_VERSION,
                 "entity_retention_rate": round(float(rate), 4),
-                "missing": list(missing)[:5],
+                "entity_count": _ent_n,
+                "missing_count": _miss_n,
+                "missing": _missing_full[:_QUALITY_MISSING_MAX_ITEMS],
+                "missing_capped": len(_missing_full) > _QUALITY_MISSING_MAX_ITEMS,
+                "index_items": int(_idx.get("index_items", 0) or 0),
+                "index_chars": int(_idx.get("index_chars", 0) or 0),
+                "index_capped": bool(_idx.get("index_capped", False)),
+                "summary_elapsed_s": getattr(self, "_last_summary_elapsed_s", None),
+                "requested_max_tokens": getattr(self, "_last_summary_requested_max_tokens", None),
+                "summary_budget_raw": getattr(self, "_last_summary_budget_raw", None),
+                "summary_attempts": int(getattr(self, "_last_summary_attempts", 0) or 0),
                 "outcome": outcome,
                 "original_count": result.original_count,
                 "compressed_count": result.compressed_count,
@@ -1350,7 +1459,10 @@ class MimirContextCompressor(ContextCompressorV2):
             }
             with open(_q_path, "a", encoding="utf-8") as _f:
                 _f.write(json.dumps(_line, ensure_ascii=False) + "\n")
-            logger.warning("[E1/E5] compression quality alert appended: %s", _q_path)
+            if outcome == "applied":
+                logger.info("[E1/E5] compression quality record appended (applied): %s", _q_path)
+            else:
+                logger.warning("[E1/E5] compression quality alert appended: %s", _q_path)
         except Exception as _e:
             logger.warning("[E1/E5] quality alert write failed (non-blocking): %s", _e)
 
@@ -1359,8 +1471,13 @@ class MimirContextCompressor(ContextCompressorV2):
         post_text = json.dumps(post, ensure_ascii=False) if isinstance(post, list) else str(post)
         entities = self._collect_entities(pre)
         if not entities:
+            self._last_entity_stats = {"entity_count": 0, "missing_count": 0}
             return 1.0, []
         missing = [e for e in entities if e not in post_text]
+        # RS14-D1：实体计数落盘（历史只有被截断的 missing ⇒ 率不可独立验算）。
+        # 口径（D-2 文档已同步）：entity_count = **整段 pre 的去重实体集**，
+        # 不是 HEAD 子集 —— 按 HEAD 收集会让闸门恒真（实测 HEAD 实体 = 0）。
+        self._last_entity_stats = {"entity_count": len(entities), "missing_count": len(missing)}
         return (len(entities) - len(missing)) / len(entities), missing
     
     def mark_context_probed(self) -> None:

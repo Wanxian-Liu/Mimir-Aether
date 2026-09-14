@@ -84,9 +84,21 @@ lossᵢ = 1 - quality_scoreᵢ  (0-1, 越低越好)
 
 | 检查项 | 方法 | 阈值 | 动作 |
 |--------|------|------|------|
-| 实体保留率 | 压缩后能否回溯原始关键实体(任务/文件/决策) | ≥80% | <80%: 增加 HEAD 保留 |
+| 实体保留率（R1） | `compress()` 后 post 能否覆盖 **pre 全量去重实体集**（口径见下方 ⚠️ 注） | ≥80%（RS14-D3 起降为结构检查+告警，硬闸移精确子集） | <80%: 查 `missing` 明细 / 索引块是否存活 |
 | 信息密度 | 最近N轮是否引入新工具/文件/概念 | 每4轮≥2 | 不足: 触发 MVA |
 | 压缩频率 | 是否过频压缩(>1次/3轮) | ≤1/3轮 | 过频: 提高阈值 |
+
+> ⚠️ **口径注（2026-09-14 · RS14-D2 修正 —— 本表旧行曾误导）**
+> ① **实体集 = 整段 `pre` 的去重集**（`_collect_entities(pre)`，正则 `ENTITY_PATTERN`），
+>    **不是 HEAD 子集**。旧文写「保留原始 **HEAD** 中的关键实体」，与实现不符（Q4 终裁：改文档保实现）。
+> ② **按 HEAD 收集会让闸门恒真**：实测 HEAD（前 3 条）实体 = **0** ⇒ `rate` 走 `return 1.0` 分支
+>    ⇒ 等于删掉闸门。**不要**照旧文改成 HEAD-only、也不要靠抬高 tail 预算充数。
+> ③ 每条质量记录带 `gate_version`（当前 `rs14.d1.v1.full-pre-set+r1>=0.80`）：**跨版本的
+>    `entity_retention_rate` 不可比** —— 改收集口径 / 判据 / 硬闸成员必须同时改 `ENTITY_GATE_VERSION`。
+> ④ **率的复算口径**：`rate = (entity_count - missing_count) / entity_count`；
+>    `missing` 全量落盘（上限 200 + `missing_capped`）—— 历史 `missing[:5]` 截断导致「历史 rate 不可复算」（RS14-D1 已修）。
+> ⑤ 记录现在 **applied 与 rollback 两条路都写**（历史 275/275 全 rollback ⇒ 成功样本为 0）。
+
 
 **集成点**: `agent/context_compressor.py` — `compress()` 后执行自检
 

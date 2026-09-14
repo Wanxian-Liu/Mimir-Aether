@@ -220,15 +220,27 @@ MimirContextCompressor(
 > **修复（commit `690d044`，未推送）**：C1 机器生成实体索引（llm/template 两条路都带）+ C2 输出预算夹到 4000（env `MIMIR_COMPRESS_SUMMARY_MAX_TOKENS`）。**生效须重启 gateway**（compressor 只在 `__init__` 读参 ⇒ 代码已提交 ≠ 已生效）。
 > **两个取证陷阱（本卡自曝）**：`missing` 落盘被截断为 `list(missing)[:5]`（`context_compressor.py:1345`）⇒ **历史 rate 不可复算**；索引上限 `_ENTITY_INDEX_MAX_ITEMS=120 / _ENTITY_INDEX_MAX_CHARS=6000` 在实测负载（仅需 **964 字符**）**永不绑定** ⇒ C1 后 rate ≡ 1.0，**闸门降级为「摘要消息+索引块是否存活」的结构检查**。另：阶段 1 掩码（修剪 tool 输出）对实体**零影响**（实测 97% 实体只在 assistant 段、tool 段 0 实体）——「掩码优先」不是实体保留方案。
 > 完整四方审计：`~/wiki/discussions/2026-09-14-四方审计-Mimir压缩永不应用根因与修复-RS14.md`（Mimir 应答段 commit `04a0366`）· 决策记录：`~/.mimiraether/notes/2026-09-14-RS14-decisions.md`
+> **D-1/D-2 执行（2026-09-14 · 四方终审 §13.2 P0）**：`compression_quality.jsonl` 现在
+> **applied 与 rollback 两条路都落盘**，字段 19 个：`ts` / `gate_version` / `entity_retention_rate` /
+> `entity_count` / `missing_count` / `missing`(全量, ≤`_QUALITY_MISSING_MAX_ITEMS`=200) / `missing_capped` /
+> `index_items` / `index_chars` / `index_capped` / `summary_elapsed_s` / `requested_max_tokens` /
+> `summary_budget_raw` / `summary_attempts` / `outcome` / `original_count` / `compressed_count` / `summary_mode`。
+> **复算口径**：`rate = (entity_count - missing_count) / entity_count`（历史 `missing[:5]` 截断 ⇒ 不可复算）。
+> **口径（D-2）**：闸门实体集 = **整段 pre 的去重集**（不是 HEAD 子集）；`gate_version = rs14.d1.v1.full-pre-set+r1>=0.80`，**跨版本率不可比**。
+> **HEAD-only 恒真警告**：实测 HEAD 实体 = 0 ⇒ 只保留 HEAD 会让 `rate` 恒为 1.0（闸门失效）。
+> 计数兜底：验证钩子被替换/抛异常时，`missing_count = max(统计值, len(missing))`、`entity_count = max(统计值, missing_count)` —— 绝不让 `entity_count=0` 与 `missing` 非空并存。
+> 落点：`agent/context_compressor.py`（`ENTITY_GATE_VERSION` / `_QUALITY_MISSING_MAX_ITEMS` / `_entity_index_block` / `_generate_summary` / `_verify_entity_retention` / `_record_quality_alert`）· 测试 `tests/agent/test_rs14_d1_instrumentation.py`（10 条）。
+
 
 **来源**: `docs/MEMORY_SELF_CHECK.md` — 压缩后实体保留率自检
 
 每次 `compress()` 后检查:
 ```
-1. 实体保留率: 压缩摘要中是否保留了原始 HEAD 中的关键实体?
+1. 实体保留率（R1）: post 是否覆盖 **pre 全量去重实体集**
+   （**不是** HEAD 子集 —— 实测 HEAD 实体 = 0，只留 HEAD = 闸门恒真）
    - 关键实体: 文件名 / 工具名 / 决策关键词 / 约束条件
-   - 阈值: ≥80% 实体可回溯 → 压缩质量 OK
-   - <80% → 增加 HEAD 保留或提高 tail_token_budget
+   - 阈值: ≥80%（**RS14-D3 起降为结构检查 + 告警**；硬闸移到精确子集 100%）
+   - <80% → 查 `missing` 明细 + 索引块是否存活（**勿**改 HEAD 保留、勿抬 tail 预算充数）
 
 2. 压缩频率: 是否过频压缩?
    - 阈值: ≤1次/3轮
