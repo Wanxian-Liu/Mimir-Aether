@@ -200,6 +200,28 @@ MimirContextCompressor(
 - 摘要失败：冷却 **`_SUMMARY_FAILURE_COOLDOWN`**（10 分钟）内 `_generate_summary` 早退；可用模板摘要分支。
 - `compress` 在无法满足头尾边界时可能**不压缩**并返回原消息（见 `compress_start >= compress_end` 分支）。
 
+### ⚠️ T18 定案（2026-09-14 · 三处冷却全不可达 = 热重试环根因）
+
+**结论先行**：`_SUMMARY_FAILURE_COOLDOWN` 这类冷却**在生产上从未生效过**。三处历史冷却全部不可达：
+
+| # | 位置 | 机制 | 实测 |
+|:-:|:--|:--|:--|
+| 1 | `should_compress_info` L444 / L449 | `_last_compress_time` 冷却 + `_compress_failures>=2` | **全库零调用者**（只有 `__main__` demo 调 `should_compress`）⇒ 死代码 |
+| 2 | `should_trigger_compression` L1582 | `time.time() < _summary_failure_cooldown_until` | **零调用者** + **时钟域错**（L707 写 `time.monotonic()`，L1582 读 `time.time()`；实测 1.79e9 < 5.5e4 ⇒ 恒 False） |
+| 3 | `_generate_summary` L683 | `now < _summary_failure_cooldown_until` | **活**，但只在 LLM **抛异常**时武装（L707）；LLM 成功时 L698 **主动清零** ⇒ 闸门回滚（发生在 LLM 成功之后）**永不武装** |
+
+**生产门只有一句**：`core_loop.py:907` / `agent_loop.py:647` → `needs_compression()` = `last_prompt_tokens >= threshold_tokens`，**无冷却、无回滚记忆**。回滚返回原 messages ⇒ token 不变 ⇒ **下一 turn 必然再次触发**（确定性环，非概率）。
+
+**每 run 新建实例（H4b）**：`gateway/platforms/api_server.py:1538` 在 `_run_agent()`（L1508）体内调 `_create_agent()`，网关不按 session 缓存 agent ⇒ `core_loop.py:412` 每次新建 compressor ⇒ 实例内状态全归零。**纯实例内冷却跨 run 无效**，修法须跨 run 持久化（按 session 键）或做「上次因实体率回滚」的短路记忆。
+
+**规模**（`data/compression_quality.jsonl` 410 行 = 387 rollback + 23 applied）：19 个连续回滚串；rollback→rollback p50 **20.2s**、81.8% ≤35s；最大两串 ~84 次真 LLM 摘要、1,209s（20min）全部丢弃；rollback 中 mode=llm **155** / template 232 —— **sub-5s 串 = template 路径**（多数轮次没花钱），故表现为「稍快」而非「爆炸」。
+
+**观测缺口**：`[COMPRESS]` 三态日志**不含 `pid=`**（agent.log 1,631 条 `[COMPRESS]` 行，`pid=` 命中 **0**）⇒ 压缩事件无法归因到 run；台账 18 字段**无 token 字段** ⇒ 摘要 token 成本**不可复算**（须先加埋点，勿凭「中段≈阈值」估算）。
+
+⚠️ **行号顺序 ≠ 执行顺序**：`:1043` 的 `_last_compress_time` 赋值属**基类** `ContextCompressorV2.compress`（962–1069），由子类 `super().compress()`（:1331）**先跑完**；`:1378` 的闸门回滚在**子类** `MimirContextCompressor.compress`（1290–…）里更晚发生 ⇒ 该赋值**确实被执行**（只是没人查它 + 每 run 归零）。判「某行是否可达」必须先确认**类归属**与**覆写链执行序**。
+
+完整取证：`~/.mimiraether/notes/2026-09-14-T18-压缩热环根因定案.md`（含 4 条探针自证）
+
 ## 使用场景
 
 1. **Gateway 卫生压缩**：长会话、大 transcript，受 `compression.enabled` 与 85% 常量阈值约束（见上）。
