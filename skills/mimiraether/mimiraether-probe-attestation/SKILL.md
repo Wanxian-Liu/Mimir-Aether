@@ -160,6 +160,33 @@ cd ~/src/MimirAether && ./.venv/bin/python -m agent.probe_attest ...
 另注：`python3 -c '...'` 被 `exec_mixin` 的 **DENY 白名单**拦截（`dangerous command pattern 'python3 -c'`，全库已出现 ≥2 次）⇒
 需要内联 Python 时，**写成 `.py` 脚本落盘再跑**。
 
+## 闸的语义边界（2026-09-14 · T22 —— `VERIFIED` 是对**探针**的，不是对 claim 的）
+
+实测：一条「收件箱 X 之后无新条目」的否定声明，正/负控**都过**（探针确有鉴别力）⇒ CLI 打 `verdict: VERIFIED`，
+而同一行的 `target: observed=seen(49)` **恰好证伪了这条 claim**。
+⇒ 读者必须**同时读 `target`**：`VERIFIED` 只保证「这不是一支坏探针」，**不保证「结论为真」**。
+> 提案（未落地）：CLI 增 `claim_polarity` —— negative claim 遇 `target=seen` 应判 `CONTRADICTED`，而非 `VERIFIED`。
+
+## 陷阱：`ts` 单位混用（比「缺字段」更阴——不报错，只静默错）
+
+同一个 `jsonl` 实测 116 行内含 **三种形态**：10 位 epoch 秒 60 条 / 13 位 epoch 毫秒 49 条 / ISO 字符串 7 条。
+只把「数字」直接比大小的探针，会把 2026-08 的**毫秒**条目读成「晚于今天 cutoff」⇒ **报 49，真值 0**（49 全是假阳性）。
+修法：**比较前先归一化单位**（`v > 1e11 ⇒ v/1000`），并用**判别力夹具**验证：同一条 2026-08 毫秒条目 `v1→1 / v2→0`。
+一句话：**跨时间比较前，先问「单位归一了吗」。**
+
+## 陷阱：文本 grep 计数 ≠ 结构语义
+
+`grep -c '"last_run_at": null'` 在真文件上返回 **0**，而 `json.load` 解析后该字段确实是 `None` ——
+因为那个作业**整个键都不存在**（`j.get("k")` 返回 None 与「键存在且值为 null」是两回事）。
+⇒ **结构断言优先用 Python 解析 + 显式判据**（`"k" not in j` vs `j.get("k") is None`）；grep 只用于**版式已确认**的场景。
+
+## 同步方向的元陷阱（2026-09-14 · T22 当场重犯）
+
+`skill_manage(action='patch')` 写 **repo 侧**（`~/src/MimirAether/skills/...`）。若照旧文 `cp home→repo` 同步，
+会**把刚才的 patch 抹掉**（本次已发生一次：patch 成功 → `cp home→repo` → 改动消失，且 `diff -q` 还报「一致」= 假绿）。
+**正确顺序**：`skill_manage` 改 → `grep` 关键串确认 repo 侧**在** → `cp repo→home` → `grep` 确认 home 侧**在** → 才 commit。
+⇒ **`diff -q` 只能证明两侧相同，不能证明「相同的是新版」**。
+
 ## 相关文件
 
 - 模块：`agent/probe_attest.py`
