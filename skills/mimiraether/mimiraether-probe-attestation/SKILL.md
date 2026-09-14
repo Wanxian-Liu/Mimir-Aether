@@ -187,6 +187,20 @@ cd ~/src/MimirAether && ./.venv/bin/python -m agent.probe_attest ...
 **正确顺序**：`skill_manage` 改 → `grep` 关键串确认 repo 侧**在** → `cp repo→home` → `grep` 确认 home 侧**在** → 才 commit。
 ⇒ **`diff -q` 只能证明两侧相同，不能证明「相同的是新版」**。
 
+## 陷阱：自证**没进生产台账**（双根落错 ⇒ 四方看不到 · 2026-09-14 实测）
+
+**症状**：CLI 自证返回 `VERIFIED`，但生产台账 `~/.mimiraether/data/ops/probe_attest.jsonl` 末条仍是几十分钟前的 ⇒ **四方审计时看不到你的自证**（我本轮 13 条全落错）。
+
+**根因**：脚本用 `Path(get_mimir_home())/"data"/"ops"/...`；在 `execute_code` 里 `HOME=/home/rayliu/.mimiraether`，脚本再展开一次 `~/.mimiraether` ⇒ 落到 **双根假路径** `~/.mimiraether/.mimiraether/data/ops/probe_attest.jsonl`。
+（同族：`expanduser("~/.mimiraether")` 在 `execute_code` 里必然拼双根；`terminal` 里 `~`=`/home/rayliu`。**同一轮里 `~` 有两种含义**。）
+
+**判据（下结论前必查）**：
+1. `tail -1` 生产台账的 `ts` 是不是**刚才这次**；
+2. 否则 `ls -l ~/.mimiraether/.mimiraether/data/ops/probe_attest.jsonl`；
+3. 合并（按 `(ts, claim)` 去重追加）后把假路径文件隔离到 `~/.mimiraether/backups/`。
+
+**规避**：跑 CLI 自证时**显式**给 `MIMIR_AETHER_HOME`，不要继承 `execute_code` 的 `HOME`。
+
 ## 陷阱：探针**崩溃/超时**（rc≠0 + 空 stdout）被读成 `none` ⇒ 假 VERIFIED（2026-09-14 当场抓到）
 
 实测（本轮投递前的自证）：

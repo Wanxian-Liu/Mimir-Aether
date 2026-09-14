@@ -100,6 +100,95 @@ def _resolve_summary_max_output() -> int:
         except Exception:
             pass
     return _SUMMARY_MAX_OUTPUT_TOKENS_DEFAULT
+# ── T16（2026-09-14）：压缩冷却闸（盘上持久化）────────────────────────────
+# 根因（T18 定案）：core_loop.py:907 触发门只有 tokens>=threshold 一句；实体闸门
+# 回滚返回原始 messages ⇒ token 不变 ⇒ 下一 turn 必然再触发（确定性热环，非概率）。
+# 三处历史冷却全部不可达（死代码 / 零调用者 / 时钟域错 / 只在 LLM 抛异常时武装），
+# 且 api_server 每 run 新建 compressor ⇒ 冷却必须落盘才跨 run 存活。
+# 见 agent/compress_cooldown.py 与 notes/2026-09-14-T18-压缩热环根因定案.md。
+_CC_MODULE = None
+
+
+def _compress_cooldown():
+    """惰性导入冷却模块（导入失败 ⇒ None，调用方一律 fail-open）。"""
+    global _CC_MODULE
+    if _CC_MODULE is None:
+        try:
+            from . import compress_cooldown as _m
+        except ImportError:  # pragma: no cover - 独立导入时
+            try:
+                import compress_cooldown as _m  # type: ignore
+            except Exception:
+                return None
+        _CC_MODULE = _m
+    return _CC_MODULE
+
+
+def _run_tag() -> str:
+    """当前 run 的 trace_id（取不到则 '-'）。仅用于日志归属（T21）。"""
+    try:
+        from .run_context import current_run
+        _r = current_run() or {}
+        _t = _r.get("trace_id") or _r.get("run_id")
+        if _t:
+            return str(_t)
+    except Exception:
+        pass
+    return os.environ.get("MIMIR_RUN_ID") or "-"
+
+
+# ── T21（2026-09-14）：[COMPRESS] 行补 pid= / run= ──────────────────────
+# 病：1,631 条 [COMPRESS] 行**无任何归属字段** ⇒ 多进程/多 run 交错时无法定位。
+# 修法：用 logging.Filter 一处接线，覆盖本模块**全部现有与未来**的 [COMPRESS] 行。
+class _CompressAttributionFilter(logging.Filter):
+    """给 [COMPRESS] 行**追加** pid=/run=（已带则不重复注入）。
+
+    两条硬契约（D1/D2 修复，2026-09-14 实测后改写）：
+    · **前缀契约不可动**：`[COMPRESS] trigger|skip|result|abort` 是既有消费者解析的
+      锚点（scripts/b9_weekly_metrics.py · tests/agent/test_compress_unified_caliber.py
+      · tests/agent/test_compress_threshold_source.py · tests/scripts/test_b9_weekly_metrics.py）
+      ⇒ 注入必须**追加到行尾**，不能插在 `[COMPRESS] ` 之后。
+    · **不得用 record.getMessage() 回填 record.msg**：getMessage() 已代入实参，把它拼回
+      **原始 args** 会让格式符数 != 实参数（实测
+      `TypeError: not all arguments converted during string formatting`），
+      logging 走 handleError ⇒ **整行丢弃**。想修可观测性，结果把可观测性抹掉。
+    · args 三形态都要能追加；未知形态**不注入**（fail-open，绝不改 args 类型）。
+    """
+
+    def filter(self, record):  # noqa: A003 - logging API
+        try:
+            if not isinstance(record.msg, str) or not record.msg.startswith("[COMPRESS]"):
+                return True
+            if "pid=" in record.getMessage():       # 已带 ⇒ 不重复注入
+                return True
+            _pid, _run = os.getpid(), _run_tag()
+            _args = record.args
+            if _args is None:
+                record.msg = "%s pid=%%d run=%%s" % record.msg
+                record.args = (_pid, _run)
+            elif isinstance(_args, tuple):
+                record.msg = "%s pid=%%d run=%%s" % record.msg
+                record.args = tuple(_args) + (_pid, _run)
+            elif isinstance(_args, dict):
+                record.msg = "%s pid=%%(__mimir_pid)d run=%%(__mimir_run)s" % record.msg
+                record.args = dict(_args, __mimir_pid=_pid, __mimir_run=_run)
+        except Exception:
+            return True  # 日志永不因归属注入失败而丢
+        return True
+
+
+def _install_compress_attribution() -> None:
+    _lg = logging.getLogger(__name__)
+    if not any(isinstance(f, _CompressAttributionFilter) for f in _lg.filters):
+        _lg.addFilter(_CompressAttributionFilter())
+
+
+try:
+    _install_compress_attribution()
+except Exception:  # pragma: no cover
+    pass
+
+
 LEGACY_PREFIX = "[CONTEXT SUMMARY]:"
 
 _MIN_SUMMARY_TOKENS = 500
@@ -366,7 +455,13 @@ class ContextCompressorV2:
                 "tail_token_budget", int(tail_token_budget)
             )
         # 修复（2026-08-05，核心体检-2 OpenClaw发现）：cooldown/anti-thrashing状态
-        self._last_compress_time = 0.0        # cooldown：上次压缩时间戳
+        self._last_compress_time = 0.0        # cooldown：上次压缩时间戳（T16 实测：零调用者）
+        # T16（2026-09-14）：盘上冷却闸的"已打印"水位 —— 只在状态变化时打 skip 行
+        self._cooldown_logged_until = None
+        self._cooldown_attempt_id = None
+        # T20（2026-09-14）：摘要调用自身的 token 用量（此前压缩代价无任何 token 埋点）
+        self._last_summary_usage = {}
+        self._pre_tokens_for_ledger = None
         self._last_savings: list[float] = []   # anti-thrashing：最近压缩节省比例
         self._compress_failures = 0            # 连续失败计数（触发cooldown）
         
@@ -486,9 +581,36 @@ class ContextCompressorV2:
         return estimated >= self.threshold_tokens * self.preflight_relax_ratio
     
     def needs_compression(self, messages: List[Dict] = None) -> bool:
-        """Check if compression is needed (uses last_prompt_tokens)."""
+        """Check if compression is needed (uses last_prompt_tokens).
+
+        T16（2026-09-14）：加**盘上持久化**冷却闸（agent/compress_cooldown.py）。
+        原因：实体闸门回滚返回原始 messages ⇒ token 不变 ⇒ 下一 turn 必然再触发；
+        且每 run 新建 compressor ⇒ 实例内冷却跨 run 失效。实测最长两串 ≈84 次真
+        LLM 摘要、1209s **全部丢弃**。冷却窗口内直接返回 False，**不发起**摘要调用。
+        env 回滚：MIMIR_COMPRESS_COOLDOWN=0。
+        """
         tokens = getattr(self, 'last_prompt_tokens', 0) or 0
-        return tokens >= self.threshold_tokens
+        if tokens < self.threshold_tokens:
+            return False
+        _cc = _compress_cooldown()
+        if _cc is not None:
+            try:
+                _cooling, _st = _cc.is_cooling()
+            except Exception as _e:  # 冷却判定失败绝不阻断主流程
+                _cooling, _st = False, {}
+                logger.warning("[COMPRESS] cooldown check failed (%s) — fail-open", _e)
+            if _cooling:
+                _until = _st.get("cooldown_until_epoch")
+                if getattr(self, "_cooldown_logged_until", None) != _until:
+                    self._cooldown_logged_until = _until
+                    logger.warning(
+                        "[COMPRESS] skip reason=cooldown tokens=%s threshold=%s "
+                        "failures=%s remaining_s=%s (热环已被挡住)",
+                        tokens, self.threshold_tokens,
+                        _st.get("consecutive_failures"), _st.get("remaining_s"),
+                    )
+                return False
+        return True
     
     def _estimate_tokens(self, messages: List[Dict]) -> int:
         total = 0
@@ -816,6 +938,16 @@ TURNS TO SUMMARIZE:
                         )
                         return None
                     result = await resp.json()
+                    # T20（2026-09-14）：留下摘要调用自身的 usage（此前压缩代价无 token 埋点）
+                    try:
+                        _u = result.get("usage") or {}
+                        self._last_summary_usage = {
+                            "prompt_tokens": int(_u.get("prompt_tokens") or 0),
+                            "completion_tokens": int(_u.get("completion_tokens") or 0),
+                            "total_tokens": int(_u.get("total_tokens") or 0),
+                        }
+                    except Exception:
+                        self._last_summary_usage = {}
                     return result["choices"][0]["message"]["content"]
         except Exception as e:
             self._last_summary_error = f"exc_{type(e).__name__}"
@@ -1293,6 +1425,11 @@ class MimirContextCompressor(ContextCompressorV2):
         # ── 档2-① 三行日志：trigger / result / abort ──────────────────────
         _pre_n = len(messages)
         _pre_t0 = time.monotonic()
+        # T16：本次尝试唯一 id —— 同一次 compress() 内多条失败上报只计 1 次退避
+        #（否则"摘要降级 + 闸门回滚"会双计，退避跳级）
+        self._cooldown_attempt_id = "%d-%d" % (os.getpid(), int(_pre_t0 * 1000) % 10**9)
+        # T20：本次尝试的摘要用量从空开始（防上一轮残留）
+        self._last_summary_usage = {}
         # RS14-D1：本轮仪器化状态重置（防上一轮残留值污染记录）
         self._last_entity_stats = {"entity_count": 0, "missing_count": 0}
         self._last_index_stats = {
@@ -1307,6 +1444,7 @@ class MimirContextCompressor(ContextCompressorV2):
             _pre_tokens = self._estimate_tokens(messages)
         except Exception:
             _pre_tokens = 0
+        self._pre_tokens_for_ledger = _pre_tokens
         _thr = getattr(self, "threshold_tokens", 0) or 0
         _thr_src = getattr(self, "threshold_source", "unknown")
         logger.info(
@@ -1317,8 +1455,17 @@ class MimirContextCompressor(ContextCompressorV2):
         try:
             post, result = await super().compress(messages, current_tokens, focus_topic)
         except Exception as _e:
+            # T16 顺带修：原代码此处**同一行日志重复打两遍**（已删一条）
             logger.warning("[P2-1] compress failed: %s — keep original messages", _e)
-            logger.warning("[P2-1] compress failed: %s — keep original messages", _e)
+            _cc_x = _compress_cooldown()
+            if _cc_x is not None:
+                try:
+                    _cc_x.record_failure(
+                        "compress_exception:%s" % type(_e).__name__,
+                        attempt_id=self._cooldown_attempt_id,
+                    )
+                except Exception:
+                    pass
             logger.warning(
                 "[COMPRESS] abort layer=agent reason=exception msgs=%s tokens=%s "
                 "threshold=%s source=%s err=%s",
@@ -1375,6 +1522,18 @@ class MimirContextCompressor(ContextCompressorV2):
                         rate * 100, _pre_n, len(post),
                     )
                     self._record_quality_alert(rate, missing, result, outcome="rollback")
+                    # ── T16 核心修复 ──────────────────────────────────────
+                    # 回滚 = 压缩未应用 = token 不变 ⇒ 不禁的话下一 turn 必然重来。
+                    # 这是三处历史冷却都没覆盖的唯一路径。
+                    _cc_r = _compress_cooldown()
+                    if _cc_r is not None:
+                        try:
+                            _cc_r.record_failure(
+                                "entity_retention_low(rate=%.2f)" % rate,
+                                attempt_id=self._cooldown_attempt_id,
+                            )
+                        except Exception as _ce:
+                            logger.warning("[COMPRESS] cooldown record failed: %s", _ce)
                     return messages, result  # 回滚：返回压缩前（保状态不丢）
                 logger.info(
                     "[P2-1] 实体保留率 %.0f%% OK (entity_count=%s missing=%d "
@@ -1387,6 +1546,13 @@ class MimirContextCompressor(ContextCompressorV2):
                 # 新数据将无处产生：Q3 分布 / D-3 的 R1·R2·Δ 基线 / D-4 的
                 # degraded_streak 全部无源。故 applied 与 rollback 两条路都记。
                 self._record_quality_alert(rate, missing, result, outcome="applied")
+                # T16：压缩真正应用 ⇒ 热环结束，冷却清零（下一次失败从 600s 重新起算）
+                _cc_a = _compress_cooldown()
+                if _cc_a is not None:
+                    try:
+                        _cc_a.record_success(attempt_id=self._cooldown_attempt_id)
+                    except Exception as _ce:
+                        logger.warning("[COMPRESS] cooldown clear failed: %s", _ce)
             except Exception as _ve:
                 logger.warning("[P2-1] verify hook failed (degrade: keep compressed): %s", _ve)
         # E1 (2026-08-20): 压缩成功且验证通过 → 摘要写回（callback 可空；异常降级不阻断压缩）
@@ -1437,6 +1603,23 @@ class MimirContextCompressor(ContextCompressorV2):
             # 与 missing 非空同时出现（那会让率无法复算 = 本卡要修的原始病）
             _miss_n = max(int(_st.get("missing_count", 0) or 0), len(_missing_full))
             _ent_n = max(int(_st.get("entity_count", 0) or 0), _miss_n)
+            # ── T20（2026-09-14）：压缩代价埋点（派生量）────────────────
+            # 背景：T2「压缩到底烧多少 token」此前**算不出** —— 台账 18 字段里
+            # 没有任何 token 字段。注意口径：摘要走独立 aiohttp 通路
+            # （_call_summary_llm），**不写 [S2-cache]**，与主循环是两个总体
+            # （T1 已因分母混用自我更正过一次，此处务必分开记）。
+            _usage = dict(getattr(self, "_last_summary_usage", None) or {})
+            _before_tokens = getattr(self, "_pre_tokens_for_ledger", None)
+            _after_tokens = (
+                _before_tokens if outcome == "rollback"
+                else (int(getattr(result, "compressed_tokens", 0) or 0) or _before_tokens)
+            )
+            _ccm = _compress_cooldown()
+            try:
+                _cooling_n = (int(_ccm.state().get("consecutive_failures") or 0)
+                              if _ccm else None)
+            except Exception:
+                _cooling_n = None
             _line = {
                 "ts": datetime.now().isoformat(),
                 "gate_version": ENTITY_GATE_VERSION,
@@ -1452,6 +1635,17 @@ class MimirContextCompressor(ContextCompressorV2):
                 "requested_max_tokens": getattr(self, "_last_summary_requested_max_tokens", None),
                 "summary_budget_raw": getattr(self, "_last_summary_budget_raw", None),
                 "summary_attempts": int(getattr(self, "_last_summary_attempts", 0) or 0),
+                # ── T20 新增：token 代价 ─────────────────────────────────
+                "prompt_tokens_before": _before_tokens,
+                "prompt_tokens_after": _after_tokens,
+                "candidate_tokens": int(getattr(result, "compressed_tokens", 0) or 0),
+                "summary_prompt_tokens": _usage.get("prompt_tokens"),
+                "summary_completion_tokens": _usage.get("completion_tokens"),
+                "summary_total_tokens": _usage.get("total_tokens"),
+                "summary_usage_present": bool(_usage),
+                "cooldown_consecutive_failures": _cooling_n,
+                "pid": os.getpid(),
+                "trace_id": _run_tag(),
                 "outcome": outcome,
                 "original_count": result.original_count,
                 "compressed_count": result.compressed_count,

@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -96,6 +97,41 @@ def read_records(*, ledger: Optional[Path] = None, limit: int = 300) -> List[Dic
     return out[-limit:]
 
 
+# ── T23（2026-09-14）：探针自己没产出测量时，不得被读成"确认不存在" ──────
+# 已实测的洞：`--target` 整仓 rglob 撞 20s 超时，rc=-9 **被记进台账却不参与
+# 判定**，空 stdout 经 observe("")→none 被读成"目标不存在" ⇒ VERIFIED。
+# 即：rc 记录了、没裁决，等于没记。此判定把"探针死亡"与"观测为 none"分开。
+# 注意 rc=1（grep 无匹配）是**有效观测**，不得算死亡；rc=2 是用法/读取错误。
+_PROBE_DEATH_RC = {
+    -9: "timeout",
+    -1: "oserror",
+    2: "usage_or_read_error",
+    126: "not_executable",
+    127: "command_not_found",
+    137: "killed_sigkill",
+}
+
+
+def _probe_death_reason(rc: Any, stdout: str) -> Optional[str]:
+    """返回死亡原因（None = 探针确实跑出了结果）。
+
+    死亡 ⇒ 该次观测**不可用**（既不算 seen 也不算 none），据此禁止 VERIFIED。
+    """
+    if rc is None:
+        return None
+    try:
+        _rc = int(rc)
+    except (TypeError, ValueError):
+        return None
+    if _rc == 0:
+        return None
+    if _rc in _PROBE_DEATH_RC:
+        return "%s(rc=%d)" % (_PROBE_DEATH_RC[_rc], _rc)
+    if _rc < 0:
+        return "signal(%d)" % (-_rc)
+    return None
+
+
 def observe(stdout: str) -> str:
     """把探针 stdout 归一为 seen / none（grep -c 的单个 0 视为"没见到"）。"""
     s = (stdout or "").strip()
@@ -148,21 +184,31 @@ def attest(
 
     def _one(sample: Optional[str]) -> Dict[str, Any]:
         if sample is None:
-            return {"input": None, "cmd": None, "stdout": "", "rc": None, "observed": None}
+            return {"input": None, "cmd": None, "stdout": "", "rc": None,
+                    "death": None, "observed": None}
         if INPUT_PLACEHOLDER in probe:
             cmd = probe.replace(INPUT_PLACEHOLDER, sample)
         else:
             cmd = "%s %s" % (probe, sample)
         r = run(cmd, timeout, cwd)
+        _rc = r.get("rc")
         return {"input": sample, "cmd": cmd, "stdout": (r.get("stdout") or "")[:300],
-                "rc": r.get("rc"), "observed": observe(r.get("stdout") or "")}
+                "rc": _rc,
+                "death": _probe_death_reason(_rc, r.get("stdout") or ""),
+                "observed": observe(r.get("stdout") or "")}
 
     pos = _one(positive)
     neg = _one(negative)
     tgt = _one(target) if target is not None else {
-        "input": None, "cmd": None, "stdout": "", "rc": None, "observed": None}
+        "input": None, "cmd": None, "stdout": "", "rc": None,
+        "death": None, "observed": None}
 
     reason: Optional[str] = None
+    # ── 裁决优先级（D4 定死，2026-09-14）───────────────────────────────
+    # 顺序按**证据强度**排：控制组判定"探针有没有鉴别力"，逻辑上先于任何目标结论。
+    # ① 结构无效 → ② 目标复用控制组 → ③ 正控不一致 → ④ 负控不一致
+    # → ⑤ 控制组死亡但观测巧合一致 → ⑥ 目标死亡 → ⑦ 目标不一致 → VERIFIED。
+    # 死因信息不丢：仍在 controls.{positive,negative}.death 与 probe_health.* 里。
     if not (probe or "").strip():
         reason = "empty_probe"
     elif INPUT_PLACEHOLDER not in probe and target is None:
@@ -179,9 +225,22 @@ def attest(
         # 目标 = 负控样本 => 目标未经独立测量（与上者区分，便于审计）
         reason = "target_reuses_negative"
     elif pos["observed"] != expect_positive:
+        # D4 定死：控制组不一致优先于目标死亡 —— 探针有鉴别力是任何目标结论的
+        # **前提**；正控已坏时目标是死是活都不可读，先报探针坏才指向真根因。
+        # （all-probes-dead 场景下两者都成立，回归锚点要求报本条：
+        #   tests/agent/test_probe_attest.py:80 broken-probe => positive_control_failed）
         reason = "positive_control_failed"
     elif neg["observed"] != expect_negative:
         reason = "negative_control_failed"
+    elif pos.get("death"):
+        # 观测巧合与期望一致，但探针确实死了（rc=2/-9/127…）⇒ 仍不得 VERIFIED
+        reason = "positive_probe_dead(%s)" % pos["death"]
+    elif neg.get("death"):
+        reason = "negative_probe_dead(%s)" % neg["death"]
+    elif tgt.get("death"):
+        # T23 核心：目标探针死亡（超时/被杀/用法错误）⇒ stdout 空 ⇒ observe→none
+        # 恰好等于 expect_negative ⇒ **修前判 VERIFIED**（空前洞）。
+        reason = "target_probe_dead(%s)" % tgt["death"]
 
     verdict = VERIFIED if reason is None else UNVERIFIED
     _now = now if now else time.time()
@@ -198,6 +257,12 @@ def attest(
         "verdict": verdict,
         "reason": reason,
         "source": "probe_attest",
+        "probe_health": {
+            "positive": pos.get("death") or "ok",
+            "negative": neg.get("death") or "ok",
+            "target": tgt.get("death") or "ok",
+            "any_death": bool(tgt.get("death") or pos.get("death") or neg.get("death")),
+        },
         "duration_s": round(time.time() - t0, 3),
     }
     if write:
@@ -205,9 +270,67 @@ def attest(
     return rec
 
 
-def find_negative_claims(text: str) -> List[str]:
-    """返回命中的声明类结论模式（去重、保序）。"""
-    t = text or ""
+_CODE_FENCE_RE = re.compile(r"```.*?```", re.S)
+_INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
+
+# 建设性/完成性声明（与否定性声明对称，用于判定**结论极性**）
+ASSERTIVE_CLAIM_PATTERNS: tuple = (
+    "已完成", "已修复", "已通过", "已推送", "已落盘", "已提交", "已接入",
+    "已生效", "已清零", "已闭环", "已收口", "全绿", "已验证", "修好了", "搞定了",
+)
+
+
+def prose_view(text: str) -> str:
+    """剥掉围栏代码块与行内代码——它们承载**证据**，不承载**声明**。
+
+    背景（2026-09-14 实测 ≥4 次误拦）：扫描把 diff 里的 `- 0 次`、日志原文
+    `未生效`、探针期望值字符串都当成"我的结论" ⇒ 拦的是证据，不是断言。
+    """
+    t = _CODE_FENCE_RE.sub(" ", text or "")
+    return _INLINE_CODE_RE.sub(" ", t)
+
+
+def classify_claim_polarity(text: str, *, prose_only: bool = True) -> Dict[str, Any]:
+    """claim_polarity：按**结论极性**给触发面分类，而不是按句子用途。
+
+    返回 polarity ∈ {negative, assertive, mixed, code_only, none}。
+    · negative   = 散文里含否定性结论（"未生效/为 0/缺失"）⇒ 需要自证
+    · assertive  = 散文里含完成性声明（"已修复/全绿"）⇒ 同样需要自证
+    · code_only  = 只出现在代码块/行内代码里（已被剥掉，记为可观测信号，不拦）
+    """
+    raw = text or ""
+    view = prose_view(raw) if prose_only else raw
+    neg = find_negative_claims(view, prose_only=False)
+    pos = [p for p in ASSERTIVE_CLAIM_PATTERNS if p in view]
+    raw_neg = find_negative_claims(raw, prose_only=False)
+    raw_pos = [p for p in ASSERTIVE_CLAIM_PATTERNS if p in raw]
+    code_only = bool(not neg and not pos and (raw_neg or raw_pos))
+    if neg and pos:
+        pol = "mixed"
+    elif neg:
+        pol = "negative"
+    elif pos:
+        pol = "assertive"
+    elif code_only:
+        pol = "code_only"
+    else:
+        pol = "none"
+    return {
+        "polarity": pol,
+        "negative": neg,
+        "assertive": pos,
+        "code_only": code_only,
+        "code_only_terms": (raw_neg + raw_pos)[:8] if code_only else [],
+        "scan_scope": "prose" if prose_only else "raw",
+    }
+
+
+def find_negative_claims(text: str, *, prose_only: bool = True) -> List[str]:
+    """返回命中的声明类结论模式（去重、保序）。
+
+    prose_only=True（默认，2026-09-14 起）：只扫散文，剥掉代码块/行内代码。
+    """
+    t = prose_view(text) if prose_only else (text or "")
     hits: List[str] = []
     for pat in NEGATIVE_CLAIM_PATTERNS:
         if pat in t and pat not in hits:
@@ -239,8 +362,21 @@ def evaluate_turn(assistant_text: str, *, messages=None, ledger: Optional[Path] 
     if not gate_enabled() or gate_mode() == "off":
         return None
 
-    claims = find_negative_claims(assistant_text)
+    pol = classify_claim_polarity(assistant_text)
+    claims = pol["negative"]
     if not claims:
+        # 声明只出现在代码块里（多为我自己贴的证据）⇒ 不拦，但记观测信号
+        if pol["code_only"] and record:
+            _n = now if now else time.time()
+            append_record({
+                "ts": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(_n)),
+                "epoch": round(_n, 3),
+                "claim": "[auto-guard] 声明仅出现于代码块（未拦）：" + ", ".join(pol["code_only_terms"]),
+                "probe": None, "controls": None, "target": None,
+                "verdict": UNVERIFIED, "reason": "claim_in_code_block",
+                "source": "verify_before_report_guard",
+                "claim_polarity": pol["polarity"], "scan_scope": pol["scan_scope"],
+            }, ledger=ledger)
         return None
 
     if verified_since(ledger=ledger, ttl=ttl, now=now):
@@ -248,7 +384,9 @@ def evaluate_turn(assistant_text: str, *, messages=None, ledger: Optional[Path] 
 
     blocked = gate_mode() == "hard" or not already_nudged(messages)
     result = {"claims": claims, "missing": claims, "blocked": blocked,
-              "mode": gate_mode(), "reason": "no_attestation"}
+              "mode": gate_mode(), "reason": "no_attestation",
+              "claim_polarity": pol["polarity"], "scan_scope": pol["scan_scope"],
+              "code_only": pol["code_only"]}
 
     if record:
         _now = now if now else time.time()
@@ -259,6 +397,8 @@ def evaluate_turn(assistant_text: str, *, messages=None, ledger: Optional[Path] 
             "probe": None, "controls": None, "target": None,
             "verdict": UNVERIFIED, "reason": "no_attestation",
             "source": "verify_before_report_guard",
+            "claim_polarity": pol["polarity"], "scan_scope": pol["scan_scope"],
+            "assertive_terms": pol["assertive"][:8], "code_only": pol["code_only"],
             "preview": (assistant_text or "")[:300],
         }, ledger=ledger)
     return result
