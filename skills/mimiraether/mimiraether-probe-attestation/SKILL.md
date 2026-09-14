@@ -187,6 +187,23 @@ cd ~/src/MimirAether && ./.venv/bin/python -m agent.probe_attest ...
 **正确顺序**：`skill_manage` 改 → `grep` 关键串确认 repo 侧**在** → `cp repo→home` → `grep` 确认 home 侧**在** → 才 commit。
 ⇒ **`diff -q` 只能证明两侧相同，不能证明「相同的是新版」**。
 
+## 陷阱：探针**崩溃/超时**（rc≠0 + 空 stdout）被读成 `none` ⇒ 假 VERIFIED（2026-09-14 当场抓到）
+
+实测（本轮投递前的自证）：
+```
+--target /home/rayliu/src/MimirAether      ← 整仓 rglob，撞 20s 超时
+  "target": {"stdout": "", "rc": -9, "observed": "none"}
+  "verdict": "VERIFIED"                     ← ⚠️ 空输出 = 「确认不存在」
+```
+**这是 T10 之外的另一个洞**：T10 修的是「期望两侧都写 none」（`vacuous_expectations`），
+**没修「探针自己死了、输出为空」**。rc 被**记录**了却**不参与判定** ⇒
+**打嗝的探针与「确认不存在」在闸眼里长得一模一样**。
+
+**为什么危险**：整仓/大目录扫描、远端超时、OOM 被杀——都会产出**干净的 0**，而 0 是全库最不可信的数字。
+**当场的正确处理**：不打补丁绕过，而是**换更小的 target 重跑**（`agent/` 与 `gateway/` 各 0.05s ⇒ 真 0，三次全 VERIFIED）。
+**待修（T23，未落地）**：`rc != 0` 或 `stdout` 为空 ⇒ 该控制组/目标判 **`ERROR`（探针失效）**，**不得**落到 `none`/`VERIFIED`。
+> 一句话：**「没输出」有三种意思——不存在、没匹配、探针死了。闸必须能区分这三者。**
+
 ## 相关文件
 
 - 模块：`agent/probe_attest.py`
