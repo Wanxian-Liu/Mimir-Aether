@@ -132,9 +132,23 @@ def _has_written_this_turn(messages: list[dict[str, Any]]) -> bool:
     return False
 
 
+_LAST_BLOCK_REASON: str | None = None
+
+
+def _set_block_reason(reason: str | None) -> None:
+    """RS17：记录本次拦截原因，供 build_nudge_message 分派对应提示。"""
+    global _LAST_BLOCK_REASON
+    _LAST_BLOCK_REASON = reason
+
+
+def get_last_block_reason() -> str | None:
+    return _LAST_BLOCK_REASON
+
+
 def should_block_finish(messages: list[dict[str, Any]], assistant_text: str) -> bool:
     if not guard_enabled():
         return False
+    _set_block_reason(None)  # RS17：每次判定先清空上一次原因
     # 自引用豁免：讨论守卫本身时跳过（含中文/英文关键词）
     text_lower = (assistant_text or "").lower()
     if any(kw in text_lower for kw in ["verify-before-report", "守卫", "before-report", "before_report"]):
@@ -142,6 +156,20 @@ def should_block_finish(messages: list[dict[str, Any]], assistant_text: str) -> 
     last_user = _last_user_text(messages)
     if last_user and any(p in last_user for p in STATUS_QUERY_PATTERNS):
         return False
+
+    # ── RS17（2026-09-14 刘哥批准）：探针自证闸 ──
+    # 缺陷：下面 _has_verified_this_turn 把"调过任意工具"当"验证过"——探针本身失效
+    #       （未转义正则 / 词典序比时刻）照样放行 ⇒ 09-12 命名后两天重犯 14 次。
+    # 修复：声明类结论（未生效/为 0/缺失/从未…）须附"控制组通过的探针自证"；
+    #       缺自证 ⇒ 拦截，并把该声明自动记为 UNVERIFIED（不许当事实用）。
+    try:
+        from . import probe_attest as _probe_attest
+    except ImportError:  # pragma: no cover - 以脚本方式导入时
+        import probe_attest as _probe_attest  # type: ignore
+    _probe_verdict = _probe_attest.evaluate_turn(assistant_text, messages=messages)
+    if _probe_verdict and _probe_verdict.get("blocked"):
+        _set_block_reason("probe_attest")
+        return True
 
     # ── P0修复核心：写盘任务必须有"写盘动作"才放行 ──
     if _task_requires_write(messages):
@@ -160,6 +188,13 @@ def should_block_finish(messages: list[dict[str, Any]], assistant_text: str) -> 
 
 
 def build_nudge_message() -> str:
+    # RS17：探针自证拦截 → 给可执行的自证指引（而不是笼统的"先验证"）
+    if _LAST_BLOCK_REASON == "probe_attest":
+        try:
+            from . import probe_attest as _probe_attest
+        except ImportError:  # pragma: no cover
+            import probe_attest as _probe_attest  # type: ignore
+        return _probe_attest.build_nudge()
     return (
         "[BLOCKED:verify-before-report] 你的回复被阻止——含有未经验证的声明性结论。"
         "你的回复已被从历史记录中移除。请先调用 read_file / json.load / terminal 等工具"
