@@ -214,6 +214,13 @@ MimirContextCompressor(
 
 ## 🧠 V-JEPA 2.1 Layer 1 自检 (Session 75+)
 
+> ⚠️ **2026-09-14 更正（RS14 · 盘上实测）**：下面这条「≥80% 实体可回溯」自检**在生产上恒不成立**，不要照它判「压缩质量 OK」——
+> 实体按**整段 pre 的去重实体集**收集（实测 **32 条/会话**，见 `data/sessions/20260914_105712_994e2ffc.jsonl`：出现 50 / 去重 32），而中段必被摘要替换 ⇒ `data/compression_quality.jsonl` **275 条全 rollback（通过 0）**，**压缩自 08-24 起从未被应用过一次**。
+> **两条独立真因**：① 摘要请求预算 `max_tokens*2` = 16000 ⇒ 必撞 30s 硬超时（盘上 `≥10` 例 `elapsed≈30.56/30.94/30.98/30.99s` **全是超时截断值，不是自然耗时** —— 拿它做延迟分布推断会循环论证）；② 闸门对「中段实体」结构性不可满足。
+> **修复（commit `690d044`，未推送）**：C1 机器生成实体索引（llm/template 两条路都带）+ C2 输出预算夹到 4000（env `MIMIR_COMPRESS_SUMMARY_MAX_TOKENS`）。**生效须重启 gateway**（compressor 只在 `__init__` 读参 ⇒ 代码已提交 ≠ 已生效）。
+> **两个取证陷阱（本卡自曝）**：`missing` 落盘被截断为 `list(missing)[:5]`（`context_compressor.py:1345`）⇒ **历史 rate 不可复算**；索引上限 `_ENTITY_INDEX_MAX_ITEMS=120 / _ENTITY_INDEX_MAX_CHARS=6000` 在实测负载（仅需 **964 字符**）**永不绑定** ⇒ C1 后 rate ≡ 1.0，**闸门降级为「摘要消息+索引块是否存活」的结构检查**。另：阶段 1 掩码（修剪 tool 输出）对实体**零影响**（实测 97% 实体只在 assistant 段、tool 段 0 实体）——「掩码优先」不是实体保留方案。
+> 完整四方审计：`~/wiki/discussions/2026-09-14-四方审计-Mimir压缩永不应用根因与修复-RS14.md`（Mimir 应答段 commit `04a0366`）· 决策记录：`~/.mimiraether/notes/2026-09-14-RS14-decisions.md`
+
 **来源**: `docs/MEMORY_SELF_CHECK.md` — 压缩后实体保留率自检
 
 每次 `compress()` 后检查:
