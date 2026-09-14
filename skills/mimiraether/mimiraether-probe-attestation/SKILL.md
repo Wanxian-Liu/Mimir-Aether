@@ -218,6 +218,40 @@ cd ~/src/MimirAether && ./.venv/bin/python -m agent.probe_attest ...
 **待修（T23，未落地）**：`rc != 0` 或 `stdout` 为空 ⇒ 该控制组/目标判 **`ERROR`（探针失效）**，**不得**落到 `none`/`VERIFIED`。
 > 一句话：**「没输出」有三种意思——不存在、没匹配、探针死了。闸必须能区分这三者。**
 
+## 陷阱：探针**数到自己**（自匹配）⇒ 负控假 `seen`（2026-09-15 当场踩）
+
+扫**进程表 / 命令行 / 日志**时，探针进程**自身**就在被扫对象里。
+
+```
+--negative _absolutely_no_such_proc_xyzzy   --probe "ps -eo cmd | grep -c '{INPUT}'"
+  → observed=seen(3)   ← 一条不存在的东西被数出 3 条：全是「脚本调用行 + grep 自身 + 外层包装」
+```
+`grep` 的**命令行参数**含该模式 ⇒ 它匹配自己。**任何「计数命令行」的探针都有此洞**，负控必失。
+
+**修法（三层，任选其一，够用即可）**：
+1. **方括号去自匹配**（仅对 grep 有效）：模式写成 `[d]iscussion-watchdog` —— 正则匹配 `discussion-watchdog`，而 grep 自己的 argv 里是 `[d]iscussion-watchdog`（`d` 后跟 `]`）⇒ 不自匹配。**但外层 shell 的调用行仍含明文**，一般够用。
+2. **按 PGID 排除自身进程组**：`pg=$(ps -o pgid= -p $$ | tr -d ' '); ps -eo pid,pgid,cmd | awk -v p="$pg" '$2!=p' | grep -cE -- "$pat"`
+3. **哨兵正控**（最硬）：用 `setsid bash -c 'exec -a _m0_sentinel_probe sleep 45' &` 真起一个进程，再 `ps -eo cmd | grep -c '^_m0_sentinel_probe'`（**锚定行首**避开父 `bash -c` 行）⇒ 得 `1` 证明「探针确实能检出该名字的进程」。**这比拿真实进程当正控更强**——你能控制它必然存在。
+
+> 一句话：**探针的载体若出现在被扫对象里，它就会数到自己。** 先问「我的探针命令本身会被扫到吗」。
+
+## 陷阱：`{INPUT}` **不加引号** + 模板重复前缀 ⇒ 正控假 `none`（2026-09-15 两连踩）
+
+1. **模板重复前缀**：探针写 `ls {DIR}/{INPUT}`，而 `--positive` 样本自带宽路径 `{DIR}/*.md`
+   ⇒ 拼成 `ls /dir//dir/*.md` ⇒ `rc≠0` / 空 stdout ⇒ `observed=none` ⇒ `positive_control_failed`。
+   **修法**：`{INPUT}` 就是**完整样本**，模板里不要再拼目录。
+2. **框架不给 `{INPUT}` 加引号** ⇒ 样本里的通配符会被**调用方 shell 先展开成多个参数**，
+   于是 `ls {INPUT} | wc -l` 在「有 61 个文件」时得 61（seen），而落到 `"$1"` 型脚本时**只吃到第一个** ⇒ 计数变 1。
+   **修法**：探针脚本要同时吃两种形态 ——
+   ```bash
+   shopt -s nullglob
+   if [ "$#" -gt 1 ]; then echo "$#"; exit 0; fi   # 已被调用方展开
+   pat="$1"; files=( $pat ); echo "${#files[@]}"   # 未展开的字面量，自己展开
+   ```
+   这条同时解决「负控是**不存在的通配符**」的取证（未匹配 ⇒ 1 个参数 ⇒ 0 ⇒ `none` ✅）。
+
+> 通用判据：**正控失败时，先怀疑探针的形状（引号/展开/自匹配），再怀疑样本。**
+
 ## 相关文件
 
 - 模块：`agent/probe_attest.py`
