@@ -117,6 +117,30 @@ raw jsonl 连续相同 = 0     : VERIFIED  pos=seen(合成夹具) neg=none  targ
 **注意**：target 的 `none` **不等于**"没做事" —— 只有在正控 `seen` + 负控 `none` 都合格时，
 target 的 `none` 才读作"该模式确实不存在"。
 
+## 闸的盲区与加固（2026-09-14 · T9/T10 —— 闸自己也会被绕过）
+
+**已修（commit `395d2d4`）**：三条结构性判据，全部落 `attest()`，判 `UNVERIFIED` 且 reason 可区分：
+
+| reason | 触发条件 | 修前后果 |
+|:--|:--|:--|
+| `vacuous_expectations` | `expect_positive == expect_negative` | **死探针也 VERIFIED**（空洞控制组）|
+| `control_is_target` | `target == positive` | 同义反复：用被测对象自证被测对象 → **VERIFIED** |
+| `target_reuses_negative` | `target == negative` | 目标未经独立测量（单独 reason 便于审计）|
+
+**修前实测（六例）**：死探针 + 两边期望都写 `none` = **VERIFIED**；`--positive` 与 `--target` 同一路径 = **VERIFIED**。
+修后：B=`vacuous_expectations`、C=`control_is_target`、C2=`target_reuses_negative`；
+**合规对照仍 VERIFIED**（未过度拦截）；常量输出仍 `negative_control_failed`。
+
+**输出契约（必读）**：探针 stdout 必须是 **0/1 或 `grep -c` 的计数** —— `observe()` 把 `0`/空读作 `none`，**其余一律 `seen`**。
+- ❌ `test -e {INPUT} && echo seen || echo none` —— 字面量 `none` 被读成 **seen** ⇒ 负控必失（09-14 因此误伤 2 条自证）
+- ✅ `test -e {INPUT} && echo 1 || echo 0`
+
+**三条硬约束**：① 两控制组样本必须不同 ② 期望值必须不同 ③ 目标样本不得兼作控制样本。
+
+**残余风险（未修，须人工守）**：判据只比**样本字符串**。若 target 与 positive 是**不同路径、同一内容**，闸检测不到（须读文件内容才能判）⇒ 此情形请人工确认目标样本独立。
+
+**夹具自身也要过契约**：第一次取证时我把 `target` 与 `negative` 都设成同一个"不存在的路径"，六例**全被判 `control_is_target`** —— 取证被自己的夹具污染。**造夹具前先满足三条硬约束。**
+
 ## 取证纪律
 
 - 自证成功的记录要**贴在报告里**（`verdict` + 两个控制组的 observed + target）
