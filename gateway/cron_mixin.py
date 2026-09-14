@@ -728,7 +728,7 @@ class CronMixin:
         import subprocess
         from agent.prompt_builder import PLATFORM_HINTS
         from agent.skill_commands import _build_skill_message, _load_skill_payload
-        from cron.jobs import mark_job_run
+        from cron.jobs import mark_job_run, resolve_script_argv
         from gateway.config import Platform
         from gateway.delivery import DeliveryTarget
         from gateway.session import (
@@ -814,6 +814,23 @@ class CronMixin:
                     mark_job_run(job_id, "error", f"script not found: {script_rel}")
                     return
                 try:
+                    # Q23/Q24 (2026-09-15): pick the real interpreter.
+                    # The old hard-coded `/bin/bash` ignored the shebang; a
+                    # `.py` job script was parsed by bash, and a backtick in
+                    # its docstring spawned util-linux `script`, which waits
+                    # forever on a pty -> the 05:37 gateway freeze.  Refuse
+                    # loudly now instead of burning the 300s cap.
+                    launch_argv, argv_reason = resolve_script_argv(script_path)
+                    if launch_argv is None:
+                        raise RuntimeError(
+                            f"cannot dispatch cron script: {argv_reason}"
+                        )
+                    logger.info(
+                        "Cron job %s: script %s -> %s",
+                        job_id,
+                        script_rel,
+                        " ".join(launch_argv),
+                    )
 
                     def _kill_script_tree(child: "subprocess.Popen") -> None:
                         """SIGKILL the script's whole process group.
@@ -834,7 +851,7 @@ class CronMixin:
                     def _run_cron_script() -> "subprocess.CompletedProcess":
                         """Blocking half — runs in a worker thread, never on the loop."""
                         child = subprocess.Popen(
-                            ["/bin/bash", str(script_path)],
+                            launch_argv,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE,
                             text=True,

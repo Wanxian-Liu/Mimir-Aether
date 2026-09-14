@@ -5,10 +5,12 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
+import sys
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from mimir_constants import get_mimir_home
 
@@ -44,6 +46,87 @@ def save_jobs(jobs: List[Dict[str, Any]]) -> None:
     ensure_dirs()
     payload = {"jobs": jobs, "updated_at": now().isoformat()}
     JOBS_FILE.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+# =============================================================================
+# Cron script dispatch (2026-09-15 / RS20 follow-up Q23+Q24)
+# -----------------------------------------------------------------------------
+# The gateway used to launch every cron `script` as `["/bin/bash", path]` --
+# i.e. it ignored the shebang.  A `.py` job script was therefore parsed by
+# bash: the first syntax error aborted, but a backtick inside the docstring was
+# executed as a command substitution and spawned util-linux `script`, which
+# waits forever on a pty.  The job then burned the whole 300s cap and reported
+# only `timeout` -- a silent misconfiguration, not a slow script.
+#
+# Resolution order: shebang > suffix map > refuse (fail fast, never hang).
+# =============================================================================
+
+SHELL_SUFFIXES = (".sh", ".bash")
+
+#: suffix -> interpreter prefix.  Evaluated at import: `sys.executable` is the
+#: gateway's own interpreter (the project venv), which is what repo scripts
+#: need -- a bare `python3` may lack project deps.
+_SUFFIX_INTERPRETERS: Dict[str, List[str]] = {
+    ".sh": ["/bin/bash"],
+    ".bash": ["/bin/bash"],
+    ".py": [sys.executable or "python3"],
+    ".js": ["node"],
+}
+
+
+def resolve_script_argv(script_path: Any) -> Tuple[Optional[List[str]], Optional[str]]:
+    """Return ``(argv, None)`` or ``(None, reason)`` for a cron script path.
+
+    ``argv`` is the full command line (interpreter + script) to exec directly,
+    without a shell.
+    """
+    path = Path(script_path)
+    try:
+        with open(path, "rb") as fh:
+            first = fh.readline(200).decode("utf-8", "replace").strip()
+    except OSError as exc:
+        return None, f"script unreadable: {exc}"
+
+    # 1) An explicit shebang always wins.
+    if first.startswith("#!"):
+        try:
+            parts = shlex.split(first[2:].strip())
+        except ValueError:
+            parts = []
+        if parts:
+            return parts + [str(path)], None
+        return None, "malformed shebang"
+
+    # 2) Fall back to the file suffix.
+    interp = _SUFFIX_INTERPRETERS.get(path.suffix.lower())
+    if interp:
+        return list(interp) + [str(path)], None
+
+    # 3) Refuse -- do not let bash guess.
+    return None, (
+        f"unsupported cron script type: {path.suffix or '<no extension>'} "
+        f"(allowed: {_allowed_suffixes()}; or add a shebang)"
+    )
+
+
+def _allowed_suffixes() -> str:
+    return ", ".join(sorted(_SUFFIX_INTERPRETERS, key=len))
+
+
+def validate_script_config(script_rel: str) -> Optional[str]:
+    """Q24: reject an unrunnable ``script`` config at creation time.
+
+    Static check only (no filesystem access, no path-root assumptions) -- path
+    safety and existence are still enforced by the gateway at run time.  Returns
+    a human-readable reason, or ``None`` when the config is dispatchable.
+    """
+    suffix = Path(str(script_rel)).suffix.lower()
+    if suffix in _SUFFIX_INTERPRETERS:
+        return None
+    return (
+        f"unsupported cron script type: {suffix or '<no extension>'} "
+        f"(allowed: {_allowed_suffixes()})"
+    )
 
 
 def _job_match(job: Dict[str, Any], job_id: str) -> bool:
@@ -240,6 +323,9 @@ def create_job(
     if base_url:
         job["base_url"] = base_url
     if script:
+        _script_reason = validate_script_config(script)
+        if _script_reason:
+            raise ValueError(f"invalid cron script config: {_script_reason}")
         job["script"] = script
 
     jobs = load_jobs()
