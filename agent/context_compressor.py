@@ -52,6 +52,40 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 SUMMARY_PREFIX = "[CONTEXT COMPACTION — REFERENCE ONLY]"
+
+# ── RS14-C1 (2026-09-14)：确定性实体索引 ──────────────────────────────────
+# 问题：_verify_entity_retention 按「整段 pre」收集实体，但中间段在设计上必然被
+# 摘要替换 ⇒ 中间实体在 post 缺席 ⇒ 保留率恒 <80% ⇒ 压缩 187/187 全部回滚。
+# 修法：摘要（llm 与 template 两条路）追加一段**机器生成**的实体清单，让被压缩掉的
+# 中间段实体在 post 里真实存在（修因，而非放宽闸门——闸门强度保持不变）。
+ENTITY_PATTERN = (
+    r"(discussions/[\w\-\.]+\.md|status:\s*\w+|~/wiki/[\w/\.]+|~/src/MimirAether|commit [0-9a-f]{7})"
+)
+_ENTITY_INDEX_MAX_ITEMS = 120      # 条数上限（超出则截断并告警）
+_ENTITY_INDEX_MAX_CHARS = 6000     # 字符上限（约 1.5K tokens，相对 120K 阈值可忽略）
+ENTITY_INDEX_HEADING = "## 实体索引（自动生成，非模型输出）"
+
+# ── RS14-C2 (2026-09-14)：摘要输出 token 上限 ─────────────────────────────
+# 实测（09-14，真 API，同一 prompt）：请求 max_tokens=1000 → 5.5s OK；
+# 3000 → 13.0s OK；8000 → 30.5s **TimeoutError**（硬超时 30s）。
+# ⇒ 超时由「请求的输出预算」驱动，与 prompt 体积无关（174K 字符 prompt 在 1000 预算下 5.5s 完成）。
+# 原代码 `max_tokens * 2`（budget 上限 8000 ⇒ 请求 16000）必然撞墙。
+# 修法：夹到 _SUMMARY_MAX_OUTPUT_TOKENS_DEFAULT，env 可调。
+_SUMMARY_MAX_OUTPUT_TOKENS_DEFAULT = 4000
+_SUMMARY_MAX_OUTPUT_TOKENS_ENV = "MIMIR_COMPRESS_SUMMARY_MAX_TOKENS"
+
+
+def _resolve_summary_max_output() -> int:
+    """摘要输出 token 上限（env > 默认）。非法值静默降级默认，不抛。"""
+    _raw = os.environ.get(_SUMMARY_MAX_OUTPUT_TOKENS_ENV)
+    if _raw:
+        try:
+            _v = int(_raw)
+            if _v > 0:
+                return _v
+        except Exception:
+            pass
+    return _SUMMARY_MAX_OUTPUT_TOKENS_DEFAULT
 LEGACY_PREFIX = "[CONTEXT SUMMARY]:"
 
 _MIN_SUMMARY_TOKENS = 500
@@ -581,6 +615,40 @@ class ContextCompressorV2:
         
         return "\n".join(lines)
     
+    def _collect_entities(self, messages) -> List[str]:
+        """RS14-C1：按 ENTITY_PATTERN 提取关键实体（去重排序，不截断——闸门按全量判定）。"""
+        text = (
+            json.dumps(messages, ensure_ascii=False)
+            if isinstance(messages, list) else str(messages)
+        )
+        return sorted({m.group(1) for m in re.finditer(ENTITY_PATTERN, text)})
+
+    def _entity_index_block(self, messages) -> str:
+        """RS14-C1：生成确定性实体索引块（无实体→空串；超上限→截断并告警）。
+
+        为什么机器生成而不依赖模型：模型摘要是有损的，`## Relevant Files` 之类
+        章节是否列出文件名不可保证（实测 LLM 摘要保留率 0.21 < 模板 0.53）。
+        索引块让「被压缩掉的中间段实体」在 post 里确定性地存在。
+        """
+        entities = self._collect_entities(messages)
+        if not entities:
+            return ""
+        kept, used = [], 0
+        for _e in entities:
+            if len(kept) >= _ENTITY_INDEX_MAX_ITEMS:
+                break
+            if used + len(_e) + 3 > _ENTITY_INDEX_MAX_CHARS:
+                break
+            kept.append(_e)
+            used += len(_e) + 3
+        if len(kept) < len(entities):
+            logger.warning(
+                "[COMPRESS] entity index truncated: carried=%d total=%d "
+                "(caps items=%d chars=%d) — retention gate may fail",
+                len(kept), len(entities), _ENTITY_INDEX_MAX_ITEMS, _ENTITY_INDEX_MAX_CHARS,
+            )
+        return "\n\n" + ENTITY_INDEX_HEADING + "\n" + "\n".join(f"- {e}" for e in kept) + "\n"
+
     async def _generate_summary(self, turns_to_summarize: List[Dict]) -> Tuple[Optional[str], str]:
         now = time.monotonic()
         if now < self._summary_failure_cooldown_until:
@@ -594,7 +662,10 @@ class ContextCompressorV2:
             if summary:
                 self._previous_summary = summary
                 self._summary_failure_cooldown_until = 0.0
-                return self._with_prefix(summary), "llm"
+                return (
+                    self._with_prefix(summary)
+                    + self._entity_index_block(turns_to_summarize)
+                ), "llm"
         except Exception as e:
             # 修复（2026-08-05，核心体检-2）：失败计数（触发cooldown）+日志升级（原debug盲区）
             self._compress_failures += 1
@@ -612,7 +683,10 @@ class ContextCompressorV2:
             "[COMPRESS] summary degraded to template reason=%s (llm path unavailable)",
             getattr(self, "_last_summary_error", "") or "unknown",
         )
-        return self._with_prefix(template_summary), "template"
+        return (
+            self._with_prefix(template_summary)
+            + self._entity_index_block(turns_to_summarize)
+        ), "template"
     
     async def _call_summary_llm(self, content: str, max_tokens: int) -> Optional[str]:
         import json
@@ -668,10 +742,18 @@ TURNS TO SUMMARIZE:
 
 {template.format(budget=max_tokens)}"""
         
+        # RS14-C2：输出预算夹紧（详见 _SUMMARY_MAX_OUTPUT_TOKENS_DEFAULT 注释）
+        _requested = max_tokens * 2
+        _out_budget = min(_requested, _resolve_summary_max_output())
+        if _out_budget < _requested:
+            logger.info(
+                "[COMPRESS] summary output budget clamped: requested=%d used=%d (env=%s)",
+                _requested, _out_budget, _SUMMARY_MAX_OUTPUT_TOKENS_ENV,
+            )
         payload = {
             "model": api_model_name,
             "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": max_tokens * 2,
+            "max_tokens": _out_budget,
             "temperature": 0.3
         }
         
@@ -1274,14 +1356,8 @@ class MimirContextCompressor(ContextCompressorV2):
 
     def _verify_entity_retention(self, pre, post):
         """关键实体保留率：讨论卡路径 / status 字段 / 任务路径 / commit 哈希。"""
-        pre_text = json.dumps(pre, ensure_ascii=False) if isinstance(pre, list) else str(pre)
         post_text = json.dumps(post, ensure_ascii=False) if isinstance(post, list) else str(post)
-        entities = set()
-        for _m in re.finditer(
-            r"(discussions/[\w\-\.]+\.md|status:\s*\w+|~/wiki/[\w/\.]+|~/src/MimirAether|commit [0-9a-f]{7})",
-            pre_text,
-        ):
-            entities.add(_m.group(1))
+        entities = self._collect_entities(pre)
         if not entities:
             return 1.0, []
         missing = [e for e in entities if e not in post_text]
