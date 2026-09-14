@@ -66,6 +66,7 @@ MimirContextCompressor(
 **判据（唯一可靠）**：不要凭输出截图定性；在 Python 里对**磁盘原文**做 **sha256 断言**——
 `hashlib.sha256(line.encode()).hexdigest()` 与候选串（`[...]=120000` / `[...]=350000` / `[...]=***`）逐一比对，命中即真值；
 或比对 `/proc/<gateway pid>/environ`。**本文件已知真值（2026-09-13 实测）**：`.env` 的 `MIMIR_COMPRESS_THRESHOLD_TOKENS=120000`（hash 命中候选 120000）。
+**2026-09-14 RS16 补充（同一陷阱的更强形态）**：脱敏**对空串也生效** —— `{"api_key": ""}` 在工具输出里同样显示成 `***`，**空串与真值完全不可区分**（RS16 第一版探针据此误判「gateway 层有 key」，后被受控差分推翻）。⇒ 探针字段名必须**避开** `key`/`token`/`secret`，只输出 `len` + `sha8` 指纹。
 
 ⚠️ **注记（易误判）**：`read_file`/`grep` 的输出层会把该长大写常量**折叠显示**为 `"MIMIR_...KENS"`，看起来像文件里的字符串写坏了——**是显示层假象，非文件内容**。判据必须用运行时断言（`len(_COMPRESS_THRESHOLD_TOKENS_ENV)==31` 且等于预期），不能凭输出截图定性。
 
@@ -115,6 +116,15 @@ MimirContextCompressor(
 - **`compression.enabled`**：仅此布尔（及 truthy 字符串）控制是否启用卫生压缩；路径见代码中 `_hyg_data.get("compression", {})`。
 - **卫生触发阈值（2026-08-02 P0 修复后）**：`agent_route_mixin.py` L322 `_compress_token_threshold = 200_000` **固定值**（替代旧的 `context_length × 0.85` = 850K）。token 来源**仅用 actual**（`session_entry.last_prompt_tokens`），`estimated` 不再触发——旧估算偏差 3.05×（10:31 estimated 244,759 vs 10:34 actual 80,359）导致"该压不压"。消息数 ≥400 硬阀保留兜底。
 - 优先使用 `session_entry.last_prompt_tokens`，否则用 `estimate_messages_tokens_rough(history)`。
+
+### ⚠️ RS16 定位（2026-09-14 · `reason=no_api_key` = 凭据通路 provider 误绑定）
+
+- **症状**：`[COMPRESS] abort layer=gateway reason=no_api_key msgs=323/327 tokens=201,213/209,356`（12:28:51 / 15:44:47）；且 **abort 后静默放行** —— `agent_route_mixin.py:430-464` 的 `result`/`reason=noop` 日志都在 `if api_key:` 块内 ⇒ 无 result 行，会话带 200K+ transcript 继续（F-A/D-2 只让失败变可见，能力缺口未变）。
+- **根因**：`agent_route_mixin.py:371` → `_resolve_session_agent_runtime` → `gateway/_shared._resolve_runtime_agent_kwargs()` → `resolve_runtime_provider(requested=os.getenv("HERMES_INFERENCE_PROVIDER"))`。该 env **未设** ⇒ `"auto"` ⇒ `_resolve_openrouter_runtime()`（`mimir_cli/runtime_provider.py:420`）⇒ config.yaml `model` 无 `provider`/`base_url` ⇒ 落 OpenRouter 常量端点 ⇒ 候选 key 仅 `OPENROUTER_API_KEY`/`OPENAI_API_KEY`（均无）⇒ `api_key=""`。**该通路按构造看不到 `DEEPSEEK_API_KEY`**。
+- **对照（为什么 agent 层能）**：agent/aux 走 Mimir 原生 `agent/provider_registry.resolve_api_key_provider_credentials("deepseek")`（`api_key_env_vars=('DEEPSEEK_API_KEY',)`）⇒ 有 key。**同一进程、两条互不相通的凭据通路**（§15「双血统路径」在凭据层的复现）。
+- **受控差分判据**（决定性）：`~/.mimiraether/tmp/rs16_probe7.py` —— 注入 `.env` 的 DEEPSEEK key 前后，`_resolve_runtime_agent_kwargs()` **恒为 `provider=openrouter` / `api_key=EMPTY`**，而 registry 通路由 None → 非空。⇒ 「key 未传递」被否证，缺的是 provider 绑定。
+- **修前必读**：`resolve_runtime_provider(requested="deepseek")` 直接 `AttributeError: 'NoneType' object has no attribute 'get'` @ `mimir_cli/runtime_provider.py:855`（`resolve_api_key_provider_credentials` 返回 None）⇒「把 `model.provider` 传给 hygiene」**修不通**，必须先修解析器。
+- 完整报告：`~/.mimiraether/notes/2026-09-14-RS16-Q12-5branch-localization.md` · 卡 §22（`2026-09-14-四方审计-Mimir压缩永不应用根因与修复-RS14.md`）。
 
 ## ⚠️ P0 coroutine bug 教训（2026-08-02 修复）
 
