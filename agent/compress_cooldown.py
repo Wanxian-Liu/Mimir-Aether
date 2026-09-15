@@ -29,6 +29,12 @@
 · ``attempt_id`` 去重 ⇒ 同一次 compress() 内的多条失败只计 1（否则摘要降级 +
   闸门回滚会双计，退避跳级）
 · 成功应用 ⇒ 立即清零
+· **跨进程互斥**（D3 并发裁决 · 2026-09-15）：``_read_raw() → 改 → _write()`` 是**复合**
+  非原子操作；``tmp + replace`` 只保证「不读到半截文件」，**不保证「不丢更新」**
+  （两个进程各读到 n、各写 n+1 ⇒ 净增 1）。⇒ 临界区外挂 ``fcntl.flock(LOCK_EX)``。
+  锁文件 = 状态文件同目录 ``compress_cooldown.json.lock``；等待上限 ``_LOCK_WAIT_S``，
+  超时**fail-open 继续无锁执行**并打 WARNING（冷却是省 token 的优化，不是安全闸——
+  宁可丢一次计数，不可让压缩路径被锁挂住）。非 POSIX 无 ``fcntl`` ⇒ 同样退化为无锁。
 · **fail-open**：状态文件读不出时退回「无冷却」，并打 WARNING。
   理由：冷却是**省 token** 的优化，不是安全闸；读盘失败若 fail-closed 会让压缩
   长期停摆（比热环更糟）。此选择显式记录，便于四方复核。
@@ -46,8 +52,14 @@ import json
 import logging
 import os
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
+
+try:  # POSIX 锁（非 POSIX 平台退化为无锁，见 _locked 的 fail-open 说明）
+    import fcntl as _fcntl
+except Exception:  # pragma: no cover - 非 POSIX
+    _fcntl = None
 
 logger = logging.getLogger(__name__)
 
@@ -137,8 +149,70 @@ def _read_raw() -> Tuple[Dict[str, Any], Optional[str]]:
         return _empty(), "%s: %s" % (type(exc).__name__, exc)
 
 
+_LOCK_WAIT_S = 5.0
+
+
+def lock_path() -> Path:
+    """锁文件路径（与状态文件同目录 ⇒ 同文件系统，flock 语义可靠）。"""
+    return state_path().with_suffix(".json.lock")
+
+
+@contextmanager
+def _locked():
+    """把「读-改-写」变成**跨进程临界区**。yield 是否真正持锁（True/False）。
+
+    为什么必须有（D3 并发实测）：``_read_raw() → 改 → _write()`` 是复合操作，
+    ``tmp.replace(p)`` 只保证读到的是**完整**文件，不保证**不丢更新**：
+    两进程各自读到 n ⇒ 各自写 n+1 ⇒ 净增 1（丢一次）。
+    ⇒ 判据只能写成**不变量**（不丢条 / 不倒退），不能写成「原子写所以安全」。
+
+    fail-open 的两处（与模块既有哲学一致：冷却是省 token 的优化，不是安全闸）：
+      ① 无 ``fcntl``（非 POSIX）⇒ 直接无锁执行；
+      ② 等锁超过 ``_LOCK_WAIT_S`` ⇒ 打 WARNING 后无锁执行（宁可丢一次计数，
+         也不能让压缩路径被锁挂住）。
+    ⚠️ 不可重入：``_write()`` 必须在**已持锁**的调用栈内调用（它自己不加锁）。
+    """
+    if _fcntl is None:  # pragma: no cover - 非 POSIX
+        yield False
+        return
+    p = lock_path()
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(str(p), os.O_CREAT | os.O_RDWR, 0o600)
+    except Exception as exc:
+        logger.warning("[COMPRESS] cooldown lock unavailable (%s) — fail-open (unlocked)", exc)
+        yield False
+        return
+    got = False
+    try:
+        deadline = time.monotonic() + _LOCK_WAIT_S
+        while True:
+            try:
+                _fcntl.flock(fd, _fcntl.LOCK_EX | _fcntl.LOCK_NB)
+                got = True
+                break
+            except OSError:
+                if time.monotonic() >= deadline:
+                    logger.warning(
+                        "[COMPRESS] cooldown lock wait > %.1fs — fail-open (unlocked)", _LOCK_WAIT_S
+                    )
+                    break
+                time.sleep(0.02)
+        yield got
+    finally:
+        try:
+            if got:
+                _fcntl.flock(fd, _fcntl.LOCK_UN)
+        finally:
+            os.close(fd)
+
+
 def _write(st: Dict[str, Any]) -> Optional[str]:
-    """原子写。返回错误串（None = 成功）。"""
+    """原子写。返回错误串（None = 成功）。
+
+    ⚠️ 必须在 ``_locked()`` 临界区内调用（本函数不自取锁）：单独调用只保证
+    「不写半截文件」，不保证「不丢更新」。
+    """
     p = state_path()
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -180,32 +254,35 @@ def record_failure(reason: str, *, attempt_id: Optional[str] = None,
     ``attempt_id`` 相同 ⇒ 同一次 compress() 内的重复上报只计一次。
     """
     _now = time.time() if now is None else now
-    st, err = _read_raw()
-    if err:
-        logger.warning("[COMPRESS] cooldown state unreadable (%s) — fail-open", err)
-        st = _empty()
-    if attempt_id and st.get("last_attempt_id") == attempt_id:
-        st["dedup"] = True
-        return st
-    n = int(st.get("consecutive_failures") or 0) + 1
-    delay = delay_for(n)
-    st.update({
-        "consecutive_failures": n,
-        "total_failures": int(st.get("total_failures") or 0) + 1,
-        "last_reason": reason,
-        "first_failure_epoch": st.get("first_failure_epoch") or round(_now, 3),
-        "last_failure_epoch": round(_now, 3),
-        "cooldown_delay_s": delay,
-        "cooldown_until_epoch": round(_now + delay, 3),
-        "last_attempt_id": attempt_id,
-        "dedup": False,
-    })
-    werr = _write(st)
-    if werr:
-        logger.warning("[COMPRESS] cooldown state write failed (%s) — fail-open", werr)
-    if n >= ALERT_AFTER_FAILURES and st.get("alert_emitted_for") != n:
-        st["alert_emitted_for"] = n
-        _write(st)
+    with _locked():                       # 读-改-写整段在跨进程临界区内（D3）
+        st, err = _read_raw()
+        if err:
+            logger.warning("[COMPRESS] cooldown state unreadable (%s) — fail-open", err)
+            st = _empty()
+        if attempt_id and st.get("last_attempt_id") == attempt_id:
+            st["dedup"] = True
+            return st
+        n = int(st.get("consecutive_failures") or 0) + 1
+        delay = delay_for(n)
+        st.update({
+            "consecutive_failures": n,
+            "total_failures": int(st.get("total_failures") or 0) + 1,
+            "last_reason": reason,
+            "first_failure_epoch": st.get("first_failure_epoch") or round(_now, 3),
+            "last_failure_epoch": round(_now, 3),
+            "cooldown_delay_s": delay,
+            "cooldown_until_epoch": round(_now + delay, 3),
+            "last_attempt_id": attempt_id,
+            "dedup": False,
+        })
+        werr = _write(st)
+        if werr:
+            logger.warning("[COMPRESS] cooldown state write failed (%s) — fail-open", werr)
+        _alert = n >= ALERT_AFTER_FAILURES and st.get("alert_emitted_for") != n
+        if _alert:
+            st["alert_emitted_for"] = n
+            _write(st)
+    if _alert:
         logger.warning(
             "[COMPRESS][COOLDOWN-ALERT] 连续 %d 次压缩未通过（reason=%s）——"
             "热环已被冷却闸挡住，最近一次冷却 %.0fs（上限 %.0fs）。"
@@ -224,21 +301,22 @@ def record_success(*, attempt_id: Optional[str] = None,
                    now: Optional[float] = None) -> Dict[str, Any]:
     """压缩**已应用** ⇒ 清零冷却。"""
     _now = time.time() if now is None else now
-    st, err = _read_raw()
-    if err:
-        st = _empty()
-    prev = int(st.get("consecutive_failures") or 0)
-    st.update({
-        "consecutive_failures": 0,
-        "cooldown_until_epoch": 0.0,
-        "cooldown_delay_s": 0.0,
-        "alert_emitted_for": None,
-        "last_applied_epoch": round(_now, 3),
-        "last_attempt_id": attempt_id,
-        "total_successes": int(st.get("total_successes") or 0) + 1,
-        "dedup": False,
-    })
-    _write(st)
+    with _locked():                       # 读-改-写整段在跨进程临界区内（D3）
+        st, err = _read_raw()
+        if err:
+            st = _empty()
+        prev = int(st.get("consecutive_failures") or 0)
+        st.update({
+            "consecutive_failures": 0,
+            "cooldown_until_epoch": 0.0,
+            "cooldown_delay_s": 0.0,
+            "alert_emitted_for": None,
+            "last_applied_epoch": round(_now, 3),
+            "last_attempt_id": attempt_id,
+            "total_successes": int(st.get("total_successes") or 0) + 1,
+            "dedup": False,
+        })
+        _write(st)
     if prev:
         logger.info(
             "[COMPRESS] cooldown cleared (was %d consecutive failure(s)) pid=%d",
@@ -250,7 +328,8 @@ def record_success(*, attempt_id: Optional[str] = None,
 def reset(now: Optional[float] = None) -> Dict[str, Any]:
     """手动清空（运维 / 测试）。"""
     st = _empty()
-    _write(st)
+    with _locked():
+        _write(st)
     return st
 
 

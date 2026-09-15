@@ -216,3 +216,154 @@ def test_needs_compression_fail_open_on_broken_state(cooldown):
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text("<<<garbage>>>", encoding="utf-8")
     assert ContextCompressorV2.needs_compression(_FakeCompressor()) is True
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# ⑨ D3 并发（批1 附条件 · 2026-09-15 裁决 #1 · 判据 = **不变量**）
+#    裁决原文：并发测试按 Mimir 修正判据落（不变量断言，不采 Loki 原断言=恒假）
+#              + fcntl.flock 倾向
+#    为什么不变量：`consecutive_failures == 1` 这类断言在**正确的并发实现**下也会红
+#    （N 个进程各记 1 次 ⇒ 终值 N）⇒ 恒假探针。不变量 = 不丢条 / 不倒退。
+#    受控差分：控制组关锁 ⇒ 必须能复现丢更新（否则测试恒真）。
+# ══════════════════════════════════════════════════════════════════════════
+
+import json as _json
+import multiprocessing as _mp
+import os as _os
+import threading as _threading
+import time as _time
+from contextlib import contextmanager as _contextmanager
+
+_PROCS = 4
+_ITERS = 5
+
+
+def _proc_worker_failures(iters):
+    """子进程 worker：每个 attempt_id 不同 ⇒ 应有 iters 次「净增」。"""
+    from agent import compress_cooldown as _cc
+    for i in range(iters):
+        _cc.record_failure("concurrent", attempt_id="p%d-%d" % (_os.getpid(), i))
+
+
+@_contextmanager
+def _no_lock():
+    """控制组：把锁变成空操作（复现「读-改-写」非原子）。"""
+    yield False
+
+
+@_contextmanager
+def _slow_read(hook, delay=0.2):
+    """把临界区内的读拉长，制造可控的交错窗口（把种族条件从「碰运气」变成「必然」）。"""
+    _time.sleep(delay)
+    with hook():
+        yield
+
+
+class _SwapLock:
+    """临时替换 `_locked`（还原用）。"""
+
+    def __init__(self, cc, replacement):
+        self.cc, self.new, self.old = cc, replacement, cc._locked
+
+    def __enter__(self):
+        self.cc._locked = self.new
+        return self.cc
+
+    def __exit__(self, *exc):
+        self.cc._locked = self.old
+        return False
+
+
+class _SwapReadRaw:
+    def __init__(self, cc, delay):
+        self.cc, self.delay, self.old = cc, delay, cc._read_raw
+
+    def _slow(self):
+        _time.sleep(self.delay)
+        return self.old()
+
+    def __enter__(self):
+        self.cc._read_raw = self._slow
+        return self.cc
+
+    def __exit__(self, *exc):
+        self.cc._read_raw = self.old
+        return False
+
+
+def _run_two_threads(cc, barrier):
+    """两个线程各自记一次失败（attempt_id 不同）。"""
+    def one(tag):
+        barrier.wait()
+        cc.record_failure("t-%s" % tag, attempt_id="tid-%s" % tag)
+    ts = [_threading.Thread(target=one, args=(t,)) for t in ("a", "b")]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join(10)
+
+
+# ── 处置组：有锁 ⇒ 不丢条（不变量）────────────────────────────────────────
+def test_invariant_no_lost_update_with_lock(cooldown):
+    """不变量①**不丢条**：两个线程各记 1 次 ⇒ 终值必须恰好 2（不是 1）。"""
+    barrier = _threading.Barrier(2)
+    with _SwapReadRaw(cooldown, 0.2):          # 拉长窗口：无锁时必然交错
+        _run_two_threads(cooldown, barrier)
+    st = cooldown.state()
+    assert st["consecutive_failures"] == 2, st
+    assert st["total_failures"] == 2, st
+
+
+def test_invariant_no_lost_update_across_processes(cooldown):
+    """不变量①（真跨进程 fork）：4 进程 × 5 次 ⇒ total/consecutive 恰好 20。"""
+    ctx = _mp.get_context("fork")
+    ps = [ctx.Process(target=_proc_worker_failures, args=(_ITERS,)) for _ in range(_PROCS)]
+    for p in ps:
+        p.start()
+    for p in ps:
+        p.join(30)
+        assert p.exitcode == 0, p.exitcode
+    st = cooldown.state()
+    assert st["total_failures"] == _PROCS * _ITERS, st
+    assert st["consecutive_failures"] == _PROCS * _ITERS, st
+    assert st["read_error"] is None, st
+    # 不变量②**不写坏**：风暴后状态文件仍必须是完整合法 JSON（tmp+replace 的意义）
+    raw = cooldown.state_path().read_text(encoding="utf-8")
+    assert _json.loads(raw)["total_failures"] == _PROCS * _ITERS
+
+
+def test_invariant_cooldown_never_regresses(cooldown):
+    """不变量③**不倒退**：连续失败期间 cooldown_until / delay 单调不减。"""
+    seen = []
+    for i in range(4):
+        st = cooldown.record_failure("r%d" % i)
+        seen.append((st["consecutive_failures"], st["cooldown_delay_s"], st["cooldown_until_epoch"]))
+    fails = [s[0] for s in seen]
+    delays = [s[1] for s in seen]
+    untils = [s[2] for s in seen]
+    assert fails == sorted(fails) == [1, 2, 3, 4], fails
+    assert delays == sorted(delays) and delays[-1] > delays[0], delays
+    assert untils == sorted(untils), untils
+
+
+# ── 控制组：关锁 ⇒ 必须复现丢更新（证明上面两条测试非恒真）──────────────
+def test_differential_control_without_lock_loses_update(cooldown):
+    """控制组（RS17 自证）：把 `_locked` 换成空操作 ⇒ 丢更新**可达且可复现**。
+
+    同一份「读-改-写」代码、同一交错窗口，唯一差别 = 锁 ⇒ 结论必须相反：
+    无锁时 `total_failures` 落到 2 次失败只记 1（= 丢条），有锁时恰好 2。
+    """
+    barrier = _threading.Barrier(2)
+    with _SwapLock(cooldown, _no_lock), _SwapReadRaw(cooldown, 0.2):
+        _run_two_threads(cooldown, barrier)
+    st = cooldown.state()
+    assert st["total_failures"] < 2, st          # ← 丢更新复现（否则控制组失效，判其为探针问题）
+    assert st["consecutive_failures"] < 2, st
+
+
+def test_differential_lock_is_restored_after_tests(cooldown):
+    """还原纪律：控制组跑完后 `_locked` 必须还是真锁（yield True）。"""
+    with cooldown._locked() as got:
+        pass
+    assert got is True
+    assert cooldown.lock_path().exists()

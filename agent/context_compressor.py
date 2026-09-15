@@ -155,6 +155,22 @@ class _CompressAttributionFilter(logging.Filter):
     · args 三形态都要能追加；未知形态**不注入**（fail-open，绝不改 args 类型）。
     """
 
+    @staticmethod
+    def _inject(base: str, suffix: str) -> str:
+        r"""把归属字段插到**锚点行**行尾。
+
+        单行 msg（生产全部现有形态）⇒ 与旧的「拼在整条 msg 末尾」**逐字节等价**。
+        跨行 msg（msg 内含 ``\n``）⇒ 插到**第一个 ``\n`` 之前**（批1 护栏 1 实测洞）：
+        旧写法把字段拼在整条 msg 末尾 ⇒ 字段落到**第 2 物理行**，而
+        ``grep '^\[COMPRESS\]'`` 只拿到第 1 行 ⇒ **归属字段对消费者不可见**
+        （实测：含 ``[COMPRESS]`` 的行内 ``pid=`` 命中 0/1）。
+        正文一个字节不动（只在**行尾**追加，不插到 ``[COMPRESS] `` 之后）。
+        """
+        cut = base.find("\n")
+        if cut < 0:
+            return base + suffix
+        return base[:cut] + suffix + base[cut:]
+
     def filter(self, record):  # noqa: A003 - logging API
         try:
             if not isinstance(record.msg, str) or not record.msg.startswith("[COMPRESS]"):
@@ -164,23 +180,73 @@ class _CompressAttributionFilter(logging.Filter):
             _pid, _run = os.getpid(), _run_tag()
             _args = record.args
             if _args is None:
-                record.msg = "%s pid=%%d run=%%s" % record.msg
+                record.msg = self._inject(record.msg, " pid=%d run=%s")
                 record.args = (_pid, _run)
             elif isinstance(_args, tuple):
-                record.msg = "%s pid=%%d run=%%s" % record.msg
+                record.msg = self._inject(record.msg, " pid=%d run=%s")
                 record.args = tuple(_args) + (_pid, _run)
             elif isinstance(_args, dict):
-                record.msg = "%s pid=%%(__mimir_pid)d run=%%(__mimir_run)s" % record.msg
+                record.msg = self._inject(
+                    record.msg, " pid=%(__mimir_pid)d run=%(__mimir_run)s"
+                )
                 record.args = dict(_args, __mimir_pid=_pid, __mimir_run=_run)
         except Exception:
             return True  # 日志永不因归属注入失败而丢
         return True
 
 
+# ── 覆盖面声明（D10 · 批1护栏4 · 2026-09-15 受控差分实测）──────────────
+# 事实：本 filter 由 _install_compress_attribution() 只挂在 **1 个 logger** 上。
+# 机制（Python logging 官方语义）：logger 的 ``filters`` **只作用于直接在该 logger
+# 上发起的记录**；子/兄弟 logger 的记录 propagate 到祖先时，只经过祖先的
+# **handlers**，**不经过祖先 logger 的 filters**。
+# ⇒ 兄弟 logger（如 agent.compress_cooldown）里的 [COMPRESS] 行**不会被注入**
+#   （实测㈠：兄弟 logger 记录 ⇒ 不注入；㈡：共同祖先无 handler 时该记录直接消失）。
+# ⇒ 因此覆盖口径只能是「**coverage = 1 logger**」，禁写「全覆盖」。
+# 传播行为已钉死在测试里（受控差分：logger 级不覆盖 / handler 级覆盖）：
+#   tests/agent/test_compress_attribution.py::test_coverage_is_single_logger_*
+#   tests/agent/test_compress_attribution.py::test_ancestor_handler_filter_covers_sibling
+# D10 的正解（实测㈢）= filter 挂**全子孙共用的祖先 handler** ⇒ 见下方
+# install_attribution_on_ancestor_handler()（**opt-in，未接线**：它改的是进程级
+# logging 拓扑，须四方裁定后再上线；当前生产只声明 1 个 logger，不假装全覆盖）。
+ATTRIBUTION_COVERED_LOGGERS = ("agent.context_compressor",)
+
+
 def _install_compress_attribution() -> None:
     _lg = logging.getLogger(__name__)
     if not any(isinstance(f, _CompressAttributionFilter) for f in _lg.filters):
         _lg.addFilter(_CompressAttributionFilter())
+
+
+class _AttributionCarrierHandler(logging.Handler):
+    """**只当 filter 载体**的 handler：不输出任何日志，只让 filter 对经它传播的记录生效。
+
+    为什么需要它：见上方覆盖面声明——祖先 logger 的 filters 看不到子孙记录，
+    只有**祖先的 handler** 能看到。挂一个 emit 为空的 handler，即把 filter
+    的作用面从「1 个 logger」扩到「该祖先的全部子孙 logger」。
+    """
+
+    def emit(self, record):  # noqa: A003 - logging API
+        return None
+
+
+def install_attribution_on_ancestor_handler(logger_name: str = "agent") -> logging.Handler:
+    """D10 正解（**opt-in，默认不调用**）：把 filter 挂到祖先 handler ⇒ 覆盖全部子孙。
+
+    · 幂等：该 logger 上已有载体 handler ⇒ 直接返回它，不重复挂。
+    · 不进生产接线：它改变进程级 logging 拓扑（还会让 root 的 lastResort 对该子树失效），
+      属「全局面」改动，须四方裁定后由接线方显式调用。
+    · 已验证（受控差分）：挂上后 ``agent.compress_cooldown`` 与
+      ``agent.context_compressor`` 两条记录**都**被注入，且不重复注入。
+    """
+    lg = logging.getLogger(logger_name)
+    for h in list(lg.handlers):
+        if isinstance(h, _AttributionCarrierHandler):
+            return h
+    h = _AttributionCarrierHandler(level=logging.NOTSET)
+    h.addFilter(_CompressAttributionFilter())
+    lg.addHandler(h)
+    return h
 
 
 try:
