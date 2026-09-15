@@ -151,9 +151,11 @@ commit 链：filter-branch 重写 → 1f1b9e5 → 4be1203（conftest）→ bbdb0
 
 ## 实战案例 4（2026-09-15 · 本仓跑全树测试**不要带 `-p`**）
 
-- **现象**：`pytest -p no:cacheprovider -q` 打红 **18 个 `mimir_cli` 测试**，看起来像大面积回归。
+- **现象**：`pytest -p no:cacheprovider -q` 打红**这批 CLI 测试**，看起来像大面积回归。
 - **根因**：本仓 `mimir_cli` 把 `-p` 之后的**插件名当 profile 名**解析 → `SystemExit(1)`。
   **不是代码缺陷，是测量假象**（18 个红全部来自 CLI profile 解析）。
-- **判据**：去掉 `-p ...` 重跑 ⇒ 全绿。
+- **判据（受控差分，2026-09-15 实测）**：`pytest tests/test_mimir_cli_*.py` —— 无 `-p` = **20 passed**；
+  带 `-p no:cacheprovider` = **10 failed / 10 passed**。⇒ 去掉 `-p ...` 即全绿。
+  （先前口传的「18 个」是**未复算的旧数**，以本次受控差分为准。）
 - **纪律**：**测试失败先问「是不是我的测量方式坏了」**，再问「代码坏了没」。
   同型教训见案例 3（环境兜底假绿）——方向相反，但都是「先验测量、后验被测物」。
