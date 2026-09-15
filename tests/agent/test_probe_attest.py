@@ -184,7 +184,10 @@ def test_find_negative_claims_dedup():
 
 
 def test_positive_text_needs_no_attestation(gate_on, ledger):
-    assert pa.evaluate_turn("一切正常，压缩已生效", ledger=ledger) is None
+    """**2026-09-15 A1 口径变更**：本测试原用「压缩已生效」——而"已生效"属 assertive
+    声明族，新策略下**应当被拦**（"把改法已定写成已完成"正是要治的病）。
+    故改为：**无声明词**的文本才免自证；声明族（含"已生效"）见下方 A1 段。"""
+    assert pa.evaluate_turn("一切正常，压缩在跑", ledger=ledger) is None
 
 
 def test_negative_claim_blocked_and_logged(gate_on, ledger):
@@ -318,3 +321,113 @@ def test_cli_list(samples, tmp_path, monkeypatch, capsys):
     capsys.readouterr()  # 清空上一条 --json 的 stdout（否则计数翻倍）
     assert pa._cli(["--list", "5"]) == 0
     assert len(capsys.readouterr().out.strip().splitlines()) == 1
+
+
+# ── ⑥ A1（2026-09-15）：claim_polarity **执法**（assertive 声明族）─────────
+# 病：assertive（"已完成/已修复/全绿/已生效"）只被分类、只写台账，不参与判定
+#     ⇒「把改法已定写成已完成」无闸（四方卡 D7）。
+
+def _msg_with_tool(name: str):
+    return [{"role": "assistant", "tool_calls": [{"function": {"name": name}}]}]
+
+
+def test_a1_assertive_claim_without_evidence_blocked(gate_on, ledger):
+    out = pa.evaluate_turn("批 1 已完成，全绿", messages=[], ledger=ledger)
+    assert out is not None and out["blocked"] is True
+    assert out["assertive_enforced"] is True
+    assert any(c.startswith("[assertive]") for c in out["claims"])
+
+
+def test_a1_assertive_claim_with_write_evidence_passes(gate_on, ledger):
+    """本轮有 write_file 动作 ⇒ 声明有据 ⇒ 不拦（防误伤正常收尾）。"""
+    out = pa.evaluate_turn("批 1 已完成，全绿", messages=_msg_with_tool("write_file"),
+                           ledger=ledger)
+    assert out is None
+
+
+def test_a1_execute_code_is_not_write_evidence(gate_on, ledger):
+    """**刻意**不算证据：与四方 Q9 裁决一致（"点名工具"判据要被"盘上增量"替换）。
+    这条测试把该取舍钉死，防以后有人"顺手"把 execute_code 加进去。"""
+    out = pa.evaluate_turn("已落盘", messages=_msg_with_tool("execute_code"), ledger=ledger)
+    assert out is not None and out["blocked"] is True
+
+
+def test_a1_enforcement_is_reversible(gate_on, ledger, monkeypatch):
+    monkeypatch.setenv(pa.ASSERTIVE_ENFORCE_ENV, "0")
+    assert pa.evaluate_turn("已落盘", messages=[], ledger=ledger) is None
+
+
+def test_a1_assertive_released_by_verified_attestation(gate_on, ledger, samples):
+    """与否定性声明共用放行机制：TTL 内有 VERIFIED 自证 ⇒ 放行。"""
+    pos, neg, tgt = samples
+    pa.attest(claim="c", probe=GOOD_PROBE, positive=str(pos), negative=str(neg),
+              target=str(tgt), ledger=ledger)
+    assert pa.evaluate_turn("已落盘，全绿", messages=[], ledger=ledger) is None
+
+
+def test_a1_polarity_mixed_lists_both(gate_on, ledger):
+    out = pa.evaluate_turn("已修复；但 result=0 未生效", messages=[], ledger=ledger)
+    assert out is not None and out["claim_polarity"] == "mixed"
+
+
+# ── ⑦ A3（2026-09-15）：探针闸残余三类 ────────────────────────────────────
+
+def test_a3_prose_view_strips_code():
+    """prose_view 此前**有实现无测试**（A3 残余②）。"""
+    # 声明词**在代码里** ⇒ 剥掉；在代码外 ⇒ 保留
+    assert "已完成" not in pa.prose_view("```已完成```")
+    assert "已完成" not in pa.prose_view("`已完成`")
+    assert "已完成" in pa.prose_view("已完成，且无代码块")
+    # 围栏块内即使含声明词也被剥掉；行内代码同理
+    assert pa.prose_view("```\n已完成\n```").strip() == ""
+
+
+def test_a3_controls_identical_content_rejected(tmp_path, ledger):
+    """路径不同、**内容**相同 —— 修前只比路径字符串 ⇒ 控制组无鉴别力却判 VERIFIED。"""
+    a = tmp_path / "a.log"; b = tmp_path / "b.log"; c = tmp_path / "c.log"
+    a.write_text(REAL_LOG, encoding="utf-8")
+    b.write_text(REAL_LOG, encoding="utf-8")   # 与 a 内容相同、路径不同
+    c.write_text(FALSE_LOG, encoding="utf-8")
+    rec = pa.attest(claim="c", probe=GOOD_PROBE, positive=str(a), negative=str(b),
+                    target=str(c), ledger=ledger)
+    assert rec["verdict"] == pa.UNVERIFIED
+    assert rec["reason"] == "controls_identical_content"
+
+
+def test_a3_target_reuses_negative_content_rejected(tmp_path, ledger):
+    a = tmp_path / "a.log"; b = tmp_path / "b.log"; t = tmp_path / "t.log"
+    a.write_text(REAL_LOG, encoding="utf-8")
+    b.write_text(FALSE_LOG, encoding="utf-8")
+    t.write_text(FALSE_LOG, encoding="utf-8")   # 与负控内容相同、路径不同
+    rec = pa.attest(claim="c", probe=GOOD_PROBE, positive=str(a), negative=str(b),
+                    target=str(t), ledger=ledger)
+    assert rec["verdict"] == pa.UNVERIFIED
+    assert rec["reason"] == "target_reuses_negative_content"
+
+
+@pytest.mark.parametrize("rc,stdout,dead", [
+    (3, "", True),        # 未知正数 rc + 无观测 ⇒ 修前被判 none（后门）
+    (3, "1\n", False),    # 有契约 token ⇒ 不冤枉
+    (1, "", False),       # grep 无匹配 = 有效观测
+    (0, "", False),
+    (-9, "", True),       # 已知超时码
+])
+def test_a3_unknown_positive_rc_backdoor(rc, stdout, dead):
+    r = pa._probe_death_reason(rc, stdout)
+    assert bool(r) is dead, (rc, stdout, r)
+
+
+def test_a3_dead_target_via_unexpected_rc_blocks_verified(ledger):
+    """端到端：目标探针 rc=3 且无输出 ⇒ target_probe_dead（修前 = VERIFIED 假绿）。"""
+    def _runner(cmd, timeout, cwd):
+        if "SAMPLE_POS" in cmd:
+            return {"rc": 0, "stdout": "1\n", "stderr": ""}
+        if "SAMPLE_NEG" in cmd:
+            return {"rc": 1, "stdout": "", "stderr": ""}
+        return {"rc": 3, "stdout": "", "stderr": ""}
+    rec = pa.attest(claim="c", probe="grep -c x {INPUT}", positive="SAMPLE_POS",
+                    negative="SAMPLE_NEG", target="SAMPLE_TGT",
+                    runner=_runner, ledger=ledger)
+    assert rec["verdict"] == pa.UNVERIFIED
+    assert rec["reason"].startswith("target_probe_dead")
+    assert "unexpected_rc" in rec["reason"]

@@ -25,6 +25,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -112,6 +113,27 @@ _PROBE_DEATH_RC = {
 }
 
 
+def _has_contract_token(stdout: str) -> bool:
+    """stdout 是否含可用观测（契约：0 或空 = none；其余 = seen）。"""
+    return bool((stdout or "").strip())
+
+
+def _sample_fingerprint(sample: Optional[str]) -> Optional[str]:
+    """样本**内容**指纹（A3）：路径不同但内容相同 ⇒ 控制组无鉴别力。
+
+    目录 / 不存在 / 读不动 ⇒ 返回 None（无法按内容比对，退回路径比对）。
+    """
+    if not sample:
+        return None
+    try:
+        p = Path(sample)
+        if not p.is_file():
+            return None
+        return hashlib.sha256(p.read_bytes()).hexdigest()[:16]
+    except OSError:
+        return None
+
+
 def _probe_death_reason(rc: Any, stdout: str) -> Optional[str]:
     """返回死亡原因（None = 探针确实跑出了结果）。
 
@@ -129,6 +151,13 @@ def _probe_death_reason(rc: Any, stdout: str) -> Optional[str]:
         return "%s(rc=%d)" % (_PROBE_DEATH_RC[_rc], _rc)
     if _rc < 0:
         return "signal(%d)" % (-_rc)
+    # ── A3-3（2026-09-15）：未知**正数** rc 曾是后门 ─────────────────────
+    # 修前：rc=3/4/8… 一律 `return None`（不算死）⇒ 空 stdout 经 observe("")→none
+    # 被读成"目标不存在" ⇒ 打嗝的探针 = 确认不存在（T23 同族、未覆盖的第二类）。
+    # 修后：rc=1 视为合法（grep 无匹配 = 有效观测）；其余未知正数 rc **当且仅当
+    #       stdout 无可用观测**时判死（不冤枉会打印契约 token 的探针）。
+    if _rc != 1 and not _has_contract_token(stdout):
+        return "unexpected_rc(rc=%d)" % _rc
     return None
 
 
@@ -197,6 +226,10 @@ def attest(
                 "death": _probe_death_reason(_rc, r.get("stdout") or ""),
                 "observed": observe(r.get("stdout") or "")}
 
+    _fp_pos = _sample_fingerprint(positive)
+    _fp_neg = _sample_fingerprint(negative)
+    _fp_tgt = _sample_fingerprint(target)
+
     pos = _one(positive)
     neg = _one(negative)
     tgt = _one(target) if target is not None else {
@@ -215,6 +248,10 @@ def attest(
         reason = "no_input_placeholder"
     elif positive == negative:
         reason = "controls_identical"
+    elif _fp_pos is not None and _fp_pos == _fp_neg:
+        # A3-1：**内容**同、路径异 —— 修前只比路径字符串 ⇒ 控制组其实无鉴别力
+        # （两个内容一模一样的样本）却照样判 VERIFIED。
+        reason = "controls_identical_content"
     elif expect_positive == expect_negative:
         # 两个控制组期待同一个观测值 => 无论探针死活都能通过（空洞控制组）
         reason = "vacuous_expectations"
@@ -224,6 +261,9 @@ def attest(
     elif target is not None and target == negative:
         # 目标 = 负控样本 => 目标未经独立测量（与上者区分，便于审计）
         reason = "target_reuses_negative"
+    elif _fp_tgt is not None and _fp_tgt == _fp_neg:
+        # A3-1 同族：目标与负控**内容**相同（路径异）⇒ 目标未经独立测量
+        reason = "target_reuses_negative_content"
     elif pos["observed"] != expect_positive:
         # D4 定死：控制组不一致优先于目标死亡 —— 探针有鉴别力是任何目标结论的
         # **前提**；正控已坏时目标是死是活都不可读，先报探针坏才指向真根因。
@@ -278,6 +318,39 @@ ASSERTIVE_CLAIM_PATTERNS: tuple = (
     "已完成", "已修复", "已通过", "已推送", "已落盘", "已提交", "已接入",
     "已生效", "已清零", "已闭环", "已收口", "全绿", "已验证", "修好了", "搞定了",
 )
+
+
+# ── A1（2026-09-15）：assertive 类声明的执法开关与"本轮写盘证据" ──────────
+# 证据工具集合与汇报闸 agent/verify_before_report_guard.WRITE_TOOLS **同集合**，
+# 避免两闸口径分叉（口径分叉本身就是历史事故源）。
+# execute_code / terminal **刻意不计**：见 A2（Q9 裁决 = 改用"盘上增量"判据）。
+WRITE_EVIDENCE_TOOLS: frozenset = frozenset({"write_file", "patch", "apply_patch", "edit"})
+ASSERTIVE_ENFORCE_ENV = "MIMIR_PROBE_ATTEST_ASSERTIVE"
+
+
+def assert_claims_enforced() -> bool:
+    """默认开；置 0 可一键退回"只分类不执法"的旧行为（可逆）。"""
+    return os.environ.get(ASSERTIVE_ENFORCE_ENV, "1") == "1"
+
+
+def _turn_write_evidence(messages: Optional[Sequence[Dict[str, Any]]]) -> bool:
+    """本轮（最后一条真实 user 之后）是否出现过写盘类工具调用。
+
+    与 verify_before_report_guard._has_written_this_turn 同语义，但独立实现
+    （probe_attest 可能被当脚本导入，不能反向依赖 guards 模块）。
+    """
+    for msg in reversed(list(messages or [])):
+        if msg.get("role") == "assistant" and msg.get("tool_calls"):
+            for tc in msg["tool_calls"]:
+                try:
+                    name = tc.get("function", {}).get("name", "")
+                except AttributeError:
+                    continue
+                if name in WRITE_EVIDENCE_TOOLS:
+                    return True
+        if msg.get("role") == "user":
+            break
+    return False
 
 
 def prose_view(text: str) -> str:
@@ -363,7 +436,16 @@ def evaluate_turn(assistant_text: str, *, messages=None, ledger: Optional[Path] 
         return None
 
     pol = classify_claim_polarity(assistant_text)
-    claims = pol["negative"]
+    _has_ev = _turn_write_evidence(messages)
+    claims = list(pol["negative"])
+    _assertive_enforced: List[str] = []
+    # ── A1（2026-09-15）：claim_polarity 执法 ─────────────────────────────
+    # 病：assertive（"已完成/已修复/全绿"）只被分类、只写台账，**不参与判定**
+    #     ⇒「把改法已定写成已完成」这条最贵的病一直没有闸（四方卡 D7）。
+    # 判据：该声明出现 **且本轮无写盘证据** ⇒ 与否定性声明同等待遇（须自证）。
+    if assert_claims_enforced() and pol["assertive"] and not _has_ev:
+        _assertive_enforced = list(pol["assertive"])
+        claims = claims + ["[assertive] " + t for t in _assertive_enforced]
     if not claims:
         # 声明只出现在代码块里（多为我自己贴的证据）⇒ 不拦，但记观测信号
         if pol["code_only"] and record:
@@ -386,7 +468,9 @@ def evaluate_turn(assistant_text: str, *, messages=None, ledger: Optional[Path] 
     result = {"claims": claims, "missing": claims, "blocked": blocked,
               "mode": gate_mode(), "reason": "no_attestation",
               "claim_polarity": pol["polarity"], "scan_scope": pol["scan_scope"],
-              "code_only": pol["code_only"]}
+              "code_only": pol["code_only"],
+              "assertive_enforced": bool(_assertive_enforced),
+              "write_evidence": _has_ev}
 
     if record:
         _now = now if now else time.time()
@@ -399,6 +483,8 @@ def evaluate_turn(assistant_text: str, *, messages=None, ledger: Optional[Path] 
             "source": "verify_before_report_guard",
             "claim_polarity": pol["polarity"], "scan_scope": pol["scan_scope"],
             "assertive_terms": pol["assertive"][:8], "code_only": pol["code_only"],
+            "assertive_enforced": bool(_assertive_enforced),
+            "write_evidence": _has_ev,
             "preview": (assistant_text or "")[:300],
         }, ledger=ledger)
     return result
