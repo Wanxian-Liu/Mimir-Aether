@@ -301,6 +301,34 @@ cd ~/src/MimirAether && ./.venv/bin/python -m agent.probe_attest ...
 
 完整取证：`~/.mimiraether/notes/2026-09-16-社会层量具错配-四方回执通道失真.md`（含 3/3 VERIFIED 自证）
 
+## 陷阱：用 `json.dumps` 拼**含中文的探针模式** ⇒ 正控假 `none`（2026-09-15 深夜 当场踩）
+
+**症状**：探针闸判 `UNVERIFIED / reason=positive_control_failed`，**正控 observed=none**（本该 seen）。负控也 none（看起来"对"，实为**探针整体没跑通**）。
+
+**根因**：我用 `json.dumps(pattern)` 去给 shell 命令加引号 —— Python 的 `json.dumps` 默认 **`ensure_ascii=True`**，会把非 ASCII 字符转成 `\uXXXX` 转义：
+
+```
+CARD = '/home/.../2026-09-16-四方会议-新批次讨论-…md'
+json.dumps(CARD)  →  "/home/.../2026-09-16-\u56db\u65b9\u4f1a\u8bae-…"
+```
+
+bash 双引号中 `\u56db` **不是转义**（原样保留），grep 把它当 BRE 的 `\u` → 字面 `u` ⇒ 模式变成 `…/2026-09-16-u…` ⇒ **永不匹配**。
+
+**判据（决定性）**：同一模式
+- `grep -c <原始中文路径> file` → **1**
+- `grep -c <json.dumps 后的串> file` → **0**
+两者**只差引号构造方式** ⇒ 定位完成。Python 侧 `CARD in open(file).read()` = **True**（证明对象确实在，是模式坏了）。
+
+**修法**：含非 ASCII 的模式**一律不要走 `json.dumps`**。
+```bash
+# ✅ 单引号包裹原始串
+probe="grep -q '<原始中文路径>' \"{INPUT}\" && echo 1 || echo 0"
+# ✅ 或 json.dumps(x, ensure_ascii=False)
+```
+
+**通用教训（与"探针通道 ≠ 对象通道"并列）**：
+> **正控失败时，先查"我的模式/夹具/构造方式"，不要先怀疑断言。** 本条的负控 observed=none 与 `expect=none` **恰好相符** ⇒ **看起来像通过**，实际是探针整体瞎了。
+
 ## 相关文件
 
 - 模块：`agent/probe_attest.py`
