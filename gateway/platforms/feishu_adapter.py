@@ -703,7 +703,9 @@ class FeishuAdapter(BasePlatformAdapter):
                 continue
             try:
                 self._ws_shutdown.clear()
-                await asyncio.to_thread(self._blocking_lark_ws_main)
+                await self._run_blocking_in_daemon_thread(
+                    self._blocking_lark_ws_main
+                )
                 breaker.on_success()
                 attempt = 0
             except asyncio.CancelledError:

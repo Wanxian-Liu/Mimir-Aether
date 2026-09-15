@@ -133,7 +133,9 @@ class DingTalkAdapter(BasePlatformAdapter):
         while self._running:
             try:
                 logger.debug("[%s] Starting stream client...", self.name)
-                await asyncio.to_thread(self._stream_client.start)
+                await self._run_blocking_in_daemon_thread(
+                    self._stream_client.start
+                )
             except asyncio.CancelledError:
                 return
             except Exception as e:

@@ -14,6 +14,7 @@ import re
 import socket as _socket
 import subprocess
 import sys
+import threading
 import uuid
 from abc import ABC, abstractmethod
 from urllib.parse import urlsplit
@@ -1298,6 +1299,51 @@ class BasePlatformAdapter(ABC):
             cleaned = re.sub(r'\n{3,}', '\n\n', cleaned).strip()
 
         return paths, cleaned
+
+    async def _run_blocking_in_daemon_thread(self, fn: Callable[[], Any]) -> None:
+        """Run a never-returning blocking ``fn`` in a dedicated *daemon* thread.
+
+        F2 (2026-09-15).  Long-lived platform connections (lark WS, DingTalk
+        stream client) block inside ``fn()`` forever.  Scheduling them on the
+        default ``ThreadPoolExecutor`` — what both ``asyncio.to_thread`` and
+        ``run_in_executor(None, ...)`` do — hangs the *stop* path: ``asyncio.run()``
+        cleanup ends with ``loop.shutdown_default_executor()`` ->
+        ``executor.shutdown(wait=True)``, an unbounded join of that worker, so the
+        process sits there until systemd's ``TimeoutStopSec=30`` SIGKILLs it
+        (2026-09-15: 5 of 5 gateway stops were hard kills).  ``daemon=True`` also
+        keeps interpreter finalization from joining the thread.
+
+        Semantics kept: a worker exception is re-raised to the awaiter (callers
+        rely on it for reconnect / circuit-breaker logic) and cancelling the
+        awaiting task still propagates ``CancelledError``.
+        """
+        loop = asyncio.get_running_loop()
+        settled: "asyncio.Future" = loop.create_future()
+        box: list = []
+
+        def _worker() -> None:
+            try:
+                fn()
+            except BaseException as exc:  # noqa: BLE001 - re-raised to awaiter
+                box.append(exc)
+            try:
+                loop.call_soon_threadsafe(_settle)
+            except RuntimeError:
+                pass  # loop already closed: nothing left to notify
+
+        def _settle() -> None:
+            if settled.done():
+                return
+            if box:
+                settled.set_exception(box[0])
+            else:
+                settled.set_result(None)
+
+        thread = threading.Thread(
+            target=_worker, name=f"{self.name}-blocking", daemon=True
+        )
+        thread.start()
+        await settled
 
     async def _keep_typing(self, chat_id: str, interval: float = 2.0, metadata=None) -> None:
         """
