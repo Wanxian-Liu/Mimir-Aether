@@ -257,3 +257,23 @@ cd ~/src/MimirAether && ./.venv/bin/python -m agent.probe_attest ...
 - 模块：`agent/probe_attest.py`
 - 测试：`tests/agent/test_probe_attest.py`（27 例，含 09-13 误报回归；已登记 Gate2）
 - 设计文档（两方案对比与合并）：`~/.mimiraether/notes/2026-09-14-RS17-probe-attestation-two-plans.md`
+
+
+## ⚠️ 探针自证实施坑（2026-09-15 实测 · 本轮两次踩到同一坑）
+
+### 坑 1 · monkeypatch 还原**静态方法**必须 re-wrap `staticmethod()`
+
+**症状**：控制组/处置组双探针跑完，处置组「看起来没生效」（输出与不打补丁的基线一样）。
+
+**真因**（本轮实测）：`_ORIG = CLS._inject` 取到的是**裸函数**（Py3.10+ 经类访问 staticmethod 返回底层函数）。
+把它直接写回 `CLS._inject = _ORIG` ⇒ 该函数变成**实例方法描述符** ⇒ `f._inject(a, b)` 被传成 3 个位置参数
+⇒ `TypeError` ⇒ 被测代码的 `except Exception: return` **fail-open 静默不注入** ⇒ 被读成「处置组未生效」。
+
+**同一坑的第二种形态**：用 `del CLS._inject` 还原 ⇒ AttributeError ⇒ 同样走 fail-open 静默。
+
+**纪律**：
+1. 还原一律 `CLS.attr = staticmethod(_ORIG)`（或 `functools.wraps` 包装后显式 re-wrap）。
+2. 探针结束加一条**还原断言**：`assert CLS._inject is _ORIG`（或断言「处置组输出 ≠ 基线输出」）。
+3. **fail-open 的代码做被审物时，探针必须能区分「没生效」与「抛异常被吞」**——本轮就是被
+   `except Exception: return True` 吞掉 TypeError，输出看起来像「无事发生」。
+   判据：处置组与基线的输出**必须可区分**；不可区分 ⇒ 先怀疑探针，不要先怀疑被审物。
