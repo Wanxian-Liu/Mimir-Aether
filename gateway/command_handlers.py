@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 # Re-imported for handler use
 from gateway.home_paths import _hermes_home
 from gateway.platforms.base import MessageEvent, MessageType
+from gateway.session import rewrite_transcript_off_loop
 from gateway._shared import (
     _load_gateway_config,
     _platform_config_key,
@@ -839,7 +840,12 @@ class CommandHandlerMixin:
         
         # Truncate history to before the last user message and persist
         truncated = history[:last_user_idx]
-        self.session_store.rewrite_transcript(session_entry.session_id, truncated)
+        await rewrite_transcript_off_loop(
+            self.session_store,
+            session_entry.session_id,
+            truncated,
+            phase="retry",
+        )
         # Reset stored token count — transcript was truncated
         session_entry.last_prompt_tokens = 0
         
@@ -872,7 +878,12 @@ class CommandHandlerMixin:
         
         removed_msg = history[last_user_idx].get("content", "")
         removed_count = len(history) - last_user_idx
-        self.session_store.rewrite_transcript(session_entry.session_id, history[:last_user_idx])
+        await rewrite_transcript_off_loop(
+            self.session_store,
+            session_entry.session_id,
+            history[:last_user_idx],
+            phase="undo",
+        )
         # Reset stored token count — transcript was truncated
         session_entry.last_prompt_tokens = 0
         
@@ -1407,7 +1418,12 @@ class CommandHandlerMixin:
                 session_entry.session_id = new_session_id
                 self.session_store._save()
 
-            self.session_store.rewrite_transcript(new_session_id, compressed)
+            await rewrite_transcript_off_loop(
+                self.session_store,
+                new_session_id,
+                compressed,
+                phase="manual-compress",
+            )
             # Reset stored token count — transcript changed, old value is stale
             self.session_store.update_session(
                 session_entry.session_key, last_prompt_tokens=0

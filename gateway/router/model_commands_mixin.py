@@ -26,7 +26,12 @@ from gateway._shared import (
 from gateway.home_paths import _hermes_home
 from gateway.platforms.base import MessageEvent, MessageType, Platform, merge_pending_message_event
 from gateway.restart import _AGENT_PENDING_SENTINEL
-from gateway.session import SessionSource, build_session_context, build_session_context_prompt
+from gateway.session import (
+    SessionSource,
+    build_session_context,
+    build_session_context_prompt,
+    rewrite_transcript_off_loop,
+)
 from utils import atomic_yaml_write
 
 logger = logging.getLogger(__name__)
@@ -515,7 +520,12 @@ class ModelCommandsMixin:
         
         # Truncate history to before the last user message and persist
         truncated = history[:last_user_idx]
-        self.session_store.rewrite_transcript(session_entry.session_id, truncated)
+        await rewrite_transcript_off_loop(
+            self.session_store,
+            session_entry.session_id,
+            truncated,
+            phase="retry",
+        )
         # Reset stored token count — transcript was truncated
         session_entry.last_prompt_tokens = 0
         
@@ -548,7 +558,12 @@ class ModelCommandsMixin:
         
         removed_msg = history[last_user_idx].get("content", "")
         removed_count = len(history) - last_user_idx
-        self.session_store.rewrite_transcript(session_entry.session_id, history[:last_user_idx])
+        await rewrite_transcript_off_loop(
+            self.session_store,
+            session_entry.session_id,
+            history[:last_user_idx],
+            phase="undo",
+        )
         # Reset stored token count — transcript was truncated
         session_entry.last_prompt_tokens = 0
         

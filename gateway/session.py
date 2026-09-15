@@ -16,11 +16,13 @@ Handles:
 #   5. 移除 Hermes 品牌标识
 """
 
+import asyncio
 import hashlib
+import json
 import logging
 import os
-import json
 import threading
+import time
 import uuid
 from pathlib import Path
 from datetime import datetime, timedelta
@@ -33,6 +35,121 @@ logger = logging.getLogger(__name__)
 def _now() -> datetime:
     """Return the current local time."""
     return datetime.now()
+
+
+# ---------------------------------------------------------------------------
+# RS21 (2026-09-15): transcript rewrite must not run on the event loop
+# ---------------------------------------------------------------------------
+#
+# Incident (production, 09:35:34 -> 09:44:16): one gateway-layer hygiene
+# compression rebuilt the whole session search index inline on the asyncio
+# event-loop thread:
+#
+#     agent_route_mixin._handle_message_with_agent   (async)
+#       -> SessionStore.rewrite_transcript            (sync call, no offload)
+#            -> _rewrite_sessions_search_index
+#                 -> reindex_session_transcript
+#                      -> sync_session_chroma_from_db
+#                           -> bge-m3 CPU encode of EVERY message
+#
+# Measured cost of that last step (controlled repro,
+# ~/.mimiraether/tmp/t31_st_cost_probe.py):
+#     load weights 1.65 s | 8 docs = 42.4 s | 52 docs = 234.2 s
+#     ~4.5 s/doc, roughly linear in transcript length
+# Observed consequence: 506 s of zero log output from every logger, /health
+# unresponsive, all Feishu replies stalled - process alive but frozen.
+#
+# Fix: run the rewrite in a worker thread behind a hard outer timeout so the
+# event loop keeps serving other sessions, /health and platform streams.
+#
+# Honest limitation: asyncio.wait_for cannot kill a running thread. On
+# timeout the worker is abandoned (not cancelled). The authoritative JSONL +
+# SQLite writes happen first inside the same call and are cheap; only the
+# derived search index can be left stale, and it is rebuildable.
+_REWRITE_OFFLOAD_DEFAULT_TIMEOUT_S = 300.0
+_REWRITE_OFFLOAD_TIMEOUT_ENV = "MIMIR_HYGIENE_INDEX_TIMEOUT_S"
+
+
+def rewrite_offload_timeout_s() -> float:
+    """Hard timeout (seconds) for the off-loop transcript rewrite."""
+    raw = (os.environ.get(_REWRITE_OFFLOAD_TIMEOUT_ENV) or "").strip()
+    if not raw:
+        return _REWRITE_OFFLOAD_DEFAULT_TIMEOUT_S
+    try:
+        value = float(raw)
+    except ValueError:
+        value = 0.0
+    if value <= 0:
+        logger.warning(
+            "[INDEX] unusable %s=%r -- falling back to %.0fs",
+            _REWRITE_OFFLOAD_TIMEOUT_ENV,
+            raw,
+            _REWRITE_OFFLOAD_DEFAULT_TIMEOUT_S,
+        )
+        return _REWRITE_OFFLOAD_DEFAULT_TIMEOUT_S
+    return value
+
+
+async def rewrite_transcript_off_loop(
+    store: Any,
+    session_id: str,
+    messages: List[Dict[str, Any]],
+    *,
+    skip_db: bool = False,
+    timeout_s: Optional[float] = None,
+    phase: str = "transcript-rewrite",
+) -> bool:
+    """Rewrite a session transcript without blocking the event loop.
+
+    Returns True when the rewrite completed, False when it timed out or
+    raised. Never raises: callers are on the user-facing message path and
+    must keep going -- the failure is logged, not swallowed (RS17).
+    """
+    limit = rewrite_offload_timeout_s() if timeout_s is None else float(timeout_s)
+    docs = len(messages) if messages is not None else 0
+    started = time.monotonic()
+    logger.info(
+        "[INDEX] %s begin sid=%s docs=%s timeout_s=%.1f",
+        phase,
+        session_id,
+        docs,
+        limit,
+    )
+    try:
+        await asyncio.wait_for(
+            asyncio.to_thread(store.rewrite_transcript, session_id, messages, skip_db),
+            timeout=limit,
+        )
+    except asyncio.TimeoutError:
+        logger.warning(
+            "[INDEX] %s TIMEOUT sid=%s docs=%s elapsed=%.2fs limit=%.1fs -- "
+            "event loop stayed responsive (RS21); worker abandoned, derived "
+            "search index may be stale (rebuildable)",
+            phase,
+            session_id,
+            docs,
+            time.monotonic() - started,
+            limit,
+        )
+        return False
+    except Exception as exc:
+        logger.warning(
+            "[INDEX] %s failed sid=%s docs=%s elapsed=%.2fs err=%s",
+            phase,
+            session_id,
+            docs,
+            time.monotonic() - started,
+            exc,
+        )
+        return False
+    logger.info(
+        "[INDEX] %s end sid=%s docs=%s elapsed=%.2fs",
+        phase,
+        session_id,
+        docs,
+        time.monotonic() - started,
+    )
+    return True
 
 
 # ---------------------------------------------------------------------------

@@ -26,7 +26,12 @@ from gateway._shared import (
 from gateway.home_paths import _hermes_home
 from gateway.platforms.base import MessageEvent, MessageType, Platform, merge_pending_message_event
 from gateway.restart import _AGENT_PENDING_SENTINEL
-from gateway.session import SessionSource, build_session_context, build_session_context_prompt
+from gateway.session import (
+    SessionSource,
+    build_session_context,
+    build_session_context_prompt,
+    rewrite_transcript_off_loop,
+)
 from utils import atomic_yaml_write
 
 logger = logging.getLogger(__name__)
@@ -393,7 +398,12 @@ class TuningCommandsMixin:
                 session_entry.session_id = new_session_id
                 self.session_store._save()
 
-            self.session_store.rewrite_transcript(new_session_id, compressed)
+            await rewrite_transcript_off_loop(
+                self.session_store,
+                new_session_id,
+                compressed,
+                phase="manual-compress",
+            )
             # Reset stored token count — transcript changed, old value is stale
             self.session_store.update_session(
                 session_entry.session_key, last_prompt_tokens=0
