@@ -319,3 +319,49 @@ class TestEndToEndIndexCarryoverRecord:
         assert len(rec["missing"]) == rec["missing_count"], (
             "missing 明细必须全量（这是历史不可复算的病根）"
         )
+
+
+# ── 6: T20-b token 口径分列（2026-09-15 · T2 首算发现「成本实计 vs 收益粗估」）────
+
+class TestT20bTokenCaliber:
+    """``_estimate_tokens`` = ``len(content)//4 + 20``（CJK 低估）vs 成本字段 = API 实计。
+
+    实测病证（生产台账 14 行）：同一行 ``summary_prompt_tokens``（API 实计）
+    / ``prompt_tokens_before``（粗估）比值 0.09 ~ **1.63** ——
+    摘要 prompt 只是**中段子集**却比整段 pre 还大 ⇒ 只可能是 pre 被低估。
+    ⇒ 修法：把调用方**已经在传**的 API 实计值（``current_tokens``）留下，
+    与旧粗估栏**并存**（旧字段语义不变，不破上游消费者）。
+    """
+
+    _PRE = [{"role": "assistant", "content": "discussions/a.md commit abc1234"}]
+
+    def _run(self, tmp_path, **kw):
+        c = _mk()
+        _result = CompressionResult(
+            original_count=9, compressed_count=3, compressed_tokens=1200,
+            summary="s", pruned_tool_count=0, summary_mode="llm",
+        )
+        with _mock_base_compress(list(self._PRE) + [{"role": "user", "content": "t"}], _result):
+            asyncio.run(c.compress(list(self._PRE), **kw))
+        return c, _quality_records(tmp_path)[-1]
+
+    def test_actual_and_estimate_are_separate_columns(self, verify_on, tmp_path):
+        c, rec = self._run(tmp_path, current_tokens=98765)
+        assert rec["outcome"] == "applied"
+        assert rec["prompt_tokens_before_actual"] == 98765
+        assert rec["pre_tokens_caliber"] == "api"
+        # 粗估栏仍在且**未被覆盖**（两栏并存，旧语义可回溯）
+        assert rec["prompt_tokens_before"] == c._estimate_tokens(self._PRE)
+        assert rec["prompt_tokens_before_actual"] != rec["prompt_tokens_before"]
+
+    def test_absent_current_tokens_marks_estimate_only(self, verify_on, tmp_path):
+        _, rec = self._run(tmp_path)
+        assert rec["prompt_tokens_before_actual"] is None
+        assert rec["pre_tokens_caliber"] == "estimate_only"
+
+    @pytest.mark.parametrize("bogus", [0, None, "12000", -5])
+    def test_bogus_current_tokens_never_claims_actual(self, verify_on, tmp_path, bogus):
+        """0 / 非数值不得冒充实计口径 —— 「0 是全库最不可信的数字」（同族第 N 次）。"""
+        _, rec = self._run(tmp_path, current_tokens=bogus)
+        assert rec["prompt_tokens_before_actual"] is None, bogus
+        assert rec["pre_tokens_caliber"] == "estimate_only", bogus

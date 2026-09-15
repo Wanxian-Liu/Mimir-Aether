@@ -528,6 +528,8 @@ class ContextCompressorV2:
         # T20（2026-09-14）：摘要调用自身的 token 用量（此前压缩代价无任何 token 埋点）
         self._last_summary_usage = {}
         self._pre_tokens_for_ledger = None
+        # T20-b（2026-09-15 · T2 首算发现）：API **实计**口径的 pre token（分列两栏用）
+        self._pre_tokens_actual_for_ledger = None
         self._last_savings: list[float] = []   # anti-thrashing：最近压缩节省比例
         self._compress_failures = 0            # 连续失败计数（触发cooldown）
         
@@ -1511,6 +1513,21 @@ class MimirContextCompressor(ContextCompressorV2):
         except Exception:
             _pre_tokens = 0
         self._pre_tokens_for_ledger = _pre_tokens
+        # ── T20-b（2026-09-15 · T2 首算发现的「口径混用」）────────────────────
+        # 病：``_estimate_tokens`` = ``len(content)//4 + 20``（``_CHARS_PER_TOKEN=4``），
+        # 对 CJK/代码是**低估**（实测同行 ratio = summary_prompt_tokens / pre_estimate
+        # 达 1.63 > 1 —— 摘要 prompt 是**中段子集**却比整段 pre 还大，物理上不可能
+        # ⇒ 反证 pre 被低估，而非序列化膨胀：``_serialize_for_summary`` 只**截断**
+        # 长内容，合成对照 ratio(ser/est) = 0.97）。
+        # 而调用方（``core_loop.py:916`` / ``agent_loop.py:654``）**已把 API 实计值
+        # 传进来**（``current_tokens=compressor.last_prompt_tokens``）却被丢掉
+        # ⇒ 台账里「成本=API 实计、收益=粗估」两种口径混在一行，**投产比不可算**
+        #（T3/T4 因此阻塞）。此处把实计值留下，不改变任何判定行为。
+        self._pre_tokens_actual_for_ledger = (
+            int(current_tokens)
+            if isinstance(current_tokens, (int, float)) and current_tokens > 0
+            else None
+        )
         _thr = getattr(self, "threshold_tokens", 0) or 0
         _thr_src = getattr(self, "threshold_source", "unknown")
         logger.info(
@@ -1676,6 +1693,8 @@ class MimirContextCompressor(ContextCompressorV2):
             # （T1 已因分母混用自我更正过一次，此处务必分开记）。
             _usage = dict(getattr(self, "_last_summary_usage", None) or {})
             _before_tokens = getattr(self, "_pre_tokens_for_ledger", None)
+            _before_actual = getattr(self, "_pre_tokens_actual_for_ledger", None)
+            _pre_caliber = "api" if _before_actual else "estimate_only"
             _after_tokens = (
                 _before_tokens if outcome == "rollback"
                 else (int(getattr(result, "compressed_tokens", 0) or 0) or _before_tokens)
@@ -1703,6 +1722,8 @@ class MimirContextCompressor(ContextCompressorV2):
                 "summary_attempts": int(getattr(self, "_last_summary_attempts", 0) or 0),
                 # ── T20 新增：token 代价 ─────────────────────────────────
                 "prompt_tokens_before": _before_tokens,
+                "prompt_tokens_before_actual": _before_actual,
+                "pre_tokens_caliber": _pre_caliber,
                 "prompt_tokens_after": _after_tokens,
                 "candidate_tokens": int(getattr(result, "compressed_tokens", 0) or 0),
                 "summary_prompt_tokens": _usage.get("prompt_tokens"),
