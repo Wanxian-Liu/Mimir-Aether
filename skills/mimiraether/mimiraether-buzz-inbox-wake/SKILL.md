@@ -61,6 +61,7 @@ auto_load: false
 - `grep`/`read_file` 输出层会把密钥与长大写常量**遮蔽为 `***`** → 判据用运行时探针（`.venv/bin/python3 -c`），不凭截图。
 - 沙箱 `execute_code` 内 `write_file` 写 `~` 系路径 → 双嵌套假成功；记账类追加一律走**外层 terminal 的 `>>`**。
 - 唤醒发出时另一 run 可能已在跑；**先查盘再动手**（③ 表），重复实施 = 双 pin/双重启/双落段，成本最高。
+- **台账会「静默停更」，去重步③不能只信 `tail -3 ledger`**（2026-09-15 实测）：`inbox-processed.log` 末条停在 09-13 的 line 114，而 watcher 游标已到 117（115/116/117 三行**无账**，其内容实已在盘上：Q14 卡 09-14 19:05 落段 + `status: resolved`）。⇒ 期间任何 run 若只查 ledger 会**误判「本行未处理」**。**判据必须双查**：`tail -3 ledger` **且** `grep -rn '收件行 <N>\|<msg-id>' ~/wiki/discussions/`；两处皆空才可处置。另注：`inbox-processed.log.hwm` 只是 **ledger 行数快照**（实测 content=`75`、mtime 09-13 14:35 起未动），**不是**收件箱游标，勿当游标读。
 - 卡段写完若 1 分钟内又有他人 commit，需**补记一行**（例：「§19 补记：B8 已开工 bf1b2dd」）——不留过期陈述。
 - **「推送全部 commit」是移动目标**：兄弟 run 在窗口内落盘会让 `@{u}..HEAD` 由空变非空（INC-9 形态 = 工作树重叠）。**U11 单飞闸治不了这类**（非同时、非同一事件）——须 **U15 产物级幂等**兜：推送前后比对 `git log --oneline -1`，**差异 commit 的归因必须入卡**（防把兄弟产出记成本 run 产出）。
 
