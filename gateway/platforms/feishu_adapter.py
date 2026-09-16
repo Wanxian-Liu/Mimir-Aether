@@ -564,6 +564,9 @@ class FeishuAdapter(BasePlatformAdapter):
         self._token_lock = threading.Lock()  # P0-1: 保护 _tenant_token 三字段并发读写
         self._ws_shutdown = threading.Event()  # P0-3: WS 线程退出信号
         self._ws_thread: Optional[threading.Thread] = None  # P0-3: WS 线程引用，用于 disconnect() 等待退出
+        # E1 (2026-09-16): WS 线程自有的 event loop —— disconnect() 用它请求线程
+        # **自愿退出**。没有它，join() 等的是一个永不自退的线程（见 _request_ws_thread_exit）。
+        self._ws_loop: Optional[asyncio.AbstractEventLoop] = None
         self._ws_breaker = CircuitBreaker(max_failures=5, reset_timeout=60.0)  # P0-2: WS 重连断路器
         self._tenant_token: Optional[str] = None
         self._token_expires_at: float = 0.0
@@ -733,6 +736,7 @@ class FeishuAdapter(BasePlatformAdapter):
             return
         ws_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(ws_loop)
+        self._ws_loop = ws_loop  # E1: 暴露给 disconnect()，用于请求自愿退出
         import lark_oapi.ws.client as lark_ws_client
 
         lark_ws_client.loop = ws_loop
@@ -766,7 +770,12 @@ class FeishuAdapter(BasePlatformAdapter):
             log_level=lark.LogLevel.INFO,
             domain=domain,
         )
-        cli.start()
+        try:
+            cli.start()
+        finally:
+            # E1: 线程退出（或被停）时摘掉 loop 引用，避免 disconnect 对已停 loop 发 stop
+            if self._ws_loop is ws_loop:
+                self._ws_loop = None
 
     def _lark_noop_message_read_v1(self, data: Any) -> None:
         """Read receipts — 2026-08-25 fix-card change4: track read state and give a
@@ -921,6 +930,24 @@ class FeishuAdapter(BasePlatformAdapter):
         with self._token_lock:
             self._tenant_token = None
 
+    def _request_ws_thread_exit(self) -> None:
+        """E1: 请求 WS 线程**自愿退出**（治「永不自退 ⇒ 每次停机等满超时」）。
+
+        根因（2026-09-16 盘上实证）：``_blocking_lark_ws_main`` 里 ``cli.start()`` 在该
+        线程自己的 ``ws_loop`` 上 ``run_until_complete`` 阻塞不返回，而 ``_ws_shutdown``
+        只在进入前检查一次 ⇒ 仅靠 ``join(timeout)`` 等的是一个**永不自退**的线程：
+        实测旧进程每次停机都等满 5s 并打 ``WS thread did not exit within 5s timeout``
+        （2026-09-15 与 09-16 12:22:32 journalctl 两次实证）。停掉该线程自己的 loop，
+        是让 ``start()`` 返回的唯一入口。
+        """
+        ws_loop = self._ws_loop
+        if ws_loop is None:
+            return
+        try:
+            ws_loop.call_soon_threadsafe(ws_loop.stop)
+        except RuntimeError:
+            pass  # loop 已关闭 / 从未启动：无需退出
+
     async def disconnect(self) -> None:
         self._running = False
         self._ws_shutdown.set()  # P0-3: 通知 WS 线程退出
@@ -931,12 +958,20 @@ class FeishuAdapter(BasePlatformAdapter):
             except asyncio.CancelledError:
                 pass
             self._ws_task = None
-        # P0-3: 等待底层 OS 线程实际退出，防止线程泄漏累积
+        # P0-3 + E1 (2026-09-16): 等待底层 OS 线程实际退出，防线程泄漏累积。
+        # 两处修正（四方 2026-09-16 认可的「两全法」）：
+        #   ① 先请线程**自愿退出**（_request_ws_thread_exit）——否则等的是一个
+        #      ``cli.start()`` 里 run_until_complete 阻塞不返回的线程，100% 等满超时；
+        #   ② join **移出事件循环**（to_thread）——同步 join 会把 gateway 事件循环
+        #      钉死整段超时（旧停机遇 17s 关停 + 每次 WARNING）。
         ws_thread = self._ws_thread
         if ws_thread is not None and ws_thread.is_alive():
-            ws_thread.join(timeout=5)
+            self._request_ws_thread_exit()
+            await asyncio.to_thread(ws_thread.join, 5)
             if ws_thread.is_alive():
                 logger.warning("[%s] WS thread did not exit within 5s timeout", self.name)
+        self._ws_thread = None
+        self._ws_loop = None
         if self._token_task:
             self._token_task.cancel()
             try:
