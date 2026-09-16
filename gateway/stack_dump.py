@@ -5,7 +5,9 @@
 `/proc/<pid>/stack` 只给内核态栈。
 
 解法（两条互补通道，全进程内、零外部依赖）：
-  ① 信号通道：`faulthandler.register(SIGUSR2, all_threads=True, chain=True)` ——
+  ① 信号通道：`faulthandler.register(SIGUSR2, all_threads=True, chain=False)` ——
+     ⚠ **chain 必须 False**：chain=True 会在 dump 后把信号交回默认处置 ⇒ **杀进程**
+     （实测 pytest exit=140；见 `arm_signal_channel()` 内注释与同闸测试断言）。
      C 级处理器，主线程阻塞在 C 调用（epoll / join）里也能出栈。
      ⚠ SIGUSR1 已被 restart 占用（`gateway/run.py` 的 `restart_signal_handler`），故本模块默认 SIGUSR2。
   ② 停滞通道：看门狗线程按「事件循环心跳」判停滞，超时自动 dump 全线程栈 ——
