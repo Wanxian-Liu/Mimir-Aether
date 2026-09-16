@@ -139,6 +139,46 @@ def send(to: str, content: str, kind: int = 1, card: str | None = None,
             "lines": sum(1 for _ in open(path, encoding="utf-8")), "warnings": warnings}
 
 
+def append_envelope(to: str, envelope: dict) -> dict:
+    """E7 低层追加入口：把**已构造好的**信封追加到收件箱单点，并做回写校验。
+
+    与 send() 的分工：send() 负责「构造标准信封 + 落盘」；本函数只管「落哪 + 怎么落 + 落对没」，
+    载荷（信封字段）由调用方给 ⇒ 历史脚本可**原样保留自己的信封形状**迁到单点，
+    不必被强制重塑成 U2 契约（重塑会改载荷 = 改语义，不是迁移）。
+
+    契约（与 send() 同一套）：仍强制 `content` 非空、`kind` 在枚举内。
+    """
+    if not isinstance(envelope, dict):
+        raise ValueError(f"envelope 必须是 dict，收到 {type(envelope).__name__}")
+    content = envelope.get("content")
+    if not isinstance(content, str) or not content.strip():
+        raise ValueError("content 不能为空——空正文在消费端等于『没收到』")
+    kind = envelope.get("kind")
+    if kind not in KIND_ENUM:
+        raise ValueError(f"kind 必须属于 {sorted(KIND_ENUM)}（U2 枚举），收到 {kind!r}")
+    env = dict(envelope)
+    env.setdefault("to", to)
+    env.setdefault("from", DEFAULT_SENDER)
+    env.setdefault("ts", int(time.time()))
+    env.setdefault("id", f"{env['from']}-{int(time.time())}-{uuid.uuid4().hex[:6]}")
+    path = resolve_inbox(to)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(env, ensure_ascii=False) + "\n")
+    with open(path, "rb") as fh:
+        tail = fh.read().splitlines()[-1].decode("utf-8")
+    try:
+        written = json.loads(tail)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"回写校验失败：末行不可解析（{exc}）path={path}") from exc
+    if written.get("id") != env["id"]:
+        raise RuntimeError(
+            f"回写校验失败：末行 id={written.get('id')!r} != 本次 {env['id']!r} path={path}"
+        )
+    return {"envelope": env, "path": str(path), "written": True, "verified": True,
+            "lines": sum(1 for _ in open(path, encoding="utf-8"))}
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="四方信箱发件端单点（U4/D7）")
     ap.add_argument("--to", required=True, help="收件人：hermes / openclaw / loki / mimir")

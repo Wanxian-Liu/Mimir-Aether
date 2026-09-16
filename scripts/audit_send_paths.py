@@ -59,13 +59,61 @@ def _docstring_nodes(tree: ast.AST) -> set[int]:
     return out
 
 
+def _canonical_bound_names(src: str, tree: ast.AST) -> set:
+    """绑定到 canonical 路径的名字（`BOX = ~/.openclaw/data/buzz-inbox-*.jsonl`）。"""
+    names = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            seg = ast.get_source_segment(src, node.value) or ""
+            if "buzz-inbox" in seg and ".openclaw/data/" in seg:
+                for t in node.targets:
+                    if isinstance(t, ast.Name):
+                        names.add(t.id)
+    return names
+
+
+def _file_has_canonical_write(src: str, tree: ast.AST, names: set) -> bool:
+    """该文件是否对 canonical 绑定名做**写模式**打开（a/w/x/+）。
+
+    E7（2026-09-16）：这是「未走单点」判据的**归属面** —— 只有写入才算发件路径问题；
+    纯读取（read 模式）走的是读通道，不该被算作「未走单点发件」。
+    """
+    if not names:
+        return False
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        fn = node.func
+        target = None
+        mode = ""
+        if isinstance(fn, ast.Name) and fn.id == "open" and node.args:
+            first = node.args[0]
+            if isinstance(first, ast.Name):
+                target = first.id
+            if len(node.args) > 1 and isinstance(node.args[1], ast.Constant):
+                mode = str(node.args[1].value)
+        elif isinstance(fn, ast.Attribute) and fn.attr in ("open", "write_text", "write_bytes"):
+            seg = ast.get_source_segment(src, fn.value) or ""
+            if fn.attr in ("write_text", "write_bytes"):
+                target = "__writetext__"
+                mode = "w"
+            else:
+                target = next((n for n in names if n in seg), None)
+                if node.args and isinstance(node.args[0], ast.Constant):
+                    mode = str(node.args[0].value)
+        if target and any(c in mode for c in "wax+"):
+            return True
+    return False
+
+
 def scan_file(path: Path) -> dict:
     text = path.read_text(encoding="utf-8", errors="replace")
     try:
         tree = ast.parse(text)
     except SyntaxError as exc:
         return {"file": path.name, "error": f"SyntaxError: {exc}", "bad": [], "canonical": [],
-                "delegated": False}
+                "basename": [], "delegated": False, "canonical_bound_names": [],
+                "writes_canonical": False}
     skip = _docstring_nodes(tree)
     bad: list[dict] = []
     canonical: list[dict] = []
@@ -87,8 +135,11 @@ def scan_file(path: Path) -> dict:
                 bad.append(rec)
             elif kind == "basename":
                 basenames.append(rec)
+    bound = _canonical_bound_names(text, tree)
+    writes_canonical = _file_has_canonical_write(text, tree, bound)
     return {"file": path.name, "bad": bad, "canonical": canonical, "basename": basenames,
-            "delegated": delegated}
+            "delegated": delegated, "canonical_bound_names": sorted(bound),
+            "writes_canonical": writes_canonical}
 
 
 
@@ -101,6 +152,8 @@ def scan(scripts_dir: Path) -> dict:
     return {
         "violations": [b for f in files for b in f["bad"]],
         "hardcoded_canonical": [c for f in files for c in f["canonical"]],
+        "writers_bypassing": [c for f in files if f.get("writes_canonical") for c in f["canonical"]],
+        "reader_only": [c for f in files if not f.get("writes_canonical") for c in f["canonical"]],
         "basename_only": [b for f in files for b in f["basename"]],
         "delegated": [f["file"] for f in files if f["delegated"]],
         "errors": [{"file": f["file"], "error": f["error"]} for f in files if f.get("error")],
@@ -122,9 +175,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"A. violations(非 canonical 字面量)={len(res['violations'])}")
         for v in res["violations"]:
             print(f"  [VIOLATION] {v['file']}:{v['line']} -> {v['path']}")
-        print(f"B. hardcoded_canonical(路径正确但未走单点)={len(res['hardcoded_canonical'])}")
-        for h in res["hardcoded_canonical"]:
-            print(f"  · {h['file']}:{h['line']} -> {h['path']}")
+        print(f"B. hardcoded_canonical(路径正确但未走单点)={len(res['hardcoded_canonical'])}"
+              f" [writer 面 {len(res.get('writers_bypassing', []))} · reader 面 {len(res.get('reader_only', []))}]")
+        for h in res.get("writers_bypassing", []):
+            print(f"  [WRITER] {h['file']}:{h['line']} -> {h['path']}")
+        for h in res.get("reader_only", []):
+            print(f"  [reader] {h['file']}:{h['line']} -> {h['path']}")
         print(f"C. delegated(已委托 buzz_send)={len(res['delegated'])}: {', '.join(res['delegated']) or '-'}")
         print(f"D. basename_only(文件名模板，目录由 canonical 常量决定)={len(res['basename_only'])}")
         for b in res["basename_only"]:
