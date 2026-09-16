@@ -84,7 +84,16 @@ auto_load: false
 - **去重 grep 命中可能是「兄弟卡的待办指认」，不是实施痕迹**（2026-09-16 实测）：`grep '收件行 121|<msg-id>'` 唯一命中是 `2026-09-16-六项终裁执行记录.md:12`「终裁三件已投其信箱……**她下次醒来接单**」——那是**指认我做**的记录，不是已做。⇒ 命中后**必须读上下文**：出现「下次 / 待 Mimir / 她醒来」这类措辞 = **未处理**，本 run 照常处置。
 - **台账原子追加走复用脚本**：`~/.mimiraether/scripts/append_ledger_line.py <linefile>`（内部 `open(LEDGER,'a')` 单次 write；双判据 = 行数 +1 且末行前 30 字匹配）。比 `printf … >>` 少一次「Dotfile overwrite」人工审批，自治唤醒无人在场时更稳。
   - ⚠️ **2026-09-16 实测硬坑（该脚本自身曾有 HOME 双嵌套 bug，已修）**：本机 `HOME=/home/rayliu/.mimiraether`（Mimir home **就是** HOME），而旧脚本写 `Path.home()/".mimiraether"/"logs"/…` ⇒ 解析成 `…/.mimiraether/.mimiraether/logs/inbox-processed.log`（**不存在的嵌套路径**），于是它对着**错的文件**报 `VERDICT: PASS`，真台账一行未动。⇒ **凡「追加成功」类判据必须回读真路径复核**：`tail -1 <真台账>` 与脚本 stdout 的路径都看。修后脚本先 `--dry-run` 打印 `LEDGER = …` 再写，且父目录不存在即拒写。
-  - **通用教训**：任何用 `Path.home()` 拼 Mimir 路径的脚本在本机都是错的 —— 用 `mimir_constants.get_mimir_home()`，或先 `--dry-run` 验路径。
+  - **通用教训（2026-09-16 一日内连踩 4 次的同族坑）**：本机 **`HOME` 就是 mimir home**（`/home/rayliu/.mimiraether`）⇒ 任何用 `$HOME/.mimiraether` 或 `Path.home()/".mimiraether"` **拼 Mimir 路径**的写法都会得到**嵌套假路径**。四次实例：
+    | # | 位置 | 后果（注意：**全都「看起来正常」**） |
+    |:-:|:--|:--|
+    | 1 | `scripts/append_ledger_line.py` | 对**错文件**报 `VERDICT: PASS`（真台账一行未动） |
+    | 2 | `agent/probe_attest.py` | 自证落进嵌套台账 ⇒ 「写了但闸门看不见」的**确定性重试环** |
+    | 3 | 新写的台账脚本（判据「logs 目录存在即用」） | **`events=0` 静默失真** —— 嵌套 `logs/` 因 #1#2 **真的存在**，把「存在性」当判据被骗过 |
+    | 4 | `scripts/git-hooks/{commit-msg,pre-commit}` 的 `TRACE_LOG` | **审计台账分裂**（真 2620 行 / 嵌套 101 行，我的提交只进嵌套） |
+    ⇒ 属**探针失真族（不是崩错族）**：错误的表现形式是「看起来正常」。
+    **正确写法**：候选列表 `MIMIR_HOME` → `MIMIR_AETHER_HOME` → `HOME` 自身 → `HOME/.mimiraether`，**且用内容判据**（挑真含 `logs/` 或 `data/` 的那个）而不是「目录存在」；shell 侧同型写法见已验证的 `_mimir_home()`（git hooks 在用）。
+    **配套纪律**：任何脚本/钩子报「成功」时，**回读真路径复核**（`tail -1 <真文件>`）；任何 `0 命中 / 0 事件` 结论先跑 RS17 探针自证（正控 seen / 负控 none），别把「空」读成「没有」。
 - **「闸门/护栏类」结论必须做受控双胞（twin-arm）验收**（2026-09-16 · 回 Loki「闸未双验」）：只有「闸门代码在场」不算验过 —— 要证明它**能拦**且**不误拦**：
   ① 把目标测试文件复制到 `/tmp`，把其硬编码的**真实路径常量重定向到 tmp 假目标**（真实产物零接触）；
   ② **臂 A**：追加一个「故意违规」用例 ⇒ 期望 **FAIL/ERROR 且报闸门文案**；

@@ -39,7 +39,15 @@
 # ---------------------------------------------------------------------------
 set -u
 
-TRACE_LOG="${MIMIR_GIT_COMMIT_AUDIT_LOG:-$HOME/.mimiraether/logs/git-commit-audit.jsonl}"
+# 2026-09-16 修「审计台账双血统」：本机 HOME 即 mimir home ⇒ 旧写法得到**嵌套假路径**
+# （实测：真台账 2620 行 vs 嵌套 101 行，我的提交只进嵌套）。判据 = 挑真含 logs/ 的那一个。
+_mimir_home() {
+  if [ -n "${MIMIR_HOME:-}" ] && [ -d "${MIMIR_HOME}/logs" ]; then printf '%s' "$MIMIR_HOME"; return; fi
+  if [ -n "${MIMIR_AETHER_HOME:-}" ] && [ -d "${MIMIR_AETHER_HOME}/logs" ]; then printf '%s' "$MIMIR_AETHER_HOME"; return; fi
+  if [ -d "$HOME/logs" ]; then printf '%s' "$HOME"; return; fi
+  printf '%s' "$HOME/.mimiraether"
+}
+TRACE_LOG="${MIMIR_GIT_COMMIT_AUDIT_LOG:-$(_mimir_home)/logs/git-commit-audit.jsonl}"
 AGENT_ID="${MIMIR_AGENT_ID:-mimir}"
 TRACE_ID="${MIMIR_TRACE_ID:-}"
 ZERO=0000000000000000000000000000000000000000
