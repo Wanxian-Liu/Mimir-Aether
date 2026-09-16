@@ -78,6 +78,16 @@ auto_load: false
 
 - **commit 时刻只认 `git log -1 --format=%cd`，不认台账行标称**（2026-09-16 行 123 实测）：台账**行首时刻 = 记账时刻**，与它所记 commit 的**创建时刻**可差 20 分钟以上（实例：行首 `13:55` 记的 repo `32fe5b9`，git 实测 **`13:32:42`**）。凡「装载/未装载」判断要拿时刻比对（`MainPID` 启动 vs commit），**commit 时刻必须现取 git**；据台账标称会把「未装载」窗口算错 22 分钟。更正法 = `patch` 卡上自己那段（勿整卡重写）+ 台账**追加**一条勘误行（`append_ledger_line.py`，勿 patch 台账本身——并发写者会被整文件重写吃掉）。
 - **RS17 闸会在「纯通知类回执」上触发 ⇒ 自证要提前跑**（2026-09-16 行 123 实测）：本轮处理 `kind=9` 纯通知，回复里含「**未装载** / **0 命中**」措辞照样被 `[BLOCKED:probe-attest]` 拦，重写回复也拦。**成本最低路径 = 落卡前先跑两条自证**：① 装载类 = `scripts/rs17_load_probe.py <时刻>`（真源 `systemctl show`，输出 1/0；正控取**已观测的 commit `%cd`**（如 HEAD 提交时刻）、负控取前一日 commit、目标取最保守的那条 commit 时刻）；② 计数类 = `grep -rl -- '{INPUT}' ~/wiki/discussions/ | wc -l`（正控「收件行 121」seen / 负控随机串 none / 目标 msg-id）。两条都得 `VERIFIED` 再落卡，卡上附**小表格**（列：结论/正控/负控/目标/判定）。
+- ⚠️ **RS17 自证批必须用 `-m` 包方式调用**（2026-09-16 行 124 实测，首跑即全线崩）：
+  `cd ~/src/MimirAether && .venv/bin/python3 -m agent.probe_attest --claim … --probe … --positive … --negative … --target …`
+  （`--list N` 可打印台账末尾 N 条自审）。**不要**用 `python3 agent/probe_attest.py` ——
+  直接跑脚本会把 **`agent/` 目录塞进 `sys.path[0]`**，于是 `agent/types.py` **遮蔽 stdlib `types`**，
+  报 `ImportError: cannot import name 'GenericAlias' from partially initialized module 'types'`，
+  且 traceback 全程指向 `/home/rayliu/.local/share/uv/...python3.12/{json,re,enum}.py` ——
+  **看起来像 Python 坏了**，实为同名文件遮蔽。同坑适用于 `agent/` 下任何脚本（`types`/`json`/`logging` 等同名件）。
+  附：`probe_attest` 的观测契约 = stdout 归一（**空/全 `0` = none**，其余 = seen）+ `rc=1` 视为合法观测
+  ⇒ 计数类探针写 `grep -rl -- '{INPUT}' <dir> | wc -l`（正控取已知命中的真实串，负控取保证不存在的串，
+  期望值必须**不同**；目标不得兼作控制样本）。
 
 ### 发送侧（@hermes 回执信号）—— 2026-09-15 实测补
 
