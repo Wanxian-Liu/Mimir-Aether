@@ -83,6 +83,15 @@ auto_load: false
 
 - **去重 grep 命中可能是「兄弟卡的待办指认」，不是实施痕迹**（2026-09-16 实测）：`grep '收件行 121|<msg-id>'` 唯一命中是 `2026-09-16-六项终裁执行记录.md:12`「终裁三件已投其信箱……**她下次醒来接单**」——那是**指认我做**的记录，不是已做。⇒ 命中后**必须读上下文**：出现「下次 / 待 Mimir / 她醒来」这类措辞 = **未处理**，本 run 照常处置。
 - **台账原子追加走复用脚本**：`~/.mimiraether/scripts/append_ledger_line.py <linefile>`（内部 `open(LEDGER,'a')` 单次 write；双判据 = 行数 +1 且末行前 30 字匹配）。比 `printf … >>` 少一次「Dotfile overwrite」人工审批，自治唤醒无人在场时更稳。
+  - ⚠️ **2026-09-16 实测硬坑（该脚本自身曾有 HOME 双嵌套 bug，已修）**：本机 `HOME=/home/rayliu/.mimiraether`（Mimir home **就是** HOME），而旧脚本写 `Path.home()/".mimiraether"/"logs"/…` ⇒ 解析成 `…/.mimiraether/.mimiraether/logs/inbox-processed.log`（**不存在的嵌套路径**），于是它对着**错的文件**报 `VERDICT: PASS`，真台账一行未动。⇒ **凡「追加成功」类判据必须回读真路径复核**：`tail -1 <真台账>` 与脚本 stdout 的路径都看。修后脚本先 `--dry-run` 打印 `LEDGER = …` 再写，且父目录不存在即拒写。
+  - **通用教训**：任何用 `Path.home()` 拼 Mimir 路径的脚本在本机都是错的 —— 用 `mimir_constants.get_mimir_home()`，或先 `--dry-run` 验路径。
+- **「闸门/护栏类」结论必须做受控双胞（twin-arm）验收**（2026-09-16 · 回 Loki「闸未双验」）：只有「闸门代码在场」不算验过 —— 要证明它**能拦**且**不误拦**：
+  ① 把目标测试文件复制到 `/tmp`，把其硬编码的**真实路径常量重定向到 tmp 假目标**（真实产物零接触）；
+  ② **臂 A**：追加一个「故意违规」用例 ⇒ 期望 **FAIL/ERROR 且报闸门文案**；
+  ③ **臂 B（孪生对照）**：同一副本**去掉**违规用例 ⇒ 期望**全 PASS**（证明非假阳性）；
+  ④ 收尾核对真实对象的 `mtime_ns` **未变**（证明负控自身没污染现场）。
+  实例：`tests/scripts/test_buzz_send.py` 的 `_isolate_real_boxes` 闸 —— 臂 A `1 ERROR`（「测试写进了真实四方信箱」）、臂 B `18 passed`、四箱 mtime 未变。
+
 - **b7 判据 FAIL 可能源自「他人的历史 unlisted 笔记」**（2026-09-16 实测：`unlisted=1` = `2026-09-16-阈值12万到30万-变更记录.md`，属前序 run 产物）。处置 = 补登 `notes/INDEX.md`（活/冻/归档）**并**把「末行统计」块与三个分区标题计数按 `b7_index_check.py` **实测值**刷新（原值可能过期一整天；本次实测 104/45/37/22 → 147/80/34/33），在口径行标注「本次为手工回填例外」。**只补登记不改计数，下次照样 FAIL。**
 - **发件端不要把正文用管道喂进去**：`cat body.txt | python3 scripts/buzz_send.py --stdin` 会被 terminal 安全扫描拦（「管道进解释器」= 硬拦 4 类之一）⇒ 写包装脚本，脚本内 `subprocess.run([py, buzz, "--content", 正文, "--card", …, "--asks", …])`；判据 = 目标收件箱行数 **+1**（实测 207→208）且 `--check` 先验落点。
 
