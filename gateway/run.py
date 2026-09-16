@@ -1170,6 +1170,18 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
     else:
         logger.info("Skipping signal handlers (not running in main thread).")
     
+    # ---- E3 / F2-d 通路 A：进程内 faulthandler 现场直取 -------------------------
+    # 信号通道（SIGUSR2 — SIGUSR1 已被上面的 restart handler 占用）+ 停滞看门狗。
+    # 关断：MIMIR_STACKDUMP=0。装不上不影响启动。
+    stack_dump_status: dict = {}
+    try:
+        from gateway.stack_dump import install_stack_dump
+        stack_dump_status = install_stack_dump(hermes_home=_hermes_home, logger=logger)
+        if stack_dump_status.get("enabled"):
+            logger.info("stack_dump armed: %s", stack_dump_status)
+    except Exception as exc:  # pragma: no cover - 观测设施不得拖垮启动
+        logger.warning("stack_dump install skipped: %s", exc)
+
     # Start the gateway
     success = await runner.start()
     if not success:
@@ -1200,6 +1212,14 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
         name="cron-ticker",
     )
     cron_thread.start()
+
+    # stack_dump 心跳：本协程每秒喂一次；事件循环被阻塞 ⇒ 看门狗判停滞并 dump 全线程栈。
+    if stack_dump_status.get("watchdog"):
+        try:
+            from gateway.stack_dump import heartbeat_ticker
+            asyncio.create_task(heartbeat_ticker())
+        except Exception as exc:  # pragma: no cover
+            logger.warning("stack_dump heartbeat not started: %s", exc)
     
     # Wait for shutdown
     await runner.wait_for_shutdown()
