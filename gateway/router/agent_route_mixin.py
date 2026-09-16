@@ -347,7 +347,6 @@ class AgentRouteMixin:
             # real token counts.  Having hygiene at 0.50 caused premature
             # compression on every turn in long gateway sessions.
             _hyg_model = "anthropic/claude-sonnet-4.6"
-            _hyg_threshold_pct = 0.85
             _hyg_compression_enabled = True
             _hyg_config_context_length = None
             _hyg_provider = None
@@ -469,10 +468,8 @@ class AgentRouteMixin:
                 if _needs_compress:
                     logger.info(
                         "Session hygiene: %s messages, ~%s tokens (%s) — auto-compressing "
-                        "(threshold: %s%% of %s = %s tokens)",
+                        "(threshold: %s tokens)",
                         _msg_count, f"{_approx_tokens:,}", _token_source,
-                        int(_hyg_threshold_pct * 100),
-                        f"{_hyg_context_length:,}",
                         f"{_compress_token_threshold:,}",
                     )
                     _hyg_t0 = time.monotonic()
