@@ -169,6 +169,22 @@ def validate_profile_name(name: str) -> None:
         )
 
 
+def is_valid_profile_name(name: str) -> bool:
+    """Return ``True`` iff *name* is a syntactically valid profile identifier.
+
+    Non-raising sibling of :func:`validate_profile_name` — for callers that must
+    **decide** rather than **fail** (e.g. disambiguating our own ``-p`` flag from
+    a host tool's ``-p`` in ``mimir_cli.main``).
+    """
+    if not isinstance(name, str) or not name:
+        return False
+    try:
+        validate_profile_name(name)
+        return True
+    except ValueError:
+        return False
+
+
 def get_profile_dir(name: str) -> Path:
     """Resolve a profile name to its HERMES_HOME directory."""
     if name == "default":

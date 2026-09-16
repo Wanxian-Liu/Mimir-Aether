@@ -1,5 +1,7 @@
 # Optional wide pytest — NOT a merge gate. Use workflow_dispatch or schedule for health signal.
 # PR merge gate remains: ./run_ralph_tier0.sh (.github/workflows/ralph.yml).
+# Actions 运行时（2026-09-16 核实）：checkout@v5 / setup-python@v6 均为 **node24**；
+# 旧的 v4 / v5 是 node20，GitHub 已在跑运行时打弃用告警。改动仅版本号，无行为变更。
 
 name: Pytest wide (optional)
 
@@ -19,8 +21,10 @@ permissions:
 jobs:
   pytest-wide:
     runs-on: ubuntu-latest
+    # 全量测试较慢，给足余量但必须封顶（否则周日定时任务挂死会一直占位）。
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Init git submodules
         env:
@@ -34,7 +38,7 @@ jobs:
           git submodule sync --recursive
           git submodule update --init --recursive --depth 1
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 

@@ -259,31 +259,64 @@ def _capture_records(name):
     return lg, h
 
 
-def test_coverage_declared_as_single_logger():
-    """**明示**：覆盖口径只声明 1 个 logger，不得写成「全覆盖」。"""
-    assert cpm.ATTRIBUTION_COVERED_LOGGERS == (_LOGGER_NAME,)
-    lg = logging.getLogger(_LOGGER_NAME)
-    assert any(isinstance(f, cpm._CompressAttributionFilter) for f in lg.filters)
-    assert not any(isinstance(f, cpm._CompressAttributionFilter) for f in logging.getLogger(_SIBLING).filters)
+# ⚠️ 口径变更公告（B5 · 2026-09-16）：
+# 批1 这两条测试断言「覆盖 = 1 个 logger / 兄弟 logger 不被注入」——那记录的是
+# **当时的实现事实**，不是**应然**。B5 把 D10 的两处漏网（兄弟 logger
+# `agent.compress_cooldown`，以及 `layer=gateway` 的异树 logger）**显式挂上**
+# ⇒ 事实改变，期望随之改变。判定：D10 既定目标达成，属**合理口径变更**，
+# **不是掩盖回归**。本变更已在 B 组四方卡显式列出，交四方（尤 Loki）独立裁定。
+# 反面保护：**表外** logger 仍必须不被注入（见下负控）——否则等于宣称「全覆盖」。
 
 
-def test_coverage_single_logger_sibling_records_not_injected():
-    """受控差分 ㈠（反例/控制组）：兄弟 logger 的 [COMPRESS] 行**不被注入**。
+def test_coverage_declared_as_explicit_logger_set():
+    """**明示**：覆盖口径 = 显式列举的 logger 集合；**禁写成「全覆盖」**。
 
-    这是 D10 未解决的根因——本 filter 只挂在 `agent.context_compressor` 上，
-    兄弟 logger 的记录 propagate 时只经过祖先的 **handler**，不经过祖先 logger 的 **filter**。
+    正控：表内每个 logger 都必须真的挂上 filter。
+    负控：**表外** logger 必须**不**被注入。
+    集合一变本测试必红 ⇒ 逼「改覆盖」与「改测试」同时发生、同时被看见。
+    """
+    assert cpm.ATTRIBUTION_COVERED_LOGGERS == (
+        _LOGGER_NAME,
+        "agent.compress_cooldown",
+        "gateway.router.agent_route_mixin",
+    ), "覆盖集合变了 ⇒ 必须同步改本测试并说明理由（口径变更 != 掩盖回归）"
+    for _n in cpm.ATTRIBUTION_COVERED_LOGGERS:
+        assert any(isinstance(f, cpm._CompressAttributionFilter)
+                   for f in logging.getLogger(_n).filters), _n
+    _outside = "gateway.router.some_unlisted_module"
+    assert not any(isinstance(f, cpm._CompressAttributionFilter)
+                   for f in logging.getLogger(_outside).filters), "表外 logger 不得被注入"
+
+
+def test_coverage_sibling_records_now_injected():
+    """处置组（B5 翻转批1 期望）：兄弟 logger 的 [COMPRESS] 行**现在被注入**。
+
+    批1 版本断言「不被注入」，记录的是 coverage=1 时的事实；B5 显式挂上兄弟 logger。
+    **前缀契约仍必须原样保留**（归属只**追加**到行尾）。
     """
     lg, cap = _capture_records(_SIBLING)
-    old_prop = lg.propagate
     try:
         lg.info("[COMPRESS] cooldown armed failures=%d", 3)
     finally:
         lg.removeHandler(cap)
-        lg.propagate = old_prop
     assert len(cap.records) == 1
     msg = cap.records[0].getMessage()
-    assert msg.startswith("[COMPRESS] cooldown armed failures=3")
-    assert "pid=" not in msg and "run=" not in msg     # ← 未被覆盖（1 logger 口径的事实）
+    assert msg.startswith("[COMPRESS] cooldown armed failures=3")   # 前缀契约不变
+    assert "pid=" in msg and "run=" in msg                          # ← B5 新增覆盖
+
+
+def test_coverage_gateway_layer_records_now_injected():
+    """B5 漏网 B：`layer=gateway` 的异树 logger 也被注入（此前 8 条全裸）。"""
+    lg, cap = _capture_records("gateway.router.agent_route_mixin")
+    try:
+        lg.info("[COMPRESS] trigger layer=gateway msgs=%d tokens=%s source=%s",
+                10, 90000, "hygiene")
+    finally:
+        lg.removeHandler(cap)
+    assert len(cap.records) == 1
+    msg = cap.records[0].getMessage()
+    assert msg.startswith("[COMPRESS] trigger layer=gateway msgs=10")   # 前缀契约不变
+    assert "pid=" in msg and "run=" in msg
 
 
 def test_ancestor_handler_filter_covers_sibling():

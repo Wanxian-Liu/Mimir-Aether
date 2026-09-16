@@ -80,6 +80,19 @@ sys.path.insert(0, str(PROJECT_ROOT))
 # The flag is stripped from sys.argv so argparse never sees it.
 # Falls back to ~/.mimir/active_profile for sticky default.
 # ---------------------------------------------------------------------------
+def _is_own_profile_flag_value(value: str) -> bool:
+    """``-p <value>`` 里的 *value* 是否**本 CLI 的** profile 名（而非宿主工具的值）。
+
+    判据复用 ``mimir_cli.profiles.is_valid_profile_name``（**同一份正则**，不在此复制，
+    避免两处漂移）。取不到 profiles 时返回 ``False``（保守）——**宁可不认领，不可乱退出**。
+    """
+    try:
+        from mimir_cli.profiles import is_valid_profile_name
+        return bool(is_valid_profile_name(value))
+    except Exception:
+        return False
+
+
 def _apply_profile_override() -> None:
     """Pre-parse --profile/-p and set HERMES_HOME before module imports."""
     argv = sys.argv[1:]
@@ -87,12 +100,22 @@ def _apply_profile_override() -> None:
     consume = 0
 
     # 1. Check for explicit -p / --profile flag
+    #    ⚠️ 认领前**必须校验候选名**。`-p` 是极常见的宿主工具旗标（pytest 的
+    #    `-p no:randomly` / `-p no:cacheprovider` / `-p no:xdist`）。旧逻辑不校验
+    #    就认领 ⇒ 把 "no:randomly" 当 profile ⇒ validate_profile_name 抛 ValueError
+    #    ⇒ sys.exit(1) ⇒ **任何 argv 含 `-p <非profile名>` 的进程，一 import 本模块
+    #    就直接退出**（本仓已复现：`pytest -p no:randomly` 令 17 个 CLI 测试整片假红）。
+    #    口径：**认不出是自己的旗标就不认领** —— 不改宿主 argv、不退出、不设 HERMES_HOME。
     for i, arg in enumerate(argv):
         if arg in ("--profile", "-p") and i + 1 < len(argv):
+            if not _is_own_profile_flag_value(argv[i + 1]):
+                continue
             profile_name = argv[i + 1]
             consume = 2
             break
         elif arg.startswith("--profile="):
+            if not _is_own_profile_flag_value(arg.split("=", 1)[1]):
+                continue
             profile_name = arg.split("=", 1)[1]
             consume = 1
             break
@@ -188,135 +211,6 @@ from mimir_cli.update_command import cmd_update
 from mimir_cli.profile_command import cmd_profile, _coalesce_session_name_args
 from mimir_cli.cli_subparsers_setup import configure_parser_part1
 from mimir_cli.cli_subparsers_bind import configure_parser_part2
-
-def _require_tty(command_name: str) -> None:
-    """Exit with a clear error if stdin is not a terminal.
-
-    Interactive TUI commands (mimir tools, mimir setup, mimir model) use
-    curses or input() prompts that spin at 100% CPU when stdin is a pipe.
-    This guard prevents accidental non-interactive invocation.
-    """
-    if not sys.stdin.isatty():
-        print(
-            f"Error: 'mimir {command_name}' requires an interactive terminal.\n"
-            f"It cannot be run through a pipe or non-interactive subprocess.\n"
-            f"Run it directly in your terminal instead.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-
-# Add project root to path
-PROJECT_ROOT = Path(__file__).parent.parent.resolve()
-sys.path.insert(0, str(PROJECT_ROOT))
-
-# ---------------------------------------------------------------------------
-# Profile override — MUST happen before any mimir module import.
-#
-# Many modules cache HERMES_HOME at import time (module-level constants).
-# We intercept --profile/-p from sys.argv here and set the env var so that
-# every subsequent ``os.getenv("HERMES_HOME", ...)`` resolves correctly.
-# The flag is stripped from sys.argv so argparse never sees it.
-# Falls back to ~/.mimir/active_profile for sticky default.
-# ---------------------------------------------------------------------------
-
-def _apply_profile_override() -> None:
-    """Pre-parse --profile/-p and set HERMES_HOME before module imports."""
-    argv = sys.argv[1:]
-    profile_name = None
-    consume = 0
-
-    # 1. Check for explicit -p / --profile flag
-    for i, arg in enumerate(argv):
-        if arg in ("--profile", "-p") and i + 1 < len(argv):
-            profile_name = argv[i + 1]
-            consume = 2
-            break
-        elif arg.startswith("--profile="):
-            profile_name = arg.split("=", 1)[1]
-            consume = 1
-            break
-
-    # 2. If no flag, check active_profile in the mimir root
-    if profile_name is None:
-        try:
-            from mimir_constants import get_default_hermes_root
-            active_path = get_default_hermes_root() / "active_profile"
-            if active_path.exists():
-                name = active_path.read_text().strip()
-                if name and name != "default":
-                    profile_name = name
-                    consume = 0  # don't strip anything from argv
-        except (UnicodeDecodeError, OSError):
-            pass  # corrupted file, skip
-
-    # 3. If we found a profile, resolve and set HERMES_HOME
-    if profile_name is not None:
-        try:
-            from mimir_cli.profiles import resolve_profile_env
-            hermes_home = resolve_profile_env(profile_name)
-        except (ValueError, FileNotFoundError) as exc:
-            print(f"Error: {exc}", file=sys.stderr)
-            sys.exit(1)
-        except Exception as exc:
-            # A bug in profiles.py must NEVER prevent mimir from starting
-            print(f"Warning: profile override failed ({exc}), using default", file=sys.stderr)
-            return
-        os.environ["HERMES_HOME"] = hermes_home
-        # Strip the flag from argv so argparse doesn't choke
-        if consume > 0:
-            for i, arg in enumerate(argv):
-                if arg in ("--profile", "-p"):
-                    start = i + 1  # +1 because argv is sys.argv[1:]
-                    sys.argv = sys.argv[:start] + sys.argv[start + consume:]
-                    break
-                elif arg.startswith("--profile="):
-                    start = i + 1
-                    sys.argv = sys.argv[:start] + sys.argv[start + 1:]
-                    break
-
-_apply_profile_override()
-
-# Load .env from ~/.mimir/.env first, then project root as dev fallback.
-# User-managed env files should override stale shell exports on restart.
-from mimir_cli.config import get_hermes_home
-from mimir_cli.env_loader import load_hermes_dotenv
-load_hermes_dotenv(project_env=PROJECT_ROOT / '.env')
-
-# Initialize centralized file logging early — all `mimir` subcommands
-# (chat, setup, gateway, config, etc.) write to agent.log + errors.log.
-try:
-    from mimiraether_logging import setup_logging as _setup_logging
-    _setup_logging(mode="cli")
-except Exception:
-    pass  # best-effort — don't crash the CLI if logging setup fails
-
-# Apply IPv4 preference early, before any HTTP clients are created.
-try:
-    from mimir_cli.config import load_config as _load_config_early
-    from mimir_constants import apply_ipv4_preference as _apply_ipv4
-    _early_cfg = _load_config_early()
-    _net = _early_cfg.get("network", {})
-    if isinstance(_net, dict) and _net.get("force_ipv4"):
-        _apply_ipv4(force=True)
-    del _early_cfg, _net
-except Exception:
-    pass  # best-effort — don't crash if config isn't available yet
-
-import logging
-import time as _time
-from datetime import datetime
-
-from mimir_cli import __version__, __release_date__
-from mimir_constants import OPENROUTER_BASE_URL
-from mimir_cli.paths import openclaw_migration_source_default
-
-_OPENCLAW_MIGRATE_SOURCE_DEFAULT = str(openclaw_migration_source_default()).replace(
-    str(Path.home()), "~", 1
-)
-
-logger = logging.getLogger(__name__)
-
 def _has_any_provider_configured() -> bool:
     """Check if at least one inference provider is usable."""
     from mimir_cli.config import get_env_path, get_hermes_home, load_config

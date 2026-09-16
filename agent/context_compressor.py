@@ -195,27 +195,58 @@ class _CompressAttributionFilter(logging.Filter):
         return True
 
 
-# ── 覆盖面声明（D10 · 批1护栏4 · 2026-09-15 受控差分实测）──────────────
-# 事实：本 filter 由 _install_compress_attribution() 只挂在 **1 个 logger** 上。
-# 机制（Python logging 官方语义）：logger 的 ``filters`` **只作用于直接在该 logger
-# 上发起的记录**；子/兄弟 logger 的记录 propagate 到祖先时，只经过祖先的
-# **handlers**，**不经过祖先 logger 的 filters**。
-# ⇒ 兄弟 logger（如 agent.compress_cooldown）里的 [COMPRESS] 行**不会被注入**
-#   （实测㈠：兄弟 logger 记录 ⇒ 不注入；㈡：共同祖先无 handler 时该记录直接消失）。
-# ⇒ 因此覆盖口径只能是「**coverage = 1 logger**」，禁写「全覆盖」。
-# 传播行为已钉死在测试里（受控差分：logger 级不覆盖 / handler 级覆盖）：
-#   tests/agent/test_compress_attribution.py::test_coverage_is_single_logger_*
-#   tests/agent/test_compress_attribution.py::test_ancestor_handler_filter_covers_sibling
-# D10 的正解（实测㈢）= filter 挂**全子孙共用的祖先 handler** ⇒ 见下方
-# install_attribution_on_ancestor_handler()（**opt-in，未接线**：它改的是进程级
-# logging 拓扑，须四方裁定后再上线；当前生产只声明 1 个 logger，不假装全覆盖）。
-ATTRIBUTION_COVERED_LOGGERS = ("agent.context_compressor",)
+# ── 覆盖面声明（D10 · 批1护栏4 · 2026-09-15 实测 · **2026-09-16 B5 扩面**）──
+# 机制（Python logging 官方语义，**未变**）：logger 的 ``filters`` 只作用于
+# **直接在该 logger 上发起的记录**；子孙/兄弟记录 propagate 到祖先时只经过祖先的
+# **handlers**，不经过祖先 logger 的 **filters**。
+# ⇒ 恒成立的结论：**logger 级 filter 的覆盖面 = 被显式挂过的 logger 集合**，
+#   它**永远不会自动覆盖别人**。
+# ⇒ 于是「覆盖几个」是个**选择**，不是个发现：批1 当时只挂了 1 个 ——
+#   ``agent.context_compressor``。故 ``[COMPRESS]`` 归属字段在两类行上缺失：
+#     · **兄弟 logger**：``agent.compress_cooldown``（armed / cleared 各 1 条）
+#     · **异树 logger**：``gateway.router.agent_route_mixin``（``layer=gateway`` 8 条）
+# ⇒ D10 的正解（B5 采纳）：**按名字把 filter 显式挂到这三处 logger**。
+#   理由：集合可枚举、可单测、**不动进程级 logging 拓扑**（最小可验证改动）。
+#   备选 ``install_attribution_on_ancestor_handler()``（挂祖先 handler ⇒ 自动覆盖
+#   全部子孙）**仍保持 opt-in 未接线**：它改的是进程级拓扑（还会让 root 的
+#   lastResort 对该子树失效），属**全局面**改动，须四方裁定后再由接线方显式调用。
+# ⚠️ 覆盖口径只能写「**本表所列 logger**」，**禁写「全覆盖」** ——
+#   将来新增的任何 logger 都不在表内（这是本表存在的意义，不是遗漏）。
+ATTRIBUTION_COVERED_LOGGERS = (
+    "agent.context_compressor",              # 本模块（批1 唯一）
+    "agent.compress_cooldown",               # 兄弟 logger（B5 补 · D10 漏网 A）
+    "gateway.router.agent_route_mixin",      # 异树 logger · layer=gateway（B5 补 · 漏网 B）
+)
+
+
+def install_compress_attribution_on(logger_name: str) -> bool:
+    """把归属 filter 挂到**指定 logger** 上（幂等）。返回「本次是否新挂」。
+
+    为什么需要它：见上方覆盖面声明 —— logger 级 filter **只覆盖直发该 logger 的记录**，
+    故每一个漏网 logger 都必须**显式挂**，不能指望 propagate 帮忙。
+
+    **不抛异常**：归属是观测性设施，绝不允许因它阻断 import 或请求链路。
+    """
+    try:
+        _lg = logging.getLogger(logger_name)
+        if any(isinstance(f, _CompressAttributionFilter) for f in _lg.filters):
+            return False
+        _lg.addFilter(_CompressAttributionFilter())
+        return True
+    except Exception:
+        return False
 
 
 def _install_compress_attribution() -> None:
-    _lg = logging.getLogger(__name__)
-    if not any(isinstance(f, _CompressAttributionFilter) for f in _lg.filters):
-        _lg.addFilter(_CompressAttributionFilter())
+    """把 filter 挂到 ATTRIBUTION_COVERED_LOGGERS 列出的**每一个** logger。
+
+    注意：这里**不 import** 那两个模块，只按**名字**取 logger 对象。
+    理由：① `logging.getLogger(name)` 是全局单例，先取后建拿到的是同一个对象；
+         ② 对 `agent.compress_cooldown` 而言，模块级 import 会与 `_compress_cooldown()`
+            的惰性导入形成环。按名字取 = 零耦合，且**不依赖导入顺序**。
+    """
+    for _name in ATTRIBUTION_COVERED_LOGGERS:
+        install_compress_attribution_on(_name)
 
 
 class _AttributionCarrierHandler(logging.Handler):
@@ -530,6 +561,17 @@ class ContextCompressorV2:
         self._pre_tokens_for_ledger = None
         # T20-b（2026-09-15 · T2 首算发现）：API **实计**口径的 pre token（分列两栏用）
         self._pre_tokens_actual_for_ledger = None
+        # ── T20-c（2026-09-16）post 实计口径：「挂账—结算」两段式 ─────────────
+        # 病：台账 ``prompt_tokens_after`` = ``result.compressed_tokens``（**内部估算**），
+        #     不是实计 ⇒ 净收益只能两端估算相减，**符号可能整错**（T2/T3/T4 因此阻塞）。
+        # 修法：applied 时**挂账**（记下 pre 实计 + 摘要自身开销），等**下一次真实调用**
+        #     回来，用那条 ``usage.prompt_tokens``（API 实计）**结算**。
+        # 为何挂在实例上而不新建模块：applied 与 usage 回灌是**同一条调用链上的同一个
+        #     compressor 实例**（callers_mixin._compressor_sync_usage_from_llm 已持有
+        #     ``self.compressor``）⇒ 无需跨模块共享，也避开循环导入。
+        # 为何「下一次调用」就是 post：压缩发生在调用**之前**，故紧接着那次调用正是
+        #     「压缩后载荷」的第一次真实计费 —— 这是定义，不是近似。
+        self._pending_post_measure = None
         self._last_savings: list[float] = []   # anti-thrashing：最近压缩节省比例
         self._compress_failures = 0            # 连续失败计数（触发cooldown）
         
@@ -1740,12 +1782,126 @@ class MimirContextCompressor(ContextCompressorV2):
             }
             with open(_q_path, "a", encoding="utf-8") as _f:
                 _f.write(json.dumps(_line, ensure_ascii=False) + "\n")
+            # ── T20-c：applied ⇒ 挂账，等下一次真实调用结算（纯埋点，不改判定）──
+            if outcome == "applied":
+                try:
+                    self._pending_post_measure = {
+                        "of_ts": _line["ts"],
+                        "pre_actual": _before_actual,
+                        "pre_estimate": _before_tokens,
+                        "estimate_after": int(getattr(result, "compressed_tokens", 0) or 0),
+                        "summary_total_tokens": _usage.get("total_tokens"),
+                        "summary_prompt_tokens": _usage.get("prompt_tokens"),
+                        "summary_mode": result.summary_mode,
+                        "gate_version": ENTITY_GATE_VERSION,
+                        "armed_at": time.time(),
+                        "compressed_count": result.compressed_count,
+                        "original_count": result.original_count,
+                    }
+                except Exception as _pe:
+                    self._pending_post_measure = None
+                    logger.debug("[COMPRESS] post-measure arm skipped: %s", _pe)
             if outcome == "applied":
                 logger.info("[E1/E5] compression quality record appended (applied): %s", _q_path)
             else:
                 logger.warning("[E1/E5] compression quality alert appended: %s", _q_path)
         except Exception as _e:
             logger.warning("[E1/E5] quality alert write failed (non-blocking): %s", _e)
+
+    # ── T20-c（2026-09-16）：「挂账—结算」的**结算端** ─────────────────────
+    def settle_post_measure(self, actual_prompt_tokens, message_count=None,
+                            is_actual: bool = True) -> None:
+        """用**下一次真实调用**的 ``prompt_tokens`` 结算上一次 applied 的压缩收益。
+
+        纯埋点：只**追加** ``kind="post_measure"`` 行到 compression_quality.jsonl，
+        不改任何已有字段、不改任何判定、**不抛异常**（异常一律吞掉 —— 埋点绝不阻断主循环）。
+
+        三障（防「结算错对象」；这正是本项目反复吃过的病）：
+          1. **无账不结**：``_pending_post_measure`` 为空 ⇒ 立即返回（绝大多数调用属此，
+             开销 = 一次属性判空）
+          2. **过期不结**：挂账超 TTL（默认 1800s，env ``MIMIR_POST_MEASURE_TTL_S``）
+             ⇒ 记 ``settle_reason="expired"`` 并丢弃，**宁可漏、不可跨时段错配**
+          3. **非实计不结**：``is_actual=False``（pt 来自粗估兜底）⇒ 记 ``"unmeasured"``
+
+        口径（写进行的自解释字段）：
+          · ``pre_actual``  = applied 那次的 API 实计 prompt（T20-b 引入）
+          · ``post_actual`` = 紧接着那次调用的 API 实计 prompt  ← **本卡要的真值**
+          · ``actual_delta``= pre_actual - post_actual（正=省了）
+          · ``net_tokens``  = actual_delta - 摘要自身 total_tokens（净收益；正=赚）
+          · ``estimate_error`` = post_actual - estimate_after（估算偏离实计多少）
+
+        ⚠️ **已知局限（自报，不掩盖）**：``post_actual`` 里可能还含**非压缩因素**
+        （上一轮工具输出增长等）⇒ ``net_tokens``是**乐观上界**，不是纯压缩效应。
+        故凡下结论必须同时看 ``post_message_count`` 与 ``compressed_count`` 是否守恒。
+        """
+        try:
+            pend = getattr(self, "_pending_post_measure", None)
+            if not pend:
+                return
+            self._pending_post_measure = None       # 单飞：一账最多结一次
+            try:
+                _ttl = float(os.environ.get("MIMIR_POST_MEASURE_TTL_S") or 1800)
+            except Exception:
+                _ttl = 1800.0
+            _age = None
+            try:
+                _age = max(0.0, time.time() - float(pend.get("armed_at") or 0))
+            except Exception:
+                pass
+            if _age is not None and _age > _ttl:
+                _reason = "expired"
+            elif not is_actual:
+                _reason = "unmeasured"
+            else:
+                _reason = "settled"
+            _pre_a = pend.get("pre_actual")
+            _post = int(actual_prompt_tokens or 0) if _reason == "settled" else None
+            _sum_tot = pend.get("summary_total_tokens")
+            _est_after = pend.get("estimate_after")
+            _delta = (_pre_a - _post) if (_pre_a is not None and _post is not None) else None
+            _net = None
+            if _delta is not None:
+                _net = _delta - int(_sum_tot or 0)
+            _sign = ("unmeasured" if _net is None
+                     else ("positive" if _net > 0 else ("negative" if _net < 0 else "zero")))
+            _err = (None if (_post is None or not _est_after)
+                    else (_post - int(_est_after)))
+            line = {
+                "kind": "post_measure",              # ← 判别键：老消费者只看有/无此键
+                "ts": datetime.now().isoformat(),
+                "of_ts": pend.get("of_ts"),
+                "settle_reason": _reason,
+                "pending_age_s": (round(_age, 2) if _age is not None else None),
+                "pre_actual_prompt_tokens": _pre_a,
+                "pre_estimate_tokens": pend.get("pre_estimate"),
+                "post_actual_prompt_tokens": _post,
+                "estimate_after_tokens": _est_after,
+                "estimate_error_tokens": _err,
+                "actual_delta_tokens": _delta,
+                "summary_total_tokens": _sum_tot,
+                "summary_prompt_tokens": pend.get("summary_prompt_tokens"),
+                "net_tokens": _net,
+                "net_sign": _sign,
+                "post_message_count": message_count,
+                "compressed_count": pend.get("compressed_count"),
+                "original_count": pend.get("original_count"),
+                "summary_mode": pend.get("summary_mode"),
+                "gate_version": pend.get("gate_version"),
+                "pid": os.getpid(),
+                "trace_id": _run_tag(),
+            }
+            from mimir_constants import get_mimir_home
+            _q = get_mimir_home() / "data" / "compression_quality.jsonl"
+            _q.parent.mkdir(parents=True, exist_ok=True)
+            with open(_q, "a", encoding="utf-8") as _f:
+                _f.write(json.dumps(line, ensure_ascii=False) + "\n")
+            logger.info(
+                "[COMPRESS] post-measure %s net=%s sign=%s age=%ss of_ts=%s",
+                _reason, _net, _sign, (round(_age, 1) if _age is not None else "?"),
+                pend.get("of_ts"),
+            )
+        except Exception as _e:
+            logger.debug("[COMPRESS] post-measure settle skipped: %s", _e)
 
     def _verify_entity_retention(self, pre, post):
         """关键实体保留率：讨论卡路径 / status 字段 / 任务路径 / commit 哈希。"""

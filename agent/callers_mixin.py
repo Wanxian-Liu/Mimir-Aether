@@ -356,6 +356,26 @@ class CallersMixin:
                 pt = int(model_metadata.estimate_messages_tokens_rough(messages))
             except Exception:
                 pt = 0
+        # ── T20-c（2026-09-16）：用**这条真实调用**的 API 实计结算上一次 applied 的挂账。
+        # 位置刻意放在 pt 兜底估算**之后**：这样 pt 已是本次调用最终采用的值。
+        # is_actual 严格取「usage 里真有 prompt_tokens」——兜底粗估不算实计（否则
+        # 会把估算误差记成压缩收益，重蹈 T20-b 之前「两种口径混在一行」的覆辙）。
+        try:
+            # 直呼属性（**不用 getattr 字符串**）：让「接线」在 AST 上可见，
+            # 供结构闸取证 —— tests/agent/test_t20c_post_measure.py::TestStructuralGate
+            # （初版写成 getattr 字符串，结构闸当场判红；闸对，代码错，故改代码而非改闸）
+            _settle = self.compressor.settle_post_measure
+            _pt_actual_present = bool(
+                int(usage.get("prompt_tokens") or usage.get("input_tokens") or 0)
+            )
+            _settle(
+                pt,
+                len(messages) if isinstance(messages, list) else None,
+                is_actual=_pt_actual_present,
+            )
+        except Exception as _se:
+            # 兼容注入「非 MimirContextCompressor」的替身：有则结、无则跳过（不阻断主循环）
+            logger.debug("T20-c post-measure settle skipped: %s", _se)
         if pt <= 0 and ct <= 0:
             return
         total = usage.get("total_tokens")

@@ -1,5 +1,7 @@
 # Ralph Tier-0/1: same gates as ./run_ralph_tier0.sh (Gate1 compile/import, Gate2 pytest, Gate3 tier1 e2e)
 # If CI fails on import, add the missing package to requirements-ci.txt (single source of truth).
+# Actions 运行时（2026-09-16 核实）：checkout@v5 / setup-python@v6 均为 **node24**；
+# 旧的 v4 / v5 是 node20，GitHub 已在跑运行时打弃用告警。改动仅版本号，无行为变更。
 
 name: Ralph Tier-0
 
@@ -20,8 +22,11 @@ permissions:
 jobs:
   ralph:
     runs-on: ubuntu-latest
+    # 防挂死：Ralph 正常 3~4 分钟。无 timeout 时一旦挂死会长期占并发位，
+    # 把后续 push 的 CI 一并取消（concurrency.cancel-in-progress=true）。
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # mimicore lives in a submodule (see .gitmodules). CI must init it or Gate1 import fails.
       # Rewrite SSH submodule URLs to HTTPS so the runner does not need an SSH key.
@@ -38,7 +43,7 @@ jobs:
           git submodule sync --recursive
           git submodule update --init --recursive --depth 1
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
