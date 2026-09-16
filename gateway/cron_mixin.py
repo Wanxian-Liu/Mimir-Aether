@@ -848,10 +848,18 @@ class CronMixin:
                             except Exception:
                                 pass
 
+                    # RS20.1 P0（2026-09-16）：显式 stdin=DEVNULL。
+                    # 此前不传 stdin => 子进程继承 gateway 的 fd0；现网恰好是
+                    # StandardInput=null 所以「交互式阻塞」（脚本调 script/read/ssh
+                    # 等命令且 stdin 非 EOF => 永久等待）只是恰好不可达。
+                    # 受控复现见 ~/.mimiraether/notes/2026-09-15-RS20.1-方案-sh挂死根治.md：
+                    # 带正确 shebang 的脚本照样挂死 => 分派闸 Q23/Q24 防不住，
+                    # 必须在执行期把「恰好对的默认」变成不变量。
                     def _run_cron_script() -> "subprocess.CompletedProcess":
                         """Blocking half — runs in a worker thread, never on the loop."""
                         child = subprocess.Popen(
                             launch_argv,
+                            stdin=subprocess.DEVNULL,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE,
                             text=True,
