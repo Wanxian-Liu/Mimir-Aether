@@ -93,7 +93,15 @@ auto_load: false
   实例：`tests/scripts/test_buzz_send.py` 的 `_isolate_real_boxes` 闸 —— 臂 A `1 ERROR`（「测试写进了真实四方信箱」）、臂 B `18 passed`、四箱 mtime 未变。
 
 - **b7 判据 FAIL 可能源自「他人的历史 unlisted 笔记」**（2026-09-16 实测：`unlisted=1` = `2026-09-16-阈值12万到30万-变更记录.md`，属前序 run 产物）。处置 = 补登 `notes/INDEX.md`（活/冻/归档）**并**把「末行统计」块与三个分区标题计数按 `b7_index_check.py` **实测值**刷新（原值可能过期一整天；本次实测 104/45/37/22 → 147/80/34/33），在口径行标注「本次为手工回填例外」。**只补登记不改计数，下次照样 FAIL。**
-- **发件端不要把正文用管道喂进去**：`cat body.txt | python3 scripts/buzz_send.py --stdin` 会被 terminal 安全扫描拦（「管道进解释器」= 硬拦 4 类之一）⇒ 写包装脚本，脚本内 `subprocess.run([py, buzz, "--content", 正文, "--card", …, "--asks", …])`；判据 = 目标收件箱行数 **+1**（实测 207→208）且 `--check` 先验落点。
+- **发件端不要把正文用管道喂进去**：`cat body.txt | python3 scripts/buzz_send.py --stdin` 会被 terminal 安全扫描拦（「管道进 interpreter」= 硬拦 4 类之一）⇒ 写包装脚本，脚本内 `subprocess.run([py, buzz, "--content", 正文, "--card", …, "--asks", …])`；判据 = 目标收件箱行数 **+1**（实测 207→208）且 `--check` 先验落点。
+- **单点迁移（E7 · 2026-09-16 实测）**
+  - ⚠️ **先修仪器，再报数**：`~/.mimiraether/scripts/` 里存在「**在跑版 ≠ 版本控制版**」的分叉 —— 实例：home `audit_send_paths.py` 是 9/12 旧版，其 `CANONICAL_MARKERS` 要求**前导分隔符**，把 `Path.home()/".openclaw/data/…"` 判成违规 ⇒ 我据此报了「2 处违规」**全是假阳性**（repo 版复跑 = 0）。同理 home `buzz_send.py` 缺 C4 双重编码守卫。**迁移/审计前先 `sha256` 比对 home 与 repo 同名件**，不一致就以 repo 为准同步。
+  - **按读/写分流**：审计器若把「任何 canonical 字面量」都算「未走单点发件」，会把**纯读取件**算进来（迁移它 = 迁移一个不存在的写路径）。判据 = AST 看该文件是否对 canonical 绑定名做 `a/w/x/+` 打开。
+  - **迁移不要强制改走 `send()`**（那会**重塑信封 = 改载荷 = 改语义**）。给单点加**低层入口** `append_envelope(to, envelope)`：只接管「落哪个文件 + 怎么落 + 落完校验」，载荷由调用方给。
+  - **机械替换要断言式**（不命中即**不写**该文件，防半迁移）；实测变体至少三种：`Path.open("a")` / 无 `+ "\n"`（已 dump 的 `line` ⇒ `json.loads(line)`）/ `open(X,"w")` **整箱重写**（语义不同 ⇒ **只迁路径绑定，不动语义**，单独记账）。
+  - **迁移前先证死/活**：`grep -rl <脚本名>` 要**读上下文** —— `cron/jobs.json` 里的命中可能是**已停用/已完成 job 的提示词举例**（实测 `buzz_signal_ack_106` 就是），不是调用。
+  - **持久闸**：把「本仓 scripts/ writer 面必须为 0」+「死路径仍判 violation（负控）」写成 pytest，否则下轮又漂回去。
+
 
 ## 3. 完成判据
 ① 日志行已追加（含动作/去重标注）② 卡段已落并 commit ③（若有新笔记）索引判据 `VERDICT: PASS` ④ 汇报区分「声明」与「盘上实测」，未闭项显式列出。
