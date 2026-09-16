@@ -1,0 +1,14 @@
+--- pre/patch_push_audit_ack_hash_20260912.py
++++ post/patch_push_audit_ack_hash_20260912.py
+@@ -2,8 +2,10 @@
+ """修正刚投递回执中的 commit 占位符（mimir-push-audit-ack 末行）——只改自己刚追加的最后一行的 content 字段。"""
+ import json
+ import os
++import buzz_send
++from buzz_send import resolve_inbox
+ 
+-INBOX = os.path.expanduser("~/.openclaw/data/buzz-inbox-hermes.jsonl")
++INBOX = str(resolve_inbox("hermes"))
+ 
+ with open(INBOX, encoding="utf-8") as f:
+     lines = f.read().splitlines()

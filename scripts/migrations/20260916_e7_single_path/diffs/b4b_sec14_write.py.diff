@@ -1,0 +1,23 @@
+--- pre/b4b_sec14_write.py
++++ post/b4b_sec14_write.py
+@@ -1,5 +1,7 @@
+ import json, time
+ from pathlib import Path
++import buzz_send
++from buzz_send import resolve_inbox
+ 
+ home = Path("/home/rayliu")
+ scr_a = home / ".mimiraether/notes/.scratch-sec14-a.md"
+@@ -48,10 +50,9 @@
+         "`reasoning_content must be passed back`，会话未累积 token ⇒ 即便 pin 生效也不会出三态。批 2 不宜按「pin 兜底」结案。"
+     ),
+ }
+-box = home / ".openclaw/data/buzz-inbox-hermes.jsonl"
++box = str(resolve_inbox("hermes"))
+ n0 = len(box.read_text(encoding="utf-8").splitlines())
+-with box.open("a", encoding="utf-8") as f:
+-    f.write(json.dumps(msg, ensure_ascii=False) + "\n")
++buzz_send.append_envelope("hermes", msg)
+ lines = box.read_text(encoding="utf-8").splitlines()
+ last = json.loads(lines[-1])
+ print("inbox_lines:", n0, "->", len(lines), "last_id_ok:", last["id"] == msg["id"], "content_len:", len(last["content"]))

@@ -963,7 +963,7 @@ class FeishuAdapter(BasePlatformAdapter):
         #   ① 先请线程**自愿退出**（_request_ws_thread_exit）——否则等的是一个
         #      ``cli.start()`` 里 run_until_complete 阻塞不返回的线程，100% 等满超时；
         #   ② join **移出事件循环**（to_thread）——同步 join 会把 gateway 事件循环
-        #      钉死整段超时（旧停机遇 17s 关停 + 每次 WARNING）。
+        #      钉死整段超时（旧码停机**恒等满 5s**：实测 12:22=5.05s / 13:15=5.02s，各带一条 WARNING；「17s」系早前口头误报，已按三臂对照更正）。
         ws_thread = self._ws_thread
         if ws_thread is not None and ws_thread.is_alive():
             self._request_ws_thread_exit()

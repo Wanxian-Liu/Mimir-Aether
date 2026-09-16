@@ -38,6 +38,11 @@ fi
 _mimir_home() {
   if [ -n "${MIMIR_HOME:-}" ] && [ -d "${MIMIR_HOME}/logs" ]; then printf '%s' "$MIMIR_HOME"; return; fi
   if [ -n "${MIMIR_AETHER_HOME:-}" ] && [ -d "${MIMIR_AETHER_HOME}/logs" ]; then printf '%s' "$MIMIR_AETHER_HOME"; return; fi
+  # 2026-09-16 修正（定位第 3 条台账）：旧序把 "$HOME/logs" 排在 "$HOME/.mimiraether/logs" 之前，
+  # 而 /home/rayliu/logs 是 2026-03 就存在的旧目录 ⇒ 对 HOME=/home/rayliu 的执行面（其他 agent 的提交）
+  # 恒命中它 ⇒ 产出「第 3 条台账」/home/rayliu/logs/git-commit-audit.jsonl。
+  # 修正：规范路径优先；与调用方 HOME 形状无关（HOME=<...>/.mimiraether 时嵌套不存在，自然回落）。
+  if [ -d "$HOME/.mimiraether/logs" ]; then printf '%s' "$HOME/.mimiraether"; return; fi
   if [ -d "$HOME/logs" ]; then printf '%s' "$HOME"; return; fi
   printf '%s' "$HOME/.mimiraether"
 }

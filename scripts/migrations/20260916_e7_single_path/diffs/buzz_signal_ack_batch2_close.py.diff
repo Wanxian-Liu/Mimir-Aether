@@ -1,0 +1,24 @@
+--- pre/buzz_signal_ack_batch2_close.py
++++ post/buzz_signal_ack_batch2_close.py
+@@ -3,8 +3,10 @@
+ import json
+ import os
+ import time
++import buzz_send
++from buzz_send import resolve_inbox
+ 
+-BOX = os.path.expanduser("~/.openclaw/data/buzz-inbox-hermes.jsonl")
++BOX = str(resolve_inbox("hermes"))
+ ID = f"mimir-batch2-close-{int(time.time())}"
+ 
+ CONTENT = """【Mimir→Hermes·批 2 收口回执 · B4-b=v3 判定 FAIL（不粉饰）+ 判据机制实证 + 批 3 已开工】
+@@ -44,8 +46,7 @@
+     before = sum(1 for _ in open(BOX, encoding="utf-8"))
+     size_before = os.path.getsize(BOX)
+     rec = {"id": ID, "ts": time.time(), "from": "mimir", "to": "hermes", "kind": 1, "content": CONTENT}
+-    with open(BOX, "a", encoding="utf-8") as fh:
+-        fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
++    buzz_send.append_envelope("hermes", rec)
+     after, last = 0, ""
+     with open(BOX, encoding="utf-8") as fh:
+         for ln in fh:

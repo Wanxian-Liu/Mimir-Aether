@@ -1,0 +1,267 @@
+{
+ "ts": "2026-09-16 17:26:12",
+ "repo_commit_note": "E7 单点迁移：13 件 writer 面迁移至 buzz_send.append_envelope()",
+ "pre_images": "/home/rayliu/.mimiraether/backups/20260916-e7-migration",
+ "files": [
+  {
+   "name": "ack106_run2_signal_hermes.py",
+   "pre_sha256": "8cbc6ddea20bc7d81266c48446e0150baed14435eee15ddf7dda521c792ebea6",
+   "post_sha256": "1d21377bde093366ee0e8b120b78ea3378870a986c9f747c4a66764a8b1d4859",
+   "pre_lines": 58,
+   "post_lines": 58,
+   "added": 4,
+   "removed": 4,
+   "diff_file": "diffs/ack106_run2_signal_hermes.py.diff",
+   "touched_identifiers": [
+    "",
+    "BOX = str",
+    "append_envelope",
+    "expanduser",
+    "from buzz_send import resolve_inbox",
+    "import buzz_send",
+    "with open",
+    "write"
+   ]
+  },
+  {
+   "name": "b23_final_json_check.py",
+   "pre_sha256": "5b80cbd684044b4ce98121458582dbbfead8b7218c7528a44c45636ed4f74cf5",
+   "post_sha256": "5b80cbd684044b4ce98121458582dbbfead8b7218c7528a44c45636ed4f74cf5",
+   "pre_lines": 29,
+   "post_lines": 29,
+   "added": 0,
+   "removed": 0,
+   "diff_file": "diffs/b23_final_json_check.py.diff",
+   "touched_identifiers": []
+  },
+  {
+   "name": "b4b_sec14_write.py",
+   "pre_sha256": "e5a015f78adbff171feba7ed51c2f5f3156afbd4c532a72f43d573cc9455eaac",
+   "post_sha256": "1f14c9912ca986a5e0399f6a531c1fabac3a14c3a77707b44c5e05200bbbdc0c",
+   "pre_lines": 67,
+   "post_lines": 68,
+   "added": 4,
+   "removed": 3,
+   "diff_file": "diffs/b4b_sec14_write.py.diff",
+   "touched_identifiers": [
+    "append_envelope",
+    "box = str",
+    "from buzz_send import resolve_inbox",
+    "import buzz_send",
+    "jsonl\"",
+    "open",
+    "write"
+   ]
+  },
+  {
+   "name": "buzz_signal_400c_ack.py",
+   "pre_sha256": "26aa43923e1d372a6488a4e94e41187f3ad9451a828525b839da46bf48a3dffb",
+   "post_sha256": "533d4159102f25d66e6b3232a56cd2dd2d2f2a836a6cca55edab1df0c6e9e98b",
+   "pre_lines": 34,
+   "post_lines": 34,
+   "added": 4,
+   "removed": 4,
+   "diff_file": "diffs/buzz_signal_400c_ack.py.diff",
+   "touched_identifiers": [
+    "",
+    "BOX = str",
+    "append_envelope",
+    "from buzz_send import resolve_inbox",
+    "home",
+    "import buzz_send",
+    "open",
+    "write"
+   ]
+  },
+  {
+   "name": "buzz_signal_ack_102_103.py",
+   "pre_sha256": "f017049314736a1c13f0d5318ecbdd2b610f6d3982be84763dc0ee95fd504fb5",
+   "post_sha256": "0428c9516525221c753c74cbd9ca23d6f358067fa02cc668902af3fa96b7243c",
+   "pre_lines": 77,
+   "post_lines": 77,
+   "added": 4,
+   "removed": 4,
+   "diff_file": "diffs/buzz_signal_ack_102_103.py.diff",
+   "touched_identifiers": [
+    "",
+    "BOX = str",
+    "append_envelope",
+    "expanduser",
+    "from buzz_send import resolve_inbox",
+    "import buzz_send",
+    "with open",
+    "write"
+   ]
+  },
+  {
+   "name": "buzz_signal_ack_104.py",
+   "pre_sha256": "f712770eb084e9c92179328e783ac20f1674034b523ddd2765e2df8e2bc54153",
+   "post_sha256": "5dea013d2c880b4f5626a5f7108873bd6c5125fc632838081b37bdc06aa5f983",
+   "pre_lines": 68,
+   "post_lines": 68,
+   "added": 4,
+   "removed": 4,
+   "diff_file": "diffs/buzz_signal_ack_104.py.diff",
+   "touched_identifiers": [
+    "",
+    "BOX = str",
+    "append_envelope",
+    "expanduser",
+    "from buzz_send import resolve_inbox",
+    "import buzz_send",
+    "with open",
+    "write"
+   ]
+  },
+  {
+   "name": "buzz_signal_ack_106.py",
+   "pre_sha256": "d94d8643cc2e46aa8c18bbc35a0d12394007cd4db498b494214a4ab208242021",
+   "post_sha256": "f937c6fc08633ceb23fdafa339cb81b8fede5d365506adc85428750c538c1331",
+   "pre_lines": 64,
+   "post_lines": 65,
+   "added": 4,
+   "removed": 3,
+   "diff_file": "diffs/buzz_signal_ack_106.py.diff",
+   "touched_identifiers": [
+    "BOX = str",
+    "append_envelope",
+    "expanduser",
+    "from buzz_send import resolve_inbox",
+    "import buzz_send",
+    "with open",
+    "write"
+   ]
+  },
+  {
+   "name": "buzz_signal_ack_batch2_close.py",
+   "pre_sha256": "f406d0d0d8c1f63f94e67d73d96b93b018c79ba3319e3875b61038020a4a40c6",
+   "post_sha256": "e27302ea2f441bcc05f181df52fbf6bdd5264d0223886c4a7177422d15dc9e65",
+   "pre_lines": 65,
+   "post_lines": 66,
+   "added": 4,
+   "removed": 3,
+   "diff_file": "diffs/buzz_signal_ack_batch2_close.py.diff",
+   "touched_identifiers": [
+    "BOX = str",
+    "append_envelope",
+    "expanduser",
+    "from buzz_send import resolve_inbox",
+    "import buzz_send",
+    "with open",
+    "write"
+   ]
+  },
+  {
+   "name": "notify_hermes_x_series.py",
+   "pre_sha256": "7b07138f6ff8550d83e961b64a26770447ba938d060f5d77a163d5d5a32ebe7d",
+   "post_sha256": "da9e9ffe6e372e5c74d13b521d061d53eac58ab083b96bc655728344964d2799",
+   "pre_lines": 62,
+   "post_lines": 63,
+   "added": 4,
+   "removed": 3,
+   "diff_file": "diffs/notify_hermes_x_series.py.diff",
+   "touched_identifiers": [
+    "BOX = str",
+    "append_envelope",
+    "from buzz_send import resolve_inbox",
+    "import buzz_send",
+    "jsonl\"",
+    "with open",
+    "write"
+   ]
+  },
+  {
+   "name": "patch_push_audit_ack_hash_20260912.py",
+   "pre_sha256": "d783a1d732a96bb623f568aa7d9aad4a3d0e7ac20e02d6b281c1d13eadf45aaa",
+   "post_sha256": "a5ab132a0e3351cc3e07946cd358252a55e397eef1491556d5e965bef22b54c8",
+   "pre_lines": 23,
+   "post_lines": 25,
+   "added": 3,
+   "removed": 1,
+   "diff_file": "diffs/patch_push_audit_ack_hash_20260912.py.diff",
+   "touched_identifiers": [
+    "INBOX = str",
+    "expanduser",
+    "from buzz_send import resolve_inbox",
+    "import buzz_send"
+   ]
+  },
+  {
+   "name": "publish_s33_notify.py",
+   "pre_sha256": "48081339c1de104408b474bc30c2813b292b03d44e72d3f89704cbe36bc724e7",
+   "post_sha256": "a9fba35a4f538971dc93d61d94b0e36ee4e68fcfde0b53febeb794d09057ea83",
+   "pre_lines": 54,
+   "post_lines": 55,
+   "added": 4,
+   "removed": 3,
+   "diff_file": "diffs/publish_s33_notify.py.diff",
+   "touched_identifiers": [
+    "BOX = str",
+    "append_envelope",
+    "from buzz_send import resolve_inbox",
+    "import buzz_send",
+    "jsonl\"",
+    "with open",
+    "write"
+   ]
+  },
+  {
+   "name": "r7_finalize.py",
+   "pre_sha256": "26da3518bff7be4f617879381943e6fdc23338851baf8fcea26f8b3ff5760f9f",
+   "post_sha256": "03279b983b74b6a2f47e55ee6d603f3c588fe573c407b8dc2c93b8c1c2051e47",
+   "pre_lines": 54,
+   "post_lines": 55,
+   "added": 4,
+   "removed": 3,
+   "diff_file": "diffs/r7_finalize.py.diff",
+   "touched_identifiers": [
+    "append_envelope",
+    "expanduser",
+    "from buzz_send import resolve_inbox",
+    "import buzz_send",
+    "path = str",
+    "with open",
+    "write"
+   ]
+  },
+  {
+   "name": "send_dblock_receipt_20260909.py",
+   "pre_sha256": "eda697d67da6a3199763e8ad76c603bfc0b5c144ea827420815138a7511af720",
+   "post_sha256": "dd8be36e011f0f5a793c958f4738db57882a79780ef8521b81d995544fb00312",
+   "pre_lines": 29,
+   "post_lines": 30,
+   "added": 4,
+   "removed": 3,
+   "diff_file": "diffs/send_dblock_receipt_20260909.py.diff",
+   "touched_identifiers": [
+    "append_envelope",
+    "from buzz_send import resolve_inbox",
+    "import buzz_send",
+    "jsonl\"",
+    "path = str",
+    "with open",
+    "write"
+   ]
+  },
+  {
+   "name": "send_push_audit_ack_20260912.py",
+   "pre_sha256": "40c7639e78dab8e29c7e2a4194220c27a88b94d02af6fc63fe112e845198277e",
+   "post_sha256": "a634b6ebc75f47cdae7c1c35a7c32d67d673e34cdb42ef6d09da37c474504a4a",
+   "pre_lines": 51,
+   "post_lines": 51,
+   "added": 4,
+   "removed": 4,
+   "diff_file": "diffs/send_push_audit_ack_20260912.py.diff",
+   "touched_identifiers": [
+    "",
+    "INBOX = str",
+    "append_envelope",
+    "expanduser",
+    "from buzz_send import resolve_inbox",
+    "import buzz_send",
+    "with open",
+    "write"
+   ]
+  }
+ ]
+}

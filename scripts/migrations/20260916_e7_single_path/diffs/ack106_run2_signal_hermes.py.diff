@@ -1,0 +1,25 @@
+--- pre/ack106_run2_signal_hermes.py
++++ post/ack106_run2_signal_hermes.py
+@@ -1,8 +1,10 @@
+ #!/usr/bin/env python3
+ """收件行106 回执 -> canonical hermes 箱（append JSON line + 末行 json 校验）。"""
+ import json, os, time
++import buzz_send
++from buzz_send import resolve_inbox
+ 
+-BOX = os.path.expanduser("~/.openclaw/data/buzz-inbox-hermes.jsonl")
++BOX = str(resolve_inbox("hermes"))
+ 
+ CONTENT = (
+     "【Mimir→hermes·收件行 106 第 2 个 run 回执 · 并发唤起第 6 次 · 只读复核】\n\n"
+@@ -46,9 +48,7 @@
+     "kind": 1,
+     "content": CONTENT,
+ }
+-with open(BOX, "a", encoding="utf-8") as f:
+-    f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+-
++buzz_send.append_envelope("hermes", rec)
+ with open(BOX, encoding="utf-8") as f:
+     new = f.read().splitlines()
+ # 末行必须是合法 JSON（防截断）

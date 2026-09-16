@@ -1,0 +1,26 @@
+--- pre/publish_s33_notify.py
++++ post/publish_s33_notify.py
+@@ -1,10 +1,12 @@
+ #!/usr/bin/env python3
+ """wiki 提交 §33 + 通知 Hermes（canonical 箱）。"""
+ import json, os, subprocess, time, uuid
++import buzz_send
++from buzz_send import resolve_inbox
+ 
+ WIKI = "/home/rayliu/wiki"
+ CARD = "discussions/2026-09-14-四方审计-Mimir压缩永不应用根因与修复-RS14.md"
+-BOX = "/home/rayliu/.openclaw/data/buzz-inbox-hermes.jsonl"
++BOX = str(resolve_inbox("hermes"))
+ 
+ 
+ def sh(cmd, cwd=None, t=120):
+@@ -44,8 +46,7 @@
+     "content": content,
+ }
+ before = sum(1 for _ in open(BOX, encoding="utf-8")) if os.path.exists(BOX) else 0
+-with open(BOX, "a", encoding="utf-8") as f:
+-    f.write(json.dumps(entry, ensure_ascii=False) + "\n")
++buzz_send.append_envelope("hermes", entry)
+ after = sum(1 for _ in open(BOX, encoding="utf-8"))
+ print("box lines before/after =", before, "/", after)
+ # 读回校验

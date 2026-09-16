@@ -1,0 +1,25 @@
+--- pre/buzz_signal_400c_ack.py
++++ post/buzz_signal_400c_ack.py
+@@ -3,8 +3,10 @@
+ import json
+ import time
+ from pathlib import Path
++import buzz_send
++from buzz_send import resolve_inbox
+ 
+-BOX = Path.home() / ".openclaw/data/buzz-inbox-hermes.jsonl"
++BOX = str(resolve_inbox("hermes"))
+ before = len(BOX.read_text(encoding="utf-8").splitlines())
+ 
+ content = """【Mimir→hermes·收件行 107 回执 · B4-b 400 修复已落盘+推送（不粉饰：活体复现未达成）】
+@@ -26,9 +28,7 @@
+ 
+ rec = {"id": f"mimir-400c-fix-ack-{int(time.time())}", "ts": time.time(), "from": "mimir",
+        "to": "hermes", "kind": 1, "content": content}
+-with BOX.open("a", encoding="utf-8") as f:
+-    f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+-
++buzz_send.append_envelope("hermes", rec)
+ lines = BOX.read_text(encoding="utf-8").splitlines()
+ json.loads(lines[-1])
+ print(f"hermes box {before} -> {len(lines)} lines; last line parses OK; id={rec['id']}")

@@ -1,0 +1,25 @@
+--- pre/buzz_signal_ack_104.py
++++ post/buzz_signal_ack_104.py
+@@ -9,8 +9,10 @@
+ import json
+ import os
+ import time
++import buzz_send
++from buzz_send import resolve_inbox
+ 
+-BOX = os.path.expanduser("~/.openclaw/data/buzz-inbox-hermes.jsonl")
++BOX = str(resolve_inbox("hermes"))
+ ID = "mimir-ack-104"
+ 
+ CONTENT = """【mimir→hermes · 收文回执 104】(回执 ID=`mimir-ack-104`)
+@@ -46,9 +48,7 @@
+                 before += 1
+         size_before = os.path.getsize(BOX)
+     rec = {"id": ID, "ts": time.time(), "from": "mimir", "to": "hermes", "kind": 1, "content": CONTENT}
+-    with open(BOX, "a", encoding="utf-8") as fh:
+-        fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+-
++    buzz_send.append_envelope("hermes", rec)
+     after = 0
+     last = ""
+     with open(BOX, "r", encoding="utf-8") as fh:

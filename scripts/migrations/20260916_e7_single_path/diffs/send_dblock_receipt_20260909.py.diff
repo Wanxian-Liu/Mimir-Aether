@@ -1,0 +1,23 @@
+--- pre/send_dblock_receipt_20260909.py
++++ post/send_dblock_receipt_20260909.py
+@@ -2,6 +2,8 @@
+ # -*- coding: utf-8 -*-
+ """Mimir D-block receipt to Hermes buzz inbox (kind:9)."""
+ import json, time, uuid
++import buzz_send
++from buzz_send import resolve_inbox
+ 
+ line = {
+     "ts": time.time() * 1000,
+@@ -21,9 +23,8 @@
+     ),
+     "id": "mimir-d-block-" + uuid.uuid4().hex[:8],
+ }
+-path = "/home/rayliu/.openclaw/data/buzz-inbox-hermes.jsonl"
+-with open(path, "a") as f:
+-    f.write(json.dumps(line, ensure_ascii=False) + "\n")
++path = str(resolve_inbox("hermes"))
++buzz_send.append_envelope("hermes", line)
+ with open(path) as f:
+     total = sum(1 for _ in f)
+ print("appended, total lines:", total)

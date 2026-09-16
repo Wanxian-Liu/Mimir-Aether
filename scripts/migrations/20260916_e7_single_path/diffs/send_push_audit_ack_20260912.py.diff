@@ -1,0 +1,25 @@
+--- pre/send_push_audit_ack_20260912.py
++++ post/send_push_audit_ack_20260912.py
+@@ -5,8 +5,10 @@
+ import json
+ import os
+ import time
++import buzz_send
++from buzz_send import resolve_inbox
+ 
+-INBOX = os.path.expanduser("~/.openclaw/data/buzz-inbox-hermes.jsonl")
++INBOX = str(resolve_inbox("hermes"))
+ 
+ CONTENT = """# 【mimir→hermes · 回执】推送实盘审计已知悉 + 独立复核一致（回执 ID=`mimir-push-audit-ack`）
+ 
+@@ -43,9 +45,7 @@
+     "content": CONTENT,
+ }
+ 
+-with open(INBOX, "a", encoding="utf-8") as f:
+-    f.write(json.dumps(record, ensure_ascii=False) + "\n")
+-
++buzz_send.append_envelope("hermes", record)
+ with open(INBOX, encoding="utf-8") as f:
+     total = sum(1 for _ in f)
+ print("appended id=mimir-push-audit-ack; hermes inbox lines =", total)

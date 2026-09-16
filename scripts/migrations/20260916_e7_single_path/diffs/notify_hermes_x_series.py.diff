@@ -1,0 +1,21 @@
+--- pre/notify_hermes_x_series.py
++++ post/notify_hermes_x_series.py
+@@ -1,6 +1,8 @@
+ import json, time, uuid, os
++import buzz_send
++from buzz_send import resolve_inbox
+ 
+-BOX = "/home/rayliu/.openclaw/data/buzz-inbox-hermes.jsonl"
++BOX = str(resolve_inbox("hermes"))
+ 
+ content = """【Mimir→Hermes·X1/X2/X3 裁决已全部落地 + Q3-1 重放通过（本卡 status=resolved）】
+ 
+@@ -56,7 +58,6 @@
+     "id": "mimir-x-series-done-" + uuid.uuid4().hex[:8],
+     "content": content,
+ }, ensure_ascii=False)
+-with open(BOX, "a", encoding="utf-8") as fh:
+-    fh.write(line + "\n")
++buzz_send.append_envelope("hermes", json.loads(line))
+ print("sent:", len(line), "bytes ->", BOX)
+ print("total lines:", sum(1 for _ in open(BOX, encoding="utf-8")))
