@@ -68,9 +68,36 @@ def gate_ttl() -> int:
         return TURN_WINDOW_SECONDS
 
 
+def _resolve_ledger_home() -> Path:
+    """解析 Mimir home（修 2026-09-16 台账分叉）。
+
+    本机 HOME=/home/rayliu/.mimiraether（mimir home 即 HOME）⇒ 旧式 expanduser("~/.mimiraether")
+    得到 …/.mimiraether/.mimiraether（嵌套假路径）⇒ 自证落进嵌套台账而闸门读真台账
+    ⇒「写了但看不见」的确定性重试环。
+
+    优先级：显式 env（带 data/ 存在性校验）> get_mimir_home() > HOME 自身即 mimir home > 旧式回退。
+    """
+    # ① 显式 env 一律信任（含测试夹具 tmp_path；不加存在性校验，否则会越过夹具读到真台账）
+    for key in ("MIMIR_HOME", "MIMIR_AETHER_HOME"):
+        v = os.environ.get(key)
+        if v and v.strip():
+            return Path(v.strip())
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        from mimir_constants import get_mimir_home  # type: ignore
+
+        p = Path(get_mimir_home())
+        if (p / "data").is_dir():
+            return p
+    except Exception:
+        pass
+    if (Path.home() / "data" / "ops").is_dir():
+        return Path.home()
+    return Path.home() / ".mimiraether"
+
+
 def default_ledger_path() -> Path:
-    home = os.environ.get("MIMIR_HOME") or os.path.expanduser("~/.mimiraether")
-    return Path(home) / "data" / "ops" / "probe_attest.jsonl"
+    return _resolve_ledger_home() / "data" / "ops" / "probe_attest.jsonl"
 
 
 def append_record(record: Dict[str, Any], *, ledger: Optional[Path] = None) -> Path:
