@@ -22,6 +22,7 @@ Design philosophy:
 
 import json
 import logging
+import os
 import re
 import time
 from dataclasses import dataclass
@@ -36,6 +37,9 @@ logger = logging.getLogger(__name__)
 
 MODELS_DEV_URL = "https://models.dev/api.json"
 _MODELS_DEV_CACHE_TTL = 3600  # 1 hour in-memory
+# 2026-09-16 停滞真因修复：磁盘缓存新鲜度上限（秒）。超过才上网刷新。
+# 见 fetch_models_dev() 注释；env MIMIR_MODELS_DEV_DISK_TTL 可覆盖，=0 恢复网络优先。
+_MODELS_DEV_DISK_TTL = 86400  # 24 hours
 
 # In-memory cache
 _models_dev_cache: Dict[str, Any] = {}
@@ -208,6 +212,38 @@ def _load_disk_cache() -> Dict[str, Any]:
     return {}
 
 
+def _disk_cache_ttl() -> float:
+    """磁盘缓存新鲜度上限（秒）。env ``MIMIR_MODELS_DEV_DISK_TTL`` 可覆盖。
+
+    ``=0``（或负）⇒ 磁盘缓存永不算新鲜 ⇒ 恢复 2026-09-16 之前的「网络优先」行为
+    （回滚闸：无需改码即可退回旧序）。
+    """
+    try:
+        return float(os.environ.get("MIMIR_MODELS_DEV_DISK_TTL", _MODELS_DEV_DISK_TTL))
+    except (TypeError, ValueError):
+        return float(_MODELS_DEV_DISK_TTL)
+
+
+def _load_disk_cache_fresh() -> Dict[str, Any]:
+    """mtime 在 TTL 内的磁盘缓存才返回；过期/缺失/异常一律返回空 dict（⇒ 走网络刷新）。
+
+    ⚠️ 判据是**文件 mtime**，不是「文件是否存在」——见 2026-09-16 停滞修复。
+    """
+    ttl = _disk_cache_ttl()
+    if ttl <= 0:
+        return {}
+    try:
+        cache_path = _get_cache_path()
+        if not cache_path.exists():
+            return {}
+        if (time.time() - cache_path.stat().st_mtime) > ttl:
+            return {}
+    except Exception as e:
+        logger.debug("models.dev disk cache freshness check failed: %s", e)
+        return {}
+    return _load_disk_cache()
+
+
 def _save_disk_cache(data: Dict[str, Any]) -> None:
     """Save models.dev data to disk cache atomically."""
     try:
@@ -235,6 +271,23 @@ def fetch_models_dev(force_refresh: bool = False) -> Dict[str, Any]:
         and (time.time() - _models_dev_cache_time) < _MODELS_DEV_CACHE_TTL
     ):
         return _models_dev_cache
+
+    # 2026-09-16 停滞真因修复（E 组 · stall_s 校准）：
+    #   旧序 = 内存(1h) -> **网络** -> 磁盘兜底 ⇒ 内存 TTL 过期时在**入站消息关键路径**上
+    #   拉一次 ~4.6MB registry；``requests`` 的 ``timeout`` 是**每 socket 操作**超时而非总时限，
+    #   慢速滴流响应可无限拖长 ⇒ 实测 15:37:43 停滞看门狗在 30s 处开火
+    #   （栈：agent_route_mixin.py:433 -> get_model_context_length -> fetch_models_dev -> requests.get）。
+    #   修法：磁盘缓存**新鲜就先返回**，网络只在磁盘过期/缺失（或 force_refresh）时走。
+    if not force_refresh:
+        _disk_fresh = _load_disk_cache_fresh()
+        if _disk_fresh:
+            _models_dev_cache = _disk_fresh
+            _models_dev_cache_time = time.time()
+            logger.debug(
+                "models.dev: disk cache hit (age <= %ss), network skipped",
+                _disk_cache_ttl(),
+            )
+            return _models_dev_cache
 
     # Try network fetch
     try:
