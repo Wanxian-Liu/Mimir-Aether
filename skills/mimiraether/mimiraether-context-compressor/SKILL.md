@@ -114,7 +114,14 @@ MimirContextCompressor(
 
 - 从 **`_hermes_home / "config.yaml"`** 读配置（与仓库内示例 [`config.yaml`](config.yaml) **未必是同一文件**）。
 - **`compression.enabled`**：仅此布尔（及 truthy 字符串）控制是否启用卫生压缩；路径见代码中 `_hyg_data.get("compression", {})`。
-- **卫生触发阈值（2026-08-02 P0 修复后）**：`agent_route_mixin.py` L322 `_compress_token_threshold = 200_000` **固定值**（替代旧的 `context_length × 0.85` = 850K）。token 来源**仅用 actual**（`session_entry.last_prompt_tokens`），`estimated` 不再触发——旧估算偏差 3.05×（10:31 estimated 244,759 vs 10:34 actual 80,359）导致"该压不压"。消息数 ≥400 硬阀保留兜底。
+- **卫生触发阈值（2026-08-02 P0 修复后）**：`agent_route_mixin.py` L322 `_compress_token_threshold = 200_000` **固定值**（替代旧的 `context_length × 0.85` = 850K）。
+  **⚠️ 2026-09-16 更新（刘哥令「阈值 12万→30万」）**：该裸常量已改为 **tuned 键 `compressor.hygiene_token_threshold`**
+  （helper `gateway/router/agent_route_mixin.py::_hygiene_token_threshold()`，**当前置位 `300000`**，缺键回退 `200_000`）。
+  为什么改成键：本阈值**每会话每轮**读一次（非启动时读）⇒ 以后调它**不用改码 / 不用重启**。
+  教训（本次实测）：卫生层比 agent 层**更早**拦会话 ⇒ 只把 agent 层阈值提到 30 万而卫生层仍 20 万时，
+  30 万那条线**永远走不到**，观测会误读成「没变化」。改阈值必须**两层同改**（agent 层：`.env` 的
+  `MIMIR_COMPRESS_THRESHOLD_TOKENS` + tuned `effective_window_tokens`；卫生层：本键）。
+  取证全文：`~/.mimiraether/notes/2026-09-16-阈值12万到30万-变更记录.md`（含回滚三步 + 生效判据）。token 来源**仅用 actual**（`session_entry.last_prompt_tokens`），`estimated` 不再触发——旧估算偏差 3.05×（10:31 estimated 244,759 vs 10:34 actual 80,359）导致"该压不压"。消息数 ≥400 硬阀保留兜底。
 - 优先使用 `session_entry.last_prompt_tokens`，否则用 `estimate_messages_tokens_rough(history)`。
 
 ### ⚠️ RS16 定位（2026-09-14 · `reason=no_api_key` = 凭据通路 provider 误绑定）

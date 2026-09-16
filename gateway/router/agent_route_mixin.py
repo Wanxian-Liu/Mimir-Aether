@@ -45,6 +45,27 @@ def _cred_fp8(value) -> str:
     return hashlib.sha256(str(value).encode()).hexdigest()[:8]
 
 
+# 卫生压缩触发阈值（ACTUAL tokens）的历史默认值。
+# 2026-09-16 刘哥令：把它提到 30万，与 agent 层阈值对齐——否则本层先在 20万 把会话拦下，
+# agent 层那条 30万 的线**永远走不到**（实验会表现为「没变化」而不是「变贵了」）。
+_HYGIENE_TOKEN_THRESHOLD_DEFAULT = 200_000
+
+
+def _hygiene_token_threshold() -> int:
+    """卫生压缩触发阈值真源 = tuned 键 ``compressor.hygiene_token_threshold``。
+
+    为什么走 tuned 而不是写死常量：本阈值**每个会话每轮**都读一次（不是进程启动时读一次），
+    故热调**不需要重启**；写死则每次改阈值都要改码 + 重启（2026-09-16 那次实验的实际阻力）。
+    键缺失 / 值非法 / 导入失败 ⇒ 回退历史默认 200_000（不抛：压缩路径不该因调参变脆）。
+    """
+    try:
+        from agent.tuned_thresholds import get_tuned_int
+
+        return int(get_tuned_int("compressor.hygiene_token_threshold"))
+    except Exception:  # KeyError / ImportError / ValueError
+        return _HYGIENE_TOKEN_THRESHOLD_DEFAULT
+
+
 class _AgentLayerShim:
     """RS16 (a2): 给 agent 层**未绑定**真源函数喂最小 self，不复制任何凭据规则。
 
@@ -417,7 +438,8 @@ class AgentRouteMixin:
                     config_context_length=_hyg_config_context_length,
                     provider=_hyg_provider or "",
                 )
-                _compress_token_threshold = 200_000  # P0#2: fixed 200K actual-token trigger
+                # 真源 = tuned 键 compressor.hygiene_token_threshold（模块级 _hygiene_token_threshold()，热调不需重启）。
+                _compress_token_threshold = _hygiene_token_threshold()
                 _warn_token_threshold = int(_hyg_context_length * 0.95)
 
                 _msg_count = len(history)
