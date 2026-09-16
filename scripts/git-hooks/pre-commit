@@ -32,7 +32,16 @@
 #           trace line next to a commit is itself the signal)
 # ---------------------------------------------------------------------------
 
-TRACE_LOG="${MIMIR_GIT_COMMIT_AUDIT_LOG:-$HOME/.mimiraether/logs/git-commit-audit.jsonl}"
+# 2026-09-16 修「审计台账双血统」：本机 HOME 即 mimir home ⇒ 旧写法 $HOME/.mimiraether 得到
+# **嵌套假路径**（真台账 2620 行 vs 嵌套 101 行，我的提交只进嵌套）。
+# 判据改为「挑真的含 logs/ 的那一个」——与 scripts/f2c_sample_ledger.py 的解析同源。
+_mimir_home() {
+  if [ -n "${MIMIR_HOME:-}" ] && [ -d "${MIMIR_HOME}/logs" ]; then printf '%s' "$MIMIR_HOME"; return; fi
+  if [ -n "${MIMIR_AETHER_HOME:-}" ] && [ -d "${MIMIR_AETHER_HOME}/logs" ]; then printf '%s' "$MIMIR_AETHER_HOME"; return; fi
+  if [ -d "$HOME/logs" ]; then printf '%s' "$HOME"; return; fi
+  printf '%s' "$HOME/.mimiraether"
+}
+TRACE_LOG="${MIMIR_GIT_COMMIT_AUDIT_LOG:-$(_mimir_home)/logs/git-commit-audit.jsonl}"
 AGENT_ID="${MIMIR_AGENT_ID:-mimir}"
 TRACE_ID="${MIMIR_TRACE_ID:-}"
 
