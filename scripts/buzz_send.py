@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 import uuid
@@ -39,6 +40,35 @@ DEFAULT_SENDER = os.environ.get("BUZZ_SENDER", "mimir")
 KIND_ENUM = {1: "任务令", 2: "回执", 3: "审计票", 4: "待授权", 5: "状态查", 9: "到达信号"}
 # 历史漂移键：出现即视为违规（U2 信封契约）
 FORBIDDEN_PAYLOAD_KEYS = ("subject", "body", "text", "message")
+
+# C 组 C4（2026-09-16）· 双重编码守卫。
+# 历史事故：三箱各有 1 行 `card` 字段里存的是**字面** `\u56db\u65b9…`（已二次转义的 JSON 文本），
+# 机器按字段取路径必然取不到；人读 content 正文却看不出问题（人工链路好、机器链路坏）。
+# 判据：真中文路径**不可能**含字面 `\uXXXX` / `\/` 序列 ⇒ 出现即拒绝（fail loud，不静默写坏指针）。
+_ESCAPE_MARKER_RE = re.compile(r"\\u[0-9a-fA-F]{4}|\\/")
+CARD_ABS_PREFIXES = ("/", "~")
+
+
+def validate_card(card):
+    """校验机器可读指针 card。返回 (规范化值 | None, 告警列表)。违规抛 ValueError。"""
+    if card is None:
+        return None, []
+    if not isinstance(card, str):
+        raise ValueError(f"card 必须是字符串，收到 {type(card).__name__}")
+    value = card.strip()
+    if not value:
+        raise ValueError("card 不能是空串——空指针在消费端等于『没给』")
+    if _ESCAPE_MARKER_RE.search(value):
+        raise ValueError(
+            "card 疑似双重编码（含字面转义序列 \\uXXXX 或 \\/）：收方按字段取路径会取不到。"
+            "请传纯路径字符串，序列化时用 json.dumps(..., ensure_ascii=False)"
+        )
+    warnings = []
+    if value.startswith(CARD_ABS_PREFIXES):
+        if not Path(os.path.expanduser(value)).exists():
+            # 不阻断（卡可能尚未落盘、或已被归档——归档会移走路径），但必须留痕。
+            warnings.append(f"card 指向的路径当前不存在：{value}")
+    return value, warnings
 
 
 def resolve_inbox(to: str) -> Path:
@@ -51,7 +81,8 @@ def resolve_inbox(to: str) -> Path:
 
 
 def build_envelope(to: str, content: str, kind: int = 1, card: str | None = None,
-                   asks: str | None = None, sender: str = DEFAULT_SENDER) -> dict:
+                   asks: str | None = None, sender: str = DEFAULT_SENDER,
+                   warnings: list | None = None) -> dict:
     """构造标准信封（U2）。content 为空 = 违规，直接拒绝。"""
     if not isinstance(content, str) or not content.strip():
         raise ValueError("content 不能为空——空正文在消费端等于『没收到』")
@@ -66,7 +97,12 @@ def build_envelope(to: str, content: str, kind: int = 1, card: str | None = None
         "content": content,
     }
     if card:
-        envelope["card"] = card
+        card_value, card_warnings = validate_card(card)
+        if card_value:
+            envelope["card"] = card_value
+        if warnings is None:
+            warnings = []
+        warnings.extend(card_warnings)
     if asks:
         envelope["asks"] = asks
     return envelope
@@ -75,18 +111,32 @@ def build_envelope(to: str, content: str, kind: int = 1, card: str | None = None
 def send(to: str, content: str, kind: int = 1, card: str | None = None,
          asks: str | None = None, sender: str = DEFAULT_SENDER,
          dry_run: bool = False) -> dict:
-    """唯一发件入口。返回信封 dict（dry_run 时不落盘）。"""
-    env = build_envelope(to, content, kind=kind, card=card, asks=asks, sender=sender)
+    """唯一发件入口。返回信封 dict（dry_run 时不落盘）。落盘后做**回写校验**。"""
+    warnings: list = []
+    env = build_envelope(to, content, kind=kind, card=card, asks=asks,
+                         sender=sender, warnings=warnings)
     path = resolve_inbox(to)
     if dry_run:
-        return {"envelope": env, "path": str(path), "written": False}
+        return {"envelope": env, "path": str(path), "written": False, "warnings": warnings}
     path.parent.mkdir(parents=True, exist_ok=True)
     line = json.dumps(env, ensure_ascii=False)
     # 单次 write + 换行：POSIX 下 O_APPEND 追加写，不整文件重写（并发安全）
     with open(path, "a", encoding="utf-8") as fh:
         fh.write(line + "\n")
-    return {"envelope": env, "path": str(path), "written": True,
-            "lines": sum(1 for _ in open(path, encoding="utf-8"))}
+    # C4 回写校验：末行必须可解析、且 id 与本次信封一致
+    # （防截断 / 编码损坏 / 并发错行；不带此行则「写了」不等于「写对了」）
+    with open(path, "rb") as fh:
+        tail = fh.read().splitlines()[-1].decode("utf-8")
+    try:
+        written_env = json.loads(tail)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"回写校验失败：末行不可解析（{exc}）path={path}") from exc
+    if written_env.get("id") != env["id"]:
+        raise RuntimeError(
+            f"回写校验失败：末行 id={written_env.get('id')!r} != 本次 {env['id']!r} path={path}"
+        )
+    return {"envelope": env, "path": str(path), "written": True, "verified": True,
+            "lines": sum(1 for _ in open(path, encoding="utf-8")), "warnings": warnings}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -120,6 +170,8 @@ def main(argv: list[str] | None = None) -> int:
     verb = "DRY-RUN" if args.dry_run else "SENT"
     print(f"{verb} to={args.to} kind={args.kind}({KIND_ENUM[args.kind]}) id={res['envelope']['id']} "
           f"path={res['path']}" + (f" total_lines={res.get('lines')}" if res.get("written") else ""))
+    for w in res.get("warnings") or []:
+        print(f"WARN: {w}", file=sys.stderr)
     return 0
 
 

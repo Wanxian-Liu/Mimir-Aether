@@ -23,7 +23,11 @@ import ast
 import json
 from pathlib import Path
 
-CANONICAL_MARKERS = ("/.openclaw/data/", "~/.openclaw/data/")
+# C 组 C4（2026-09-16）修正：原标记要求**前导分隔符**（"/.openclaw/data/" / "~/.openclaw/data/"），
+# 于是把「路径组件式」写法（`Path.home() / ".openclaw/data/buzz-inbox-hermes.jsonl"`）误判为违规
+# ——实测 2 例假阳性（b4b_sec14_write.py:51 / buzz_signal_400c_ack.py:7），其落点其实是 canonical。
+# 收窄为子串 ".openclaw/data/"：死路径（/tmp、.buzz-nostr/state、相对路径）**依然**判 violation（有负控测试）。
+CANONICAL_MARKERS = (".openclaw/data/",)
 MAX_PATH_LEN = 160  # 超过视为报文正文（散文里提到路径不算路径用法）
 
 
