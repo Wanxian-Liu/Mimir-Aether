@@ -152,7 +152,7 @@ def record_tool_call(
         pass
 
     try:
-        from agent.monitor import record_tool_outcome
+        from agent.monitor import classify_error_source, record_tool_outcome
 
         record_tool_outcome(
             tool_name,
@@ -160,6 +160,7 @@ def record_tool_call(
             duration_ms=duration_ms,
             error_message=error_message,
             session_id=sid,
+            source_tag=classify_error_source(tool_name, error_message),
         )
     except Exception:
         pass
