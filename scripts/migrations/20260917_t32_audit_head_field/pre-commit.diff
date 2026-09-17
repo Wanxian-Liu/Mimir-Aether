@@ -1,0 +1,15 @@
+--- /home/rayliu/src/MimirAether/scripts/migrations/20260917_t32_audit_head_field/pre/pre-commit	2026-09-16 17:26:48.384538389 +0800
++++ /home/rayliu/src/MimirAether/scripts/git-hooks/pre-commit	2026-09-17 21:59:37.926524153 +0800
+@@ -93,10 +93,10 @@
+   _override="$2"
+   _dir=$(dirname "$TRACE_LOG" 2>/dev/null)
+   [ -n "$_dir" ] && mkdir -p "$_dir" 2>/dev/null
+-  printf '{"ts":"%s","agent_id":"%s","trace_id":"%s","action":"%s","outcome":"%s","override":"%s","repo":"%s","branch":"%s","head":"%s","committer":"%s <%s>","head_author":"%s <%s>","staged_files":%s,"pid":%s}\n' \
++  printf '{"ts":"%s","agent_id":"%s","trace_id":"%s","action":"%s","outcome":"%s","override":"%s","repo":"%s","branch":"%s","head_before":"%s","head":"%s","amend":"%s","committer":"%s <%s>","head_author":"%s <%s>","staged_files":%s,"pid":%s}\n' \
+     "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$AGENT_ID" "$TRACE_ID" \
+     "$([ "$_is_amend" = "1" ] && printf 'amend' || printf 'commit')" \
+-    "$_outcome" "$_override" "$_repo" "$_branch" "$_head" \
++    "$_outcome" "$_override" "$_repo" "$_branch" "$_head" "$_head" "$_is_amend" \
+     "$_cur_name" "$_cur_email" "$_head_author_name" "$_head_author_email" \
+     "$_diff_files" "$$" >> "$TRACE_LOG" 2>/dev/null
+ }

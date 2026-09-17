@@ -1,0 +1,90 @@
+{
+  "migration": "20260917_t32_audit_head_field",
+  "why": "审计台账 git-commit-audit.jsonl 的 head 字段含义歧义：钩子写的是**事件时刻的 HEAD**（普通提交 == 该提交的父提交；amend == 被替换掉的提交），但键名看着像本提交 ⇒ 按 sha 反查必然查不到，会被读成「无审计记录」。本轮起因：Mimir 自证 A2 因此被推翻。",
+  "change": [
+    "hooks 增 canonical 键 head_before（同值）+ 保留 legacy 键 head（同值，别名）",
+    "pre-commit 增 amend 字段（复用已有 _is_amend，零新逻辑）—— 标出唯一 head_before != 父提交 的情形",
+    "scripts/who_did.py：join 与展示改读 head_before，回退 head（历史行兼容）",
+    "install-git-hooks.sh 重跑：src 与 wiki 两仓 6 个安装件逐字节等于源件（此前非逐字节 ⇒ sha 对比作漂移探针无效，本轮曾误报 wiki『stale』）"
+  ],
+  "not_changed": [
+    "台账历史 3159 行不加字段（append-only，不回溯改写）",
+    "home 仓（~/.mimiraether）**未装钩子** ⇒ 该仓提交不进台账（本轮发现，未擅自安装）"
+  ],
+  "targets": [
+    {
+      "file": "scripts/git-hooks/commit-msg",
+      "pre_sha256": "7261047a13331c1b473269f3c1f82953d4db0eaba9300077f0acac44f7ab3844",
+      "post_sha256": "d5d1e19e55d853a33560c9404e050d78fba0c7a2bd685e4056b97f62a4d4fb45",
+      "changed": true,
+      "bytes_post": 5644,
+      "pre_image": "scripts/migrations/20260917_t32_audit_head_field/pre/commit-msg"
+    },
+    {
+      "file": "scripts/git-hooks/pre-commit",
+      "pre_sha256": "81a10b81e33af5e2c8578359131748d792a95e83891daf3b48309b39335ed9b4",
+      "post_sha256": "a89cd27b65eeaff12608767a6482f7eebd1d707803c8d9e7b4f5331399f2e451",
+      "changed": true,
+      "bytes_post": 7147,
+      "pre_image": "scripts/migrations/20260917_t32_audit_head_field/pre/pre-commit"
+    },
+    {
+      "file": "scripts/git-hooks/pre-push",
+      "pre_sha256": null,
+      "post_sha256": "6bd16db58ebb6d38e188a30f07ec0898449848f5c6e3176aa5e77517738434be",
+      "changed": false,
+      "bytes_post": 7831,
+      "pre_image": null,
+      "note": "本件未改动（无需 pre-image）"
+    }
+  ],
+  "installed": [
+    {
+      "repo": "/home/rayliu/src/MimirAether",
+      "installed_name": "commit-msg-mimir-sign",
+      "sha256": "d5d1e19e55d853a33560c9404e050d78fba0c7a2bd685e4056b97f62a4d4fb45",
+      "equals_source": true
+    },
+    {
+      "repo": "/home/rayliu/src/MimirAether",
+      "installed_name": "pre-commit-mimir-audit",
+      "sha256": "a89cd27b65eeaff12608767a6482f7eebd1d707803c8d9e7b4f5331399f2e451",
+      "equals_source": true
+    },
+    {
+      "repo": "/home/rayliu/src/MimirAether",
+      "installed_name": "pre-push-mimir-guard",
+      "sha256": "6bd16db58ebb6d38e188a30f07ec0898449848f5c6e3176aa5e77517738434be",
+      "equals_source": true
+    },
+    {
+      "repo": "/home/rayliu/wiki",
+      "installed_name": "commit-msg-mimir-sign",
+      "sha256": "d5d1e19e55d853a33560c9404e050d78fba0c7a2bd685e4056b97f62a4d4fb45",
+      "equals_source": true
+    },
+    {
+      "repo": "/home/rayliu/wiki",
+      "installed_name": "pre-commit-mimir-audit",
+      "sha256": "a89cd27b65eeaff12608767a6482f7eebd1d707803c8d9e7b4f5331399f2e451",
+      "equals_source": true
+    },
+    {
+      "repo": "/home/rayliu/wiki",
+      "installed_name": "pre-push-mimir-guard",
+      "sha256": "6bd16db58ebb6d38e188a30f07ec0898449848f5c6e3176aa5e77517738434be",
+      "equals_source": true
+    }
+  ],
+  "verification": {
+    "unit": "tests/scripts/test_who_did.py 19 passed（含 T32 三例：canonical / legacy 兼容 / amend 不得当父提交）",
+    "suite": "who_did + install_git_hooks_chain + pre_push_guard + attribution_trailer = 56 passed",
+    "e2e": "临时仓装源件钩子 + 两次提交 ⇒ 4 行台账，head_before/head/amend 齐备；root 提交 head_before='no-head'；参数对齐（committer/head_author 解析正常）",
+    "drift": "源件 vs 安装件 6/6 MATCH（逐字节）"
+  },
+  "rollback": "cp /home/rayliu/src/MimirAether/scripts/migrations/20260917_t32_audit_head_field/pre/<hook> /home/rayliu/src/MimirAether/scripts/git-hooks/<hook> && sh scripts/install-git-hooks.sh [--repo ~/wiki]",
+  "limits": [
+    "字段增量为向后兼容（旧读者忽略未知键）；新的读者若只看 head_before 会漏历史行 —— who_did.py 已做回退",
+    "amend 情形仍未补『结果提交 sha』：该 sha 在 pre-commit/commit-msg 时刻**尚不存在**，需 post-commit 钩子；而两仓 post-commit 是 OpenClaw 的符号链接（m4-status-hook.sh）⇒ 跨域，未擅动"
+  ]
+}

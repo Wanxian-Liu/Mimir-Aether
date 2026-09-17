@@ -111,9 +111,9 @@ fi
 
 _dir=$(dirname "$TRACE_LOG" 2>/dev/null)
 [ -n "$_dir" ] && mkdir -p "$_dir" 2>/dev/null
-printf '{"ts":"%s","agent_id":"%s","trace_id":"%s","action":"signature","outcome":"%s","signed_by":"%s","id_known":"%s","repo":"%s","branch":"%s","head_before":"%s","head":"%s","pid":%s}\n' \
+printf '{"ts":"%s","agent_id":"%s","trace_id":"%s","action":"signature","outcome":"%s","signed_by":"%s","id_known":"%s","repo":"%s","branch":"%s","head":"%s","pid":%s}\n' \
   "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$_agent_id" "$TRACE_ID" \
-  "$_outcome" "$_signed_by" "$_id_known" "$_repo" "$_branch" "$_head" "$_head" "$$" \
+  "$_outcome" "$_signed_by" "$_id_known" "$_repo" "$_branch" "$_head" "$$" \
   >> "$TRACE_LOG" 2>/dev/null
 
 exit 0

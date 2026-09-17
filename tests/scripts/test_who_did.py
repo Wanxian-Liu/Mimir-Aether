@@ -336,3 +336,51 @@ def test_cli_auto_detects_card_and_file_modes(repo):
 
     bad = _cli(repo, ["--commit", "HEAD", "--file", "a.txt"], [hook], [])
     assert bad.returncode == who_did.EXIT_ERROR
+
+
+# --- T32 (2026-09-17): the ledger's head field was ambiguous ------------------
+# The hooks recorded the HEAD seen *at event time*. For a plain commit that is
+# the new commit's parent, which is what the join above needs -- but the key was
+# named "head", so a reader looking a commit sha up in the ledger found nothing
+# and could mistake the miss for "no audit record exists". The fix: emit the
+# canonical key `head_before` (same value), keep `head` as the legacy alias, and
+# record `amend` so the one case where head_before is NOT the parent is visible.
+
+def test_t32_head_before_is_the_canonical_key(repo):
+    _commit(repo, "first")
+    parent = _sha(repo, "HEAD")
+    sha = _commit(repo, "second\n\nAgent: mimir")
+    rec = _hook_record(repo, parent)
+    rec.pop("head")                     # 2026-09-17 起写的是 head_before
+    rec["head_before"] = parent
+    result = _verdict(repo, sha, hooks=[rec])
+    assert result["verdict"]["verdict"] == who_did.CONSISTENT
+    assert result["corroboration"]["authoritative"] == "hook"
+
+
+def test_t32_legacy_head_key_still_joins(repo):
+    """历史行只有 legacy 键 head（同一个值）——不得因改名而失去可 join 性。"""
+    _commit(repo, "first")
+    parent = _sha(repo, "HEAD")
+    sha = _commit(repo, "second\n\nAgent: mimir")
+    result = _verdict(repo, sha, hooks=[_hook_record(repo, parent)])
+    assert result["verdict"]["verdict"] == who_did.CONSISTENT
+
+
+def test_t32_amend_head_before_is_not_the_parent(repo):
+    """amend：head_before == 被替换掉的提交（不是新提交的父）⇒ 不得当父提交 join。
+
+    这正是「head 看着像本提交」这个歧义最危险的一格：若把它当父提交，
+    一次 amend 会把**另一个人**的记录挂到本提交上。
+    """
+    _commit(repo, "first")
+    superseded = _commit(repo, "second")
+    rec = _hook_record(repo, superseded)
+    rec.pop("head")
+    rec["head_before"] = superseded
+    rec["amend"] = "1"
+    _git(repo, "commit", "-q", "--amend", "-m", "second amended\n\nAgent: mimir")
+    amended = _sha(repo, "HEAD")
+    assert amended != superseded
+    result = _verdict(repo, amended, hooks=[rec])
+    assert result["verdict"]["verdict"] == who_did.UNDETERMINED

@@ -204,7 +204,12 @@ def corroborate(repo_real: str, facts: dict, hooks: list, tools: list) -> dict:
     for rec in hooks:
         if norm_repo(str(rec.get("repo", ""))) != repo_real:
             continue
-        if parent and str(rec.get("head", "")) == parent:
+        # T32：canonical 键 = head_before（钩子事件时刻的 HEAD）。legacy 键 head
+        # 是**同一个值**的旧名（2026-09-17 前写入的行）——不是另一个语义。
+        # 注意：普通提交 head_before == 该提交的父提交；amend 时 head_before ==
+        # 被替换掉的那个提交（当时 pre-commit 的 is_amend=1），故不能无条件当父提交用。
+        _hb = rec.get("head_before") or rec.get("head", "")
+        if parent and str(_hb) == parent:
             result["hook_records"].append(rec)
     if not parent:
         result["notes"].append("root commit: no parent, the hook stream cannot join by head")
@@ -512,7 +517,7 @@ def _short(rec: dict) -> str:
         rec.get("action", rec.get("class", "")),
         rec.get("agent_id", ""),
         rec.get("trace_id", "") or "<empty>",
-        str(rec.get("head", ""))[:7],
+        str(rec.get("head_before") or rec.get("head", ""))[:7],
     )
 
 

@@ -1,0 +1,14 @@
+--- /home/rayliu/src/MimirAether/scripts/migrations/20260917_t32_audit_head_field/pre/commit-msg	2026-09-16 17:26:48.386608882 +0800
++++ /home/rayliu/src/MimirAether/scripts/git-hooks/commit-msg	2026-09-17 21:59:37.926669025 +0800
+@@ -111,9 +111,9 @@
+ 
+ _dir=$(dirname "$TRACE_LOG" 2>/dev/null)
+ [ -n "$_dir" ] && mkdir -p "$_dir" 2>/dev/null
+-printf '{"ts":"%s","agent_id":"%s","trace_id":"%s","action":"signature","outcome":"%s","signed_by":"%s","id_known":"%s","repo":"%s","branch":"%s","head":"%s","pid":%s}\n' \
++printf '{"ts":"%s","agent_id":"%s","trace_id":"%s","action":"signature","outcome":"%s","signed_by":"%s","id_known":"%s","repo":"%s","branch":"%s","head_before":"%s","head":"%s","pid":%s}\n' \
+   "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$_agent_id" "$TRACE_ID" \
+-  "$_outcome" "$_signed_by" "$_id_known" "$_repo" "$_branch" "$_head" "$$" \
++  "$_outcome" "$_signed_by" "$_id_known" "$_repo" "$_branch" "$_head" "$_head" "$$" \
+   >> "$TRACE_LOG" 2>/dev/null
+ 
+ exit 0
