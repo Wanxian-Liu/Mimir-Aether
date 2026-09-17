@@ -443,6 +443,32 @@ def mark_job_run(job_id: str, status: str, error: Optional[str] = None):
     )
 
 
+def mark_job_delivery(job_id: str, ok: bool, error: Optional[str] = None):
+    """N8 (2026-09-18): record a cron job's DELIVERY outcome.
+
+    Deliberately does **not** touch `repeat.completed` / `next_run_at` — those
+    belong to `mark_job_run`, and calling that a second time would double-count
+    the run (`repeat.completed` drives `repeat.times`, so a `1/1` job would be
+    disabled one run early). This only makes delivery failures visible:
+    `last_delivery_error` (surfaced by `mimir cron list`) + `last_status`.
+
+    Returns the updated job (or None if the job is unknown).
+    """
+    detail = error or "delivery failed"
+    updates: Dict[str, Any] = {
+        "last_delivery_error": None if ok else detail,
+        "last_delivery_ok": bool(ok),
+    }
+    if not ok:
+        # Loud in BOTH surfaces a human/script reads: `last_status` (summary) and
+        # `last_error` (the value `mimir cron list` prints next to a non-ok
+        # status). `last_delivery_error` carries the same detail for the
+        # dedicated "⚠ Delivery failed" line.
+        updates["last_status"] = "delivery_failed"
+        updates["last_error"] = detail
+    return update_job(job_id, updates)
+
+
 def save_job_output(job_id: str, output: str, metadata: Optional[Dict] = None):
     job_dir = OUTPUT_DIR / job_id
     job_dir.mkdir(parents=True, exist_ok=True)

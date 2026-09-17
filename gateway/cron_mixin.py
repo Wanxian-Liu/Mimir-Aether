@@ -728,7 +728,7 @@ class CronMixin:
         import subprocess
         from agent.prompt_builder import PLATFORM_HINTS
         from agent.skill_commands import _build_skill_message, _load_skill_payload
-        from cron.jobs import mark_job_run, resolve_script_argv
+        from cron.jobs import mark_job_delivery, mark_job_run, resolve_script_argv
         from gateway.config import Platform
         from gateway.delivery import DeliveryTarget
         from gateway.session import (
@@ -960,8 +960,9 @@ class CronMixin:
 
             metadata = {"job_id": job_id, "job_name": job_name}
             self.delivery_router.adapters = self.adapters
+            delivery_results: Dict[str, Any] = {}
             try:
-                await self.delivery_router.deliver(
+                delivery_results = await self.delivery_router.deliver(
                     final_text,
                     targets,
                     job_id=job_id,
@@ -970,8 +971,47 @@ class CronMixin:
                 )
             except Exception as exc:
                 logger.warning("Cron job %s: delivery failed: %s", job_id, exc)
+                delivery_results = {"<router>": {"success": False, "error": str(exc)}}
+
+            # N8 (2026-09-18): these results used to be discarded => a target that
+            # failed on EVERY run (bare "feishu" without a home channel) produced
+            # no log line and left last_status="ok". Two real deliveries were
+            # lost this way before anyone noticed.
+            failures = _delivery_failures(delivery_results)
+            detail = ""
+            if failures:
+                detail = "; ".join(f"{k}: {v}" for k, v in failures.items())
+                logger.warning(
+                    "Cron job %s: DELIVERY FAILED for %s — %s",
+                    job_id,
+                    ", ".join(failures),
+                    detail,
+                )
+            try:
+                mark_job_delivery(job_id, ok=not failures, error=detail or None)
+            except Exception:
+                logger.debug("Cron job %s: mark_job_delivery failed", job_id, exc_info=True)
         finally:
             clear_session_vars(tokens)
+
+
+def _delivery_failures(results) -> Dict[str, str]:
+    """N8 (2026-09-18): extract failed targets from `DeliveryRouter.deliver()`.
+
+    `deliver()` never raises — it returns `{target: {"success": bool, ...}}`.
+    The caller used to drop that dict on the floor, so a delivery that failed
+    every single time was indistinguishable from success (no log line, job still
+    `last_status="ok"`). Pure function so it can be tested without a gateway.
+    """
+    out: Dict[str, str] = {}
+    for target, res in (results or {}).items():
+        if isinstance(res, dict) and res.get("success"):
+            continue
+        if isinstance(res, dict):
+            out[str(target)] = str(res.get("error") or "delivery failed")
+        else:
+            out[str(target)] = "delivery failed (malformed result)"
+    return out
 
 
 def _start_cron_ticker(

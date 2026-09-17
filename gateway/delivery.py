@@ -9,6 +9,7 @@ Routes messages to the appropriate destination based on:
 """
 
 import logging
+import os
 from pathlib import Path
 from datetime import datetime
 from dataclasses import dataclass
@@ -123,6 +124,51 @@ class DeliveryRouter:
         self.config = config
         self.adapters = adapters or {}
         self.output_dir = get_hermes_home() / "cron" / "output"
+
+    def home_channel_chat_id(self, platform: Platform) -> Optional[str]:
+        """N8 (2026-09-18): resolve a platform's home channel chat id.
+
+        `DeliveryTarget.chat_id` documents "None means use home channel" but
+        nothing implemented it: `_deliver_to_platform` raised
+        `ValueError("No chat ID")` instead, so a bare `deliver: "feishu"` failed
+        on **every** run (2026-09-18: 3 executions, 0 messages sent, and the job
+        still reported `last_status="ok"`).
+
+        Sources, in order (same single source of truth `/sethome` writes —
+        `gateway/command_handlers.py::_handle_set_home_command`):
+          1. gateway config `platforms.<p>.home_channel` (built from env at load)
+          2. env `<PLATFORM>_HOME_CHANNEL`
+          3. top-level `<PLATFORM>_HOME_CHANNEL` in `~/.mimiraether/config.yaml`
+
+        Returns None when nothing is configured => the caller must fail
+        **loudly** instead of assuming a destination.
+        """
+        try:
+            if self.config is not None:
+                hc = self.config.get_home_channel(platform)
+                cid = getattr(hc, "chat_id", None) if hc is not None else None
+                if cid:
+                    return str(cid).strip()
+        except Exception:  # stub config / unknown platform -> fall through
+            pass
+
+        key = f"{platform.value.upper()}_HOME_CHANNEL"
+        env_val = os.getenv(key)
+        if env_val and str(env_val).strip():
+            return str(env_val).strip()
+
+        try:
+            import yaml
+
+            cfg_path = get_hermes_home() / "config.yaml"
+            if cfg_path.is_file():
+                data = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
+                val = data.get(key)
+                if val and str(val).strip():
+                    return str(val).strip()
+        except Exception:
+            pass
+        return None
     
     async def deliver(
         self,
@@ -159,6 +205,11 @@ class DeliveryRouter:
                     "result": result
                 }
             except Exception as e:
+                # N8: a failing target must be audible, not just recorded in a
+                # dict the caller may ignore (see cron_mixin).
+                logger.warning(
+                    "Delivery to %s FAILED: %s", target.to_string(), e
+                )
                 results[target.to_string()] = {
                     "success": False,
                     "error": str(e)
@@ -233,8 +284,12 @@ class DeliveryRouter:
         if not adapter:
             raise ValueError(f"No adapter configured for {target.platform.value}")
         
-        if not target.chat_id:
-            raise ValueError(f"No chat ID for {target.platform.value} delivery")
+        chat_id = target.chat_id or self.home_channel_chat_id(target.platform)
+        if not chat_id:
+            raise ValueError(
+                f"No chat ID for {target.platform.value} delivery — no explicit "
+                f"chat_id and no {target.platform.value.upper()}_HOME_CHANNEL configured"
+            )
         
         # Guard: truncate oversized cron output to stay within platform limits
         if len(content) > MAX_PLATFORM_OUTPUT:
@@ -249,7 +304,7 @@ class DeliveryRouter:
         send_metadata = dict(metadata or {})
         if target.thread_id and "thread_id" not in send_metadata:
             send_metadata["thread_id"] = target.thread_id
-        return await adapter.send(target.chat_id, content, metadata=send_metadata or None)
+        return await adapter.send(chat_id, content, metadata=send_metadata or None)
 
 
 
