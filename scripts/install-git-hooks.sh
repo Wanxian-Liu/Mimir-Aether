@@ -12,6 +12,7 @@
 #   pre-commit  -> pre-commit-mimir-audit  (attribution guard: foreign-amend block)
 #   commit-msg  -> commit-msg-mimir-sign   (attribution trailer: Agent: <id>)
 #   pre-push    -> pre-push-mimir-guard    (immutable evidence: force push gate, A6)
+#   post-commit -> post-commit-mimir-ledger (the *actual* commit sha; T32 follow-up)
 #
 # Behaviour (per hook kind)
 #   1. always (re)install the Mimir hook as  <hooks>/<kind>-mimir-<audit|sign>
@@ -40,21 +41,21 @@ _only=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --repo)
-      [ $# -ge 2 ] || { printf 'usage: install-git-hooks.sh [--repo <path>] [--only pre-commit|commit-msg|pre-push]\n' >&2; exit 2; }
+      [ $# -ge 2 ] || { printf 'usage: install-git-hooks.sh [--repo <path>] [--only pre-commit|commit-msg|pre-push|post-commit]\n' >&2; exit 2; }
       _target_arg="$2"; shift 2 ;;
     --only)
-      [ $# -ge 2 ] || { printf 'usage: install-git-hooks.sh [--repo <path>] [--only pre-commit|commit-msg|pre-push]\n' >&2; exit 2; }
+      [ $# -ge 2 ] || { printf 'usage: install-git-hooks.sh [--repo <path>] [--only pre-commit|commit-msg|pre-push|post-commit]\n' >&2; exit 2; }
       _only="$2"; shift 2 ;;
     -h|--help)
-      printf 'usage: install-git-hooks.sh [--repo <path>] [--only pre-commit|commit-msg|pre-push]\n'; exit 0 ;;
+      printf 'usage: install-git-hooks.sh [--repo <path>] [--only pre-commit|commit-msg|pre-push|post-commit]\n'; exit 0 ;;
     *)
       printf 'install-git-hooks.sh: unknown argument: %s\n' "$1" >&2; exit 2 ;;
   esac
 done
 
 case "$_only" in
-  ""|pre-commit|commit-msg|pre-push) ;;
-  *) printf 'install-git-hooks.sh: --only must be pre-commit, commit-msg or pre-push\n' >&2; exit 2 ;;
+  ""|pre-commit|commit-msg|pre-push|post-commit) ;;
+  *) printf 'install-git-hooks.sh: --only must be pre-commit, commit-msg, pre-push or post-commit\n' >&2; exit 2 ;;
 esac
 
 _script_repo=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
@@ -84,6 +85,15 @@ install_one() {
 
   # 2. detect an existing hook and preserve it instead of overwriting
   _preserved=0
+  _is_symlink=0
+  # 符号链接必须**单独识别**：`-f` 会跟随链接为真，而下面的 `cp` 会**解引用**
+  # （把副本落成普通文件）⇒ 链跑的不再是本体；更危险的是第 2b 步的 `>` 会
+  # **穿透符号链接把目标文件清空**（2026-09-17 实测：两仓的 post-commit 都指向
+  # OpenClaw 的 m4-status-hook.sh ⇒ 不处理就等于删掉另一个 agent 的脚本）。
+  if [ -L "$_hook_path" ]; then
+    _is_symlink=1
+    printf 'detected : %s is a symlink -> %s\n' "$_hook_path" "$(readlink "$_hook_path" 2>/dev/null)"
+  fi
   if [ -f "$_hook_path" ]; then
     if grep -qF "$MIMIR_HOOK_MARKER" "$_hook_path" 2>/dev/null; then
       printf 'detected : %s is already a Mimir chain (refresh only)\n' "$_hook_path"
@@ -94,8 +104,13 @@ install_one() {
         cp "$_hook_path" "$_hook_path.bak-$_stamp"
         printf 'backup   : %s.bak-%s\n' "$_hook_path" "$_stamp"
       fi
-      if [ -f "$_hooks_dir/$_local_name" ]; then
+      if [ -e "$_hooks_dir/$_local_name" ] || [ -L "$_hooks_dir/$_local_name" ]; then
         printf 'preserve : %s already exists (left untouched)\n' "$_hooks_dir/$_local_name"
+      elif [ "$_is_symlink" = "1" ]; then
+        # 保留为**符号链接**而不是内容副本：原脚本若依赖自身路径/同目录资源，
+        # 副本会改变行为；而且「不破别人的脚本」也包括「不改它的解析路径」。
+        ln -s "$(readlink "$_hook_path" 2>/dev/null)" "$_hooks_dir/$_local_name"
+        printf 'preserve : %s -> %s (symlink kept)\n' "$_hook_path" "$_hooks_dir/$_local_name"
       else
         cp "$_hook_path" "$_hooks_dir/$_local_name"
         chmod +x "$_hooks_dir/$_local_name"
@@ -103,6 +118,16 @@ install_one() {
       fi
       _preserved=1
     fi
+  fi
+
+  # 2b. **关键**：写链前必须移除符号链接 —— `>` 会穿透符号链接写进目标文件。
+  # 实测（2026-09-17）：`~/src/MimirAether` 与 `~/wiki` 的 post-commit 都是指向
+  # OpenClaw `m4-status-hook.sh` 的符号链接 ⇒ 不先 `rm` 就会**清空另一个 agent 的脚本**。
+  # 这一步是「不破 m4-status-hook.sh」的**机制保证**，不是注释里的礼貌话。
+  if [ -L "$_hook_path" ]; then
+    _link_target=$(readlink "$_hook_path" 2>/dev/null || printf '')
+    rm -f "$_hook_path"
+    printf 'unlinked : %s (was -> %s; preserved as %s)\n' "$_hook_path" "$_link_target" "$_local_name"
   fi
 
   # 3. the chain (generated file -- edit the tracked hook and re-run instead)
@@ -164,4 +189,13 @@ if _wanted pre-push; then
     "$_script_repo/scripts/git-hooks/pre-push" \
     "pre-push-mimir-guard" \
     "MimirAether pre-push hook"
+fi
+
+# T32 后续 (2026-09-17): the *actual* commit sha is only knowable after the commit
+# object exists. Non-blocking (the hook itself always exits 0).
+if _wanted post-commit; then
+  install_one "post-commit" \
+    "$_script_repo/scripts/git-hooks/post-commit" \
+    "post-commit-mimir-ledger" \
+    "MimirAether post-commit hook"
 fi

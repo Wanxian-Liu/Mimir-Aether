@@ -1,0 +1,40 @@
+#!/bin/sh
+# MimirAether post-commit hook (2026-09-17 · H2/T32 后续)
+#
+# 为什么需要它：`pre-commit` / `commit-msg` 都跑在**提交对象创建之前** ⇒ 只能记
+# 「事件时刻的 HEAD」（== 新提交的父提交，T32 命名为 `head_before`）。
+# **真正这次提交的 sha 只有在这里才知道** ⇒ 「某 sha 有没有审计记录」这个问题，
+# 只有在 post-commit 落账之后才答得准（T32 的 `amend` 旧→新映射也缺这一段）。
+#
+# 三不：不改判定（post-commit 无法中止提交 ⇒ **永远 exit 0**）· 不阻塞（写失败静默）·
+#       不越权（只追加一行 JSON 到 Mimir 自己的台账）。
+#
+# 与 OpenClaw 的 m4-status-hook.sh 共存（2026-09-17 协商）：installer 把它保留为
+# `post-commit-local` 并由链**先跑**；installer 写链前会 `rm` 符号链接，否则 `>`
+# 会**穿透符号链接清空目标脚本**（见 scripts/install-git-hooks.sh 的 2b 段）。
+_mimir_home() {
+  if [ -n "${MIMIR_HOME:-}" ] && [ -d "${MIMIR_HOME}/logs" ]; then printf '%s' "$MIMIR_HOME"; return; fi
+  if [ -n "${MIMIR_AETHER_HOME:-}" ] && [ -d "${MIMIR_AETHER_HOME}/logs" ]; then printf '%s' "$MIMIR_AETHER_HOME"; return; fi
+  if [ -d "$HOME/.mimiraether/logs" ]; then printf '%s' "$HOME/.mimiraether"; return; fi
+  if [ -d "$HOME/logs" ]; then printf '%s' "$HOME"; return; fi
+  printf '%s' "$HOME/.mimiraether"
+}
+TRACE_LOG="${MIMIR_GIT_COMMIT_AUDIT_LOG:-$(_mimir_home)/logs/git-commit-audit.jsonl}"
+AGENT_ID="${MIMIR_AGENT_ID:-}"
+TRACE_ID="${MIMIR_TRACE_ID:-}"
+
+_repo=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || printf '')
+_head=$(git rev-parse -q --verify HEAD 2>/dev/null || printf 'no-head')
+_parent=$(git rev-parse -q --verify HEAD^ 2>/dev/null || printf 'no-parent')
+# subject 进 JSON：必须去掉 `"` 与 `\`（否则破坏 JSON —— 与 scripts 侧同类坑）
+_subject=$(git log -1 --format=%s 2>/dev/null | tr -d '"\\' | cut -c1-120 || printf '')
+
+_dir=$(dirname "$TRACE_LOG" 2>/dev/null)
+[ -n "$_dir" ] && mkdir -p "$_dir" 2>/dev/null
+printf '{"ts":"%s","agent_id":"%s","trace_id":"%s","action":"post-commit","outcome":"committed","repo":"%s","branch":"%s","head_before":"%s","head":"%s","commit":"%s","parent":"%s","subject":"%s","pid":%s}\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$AGENT_ID" "$TRACE_ID" "$_repo" "$_branch" \
+  "$_parent" "$_head" "$_head" "$_parent" "$_subject" "$$" >> "$TRACE_LOG" 2>/dev/null
+
+# 永不非 0：post-commit 无法中止提交，返回非 0 只会污染调用方
+exit 0
