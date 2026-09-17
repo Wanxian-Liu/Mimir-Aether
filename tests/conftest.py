@@ -54,6 +54,16 @@ def _isolate_mimir_test_runtime(monkeypatch, tmp_path):
     monkeypatch.setenv("MIMIR_AETHER_HOME", str(home))
     monkeypatch.setenv("HERMES_HOME", str(home))
     monkeypatch.setenv("MIMIRAETHER_HOME", str(home))
+    # ── 钩子审计台账必须**显式重定向**（2026-09-17）────────────────────────────
+    # 症状：安装 post-commit 之后，`tests/scripts/test_pre_push_guard.py` 等建的
+    # /tmp 临时仓也会跑提交钩子，而钩子的 `_mimir_home()` 要求候选目录**含 logs/**；
+    # 上面那个 tmp home 没有 logs/ ⇒ 回落到 `$HOME/.mimiraether/logs`（**真 home**）
+    # ⇒ 一次 pytest 就往**生产台账**写了 25 行 `/tmp/pytest-of-…` 的伪提交记录。
+    # 与「测试写进生产信箱」同族（探测面 vs 生产面混用）。修法 = 显式给键 + 建 logs/。
+    (home / "logs").mkdir()
+    monkeypatch.setenv("MIMIR_HOME", str(home))
+    monkeypatch.setenv("MIMIR_GIT_COMMIT_AUDIT_LOG",
+                       str(home / "logs" / "git-commit-audit.jsonl"))
 
     detached = _detach_handlers_under(_PROD_LOGS) if _PROD_LOGS.is_dir() else []
     yield
