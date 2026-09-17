@@ -250,3 +250,52 @@ def test_zero_embedded_reported_over_zero_delta_when_both_zero():
     # 对照：表非空但增量 0 ⇒ 仍是 zero_delta（未把两种情况合并）
     r2 = ag.check(rc=0, todo_n=1000, measured=900, before_n=900, after_n=900)
     assert r2['ok'] is False and r2['reason'] == 'zero_delta'
+
+
+# ------------------------- P0② 补齐：4 条新臂的 pytest 形式（Loki 反对① · 与 selftest 同等保护）
+# 纪律：每例必须断言 ``reason``（语义），不能只看 ``ok`` 极性——极性对而语义错照样假绿。
+def test_table_empty_is_distinct_from_missing_and_zero(tmp_path):
+    """三种不同的 0 必须可分：表全空 / 表缺失 / 表非空但查不到。"""
+    db_empty = _fixture(str(tmp_path), 0, name='empty.db')
+    with pytest.raises(ag.GateTableEmpty):
+        ag.count_present(db_empty, [1, 2, 3])
+    # 表不存在 ⇒ 只落到父类（measure_error 层），不得被读成 table_empty
+    missing_db = os.path.join(str(tmp_path), 'nope.db')
+    with pytest.raises(ag.GateMeasureError) as mi:
+        ag.count_present(missing_db, [1])
+    assert not isinstance(mi.value, ag.GateTableEmpty)
+    # 表非空、所查 rowid 全不在 ⇒ 计数 0 ⇒ 才是 zero_embedded
+    db_sparse = _fixture(str(tmp_path), 50, name='sparse.db')
+    assert ag.count_present(db_sparse, list(range(1001, 1101))) == 0
+    assert ag.check(rc=0, todo_n=100, measured=0)['reason'] == 'zero_embedded'
+    # 判定序：table_empty 先于 measure_error / zero_embedded
+    assert ag.check(rc=0, todo_n=10, measured=None, table_empty=True)['reason'] == 'table_empty'
+    assert ag.check(rc=0, todo_n=10, measured=0, table_empty=True)['reason'] == 'table_empty'
+
+
+def test_demo_shadow_local_no_vec0(tmp_path):
+    """本机可独立复现：stdlib 造普通表（无 vec0 扩展）也能跑通该读取路径。"""
+    db = _fixture(str(tmp_path), 10, name='demo_shadow.db')
+    rids = [2, 4, 6, 8]
+    assert ag.count_present(db, rids) == 4
+    r = ag.check(rc=0, todo_n=len(rids), measured=ag.count_present(db, rids))
+    assert r['ok'] is True and r['reason'] == 'ok'
+
+
+def test_insufficient_increment_reason(tmp_path):
+    """闸 8：给了 expected_n 才判；增量不足 ⇒ insufficient_increment。"""
+    want = ag.required_min(1000, ag.DEFAULT_MIN_RATIO)
+    r = ag.check(rc=0, todo_n=1000, measured=900, before_n=0, after_n=want - 1,
+                 expected_n=1000)
+    assert r['ok'] is False and r['reason'] == 'insufficient_increment'
+    assert r['increment_min'] == want
+    # 边界：正好等于阈值 ⇒ 不误杀
+    edge = ag.check(rc=0, todo_n=1000, measured=900, before_n=0, after_n=want,
+                    expected_n=1000)
+    assert edge['reason'] == 'ok'
+
+
+def test_expected_n_absent_is_backward_compatible():
+    """闸 8 缺省不判：老调用点（只给 before/after）行为完全不变。"""
+    r = ag.check(rc=0, todo_n=1000, measured=900, before_n=0, after_n=100)
+    assert r['reason'] == 'ok' and 'increment_min' not in r
