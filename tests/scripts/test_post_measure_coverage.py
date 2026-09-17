@@ -12,6 +12,7 @@
 """
 import json
 import subprocess
+import time
 import sys
 from pathlib import Path
 
@@ -103,3 +104,54 @@ def test_script_injects_repo_root_into_sys_path():
     assert "except Exception:" not in header, (
         "模块头不得把 home 解析包在 except 里静默降级（首版真根因）"
     )
+
+
+# ── N4（2026-09-18）「未交未出谁认账」：认领凭据 ↔ 结算行 对账 ──────────────
+def _claim(d, corr_id, age_s, pid=1234):
+    d.mkdir(parents=True, exist_ok=True)
+    (d / ("%s.json" % corr_id)).write_text(json.dumps({
+        "kind": "claim", "corr_id": corr_id,
+        "claimed_at": time.time() - age_s, "claimed_at_iso": "2026-09-18T00:00:00",
+        "pid": pid, "session_tag": "deadbeefdeadbeef",
+    }, ensure_ascii=False), encoding="utf-8")
+    return d
+
+
+def test_abandoned_claim_is_reported_and_fails(ledger, tmp_path):
+    """认了账、过了 grace、无结算行 ⇒ abandoned>0 ⇒ **rc=1 显式失败**（不静默）。"""
+    cd = _claim(tmp_path / "claims", "corrDEAD", age_s=7200)
+    p = _run("--ledger", str(ledger), "--claims-dir", str(cd), "--json")
+    s = json.loads(p.stdout)
+    assert s["abandoned"] == 1, s
+    assert s["claims_total"] == 1 and s["claims_matched"] == 0
+    assert s["abandoned_detail"][0]["corr_id"] == "corrDEAD"
+    assert p.returncode == 1
+
+
+def test_inflight_claim_is_not_abandoned(ledger, tmp_path):
+    """刚认领、未过 grace ⇒ 算**在途**，不得读成 abandoned（否则每轮误报）。"""
+    cd = _claim(tmp_path / "claims", "corrLIVE", age_s=5)
+    p = _run("--ledger", str(ledger), "--claims-dir", str(cd), "--abandon-grace-s", "3600", "--json")
+    s = json.loads(p.stdout)
+    assert s["abandoned"] == 0 and s["claims_inflight"] == 1, s
+    assert p.returncode == 0, (p.stdout, p.stderr)
+
+
+def test_matched_claim_is_clean(ledger, tmp_path):
+    """结算行带上同一 corr_id ⇒ 视为已交账，**abandoned 恒 0**（正常路径）。"""
+    cd = _claim(tmp_path / "claims", "corrDONE", age_s=7200)
+    lg = tmp_path / "cq2.jsonl"
+    rows = [r for r in (json.loads(l) for l in ledger.read_text(encoding="utf-8").splitlines() if l.strip())]
+    rows.append({"kind": "post_measure", "settle_reason": "settled",
+                 "settle_source": "cross_run", "claim_corr_id": "corrDONE"})
+    _write_ledger(lg, rows)
+    p = _run("--ledger", str(lg), "--claims-dir", str(cd), "--json")
+    s = json.loads(p.stdout)
+    assert s["abandoned"] == 0 and s["claims_matched"] == 1, s
+
+
+def test_missing_claims_dir_is_not_an_error(ledger, tmp_path):
+    """凭据目录不存在 ⇒ 全 0（H2/N4 之前的历史环境），不得报错、不得假绿成 abandoned。"""
+    p = _run("--ledger", str(ledger), "--claims-dir", str(tmp_path / "nope"), "--json")
+    s = json.loads(p.stdout)
+    assert s["claims_total"] == 0 and s["abandoned"] == 0

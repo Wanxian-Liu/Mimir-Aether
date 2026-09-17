@@ -15,6 +15,7 @@
 """
 import ast
 import json
+import os
 import time
 from pathlib import Path
 
@@ -228,3 +229,73 @@ class TestStructuralGate:
         assert p is not None and p.parent.name == "pending_post_measure"
         assert p.suffix == ".json"
         assert "compression_quality" not in str(p)
+
+
+# ── N4（2026-09-18）「未交未出谁认账」：认领凭据 ───────────────────────────────
+def _claim_files():
+    from mimir_constants import get_mimir_home
+    d = get_mimir_home() / Path(*CC._CLAIM_STORE_DIRS)
+    return sorted(d.glob("*.json")) if d.is_dir() else []
+
+
+def test_claim_writes_durable_record_with_who_and_when():
+    """认领**即落凭据**：谁认的（pid / 会话指纹）、何时认的（claimed_at）、关联 id。
+
+    这条修的是旧行为：认领后立刻 unlink ⇒ 「认领→结算」之间进程死掉 ⇒ 盘上零痕迹。
+    """
+    b = _armed_new_run("sess-N4-claim")
+    rec, why = b._claim_pending()
+    assert why == "ok" and rec.get("corr_id"), (rec, why)
+
+    files = _claim_files()
+    assert len(files) == 1, files
+    d = json.loads(files[0].read_text(encoding="utf-8"))
+    assert d["kind"] == "claim"
+    assert d["corr_id"] == rec["corr_id"]
+    assert d["pid"] == os.getpid()
+    assert float(d["claimed_at"]) > 0
+    assert d["session_tag"]                       # 只落指纹，不是明文会话键
+    assert "sess-N4-claim" not in json.dumps(d, ensure_ascii=False)
+
+
+def test_settle_clears_claim_and_links_row():
+    """正常结算：行带 ``claim_corr_id``，凭据被清 ⇒ 对账侧 abandoned 恒 0。"""
+    b = _armed_new_run("sess-N4-settle")
+    b.settle_post_measure(60_000, message_count=40, is_actual=True)
+    rows = _post_rows()
+    assert len(rows) == 1 and rows[0]["settle_source"] == "cross_run"
+    assert rows[0].get("claim_corr_id"), rows[0]
+    assert _claim_files() == [], "结算落地后凭据必须清掉"
+
+
+def test_expired_claim_is_also_cleared_not_left_as_abandoned():
+    """**已裁决 ≠ 未交**：expired 也是「有人处理并留了理由」⇒ 同样清凭据。
+
+    否则每个 TTL 过期轮次都会留一笔假 abandoned。
+    """
+    b = _armed_new_run("sess-N4-expired", armed_at=time.time() - 10 ** 6)
+    b.settle_post_measure(60_000, message_count=40, is_actual=True)
+    rows = _post_rows()
+    assert rows[0]["settle_reason"] == "expired"
+    assert _claim_files() == [], "expired 也应清凭据"
+
+
+def test_memory_account_consumes_disk_copy_without_leaving_claim():
+    """内存有账 + 盘上有副本（原逻辑消费性丢弃以**防双结**）⇒ 凭据也必须清。
+
+    忘清就会在**每个正常轮次**留下假 abandoned —— 这正是本项最容易误伤的地方。
+    """
+    from mimir_constants import get_mimir_home
+    a = _mk()
+    a.bind_session("sess-N4-both")
+    _arm(a)
+    assert a._persist_pending(a._pending_post_measure) is True
+    assert (get_mimir_home() / Path(*CC._PENDING_STORE_DIRS)).is_dir()
+
+    c = _mk()
+    c.bind_session("sess-N4-both")
+    c._pending_post_measure = _arm(c)              # 本 run 自己也有账
+    c.settle_post_measure(60_000, message_count=40, is_actual=True)
+
+    assert _post_rows(), "同 run 有账时仍应结算"
+    assert _claim_files() == [], "盘上副本被丢弃 ⇒ 它的凭据也必须清"

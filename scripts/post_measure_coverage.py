@@ -10,6 +10,9 @@
   · `settled`  = 拿到 post 实计的（`settle_reason == "settled"`）
   · 覆盖率     = settled / applied
   · `settle_source`：`same_run` / `cross_run` / `pre_h2`（字段缺失 = H2 之前的历史行）
+  · `abandoned`  = **N4（2026-09-18）「未交未出谁认账」**：认领凭据存在、但**没有任何
+    post_measure 行**携带同一 `claim_corr_id`，且已过 grace ⇒ 这笔账**认了却没人交**。
+    正常路径恒 0；>0 即 FAIL（显式，不静默）。
 
 用法：`.venv/bin/python3 scripts/post_measure_coverage.py [--min-coverage 0.5] [--json]`
 退出码：0 = 达标；1 = 未达标；2 = **目标文件不存在**（显式失败，不静默返 0）。
@@ -17,6 +20,7 @@
 import argparse
 import json
 import sys
+import time
 from collections import Counter
 from pathlib import Path
 
@@ -30,6 +34,9 @@ if str(ROOT) not in sys.path:
 from mimir_constants import get_mimir_home  # noqa: E402
 
 PRE_H2 = "pre_h2"
+# N4：认领凭据目录（与 agent/context_compressor.py 的 _CLAIM_STORE_DIRS 同源）
+CLAIM_DIRS = ("data", "ops", "pending_post_measure_claims")
+DEFAULT_ABANDON_GRACE_S = 3600.0
 
 
 def load_rows(path):
@@ -44,6 +51,59 @@ def load_rows(path):
             except Exception:
                 bad += 1
     return rows, bad
+
+
+def load_claim_rows(dirpath):
+    """读认领凭据。**目录不存在 ⇒ 空**（H2/N4 之前的历史环境，不是错误）。"""
+    d = Path(dirpath)
+    rows, bad = [], 0
+    if not d.is_dir():
+        return rows, bad
+    for p in sorted(d.glob("*.json")):
+        try:
+            rows.append(json.loads(p.read_text(encoding="utf-8")))
+        except Exception:
+            bad += 1
+    return rows, bad
+
+
+def claims_report(claim_rows, matched_ids, now=None, grace_s=DEFAULT_ABANDON_GRACE_S):
+    """把「认领 but 无结算行」拆成两类 —— 不许混成一个数（混了就分不清在途 vs 真丢）。
+
+    · 已过 grace ⇒ ``abandoned``（认了账、人/进程没了）—— 真问题，要显式可见
+    · 未过 grace ⇒ ``claims_inflight``（刚认领、还没到结算点）—— 正常在途
+    """
+    now = time.time() if now is None else now
+    abandoned, inflight, matched = [], [], 0
+    for c in claim_rows:
+        cid = str(c.get("corr_id") or "")
+        if cid and cid in matched_ids:
+            matched += 1
+            continue
+        try:
+            age = max(0.0, now - float(c.get("claimed_at") or 0))
+        except Exception:
+            age = None
+        item = {
+            "corr_id": cid or None,
+            "claimed_at_iso": c.get("claimed_at_iso"),
+            "pid": c.get("pid"),
+            "session_tag": c.get("session_tag"),
+            "age_s": (round(age, 1) if age is not None else None),
+        }
+        if age is not None and age > grace_s:
+            abandoned.append(item)
+        else:
+            inflight.append(item)
+    return {
+        "claims_total": len(claim_rows),
+        "claims_matched": matched,
+        "abandoned": len(abandoned),
+        "claims_inflight": len(inflight),
+        "abandon_grace_s": grace_s,
+        "abandoned_detail": abandoned[:10],
+        "inflight_detail": inflight[:10],
+    }
 
 
 def analyze(rows):
@@ -66,6 +126,9 @@ def analyze(rows):
         "settle_reasons": dict(reasons),
         "settle_sources": dict(sources),
         "unsettled": applied - settled,
+        # N4：结算行自报的关联 id（用于跟认领凭据对账）
+        "_matched_claim_ids": {str(r.get("claim_corr_id")) for r in post
+                               if r.get("claim_corr_id")},
     }
 
 
@@ -73,6 +136,10 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="H2 post-measure coverage")
     ap.add_argument("--ledger", default=None, help="台账路径（默认走真源 mimir home）")
     ap.add_argument("--min-coverage", type=float, default=0.5)
+    ap.add_argument("--claims-dir", default=None,
+                    help="认领凭据目录（默认走真源 mimir home 的 data/ops/pending_post_measure_claims）")
+    ap.add_argument("--abandon-grace-s", type=float, default=DEFAULT_ABANDON_GRACE_S,
+                    help="未结算凭据超过该秒数才判 abandoned（之内算在途）")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
 
@@ -85,12 +152,20 @@ def main(argv=None):
 
     rows, bad = load_rows(path)
     s = analyze(rows)
+    _matched = s.pop("_matched_claim_ids", set())
+    _claims_dir = (Path(args.claims_dir) if args.claims_dir
+                   else get_mimir_home() / Path(*CLAIM_DIRS))
+    _claim_rows, _claim_bad = load_claim_rows(_claims_dir)
+    s.update(claims_report(_claim_rows, _matched, grace_s=args.abandon_grace_s))
+    s["claims_dir"] = str(_claims_dir)
+    s["claims_unparsable"] = _claim_bad
     s["ledger"] = str(path)
     s["unparsable_lines"] = bad
 
     if args.json:
         print(json.dumps(s, ensure_ascii=False, indent=2))
-        return 0 if (s["coverage"] is not None and s["coverage"] >= args.min_coverage) else 1
+        _cov_ok = (s["coverage"] is not None and s["coverage"] >= args.min_coverage)
+        return 0 if (_cov_ok and s["abandoned"] == 0) else 1
 
     print("ledger      : %s" % s["ledger"])
     print("applied     : %d" % s["applied"])
@@ -100,10 +175,24 @@ def main(argv=None):
     print("sources     : %s" % (s["settle_sources"] or "{}"))
     print("coverage    : %s" % ("n/a" if s["coverage"] is None
                                 else "%.4f (min=%.2f)" % (s["coverage"], args.min_coverage)))
+    print("claims      : total=%d matched=%d inflight=%d ABANDONED=%d (grace=%ss)"
+          % (s["claims_total"], s["claims_matched"], s["claims_inflight"],
+             s["abandoned"], int(s["abandon_grace_s"])))
+    for _d in s["abandoned_detail"]:
+        print("  ABANDONED  : corr_id=%s pid=%s session=%s age=%ss claimed=%s"
+              % (_d["corr_id"], _d["pid"], _d["session_tag"], _d["age_s"],
+                 _d["claimed_at_iso"]))
+    if s["claims_unparsable"]:
+        print("CLAIMS_BAD  : %d 个凭据不可解析" % s["claims_unparsable"])
     if bad:
         print("UNPARSABLE  : %d line(s)" % bad)
     if s["applied"] == 0:
         print("VERDICT: NO_APPLIED -- 没有 applied 行，覆盖率无从计算")
+        return 1
+    if s["abandoned"] > 0:
+        # N4：**先于** 覆盖率判 —— 「认了账没人交」是比「率低」更硬的失败。
+        print("VERDICT: ABANDONED -- %d 笔认领凭据无对应结算行（未交未出）；"
+              "见上面 ABANDONED 明细" % s["abandoned"])
         return 1
     if s["coverage"] >= args.min_coverage:
         print("VERDICT: OK")

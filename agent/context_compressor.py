@@ -90,6 +90,10 @@ ENTITY_GATE_VERSION = "rs14.d1.v1.full-pre-set+r1>=0.80"
 # 不可把 A 会话的账结到 B 会话头上）。
 _PENDING_STORE_VERSION = "h2.v1"
 _PENDING_STORE_DIRS = ("data", "ops", "pending_post_measure")
+# N4（2026-09-18）：**认领凭据**落点。此前「认领→结算」之间进程死掉 ⇒ 那笔账在盘上
+# **零痕迹**（认领时就把临时文件 unlink 了）⇒「未交未出谁认账」无从回答。
+# 现在：认领即落凭据，真出现结算行才清；**残留即可见**（由 post_measure_coverage 报出）。
+_CLAIM_STORE_DIRS = ("data", "ops", "pending_post_measure_claims")
 _PENDING_XRUN_TTL_ENV = "MIMIR_POST_MEASURE_XRUN_TTL_S"
 # 跨 run 的间隔 = 人的思考时间（分钟~小时），不是机器节拍 ⇒ 默认 6h。
 # 真正的错配防护不是这个 TTL，而是结算前的**连续性闸**（见 settle_post_measure）。
@@ -1873,6 +1877,8 @@ class MimirContextCompressor(ContextCompressorV2):
             _p.parent.mkdir(parents=True, exist_ok=True)
             _rec = dict(pend)
             _rec["store_version"] = _PENDING_STORE_VERSION
+            # N4：挂账时即生成关联 id（老记录没有也能跑 —— 认领侧会补生成）
+            _rec.setdefault("corr_id", os.urandom(8).hex())
             _tmp = _p.with_name(_p.name + ".tmp.%d" % os.getpid())
             with open(_tmp, "w", encoding="utf-8") as _f:
                 json.dump(_rec, _f, ensure_ascii=False)
@@ -1880,6 +1886,65 @@ class MimirContextCompressor(ContextCompressorV2):
             return True
         except Exception as _e:
             logger.debug("[H2] pending persist skipped: %s", _e)
+            return False
+
+    def _claim_store_path(self, corr_id):
+        """认领凭据路径；**无会话身份或空 id ⇒ None**（与挂账同一条 fail-closed 纪律）。"""
+        _k = str(getattr(self, "_session_key", "") or "")
+        if not _k or not corr_id:
+            return None
+        try:
+            from mimir_constants import get_mimir_home
+            _h = get_mimir_home()
+        except Exception:
+            return None
+        return _h.joinpath(*_CLAIM_STORE_DIRS) / ("%s.json" % corr_id)
+
+    def _write_claim_record(self, corr_id, rec, session_tag) -> bool:
+        """落**认领凭据**（原子 tmp+replace，与挂账同构）。
+
+        失败**不阻断**主流程（埋点语义）—— 但失败会在对账侧表现为「凭据缺失」，
+        而不是静默成「一切正常」。
+        """
+        _p = self._claim_store_path(corr_id)
+        if _p is None:
+            return False
+        try:
+            _p.parent.mkdir(parents=True, exist_ok=True)
+            _rec = {
+                "kind": "claim",
+                "corr_id": corr_id,
+                "claimed_at": time.time(),
+                "claimed_at_iso": datetime.now().isoformat(),
+                "pid": os.getpid(),
+                "run_tag": _run_tag(),
+                "session_tag": session_tag,      # 只落会话指纹（与挂账口径一致）
+                "pending_ts": rec.get("of_ts"),
+                "armed_at": rec.get("armed_at"),
+                "store_version": _PENDING_STORE_VERSION,
+            }
+            _tmp = _p.with_name(_p.name + ".tmp.%d" % os.getpid())
+            with open(_tmp, "w", encoding="utf-8") as _f:
+                json.dump(_rec, _f, ensure_ascii=False)
+            os.replace(_tmp, _p)
+            return True
+        except Exception as _e:
+            logger.debug("[H2/N4] claim record skipped: %s", _e)
+            return False
+
+    def _clear_claim(self, corr_id) -> bool:
+        """清凭据 = 这笔账**有人认了**。
+
+        注意语义：`expired` / `unmeasured` / `discontinuous` 都算**已裁决**
+        （有人处理、并留下了裁决理由）⇒ 同样清凭据。只有「谁都没碰」才留痕。
+        """
+        _p = self._claim_store_path(corr_id)
+        if _p is None or not _p.exists():
+            return False
+        try:
+            _p.unlink()
+            return True
+        except Exception:
             return False
 
     def _claim_pending(self):
@@ -1910,6 +1975,12 @@ class MimirContextCompressor(ContextCompressorV2):
             return None, "unreadable"
         if str(_rec.get("store_version") or "") != _PENDING_STORE_VERSION:
             return None, "version"
+        # N4（2026-09-18）：认领**即落凭据**。此前这里读完就 unlink ⇒ 进程若死在
+        # 「认领→结算」之间，这笔账在盘上再无痕迹 = 「未交未出无人认账」。
+        _corr = str(_rec.get("corr_id") or "") or os.urandom(8).hex()
+        _rec["corr_id"] = _corr
+        _rec["_claim_corr"] = _corr
+        _rec["_claim_written"] = self._write_claim_record(_corr, _rec, _p.stem)
         return _rec, "ok"
 
     def _xrun_ttl(self) -> float:
@@ -1953,6 +2024,12 @@ class MimirContextCompressor(ContextCompressorV2):
             if not pend and _claimed:
                 _claimed["_settle_source"] = "cross_run"
                 pend = _claimed
+            elif _claimed:
+                # N4：内存有账 ⇒ 落盘副本被**消费性丢弃**（防跨 run 双结，原逻辑）。
+                # 但那也是一笔「已认领且已裁决」的账 ⇒ 必须同时清掉它的凭据，
+                # 否则每个「内存有账 + 盘上有副本」的正常轮次都会留下**假 abandoned**。
+                self._clear_claim(str(_claimed.get("_claim_corr") or ""))
+                _claimed = None
             if not pend:
                 return
             self._pending_post_measure = None       # 单飞：一账最多结一次
@@ -2003,6 +2080,7 @@ class MimirContextCompressor(ContextCompressorV2):
                 "settle_source": _src,          # H2：same_run / cross_run（两群可分开统计）
                 "ttl_s": _ttl,
                 "claim_why": _claim_why,
+                "claim_corr_id": pend.get("corr_id") or pend.get("_claim_corr"),
                 "pending_age_s": (round(_age, 2) if _age is not None else None),
                 "pre_actual_prompt_tokens": _pre_a,
                 "pre_estimate_tokens": pend.get("pre_estimate"),
@@ -2027,6 +2105,11 @@ class MimirContextCompressor(ContextCompressorV2):
             _q.parent.mkdir(parents=True, exist_ok=True)
             with open(_q, "a", encoding="utf-8") as _f:
                 _f.write(json.dumps(line, ensure_ascii=False) + "\n")
+            # N4：结算行**已落地**才清凭据（顺序不可反 —— 反了就会出现
+            # 「凭据没了、行也没写」的静默丢失，正是本项要消灭的形态）。
+            _cc = line.get("claim_corr_id")
+            if _cc:
+                self._clear_claim(str(_cc))
             logger.info(
                 "[COMPRESS] post-measure %s source=%s net=%s sign=%s age=%ss of_ts=%s",
                 _reason, _src, _net, _sign, (round(_age, 1) if _age is not None else "?"),
