@@ -192,3 +192,61 @@ def test_cli_only_segments_overrides_completed_filter():
         # 对照：不给 --only-segments 且账本为空 ⇒ 无可判段（vacuous，但显式 ok）
         r3 = _cli('audit', '--db', db, '--segments-file', segs, '--full-list', full, '--json')
         assert json.loads(r3.stdout)['segments_checked'] == 0
+
+
+# ------------------------------------------- 断点重跑（reason=no_op_already_complete）
+def test_no_op_already_complete_passes():
+    '''expected_n 显式 == 0（本轮应做 0 条）且 before==after ⇒ PASS，不是 zero_delta。
+
+    事故形状：段内 rowid 清单非空（todo_n > 0），但上一轮已全部嵌入并落盘 ⇒
+    重跑本轮增量天然为 0，旧口径判 zero_delta ⇒ 把「已完成」读成「退化」，重跑被拦死。
+    '''
+    r = ag.check(rc=0, todo_n=1000, measured=1000, before_n=1000, after_n=1000,
+                 expected_n=0)
+    assert r['ok'] is True and r['reason'] == 'no_op_already_complete'
+    assert r['increment_min'] == 0
+
+
+def test_no_op_requires_explicit_expected_n():
+    '''向后兼容：不给 expected_n 时零增量仍判 zero_delta（未声明 ⇒ 不许静默放行）。'''
+    r = ag.check(rc=0, todo_n=1000, measured=1000, before_n=1000, after_n=1000)
+    assert r['ok'] is False and r['reason'] == 'zero_delta'
+
+
+def test_no_op_does_not_mask_regression():
+    '''负控：expected_n=0 不是后门 —— 向量真变少（after < before）仍 FAIL regression。'''
+    r = ag.check(rc=0, todo_n=1000, measured=1000, before_n=1000, after_n=999,
+                 expected_n=0)
+    assert r['ok'] is False and r['reason'] == 'regression'
+
+
+def test_no_op_does_not_mask_measure_error():
+    '''fail-closed 不破：expected_n=0 也不能把「没测到」或 rc!=0 读成 PASS。'''
+    assert ag.check(rc=0, todo_n=1000, measured=None, before_n=1000, after_n=1000,
+                    expected_n=0)['reason'] == 'measure_error'
+    assert ag.check(rc=1, todo_n=1000, measured=1000, before_n=1000, after_n=1000,
+                    expected_n=0)['reason'] == 'rc_nonzero'
+
+
+def test_cli_inline_no_op_already_complete_exit0():
+    '''CLI 契约：断点重跑命令行 ⇒ exit 0 且 reason 为新reason。'''
+    r = _cli('inline', '--rc', '0', '--todo-n', '1000', '--measured', '1000',
+             '--before-n', '1000', '--after-n', '1000', '--expected-n', '0')
+    assert r.returncode == 0 and 'no_op_already_complete' in r.stdout
+    # 对照：同一组数字但不声明 --expected-n ⇒ 仍非 0（zero_delta）
+    r2 = _cli('inline', '--rc', '0', '--todo-n', '1000', '--measured', '1000',
+              '--before-n', '1000', '--after-n', '1000')
+    assert r2.returncode == 1 and 'zero_delta' in r2.stdout
+
+
+def test_zero_embedded_reported_over_zero_delta_when_both_zero():
+    '''原因粒度：measured=0 且增量=0 ⇒ 报更具体的 zero_embedded（事故签名），不是 zero_delta。
+
+    当日实测（旧判定序）：接线传 before/after 后 seg8 事故路径拿到 reason=zero_delta，
+    事故签名被「零增量」掩盖。两臂都 FAIL（安全不变），本条锁 reason 粒度。
+    '''
+    r = ag.check(rc=0, todo_n=1000, measured=0, before_n=0, after_n=0)
+    assert r['ok'] is False and r['reason'] == 'zero_embedded'
+    # 对照：表非空但增量 0 ⇒ 仍是 zero_delta（未把两种情况合并）
+    r2 = ag.check(rc=0, todo_n=1000, measured=900, before_n=900, after_n=900)
+    assert r2['ok'] is False and r2['reason'] == 'zero_delta'
