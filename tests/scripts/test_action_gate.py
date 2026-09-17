@@ -283,16 +283,23 @@ def test_demo_shadow_local_no_vec0(tmp_path):
 
 
 def test_insufficient_increment_reason(tmp_path):
-    """闸 8：给了 expected_n 才判；增量不足 ⇒ insufficient_increment。"""
-    want = ag.required_min(1000, ag.DEFAULT_MIN_RATIO)
-    r = ag.check(rc=0, todo_n=1000, measured=900, before_n=0, after_n=want - 1,
-                 expected_n=1000)
+    """闸 8 · increment 度量：显式 expected_n ⇒ 门槛 1.0（零缺失），增量为 after-before。"""
+    r = ag.check(rc=0, todo_n=1000, measured=900, before_n=0, after_n=999, expected_n=1000)
     assert r['ok'] is False and r['reason'] == 'insufficient_increment'
-    assert r['increment_min'] == want
-    # 边界：正好等于阈值 ⇒ 不误杀
-    edge = ag.check(rc=0, todo_n=1000, measured=900, before_n=0, after_n=want,
+    assert r['gate_mode'] == 'increment' and r['increment_min'] == 1000
+    # 增量正好等于「应做」⇒ 不误杀（边界）
+    edge = ag.check(rc=0, todo_n=1000, measured=1000, before_n=0, after_n=1000,
                     expected_n=1000)
     assert edge['reason'] == 'ok'
+
+
+def test_direct_mode_gate8_production_shape():
+    """闸 8 · direct 度量（**生产唯一可用**）：只给 measured + expected_n ⇒ 零缺失，缺一即 FAIL。"""
+    short = ag.check(rc=0, todo_n=1000, measured=900, expected_n=1000)
+    assert short['ok'] is False and short['reason'] == 'insufficient_increment'
+    assert short['gate_mode'] == 'direct' and short['increment_min'] == 1000
+    full = ag.check(rc=0, todo_n=1000, measured=1000, expected_n=1000)
+    assert full['ok'] is True and full['reason'] == 'ok'
 
 
 def test_expected_n_absent_is_backward_compatible():

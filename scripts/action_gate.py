@@ -58,6 +58,13 @@ checkpoint 早已写进 phase_b_segments.json。⇒ 账本层断言 ≠ 动作�
     empty_todo → regression → zero_embedded → no_op_already_complete → zero_delta →
     insufficient_increment → below_min_ratio → ok
 
+闸 8 两轴（2026-09-18 定案 · 修「接口形态与生产输入不匹配」）：
+    门槛轴  显式给了 --expected-n ⇒ **1.0 零缺失**（want = expected_n）
+            不给 --expected-n     ⇒ min_ratio（软，默认 0.75）—— 向后兼容不破
+    度量轴  给了 before/after ⇒ increment（after - before）
+            只给 measured     ⇒ direct（生产接线只有这一条路）
+两轴都在结果里自报：``gate_mode`` / ``increment_min`` / ``expected_min``。
+
 regression（after < before，向量变少）优先于 no_op ⇒ 声明 expected_n=0 吞不掉真回退。
 zero_embedded（measured=0）同样优先于 no_op/zero_delta ⇒ 声明 expected_n=0 也吞不掉
 「一条都没嵌」；两臂都 FAIL，差别只在 reason 粒度（事故签名必须报得出来）。
@@ -68,6 +75,8 @@ zero_embedded（measured=0）同样优先于 no_op/zero_delta ⇒ 声明 expecte
     python3 -m scripts.action_gate inline  --rc 0 --todo-n 1000 --measured 864
     python3 -m scripts.action_gate audit   --db DB --segments-file S.json --full-list F.json
     python3 -m scripts.action_gate selftest
+    # 闸 8 · 生产形态（direct）：只给 measured + expected_n ⇒ 零缺失，缺一即 FAIL：
+    python3 -m scripts.action_gate inline --rc 0 --todo-n 1000 --measured 1000 --expected-n 1000
     # 断点重跑（本轮应做 0 条）⇒ ok=True reason=no_op_already_complete，而非 zero_delta：
     python3 -m scripts.action_gate inline --rc 0 --todo-n 1000 --measured 1000 \
             --before-n 1000 --after-n 1000 --expected-n 0
@@ -251,11 +260,25 @@ def check(*, rc: int = 0, todo_n: int, measured: Any, before_n: Any = None,
     if before_n is not None and after_n is not None and int(after_n) == int(before_n):
         if not allow_empty:
             return verdict(False, 'zero_delta')
-    if expected_n is not None and before_n is not None and after_n is not None:
-        got_inc = int(after_n) - int(before_n)
-        want_inc = required_min(int(expected_n), min_ratio)
-        out['increment_min'] = want_inc
-        if got_inc < want_inc:
+    if expected_n is not None:
+        # 闸 8 · **两轴分清**（Loki L-2 + 我 §2 接口缺口）：
+        #   门槛轴：调用方**显式**给了 expected_n ⇒ 那是「本轮应做 N 条」的**声明**，
+        #           不是「允许缺 25% 的波动」⇒ 门槛取 **1.0**（want = expected_n，零缺失）。
+        #           expected_n **缺省**时门槛仍走 min_ratio（下面 below_min_ratio 分支，软形态）。
+        #   度量轴：给全 before/after ⇒ 用真实增量（increment）；只给 measured ⇒ 直接比
+        #           （direct）—— 后者是**生产唯一可用形态**：接线只传
+        #           --rc / --todo-n / --measured / --expected-n，无前/后计数可测。
+        # 两轴都自报进结果（gate_mode / increment_min），防「结论为真但前提未声明」。
+        want_e = int(expected_n)
+        out['expected_min'] = want_e
+        out['increment_min'] = want_e
+        if before_n is not None and after_n is not None:
+            got = int(after_n) - int(before_n)
+            out['gate_mode'] = 'increment'
+        else:
+            got = measured
+            out['gate_mode'] = 'direct'
+        if got < want_e:
             return verdict(False, 'insufficient_increment')
     if measured < req:
         return verdict(False, 'below_min_ratio')
@@ -415,6 +438,11 @@ def selftest() -> dict:
         # 闸 8 向后兼容 · expected_n 缺省时完全不判
         arm('P_expected_n_absent_no_judge', True,
             lambda: check(rc=0, todo_n=1000, measured=900, before_n=0, after_n=100))
+        # 闸 8 · direct 度量（生产唯一可用：只给 measured + expected_n）⇒ 零缺失
+        arm('N_direct_short_of_expected', False,
+            lambda: check(rc=0, todo_n=1000, measured=900, expected_n=1000))
+        arm('P_direct_full_expected', True,
+            lambda: check(rc=0, todo_n=1000, measured=1000, expected_n=1000))
         # 断点重跑 · expected_n 显式 == 0（本轮应做 0 条）且增量为 0 ⇒ PASS
         #   （修「重跑被 zero_delta 假 FAIL」；measured=1000 表示段内 1000 条早已在库里）
         arm('P_no_op_already_complete', True,
@@ -457,10 +485,11 @@ def main(argv=None) -> int:
     ap.add_argument('--before-n', type=int, default=None)
     ap.add_argument('--after-n', type=int, default=None)
     ap.add_argument('--expected-n', type=int, default=None,
-                    help='闸8（可选）：本轮**应增量**。给了才判 —— '
-                         '实际增量 < ceil(expected_n×min_ratio) ⇒ FAIL insufficient_increment；'
-                         'expected_n=0 且增量=0 ⇒ PASS no_op_already_complete（断点重跑）；'
-                         '不给 ⇒ 完全不判（向后兼容）')
+                    help='闸8（可选）：本轮**应做 N 条**的显式声明。给了即判且取 **1.0 零缺失**'
+                         '（want = expected_n）：度量用 after-before（若给了 before/after），'
+                         '否则直接用 measured（direct，生产形态）⇒ 不足即 FAIL '
+                         'insufficient_increment；expected_n=0 且增量=0 ⇒ PASS '
+                         'no_op_already_complete（断点重跑）；不给 ⇒ 门槛退回 min_ratio（软）')
     ap.add_argument('--min-ratio', type=float, default=DEFAULT_MIN_RATIO)
     ap.add_argument('--allow-empty', action='store_true')
     ap.add_argument('--only-segments', default=None,
