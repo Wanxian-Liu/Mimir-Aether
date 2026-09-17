@@ -121,7 +121,15 @@ MimirContextCompressor(
   教训（本次实测）：卫生层比 agent 层**更早**拦会话 ⇒ 只把 agent 层阈值提到 30 万而卫生层仍 20 万时，
   30 万那条线**永远走不到**，观测会误读成「没变化」。改阈值必须**两层同改**（agent 层：`.env` 的
   `MIMIR_COMPRESS_THRESHOLD_TOKENS` + tuned `effective_window_tokens`；卫生层：本键）。
-  取证全文：`~/.mimiraether/notes/2026-09-16-阈值12万到30万-变更记录.md`（含回滚三步 + 生效判据）。token 来源**仅用 actual**（`session_entry.last_prompt_tokens`），`estimated` 不再触发——旧估算偏差 3.05×（10:31 estimated 244,759 vs 10:34 actual 80,359）导致"该压不压"。消息数 ≥400 硬阀保留兜底。
+  取证全文：`~/.mimiraether/notes/2026-09-16-阈值12万到30万-变更记录.md`（含回滚三步 + 生效判据）。
+  ⚠️ **2026-09-17 触发式验收新增（假绿族）**：**卫生层阈值 < agent 层阈值 ⇒ 卫生压缩结构性空转，却记 `outcome=applied`**。
+  实证（`data/compression_quality.jsonl` 末行 · 11:38:55 · pid 112311）：`original_count 56 → compressed_count 56`（**一条没删**）、
+  `summary_attempts 0`、`summary_mode "none"`、`entity_count 3`、`outcome "applied"`；日志侧只写
+  `compressed 57 → 56 msgs, ~86,741 → ~14,555 tokens`（57→56 仅过滤 tool 消息；token 为粗估口径）。
+  机理：卫生层按**自己的**阈值（本次 20,000）决定"要不要压"，但把活交给 agent 层 compressor，后者 `threshold_tokens`=**300,000**
+  ⇒ `compress()` 首段"未达阈值即原样返回"⇒ 空转。⇒ **不是「调低卫生阈值就能压」，两层阈值必须满足卫生层 ≥ agent 层**。
+  代价不只在假绿：本次空转仍在关键路径阻塞 **300.24s**（`[INDEX] hygiene-compress TIMEOUT ... worker abandoned`，全日志第 4 次）。
+  取证：`~/.mimiraether/notes/2026-09-17-卫生压缩触发实验-结果与两个新发现.md`（含 A/B/C 三判据 + RS17 自证）。token 来源**仅用 actual**（`session_entry.last_prompt_tokens`），`estimated` 不再触发——旧估算偏差 3.05×（10:31 estimated 244,759 vs 10:34 actual 80,359）导致"该压不压"。消息数 ≥400 硬阀保留兜底。
 - 优先使用 `session_entry.last_prompt_tokens`，否则用 `estimate_messages_tokens_rough(history)`。
 
 ### ⚠️ RS16 定位（2026-09-14 · `reason=no_api_key` = 凭据通路 provider 误绑定）
