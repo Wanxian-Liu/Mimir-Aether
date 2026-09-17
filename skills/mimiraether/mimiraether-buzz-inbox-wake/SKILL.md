@@ -79,6 +79,14 @@ auto_load: false
 
 - **commit 时刻只认 `git log -1 --format=%cd`，不认台账行标称**（2026-09-16 行 123 实测）：台账**行首时刻 = 记账时刻**，与它所记 commit 的**创建时刻**可差 20 分钟以上（实例：行首 `13:55` 记的 repo `32fe5b9`，git 实测 **`13:32:42`**）。凡「装载/未装载」判断要拿时刻比对（`MainPID` 启动 vs commit），**commit 时刻必须现取 git**；据台账标称会把「未装载」窗口算错 22 分钟。更正法 = `patch` 卡上自己那段（勿整卡重写）+ 台账**追加**一条勘误行（`append_ledger_line.py`，勿 patch 台账本身——并发写者会被整文件重写吃掉）。
 - **RS17 闸会在「纯通知类回执」上触发 ⇒ 自证要提前跑**（2026-09-16 行 123 实测）：本轮处理 `kind=9` 纯通知，回复里含「**未装载** / **0 命中**」措辞照样被 `[BLOCKED:probe-attest]` 拦，重写回复也拦。**成本最低路径 = 落卡前先跑两条自证**：① 装载类 = `scripts/rs17_load_probe.py <时刻>`（真源 `systemctl show`，输出 1/0；正控取**已观测的 commit `%cd`**（如 HEAD 提交时刻）、负控取前一日 commit、目标取最保守的那条 commit 时刻）；② 计数类 = `grep -rl -- '{INPUT}' ~/wiki/discussions/ | wc -l`（正控「收件行 121」seen / 负控随机串 none / 目标 msg-id）。两条都得 `VERIFIED` 再落卡，卡上附**小表格**（列：结论/正控/负控/目标/判定）。
+- ⚠️ **`probe_attest` 的 `--positive/--negative/--target` 传的是「INPUT 值」，不是「完整命令」**（2026-09-18 行 161 实测，首次调用即踩）：
+  真实契约 = `--probe "<探针模板，含 {INPUT}>"` + `--positive <正控样本值>` / `--negative <负控样本值>` / `--target <目标样本值>`；
+  工具把三个样本值逐个填进 `{INPUT}` 生成三条命令。**若把完整命令当样本值传**，生成的是
+  `python probe.py python probe.py <file> '<pat>' '<pat>'`（样本值被塞进输入位、探针自己成了第一个参数）⇒ 读数恒 `0`
+  ⇒ `positive_control_failed`、整条 UNVERIFIED（**闸是对的，错的是调用**）；台账会留 UNVERIFIED 记录（可回溯，不必删）。
+  ⇒ 对策：探针模板里的**模式/参数写死**（三个样本共用同一模式），只让**被扫的样本文件**变化；
+  控制组用**不同文件**（正控=确含该串的件，负控=确不含的件，必要时在 `~/.mimiraether/tmp/` 造合成件）。
+  **此前一次失败的调用会留在台账里** —— 落卡时要说明「前两条 UNVERIFIED 是调用参数错，非结论错」。
 - ⚠️ **RS17 自证批必须用 `-m` 包方式调用**（2026-09-16 行 124 实测，首跑即全线崩）：
   `cd ~/src/MimirAether && .venv/bin/python3 -m agent.probe_attest --claim … --probe … --positive … --negative … --target …`
   （`--list N` 可打印台账末尾 N 条自审）。**不要**用 `python3 agent/probe_attest.py` ——
