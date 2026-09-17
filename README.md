@@ -1,23 +1,47 @@
 # MimirAether
 
-![Ralph Tier-0](https://github.com/Wanxian-Liu/Mimir-Aether/actions/workflows/ralph.yml/badge.svg)
-![Lint](https://github.com/Wanxian-Liu/Mimir-Aether/actions/workflows/lint.yml/badge.svg)
-![Pytest wide](https://github.com/Wanxian-Liu/Mimir-Aether/actions/workflows/pytest-wide.yml/badge.svg)
+<div align="center">
 
-自主 Agent 运行时与技能库：**代码**在任意 git clone 根目录；**运行时数据**（`.env`、`config.yaml`、`data/` 等）默认在 **`~/.mimiraether`**，或由 **`MIMIR_AETHER_HOME`** 显式指定（见 `docs/path-contract.md`、`docs/MIMIR_ACTIVATE.md`）。
+**A self-hosted autonomous agent runtime — one human, four cooperating AI agents, daily production since May 2026.**
 
-> ## 🙏 欢迎帮助完善这个个人 Agent
->
-> MimirAether 是一个正在成长中的个人 Agent 项目——由一个人和四个协作 AI Agent（Hermes / OpenClaw / Loki / Mimir）共同构建。
-> 我们深知社区里藏着大量深厚经验：**一条简单的建议，可能就会帮我们避开一个大坑。**
->
-> 欢迎通过以下方式参与：
-> - 💬 **提建议**：开 [Issue](https://github.com/Wanxian-Liu/Mimir-Aether/issues)——架构、代码、文档、Agent 行为设计，任何角度都欢迎
-> - 🔍 **Code Review**：PR 评审也是建议——指出问题本身就是贡献
-> - 🤗 **数据集**：Agent 运行轨迹数据集在 HuggingFace（`mimir-agent-traces`），欢迎用于研究与分析，也欢迎反馈数据质量
-> - ⭐ Star / Fork：让更多有经验的人看到它
->
-> 没有小建议，只有还没被说出来的坑。
+[![Ralph Tier-0](https://github.com/Wanxian-Liu/Mimir-Aether/actions/workflows/ralph.yml/badge.svg)](https://github.com/Wanxian-Liu/Mimir-Aether/actions/workflows/ralph.yml)
+[![Lint](https://github.com/Wanxian-Liu/Mimir-Aether/actions/workflows/lint.yml/badge.svg)](https://github.com/Wanxian-Liu/Mimir-Aether/actions/workflows/lint.yml)
+[![Pytest wide](https://github.com/Wanxian-Liu/Mimir-Aether/actions/workflows/pytest-wide.yml/badge.svg)](https://github.com/Wanxian-Liu/Mimir-Aether/actions/workflows/pytest-wide.yml)
+[![HF Dataset](https://img.shields.io/badge/%F0%9F%A4%97%20Dataset-mimir--agent--traces-yellow)](https://huggingface.co/datasets/kelikelibababian/mimir-agent-traces)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+*自研自主 Agent 运行时与技能库 —— 一个人与四个协作 AI（编排/执行/红队/验证），自 2026 年 5 月起每日生产运行。*
+
+</div>
+
+---
+
+## ⚡ Quick Look（30 秒）
+
+```bash
+git clone https://github.com/Wanxian-Liu/Mimir-Aether && cd Mimir-Aether
+cp .env.example .env                 # 填入你的 DEEPSEEK_API_KEY
+./.venv/bin/python -m mimir_cli setup
+./.venv/bin/python -m mimir_cli chat -q "列出你能用的工具"
+```
+
+**它是什么**：一个与 Hermes/Claude-Code 同型的终端 Agent——工具调用、技能系统、网关长连接、多 Agent 协作。差异化在：**它与另外三个异构 Agent 通过 [四方广场协议](https://github.com/Wanxian-Liu/four-party-agora) 真实协作**——卡片即共享记忆、每张卡带可复算的运行产物、LLM-judge 给发言质量打分。它的每一条运行轨迹都在 [HuggingFace 数据集](https://huggingface.co/datasets/kelikelibababian/mimir-agent-traces)公开。
+
+**目录契约**：代码在本仓库根；运行时数据（`.env`、`config.yaml`、`data/`）默认在 `~/.mimiraether`，或用 `MIMIR_AETHER_HOME` 指定（见 [docs/path-contract.md](./docs/path-contract.md)）。
+
+## 🙏 我们想要高人的指点（降低门槛版）
+
+这个项目由一个人 + 四个 AI 从零织出来，没抄任何现成框架——**所以我们最缺的恰是你踩过的坑**。开 [Issue](https://github.com/Wanxian-Liu/Mimir-Aether/issues) 不需要礼貌铺垫，直接开喷也欢迎。**当前最想被指点的三个方向**：
+
+| # | 我们的自问 | 想听什么 |
+|---|---|---|
+| 1 | 多 Agent 协作协议（卡片+票+钩子）够不够稳？ | 你在多 Agent 编排里踩过的竞态/死锁/假完成坑 |
+| 2 | Agent 记忆分层（Memory→Wiki→语义检索→图谱）对不对？ | 更好的记忆架构实践，或指出我们这套的盲区 |
+| 3 | 轨迹数据集对研究有用吗？缺什么字段？ | 数据集消费者的真实需求 |
+
+别的角度（代码风格、文档、Agent 行为设计）同样欢迎——**没有小建议，只有还没被说出来的坑。**
+
+---
 
 ## 提交归属（归因边界）
 
