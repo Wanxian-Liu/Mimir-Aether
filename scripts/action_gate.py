@@ -49,7 +49,11 @@ import tempfile
 from typing import Any, Iterable, Sequence
 
 GATE_VERSION = 'action-gate.v1'
-DEFAULT_MIN_RATIO = 0.5
+# 退化阈值。依据（盘上 7 段嵌入率复算）：均值 0.910 · std 0.080 ⇒
+#   0.5  = 均值 −5.12σ（只判「断崖式退化」= 日常退化拦不住；Loki P0②-4 反对②）
+#   0.75 = 均值 −2σ（默认；仍宽松，只拦断崖）
+# 旧值回退：env MIMIR_ACTION_GATE_MIN_RATIO=0.5
+DEFAULT_MIN_RATIO = float(os.environ.get('MIMIR_ACTION_GATE_MIN_RATIO', '0.75'))
 DEFAULT_TIMEOUT_S = 30.0
 ROWRIDS_SUFFIX = '_rowids'
 DEFAULT_TABLE = 'wiki_chunks_prefix'
@@ -57,6 +61,14 @@ DEFAULT_TABLE = 'wiki_chunks_prefix'
 
 class GateMeasureError(RuntimeError):
     '''测量失败 —— 必须向上冒泡成 FAIL，绝不允许被读成 PASS。'''
+
+
+class GateTableEmpty(GateMeasureError):
+    '''表存在、但表内一条都没有 —— 与「表不存在」「探针死了」是**三种不同的 0**。
+
+    补 Loki P0②-5 反对③（零的第三种歧义：count(*)=0 三义混装）。
+    继承 GateMeasureError ⇒ 旧调用点（只 catch 父类）行为不变，fail-closed 不破。
+    '''
 
 
 def rowids_table_for(table: str) -> str:
@@ -87,6 +99,11 @@ def count_present(db: str, rowids: Iterable[int], table: str = DEFAULT_TABLE) ->
         ).fetchone()
         if not have:
             raise GateMeasureError('table missing: %s' % tbl)
+        total_row = con.execute('select count(*) from %s' % tbl).fetchone()
+        if total_row is None:
+            raise GateMeasureError('count query returned no row: %s' % tbl)
+        if int(total_row[0]) == 0:
+            raise GateTableEmpty('table exists but empty: %s' % tbl)
         n = 0
         chunk = 900
         for i in range(0, len(rids), chunk):
@@ -130,8 +147,16 @@ def required_min(todo_n: int, min_ratio: float) -> int:
 
 def check(*, rc: int = 0, todo_n: int, measured: Any, before_n: Any = None,
           after_n: Any = None, min_ratio: float = DEFAULT_MIN_RATIO,
-          allow_empty: bool = False) -> dict:
-    '''动作层判定。顺序即优先级；任一条命中即 FAIL（无「默认放行」分支）。'''
+          allow_empty: bool = False, table_empty: bool = False,
+          expected_n: Any = None) -> dict:
+    '''动作层判定。顺序即优先级；任一条命中即 FAIL（无「默认放行」分支）。
+
+    table_empty: 表存在但全空（由 count_present 抛 GateTableEmpty 后置位）⇒
+                 reason ``table_empty``，先于 ``measure_error`` / ``zero_embedded``。
+    expected_n:  **可选**闸 8 —— 本轮「应增量」。给了才判：增量 < ceil(expected_n×min_ratio)
+                 ⇒ ``insufficient_increment``（与 ``zero_delta`` 不同轴：增量不足 ≠ 零增量）。
+                 不给则完全不判（严格向后兼容）。
+    '''
     req = required_min(todo_n, min_ratio)
     out = {
         'gate_version': GATE_VERSION,
@@ -143,6 +168,8 @@ def check(*, rc: int = 0, todo_n: int, measured: Any, before_n: Any = None,
         'allow_empty': bool(allow_empty),
         'before_n': before_n,
         'after_n': after_n,
+        'table_empty': bool(table_empty),
+        'expected_n': expected_n,
     }
 
     def verdict(ok: bool, reason: str) -> dict:
@@ -152,6 +179,8 @@ def check(*, rc: int = 0, todo_n: int, measured: Any, before_n: Any = None,
 
     if rc != 0:
         return verdict(False, 'rc_nonzero')
+    if table_empty:
+        return verdict(False, 'table_empty')
     if measured is None:
         return verdict(False, 'measure_error')
     if todo_n < 0:
@@ -166,6 +195,12 @@ def check(*, rc: int = 0, todo_n: int, measured: Any, before_n: Any = None,
     if before_n is not None and after_n is not None and int(after_n) == int(before_n):
         if not allow_empty:
             return verdict(False, 'zero_delta')
+    if expected_n is not None and before_n is not None and after_n is not None:
+        got_inc = int(after_n) - int(before_n)
+        want_inc = required_min(int(expected_n), min_ratio)
+        out['increment_min'] = want_inc
+        if got_inc < want_inc:
+            return verdict(False, 'insufficient_increment')
     if measured == 0:
         if allow_empty:
             return verdict(True, 'zero_embedded_allowed')
@@ -193,13 +228,18 @@ def audit_segments(*, db: str, segments: Sequence[Sequence[int]], completed: Ite
             continue
         seg_list = [int(x) for x in seg]
         detail = None
+        empty_tbl = False
         try:
             n = count_present(db, seg_list, table)
+        except GateTableEmpty as exc:
+            n = None
+            detail = str(exc)
+            empty_tbl = True
         except GateMeasureError as exc:
             n = None
             detail = str(exc)
         res = check(rc=0, todo_n=len(seg_list), measured=n, min_ratio=min_ratio,
-                    allow_empty=allow_empty)
+                    allow_empty=allow_empty, table_empty=empty_tbl)
         row = {
             'segment': idx + 1,
             'todo_n': len(seg_list),
@@ -256,13 +296,25 @@ def _make_fixture(dirpath: str, embedded: int, table: str = DEFAULT_TABLE,
 
 
 def selftest() -> dict:
-    '''P/N 双控自检：合成夹具 + 九条判定臂。'''
+    '''P/N 双控自检：合成夹具 + **十三条**判定臂。
+
+    含 Loki P0② 方法学审三条反对的对应臂：
+      反对① → ``P_demo_shadow``：stdlib sqlite3 **现造**普通表（无 vec0 扩展）跑通 ⇒
+               该读取路径**本机可独立复现**，不依赖任何装了 vec0 的生产库。
+      反对③ → ``N_table_empty`` vs ``N_zero_embedded_sparse``：把「表全空」与
+               「表非空但所查 rowid 不在」**分成两个 reason**（零的第三种歧义）。
+      闸 8  → ``N_insufficient_increment``（增量不足）+ ``P_expected_n_absent``（缺省不判）。
+    '''
     arms = []
     with tempfile.TemporaryDirectory() as d:
         db_ok = _make_fixture(d, embedded=900, name='fix_ok.db')
         db_zero = _make_fixture(d, embedded=0, name='fix_zero.db')
+        db_sparse = _make_fixture(d, embedded=50, name='fix_sparse.db')
+        db_demo = _make_fixture(d, embedded=10, name='fix_demo_shadow.db')
         db_none = os.path.join(d, 'no_such.db')
         rid = list(range(1, 1001))
+        rid_demo = [2, 4, 6, 8]
+        rid_absent = list(range(1001, 2001))
 
         def arm(name, expect_ok, fn):
             try:
@@ -270,6 +322,9 @@ def selftest() -> dict:
                 ok = bool(got.get('ok'))
                 reason = got.get('reason')
                 measured = got.get('measured')
+            except GateTableEmpty as exc:
+                ok, reason, measured = False, 'table_empty', None
+                got = {'detail': str(exc)}
             except GateMeasureError as exc:
                 ok, reason, measured = False, 'measure_error', None
                 got = {'detail': str(exc)}
@@ -279,7 +334,7 @@ def selftest() -> dict:
         arm('P_embed_ok_900_of_1000', True,
             lambda: check(rc=0, todo_n=1000, measured=count_present(db_ok, rid)))
         arm('N_zero_embedded', False,
-            lambda: check(rc=0, todo_n=1000, measured=count_present(db_zero, rid)))
+            lambda: check(rc=0, todo_n=1000, measured=count_present(db_sparse, rid_absent)))
         arm('N_rc_nonzero', False, lambda: check(rc=1, todo_n=1000, measured=900))
         arm('N_measure_error_missing_db', False,
             lambda: check(rc=0, todo_n=1000, measured=count_present(db_none, rid)))
@@ -292,6 +347,19 @@ def selftest() -> dict:
         arm('P_empty_todo', True, lambda: check(rc=0, todo_n=0, measured=0))
         arm('P_allow_empty_explicit', True,
             lambda: check(rc=0, todo_n=1000, measured=0, allow_empty=True))
+        # 反对① · 本机可独立复现：普通表（stdlib 造、无 vec0）也能跑通
+        arm('P_demo_shadow_local_no_vec0', True,
+            lambda: check(rc=0, todo_n=len(rid_demo), measured=count_present(db_demo, rid_demo)))
+        # 反对③ · 表存在但全空 ≠ 表不存在 ≠ 探针死了（三个不同的 0）
+        arm('N_table_empty_existing_but_empty', False,
+            lambda: check(rc=0, todo_n=1000, measured=count_present(db_zero, rid)))
+        # 闸 8 · 增量不足（非零增量，也不是回退）
+        arm('N_insufficient_increment', False,
+            lambda: check(rc=0, todo_n=1000, measured=900, before_n=0, after_n=100,
+                          expected_n=1000))
+        # 闸 8 向后兼容 · expected_n 缺省时完全不判
+        arm('P_expected_n_absent_no_judge', True,
+            lambda: check(rc=0, todo_n=1000, measured=900, before_n=0, after_n=100))
     return {'gate_version': GATE_VERSION, 'arms': arms,
             'all_pass': all(a['pass'] for a in arms)}
 
@@ -319,6 +387,10 @@ def main(argv=None) -> int:
     ap.add_argument('--measured', type=int, default=None)
     ap.add_argument('--before-n', type=int, default=None)
     ap.add_argument('--after-n', type=int, default=None)
+    ap.add_argument('--expected-n', type=int, default=None,
+                    help='闸8（可选）：本轮**应增量**。给了才判 —— '
+                         '实际增量 < ceil(expected_n×min_ratio) ⇒ FAIL insufficient_increment；'
+                         '不给 ⇒ 完全不判（向后兼容）')
     ap.add_argument('--min-ratio', type=float, default=DEFAULT_MIN_RATIO)
     ap.add_argument('--allow-empty', action='store_true')
     ap.add_argument('--only-segments', default=None,
@@ -354,6 +426,7 @@ def main(argv=None) -> int:
             return 2
         rep = check(rc=a.rc, todo_n=a.todo_n, measured=a.measured,
                     before_n=a.before_n, after_n=a.after_n,
+                    expected_n=a.expected_n,
                     min_ratio=a.min_ratio, allow_empty=a.allow_empty)
         _emit(rep, a.json)
         return 0 if rep['ok'] else 1
