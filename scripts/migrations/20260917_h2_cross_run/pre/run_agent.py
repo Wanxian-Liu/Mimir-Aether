@@ -190,12 +190,6 @@ class AIAgent:
             )
         else:
             self._sync_callbacks_to_real_agent()
-        # H2（2026-09-17）：把**会话身份**绑给压缩器 —— 跨 run 结算要靠它把
-        # 「上一个 run 挂的账」认回来。空 session_id ⇒ 不绑（compressor 侧 fail-closed）。
-        try:
-            self._real_agent.compressor.bind_session(self.session_id)
-        except Exception:
-            pass
         return self._real_agent
 
     def interrupt(self, message: str = "") -> None:

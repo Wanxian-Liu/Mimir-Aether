@@ -1,0 +1,55 @@
+{
+  "migration": "20260917_h2_cross_run",
+  "why": "H2：跨 run「挂账—结算」。真因 = gateway/platforms/api_server.py:1538 在 _run_agent() **体内**建 agent ⇒ 每 run 一个新 compressor ⇒ 挂账 (_pending_post_measure) 是**实例字段** ⇒ 跨 run 结算结构上不可能。实测 applied 78 / post_measure 1 ⇒ 结算率 1.28%，98.7% 的压缩收益永无 post 实计。",
+  "change": [
+    "按**会话身份**（gateway 的 session_id = 对话身份，跨 run 稳定）落一个小 JSON；由下一个 run 原子认领（os.replace）后结算 —— 单飞从「进程内」推广到「跨 run」",
+    "空会话身份 ⇒ **不落盘**（fail-closed）：宁可漏，不可把 A 会话的账结到 B 会话头上",
+    "新增 settle_source 字段（same_run / cross_run）+ ttl_s + claim_why，两群可分开统计",
+    "TTL 随来源取：同 run 仍 1800s（语义不变），跨 run 默认 21600s（人的思考时间），env 可调",
+    "新增**连续性闸**：跨 run 的 transcript 比压缩完成时更短（message_count < compressed_count）⇒ settle_reason=discontinuous，不作收益结算",
+    "会话绑定接线：run_agent._get_real_agent() + core_loop.__init__（直接构造路径）"
+  ],
+  "not_changed": [
+    "同 run 的既有语义（1800s TTL、三条防线、net 数学）一律不动",
+    "applied 行字段集不动（settle_source 只加在 post_measure 行上）",
+    "未改 gateway 的「每 run 新建 agent」结构 —— 那是设计，本轮是在其上补结算通路"
+  ],
+  "targets": [
+    {
+      "file": "agent/context_compressor.py",
+      "pre_sha256": "678753a5577e640dc8671256e89408e1fa74ce8526342b1bde0e5012bead5c05",
+      "post_sha256": "63fe7c558f6da3b508ad3bd7e3d7a62407296bd019deb8b9897b345359e1cf84",
+      "changed": true,
+      "bytes_post": 104458,
+      "diff": "scripts/migrations/20260917_h2_cross_run/context_compressor.py.diff"
+    },
+    {
+      "file": "run_agent.py",
+      "pre_sha256": "e8b379b0bf3ce0f575c214d6c09f7202d3a145e21e28e9d57339a50c0a5511e9",
+      "post_sha256": "9d123150f40900a0fe1cff0275ee4b9e231205b5fe326619f5762db169cbc03f",
+      "changed": true,
+      "bytes_post": 10830,
+      "diff": "scripts/migrations/20260917_h2_cross_run/run_agent.py.diff"
+    },
+    {
+      "file": "agent/core_loop.py",
+      "pre_sha256": "539d0f547ae2af45282ef392375d6d6386f7f27145de445c33d06b1d8b59750c",
+      "post_sha256": "2edc833f6ace21f00bdc2ea6850db8358d4eb7ae085558d5c061bbf390ed351e",
+      "changed": true,
+      "bytes_post": 62214,
+      "diff": "scripts/migrations/20260917_h2_cross_run/core_loop.py.diff"
+    }
+  ],
+  "verification": {
+    "unit": "tests/agent/test_h2_cross_run.py 14 passed（7 组：跨 run 认领/会话隔离负控/fail-closed/TTL 分源/连续性闸/单飞两向/结构闸）",
+    "mutation": "4 突变（挂账不落盘 / tag 退化全局槽 / 去连续性闸 / 认领只读不消费）**全部 RED**—— 第一版 M2 选错探针（GREEN），已换「tag 不再随会话变」才成立，如实留痕",
+    "coverage": "scripts/post_measure_coverage.py + tests/scripts/test_post_measure_coverage.py 6 passed（含「缺目标必须 rc=2」假绿防护）；H2 前基线 coverage=0.0128、sources={pre_h2:1}",
+    "regression": "tests/agent+tests/gateway+tests/scripts 1268 passed / 5 skipped"
+  },
+  "rollback": "cp /home/rayliu/src/MimirAether/scripts/migrations/20260917_h2_cross_run/pre/<f> /home/rayliu/src/MimirAether/<f> 三个文件（或 git revert 本 commit）；数据面无残留：pending store 为空时目录不存在",
+  "limits": [
+    "**生效需重启** gateway（compressor 只在 __init__ 读参 + 绑定在 agent 构造处）",
+    "跨 run 的 post_actual 仍可能含非压缩因素（上一轮工具输出增长等）⇒ net 是乐观上界",
+    "未做「多个并发 run 争同一会话」的实测（单飞靠 os.replace 保证，已由单测覆盖）"
+  ]
+}

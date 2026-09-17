@@ -422,12 +422,6 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
             _threshold_percent, _threshold_source,
             getattr(self.compressor, "threshold_tokens", None),
         )
-        # H2（2026-09-17）：直接构造 MimirAetherAgent 的路径（非 AIAgent 门面）也绑。
-        # 无 session_id 属性 ⇒ "" ⇒ bind_session 忽略（fail-closed）。
-        try:
-            self.compressor.bind_session(getattr(self, "session_id", ""))
-        except Exception:
-            pass
 
         ko = kernel_overrides
         eff_session_db_factory = session_db_factory
