@@ -268,7 +268,7 @@ def corroborate(repo_real: str, facts: dict, hooks: list, tools: list) -> dict:
             result["notes"].append(
                 "tool-level records from more than one run fall in the join window (%s) "
                 "-> the tool stream is not used as evidence here (X2-c); the hook-level "
-                "join is exact (head == the commit parent)" % ", ".join(result["tool_pairs"])
+                "join is exact (head_before == the commit parent)" % ", ".join(result["tool_pairs"])
             )
         else:
             result["ambiguous"] = True
@@ -279,7 +279,7 @@ def corroborate(repo_real: str, facts: dict, hooks: list, tools: list) -> dict:
             )
 
     # Authoritative-source hierarchy (2026-09-13): the hook-level join is exact
-    # (repo + head == the commit parent), so it decides on its own; the tool-level
+    # (repo + head_before == the commit parent), so it decides on its own; the tool-level
     # stream is a wall-clock approximation and is only consulted when the hook
     # stream is silent. Both streams still get printed -- the reader sees the
     # disagreement, the verdict does not pretend to resolve it.

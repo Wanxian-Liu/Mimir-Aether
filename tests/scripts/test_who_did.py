@@ -384,3 +384,14 @@ def test_t32_amend_head_before_is_not_the_parent(repo):
     assert amended != superseded
     result = _verdict(repo, amended, hooks=[rec])
     assert result["verdict"]["verdict"] == who_did.UNDETERMINED
+
+
+def test_t32_wording_does_not_regress_to_the_ambiguous_field():
+    """结构闸：面向人的文案不得再自称按 `head` join —— 这正是 T32 的歧义来源。
+
+    同族先例：卫生压缩日志里残留的 `85% of 1,048,576` 死文案，被读成 "阈值 85%"。
+    文案与字段名一旦脱节，读者会照着错的字段去查，然后得到「查不到」。
+    """
+    src = (REPO_ROOT / "scripts" / "who_did.py").read_text(encoding="utf-8")
+    assert "head == the commit parent" not in src
+    assert "head_before == the commit parent" in src
