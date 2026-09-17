@@ -85,13 +85,38 @@ def _is_own_profile_flag_value(value: str) -> bool:
 
     判据复用 ``mimir_cli.profiles.is_valid_profile_name``（**同一份正则**，不在此复制，
     避免两处漂移）。取不到 profiles 时返回 ``False``（保守）——**宁可不认领，不可乱退出**。
+
+    C-2/H5（2026-09-17 · Loki Action a）：先过**宿主工具 `-p` 取值白名单**
+    （``HOST_TOOL_P_VALUES``）—— 名单内的值即使形似合法 profile 名也不认领。
     """
     try:
-        from mimir_cli.profiles import is_valid_profile_name
+        from mimir_cli.profiles import is_host_tool_p_value, is_valid_profile_name
+        if is_host_tool_p_value(value):
+            return False
         return bool(is_valid_profile_name(value))
     except Exception:
         return False
 
+
+def _is_host_tool_invocation() -> bool:
+    """当前进程是否为**已知宿主工具**（其短旗标 `-p` 一律不抢）。
+
+    两个判据（**都是认名单，不是猜形状**）：
+      ① ``sys.argv[0]`` 命中 ``profiles.HOST_TOOL_PROGRAMS``
+         （``pytest`` / ``python -m pytest`` 的 ``.../pytest/__main__.py`` / ``ruff`` …）；
+      ② 进程内**已 import pytest**（覆盖 ``-m`` 与内联调用等 argv0 不可辨的形态）。
+    取不到 profiles 时返回 ``False``（保守）。
+    """
+    try:
+        from mimir_cli.profiles import is_host_tool_program
+    except Exception:
+        return False
+    try:
+        if is_host_tool_program(sys.argv[0] if sys.argv else ""):
+            return True
+    except Exception:
+        pass
+    return "pytest" in sys.modules
 
 def _apply_profile_override() -> None:
     """Pre-parse --profile/-p and set HERMES_HOME before module imports."""
@@ -106,8 +131,14 @@ def _apply_profile_override() -> None:
     #    ⇒ sys.exit(1) ⇒ **任何 argv 含 `-p <非profile名>` 的进程，一 import 本模块
     #    就直接退出**（本仓已复现：`pytest -p no:randomly` 令 17 个 CLI 测试整片假红）。
     #    口径：**认不出是自己的旗标就不认领** —— 不改宿主 argv、不退出、不设 HERMES_HOME。
+    #    C-2/H5 追加（2026-09-17 · Loki Action a）：再加一层**宿主工具名单白名单** ——
+    #    在已知宿主工具进程里，**短旗标 `-p` 一律不认领**（含其值恰为合法 profile 名时，
+    #    如 `-p default`）。长旗标 `--profile=<名>` 无歧义，仍按名判据认领。
+    _host_tool = _is_host_tool_invocation()
     for i, arg in enumerate(argv):
         if arg in ("--profile", "-p") and i + 1 < len(argv):
+            if arg == "-p" and _host_tool:
+                continue
             if not _is_own_profile_flag_value(argv[i + 1]):
                 continue
             profile_name = argv[i + 1]

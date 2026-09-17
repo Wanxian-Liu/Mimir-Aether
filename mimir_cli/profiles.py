@@ -34,6 +34,58 @@ from typing import List, Optional
 
 _PROFILE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 
+# ---------------------------------------------------------------------------
+# 宿主工具 `-p` 白名单（C-2 / H5 · 2026-09-17 · Loki Action a）
+# ---------------------------------------------------------------------------
+# 背景：`-p` 既是本 CLI 的 profile 旗标，也是**宿主工具**的旗标
+#   pytest -p no:randomly / -p no:cacheprovider / -p xdist / -p no:cov …
+# 旧口径只做「名字不像 profile 就不认领」= **靠猜形状**，只堵住一个方向；
+# 反方向残留（H5）：宿主旗标值**恰好**是合法 profile 名时（Loki 实测 `-p default`）
+# 仍会被误认领 ⇒ 宿主工具的旗标被本 CLI 抢走（并从 argv 剥掉）。
+# 新口径（Loki Action a）：**名单内才不认领** —— 显式白名单，不猜。
+#   · HOST_TOOL_PROGRAMS : 进程身份为已知宿主工具 ⇒ 其短旗标 `-p` 一律不抢
+#   · HOST_TOOL_P_VALUES : 已知宿主工具的 `-p` 取值 ⇒ 即使形似 profile 名也不抢
+# 长旗标 `--profile=<名>` 是本 CLI 自有、无歧义的形式，**不受本白名单影响**。
+HOST_TOOL_PROGRAMS = frozenset({
+    "pytest", "py.test", "pytest-3", "tox", "nox",
+    "ruff", "mypy", "pylint", "flake8", "black", "isort", "pyright",
+    "coverage", "coverage3", "sphinx-build", "uv", "pip", "pip3",
+    "conda", "hatch", "poetry", "virtualenv",
+})
+
+HOST_TOOL_P_VALUES = frozenset({
+    "no:randomly", "no:cacheprovider", "no:xdist", "no:cov", "no:legacypath",
+    "no:warnings", "no:hishel", "cacheprovider", "randomly", "xdist",
+})
+
+
+def is_host_tool_program(program) -> bool:
+    """Return ``True`` iff *program* 是名单内的**已知宿主工具**。
+
+    接受任意形态：``"pytest"`` · ``"/venv/bin/pytest"`` · ``"pytest.exe"`` ·
+    ``python -m pytest`` 形态下的 ``".../pytest/__main__.py"``（按路径分量匹配）。
+    ``None`` / 空串 / 非字符串 ⇒ ``False``（保守：不认领的前提是**认得出**）。
+    """
+    if not isinstance(program, str) or not program.strip():
+        return False
+    parts = [p.strip().lower() for p in program.replace("\\", "/").split("/") if p.strip()]
+    if not parts:
+        return False
+    leaf = parts[-1]
+    if leaf.endswith(".exe"):
+        leaf = leaf[:-4]
+    if leaf in HOST_TOOL_PROGRAMS:
+        return True
+    if leaf == "__main__.py":
+        return any(p in HOST_TOOL_PROGRAMS for p in parts[:-1])
+    return any(p in HOST_TOOL_PROGRAMS for p in parts)
+
+
+def is_host_tool_p_value(value) -> bool:
+    """Return ``True`` iff *value* 是名单内**已知宿主工具的 `-p` 取值**。"""
+    return isinstance(value, str) and value.strip().lower() in HOST_TOOL_P_VALUES
+
+
 # Directories bootstrapped inside every new profile
 _PROFILE_DIRS = [
     "memories",
@@ -170,20 +222,26 @@ def validate_profile_name(name: str) -> None:
 
 
 def is_valid_profile_name(name: str) -> bool:
-    """Return ``True`` iff *name* is a syntactically valid profile identifier.
+    """Return ``True`` iff *name* 可被**当作旗标值认领**为 profile 名。
 
     Non-raising sibling of :func:`validate_profile_name` — for callers that must
     **decide** rather than **fail** (e.g. disambiguating our own ``-p`` flag from
     a host tool's ``-p`` in ``mimir_cli.main``).
+
+    ⚠️ 语义边界（2026-09-17 · C-2/H5）：**``"default"`` 不算**。
+    ``"default"`` 是 profile **解析层**的别名（由 :func:`get_profile_dir` /
+    :func:`profile_exists` 处理），但作为 **argv 旗标值**它是高危歧义 ——
+    宿主工具的 ``-p default`` 会被误认领并从 argv 剥掉（Loki 票 B-2 实测可复现）。
+    ⇒ 本判据只管「能否被认领」；别名语义保留在 :func:`validate_profile_name`
+    （仍不抛）与解析函数里，**不受本改动影响**。
     """
     if not isinstance(name, str) or not name:
         return False
-    try:
-        validate_profile_name(name)
-        return True
-    except ValueError:
+    if name == "default":
         return False
-
+    if is_host_tool_p_value(name):
+        return False
+    return bool(_PROFILE_ID_RE.match(name))
 
 def get_profile_dir(name: str) -> Path:
     """Resolve a profile name to its HERMES_HOME directory."""
