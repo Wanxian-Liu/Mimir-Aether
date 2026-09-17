@@ -159,3 +159,29 @@ commit 链：filter-branch 重写 → 1f1b9e5 → 4be1203（conftest）→ bbdb0
   （先前口传的「18 个」是**未复算的旧数**，以本次受控差分为准。）
 - **纪律**：**测试失败先问「是不是我的测量方式坏了」**，再问「代码坏了没」。
   同型教训见案例 3（环境兜底假绿）——方向相反，但都是「先验测量、后验被测物」。
+
+## 实战案例 5（2026-09-17 · 本地全绿 / CI 红：**测试依赖本机绝对路径**）
+
+- **现象**：`a48db88` → CI `Ralph Tier-0 = failure`、`Lint = success`；本地 `pytest tests/scripts tests/gateway tests/agent`
+  = 1222 passed / 5 skipped，**全绿**。失败步骤 = `Run Ralph (Gate1–3)`（不是 submodule、不是 import）。
+- **根因（确定性复现，非猜测）**：新增测试里有一条**无参数直跑脚本**：
+  `subprocess.run([PY, str(SCRIPT)])`，而 `SCRIPT` 内部 `ND` 是**本机硬编码路径**
+  `/home/rayliu/.mimiraether/notes`。
+  · 本地：该目录存在 ⇒ 输出含被测行 ⇒ **绿**
+  · CI runner：该目录不存在 ⇒ `FAIL index not found: <ghost>/INDEX.md`、`rc=2`、**输出里确无该行** ⇒ **红**
+  复现命令（无需 CI 日志，本机即可证）：
+  `python3 <script> --notes-dir /nonexistent-notes-dir-xyz` → `FAIL index not found` · rc=2 · 无目标行。
+- **可达性判据（别误判成「我没加进清单」）**：`run_ralph_tier0.sh` Gate2 **增量模式**用
+  `CHANGED_TEST_FILES=$(echo "$CHANGED_FILES" | grep -E '^(agent/test_|tests/).*\.py$')`
+  ⇒ `tests/` 下任何新文件**必被带上**。看到 CI 只红在 Gate2 且本地全绿时，先问
+  「我这个测试有没有碰**本机才有的东西**（绝对路径 / 本机 HOME 数据 / 已存在的生产目录）」。
+- **与案例 3 的关系**：案例 3 是「被测值的兜底来自环境变量」（本机有 ⇒ 假绿）；
+  案例 5 是「测试的前置条件来自本机文件系统」（本机有 ⇒ 假绿）。**同族：测试隐含了本机状态**。
+  统一自查法：把新测试在 `env -u <候选变量> HOME=$(mktemp -d) MIMIR_AETHER_HOME=$(mktemp -d)` 下重跑一遍。
+- **修法（不留 skip 文化）**：
+  ① 本机相关的断言**改用 fixture 树**（`tmp_path` + 参数化输入），把**契约**而不是**机器状态**固化下来；
+  ② 把正确行为反向固化为闸 —— 例如「目标不存在时**必须以非零码显式失败**，不得静默返回 0」，
+     该用例与机器状态无关，CI 可跑；
+  ③ **不要**用 `skipif(not os.path.exists("/home/..."))` 掩盖 —— 那会把「测试设计缺陷」变成永久盲区。
+  例外：被测对象**本身就是机器产物**（如某台机器的账本）时，才允许 precondition-skip，
+  且须在测试名里写明 `…_smoke_machine_only`。
