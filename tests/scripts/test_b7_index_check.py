@@ -162,7 +162,35 @@ def test_ambiguous_basename_requires_relative_path(tmp_path):
 # ── 真实盘：本仓契约（notes 覆盖必须真覆盖）────────────────────────────────
 
 
-def test_real_notes_tree_declares_nested_coverage():
-    """真实运行输出必须**显式声明**子目录件数量 —— 让假绿无处藏。"""
-    r = subprocess.run([PY, str(SCRIPT)], capture_output=True, text=True)
-    assert "nested   :" in (r.stdout + r.stderr)
+def test_nested_line_is_always_declared(tmp_path):
+    """契约：无论树里有无子目录，输出都必须**显式**打 `nested   :` 行。
+
+    `nested` 行是「子目录件已被看见」的显式声明 ⇒ 让「子目录件被隐藏」这类假绿无处藏。
+    """
+    nd = _fixture(tmp_path)
+    _index(nd, "| `a.md` | x |\n| `b.md` | y |\n| `evidence/c.txt` | z |\n")
+    rc, out = _run(nd)
+    assert rc == 0, out
+    assert "nested   :" in out
+
+
+def test_missing_notes_dir_fails_loudly(tmp_path):
+    """⚠️ 2026-09-17 CI 事故的固化闸（本测试的前身把 CI 打红）。
+
+    前身 `test_real_notes_tree_declares_nested_coverage` **无参数直跑脚本**，
+    而脚本内 `ND` 是**本机硬编码路径** `/home/rayliu/.mimiraether/notes`
+    ⇒ 本地有该目录（绿）、CI runner 没有（`FAIL index not found` + 无 `nested` 行 ⇒ 红）。
+    「本地全绿 / CI 红」的根因是**测试依赖本机绝对路径**，不是产品缺陷。
+
+    本闸把正确契约固化下来：**目标不存在时必须以非零码显式失败**，
+    绝不能静默返回 0（那才是最难查的假绿）。
+    """
+    ghost = tmp_path / "nonexistent-notes"
+    r = subprocess.run(
+        [PY, str(SCRIPT), "--notes-dir", str(ghost)],
+        capture_output=True, text=True,
+    )
+    out = r.stdout + r.stderr
+    assert r.returncode == 2, f"目录不存在时必须 rc=2（显式失败）；实得 {r.returncode}\n{out}"
+    assert "FAIL" in out
+    assert "PASS" not in out
