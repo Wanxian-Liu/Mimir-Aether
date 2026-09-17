@@ -1,0 +1,123 @@
+#!/usr/bin/env python3
+"""beta_chain.py — Phase β 段间交棒状态机（单段串行 · fail-closed）
+
+被 cron watcher 每 N 分钟调用一次。输出一行 `STATE=... key=value ...` 供 agent 判读。
+
+状态：
+  STATE=RUNNING    当前有 build_phase_beta 进程在跑（附 display）
+  STATE=LAUNCHED   上段已对账通过 → 已起下一段（附 prev_* 对账读点 + next_display/next_log）
+  STATE=NEED_HUMAN 上段对账失败 / 段状态异常 → **不起下一段**（附原因）
+  STATE=ALL_DONE   所有段已在 completed_segments 内
+
+铁律：同一时刻至多一个 build_phase_beta 进程；对账不通过绝不续跑。
+"""
+import json, os, re, subprocess, sys, time
+
+BASE = "/home/rayliu/.hermes/scripts/rag-eval"
+SCRIPT_DIR = "/home/rayliu/.openclaw/workspace/skills/rag-3c-shadow-embed"
+PY = "/home/rayliu/.hermes/hermes-agent/.venv/bin/python3"
+SEG_STATE = f"{BASE}/phase_b_segments.json"
+COVERAGE = "/home/rayliu/.mimiraether/data/phase_b/segment_coverage.json"
+LEDGER_PY = "/home/rayliu/.mimiraether/scripts/beta_seg_ledger.py"
+LEDGER = "/home/rayliu/.mimiraether/data/phase_b/segment_ledger.jsonl"
+RE_DISP = re.compile(r"\[beta\] 段(\d+)/(\d+)")
+
+
+def running():
+    r = subprocess.run(["pgrep", "-f", "build_phase_beta.py"], capture_output=True, text=True)
+    pids = [p for p in r.stdout.split() if p]
+    return pids
+
+
+def last_log():
+    import glob
+    c = sorted(glob.glob(f"{BASE}/phase_beta_seg*.log"), key=os.path.getmtime)
+    return c[-1] if c else None
+
+
+def log_display(path):
+    try:
+        m = RE_DISP.search(open(path, encoding="utf-8", errors="replace").read(20000))
+        return int(m.group(1)) if m else None
+    except Exception:
+        return None
+
+
+def in_progress_guard(lg):
+    """pgrep 漏判兜底（fail-closed）：最近日志无 checkpoint 行且 30 分钟内动过 ⇒ 视为在跑。
+
+    为什么必须有：漏判的代价是**并发起第二段**（OOM + 白名单/DB 竞争），比误判「在跑」贵得多。
+    """
+    if not lg or not os.path.exists(lg):
+        return False
+    try:
+        txt = open(lg, encoding="utf-8", errors="replace").read()
+    except Exception:
+        return False
+    if re.search(r"\[beta\] 段\d+ checkpoint完成", txt):
+        return False
+    return (time.time() - os.path.getmtime(lg)) < 1800
+
+
+def main():
+    pids = running()
+    if pids:
+        lg = last_log()
+        print(f"STATE=RUNNING pids={','.join(pids)} display={log_display(lg)} log={lg}")
+        return 0
+    if in_progress_guard(last_log()):
+        print(f"STATE=RUNNING guard=recent_uncheckpointed_log display={log_display(last_log())} log={last_log()}")
+        return 0
+
+    lg = last_log()
+    disp = log_display(lg) if lg else None
+    cov = json.load(open(COVERAGE))
+    n_segs = cov["n_segments"]
+    st = json.load(open(SEG_STATE)) if os.path.exists(SEG_STATE) else {"completed_segments": []}
+    done = set(st.get("completed_segments", []))
+
+    prev = {}
+    if lg:
+        rc = subprocess.run([PY, LEDGER_PY, "--auto"], capture_output=True, text=True)
+        prev["ledger_rc"] = rc.returncode
+        prev["ledger_out"] = (rc.stdout or "").strip().splitlines()[-1:] or [""]
+        if rc.returncode != 0:
+            print(f"STATE=NEED_HUMAN reason=ledger_mismatch display={disp} "
+                  f"ledger_rc={rc.returncode} out={prev['ledger_out']}")
+            return 1
+
+    if len(done) >= n_segs:
+        print(f"STATE=ALL_DONE done={len(done)}/{n_segs}")
+        return 0
+
+    # 起下一段（无参数：脚本自选第一个未完成段）
+    next_idx = next((i for i in range(n_segs) if i not in done), None)
+    if next_idx is None:
+        print(f"STATE=ALL_DONE done={len(done)}/{n_segs}")
+        return 0
+    log = f"{BASE}/phase_beta_seg{next_idx + 1}.log"
+    unit = f"mimir-beta-seg{next_idx + 1}"
+    # 关键：用 systemd-run 起**独立 cgroup** —— 直接 Popen 的进程落在 mimiraether.service
+    # 的 cgroup 内（KillMode=control-group），一次 gateway 重启即被连坐杀死（本轮实测）。
+    subprocess.run(["systemctl", "--user", "reset-failed", f"{unit}.service"],
+                   capture_output=True, text=True)
+    r = subprocess.run(
+        ["systemd-run", "--user", "--unit", unit, "--collect",
+         "--property", f"WorkingDirectory={SCRIPT_DIR}",
+         "--property", f"StandardOutput=append:{log}",
+         "--property", f"StandardError=append:{log}",
+         PY, "build_phase_beta.py"],
+        capture_output=True, text=True,
+    )
+    time.sleep(3)
+    state = subprocess.run(["systemctl", "--user", "is-active", f"{unit}.service"],
+                           capture_output=True, text=True).stdout.strip()
+    print(f"STATE=LAUNCHED prev_display={disp} prev_ledger_rc={prev.get('ledger_rc')} "
+          f"next_display={next_idx + 1} unit={unit}.service active={state} log={log} "
+          f"done_segments={len(done)}/{n_segs}"
+          + ("" if r.returncode == 0 else f" WARN_systemd_run_rc={r.returncode} err={r.stderr.strip()[:200]}"))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,56 @@
+--- /home/rayliu/.mimiraether/backups/20260917-p0b-action-gate/beta_chain.py.pre	2026-09-15 23:28:34.178293329 +0800
++++ /home/rayliu/.mimiraether/scripts/beta_chain.py	2026-09-17 21:43:19.027578108 +0800
+@@ -23,6 +23,37 @@
+ RE_DISP = re.compile(r"\[beta\] 段(\d+)/(\d+)")
+ 
+ 
++# ---- P0② 动作层闸（2026-09-17）------------------------------------------------
++# 为什么加：段8 是「rc=0 + 零嵌入」，账本（W-beta2）看不见 —— checkpoint 已经写进
++# phase_b_segments.json 才被对账发现。账本层断言 != 动作层闸门。
++# 本闸不看 rc / 不看日志 / 不看账本，只看 DB 里真有那段的向量。
++GATE_REPO = "/home/rayliu/src/MimirAether"
++GATE_PY = GATE_REPO + "/.venv/bin/python3"
++FULL_LIST = f"{BASE}/phase_b_full.json"
++DB_VEC = f"{BASE}/wiki_ctx_v2.db"
++
++
++def action_layer_check(seg_no):
++    """段 seg_no（1-based）的向量是否真的落库。返回 (ok, reason)。
++
++    fail-closed：闸本身跑不起来 / 输出不可解析 => (False, gate_*)，绝不返回 ok。
++    """
++    cmd = [GATE_PY, "-m", "scripts.action_gate", "audit",
++           "--db", DB_VEC, "--segments-file", SEG_STATE, "--full-list", FULL_LIST,
++           "--only-segments", str(seg_no), "--json"]
++    try:
++        r = subprocess.run(cmd, cwd=GATE_REPO, capture_output=True, text=True, timeout=120)
++    except Exception:
++        return False, "gate_unavailable"
++    if r.returncode == 0:
++        return True, "ok"
++    try:
++        rows = json.loads(r.stdout).get("rows", [])
++        return False, (rows[0].get("reason") if rows else "unknown")
++    except Exception:
++        return False, "gate_unparsed"
++
++
+ def running():
+     r = subprocess.run(["pgrep", "-f", "build_phase_beta.py"], capture_output=True, text=True)
+     pids = [p for p in r.stdout.split() if p]
+@@ -86,6 +117,15 @@
+                   f"ledger_rc={rc.returncode} out={prev['ledger_out']}")
+             return 1
+ 
++    # 动作层闸（P0②）：账本对账通过 != 段真做了 —— 再看 DB 里那段的向量
++    if lg and disp:
++        ok, why = action_layer_check(disp)
++        prev["action_gate"] = why
++        if not ok:
++            print(f"STATE=NEED_HUMAN reason=action_gate_{why} display={disp} "
++                  f"db={DB_VEC} next=blocked")
++            return 1
++
+     if len(done) >= n_segs:
+         print(f"STATE=ALL_DONE done={len(done)}/{n_segs}")
+         return 0

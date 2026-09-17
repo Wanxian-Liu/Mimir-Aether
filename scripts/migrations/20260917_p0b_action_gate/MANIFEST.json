@@ -1,0 +1,39 @@
+{
+  "migration": "20260917_p0b_action_gate",
+  "why": "P0② 动作层闸：账本层断言（W-beta2）看不见「rc=0 但零嵌入」；段8 事故即此形态。",
+  "targets": [
+    {
+      "file": "beta_chain.py.pre",
+      "role": "pre-image",
+      "sha256": "655d869a006b829de9885ddcfa9e798a5c506b2525a5fe6454d98c9e2e8ad313",
+      "bytes": 5092,
+      "lines": 124
+    },
+    {
+      "file": "beta_chain.py (home-side, gitignored by .gitignore:8 *)",
+      "role": "post-image",
+      "sha256": "4b9e142f122ae02253fcff6dd17e62050cc53a32af06a83f06b1b2ef02424810",
+      "bytes": 6819,
+      "lines": 164,
+      "abs": "/home/rayliu/.mimiraether/scripts/beta_chain.py"
+    },
+    {
+      "file": "beta_chain.py.diff",
+      "role": "diff",
+      "sha256": "a13bada354aa7da4f2011f359ea0113d3fe81653554aa69ef570fbc48ba37607",
+      "bytes": 2429
+    }
+  ],
+  "anchors_replaced": 2,
+  "added_lines": 44,
+  "verification": {
+    "syntax": "py_compile OK",
+    "function_arms": "action_layer_check: seg8->(False,zero_embedded) / seg7->(True,ok) / GATE_PY broken->(False,gate_unavailable) / DB broken->(False,measure_error)",
+    "not_run": "main() 未执行（main 会 systemd-run 起段）"
+  },
+  "rollback": "cp /home/rayliu/src/MimirAether/scripts/migrations/20260917_p0b_action_gate/beta_chain.py.pre /home/rayliu/.mimiraether/scripts/beta_chain.py",
+  "limits": [
+    "本件为改动后补录，时点不可回溯",
+    "home-side scripts/ 被 .gitignore 忽略，根因未修（另行治理）"
+  ]
+}
