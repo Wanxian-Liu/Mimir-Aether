@@ -562,6 +562,7 @@ class AgentRouteMixin:
                                     session_entry.session_id,
                                     _compressed,
                                     phase="hygiene-compress",
+                                    timeout_s=_hygiene_index_timeout_s(),
                                 )
                                 # Reset stored token count — transcript was rewritten
                                 session_entry.last_prompt_tokens = 0
@@ -582,7 +583,10 @@ class AgentRouteMixin:
                                 # 直接比（见技能 pitfall"token 翻倍假象"），且必须把
                                 # "消息数没降=no-op"与"真压缩"分开报，否则 8-15 那种
                                 # 162->162 会被误读为成功。
-                                if _new_count >= _msg_count:
+                                # 决定1a（2026-09-17）：基线必须是**喂给 compressor 的**条数（过滤后），
+                                # 不是过滤前的 _msg_count —— 卫生层自己过滤掉 tool 消息
+                                # 造成的 -1 曾被误读成「压掉了 1 条」⇒ 真 no-op 落 applied。
+                                if _new_count >= len(_hyg_msgs):
                                     _hyg_outcome = "noop"
                                     logger.warning(
                                         "[COMPRESS] abort layer=gateway reason=noop "
@@ -1085,3 +1089,20 @@ class AgentRouteMixin:
             lines.append(f"◆ Endpoint: {base_url}")
 
         return "\n".join(lines)
+
+
+def _hygiene_index_timeout_s() -> float:
+    """卫生相位「索引重写」的 await 上限（默认 30s，env 可调）。
+
+    决定 2 步骤1（2026-09-17 · 发现 D）：该 await 位于入站关键路径
+    （``rewrite_transcript_off_loop`` → ``asyncio.wait_for(to_thread(...))``），
+    默认取 ``rewrite_offload_timeout_s()`` = 300s ⇒ 实测单次阻塞 **300.24s**
+    （用户可感 5 分钟延迟）。产物自身声明 derived/rebuildable ⇒ 上限收到 30s。
+
+    env: ``MIMIR_HYGIENE_INDEX_TIMEOUT_S`` —— 非法值或 <=0 时回落 30.0。
+    """
+    try:
+        val = float(os.environ.get("MIMIR_HYGIENE_INDEX_TIMEOUT_S", "30"))
+    except ValueError:
+        return 30.0
+    return val if val > 0 else 30.0

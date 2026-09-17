@@ -1670,7 +1670,10 @@ class MimirContextCompressor(ContextCompressorV2):
                 # RS14-D1：**成功应用也落盘**。历史只有回滚落盘 ⇒ C1 生效后回滚率→0，
                 # 新数据将无处产生：Q3 分布 / D-3 的 R1·R2·Δ 基线 / D-4 的
                 # degraded_streak 全部无源。故 applied 与 rollback 两条路都记。
-                self._record_quality_alert(rate, missing, result, outcome="applied")
+                self._record_quality_alert(
+                    rate, missing, result,
+                    outcome=quality_outcome_for(result),
+                )
                 # T16：压缩真正应用 ⇒ 热环结束，冷却清零（下一次失败从 600s 重新起算）
                 _cc_a = _compress_cooldown()
                 if _cc_a is not None:
@@ -1803,6 +1806,8 @@ class MimirContextCompressor(ContextCompressorV2):
                     logger.debug("[COMPRESS] post-measure arm skipped: %s", _pe)
             if outcome == "applied":
                 logger.info("[E1/E5] compression quality record appended (applied): %s", _q_path)
+            elif outcome == "noop":
+                logger.info("[E1/E5] compression quality record appended (noop): %s", _q_path)
             else:
                 logger.warning("[E1/E5] compression quality alert appended: %s", _q_path)
         except Exception as _e:
@@ -2029,3 +2034,24 @@ class MimirContextCompressor(ContextCompressorV2):
 
 # Backward compatibility alias
 HermesStyleCompressor = MimirContextCompressor
+
+
+def quality_outcome_for(result: object) -> str:
+    """``applied`` / ``noop`` 判定（决定 1b · 2026-09-17）。
+
+    ``compressed_count >= original_count`` ⇒ compressor **原样返回**
+    （``context_compressor`` 里多条早退路径都写 ``compressed_count=n_messages``）
+    ⇒ 不得记 ``applied``：那会让 ``compression_quality.jsonl`` 与
+    T20-c 结算率的分母都失真（本次实验实测 56 → 56 却记 applied）。
+    字段缺失/非法时保守回落 ``applied``（保持旧行为）。
+    """
+    cc_raw = getattr(result, "compressed_count", None)
+    oc_raw = getattr(result, "original_count", None)
+    if cc_raw is None or oc_raw is None:
+        return "applied"
+    try:
+        cc = int(cc_raw)
+        oc = int(oc_raw)
+    except (TypeError, ValueError):
+        return "applied"
+    return "noop" if cc >= oc else "applied"
