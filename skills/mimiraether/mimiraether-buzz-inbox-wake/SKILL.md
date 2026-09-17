@@ -50,7 +50,7 @@ auto_load: false
 2. **日志行**：`printf '%s\n' "<唤醒给定行> [动作/去重标注]" >> ~/.mimiraether/logs/inbox-processed.log`。
    **禁用**：沙箱 `write_file`（`~` 二次嵌套成 `~/.mimiraether/.mimiraether/…`）；`read_file`+全量重写（并发丢行）。
 3. **笔记/审计行**：新笔记落 `notes/` 后**必须**跑
-   `.venv/bin/python3 ~/.mimiraether/scripts/b7_index_check.py` → 末行须 `VERDICT: PASS`、`unlisted=0`；未登记即补登 `notes/INDEX.md`（活/冻/归档）+ 重算「末行统计」块。中间产物（commit-msg 草稿、拼接片段）**不留 `notes/`** → 挪 `scripts/`（维护规则 3）。
+   `.venv/bin/python3 ~/.mimiraether/scripts/b7_index_check.py` → 末行须 `VERDICT: PASS`、`unlisted=0`（**2026-09-17 起输出另含 `nested` 行与 `AMBIGUOUS`；`staleness` 已脱离死度量** —— 子目录件**必须以相对路径登记**，如 `evidence/x.txt`，否则 UNLISTED）；未登记即补登 `notes/INDEX.md`（活/冻/归档）+ 重算「末行统计」块。中间产物（commit-msg 草稿、拼接片段）**不留 `notes/`** → 挪 `scripts/`（维护规则 3）。
 
 ### ⑥ commit（两仓，均带 `Agent: mimir` trailer）
 - `git -C ~/wiki commit`（pre-commit 钩子会校验 trailer；会提示 committer identity 与仓默认不同——提示非错误）。
