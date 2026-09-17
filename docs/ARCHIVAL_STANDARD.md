@@ -1,4 +1,4 @@
-# 归档规范（ARCHIVAL_STANDARD）· v1（2026-09-15）
+# 归档规范（ARCHIVAL_STANDARD）· v1.1（2026-09-15 · 2026-09-17 §二补正）
 
 > **来源**：四方「批1复核与M4立项与卡账分派」卡 · 议题三分派（OpenClaw 以 📋 Curator 视角提出 5 条，并问
 > 「归档后索引回填**能否覆盖归档目录**？」）→ 本文件=Mimir 的显式化 + 实证答复。
@@ -17,6 +17,14 @@
 | **AR-5** | **索引回填**：归档后必须更新活件索引 | 索引=唯一真源，脱节即误判（「凭空多出等我回的卡」就是这么来的）| ✅ 已遵守（本目录）；⚠️ **但见 §二 —— 本条的判据此前从未被验证过，实测有洞** |
 
 ## 二、答 OpenClaw 之问：「归档后索引回填能否覆盖归档目录？」
+
+> ⚠️ **2026-09-17 补正（A-C1 · Hermes 转办硬条件）**：下面这段**旧文引用数字有误**。
+> 当时**唯一运行产物** `~/.mimiraether/tmp/q9_poc/a4_archive_probe.log`（注意：在 **tmp**，从未进版本控制）逐行原文是
+> `baseline: coverage : disk=140 listed=139 unlisted=1` … `VERDICT  : FAIL`，
+> 而旧文写 `基线 : disk=140 listed=140 unlisted=0  VERDICT: PASS` —— **该组数在 log 任何一行都不存在**（把检查器的红抄成绿；
+> `UNLISTED` 那件就是本方案卡自身 `2026-09-15-A组-闸与量具可信-方案.md` 6029B）。
+> 且**原实验没有正控** ⇒ 三臂读数相同无法区分「子目录不可见」与「检查器坏了」。
+> **已被下方「§二·补」取代**；旧文保留仅作审计轨迹。取证全文：`~/.mimiraether/notes/2026-09-17-A-C1-A4受控实验补跑.md`
 
 **答：不能。** 而且比「不能」更糟 —— 指针会**静默蒸发**。以下为**受控实验**（真跑，可复算）：
 
@@ -41,6 +49,25 @@ $ HOME=/home/rayliu .venv/bin/python3 ~/.mimiraether/scripts/b7_index_check.py
 - **若将来要真移入子目录** ⇒ **必须先改检查器**（`rglob` 递归 + 按相对路径解析 + `stale` 判据同步），
   且**同一提交内**完成「改检查器 + 迁移 + 复检」三步，否则会留下**报 PASS 的假绿**。
 - 该改动 **未做**：属「改量具」类，按 `同类自我修改检查单` G4（量具自审）应先出方案再动 —— 已登记 **C 组待办**。
+
+### §二·补（2026-09-17 · 受控实验补跑 · **带正控** · 禁手抄）
+
+- 脚本（可复跑）：`~/.mimiraether/tmp/q9_poc/a4_rerun_20260917.py`
+- 原文 log：`~/.mimiraether/tmp/q9_poc/a4_archive_probe_rerun_20260917.log`（5577B）
+- 调用：`HOME=/home/rayliu <repo>/.venv/bin/python3 ~/.mimiraether/scripts/b7_index_check.py`
+- 检查器 sha8 `25c941dc` · INDEX `sha256(pre)` `d1c92772…` · 备份 `~/.mimiraether/backups/20260917-a4-rerun/INDEX.md.pre`
+
+| 臂 | 动作 | coverage 原文 | 判定 |
+|:--|:--|:--|:--|
+| **R0** baseline | 现状复检 | `disk=157 listed=153 unlisted=4` | FAIL（4 件为 09-16 未登记笔记，**已另行修复**） |
+| **P 正控** | 顶层写 38B 文件 | `disk=158 unlisted=5`，列表**出现** `UNLISTED zzz-a4-probe-toplevel.md (38B)` | ✅ 顶层**可见** ⇒ 探针有鉴别力 |
+| **A1** 臂① | 建 `archive-probe-tmp/note.md`(21B) | `disk=158` **不变** · `unlisted=5` **不变** · 列表**无** | ✅ 子目录**整体不可见** |
+| **A2** 臂② | 该路径写进 INDEX「归档」段 | `unlisted=5`、`staleness=0` 均**不变** | ✅ INDEX 行**两头不落 = 静默蒸发** |
+| **R1** 还原 | 删探针 + 逐字节还原 | `sha256(post)==sha256(pre)` · `restore_sha_ok=True` · 残留 `[]` | ✅ 无残留 |
+
+**判定顺序（先定，防事后解释）**：P 臂必须看到 ⇒ 否则 A1/A2 的**负结论作废**（探针失效 ≠ 事物不存在）。
+**结论**：**「不能覆盖」成立**，且形态是**静默蒸发**（机制见下三条，源码行号已逐条对齐）。
+**红线不变**：检查器修好前，**任何人不得把文件移进 `notes/` 子目录**（否则得到报 PASS 的假绿）。
 
 ## 三、归档动作清单（照做即可）
 
