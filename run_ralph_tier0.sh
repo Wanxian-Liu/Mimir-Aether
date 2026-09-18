@@ -552,7 +552,10 @@ if [ "$_GATE2_OK" != true ]; then
 fi
 
 echo "=== Ralph Tier-1: Gate3 Core E2E (mocked LLM) ==="
-python3 -m pytest -q agent/test_tier1_e2e_agent.py
+# A5（2026-09-18 · 刘哥批）: Gate3 失败名单同样留痕 —— 与 Gate2/N11 同一台账纪律：
+# -rf 强制打印 FAILED 名单 + 全文追加 logs/ralph-gate2-failures.txt（此前裸跑 pytest，偶发红名字丢失 = 等于没发生）。
+# 退出码经 _gate2_pytest 的 PIPESTATUS[0] 取真值，语义不变。
+_gate2_pytest agent/test_tier1_e2e_agent.py
 
 echo "=== Advisory: .openclaw literals (non-blocking) ==="
 python3 scripts/warn_openclaw_literals.py || true
