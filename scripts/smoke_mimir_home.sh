@@ -28,9 +28,9 @@ from mimiraether_constants import get_mimiraether_home
 assert get_mimiraether_home().resolve() == root
 print("ok: get_mimiraether_home matches")
 
-from mimicore.config.model_defaults import get_model
+from mimir_cli.model_config.model_defaults import get_model
 
-print("ok: mimicore get_model ->", get_model())
+print("ok: mimir_cli.model_config get_model ->", get_model())
 
 import mimir_constants
 import gateway.sticker_cache as sc
