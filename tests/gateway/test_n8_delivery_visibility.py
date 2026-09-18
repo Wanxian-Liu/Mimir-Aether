@@ -18,6 +18,15 @@ Fix under test:  (a) home channel resolution is really implemented,
 
 Negative control is included: the SUCCESS path must stay silent, otherwise
 "always warns" would pass a naive "no silent failure" assertion.
+
+N9 ADDENDUM (2026-09-18) — this file is **necessary but not sufficient**:
+`FakeAdapter` below RAISES on failure, while every real adapter *returns*
+`SendResult(success=False)`. That test-double mismatch let a whole failure class
+stay invisible through 14 green tests (production job `44ff4165be31`:
+`last_status="ok"` while Feishu answered `code=230001 invalid receive_id`).
+The returned-result contract is covered by
+`tests/gateway/test_n9_delivery_sendresult.py` — keep both.
+  教训：替身必须镜像真实返回契约，否则"绿"只证明替身的行为。
 """
 from __future__ import annotations
 

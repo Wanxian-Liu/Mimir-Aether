@@ -22,6 +22,50 @@ logger = logging.getLogger(__name__)
 MAX_PLATFORM_OUTPUT = 4000
 TRUNCATED_VISIBLE = 3800
 
+
+class DeliverySendError(RuntimeError):
+    """An adapter reported an unsuccessful send.
+
+    N9 (2026-09-18): adapters signal API-level failure by *returning*
+    ``SendResult(success=False, error=...)`` — they do **not** raise (see
+    ``gateway/platforms/feishu_adapter.py::send``: an invalid ``receive_id``
+    logs "send failed" and returns ``SendResult(success=False)``). N8 assumed
+    "no exception => delivered", so such a failure was still recorded as
+    ``last_status="ok"`` / ``last_delivery_ok=true`` — silent again, one layer
+    below the layer N8 fixed.
+
+    Caught in production rather than by the test suite: cron job
+    ``44ff4165be31`` (positive control, 2026-09-18 10:53:33) delivered to a
+    non-existent ``chat_id``; Feishu answered ``code=230001 invalid
+    receive_id`` and the job stayed ``ok``. The N8 tests used a fake adapter
+    that *raised*, so the suite never exercised the real contract.
+
+    Raised so the existing loud path in ``deliver()`` (WARNING + per-target
+    ``success: False``) carries adapter-reported failures too.
+    """
+
+
+def _adapter_result_failure(result: Any) -> Optional[str]:
+    """Return error text when an adapter's *returned* result reports failure.
+
+    Understands the shapes really used in this codebase:
+      * ``SendResult`` (or any object with a ``success`` attribute)
+      * plain ``dict`` — ``{"success": False, "error": ...}``
+
+    Returns ``None`` for shapes we do not understand: an unknown return type
+    must **not** be reported as failure, otherwise every stub/new adapter would
+    start raising false alarms and the alarm would lose its meaning.
+    """
+    if result is None:
+        return None
+    if isinstance(result, dict):
+        if result.get("success") is False:
+            return str(result.get("error") or "adapter reported success=False")
+        return None
+    if getattr(result, "success", None) is False:
+        return str(getattr(result, "error", None) or "adapter reported success=False")
+    return None
+
 from .config import Platform, GatewayConfig
 from .session import SessionSource
 
@@ -199,7 +243,13 @@ class DeliveryRouter:
                     result = self._deliver_local(content, job_id, job_name, metadata)
                 else:
                     result = await self._deliver_to_platform(target, content, metadata)
-                
+
+                # N9: defence in depth — a platform sender that is overridden by
+                # a subclass may hand back a failure result instead of raising.
+                reported = _adapter_result_failure(result)
+                if reported:
+                    raise DeliverySendError(reported)
+
                 results[target.to_string()] = {
                     "success": True,
                     "result": result
@@ -304,7 +354,17 @@ class DeliveryRouter:
         send_metadata = dict(metadata or {})
         if target.thread_id and "thread_id" not in send_metadata:
             send_metadata["thread_id"] = target.thread_id
-        return await adapter.send(chat_id, content, metadata=send_metadata or None)
+        result = await adapter.send(chat_id, content, metadata=send_metadata or None)
+
+        # N9 (2026-09-18): real adapters report API-level failure by RETURNING
+        # SendResult(success=False) instead of raising. Counting that as success
+        # is precisely the "system says ok, nothing happened" failure mode.
+        reported = _adapter_result_failure(result)
+        if reported:
+            raise DeliverySendError(
+                f"{target.platform.value}: adapter reported failure: {reported}"
+            )
+        return result
 
 
 
