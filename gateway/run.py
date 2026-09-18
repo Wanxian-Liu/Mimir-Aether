@@ -451,6 +451,12 @@ class GatewayRunner(VoiceMixin, CronMixin, HealthMixin, SessionMixin, RouterMixi
             transcript_session_db=self._session_db,
         )
         self.delivery_router = DeliveryRouter(self.config)
+        # N10 (2026-09-18): a bare-platform delivery target resolves to the home
+        # channel. When its sources disagree, a message goes to the WRONG chat
+        # while every status field still reports success -- surface it at startup
+        # instead of discovering it through a silently misdelivered job.
+        # Never raises; a consistency guard must not take the gateway down.
+        self.delivery_router.log_home_channel_status()
         self._running = False
         self._shutdown_event = asyncio.Event()
         self._exit_cleanly = False

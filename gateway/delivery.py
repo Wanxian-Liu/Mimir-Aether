@@ -169,6 +169,63 @@ class DeliveryRouter:
         self.adapters = adapters or {}
         self.output_dir = get_hermes_home() / "cron" / "output"
 
+    # N10 (2026-09-18): precedence for a platform's home channel chat id.
+    #   gateway_config -- what `GatewayConfig` saw at load (env-derived)
+    #   env            -- live process env (`/sethome` updates it in-process)
+    #   config_yaml    -- top-level `<PLATFORM>_HOME_CHANNEL` that `/sethome`
+    #                     persists (command_handlers._handle_set_home_command)
+    # These can drift apart; see `check_home_channels()`.
+    _HOME_CHANNEL_SOURCES = ("gateway_config", "env", "config_yaml")
+
+    def home_channel_sources(self, platform: Platform) -> Dict[str, str]:
+        """N10 (2026-09-18): every place a home channel chat id can come from.
+
+        Split out of `home_channel_chat_id` so the resolver and the startup
+        consistency check read the **same** sources. A guard written against a
+        parallel re-implementation can pass while the resolver does something
+        else entirely. Only non-empty sources are returned.
+        """
+        found: Dict[str, str] = {}
+
+        try:
+            if self.config is not None:
+                hc = self.config.get_home_channel(platform)
+                cid = getattr(hc, "chat_id", None) if hc is not None else None
+                if cid and str(cid).strip():
+                    found["gateway_config"] = str(cid).strip()
+        except Exception:  # stub config / unknown platform -> fall through
+            pass
+
+        env_val = os.getenv(f"{platform.value.upper()}_HOME_CHANNEL")
+        if env_val and str(env_val).strip():
+            found["env"] = str(env_val).strip()
+
+        try:
+            import yaml
+
+            cfg_path = get_hermes_home() / "config.yaml"
+            if cfg_path.is_file():
+                data = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
+                val = data.get(f"{platform.value.upper()}_HOME_CHANNEL")
+                if val and str(val).strip():
+                    found["config_yaml"] = str(val).strip()
+        except Exception:
+            pass
+
+        return found
+
+    def home_channel_resolution(self, platform: Platform):
+        """Return ``(chat_id, source_name)`` for a platform, by precedence.
+
+        ``(None, None)`` means no home channel is configured anywhere -- the
+        caller must then fail **loudly** instead of assuming a destination.
+        """
+        found = self.home_channel_sources(platform)
+        for name in self._HOME_CHANNEL_SOURCES:
+            if name in found:
+                return found[name], name
+        return None, None
+
     def home_channel_chat_id(self, platform: Platform) -> Optional[str]:
         """N8 (2026-09-18): resolve a platform's home channel chat id.
 
@@ -178,42 +235,76 @@ class DeliveryRouter:
         on **every** run (2026-09-18: 3 executions, 0 messages sent, and the job
         still reported `last_status="ok"`).
 
-        Sources, in order (same single source of truth `/sethome` writes —
-        `gateway/command_handlers.py::_handle_set_home_command`):
-          1. gateway config `platforms.<p>.home_channel` (built from env at load)
-          2. env `<PLATFORM>_HOME_CHANNEL`
-          3. top-level `<PLATFORM>_HOME_CHANNEL` in `~/.mimiraether/config.yaml`
+        N10 (2026-09-18): the body now delegates to `home_channel_resolution`,
+        so the precedence used here is the same list `check_home_channels`
+        audits -- guard and resolver cannot drift apart.
 
         Returns None when nothing is configured => the caller must fail
         **loudly** instead of assuming a destination.
         """
+        return self.home_channel_resolution(platform)[0]
+
+    def check_home_channels(self, platforms=None) -> List[Dict[str, Any]]:
+        """N10 (2026-09-18): find home-channel sources that disagree.
+
+        A bare `deliver: "feishu"` resolves to whichever source wins the
+        precedence -- so a **stale** key is worse than a missing one: the
+        message goes to the wrong chat and every status field still reports
+        success. That is the residual hole raised on N8 (explicit chat_id is a
+        stopgap / "静默送错 比 静默不送 更坏").
+
+        Conflict = two or more sources present with **different** values.
+        One source, or none, is not a conflict: "no home channel configured"
+        already fails loudly at delivery time (see `_deliver_to_platform`), and
+        flagging it here would train everyone to ignore this log line.
+        """
+        conflicts: List[Dict[str, Any]] = []
+        for platform in (list(Platform) if platforms is None else platforms):
+            if platform == Platform.LOCAL:
+                continue
+            try:
+                found = self.home_channel_sources(platform)
+            except Exception:
+                continue
+            if len(set(found.values())) <= 1:
+                continue  # 0 or 1 distinct value => nothing to disagree about
+            value, source = self.home_channel_resolution(platform)
+            conflicts.append(
+                {
+                    "platform": platform.value,
+                    "sources": found,
+                    "effective": value,
+                    "effective_source": source,
+                }
+            )
+        return conflicts
+
+    def log_home_channel_status(self, platforms=None) -> List[Dict[str, Any]]:
+        """N10 (2026-09-18): report home-channel conflicts at startup.
+
+        Returns the conflicts found (empty list when clean) and **never raises**
+        -- a consistency guard must not be able to take the gateway down.
+        """
         try:
-            if self.config is not None:
-                hc = self.config.get_home_channel(platform)
-                cid = getattr(hc, "chat_id", None) if hc is not None else None
-                if cid:
-                    return str(cid).strip()
-        except Exception:  # stub config / unknown platform -> fall through
-            pass
+            conflicts = self.check_home_channels(platforms)
+        except Exception as e:
+            logger.warning("Home channel consistency check failed to run: %s", e)
+            return []
 
-        key = f"{platform.value.upper()}_HOME_CHANNEL"
-        env_val = os.getenv(key)
-        if env_val and str(env_val).strip():
-            return str(env_val).strip()
+        for c in conflicts:
+            logger.error(
+                "HOME CHANNEL CONFLICT for %s: bare `deliver: \"%s\"` resolves to "
+                "%s (source=%s) while other sources disagree: %s. A bare platform "
+                "target would go to the WRONG chat while every status field still "
+                "reports success.",
+                c["platform"],
+                c["platform"],
+                c["effective"],
+                c["effective_source"],
+                c["sources"],
+            )
+        return conflicts
 
-        try:
-            import yaml
-
-            cfg_path = get_hermes_home() / "config.yaml"
-            if cfg_path.is_file():
-                data = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
-                val = data.get(key)
-                if val and str(val).strip():
-                    return str(val).strip()
-        except Exception:
-            pass
-        return None
-    
     async def deliver(
         self,
         content: str,
