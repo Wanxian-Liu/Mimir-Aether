@@ -2,3 +2,4 @@
 [submodule "mimicore"]
 	path = mimicore
 	url = git@github.com:Wanxian-Liu/memory-hall.git
+	ignore = dirty
