@@ -25,7 +25,11 @@ import sys
 import time
 import datetime
 
-INBOX = os.environ.get("BUZZ_INBOX_HERMES", os.path.expanduser("~/.openclaw/data/buzz-inbox-hermes.jsonl")  # U1 canonical（2026-09-12 归正）)
+INBOX = os.environ.get(
+    "BUZZ_INBOX_HERMES",
+    # U1 canonical（2026-09-12 归正）
+    os.path.expanduser("~/.openclaw/data/buzz-inbox-hermes.jsonl"),
+)
 MIMIR_PUB_PREFIX = "79127bf251eb"  # Mimir pubkey 前缀（buzz-mimir-v2 启动日志实测）
 
 

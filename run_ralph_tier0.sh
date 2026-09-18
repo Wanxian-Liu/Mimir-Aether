@@ -216,6 +216,17 @@ for _attempt in $(seq 1 $((RETRY_COUNT > 0 ? RETRY_COUNT + 1 : 1))); do
   fi
   set +e
   (
+    # --- A8（2026-09-18 Mimir）: scripts/ 整树语法闸 ---------------------------------
+    # 为什么：Gate1 此前只 py_compile TARGET_FILES（cli.py / agent/*），scripts/ 整树
+    #   在门禁视野外 ⇒ 提交级语法死不可见。实证：scripts/signal-deliver.py 第 28 行把
+    #   行内注释写进 os.environ.get(...) 调用内（引入者 6b762b2），该文件任何调用立即
+    #   SyntaxError: '(' was never closed —— 而同一 commit 的 tier0 仍报 PASS。
+    # 做法：ast.parse 全树（不执行、不 import；任一坏文件 ⇒ 本闸 rc≠0 ⇒ Gate1 失败）。
+    # 负控：tests/scripts/test_scripts_syntax_gate.py（坏样本必须被拒 + 孪生对照不误拦）。
+    if ! "${MIMIR_TIER0_PYTHON:-python3}" scripts/check_scripts_syntax.py; then
+      echo "*** Gate1 语法闸 FAILED: scripts/ 整树存在语法死文件（见上方 SYNTAX-FAIL 行）***"
+      exit 1
+    fi
     if [ "$INCREMENTAL" = true ]; then
       CHANGED_TARGETS=()
       for f in "${TARGET_FILES[@]}"; do
