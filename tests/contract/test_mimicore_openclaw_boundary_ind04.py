@@ -1,14 +1,24 @@
-"""IND-04: mimicore submodule must not reintroduce .openclaw runtime defaults (GH #13 class)."""
+"""IND-04: mimicore domain must not reintroduce .openclaw runtime defaults (GH #13 class).
+
+Dual-mode (2026-09-18 · 历史遗留清洗批3.4 · 刘哥批):
+- mimicore checkout present  → original assertions (scan the tree)
+- mimicore absent (archived) → assert the archived domain stays dead:
+  * `mimicore` must NOT be importable (no resurrect via sys.path tricks)
+  * the archive tag must resolve (git show mimicore-archived-20260918)
+"""
 
 from __future__ import annotations
 
+import importlib.util
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 MIMICORE = ROOT / "mimicore"
+ARCHIVE_TAG = "mimicore-archived-20260918"
 
 # Only these non-comment lines may reference Path.home() / ".openclaw" (ADR-004 §3)
 ALLOWLIST: frozenset[tuple[str, int]] = frozenset(
@@ -29,8 +39,26 @@ BAD_HERMES_GETENV = re.compile(
 @pytest.fixture
 def mimicore_checkout() -> Path:
     if not (MIMICORE / "mimir_paths.py").is_file():
-        pytest.skip("mimicore submodule not initialized (git submodule update --init mimicore)")
+        pytest.skip("mimicore checkout absent — archived-domain mode covers this state")
     return MIMICORE
+
+
+def test_archived_mimicore_domain_stays_dead() -> None:
+    """After the archive (mimicore/ removed from the worktree), the old domain
+    must not silently come back: not importable, and the archive tag reachable."""
+    if (MIMICORE / "mimir_paths.py").is_file():
+        pytest.skip("mimicore checkout present — tree-scan mode covers this state")
+    assert importlib.util.find_spec("mimicore") is None, (
+        "mimicore 已归档（tag mimicore-archived-20260918）但 import 仍可解析 —— "
+        "旧域复活：检查 sys.path / 残留目录 / 遮蔽"
+    )
+    tag_ok = subprocess.run(
+        ["git", "show", "--quiet", ARCHIVE_TAG],
+        cwd=ROOT, capture_output=True,
+    )
+    assert tag_ok.returncode == 0, (
+        f"mimicore 工作树已移除但归档 tag {ARCHIVE_TAG} 不可达 —— 纪念堂凭证缺失"
+    )
 
 
 def _iter_mimicore_py(mimicore: Path):
