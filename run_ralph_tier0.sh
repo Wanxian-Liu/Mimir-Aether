@@ -278,6 +278,19 @@ fi
 
 echo "=== Ralph Tier-0: Gate2 Parity Tests ==="
 _GATE2_OK=false
+
+# --- N11（2026-09-18 Mimir）: Gate2 失败名单必须留痕 ---------------------------------
+# 为什么：偶发红（同一条命令多次跑命中 1 次失败）此前只留在 stdout —— 名字抓不到 ⇒ 等于没发生。
+# 做法：Gate2 三处 pytest 统一走本函数：显式 -rf（强制打印 FAILED 名单，避免 pytest 默认 -r 版本漂移）
+#       + 全文追加到 logs/ralph-gate2-failures.txt（logs/ 已在 .gitignore；只追加不覆盖）。
+# 退出码语义不变：脚本顶部 set -o pipefail ⇒ 管道取 pytest 的退出码，用 PIPESTATUS[0] 取真值。
+_gate2_pytest() {
+  mkdir -p "$ROOT_DIR/logs"
+  local _ledger="$ROOT_DIR/logs/ralph-gate2-failures.txt"
+  echo "[$(date -Iseconds)] === Gate2 pytest: $*" >> "$_ledger"
+  python3 -m pytest -q -rf --tb=line "$@" 2>&1 | tee -a "$_ledger"
+  return "${PIPESTATUS[0]}"
+}
 for _attempt in $(seq 1 $((RETRY_COUNT > 0 ? RETRY_COUNT + 1 : 1))); do
   if [ "$_attempt" -gt 1 ]; then
     echo "=== Ralph Wiggum Loop: Gate2 attempt ${_attempt}/$((RETRY_COUNT + 1)) ==="
@@ -288,12 +301,12 @@ for _attempt in $(seq 1 $((RETRY_COUNT > 0 ? RETRY_COUNT + 1 : 1))); do
       CHANGED_TEST_FILES=$(echo "$CHANGED_FILES" | grep -E '^(agent/test_|tests/).*\.py$' | tr '\n' ' ')
       if [ -n "$CHANGED_TEST_FILES" ]; then
         echo "(incremental: running ${CHANGED_COUNT} changed test file(s))"
-        python3 -m pytest -q $CHANGED_TEST_FILES
+        _gate2_pytest $CHANGED_TEST_FILES
       else
         echo "(incremental: no test files changed, skipping)"
       fi
     else
-python3 -m pytest -q \
+_gate2_pytest \
   agent/test_agent_loop.py \
   agent/test_agent_loop_edge.py \
   agent/test_code_execution_tool_env.py \
@@ -488,10 +501,31 @@ python3 -m pytest -q \
       _GATE2_SWEEP_EXIT=0
       if [ -n "${_GATE2_TREE_GAP// /}" ]; then
         echo "(U10 full-tree sweep: $(echo $_GATE2_TREE_GAP | wc -w) tests/ file(s) absent from explicit list)"
-        python3 -m pytest -q $_GATE2_TREE_GAP
+        _gate2_pytest $_GATE2_TREE_GAP
         _GATE2_SWEEP_EXIT=$?
       else
         echo "(U10 full-tree sweep: no gap — explicit list already covers tests/ tree)"
+      fi
+      # --- N11（2026-09-18 Mimir）: 子模块测试整树在门禁视野外（advisory，默认不改变门禁结论）---
+      # 实测（2026-09-18）：mimicore/tests 共 14 个 test 文件 / 390 例，在本脚本与 .github/workflows 中
+      #   **被引用 0 次** ⇒ 与 U10 修掉的「假绿区间」同族，只是发生在子模块里（U10 的 find 只扫 $ROOT_DIR/tests）。
+      # 实测红（2026-09-18）：13 failed / 368 passed / 9 skipped ——
+      #   11 例 = mimicore/cli/commands.py 缺 import（hashlib L68 / argparse L525；引入 2026-04-06 da3b131）；
+      #   2 例 = mimicore/tests/test_gateway.py 语义漂移（delete 返回 False / fence {"allowed": False}）。
+      # 为什么不直接阻断：会让 CI 立刻变红并卡住所有人 push —— 那是子模块 owner 的修复决定，不是门禁的单方改动。
+      # 转阻断：MIMIR_TIER0_SUBMODULE_STRICT=1
+      if [ -d "$ROOT_DIR/mimicore/tests" ]; then
+        echo "(N11 submodule sweep: mimicore/tests — advisory, 不参与门禁判定)"
+        mkdir -p "$ROOT_DIR/logs"
+        _N11_EXIT=0
+        python3 -m pytest -q -rf --tb=no "$ROOT_DIR/mimicore/tests" 2>&1 \
+          | tee -a "$ROOT_DIR/logs/ralph-gate2-failures.txt" || _N11_EXIT=$?
+        if [ "$_N11_EXIT" -ne 0 ]; then
+          echo "(N11 submodule sweep: rc=$_N11_EXIT — 子模块测试红，详见 logs/ralph-gate2-failures.txt)"
+          if [ "${MIMIR_TIER0_SUBMODULE_STRICT:-0}" = "1" ]; then
+            exit "$_N11_EXIT"
+          fi
+        fi
       fi
       # 退出码合并：只看最后一条命令会把显式清单的失败吞掉
       if [ "$_GATE2_EXPLICIT_EXIT" -ne 0 ]; then
