@@ -987,6 +987,13 @@ class CronMixin:
                     ", ".join(failures),
                     detail,
                 )
+                # N12 (2026-09-18): alert on the EVENT. The 12h `n9-report`
+                # scanner is paused, so without this a delivery outage is only
+                # visible to whoever reads the job list. Never raises.
+                try:
+                    await _alert_delivery_failure(self, job_id, job_name, failures)
+                except Exception:
+                    logger.debug("Cron job %s: delivery alert failed", job_id, exc_info=True)
             try:
                 mark_job_delivery(job_id, ok=not failures, error=detail or None)
             except Exception:
@@ -1012,6 +1019,64 @@ def _delivery_failures(results) -> Dict[str, str]:
         else:
             out[str(target)] = "delivery failed (malformed result)"
     return out
+
+
+async def _alert_delivery_failure(host, job_id: str, job_name, failures) -> None:
+    """N12 (2026-09-18): push a delivery failure to the HOME channel.
+
+    Event-triggered replacement for a periodic scanner. Properties:
+
+    * resolves the alert destination through the router's **explicit** home
+      chat id (`home_channel_chat_id`) -- the target that just failed must not
+      be used to announce its own failure;
+    * writes the ledger record **regardless** of whether the alert send worked,
+      so `delivered=false` is observable rather than silent;
+    * rate limited per job (`should_alert`), so a job failing every minute does
+      not become a notification storm;
+    * bounded by the caller's try/except -- this function does not raise.
+    """
+    from cron.delivery_alerts import format_alert, record_alert, should_alert
+    from gateway.delivery import DeliveryTarget
+
+    if not should_alert(job_id):
+        return
+
+    text = format_alert(job_id, job_name, failures)
+    delivered = False
+    send_error = None
+    router = getattr(host, "delivery_router", None)
+    platform_value = str(next(iter(failures), "feishu")).split(":")[0] or "feishu"
+    alert_target = None
+    if router is None:
+        send_error = "no delivery router"
+    else:
+        try:
+            probe = DeliveryTarget.parse(platform_value)
+            chat_id = router.home_channel_chat_id(probe.platform)
+            if not chat_id:
+                send_error = f"no home channel configured for {platform_value}"
+            else:
+                alert_target = DeliveryTarget.parse(f"{platform_value}:{chat_id}")
+        except Exception as exc:  # unknown platform / stub config
+            send_error = f"home channel lookup failed: {exc}"
+
+    if alert_target is not None:
+        try:
+            results = await router.deliver(
+                text,
+                [alert_target],
+                job_id=f"{job_id}:delivery-alert",
+                job_name="delivery-alert",
+                metadata={"alert_for": job_id},
+            )
+            residual = _delivery_failures(results)
+            delivered = not residual
+            if residual:
+                send_error = "; ".join(f"{k}: {v}" for k, v in residual.items())
+        except Exception as exc:
+            send_error = str(exc)
+
+    record_alert(job_id, job_name, failures, delivered=delivered, send_error=send_error)
 
 
 def _start_cron_ticker(
