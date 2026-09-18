@@ -84,7 +84,7 @@
 | **`~/.openclaw/` 其它技能/平台树** | 与 MA **无耦合**时可保留；勿把其中路径写入 MA 的 `MIMIR_AETHER_HOME` 或 cron |
 | **`$MIMIR_AETHER_HOME` 旧数据** | **保留**为生产真源；删目录前整包备份 |
 | **`{repo}/mimicore/public/*.md`** | 历史胶囊 **只读归档**；新胶囊真源为 **`$MIMIR_AETHER_HOME/memory/capsules/*.html`**（见 T02） |
-| **第二套 mimicore 栈** | **禁止**启动 `mimicore/gateway`、`mimicore/cli`（见 [`MIMIR_MIMICORE_SPRING_SCOPE.md`](./MIMIR_MIMICORE_SPRING_SCOPE.md)） |
+| **第二套 mimicore 栈** | **禁止**启动 `mimicore/gateway`、`mimicore/cli`（见 [`MIMIR_MIMICORE_SPRING_SCOPE.md`](./archive/mimicore/MIMIR_MIMICORE_SPRING_SCOPE.md)） |
 
 本清单**不要求**立即删除任何目录；目标是**无自动复活、无双实例、凭证单一**。
 

@@ -70,7 +70,7 @@ close_execution_pipeline
 | Item | Status |
 |------|--------|
 | Code | `mimicore/evolve/*`, skill [`mimiraether-self_evolution`](../../skills/mimiraether/mimiraether-self_evolution/), [`activate_self_evolution.py`](../../activate_self_evolution.py) |
-| Classification | **Spring / experimental** per [`MIMIR_MIMICORE_SPRING_SCOPE.md`](../MIMIR_MIMICORE_SPRING_SCOPE.md) §3–4.2 |
+| Classification | **Spring / experimental** per [`MIMIR_MIMICORE_SPRING_SCOPE.md`](../archive/mimicore/MIMIR_MIMICORE_SPRING_SCOPE.md) §3–4.2 |
 | Allowed | Explicit human invocation, skill tool calls, maintenance scripts |
 | Forbidden | Wiring into Gateway post-close as a second automatic SKILL writer; filling executor stubs and claiming production evolution without tier0 + M6 |
 
@@ -132,4 +132,4 @@ rg 'apply_evolution_from_analysis|SkillEvolutionPipeline' agent/execution_pipeli
 - [`docs/phase0/d5-adr-closeout.md`](../phase0/d5-adr-closeout.md)
 - [`docs/phase0/p2-long-iev0-closeout.md`](../phase0/p2-long-iev0-closeout.md)
 - `agent/execution_pipeline.py`, `agent/post_close_analysis.py`, `agent/skill_evolution.py`
-- [`docs/MIMIR_MIMICORE_SPRING_SCOPE.md`](../MIMIR_MIMICORE_SPRING_SCOPE.md)
+- [`docs/archive/mimicore/MIMIR_MIMICORE_SPRING_SCOPE.md`](../archive/mimicore/MIMIR_MIMICORE_SPRING_SCOPE.md)

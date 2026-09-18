@@ -14,7 +14,7 @@
 | P1-2 | 补缺迁移跳过（0 缺失） | ✅ |
 | P1-3 | [`P1-3-capsule-sample-audit.md`](./P1-3-capsule-sample-audit.md) | ✅ 10/10 |
 | P1-4 | [`P1-4-smoke-tier0.md`](./P1-4-smoke-tier0.md) | ✅ tier0 绿 |
-| P1-5 | [`MIMIR_MIMICORE_SPRING_SCOPE.md`](../MIMIR_MIMICORE_SPRING_SCOPE.md) §4.3 归档声明 | ✅ |
+| P1-5 | [`MIMIR_MIMICORE_SPRING_SCOPE.md`](../archive/mimicore/MIMIR_MIMICORE_SPRING_SCOPE.md) §4.3 归档声明 | ✅ |
 | P1-6 | 本文件 + backlog/issues | ✅ |
 
 ## 跟踪项更新

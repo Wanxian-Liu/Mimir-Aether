@@ -13,7 +13,7 @@
 | 2 | **路线A 物理求解器** | 同上 `solver.py` | ⚠️ 只做EV-PHY01 | 决策：继续或关停 |
 | 3 | **候选K self_evolution** | `agent/self_evolution/` | ✅ 代码建成 3🔴已修 | 接agent loop |
 | 4 | **候选C LLM+WM桥接** | `skills/mimiraether_physics_reasoner/llm_wm_bridge.py` | ✅ 6场景 | — |
-| 5 | **Mimicore提炼** | `docs/MIMICORE_EXTRACTION_PLAN.md` | 📋 10粒全未执行 | 等Cursor |
+| 5 | **Mimicore提炼** | `docs/archive/mimicore/MIMICORE_EXTRACTION_PLAN.md` | 📋 10粒全未执行 | 等Cursor |
 | 6 | **三方案融合** | `docs/MIMIR_UNIFIED_PLAN.md` | ✅ 评估完成 | 等Cursor §3 |
 | 7 | **模块依赖拓扑** | `docs/MODULE_DEPENDENCY_TOPOLOGY.md` | ✅ | — |
 | 8 | **全局融合设计** | `docs/WM_MIMIR_FUSION_PLAN_FINAL.md` | ✅ | — |
@@ -79,7 +79,7 @@
 | 刘哥-Cursor约定 | `docs/MIMIR_LIU_CURSOR_BRIDGE.md` |
 | 物理世界模型方案 | `docs/MIMIR_PHYSICS_WORLD_MODEL_PLAN.md` |
 | 物理方案重读对比 | `docs/MIMIR_PHYSICS_PLAN_REREAD_COMPARISON.md` |
-| Mimicore提炼方案 | `docs/MIMICORE_EXTRACTION_PLAN.md` |
+| Mimicore提炼方案 | `docs/archive/mimicore/MIMICORE_EXTRACTION_PLAN.md` |
 | 模块依赖拓扑 | `docs/MODULE_DEPENDENCY_TOPOLOGY.md` |
 | WM×Mimir融合设计 | `docs/WM_MIMIR_FUSION_PLAN_FINAL.md` |
 | IR-20260520事故 | `docs/MIMIR_INCIDENT_IR-20260520.md` |

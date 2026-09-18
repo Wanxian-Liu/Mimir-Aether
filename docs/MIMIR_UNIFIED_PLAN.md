@@ -278,7 +278,7 @@ Phase 0（2-3天·Mimir独做）     Phase 1（5-6周·需Cursor）    Phase 2�
 - **Phase 4 的 NTF-01~04 已设计但未入 Backlog**——等 Cursor 授权 Phase 1 后再拆粒入列
 - 本方案 §9 的 P1 项（EV-K06 / EV-N02）已在现有 Backlog 中
 - **世界模型改善（V1 VoE + V2 IC顾问 + V3 统一Cost）— 15粒入 Backlog §2s (EV-VOE*) — 2026-05-21**
-- **Mimicore Phase 3 提取执行 (EV-MC07~MC15) — 审计文档追踪: docs/MIMICORE_EXTRACTION_BOUNDARY_DESIGN.md — 2026-05-21/23**
+- **Mimicore Phase 3 提取执行 (EV-MC07~MC15) — 审计文档追踪: docs/archive/mimicore/MIMICORE_EXTRACTION_BOUNDARY_DESIGN.md — 2026-05-21/23**
   - MC07 ✅ 胶囊工厂技能已建 (4文件: capsule_generator/gdi_scorer/evomap_validator/classifier)
   - MC08 ✅ three_ring_architecture → self_evolution 技能 (文件已复制, __init__.py import已改)
   - MC09-MC15 待执行
