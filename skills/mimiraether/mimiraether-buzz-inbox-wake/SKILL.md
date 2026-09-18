@@ -163,6 +163,35 @@ auto_load: false
   - **迁移前先证死/活**：`grep -rl <脚本名>` 要**读上下文** —— `cron/jobs.json` 里的命中可能是**已停用/已完成 job 的提示词举例**（实测 `buzz_signal_ack_106` 就是），不是调用。
   - **持久闸**：把「本仓 scripts/ writer 面必须为 0」+「死路径仍判 violation（负控）」写成 pytest，否则下轮又漂回去。
 
+- 🔴 **RS17 只校验「模式分辨力」，不校验「作用域生效性」—— 已第二次放过**（2026-09-18 行 168 实测，本 run 自曝）：
+  探针模板写成 `grep -rlE -- '{INPUT}' <repo> --include='*.py' --exclude-dir=X` ⇒ **`--` 在选项之前** ⇒
+  `--include`/`--exclude-dir` 全被 grep 当**路径操作数**（stderr 全是「没有那个文件或目录」）⇒ 实际是
+  **无过滤全仓搜** ⇒ 目标读数 25（含 `.worktrees/`、`scripts/legacy/`、`.md`、`.sh`）。而 RS17 判 **VERIFIED**
+  （正控 seen / 负控 none 全过，**逐条比对与作用域无关**）。
+  ⇒ **`VERIFIED` = 「探针能区分有/无」≠「探的正是我以为的那块盘」**。
+  **三件套修法（写探针时同批做）**：
+  ① `--` 放在**所有选项之后**、紧贴模式（`grep -rlE --include='*.py' --exclude-dir=X -- '{INPUT}' <dir>`）；
+  ② **作用域活性对照臂**：拿「只在被排除目录里存在的串」当目标，在声明面必须读到 `0`
+     （本轮 `run_capsule_mimir_hermes` → `0` ⇒ `--exclude-dir` 真生效）；
+  ③ **面积对照臂**：同探针**去掉**排除 ⇒ 应读到 `>0`（本轮 `from mimicore` → `22` = 15 `.worktrees` + 7 `scripts/legacy`）。
+  ⇒ 结论一律**两面并列**写：「声明面 = 0（判据 X）/ 放宽面 = 22（逐条落在声明排除面内）」，
+  **禁止只报一个数字**。
+- ⚠️ **「VERIFIED 的臂」也可能是零信息臂**（同日实测）：自证 ⑦ 我拿**文件名**（`run_capsule_mimir_hermes`）
+  当**内容串**搜 ⇒ 目标恒 0、该臂毫无鉴别力，而 RS17 照样 VERIFIED（它不比对目标期望）。
+  **设计臂时自问：这条读数在「两种世界」里会不同吗？** 不会 ⇒ 换串，别把它当对照。
+- ⚠️ **`git commit` 提交的是 index，不是「本次 `git add` 的文件」**（同日实测）：批5 的 `git mv` 会把
+  rename **记进 index**；随后批4 只 `git add` 了 6 个文件再 commit ⇒ 提交里**冒出 8 个 rename**
+  （`14 files changed`）。**分段提交前先 `git reset`（清 index）**，或用 `git commit -- <paths>`。
+  修法：`git reset --soft HEAD~1` + `git reset` 后重切（本 run 得到干净的 6 文件 / 16 文件两 commit）。
+- ⚠️ **别在「正在跑」的长任务脚本上改源码**（同日实测 · 与 skill `mimiraether-live-script-patch` 同族）：
+  一轮 `./run_ralph_tier0.sh` 跑着时我改了 `run_ralph_tier0.sh`（补 g3）⇒ bash 按**字节**增量读脚本 ⇒
+  运行中插行会让后续读取错位 ⇒ **该轮读数作废**。处置：`kill` → 改完 → 在**冻结树**上重跑，
+  并以那一轮的读数为交付证据。**改在跑脚本前先问：「这轮读数还算数吗？」**
+- 📌 **`docs/archive/` 被 `.gitignore:68 archive/` 忽略，但仓内已有被跟踪文件**（同日实测）：
+  `git mv` 不受 ignore 限制（目标仍**已跟踪**），但新增文件需 `git add -f`。
+  先例已在盘上（`docs/archive/superpowers-plans/*.md` 被跟踪）⇒ 沿用先例即可，**不要**顺手改 `.gitignore`
+  （属既有规则，交刘哥裁）。
+
 
 - ⚠️ **`*_staging/` 目录残留 ≠ 功能未部署**（2026-09-18 行 167 实测，**RS17 当场打回我的假声明**）：我据 `~/.mimiraether/scripts/u11_staging/wake_gate.py` 的存在写下「U11 唤醒去重闸未部署」，RS17 探针（`grep -rl -- '{INPUT}' <repo>/gateway/ | wc -l`；正控 `hygiene_token_threshold`=seen、负控=none、verdict VERIFIED）**目标读数 = 5** ⇒ 假设被盘上推翻：闸在 `gateway/wake_gate.py` 且已接线（`agent_mixin.py:977` `acquire_for_run` / `:1608` `get_wake_gate`）。
   ⇒ 判据：「有无装载点」只能 **grep 调用方**（正控必须选**内容串**，不能选文件名/目录名——我同批第二条探针正控填 `buzz-inbox-mimir`（文件名）⇒ `positive_control_failed` 整条 UNVERIFIED，属**调用错非结论错**）；目录名、`.pyc` 残留、staging 目录都不能外推「未部署」。
