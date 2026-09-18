@@ -303,7 +303,33 @@ class DeliveryRouter:
                 c["effective_source"],
                 c["sources"],
             )
+
+        # Always emit a "the guard ran" marker. Without it, "0 conflicts" and
+        # "the guard never ran" produce the SAME observable (no ERROR lines) --
+        # exactly the ambiguity this whole N8/N9/N10 line of work is about.
+        # A start-up marker makes the negative case falsifiable.
+        logger.info(
+            "Home channel check: %d conflict(s); %d platform(s) checked, "
+            "%d with a home channel configured.",
+            len(conflicts),
+            sum(1 for p in (list(Platform) if platforms is None else platforms)
+                if p != Platform.LOCAL),
+            self._home_channel_platform_count(platforms),
+        )
         return conflicts
+
+    def _home_channel_platform_count(self, platforms=None) -> int:
+        """How many platforms currently resolve to a home channel chat id."""
+        count = 0
+        for platform in (list(Platform) if platforms is None else platforms):
+            if platform == Platform.LOCAL:
+                continue
+            try:
+                if self.home_channel_chat_id(platform):
+                    count += 1
+            except Exception:
+                continue
+        return count
 
     async def deliver(
         self,

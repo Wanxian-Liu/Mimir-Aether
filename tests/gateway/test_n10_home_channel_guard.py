@@ -121,11 +121,34 @@ def test_no_source_is_not_a_conflict(monkeypatch, tmp_path):
     assert r.check_home_channels([Platform.FEISHU]) == []
 
 
-def test_clean_configuration_logs_nothing(monkeypatch, tmp_path, caplog):
+def test_clean_configuration_logs_no_error(monkeypatch, tmp_path, caplog):
+    """Clean config => no ERROR. (It still emits a "guard ran" INFO marker.)"""
     r = _home(monkeypatch, tmp_path, yaml_value="oc_only")
     with caplog.at_level(logging.ERROR, logger="gateway.delivery"):
         assert r.log_home_channel_status([Platform.FEISHU]) == []
     assert [rec.getMessage() for rec in caplog.records] == []
+
+
+def test_guard_always_emits_a_ran_marker(monkeypatch, tmp_path, caplog):
+    """The negative case must be falsifiable.
+
+    "0 conflicts" and "the guard never ran" otherwise look identical in the log
+    -- the same ambiguity N8/N9/N10 all fight. This INFO line is what makes
+    "clean" distinguishable from "not executed".
+    """
+    r = _home(monkeypatch, tmp_path, yaml_value="oc_only")
+    with caplog.at_level(logging.INFO, logger="gateway.delivery"):
+        r.log_home_channel_status([Platform.FEISHU])
+    infos = [rec.getMessage() for rec in caplog.records if rec.levelno == logging.INFO]
+    assert any("Home channel check" in m for m in infos), infos
+
+
+def test_ran_marker_counts_the_conflict(monkeypatch, tmp_path, caplog):
+    r = _home(monkeypatch, tmp_path, yaml_value="oc_stale", config_value="oc_live")
+    with caplog.at_level(logging.INFO, logger="gateway.delivery"):
+        r.log_home_channel_status([Platform.FEISHU])
+    infos = [rec.getMessage() for rec in caplog.records if rec.levelno == logging.INFO]
+    assert any("1 conflict" in m for m in infos), infos
 
 
 # --------------------------------------- precedence pinned (N8 regression)
