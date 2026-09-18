@@ -347,7 +347,7 @@ def cmd_one_shot(args):
     import asyncio
 
     from agent.core_loop import MimirAetherAgent
-    from mimicore.config.model_defaults import get_model
+    from mimir_cli.model_config.model_defaults import get_model
 
     model = getattr(args, "model", None) or get_model()
     max_iterations = getattr(args, "max_turns", None) or 90

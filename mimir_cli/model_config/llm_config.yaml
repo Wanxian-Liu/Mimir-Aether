@@ -1,0 +1,12 @@
+# 记忆殿堂v2.0 - 统一LLM配置
+# 所有模块从这里读取LLM配置，API Key不硬编码
+
+llm:
+  provider: deepseek
+  api_key_env: DEEPSEEK_API_KEY  # 从环境变量读取
+  model: deepseek-chat
+  base_url: https://api.deepseek.com/v1
+  timeout: 30
+  max_retries: 3
+  retry_backoff: 1.5
+  rate_limit: 60  # 每分钟请求数

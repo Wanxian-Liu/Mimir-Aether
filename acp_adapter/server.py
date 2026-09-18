@@ -62,7 +62,7 @@ from acp_adapter.session import SessionManager, SessionState
 logger = logging.getLogger(__name__)
 
 try:
-    from mimicore import __version__ as MIMIRAETHER_VERSION
+    from mimir_cli import __version__ as MIMIRAETHER_VERSION
 except Exception:
     MIMIRAETHER_VERSION = "0.0.0"
 

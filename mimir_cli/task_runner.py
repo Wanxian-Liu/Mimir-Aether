@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from mimicore.config.model_defaults import get_model
+from mimir_cli.model_config.model_defaults import get_model
 
 
 async def run_interactive():

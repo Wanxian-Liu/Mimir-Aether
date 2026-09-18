@@ -1,0 +1,115 @@
+# 记忆殿堂v2.0 配置文件
+# 支持环境变量覆盖，格式: MEMORY_HALL_* 前缀
+
+version: "2.0.0"
+
+# === 存储配置 ===
+storage:
+  # 主数据目录
+  base_dir: "~/.mimiraether/data"
+  
+  # 记忆文件配置
+  memory:
+    # 每日记忆文件目录
+    daily_dir: "memory/daily"
+    # 长期记忆文件
+    longterm_file: "memory/longterm.md"
+    # 会话状态文件
+    session_file: "memory/session_state.md"
+    # 最近事件文件
+    recent_file: "memory/recent_events.md"
+  
+  # 文件格式
+  format:
+    encoding: "utf-8"
+    date_format: "%Y-%m-%d"
+    datetime_format: "%Y-%m-%d %H:%M"
+  
+  # 自动备份
+  backup:
+    enabled: true
+    max_backups: 5
+    backup_dir: "backup"
+
+# === 缓存配置 ===
+cache:
+  # LRU缓存设置
+  lru:
+    # 记忆缓存大小
+    memory_cache_size: 100
+    # 检索结果缓存大小
+    search_cache_size: 50
+    # TTL: 秒
+    ttl: 3600
+  
+  # 压缩缓存
+  compression:
+    enabled: true
+    # 压缩级别: 1-9
+    level: 6
+    # 触发压缩的最小大小(KB)
+    min_size_kb: 10
+
+# === 权限配置 ===
+permissions:
+  # 访问控制
+  access:
+    # 默认访问级别: read, write, admin
+    default_level: "read"
+    # 信任的来源列表
+    trusted_sources:
+      - "main_session"
+      - "heartbeat"
+      - "subagent"
+  
+  # 围栏(空间隔离)
+  fence:
+    # 启用围栏
+    enabled: true
+    # 越界次数阈值
+    violation_threshold: 3
+    # 越界后的冷却时间(秒)
+    cooldown_seconds: 300
+    # 允许的命名空间
+    allowed_namespaces:
+      - "memory"
+      - "workspace"
+      - "skills"
+  
+  # 敏感操作确认
+  sensitive_ops:
+    # 需要确认的操作
+    require_confirmation:
+      - "delete_memory"
+      - "override_backup"
+      - "change_permissions"
+    # 确认超时(秒)
+    confirmation_timeout: 30
+
+# === 插件配置 ===
+plugins:
+  # 插件目录
+  plugins_dir: "plugins"
+  
+  # 已启用的插件
+  enabled:
+    - "记忆殿堂-萃取"
+    - "记忆殿堂-归一"
+    - "记忆殿堂-通感"
+    - "记忆殿堂-安全"
+  
+  # 插件配置
+  settings:
+    # 插件加载顺序
+    load_order: ["安全", "归一", "萃取", "通感"]
+    # 插件超时(秒)
+    timeout: 30
+    # 插件失败策略: skip, retry, abort
+    failure_strategy: "skip"
+
+# === 日志配置 ===
+logging:
+  level: "INFO"
+  file: "logs/memory_hall.log"
+  max_size_mb: 10
+  backup_count: 3

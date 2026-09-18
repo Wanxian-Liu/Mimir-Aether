@@ -15,7 +15,7 @@ from typing import Any
 def _resolve_model(args: Any) -> str:
     if getattr(args, "model", None):
         return args.model
-    from mimicore.config.model_defaults import get_model
+    from mimir_cli.model_config.model_defaults import get_model
 
     return get_model()
 

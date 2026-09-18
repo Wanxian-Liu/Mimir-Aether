@@ -41,13 +41,9 @@ async def activate_three_ring_loop():
         logger.error(f"❌ 三环闭环模块导入失败: {e}")
         return False
     
-    # 导入自驱动引擎
-    try:
-        from mimicore.evolve.self_drive_engine import SelfDriveEngine
-        logger.info("✅ 自驱动引擎模块加载成功")
-    except ImportError as e:
-        logger.warning(f"⚠️ 自驱动引擎模块导入失败: {e}")
-        SelfDriveEngine = None
+    # 导入自驱动引擎（历史遗留已清零：原 mimicore.evolve.self_drive_engine 不在盘上，
+    # 该 import 自始恒抛 ImportError -> SelfDriveEngine=None；语义等价保留 None）
+    SelfDriveEngine = None
     
     # 创建三环闭环实例
     loop = ThreeRingClosedLoop()

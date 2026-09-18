@@ -431,7 +431,7 @@ class SessionManager:
             return self._agent_factory()
 
         from run_agent import AIAgent
-        from mimicore.config.loader import load_config
+        from mimir_cli.model_config.loader import load_config
         from mimir_cli.runtime_provider import resolve_runtime_provider
 
         config = load_config()

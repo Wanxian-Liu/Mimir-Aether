@@ -323,12 +323,8 @@ class ConfigMixin:
         except ImportError as e:
             logger.warning(f"Failed to import builtin tools: {e}")
 
-        try:
-            import tools.mimircore_tool  # noqa: F401 - 导入即触发 registry.register()
-            mimircore_count = len([e for e in _tool_registry_module.registry._tools.values()
-                                  if e.toolset == "mimircore"])
-        except ImportError as e:
-            logger.warning(f"Failed to import mimircore tools: {e}")
+        # capsule/mimircore 工具面已于 2026-09-18 归档（见 tools/__init__.py 注），计数恒 0。
+        mimircore_count = 0
 
         logger.info(f"Self-registered {builtin_count} builtin + {mimircore_count} mimircore tools")
 
