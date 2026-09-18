@@ -541,6 +541,10 @@ _gate2_pytest \
             exit "$_N11_EXIT"
           fi
         fi
+      else
+        # 批4b（2026-09-18）：归档后此分支**沉默跳过** —— 而「沉默跳过」与「跑过且 0 例」
+        # 在日志上不可区分（同族：扫描面缺失被读成真值）。故显式打一行。
+        echo "(N11 submodule sweep: mimicore/tests 不在主树（已归档）—— 本档跳过，非「跑过且 0 例」)"
       fi
       # 退出码合并：只看最后一条命令会把显式清单的失败吞掉
       if [ "$_GATE2_EXPLICIT_EXIT" -ne 0 ]; then

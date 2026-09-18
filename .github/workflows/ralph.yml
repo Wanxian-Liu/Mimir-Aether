@@ -28,14 +28,19 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # mimicore lives in a submodule (see .gitmodules). CI must init it or Gate1 import fails.
-      # Rewrite SSH submodule URLs to HTTPS so the runner does not need an SSH key.
-      - name: Init git submodules
+      # （2026-09-18 更新）mimicore 子模块已在纪念堂仪式中归档 ⇒ 本仓 .gitmodules 已空。
+      # 原文「mimicore lives in a submodule … CI must init it or Gate1 import fails」现为**假陈述**。
+      # 保留本步为显式 no-op：无子模块条目即直接退出（不再尝试 sync/update）。
+      - name: Init git submodules (no-op when none declared)
         env:
           # Optional: repo secret SUBMODULE_PAT (fine-grained/classic PAT with read to submodule repos).
           SUBMODULE_PAT: ${{ secrets.SUBMODULE_PAT }}
         run: |
           set -euo pipefail
+          if [ ! -f .gitmodules ] || ! grep -q '^\[submodule' .gitmodules; then
+            echo "no submodules declared (.gitmodules absent/empty) — mimicore archived 2026-09-18; skipping"
+            exit 0
+          fi
           git config --global url."https://github.com/".insteadOf "git@github.com:"
           if [ -n "${SUBMODULE_PAT:-}" ]; then
             git config --global url."https://x-access-token:${SUBMODULE_PAT}@github.com/".insteadOf "https://github.com/"

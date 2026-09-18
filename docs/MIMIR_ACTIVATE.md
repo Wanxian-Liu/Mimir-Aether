@@ -4,13 +4,17 @@ Use this when you want a repeatable shell session: **code** lives in the git clo
 
 ## Clone 后必做
 
-从远端 **clone** 或 **浅 clone** 后，在仓库根执行一次（拉取 [`mimicore`](../.gitmodules) 子模块内容；**不**改子模块指针，仅检出当前 superproject 已记录的 commit）：
+**（2026-09-18 更新）本步骤已取消 —— 无子模块。** `mimicore` 域于 2026-09-18 归档
+（纪念堂仪式：主体解绑 + tag `mimicore-archived-20260918`，本体移至
+`~/src/archive/mimicore-prototype/`）⇒ 从远端 clone 后**不需要**、也**不应**执行
+`git submodule update --init mimicore`（主仓已无该子模块条目，该命令只会报错）。
 
-```bash
-git submodule update --init mimicore
-```
-
-若未执行，常见现象包括：Python **`ModuleNotFoundError: No module named 'mimicore'`**（或无法从 `mimicore/` 导入），以及 git 报错类似 **`fatal: clone of '…' into submodule path 'mimicore' failed`**（网络 / SSH 权限 / 未配置 host key）或 **`fatal: not a git repository: mimicore/.git`**（目录存在但未完成子模块初始化）。CI 子模块拉取失败时另见 [`CI_SUBMODULE.md`](./CI_SUBMODULE.md)。
+历史指令（存档，勿再照做）：~~`git submodule update --init mimicore`~~ —— 归档前用于
+拉取 `mimicore` 子模块内容。若你在旧 clone 上仍见到
+`ModuleNotFoundError: No module named 'mimicore'`：MimirAether 自 2026-09-18 起**不依赖**
+该域，等价实现见 `mimir_cli/model_config/`（2026-09-18 批1 迁移）。CI 侧同样已无子模块步骤
+（`docs/CI_SUBMODULE.md` 属历史文档）。防复发：活树里再出现 `import mimicore` 会被
+`.mimir-archived-domains.txt` + `scripts/check_scripts_syntax.py` 判红。
 
 ## Variables
 
