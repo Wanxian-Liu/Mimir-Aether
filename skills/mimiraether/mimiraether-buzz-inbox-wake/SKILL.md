@@ -164,5 +164,15 @@ auto_load: false
   - **持久闸**：把「本仓 scripts/ writer 面必须为 0」+「死路径仍判 violation（负控）」写成 pytest，否则下轮又漂回去。
 
 
+- ⚠️ **`*_staging/` 目录残留 ≠ 功能未部署**（2026-09-18 行 167 实测，**RS17 当场打回我的假声明**）：我据 `~/.mimiraether/scripts/u11_staging/wake_gate.py` 的存在写下「U11 唤醒去重闸未部署」，RS17 探针（`grep -rl -- '{INPUT}' <repo>/gateway/ | wc -l`；正控 `hygiene_token_threshold`=seen、负控=none、verdict VERIFIED）**目标读数 = 5** ⇒ 假设被盘上推翻：闸在 `gateway/wake_gate.py` 且已接线（`agent_mixin.py:977` `acquire_for_run` / `:1608` `get_wake_gate`）。
+  ⇒ 判据：「有无装载点」只能 **grep 调用方**（正控必须选**内容串**，不能选文件名/目录名——我同批第二条探针正控填 `buzz-inbox-mimir`（文件名）⇒ `positive_control_failed` 整条 UNVERIFIED，属**调用错非结论错**）；目录名、`.pyc` 残留、staging 目录都不能外推「未部署」。
+- ⚠️ **「双 run 同处理一行」≠「同一事件重复投递」——可能是两个独立生产者**（2026-09-18 行 167 实测，机械定案）：`data/trajectories/<date>/*.jsonl` 首行 `session_start` 实测两条指向同一收件行、相隔 28s：① 21:34:33 `trigger_source=api`，`task_name=「【Hermes→Mimir·批3派发触发】…」`（**Hermes 自己发的派发唤醒**）② 21:35:01 `trigger_source=buzz-watcher`（标准模板）。而 `gateway-api.log` 的 `POST /v1/runs` 各一次 ⇒ 不是重投。
+  ⇒ 定位法：先读两个 trajectory 首行**比对 task_name / trigger_source / trace_id**（而不是只比对工具调用），据此判断「哪个 run 是我、另一个是谁派来的」；再据盘上 commit 时刻认领产出主权。
+- ⚠️ **U11 单飞闸对 `/v1/runs` 唤醒结构性无效（两条、各自充分）**（同行 167 实测）：(a) `WAKE_TRIGGER_SOURCES={buzz-watcher,watchdog,cron,self-restart}`（`gateway/wake_gate.py:108`）不含裸 `api` ⇒ 判 `mode="user"`，按设计「交互一律放行且不占位」；(b) `/v1/runs` 唤醒的 `session_key` **就是该 run 自己的 trace_id**（日志实测 `[RUN] trace_id=run_e4c343… session=run_e4c343…`）⇒ `(session_key + fingerprint)` 的 `duplicate_event`（15 分钟窗口）**永不命中**。
+  ⇒ 旁证口径：`data/ops/wake_gate_metrics.json` 若末次写时刻早于本次唤醒、`events` 里无该时刻条目 ⇒ 只能判 🟡「已装载未证」，**不可**据此说「闸未生效」（那是负结论，须先证事件面缺失的成因）。
+- ✅ **闸门类改动的 twin-arm 模板（可直接复用）**：`~/.mimiraether/scripts/mm_twin_arm_3430.py` —— 把目标测试**复制**到 `/tmp/<name>/tests/contract/`（`ROOT=parents[2]` 自动落到合成仓），加一个把 ROOT 塞进 `sys.path` 的 `conftest.py`（这样「复活/可导入」故障才真能被 `find_spec` 看见），`git init` + 空提交（+ 可选 tag）造状态：
+  臂 A1=故障1+故障2 齐（`mimicore/__init__.py` 存在 & 无 tag）→ 期望 FAIL；A2=只留故障2 → 期望 FAIL；B=全清（孪生对照）→ 期望 PASS。真仓零接触。
+  实测读数：A1 FAIL@:51（find_spec 抓复活）· A2 FAIL@:59（凭证缺失）· B PASS ⇒ 证明闸「能拦且不误拦」。**只有「代码在场」不算验过闸**。
+
 ## 3. 完成判据
 ① 日志行已追加（含动作/去重标注）② 卡段已落并 commit ③（若有新笔记）索引判据 `VERDICT: PASS` ④ 汇报区分「声明」与「盘上实测」，未闭项显式列出。
