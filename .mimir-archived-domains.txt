@@ -1,0 +1,16 @@
+mimicore
+# ---------------------------------------------------------------------------
+# MimirAether 归档域清单 —— **单一真源**（消费者：scripts/check_scripts_syntax.py）
+#
+# 一行一个「已归档的 Python import 前缀」，按**组件边界**匹配：
+#   mimicore 命中 `import mimicore` / `from mimicore.x import y`
+#   不命中 `mimicorex` / `mimicore_extra`（不是裸 startswith）
+# `#` 开头为注释，空行忽略（可写在首行之后任意位置）。
+#
+# **加新归档 = 加一行，不改码。**
+#
+# 归档凭证（可复核，别只信本行文字）：
+#   mimicore · tag `mimicore-archived-20260918`（git show --quiet 可达）
+#            · 本体 ~/src/archive/mimicore-prototype/（2026-09-18 批3 纪念堂仪式）
+#            · 四方会卡 wiki/discussions/2026-09-18-四方会议-Mimir历史遗留清洗-mimicore纪念堂化.md
+# ---------------------------------------------------------------------------

@@ -114,6 +114,13 @@ def test_mimicore_get_mimir_home_respects_mimir_aether_home(
     for key in ("MIMIR_AETHER_HOME", "MIMIRAETHER_HOME", "HERMES_HOME"):
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("MIMIR_AETHER_HOME", str(tmp_path))
-    from mimicore.mimir_paths import get_mimir_home
+    # 批4：**静态** import 会命中 `.mimir-archived-domains.txt` 归档域闸。本用例是双模
+    # 契约锁（mimicore 在场才验、归档后 fixture 已 skip）⇒ 改用 importorskip：
+    # 语义不变（在场→动态导入并断言；缺席→skip），且活树对归档域**零静态依赖**。
+    _mod = pytest.importorskip(
+        "mimicore.mimir_paths",
+        reason="mimicore 已归档（tag mimicore-archived-20260918）—— IND-04 仅在场时可验",
+    )
+    get_mimir_home = _mod.get_mimir_home
 
     assert get_mimir_home() == tmp_path
