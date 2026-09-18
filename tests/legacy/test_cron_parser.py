@@ -4,7 +4,7 @@ import sys
 import os
 import time
 
-# 添加mimicore到Python路径
+# 让仓根可导入（停放于 tests/legacy/ 后靠 pytest.ini pythonpath=. 提供）
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from scheduler.jobs import (
