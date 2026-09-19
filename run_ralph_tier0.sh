@@ -231,6 +231,20 @@ for _attempt in $(seq 1 $((RETRY_COUNT > 0 ? RETRY_COUNT + 1 : 1))); do
       echo "*** Gate1 语法/归档域闸 FAILED: 见上方 SYNTAX-FAIL / ARCHIVED-IMPORT-FAIL 行 ***"
       exit 1
     fi
+    # --- B1/B3（2026-09-19 Mimir · 刘哥批）: cron 记账卫生闸 ------------------------
+    # 为什么：jobs.json 里「停用无理由 / 启用但 deliver=local / next_run_at 冻结」三种形态
+    #   都是「判据在盘上但没人读」——本轮自查实测 16/21 命中（含 1 条**启用中却静默**）。
+    # 做法：只读 jobs.json 判 R1/R2/R3；CI 上无 ~/.mimiraether ⇒ 脚本自行 SKIP(0)，不假红。
+    # 负控：--selftest 先跑（三坏病例 + 三孪生对照），再加 tests/scripts/test_check_cron_hygiene.py。
+    # 守卫式 if ! …; then exit 1; fi（防 `set +e` 吞码 —— A8 自曝同族）。
+    if ! "${MIMIR_TIER0_PYTHON:-python3}" scripts/check_cron_hygiene.py --selftest; then
+      echo "*** Gate1 cron 卫生闸自证 FAILED（负控/孪生对照不成立，闸本身不可信）***"
+      exit 1
+    fi
+    if ! "${MIMIR_TIER0_PYTHON:-python3}" scripts/check_cron_hygiene.py; then
+      echo "*** Gate1 cron 记账卫生闸 FAILED: 见上方 [cron-hygiene] FAIL 行 ***"
+      exit 1
+    fi
     if [ "$INCREMENTAL" = true ]; then
       CHANGED_TARGETS=()
       for f in "${TARGET_FILES[@]}"; do

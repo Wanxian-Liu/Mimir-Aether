@@ -29,6 +29,11 @@ def iso(tmp_path, monkeypatch):
     # Deterministic: optional ML components live outside the repo.
     monkeypatch.setattr(mt, "KnowledgeDeduplicator", None)
     monkeypatch.setattr(mt, "ImportanceScorer", None)
+    # 本文件测的是「快照机制」（压缩会不会丢原文），不是收缩阈值政策本身。
+    # F1/S2（2026-09-19）把上限 300 -> 1200 后，581 字符的 LONG 不再触发收缩，
+    # 因此这里把阈值显式钉回 300，保持用例意图不变（政策由
+    # tests/tools/test_memory_entry_truncation.py 单独覆盖）。
+    monkeypatch.setattr(mt, "MAX_ENTRY_CHARS", 300)
     store = mt.MemoryStore(memory_char_limit=1000)
     yield mt, store
     mt.reset_memory_store_for_test()

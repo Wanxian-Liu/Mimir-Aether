@@ -100,6 +100,63 @@ ENTRY_DELIMITER = "\n§\n"
 # Suffix of the pre-compaction recovery snapshot: MEMORY.md -> MEMORY.md.precompact
 PRECOMPACT_SUFFIX = ".precompact"
 
+# ---------------------------------------------------------------------------
+# F1/S2（2026-09-19 · 刘哥批）: 长条目收缩 —— 上限 300 → 1200 且**保尾**
+# ---------------------------------------------------------------------------
+# 为什么改（根因）：旧策略是 300 字符**纯头部**截断，而长条目里最要紧的常常在尾部
+#   （路径 / 命令 / 判据 / 数字）。盘上实证：MEMORY.md 现存 45 处 `(truncated)`，
+#   且 5 个备份全部带标记（45/45/77/93/55）⇒ 截断不可逆、**无干净源可恢复**。
+# 新策略：头 800 + 标记 + 尾 400（合计 ≈1200），并带**不变长**守卫 —— 若拼接后不短于
+#   原文就原样保留，绝不让「截断」反而把条目写长。
+MAX_ENTRY_CHARS = 1200
+TRUNC_HEAD_RATIO = 2 / 3   # 头占比（1200 -> 800）
+TRUNC_TAIL_RATIO = 1 / 3   # 尾占比（1200 -> 400）
+TRUNC_MARKER = " [...] (truncated) "
+
+
+def shrink_long_entry(
+    entry: str,
+    max_chars: Optional[int] = None,
+    head_ratio: float = TRUNC_HEAD_RATIO,
+    tail_ratio: float = TRUNC_TAIL_RATIO,
+) -> "tuple[str, bool]":
+    """收缩过长条目，**同时保留头与尾**。返回 (text, changed)。
+
+    `max_chars=None` 时读**调用时刻**的模块常量 `MAX_ENTRY_CHARS`（不是定义时绑定）
+    —— 这样阈值可被测试/运行时注入（monkeypatch），不必改码。
+
+    契约：① 不增长（拼接后若不短于原文则原样返回 changed=False）；
+          ② 尾部必留（把判据/路径放尾部的条目不再被静默丢弃）；
+          ③ 断点取句/词边界，但不早于头部长度的 60%（防只剩半句）。
+    """
+    if max_chars is None:
+        max_chars = MAX_ENTRY_CHARS
+    if max_chars <= 0 or len(entry) <= max_chars:
+        return entry, False
+
+    head_chars = max(1, int(max_chars * head_ratio))
+    tail_chars = max(1, int(max_chars * tail_ratio))
+    break_min = int(head_chars * 0.6)
+
+    head = entry[:head_chars]
+    last_period = head.rfind(". ")
+    last_space = head.rfind(" ")
+    if last_period >= break_min:
+        head = entry[: last_period + 1]
+    elif last_space >= break_min:
+        head = entry[:last_space]
+
+    tail = entry[-tail_chars:]
+    first_space = tail.find(" ")
+    if 0 <= first_space < int(tail_chars * 0.4):
+        tail = tail[first_space + 1 :]
+
+    out = head.rstrip() + TRUNC_MARKER + tail.lstrip()
+    if len(out) >= len(entry):
+        return entry, False
+    return out, True
+
+
 
 # ---------------------------------------------------------------------------
 # Memory content scanning — lightweight check for injection/exfiltration
@@ -364,27 +421,25 @@ class MemoryStore:
             except Exception:
                 logger.warning("  KnowledgeDeduplicator failed, skipping semantic dedup", exc_info=True)
 
-        # Phase 2.5: Truncate long entries (>=300 chars) to free space
-        # This is in chars, not tokens, so it's model-independent. Long entries
-        # are more likely to be verbose descriptions than essential facts.
+        # Phase 2.5: 收缩过长条目（上限 1200，**保头保尾**）
+        # F1/S2（2026-09-19 · 刘哥批）：旧实现是 300 字符纯头部截断，长条目尾部
+        #   （路径/命令/判据/数字）被结构性丢掉且不可逆。现改为保尾策略，见
+        #   `shrink_long_entry` 的契约（不增长 / 尾必留 / 断点在句词边界）。
+        # 单位是字符不是 token ⇒ 与本仓库其它阈值一样与模型无关。
         truncated_count = 0
-        max_entry_chars = 300
         for i, e in enumerate(entries):
-            if len(e) > max_entry_chars:
-                # Find a good break point (last period or space within limit)
-                truncated = e[:max_entry_chars]
-                last_period = truncated.rfind(".")
-                last_space = truncated.rfind(" ")
-                if last_period > 200:
-                    truncated = e[:last_period + 1]
-                elif last_space > 200:
-                    truncated = e[:last_space]
-                else:
-                    truncated = e[:max_entry_chars]
-                entries[i] = truncated + " [...] (truncated)"
+            shrunk, changed = shrink_long_entry(e, max_chars=MAX_ENTRY_CHARS)
+            if changed:
+                entries[i] = shrunk
                 truncated_count += 1
         if truncated_count:
-            logger.info(f"  Truncated {truncated_count} entries to ≤{max_entry_chars} chars")
+            logger.info(
+                "  Shrunk %d entries to ≤%d chars (tail-preserving: head %d%% + tail %d%%)",
+                truncated_count,
+                MAX_ENTRY_CHARS,
+                int(TRUNC_HEAD_RATIO * 100),
+                int(TRUNC_TAIL_RATIO * 100),
+            )
 
         # Phase 3: Importance scoring — keep only entries above threshold
         if ImportanceScorer is not None:
