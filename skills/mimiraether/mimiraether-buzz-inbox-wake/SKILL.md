@@ -205,3 +205,49 @@ auto_load: false
 
 ## 3. 完成判据
 ① 日志行已追加（含动作/去重标注）② 卡段已落并 commit ③（若有新笔记）索引判据 `VERDICT: PASS` ④ 汇报区分「声明」与「盘上实测」，未闭项显式列出。
+
+---
+
+## 4. 唤醒生产者面：cron script 模式与双唤醒判重（2026-09-19 补 · B2 #1）
+
+> 本节的适用面比 Buzz 更宽：**任何「零 token 预扫描 → 唤醒 agent」的 cron job** 都在这条线上。
+
+### ① cron 的两种模式，差别是「花不花 token」，不是「投不投递」
+
+`gateway/cron_mixin.py:806-898`：job 有 `script` ⇒ 跑脚本、**不起 agent**（脚本 stdout 即 `final_text`）；
+无 `script` ⇒ 起一个**全新** AIAgent 跑 `prompt`。`[SILENT]`（L945）只拦**投递**，**不拦 LLM run**。
+
+⇒ 判据：**清理/恢复一个周期性 job 前，先看它的 `script` 字段**。`script: None` + 每 5min
+= 288 次完整 LLM run/日（哪怕它每次都只说 `[SILENT]`）。实例：`mimir-wiki-watcher` 恢复前正是这个形态。
+
+### ② 双唤醒判重的正确落点：**派发前**，不是 wake_gate
+
+`gateway/wake_gate.py:108` 的 `WAKE_TRIGGER_SOURCES` 不含裸 `api`，且 `/v1/runs` 的
+`session_key` = 该 run **自己的 trace_id** ⇒ 单飞闸对这类唤醒**结构性无效**（INC-12 实测）。
+可复用的三层（`~/src/MimirAether/scripts/wiki_wake_scan.py`，twin-arm 11 臂）：
+
+| 层 | 机制 | 拦什么 | 关键设计点 |
+|:-:|:--|:--|:--|
+| L1 | 兄弟通路有**新鲜**未处理行（≤900s）⇒ 不派发 | 两生产者同抢一批活 | **必须带老化阈值**：否则兄弟通路一死就永久抑制 = fail-closed。带阈值 = **fail-open**（安全网仍在） |
+| L2 | 认领文件 `claims/<sha1(path)>.json` = {content_hash, ts}，同哈希且 ≤TTL ⇒ 跳过 | 「唤醒→落段」在飞窗口（慢 run） | 存**内容哈希**：卡被改过自动失效，不必手工清认领 |
+| L3 | 产物级幂等（卡内已有 `^## Mimir` 段 ⇒ 跳过） | 已处理未交棒的卡 | 这是原有的 BURNFIX，**恢复时要当回归项测**（A3 臂） |
+
+**薄壳纪律**：cron 只认 `~/.mimiraether/scripts/` 下的脚本（`script_path` 必须落在该目录内，
+所以**不能**用符号链接指向 repo）⇒ home 侧放 2 行 `exec` 壳，逻辑 + 测试全在 repo ——
+防重演「在跑版 ≠ 版本控制版」（`audit_send_paths.py` 前例）。壳里路径写**绝对量**（本机 `HOME` 就是
+mimir home，用 `$HOME/.mimiraether` 拼会双嵌套）。
+
+### ③ `next_run_at` 手工置 null 之后必须自己重算
+
+`cron/jobs.py:400 get_due_jobs()` 对 `next_run_at = None` 直接 skip，`load_jobs()` 不会重算
+⇒ 改 job 配置时**不要留 null**，用 `compute_next_run(job["schedule"])` 补上（否则该 job 永久死）。
+
+### ④ RS17 探针填参两条新坑（本批又踩）
+
+- `--target` **不能传 glob**（如 `~/wiki/discussions/*.md`）：shell 会展开成 70+ 个参数，
+  `probe_attest` 直接 `unrecognized arguments`。要限定扫描面就把**目录**当 target，
+  作用域靠探针里的 `--include` / `--exclude-dir`（且 `--` 必须紧贴模式）。
+- 「0 命中」类结论**必须声明扫描面**：同一条 `grep -rl '^status: mimir'`，递归面读到 **4**、
+  顶层 `*.md` 读到 **0** —— 4 处全在 `archive/**/*.bak-*`。⇒ 加一条**作用域活性对照臂**
+  （放宽面 >0 / 声明面 =0），两个数字**并列写**，否则要么假阳性（「有 4 张卡没人接棒」），
+  要么被人用另一口径打回。
