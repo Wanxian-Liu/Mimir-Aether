@@ -13,4 +13,6 @@ mimicore
 #   mimicore · tag `mimicore-archived-20260918`（git show --quiet 可达）
 #            · 本体 ~/src/archive/mimicore-prototype/（2026-09-18 批3 纪念堂仪式）
 #            · 四方会卡 wiki/discussions/2026-09-18-四方会议-Mimir历史遗留清洗-mimicore纪念堂化.md
+#            · 测试随模块走（2026-09-19）：tests/legacy/test_mimircore_tool_capsules.py
+#              -> ~/src/archive/mimicore-prototype/tests/（同目录 README-ARCHIVED-TESTS.md 载判据与回滚）
 # ---------------------------------------------------------------------------
