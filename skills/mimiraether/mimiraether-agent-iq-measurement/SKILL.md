@@ -57,3 +57,25 @@ auto_load: false
 - 自审台账：`~/.mimiraether/data/ops/probe_attest.jsonl`（RS17 探针自证）
 - 待裁与研究任务派发：`~/wiki/discussions/2026-09-19-四方研究讨论-如何真正测出Agent综合智商.md`
 - **已知缺口（打分前必读）**：`data/verification_results.jsonl` 不存在（自评技能读它静默返回 0）· `data/feedback_events.jsonl` 停更 2026-08-16
+
+## 5. 量具口径铁律（2026-09-19 · IQ-EVO debug 卡定案）
+
+**铁律一 · 仪器缺失 ≠ 性能退化 ⇒ 不得记分。**
+`verification_results.jsonl` **不是「缺失」，是「从未存在」**——全库 grep 只有 **3 个读端**
+（`scripts/verify_before_report_guard.py:151` · dormant `mimiraether-self_evolution/SKILL.md:387` ·
+`mimiraether-verification/SKILL.md:236` 的**散文祈使句**），**0 个写端**。
+⇒ 它不是坏掉的量具，是**一段散文**（有人写「应该记录」，没人写「怎么记录」）。
+**口径**：`instrument_status ∈ {live, absent, stale}`，`absent/stale ⇒ 该维 N/A + 分母剔除 + 单列「仪器债」`。
+**反例（我自己踩的）**：第三次复评把「仪器缺失」记成 **#3 = 4.5（−0.100，全表最大跌幅）**
+⇒ **会把「没有量具」读成「能力下降」**，且奖励「什么都不做」（不动就没人扣分）。
+**量具必须先证「有写端」**：`test -e` 只能查「有没有」，查不出「**会不会有**」。
+
+**铁律二 · 只读量具的开关不得与可写执行器共用语义组。**
+实证：`2026-08-16 13:41` 的「关自动进化」运维把 4 个键**一起改成 0**——
+`MIMIR_AUTO_ANALYSIS` / `MIMIR_AUTO_EVOLVE` / `MIMIR_AUTO_TUNER`（可写执行器）**与**
+`MIMIR_FEEDBACK_COLLECTOR`（record-only 采集器）⇒ **采集停摆 5 周**（末条事件 8/16 13:44:25）。
+**采集层永远开（零写副作用）｜分析层可开但只产 artifact｜应用层人工审 + 白名单｜框架层 `agent/*.py` 机器硬禁。**
+
+**铁律三 · 「反馈环断了」先查配置，不要先查代码。**
+取证顺序：环境文件键值 → 备份链 mtime（本次备份名 `autoevolve-off-20260816` 即操作名）→ 活进程 env。
+本次根因**不在**代码（`agent_loop.py:375/1548` 今日仍调 pipeline），**在配置层**。
