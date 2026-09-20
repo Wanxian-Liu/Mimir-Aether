@@ -323,3 +323,33 @@ mimir home，用 `$HOME/.mimiraether` 拼会双嵌套）。
 | **领先方**（已入库） | 继续做完全部批次；脱壳重启窗口用 `systemd-run --user` transient（**不在 service cgroup ⇒ 重启不连坐**） |
 | **落后方**（本 run） | ① 让出实施主权 ② 撤干净自己的工作树残留 ③ 跑**消费端/缺口**探针（带控制组）④ 只交兄弟**没有的**那半 ⑤ 卡段 + 台账 + INC 行（**INC 行先查重，防双计数**） |
 | **重启单飞** | 已有人在途 ⇒ **绝不再发第二次重启**（双重重启会掐掉在飞 run）。先 `systemctl --user list-units --all \| grep -i restart` 看有无在途 unit |
+
+---
+
+## 7. 兄弟 run「在飞」≠「已实施」—— 去重第三步的前置判据（2026-09-21 行 174 实证）
+
+> 场景：行 174 有**两个唤醒** —— `api` 直投 `run_b3c6bd02…`（00:15:36）与本 run `buzz-watcher`（00:20:14）。
+> 若按旧规则「有兄弟 run 在跑 ⇒ 让出主权、转独立复核」，本单会**永久无人实施**。
+
+### ① api 直投 run 会「自然结束 + 零产物」——必须读它的 session_end
+
+`data/trajectories/<date>/<session_id>.jsonl` 的**末行** `session_end` 有三个可用字段：
+`total_steps` / `exit_reason` / `final_response_summary`。行 174 实测：兄弟 run **18 步 · 71.84s · `exit_reason="natural"` · `final_response_summary=""`（空）**，
+且盘上无任何产物（总表 mtime 未变、`grep -rl '<票号|题头串>' ~/wiki/discussions/` 命中 0、台账无该行、`git log --since` 无对应 commit）。
+
+**裁决**：兄弟已 `session_end` 且**产物面为空** ⇒ 本 run **必须接单实施**（**不适用**「转独立复核 · 零实施」分流），
+卡上如实写「其空产出**成因未取证，不推测**」。**判据顺序 = 先读轨迹末行（是否已结束/有无产出）→ 再读盘上产物 → 最后才谈让渡主权**；
+只看「有兄弟在跑」（进程/未提交文件）会把「已死且空手」的同单误判成「有人在做」。
+
+### ② `jobs.json` 的 `mtime` 不是「配置被改」的信号
+
+该文件的 mtime **每分钟**被 cron 运行时计数器重写（`repeat.completed` / `next_run_at` / `last_status`），
+与「有人改过 enabled/deliver」无关。判「配置是否被改」**只能 diff 备份**（`backups/<批次>/jobs.json.bak` ↔ 现盘逐键 diff，并**排除**上述运行时键）。
+同理：`git ls-files` 显示 `cron/jobs.json` 被 `.gitignore` 忽略 ⇒ 变更不落版本控制，**备份就是唯一可复算凭证**（务必记 size + sha256）。
+
+### ③ 闸的记账判据是「键集合」，不是「单键」—— 单键查询会产出假「无理由」名单
+
+`scripts/check_cron_hygiene.py:72 _reason_of` 认 **`disable_reason` 或 `paused_reason` 任一非空**。
+行 174 实测：4 件 disabled 的 `disable_reason` 为空（`Phase β 段间交棒链` / `n8-pos-control` / `n8-neg-control` / `N13 正控`），
+只读脚本按单键口径把它们列成「disabled without reason」⇒ 我一度判「疑似漏账」；逐字段复核后**推翻**（该 4 件 `paused_reason` 非空，闸 `fail=0` 是正确读数）。
+**纪律**：报「N 件无理由 / N 处缺失」前，先读**闸自己的判据定义**（哪个键、豁免条件），并声明口径；否则产出的是假阳性，而不是发现。
