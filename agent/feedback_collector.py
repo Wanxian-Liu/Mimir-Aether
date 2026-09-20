@@ -1,4 +1,19 @@
-"""Structured feedback events (IQ-EVO Wave 4 · record-only, no threshold mutation)."""
+"""Structured feedback events (IQ-EVO Wave 4 · record-only, no threshold mutation).
+
+开关语义组纪律（铁律二 · IQ 批2 · 2026-09-20）
+---------------------------------------------
+本模块属 **量具组**（record-only：只 append JSONL，零写副作用）。
+它 **不得** 与 **执行器组**（可写 SKILL.md / tuned_thresholds / 1c policy）
+编入同一个运维批量改键动作。
+
+实证代价：2026-08-16 13:41 一次「关自动进化」运维把下面 **两组共 4 个键** 一起改成 0
+（备份名 autoevolve-off-20260816）⇒ 采集器停摆 **5 周**（末条事件 2026-08-16 13:44:25），
+而停摆期间的「零事件」被下游（auto_tuner / IQ 评分表）读成「零失败」
+—— 量具坏掉会静默表现为「没有反馈」。
+
+分层语义：采集层常开（零写副作用）｜分析层可开但只产 artifact；
+应用层人工审 + 白名单；框架层 agent/*.py 机器硬禁。
+"""
 
 from __future__ import annotations
 
@@ -8,12 +23,53 @@ import threading
 import time
 from collections import deque
 from pathlib import Path
-from typing import Any, Deque, Dict, List, Optional
+from typing import Any, Deque, Dict, List, Optional, Tuple
 
 from mimir_constants import get_mimir_home
 
 _lock = threading.Lock()
 _recent: Deque[Dict[str, Any]] = deque(maxlen=200)
+
+# ── 开关语义组 · 单一真源（IQ 批2 · 2026-09-20）─────────────────────────
+# 量具组（只读采集，常开）与执行器组（可写，维持 0）**互斥**：
+# 批量改键时必须按组分开，禁止跨组一把改（见模块 docstring 实证）。
+INSTRUMENT_ENV_KEYS: Tuple[str, ...] = ("MIMIR_FEEDBACK_COLLECTOR",)
+EXECUTOR_ENV_KEYS: Tuple[str, ...] = (
+    "MIMIR_AUTO_ANALYSIS",
+    "MIMIR_AUTO_EVOLVE",
+    "MIMIR_AUTO_TUNER",
+    "MIMIR_AUTO_1C_POLICY",
+)
+
+
+def switch_semantics() -> Dict[str, Any]:
+    """两组开关的机器可读字典（运维 / 告警 / 评分共用）。"""
+    return {
+        "instrument": {
+            "keys": list(INSTRUMENT_ENV_KEYS),
+            "writes": "record-only (append-only JSONL)",
+            "policy": "常开",
+        },
+        "executor": {
+            "keys": list(EXECUTOR_ENV_KEYS),
+            "writes": "SKILL.md / tuned_thresholds / 1c policy (可写)",
+            "policy": "维持 0 · 分层授权后再开",
+        },
+        "disjoint": not (set(INSTRUMENT_ENV_KEYS) & set(EXECUTOR_ENV_KEYS)),
+    }
+
+
+# ── 语义分组（IQ 技能 §5 铁律二 · 2026-09-20 · IQ 批2）────────────────────────
+# 量具组（record-only · 零写副作用 ⇒ 生产常开）
+#   本模块全部 record_* 只受 MIMIR_FEEDBACK_COLLECTOR 控制。
+#   **禁止**在本模块读取任何可写执行器开关（MIMIR_AUTO_EVOLVE /
+#   MIMIR_AUTO_ANALYSIS / MIMIR_AUTO_TUNER / MIMIR_AUTO_1C_POLICY）——
+#   由 tests/agent/test_switch_decoupling.py 的 AST 静态臂机器守护。
+# 执行器组（可写 ⇒ 分层授权 · 默认关）
+#   agent/execution_pipeline.apply_evolution_from_analysis /
+#   schedule_post_close_evolution —— 受 MIMIR_AUTO_EVOLVE 门闩。
+# 事故实证：2026-08-16 13:41 两组键被一起改成 0 ⇒ 采集停摆 5 周
+#   （末条事件 2026-08-16 13:44:25），是「只读量具与可写执行器共用语义组」的代价。
 
 
 def feedback_collector_enabled() -> bool:

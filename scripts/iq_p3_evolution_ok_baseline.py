@@ -21,13 +21,15 @@ from mimir_constants import get_mimir_home
 _EVOLUTION_RE = re.compile(
     r"post_analysis evolution session_id=(\S+) applied=(\d+) ok=(\d+)"
 )
-_ENV_KEYS = (
+# 开关语义组（IQ 批2 · 2026-09-20）：量具组与执行器组**分列**，禁止跨组一把改。
+_INSTRUMENT_ENV_KEYS = ("MIMIR_FEEDBACK_COLLECTOR",)
+_EXECUTOR_ENV_KEYS = (
     "MIMIR_AUTO_ANALYSIS",
     "MIMIR_AUTO_EVOLVE",
     "MIMIR_AUTO_TUNER",
-    "MIMIR_FEEDBACK_COLLECTOR",
     "MIMIR_AUTO_1C_POLICY",
 )
+_ENV_KEYS = _INSTRUMENT_ENV_KEYS + _EXECUTOR_ENV_KEYS  # 向后兼容（旧口径 = 全组）
 
 
 def _parse_env(home: Path) -> Dict[str, str]:
@@ -112,11 +114,16 @@ def build_baseline(
 ) -> Dict[str, Any]:
     home = home or get_mimir_home()
     log_path = home / "logs" / "agent.log"
+    _env = _parse_env(home)
     payload: Dict[str, Any] = {
         "ok": True,
         "generated_at": time.time(),
         "mimir_aether_home": str(home),
-        "env": _parse_env(home),
+        "env": _env,
+        "env_groups": {
+            "instrument": {k: _env.get(k, "") for k in _INSTRUMENT_ENV_KEYS},
+            "executor": {k: _env.get(k, "") for k in _EXECUTOR_ENV_KEYS},
+        },
         "evolution_7d": scan_agent_log(log_path, days=days, exclude_test_sessions=True),
         "evolution_7d_including_tests": scan_agent_log(
             log_path, days=days, exclude_test_sessions=False
