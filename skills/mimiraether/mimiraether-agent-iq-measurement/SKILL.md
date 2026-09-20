@@ -53,6 +53,7 @@ auto_load: false
 ## 4. 本机落地现状（2026-09-19）
 
 - 复评数据：`~/src/MimirAether/docs/phase0/iq-scoring-rubric.md`（10 维 + 三次复评 + 退化登记 + 修正路径）
+- **v4 rubric（2026-09-20 · 刘哥定调重构）**：`rubric-v4-20260920.md` —— 剔除/降权模型推理维度，上调四肢协调（闸自愈 / 断点自检 / 错误回滚 / 跨会话记忆 = A 组 55%），新增成长斜率 C1（15%）；计分铁律：量具 absent/stale ⇒ 该维 N/A，不记 0。
 - 复评记录 + 下次对账入口：`~/.mimiraether/notes/2026-09-19-IQ第三次复评与退化登记.md`
 - 自审台账：`~/.mimiraether/data/ops/probe_attest.jsonl`（RS17 探针自证）
 - 待裁与研究任务派发：`~/wiki/discussions/2026-09-19-四方研究讨论-如何真正测出Agent综合智商.md`
@@ -79,3 +80,5 @@ auto_load: false
 **铁律三 · 「反馈环断了」先查配置，不要先查代码。**
 取证顺序：环境文件键值 → 备份链 mtime（本次备份名 `autoevolve-off-20260816` 即操作名）→ 活进程 env。
 本次根因**不在**代码（`agent_loop.py:375/1548` 今日仍调 pipeline），**在配置层**。
+
+**铁律四 · 开关语义组（2026-09-20）**：量具组（`MIMIR_FEEDBACK_COLLECTOR`，常开、零写副作用）与执行器组（`MIMIR_AUTO_ANALYSIS` / `MIMIR_AUTO_EVOLVE` / `MIMIR_AUTO_TUNER` / `MIMIR_AUTO_1C_POLICY`，维持 0）**互斥**，禁止跨组一把改 —— 单一真源 `agent/feedback_collector.py::switch_semantics()`。v4 评分表见同目录 `rubric-v4-20260920.md`。
