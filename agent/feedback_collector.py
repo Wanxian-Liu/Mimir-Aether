@@ -59,17 +59,6 @@ def switch_semantics() -> Dict[str, Any]:
     }
 
 
-# ── 语义分组（IQ 技能 §5 铁律二 · 2026-09-20 · IQ 批2）────────────────────────
-# 量具组（record-only · 零写副作用 ⇒ 生产常开）
-#   本模块全部 record_* 只受 MIMIR_FEEDBACK_COLLECTOR 控制。
-#   **禁止**在本模块读取任何可写执行器开关（MIMIR_AUTO_EVOLVE /
-#   MIMIR_AUTO_ANALYSIS / MIMIR_AUTO_TUNER / MIMIR_AUTO_1C_POLICY）——
-#   由 tests/agent/test_switch_decoupling.py 的 AST 静态臂机器守护。
-# 执行器组（可写 ⇒ 分层授权 · 默认关）
-#   agent/execution_pipeline.apply_evolution_from_analysis /
-#   schedule_post_close_evolution —— 受 MIMIR_AUTO_EVOLVE 门闩。
-# 事故实证：2026-08-16 13:41 两组键被一起改成 0 ⇒ 采集停摆 5 周
-#   （末条事件 2026-08-16 13:44:25），是「只读量具与可写执行器共用语义组」的代价。
 
 
 def feedback_collector_enabled() -> bool:
