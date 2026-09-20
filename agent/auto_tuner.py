@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
 from pathlib import Path
@@ -12,6 +13,8 @@ from mimir_constants import get_mimir_home
 
 from .experience_buffer import summarize_recent_experience
 from .tuned_thresholds import get_tuned_float, get_tuned_int, set_override
+
+logger = logging.getLogger(__name__)
 
 
 def auto_tuner_enabled() -> bool:
@@ -46,6 +49,22 @@ def run_tune_after_pipeline_close(
         return []
 
     summary = summarize_recent_experience()
+    # ── 量具存活闸（IQ 批1③ · 2026-09-20 · 消费端补口）─────────────────────
+    # 闸只「标注」不够 —— 消费端必须真的分支。缺口来源：commit 9346128 建了
+    # instrument_status / scorable，但生产消费端 0 处读取它（三臂探针实测：
+    # scorable 仅出现在 producer + 其测试，共 2 文件）⇒ 本函数仍会拿**停摆
+    # 35 天**的旧计数去写 compressor.threshold_percent / loop_detection /
+    # tool_quality 的 override。
+    # 口径：非 live（absent / stale）或键缺失 ⇒ 计数不得作为调参证据，早退。
+    # fail-closed：拿不到「可计入」证明时**不调参**（并在日志里发声，不静默）。
+    if not summary.get("scorable", False):
+        logger.warning(
+            "[INSTRUMENT-GATE] auto_tuner 跳过本轮调参：量具不可计入 "
+            "(instrument_status=%s, reason=%s) —— 不得用 absent/stale 量具的计数写 override",
+            summary.get("instrument_status", "unknown"),
+            (summary.get("n_a_reason") or (summary.get("instrument") or {}).get("reason") or ""),
+        )
+        return []
     degraded = pipeline_result.get("degraded_tools") or []
     errors = pipeline_result.get("errors") or []
     error_count = len(errors) if isinstance(errors, list) else 0

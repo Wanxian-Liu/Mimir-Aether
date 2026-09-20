@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 
 from agent import auto_tuner as at
 from agent import tuned_thresholds as tt
@@ -31,7 +32,8 @@ def test_auto_tuner_writes_audit(monkeypatch, tmp_path):
     fb = tmp_path / "data" / "feedback_events.jsonl"
     fb.parent.mkdir(parents=True, exist_ok=True)
     rows = [
-        {"event_type": "tool_failure", "payload": {"tool_name": "read_file"}},
+        # ts 必填：量具存活是**内容级**判据（末条事件 ts），缺 ts 会被判 absent
+        {"ts": time.time(), "event_type": "tool_failure", "payload": {"tool_name": "read_file"}},
     ] * 5
     fb.write_text(
         "\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n",
