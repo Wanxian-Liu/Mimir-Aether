@@ -70,7 +70,7 @@ except ImportError:
 from .verify_before_report_guard import (
     build_nudge_message as build_verify_nudge,
     guard_enabled as verify_guard_enabled,
-    should_block_finish as should_block_verify_finish,
+    evaluate_finish as evaluate_verify_finish,
 )
 from .task_state import TaskState  # task_state（四方共识，2026-08-05）
 from .task_completion import check_task_completion, extract_task_spec  # 四方会议 2026-08-19：任务书完成度检查（B-L2/B-L4）+ 2026-08-20 精简（_UNFINISHED_SIGNALS 移本地——task_completion 单一职责）
@@ -1077,7 +1077,7 @@ class MimirAgentLoop:
                 if (
                     verify_guard_enabled()
                     and verify_nudges < MAX_VERIFY_NUDGES
-                    and should_block_verify_finish(messages, content or "")
+                    and evaluate_verify_finish(messages, content or "")
                 ):
                     # Hard block: remove unverified assistant response from history
                     if messages and messages[-1].get("role") == "assistant":

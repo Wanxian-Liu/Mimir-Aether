@@ -150,9 +150,17 @@ def proactive_scan(max_lookback: int = 10) -> dict:
     from mimir_constants import get_mimir_home
     log_path = Path(get_mimir_home()) / "data" / "verification_results.jsonl"
     if not log_path.exists():
+        # R2（2026-09-21）：无数据 ≠ 无失败 —— 原先此处静默返回 failure_count=0 且
+        # has_unresolved_failures=False ⇒ 把「量具缺失」读成「没有失败」（假绿）。
         return {
-            "has_unresolved_failures": False,
-            "failure_count": 0,
+            "has_unresolved_failures": None,
+            "data_available": False,
+            "instrument_status": "absent",
+            "n_a_reason": (
+                "verification_results.jsonl 不存在（无生产端产出）—— "
+                "无数据 ≠ 无失败，不得读作「无失败」"
+            ),
+            "failure_count": None,
             "failures": [],
             "scan_time": __import__("datetime").datetime.now().isoformat()
         }

@@ -157,6 +157,10 @@ def should_block_finish(messages: list[dict[str, Any]], assistant_text: str) -> 
     if last_user and any(p in last_user for p in STATUS_QUERY_PATTERNS):
         return False
 
+    # R2（2026-09-21）：判定起点标记 —— 供 evaluate_finish() 判断「本轮真的判过」。
+    # 位置 = 通过全部豁免（守卫关闭 / 自引用 / 状态查询）之后 ⇒ 未判定的回合不记账。
+    _mark_judged()
+
     # ── RS17（2026-09-14 刘哥批准）：探针自证闸 ──
     # 缺陷：下面 _has_verified_this_turn 把"调过任意工具"当"验证过"——探针本身失效
     #       （未转义正则 / 词典序比时刻）照样放行 ⇒ 09-12 命名后两天重犯 14 次。
@@ -200,3 +204,96 @@ def build_nudge_message() -> str:
         "你的回复已被从历史记录中移除。请先调用 read_file / json.load / terminal 等工具"
         "确认盘上证据真实存在，再重新输出结论。不要凭记忆报告。"
     )
+
+
+# ===========================================================================
+# R2（2026-09-21）：量具生产端接线 —— 判定 + 记账
+# ---------------------------------------------------------------------------
+# 背景：`data/verification_results.jsonl` **从未被创建**（0 写端），而读端
+# `if not log_path.exists(): return {"total": 0}` ⇒「无数据」被伪装成「无失败」。
+# 本段是**纯加法**：`should_block_finish()` 逐字未改（返回值由测试钉住逐位相同）；
+# 记账走 `evaluate_finish()`（agent_loop 的 verify 分支已改用它）。
+# 量具任何异常都不得影响判定（fail-open：被观测对象优先）。
+# ===========================================================================
+import logging as _logging  # noqa: E402  （追加段自带 import，不改动既有 import 块）
+
+_ledger_logger = _logging.getLogger(__name__)
+
+_LAST_JUDGED: bool = False
+
+
+def _mark_judged() -> None:
+    """标记「本轮守卫真的进入了判定」（由 should_block_finish 在豁免之后调用）。"""
+    global _LAST_JUDGED
+    _LAST_JUDGED = True
+
+
+def _last_tool_name(messages: list[dict[str, Any]]) -> str:
+    """本轮（最近一个真实 user 之后）最后一个工具名 —— 供量具 `tool` 字段。"""
+    for msg in reversed(messages):
+        if msg.get("role") == "assistant" and msg.get("tool_calls"):
+            for tc in reversed(msg["tool_calls"]):
+                name = tc.get("function", {}).get("name", "")
+                if name:
+                    return name
+            continue
+        if msg.get("role") == "user":
+            if _is_system_inject(msg):
+                continue
+            break
+    return ""
+
+
+def _turn_has_claim(assistant_text: str, block_reason: "str | None") -> bool:
+    """本轮是否出现「需判定的声明」—— 只有出现声明的判定才记账（防刷量）。
+
+    判据与守卫自身的判定面一致：RS17 探针闸判过 / TD-04 空洞确认模板 / 命中 VERIFY_TRIGGERS。
+    """
+    if block_reason == "probe_attest":
+        return True
+    if _is_hollow_ack(assistant_text):
+        return True
+    text = (assistant_text or "").lower()
+    return any(trigger.lower() in text for trigger in VERIFY_TRIGGERS)
+
+
+def _failure_type_for(messages: list[dict[str, Any]], assistant_text: str,
+                      block_reason: "str | None") -> str:
+    """拦截原因 → 量具 failure_type（与读端 by_type 统计口径对齐）。"""
+    if block_reason == "probe_attest":
+        return "probe_attest_unverified"
+    if _is_hollow_ack(assistant_text):
+        return "hollow_ack_no_action"
+    if _task_requires_write(messages):
+        return "write_claim_without_write_action"
+    return "claim_without_verification"
+
+
+def evaluate_finish(messages: list[dict[str, Any]], assistant_text: str) -> bool:
+    """verify-before-report 守卫的**生产端入口**（R2）：判定 + 记账。
+
+    · 返回值与 `should_block_finish()` **逐位相同**（纯加法，测试钉住）；
+    · 记账条件 =「真的判过」且「本轮出现声明」；passed = 未被拦截；
+    · 落点 `<mimir home>/data/verification_results.jsonl`（读口 `agent.verification_ledger`）。
+    """
+    global _LAST_JUDGED
+    _LAST_JUDGED = False
+    blocked = should_block_finish(messages, assistant_text)
+    try:
+        if _LAST_JUDGED and _turn_has_claim(assistant_text, get_last_block_reason()):
+            from .verification_ledger import record_verification_result as _record
+
+            _record(
+                passed=not blocked,
+                failure_type=(_failure_type_for(messages, assistant_text,
+                                                get_last_block_reason())
+                              if blocked else None),
+                tool=_last_tool_name(messages),
+                message=assistant_text or "",
+                claim=assistant_text or "",
+                user=_last_user_text(messages),
+                source="verify_before_report_guard",
+            )
+    except Exception as exc:  # pragma: no cover - fail-open：量具不得阻断守卫
+        _ledger_logger.debug("[verify-guard] ledger record skipped: %s", exc)
+    return blocked
