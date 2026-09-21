@@ -1219,6 +1219,29 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
     )
     cron_thread.start()
 
+    # R4 保险丝：语义检索（bge-m3）启动预热 —— 把冷加载成本移到启动后的空闲窗口，
+    # 使首个真实语义查询不再付冷启代价。关断：MIMIR_SEMANTIC_WARMUP=0。
+    # daemon 线程 + 失败静默：观测/加速设施不得拖垮启动。
+    if os.environ.get("MIMIR_SEMANTIC_WARMUP", "1").strip().lower() not in ("0", "false", "no", "off"):
+        def _semantic_warmup_task() -> None:
+            delay_raw = os.environ.get("MIMIR_SEMANTIC_WARMUP_DELAY_S", "3")
+            try:
+                delay = max(0.0, float(delay_raw))
+            except ValueError:
+                delay = 3.0
+            if delay:
+                time.sleep(delay)
+            try:
+                from tools.session_search_tool import warmup_semantic_search
+
+                warmup_semantic_search()
+            except Exception as exc:  # pragma: no cover - 不得拖垮启动
+                logger.warning("semantic warmup skipped: %s", exc)
+
+        threading.Thread(
+            target=_semantic_warmup_task, daemon=True, name="semantic-warmup"
+        ).start()
+
     # stack_dump 心跳：本协程每秒喂一次；事件循环被阻塞 ⇒ 看门狗判停滞并 dump 全线程栈。
     if stack_dump_status.get("watchdog"):
         try:

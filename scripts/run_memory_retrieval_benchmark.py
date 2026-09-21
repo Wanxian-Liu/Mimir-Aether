@@ -18,7 +18,11 @@ if str(ROOT) not in sys.path:
 
 from mimir_constants import get_mimir_data_dir
 from tools.fts5_search.engine import FTS5SearchEngine, SearchOptions
-from tools.session_search_tool import session_search
+from tools.session_search_tool import (
+    semantic_degradation_total,
+    semantic_query_timeout_s,
+    session_search,
+)
 
 # From docs/phase0/memory-retrieval-baseline.md §3
 BENCHMARK_QUERIES: List[str] = [
@@ -57,6 +61,7 @@ class QueryResult:
     fts_ms: float
     semantic_hits: int = 0
     semantic_ms: float = 0.0
+    semantic_degraded: bool = False
 
 
 def _hit_rate_subset(rows: List[QueryResult], attr: str, indices: tuple[int, ...]) -> Optional[float]:
@@ -131,9 +136,11 @@ def run_benchmark(
         else:
             fts_hits, fts_ms = 0, 0.0
         if semantic_available:
+            degraded_before = semantic_degradation_total()
             semantic_hits, semantic_ms = _semantic_search(q, like_db_path)
+            semantic_degraded = semantic_degradation_total() > degraded_before
         else:
-            semantic_hits, semantic_ms = 0, 0.0
+            semantic_hits, semantic_ms, semantic_degraded = 0, 0.0, False
         rows.append(
             QueryResult(
                 q,
@@ -143,6 +150,7 @@ def run_benchmark(
                 fts_ms,
                 semantic_hits,
                 semantic_ms,
+                semantic_degraded=semantic_degraded,
             )
         )
 
@@ -179,6 +187,17 @@ def run_benchmark(
         if semantic_latencies
         else None,
         "semantic_p99_ms": _p99(semantic_latencies),
+        # R4: 降级必须可见 —— 否则加了保险丝后 p50 看着变好，实际是超时截断。
+        "semantic_timeout_s": semantic_query_timeout_s(),
+        "semantic_latency_mode": (
+            "fuse_bounded" if semantic_query_timeout_s() > 0 else "true_latency"
+        ),
+        "semantic_degraded_count": sum(1 for r in rows if r.semantic_degraded),
+        "semantic_degraded_note": (
+            "degraded = semantic exceeded semantic_timeout_s and fell back to "
+            "keyword search; latency readings are then bounded by the timeout, "
+            "NOT a measurement of true semantic latency"
+        ),
         "semantic_heavy_query_count": len(SEMANTIC_HEAVY_INDICES),
         "like_semantic_heavy_hit_rate": _hit_rate_subset(rows, "like_hits", SEMANTIC_HEAVY_INDICES),
         "semantic_semantic_heavy_hit_rate": _hit_rate_subset(rows, "semantic_hits", SEMANTIC_HEAVY_INDICES)
@@ -204,6 +223,15 @@ def main() -> int:
         print(
             f"{row['query'][:36]:36}  {row['like_hits']:3} / {row['fts_hits']:3} / {sem:3}  "
             f"{row['like_ms']:.1f}ms / {row['fts_ms']:.1f}ms / {row.get('semantic_ms', 0):.1f}ms"
+        )
+
+    if report.get("semantic_timeout_s", 0) and report["semantic_timeout_s"] > 0:
+        print(
+            "\nNOTE: fuse is ON (MIMIR_SEMANTIC_QUERY_TIMEOUT_S="
+            f"{report['semantic_timeout_s']}) -> semantic_ms are bounded by the timeout, "
+            f"and {report.get('semantic_degraded_count')} query(ies) degraded to keyword "
+            "fallback. These are NOT true semantic latencies; re-run with "
+            "MIMIR_SEMANTIC_QUERY_TIMEOUT_S=0 to measure true latency."
         )
 
     if args.json_out:

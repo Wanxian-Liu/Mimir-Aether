@@ -16,6 +16,8 @@ import logging
 import os
 import re
 import sqlite3
+import threading
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Set, Tuple, Union
@@ -485,6 +487,166 @@ def _semantic_index_ready() -> bool:
     from tools.chroma_session_indexer import chroma_available, get_mimir_chroma_dir
 
     return chroma_available() and get_mimir_chroma_dir().is_dir()
+
+
+
+# ============================================================================
+# R4 保险丝：语义检索 warmup + 单查询超时降级（2026-09-21 · 刘哥批 A+B）
+# 背景：evolution_eval 实测 semantic_p50 = 13.6s（2026-09-19），命中率 1.0 但延迟不可用；
+#       热态复测 0.5-2.8s ⇒ 冷加载/尖峰形态。慢查询不得拖垮调用方。
+# 语义超时 ⇒ 关键词兜底（FTS5，缺则 LIKE）+ 结果打显式降级标记（禁止静默空返回）。
+# 关断：MIMIR_SEMANTIC_QUERY_TIMEOUT_S <= 0。
+# ============================================================================
+_SEMANTIC_TIMEOUT_ENV = "MIMIR_SEMANTIC_QUERY_TIMEOUT_S"
+_SEMANTIC_TIMEOUT_DEFAULT_S = 5.0
+_DEGRADED_STATE: Dict[str, Any] = {"count": 0, "last_reason": None, "last_ts": None}
+# R4 v2 单飞闸：同一时刻最多 1 个语义 worker 在飞。
+# 为什么必须有界：Python 杀不掉线程 ⇒ 超时只能「遗弃」；而语义查询是 CPU 密集
+# （bge-m3 编码）⇒ 无界遗弃会堆成 worker 舰队，抢 CPU / 抢 chroma 句柄，
+# 实测把同一 benchmark 从 141s 拖到 498s 仍未跑完（3.5× wall time）。
+_SEMANTIC_INFLIGHT_LOCK = threading.Lock()
+_SEMANTIC_INFLIGHT: Dict[str, Any] = {"running": False, "skipped": 0}
+
+
+def semantic_query_timeout_s() -> float:
+    """Per-query semantic timeout in seconds (``<= 0`` disables the fuse)."""
+    raw = os.environ.get(_SEMANTIC_TIMEOUT_ENV, "").strip()
+    if not raw:
+        return _SEMANTIC_TIMEOUT_DEFAULT_S
+    try:
+        return float(raw)
+    except ValueError:
+        logger.warning(
+            "[SEMANTIC-FUSE] invalid %s=%r, using %.1fs",
+            _SEMANTIC_TIMEOUT_ENV,
+            raw,
+            _SEMANTIC_TIMEOUT_DEFAULT_S,
+        )
+        return _SEMANTIC_TIMEOUT_DEFAULT_S
+
+
+def semantic_degradation_total() -> int:
+    """Degraded-query count for this process (consumer surface, not a log line)."""
+    return int(_DEGRADED_STATE["count"])
+
+
+def semantic_degradation_stats() -> Dict[str, Any]:
+    """Snapshot of the fuse counters (benchmarks / tests / dashboards)."""
+    return dict(_DEGRADED_STATE)
+
+
+def semantic_inflight_stats() -> Dict[str, Any]:
+    """``{"running": n, "skipped": m}`` — the bounded-abandonment ledger."""
+    with _SEMANTIC_INFLIGHT_LOCK:
+        return dict(_SEMANTIC_INFLIGHT)
+
+
+def _call_with_timeout(fn, timeout_s: float):
+    """Run ``fn`` in a daemon thread; return ``(ok, value)``.
+
+    On timeout return ``(False, None)`` and **abandon** the worker (Python cannot
+    kill threads) — same trade-off as the gateway watchdog's abandoned-worker
+    policy: blocking the caller is the worse failure. The abandoned query still
+    finishes in the background and its result is discarded.
+    """
+    import threading as _threading
+
+    box: Dict[str, Any] = {}
+
+    def _runner() -> None:
+        try:
+            box["value"] = fn()
+        except BaseException as exc:  # noqa: BLE001 - re-raised in the caller thread
+            box["error"] = exc
+
+    worker = _threading.Thread(target=_runner, daemon=True, name="semantic-query")
+    worker.start()
+    worker.join(timeout_s)
+    if worker.is_alive():
+        return False, None
+    if "error" in box:
+        raise box["error"]
+    return True, box.get("value")
+
+
+def _mark_degraded(rows, *, reason: str, fallback: str):
+    """Stamp degradation markers on keyword-fallback rows.
+
+    Nobody may read a bare empty/partial result as "no match" — the marker is the
+    contract that says "semantic was unavailable; this is a keyword fallback".
+    """
+    _DEGRADED_STATE["count"] = int(_DEGRADED_STATE["count"]) + 1
+    _DEGRADED_STATE["last_reason"] = reason
+    _DEGRADED_STATE["last_ts"] = time.time()
+    logger.warning(
+        "[SEMANTIC-DEGRADE] reason=%s fallback=%s rows=%d", reason, fallback, len(rows)
+    )
+    stamped = []
+    for row in rows:
+        merged = dict(row)
+        merged["degraded"] = True
+        merged["degraded_reason"] = reason
+        merged["degraded_fallback"] = fallback
+        stamped.append(merged)
+    return stamped
+
+
+def _semantic_search_with_fuse(
+    query: str,
+    *,
+    db_path: Optional[str],
+    limit: int,
+    session_limit: int,
+    timeout_s: float,
+):
+    """``(status, rows)`` with status in ``ok`` / ``timeout``."""
+    if timeout_s <= 0:
+        return "ok", _session_search_via_semantic(
+            query, db_path=db_path, limit=limit, session_limit=session_limit
+        )
+
+    # 单飞闸（fail-fast）：上一个查询被遗弃还在跑 ⇒ 不再叠加第二个工作者。
+    with _SEMANTIC_INFLIGHT_LOCK:
+        if _SEMANTIC_INFLIGHT["running"]:
+            _SEMANTIC_INFLIGHT["skipped"] += 1
+            logger.warning("[SEMANTIC-DEGRADE] reason=semantic_inflight_busy")
+            return "busy", []
+        _SEMANTIC_INFLIGHT["running"] = True
+
+    def _worker():
+        try:
+            return _session_search_via_semantic(
+                query, db_path=db_path, limit=limit, session_limit=session_limit
+            )
+        finally:
+            with _SEMANTIC_INFLIGHT_LOCK:
+                _SEMANTIC_INFLIGHT["running"] = False
+
+    ok, rows = _call_with_timeout(_worker, timeout_s)
+    if not ok:
+        return "timeout", []
+    return "ok", rows or []
+
+
+def warmup_semantic_search(*, query: str = "mimir semantic warmup") -> bool:
+    """Preheat the embedding model so the first real semantic query isn't cold.
+
+    R4: 13.6s p50 was cold-load shaped (heat re-measure 0.5-2.8s). Never raises —
+    an optional accelerator must not be able to block caller startup.
+    """
+    try:
+        from tools.chroma_session_indexer import query_session_messages
+    except Exception as exc:  # pragma: no cover - import guard
+        logger.info("[SEMANTIC-WARMUP] skipped (import): %s", exc)
+        return False
+    t0 = time.perf_counter()
+    try:
+        query_session_messages(query, limit=1)
+    except Exception as exc:
+        logger.warning("[SEMANTIC-WARMUP] failed: %s", exc)
+        return False
+    logger.info("[SEMANTIC-WARMUP] ok elapsed=%.2fs", time.perf_counter() - t0)
+    return True
 
 
 def _default_fts5_db_path() -> str:
@@ -957,12 +1119,36 @@ def session_search(
             return fusion_results
 
     if backend in ("semantic", "semantic_hybrid") and _semantic_index_ready():
-        semantic_results = _session_search_via_semantic(
+        status, semantic_results = _semantic_search_with_fuse(
             query,
             db_path=db_path,
             limit=limit,
             session_limit=session_limit,
+            timeout_s=semantic_query_timeout_s(),
         )
+        if status != "ok":
+            # R4: 降级而不是干等 —— 关键词兜底 + 显式降级标记（禁止静默 0/空）。
+            # status == "busy" 亦走此路（单飞闸拒绝叠加第二个 worker）。
+            reason = (
+                f"semantic_timeout>{semantic_query_timeout_s():g}s"
+                if status == "timeout"
+                else "semantic_inflight_busy"
+            )
+            if Path(fts_path).exists():
+                degraded_rows = _session_search_via_fts5(
+                    query,
+                    fts_db_path=fts_path,
+                    limit=limit,
+                    session_limit=session_limit,
+                )
+                return _mark_degraded(degraded_rows, reason=reason, fallback="fts5")
+            degraded_rows = _session_search_via_like(
+                query,
+                db_path=db_path,
+                limit=limit,
+                session_limit=session_limit,
+            )
+            return _mark_degraded(degraded_rows, reason=reason, fallback="like")
         if semantic_results:
             return semantic_results
         if backend == "semantic":
