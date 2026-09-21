@@ -75,8 +75,9 @@ def raise_safe(exc_type, template: str, *args, cause: BaseException | None = Non
     本函数内部不使用任何动态格式化：参数逐个 str() 兜底，构造永不失败。
     """
     try:
-        message = template % args if args else template
-    except Exception:
+        # 边界（Loki debug ①）：模板含字面 % 且 args 空时 % 渲染会抛——降级为原样模板
+        message = (template % args) if args else template
+    except (TypeError, ValueError, KeyError):
         parts = ", ".join(repr(a) for a in args)
         message = f"{template} <args: {parts}>"
     if cause is not None:
