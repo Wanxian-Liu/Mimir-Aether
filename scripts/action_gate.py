@@ -93,6 +93,12 @@ import sqlite3
 import sys
 import tempfile
 from typing import Any, Iterable, Sequence
+try:
+    from report_template import raise_safe
+except ImportError:
+    import sys as _sys, os as _os
+    _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+    from report_template import raise_safe
 
 GATE_VERSION = 'action-gate.v1'
 # 退化阈值。依据（盘上 7 段嵌入率复算）：均值 0.910 · std 0.080 ⇒
@@ -131,25 +137,25 @@ def count_present(db: str, rowids: Iterable[int], table: str = DEFAULT_TABLE) ->
     if not rids:
         return 0
     if not os.path.exists(db):
-        raise GateMeasureError('db not found: %s' % db)
+        raise_safe(GateMeasureError, 'db not found: %s', db)
     tbl = rowids_table_for(table)
     if not tbl.replace('_', '').isalnum():
-        raise GateMeasureError('illegal table name: %r' % tbl)
+        raise_safe(GateMeasureError, 'illegal table name: %r', tbl)
     try:
         con = sqlite3.connect('file:%s?mode=ro' % db, uri=True, timeout=DEFAULT_TIMEOUT_S)
     except sqlite3.Error as exc:
-        raise GateMeasureError('open failed: %s' % exc) from exc
+        raise_safe(GateMeasureError, 'open failed: %s', exc, cause=exc)
     try:
         have = con.execute(
             'select name from sqlite_master where type=? and name=?', ('table', tbl)
         ).fetchone()
         if not have:
-            raise GateMeasureError('table missing: %s' % tbl)
+            raise_safe(GateMeasureError, 'table missing: %s', tbl)
         total_row = con.execute('select count(*) from %s' % tbl).fetchone()
         if total_row is None:
-            raise GateMeasureError('count query returned no row: %s' % tbl)
+            raise_safe(GateMeasureError, 'count query returned no row: %s', tbl)
         if int(total_row[0]) == 0:
-            raise GateTableEmpty('table exists but empty: %s' % tbl)
+            raise_safe(GateTableEmpty, 'table exists but empty: %s', tbl)
         n = 0
         chunk = 900
         for i in range(0, len(rids), chunk):
@@ -161,7 +167,7 @@ def count_present(db: str, rowids: Iterable[int], table: str = DEFAULT_TABLE) ->
             n += int(row[0])
         return n
     except sqlite3.Error as exc:
-        raise GateMeasureError('query failed: %s' % exc) from exc
+        raise_safe(GateMeasureError, 'query failed: %s', exc, cause=exc)
     finally:
         con.close()
 
@@ -170,7 +176,7 @@ def measure_file(db: str, rowids_file: str, table: str = DEFAULT_TABLE) -> dict:
     try:
         raw = json.load(open(rowids_file, encoding='utf-8'))
     except Exception as exc:
-        raise GateMeasureError('rowids file unreadable: %s' % exc) from exc
+        raise_safe(GateMeasureError, 'rowids file unreadable: %s', exc, cause=exc)
     if isinstance(raw, dict):
         raw = raw.get('rowids', [])
     if not isinstance(raw, list):

@@ -34,7 +34,12 @@ import sys
 import time
 import uuid
 from pathlib import Path
-from report_template import raise_safe
+try:
+    from report_template import raise_safe
+except ImportError:
+    import sys as _sys, os as _os
+    _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+    from report_template import raise_safe
 
 CANONICAL_DIR = Path(os.environ.get("BUZZ_INBOX_DIR", "/home/rayliu/.openclaw/data"))
 DEFAULT_SENDER = os.environ.get("BUZZ_SENDER", "mimir")
