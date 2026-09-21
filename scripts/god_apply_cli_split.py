@@ -136,7 +136,7 @@ def main() -> None:
         parts: list[str] = []
         for fn in funcs:
             if fn not in starts:
-                raise SystemExit(f"{mod}: missing function {fn}")
+                raise SystemExit("%s: missing function %s" % (mod, fn))
             parts.append(_extract_block(lines, starts[fn], name_to_end[fn]))
         title = mod.replace("_", " ")
         body = COMMON_HEADER.format(title=title) + "".join(parts)

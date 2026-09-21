@@ -188,7 +188,7 @@ def main() -> None:
             body_parts.append(extra)
         for method in methods:
             if method not in starts:
-                raise SystemExit(f"missing method {method}")
+                raise SystemExit("missing method %s" % method)
             body_parts.append(_extract_method(lines, starts[method], name_to_end[method]))
 
         desc = stem.replace("_", " ")

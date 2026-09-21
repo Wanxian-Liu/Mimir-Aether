@@ -98,7 +98,7 @@ def _load(path: Path) -> List[Dict[str, Any]]:
     data = json.loads(path.read_text(encoding="utf-8"))
     jobs = data.get("jobs", data) if isinstance(data, dict) else data
     if not isinstance(jobs, list):
-        raise SystemExit(f"unexpected jobs.json shape: {type(jobs)}")
+        raise SystemExit("unexpected jobs.json shape: %s" % type(jobs))
     return jobs
 
 
