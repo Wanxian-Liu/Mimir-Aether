@@ -68,6 +68,22 @@ class UnrenderedTemplateError(ValueError):
     """模板未渲染完 —— 占位符残留或格式非法。"""
 
 
+def raise_safe(exc_type, template: str, *args, cause: BaseException | None = None):
+    """异常构造单一漏斗（A9 · 刘哥批）：先安全渲染模板再抛出。
+
+    防「raise 里 raise」——格式化参数异常时原异常被吞、只剩二次 TypeError。
+    本函数内部不使用任何动态格式化：参数逐个 str() 兜底，构造永不失败。
+    """
+    try:
+        message = template % args if args else template
+    except Exception:
+        parts = ", ".join(repr(a) for a in args)
+        message = f"{template} <args: {parts}>"
+    if cause is not None:
+        raise exc_type(message) from cause
+    raise exc_type(message)
+
+
 def _preview(text: str, limit: int = 140) -> str:
     t = text.replace("\n", "\\n")
     return t if len(t) <= limit else t[:limit] + "…"

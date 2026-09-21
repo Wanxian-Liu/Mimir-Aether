@@ -34,6 +34,7 @@ import sys
 import time
 import uuid
 from pathlib import Path
+from report_template import raise_safe
 
 CANONICAL_DIR = Path(os.environ.get("BUZZ_INBOX_DIR", "/home/rayliu/.openclaw/data"))
 DEFAULT_SENDER = os.environ.get("BUZZ_SENDER", "mimir")
@@ -54,7 +55,7 @@ def validate_card(card):
     if card is None:
         return None, []
     if not isinstance(card, str):
-        raise ValueError(f"card 必须是字符串，收到 {type(card).__name__}")
+        raise_safe(ValueError, "card 必须是字符串，收到 %s", type(card).__name__)
     value = card.strip()
     if not value:
         raise ValueError("card 不能是空串——空指针在消费端等于『没给』")
@@ -87,7 +88,7 @@ def build_envelope(to: str, content: str, kind: int = 1, card: str | None = None
     if not isinstance(content, str) or not content.strip():
         raise ValueError("content 不能为空——空正文在消费端等于『没收到』")
     if kind not in KIND_ENUM:
-        raise ValueError(f"kind 必须属于 {sorted(KIND_ENUM)}（U2 枚举）")
+        raise_safe(ValueError, "kind 必须属于 %s（U2 枚举）", sorted(KIND_ENUM))
     envelope = {
         "id": f"{sender}-{int(time.time())}-{uuid.uuid4().hex[:6]}",
         "ts": int(time.time()),
@@ -130,7 +131,7 @@ def send(to: str, content: str, kind: int = 1, card: str | None = None,
     try:
         written_env = json.loads(tail)
     except json.JSONDecodeError as exc:
-        raise RuntimeError(f"回写校验失败：末行不可解析（{exc}）path={path}") from exc
+        raise_safe(RuntimeError, "回写校验失败：末行不可解析（%s）path=%s", exc, path, cause=exc)
     if written_env.get("id") != env["id"]:
         raise RuntimeError(
             f"回写校验失败：末行 id={written_env.get('id')!r} != 本次 {env['id']!r} path={path}"
@@ -149,13 +150,13 @@ def append_envelope(to: str, envelope: dict) -> dict:
     契约（与 send() 同一套）：仍强制 `content` 非空、`kind` 在枚举内。
     """
     if not isinstance(envelope, dict):
-        raise ValueError(f"envelope 必须是 dict，收到 {type(envelope).__name__}")
+        raise_safe(ValueError, "envelope 必须是 dict，收到 %s", type(envelope).__name__)
     content = envelope.get("content")
     if not isinstance(content, str) or not content.strip():
         raise ValueError("content 不能为空——空正文在消费端等于『没收到』")
     kind = envelope.get("kind")
     if kind not in KIND_ENUM:
-        raise ValueError(f"kind 必须属于 {sorted(KIND_ENUM)}（U2 枚举），收到 {kind!r}")
+        raise_safe(ValueError, "kind 必须属于 %s（U2 枚举），收到 %r", sorted(KIND_ENUM), kind)
     env = dict(envelope)
     env.setdefault("to", to)
     env.setdefault("from", DEFAULT_SENDER)
@@ -170,7 +171,7 @@ def append_envelope(to: str, envelope: dict) -> dict:
     try:
         written = json.loads(tail)
     except json.JSONDecodeError as exc:
-        raise RuntimeError(f"回写校验失败：末行不可解析（{exc}）path={path}") from exc
+        raise_safe(RuntimeError, "回写校验失败：末行不可解析（%s）path=%s", exc, path, cause=exc)
     if written.get("id") != env["id"]:
         raise RuntimeError(
             f"回写校验失败：末行 id={written.get('id')!r} != 本次 {env['id']!r} path={path}"
