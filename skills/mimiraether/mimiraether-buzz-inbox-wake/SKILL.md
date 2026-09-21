@@ -203,6 +203,23 @@ auto_load: false
   臂 A1=故障1+故障2 齐（`mimicore/__init__.py` 存在 & 无 tag）→ 期望 FAIL；A2=只留故障2 → 期望 FAIL；B=全清（孪生对照）→ 期望 PASS。真仓零接触。
   实测读数：A1 FAIL@:51（find_spec 抓复活）· A2 FAIL@:59（凭证缺失）· B PASS ⇒ 证明闸「能拦且不误拦」。**只有「代码在场」不算验过闸**。
 
+## 2.5 本族两条新坑（2026-09-21 行 177 实测）
+
+- ⚠️ **RS17「零信息臂」：正/负控都非空 ⇒ 闸判 UNVERIFIED，而闸是对的**。模板
+  `test <CONST> -gt {INPUT} && echo loaded || echo not-loaded` 的**两个分支都打印文本** ⇒ 观测归一
+  （空/全 `0` = none，其余 = seen）下**正控与负控都读作 seen** ⇒ 该臂无鉴别力，整条判
+  `negative_control_failed`。**修法**：负控样本必须**产出空输出** —— 只留 `&& echo loaded`（无 else）。
+  自问句：**这条读数在「两种世界」里会不同吗？** 不会 ⇒ 换设计，别把它当对照。
+  同批第二个失败形态：目标正则含引号字符类（`["']`）⇒ `rc=2` 被判 `target_probe_dead`
+  （`reason=usage_or_read_error`）—— **闸会区分「探针死」与「读数 0」**，两者都不得当结论用。
+- ⚠️ **home `.gitignore` 的 `!scripts/<file>` 白名单对「被忽略目录」无效**（行 177 实测）：
+  `scripts/r2_staging/` 整体被 `*` 排除时，`!scripts/r2_staging/land_r2.py` 仍报
+  `下列路径根据您的一个 .gitignore 文件而被忽略`（git 规则：**父目录被排除则无法再包含其内文件**）
+  ⇒ 必须先 `!scripts/r2_staging/` **解禁目录**，再加文件条目；否则只能 `git add -f`（破坏白名单纪律的审计面）。
+- 📌 **兄弟 run 的 staging 草稿 = 可用输入，但归属必须如实标注**：同单双 run 场景下，领先方可能只留
+  `~/.mimiraether/scripts/<task>_staging/` 草稿（未入库、未运行）。本 run 的做法 = **逐行复核 + 重写 + 加测**后落盘，
+  卡上明写「采纳其设计骨架（未盲抄）、草稿保留未删」；**不得**把草稿直接 `cp` 进 repo 当自己的产出。
+
 ## 3. 完成判据
 ① 日志行已追加（含动作/去重标注）② 卡段已落并 commit ③（若有新笔记）索引判据 `VERDICT: PASS` ④ 汇报区分「声明」与「盘上实测」，未闭项显式列出。
 
