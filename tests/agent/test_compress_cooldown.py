@@ -225,6 +225,11 @@ def test_needs_compression_fail_open_on_broken_state(cooldown):
 #    为什么不变量：`consecutive_failures == 1` 这类断言在**正确的并发实现**下也会红
 #    （N 个进程各记 1 次 ⇒ 终值 N）⇒ 恒假探针。不变量 = 不丢条 / 不倒退。
 #    受控差分：控制组关锁 ⇒ 必须能复现丢更新（否则测试恒真）。
+#    2026-09-21 A3（偶发红定案）：控制组的**复现方式**由「sleep 加宽窗口」改为
+#      「读后 rendezvous 同步」—— 旧写法只把临界区拉长，丢更新成立仍要求
+#          δ (第二线程进入临界区的偏斜) < ε (先到者「读旧值→写新值」耗时)
+#      而 ε ≈ 0.4~0.6ms 是代码常量级、δ 归调度器所有（CPU 争用下可达数十 ms）
+#      ⇒ 该断言本质是**概率**判据，负载下会红。详见 _SwapReadRawRendezvous 实测表。
 # ══════════════════════════════════════════════════════════════════════════
 
 import json as _json
@@ -291,12 +296,59 @@ class _SwapReadRaw:
         return False
 
 
-def _run_two_threads(cc, barrier):
-    """两个线程各自记一次失败（attempt_id 不同）。"""
-    def one(tag):
+class _SwapReadRawRendezvous:
+    """控制组专用：**读后 rendezvous**，使「两线程都读到同一旧值」成为必然。
+
+    为什么不用 sleep 加宽窗口（2026-09-15 起用的写法）：
+      它只把临界区拉长，交错是否真的发生仍由调度器决定 —— 丢更新成立要求
+          δ ≡ 第二线程进入临界区相对第一者的偏斜
+          ε ≡ 先到者「读到旧值 → 写完新值」的耗时
+      满足 δ < ε。实测（2026-09-21 受控差分 scripts/a3_probe2.py，10 轮/点位）：
+
+          δ=0.10ms → 10/10 丢    δ=0.40ms → 5/10 丢
+          δ=0.30ms →  9/10 丢    δ=0.45ms → 1/10 丢
+          δ=0.35ms →  8/10 丢    δ≥0.50ms → 0/10 丢（= 断言 <2 **失败**）
+
+      ⇒ ε 是亚毫秒级常量，δ 归 OS 调度器所有（CPU 争用下实测可达数十 ms）
+        ⇒ 旧写法的断言是**概率**判据，与它自称的「必然复现」不符 ——
+          这正是 A3「全库回归红 / 单独跑全绿」的根因。
+    rendezvous 把「都读到旧值」变成**同步点**：读写顺序不再依赖 δ ⇒ 判据恢复确定性。
+
+    ⚠️ 只能用于**关锁**臂。有锁臂里第二线程进不了临界区（等 flock），
+       屏障永不满足 ⇒ 该臂必须继续用只加宽窗口的 ``_SwapReadRaw``。
+    """
+
+    def __init__(self, cc, barrier, timeout=30.0):
+        self.cc, self.barrier, self.timeout = cc, barrier, timeout
+        self.old = cc._read_raw
+
+    def _read_then_rendezvous(self):
+        st = self.old()                            # 先读到旧值
+        self.barrier.wait(timeout=self.timeout)    # 两线程都读到旧值后才允许去写
+        return st
+
+    def __enter__(self):
+        self.cc._read_raw = self._read_then_rendezvous
+        return self.cc
+
+    def __exit__(self, *exc):
+        self.cc._read_raw = self.old
+        return False
+
+
+def _run_two_threads(cc, barrier, stagger_s=0.0):
+    """两个线程各自记一次失败（attempt_id 不同）。
+
+    ``stagger_s`` > 0 ⇒ 把线程 ``b`` **进入临界区**的时刻人为推迟这么多秒 ——
+    用来显式制造「调度偏斜 δ」（判据见 ``_SwapReadRawRendezvous``）。
+    """
+    def one(tag, delay=0.0):
         barrier.wait()
+        if delay:
+            _time.sleep(delay)
         cc.record_failure("t-%s" % tag, attempt_id="tid-%s" % tag)
-    ts = [_threading.Thread(target=one, args=(t,)) for t in ("a", "b")]
+    ts = [_threading.Thread(target=one, args=("a", 0.0)),
+          _threading.Thread(target=one, args=("b", stagger_s))]
     for t in ts:
         t.start()
     for t in ts:
@@ -348,17 +400,60 @@ def test_invariant_cooldown_never_regresses(cooldown):
 
 # ── 控制组：关锁 ⇒ 必须复现丢更新（证明上面两条测试非恒真）──────────────
 def test_differential_control_without_lock_loses_update(cooldown):
-    """控制组（RS17 自证）：把 `_locked` 换成空操作 ⇒ 丢更新**可达且可复现**。
+    """控制组（RS17 自证）：把 `_locked` 换成空操作 ⇒ 丢更新**必然复现**。
 
     同一份「读-改-写」代码、同一交错窗口，唯一差别 = 锁 ⇒ 结论必须相反：
     无锁时 `total_failures` 落到 2 次失败只记 1（= 丢条），有锁时恰好 2。
+
+    2026-09-21 A3：复现由「sleep 加宽窗口」改为 **rendezvous 同步**
+    （见 `_SwapReadRawRendezvous`）——旧写法要求 δ < ε ≈ 0.5ms，是概率判据，
+    负载下会红（全库回归红 / 单独跑全绿）。
     """
-    barrier = _threading.Barrier(2)
-    with _SwapLock(cooldown, _no_lock), _SwapReadRaw(cooldown, 0.2):
-        _run_two_threads(cooldown, barrier)
+    start = _threading.Barrier(2)
+    rendezvous = _threading.Barrier(2)
+    with _SwapLock(cooldown, _no_lock), _SwapReadRawRendezvous(cooldown, rendezvous):
+        _run_two_threads(cooldown, start)
     st = cooldown.state()
     assert st["total_failures"] < 2, st          # ← 丢更新复现（否则控制组失效，判其为探针问题）
     assert st["consecutive_failures"] < 2, st
+
+
+def test_differential_control_immune_to_entry_skew(cooldown):
+    """反回归（A3 根因）：控制组的结论**不得**依赖调度偏斜 δ。
+
+    人为把线程 `b` 进入临界区推迟 **50ms**（δ ≈ 50ms ≫ ε ≈ 0.5ms）：
+      · 只加宽窗口的旧实现 ⇒ 两段被串行化 ⇒ `total_failures == 2` ⇒ 本用例 **红**
+      · rendezvous 实现   ⇒ 仍必然丢更新     ⇒ `total_failures == 1` ⇒ 本用例 **绿**
+    故本用例即「修复是否真的生效」的可复算判据（负控形状：把
+    `_SwapReadRawRendezvous` 换回 `_SwapReadRaw(cooldown, 0.2)` 即复现红，见卡上 twin-arm 读数）。
+    """
+    start = _threading.Barrier(2)
+    rendezvous = _threading.Barrier(2)
+    with _SwapLock(cooldown, _no_lock), _SwapReadRawRendezvous(cooldown, rendezvous):
+        _run_two_threads(cooldown, start, stagger_s=0.05)
+    st = cooldown.state()
+    assert st["total_failures"] < 2, st
+    assert st["consecutive_failures"] < 2, st
+
+
+def test_old_sleep_widening_form_breaks_under_entry_skew(cooldown):
+    """**在仓负控**（twin-arm 的 A 臂固化）：旧形态在 δ=50ms 下**必然**不丢更新。
+
+    与上一条（rendezvous 形态 ⇒ 必丢）组成孪生对，唯一差别 = 有无 rendezvous。
+    本用例的期望是「**红**」—— 即旧形态的断言 `total_failures < 2` **不成立**。
+    为什么要写进仓：
+      ① 它证明「δ 敏感」这一根因**在真实平台上成立**（若本用例红，说明 δ=50ms
+         未造成串行化 ⇒ 上一条反回归用例失去意义，须重估根因）；
+      ② 防「反向修复」—— 有人把 rendezvous 拿掉时，若没人记得旧形态确实会红，
+         红就会以「偶发」形式回来（A3 的原形态）。
+    δ=50ms ≈ 100×ε（ε 实测 0.4~0.6ms）⇒ 判据有 **100 倍余量**，不是概率性的。
+    """
+    start = _threading.Barrier(2)
+    with _SwapLock(cooldown, _no_lock), _SwapReadRaw(cooldown, 0.2):
+        _run_two_threads(cooldown, start, stagger_s=0.05)
+    st = cooldown.state()
+    assert st["total_failures"] >= 2, st          # ← 旧形态在此必被串行化（与上一条反向）
+    assert st["consecutive_failures"] >= 2, st
 
 
 def test_differential_lock_is_restored_after_tests(cooldown):
