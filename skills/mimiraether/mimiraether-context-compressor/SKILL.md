@@ -52,7 +52,8 @@ MimirContextCompressor(
 
 阈值优先级（core_loop.py L395-421）：**`MIMIR_COMPRESS_THRESHOLD` env > `get_tuned_float("compressor.threshold_percent")`（agent/tuned_thresholds.py）> 默认 0.50**。
 
-**B9 一等公民上限（2026-09-13 · commit `41fd67c`）**：`resolve_threshold_tokens()` 在 percent/env 解析之后追加一层夹紧 —— `threshold = min(configured, tuned "compressor.effective_window_tokens", floor(0.75 × context_length))`。**tuned 键缺失 ⇒ 该层完全不生效**（严格向后兼容）。当前 `data/tuned_thresholds.json` = `threshold_percent 0.12` + `effective_window_tokens 120000` ⇒ 1M 窗口下目标阈值 **120,000**（旧值 350,000）。`source` 只追加不重写（`+cap:effective_window_tokens` / `+cap:window_ratio`），夹紧取胜时打 `[COMPRESS-CAP]` INFO。
+**B9 一等公民上限（2026-09-13 · commit `41fd67c`）**：`resolve_threshold_tokens()` 在 percent/env 解析之后追加一层夹紧 —— `threshold = min(configured, tuned "compressor.effective_window_tokens", floor(0.75 × context_length))`。**tuned 键缺失 ⇒ 该层完全不生效**（严格向后兼容）。当前（**2026-09-22 全身体检实测更新 · 原文已过期**）真源 = **`~/.mimiraether/data/tuned_thresholds.json`**（**不在仓内 `data/`**——仓内无此文件，按仓路径读会得到 `FileNotFoundError` 而误判"tuned 键缺失⇒夹紧层不生效"）；其 `overrides` = `threshold_percent 0.35` + `effective_window_tokens 300000` + `hygiene_token_threshold 300000`，且 `~/.mimiraether/.env` 的 `MIMIR_COMPRESS_THRESHOLD_TOKENS=300000`（**sha256 指纹判定**：len=38、sha12 命中候选 `300000`；不要看截图，含 `TOKEN` 的值会被脱敏成 `***`）⇒ 目标阈值 **300,000**（历史：350,000 → 120,000 → 300,000）。
+**运行时健康告警（2026-09-22）**：`~/.mimiraether/data/compression_quality.jsonl` 末行 = **`2026-09-17T11:38:55`**（537 行 = 458 rollback / 78 applied）⇒ 该层**近 5 天零事件 = "未触发"，≠ 健康**；要证明它活着必须做**触发式验收**（钉 5K 跑一次再还原 300K）。另 hygiene **==** agent **== 300000** ⇒ 等值零余量，仍属"假绿族"风险区（hygiene < agent 时会结构性空转却记 `applied`）。`source` 只追加不重写（`+cap:effective_window_tokens` / `+cap:window_ratio`），夹紧取胜时打 `[COMPRESS-CAP]` INFO。
 **生效与验收（易误判）**：compressor 只在 `__init__` 读一次 ⇒ **「代码已提交」≠「已生效」**；判据 = `MainPID` 启动时刻 **>** commit 时刻，且 `[COMPRESS-INIT]` 出 `threshold_tokens=120000` 且 source 含 `+cap:`。反例实证（2026-09-13 07:17）：`last_context_usage.json` 仍写 `threshold_tokens=350000`、无 `caliber` 字段 ⇒ 旧代码在跑（PID 222449 启动 06:03:40 < commit 07:15:52）。
 **B10 遥测口径（同 commit）**：payload 增 `pid` / `writer_kind` / `caliber`（`<model>@<ctx>/thr=<thr>`）；`writer_kind=aux` 在 TTL 1800s 内不得覆盖 main，改写 `last_context_usage_aux.json`；读端 `mimir_ops context_usage` 标 `caliber_annotation`（真源）+ aux 块（旁路）。
 
@@ -228,6 +229,7 @@ MimirContextCompressor(
 **生产门只有一句**：`core_loop.py:907` / `agent_loop.py:647` → `needs_compression()` = `last_prompt_tokens >= threshold_tokens`，**无冷却、无回滚记忆**。回滚返回原 messages ⇒ token 不变 ⇒ **下一 turn 必然再次触发**（确定性环，非概率）。
 
 **每 run 新建实例（H4b）**：`gateway/platforms/api_server.py:1538` 在 `_run_agent()`（L1508）体内调 `_create_agent()`，网关不按 session 缓存 agent ⇒ `core_loop.py:412` 每次新建 compressor ⇒ 实例内状态全归零。**纯实例内冷却跨 run 无效**，修法须跨 run 持久化（按 session 键）或做「上次因实体率回滚」的短路记忆。
+**✅ 2026-09-22 更正（体检实测）**：该修法已落地为 **`agent/compress_cooldown.py`**——状态文件 `~/.mimiraether/data/ops/compress_cooldown.json`（+ `.json.lock` 锁 + tmp/replace 原子写）⇒ **跨 run 持久**。盘上实证（errors.log 2026-09-16）：`[COMPRESS] cooldown armed failures=1 delay=600s` / `failures=2 delay=1200s`，**同一 pid 跨两个不同 run 累加** ⇒ T18 的「实例内冷却跨 run 归零」已不成立。但注意：**近 5 天零压缩事件 ⇒ 该路径近 5 天未被行使**，"设计对"与"在生产被验证过"是两件事（撤回期 = 09-16）。
 
 **规模**（`data/compression_quality.jsonl` 410 行 = 387 rollback + 23 applied）：19 个连续回滚串；rollback→rollback p50 **20.2s**、81.8% ≤35s；最大两串 ~84 次真 LLM 摘要、1,209s（20min）全部丢弃；rollback 中 mode=llm **155** / template 232 —— **sub-5s 串 = template 路径**（多数轮次没花钱），故表现为「稍快」而非「爆炸」。
 
