@@ -75,6 +75,30 @@ ps -o nlwp= -p <worker1>      # 线程数：判断 OMP 是否按全核摊开（�
 - 量化背景（为何要改）：核数 / load / 每 worker 线程数 / 每 worker CPU%——证明是**前置保险**还是**救火**。
 - 只报不改的观察项要标注「非我域」，避免越权。
 
+## 判「在跑进程用的是哪版代码」三元组（2026-09-22 全身体检实测 · 通用）
+
+Python 进程**不会**在源码改动后重读盘上文件 ⇒ 「文件已改 / commit 已提交」**不等于**「在跑进程已生效」。
+三件证据缺一不可（二元组不够）：
+
+```bash
+# ① 进程启动时刻（systemd）  ← 决定"改前/改后"
+systemctl --user show <unit> -p MainPID,ExecMainStartTimestamp
+# ② 源文件 mtime
+stat -c '%y %n' <path>.py
+# ③ 该模块 pyc 的 mtime（同一解释器版本，如 cpython-312）
+ls -la --time-style=full-iso <dir>/__pycache__/<mod>.cpython-312.pyc
+```
+
+判据：**pyc mtime < 源 mtime ⇒ 源变之后没有任何进程从该路径重新编译过 ⇒ 在跑进程内存里是旧版 ⇒ 必须重启。**
+（pyc 与「源 mtime+size」内嵌对账：源一变，下一次 import 必然重编译并重写 pyc；pyc 没变 = 没发生新 import。）
+
+**三个坑（都是实测踩过/差点误判）**：
+1. **懒 import 列**：模块若在**函数内** import（如 `gateway/agent_mixin.py` 里 `from gateway.stream_consumer import ...`），是否已在 `sys.modules` 取决于运行期是否走过该分支 ⇒ pyc 未重编译**只说明"改后没再 import"，不能证明"此前没加载"** ⇒ 无法判定时**保守算需重启**，并把它登记为"取证缺口"。
+2. **进程启动时刻早于 commit 时刻时，pyc 可能比进程启动更早**——这**不矛盾**（启动那次 import 命中了当时有效的 pyc 缓存，不会重写文件 mtime）。别把"pyc 早于进程启动"读成"进程没加载它"。
+3. **CLI/子进程层文件不算"需重启"**：只被 `mimir_cli/main.py` 之类入口 import 的模块，每次调用都是新进程 ⇒ 天然新代码；但**先确认它真有调用者**（见下条同族）。
+
+**同族陷阱（同日实证）**：修好一个**零调用者**的函数 = "修了一条没人走的路"。判"可行使性"必做：全仓 grep 函数名（命中只有 `def` 自身 = 零调用者）+ 查命令派发表（如 `gateway/run.py::_COMMAND_HANDLERS`）里是否真有该命令键 —— 本次 `restore_quick_snapshot` 零调用者、`/snapshot` 有 `CommandDef` 但派发表无 `snapshot` 键，提示文案指向未接线命令。
+
 ## 实例（2026-09-12 · mimir-alpha-go）
 
 Hermes 令③要求给在跑的 `build_phase_alpha.py` 加 `OMP_NUM_THREADS≤4`。
