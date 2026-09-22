@@ -9,6 +9,17 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
+def _wait_until(predicate, timeout_s: float = 5.0, interval_s: float = 0.02) -> bool:
+    """轮询等待条件成立（体检段5·A3 竞态家族修复：固定 sleep 猜时序→确定性轮询）。"""
+    import time as _t
+    deadline = _t.monotonic() + timeout_s
+    while _t.monotonic() < deadline:
+        if predicate():
+            return True
+        _t.sleep(interval_s)
+    return predicate()
+
+
 def test_post_analysis_skips_when_env_off(tmp_path, monkeypatch):
     monkeypatch.setenv("MIMIR_AETHER_HOME", str(tmp_path))
     monkeypatch.delenv("MIMIR_AUTO_ANALYSIS", raising=False)
@@ -318,7 +329,4 @@ def test_schedule_post_close_analysis_spawns_thread(monkeypatch):
     from agent.post_close_analysis import schedule_post_close_analysis
 
     schedule_post_close_analysis({"errors": ["e"]}, task_name="t", session_id="s")
-    import time
-
-    time.sleep(0.2)
-    assert called
+    assert _wait_until(lambda: called), "post-close analysis 未在 5s 内触发"

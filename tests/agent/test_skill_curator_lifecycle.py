@@ -7,6 +7,17 @@ from unittest.mock import patch
 
 import pytest
 
+
+def _wait_until(predicate, timeout_s: float = 5.0, interval_s: float = 0.02) -> bool:
+    """轮询等待条件成立（体检段5·A3 竞态家族修复：固定 sleep 猜时序→确定性轮询）。"""
+    import time as _t
+    deadline = _t.monotonic() + timeout_s
+    while _t.monotonic() < deadline:
+        if predicate():
+            return True
+        _t.sleep(interval_s)
+    return predicate()
+
 from agent.skill_curator import (
     SkillStatus,
     build_lifecycle_report,
@@ -70,10 +81,7 @@ def test_schedule_skill_curator_on_close_spawns_when_env(monkeypatch):
     )
 
     schedule_skill_curator_lifecycle_pass(session_id="s1", task_name="t")
-    import time
-
-    time.sleep(0.2)
-    assert called
+    assert _wait_until(lambda: called), "curator pass 未在 5s 内触发"
 
 
 def test_schedule_skill_curator_always_runs(monkeypatch):
@@ -87,10 +95,7 @@ def test_schedule_skill_curator_always_runs(monkeypatch):
     )
 
     schedule_skill_curator_lifecycle_pass()
-    import time
-
-    time.sleep(0.2)
-    assert called
+    assert _wait_until(lambda: called), "curator pass 未在 5s 内触发"
 
 
 def test_build_lifecycle_report_truncates():
