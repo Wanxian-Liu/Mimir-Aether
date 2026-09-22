@@ -1187,9 +1187,29 @@ class SessionStore:
         """
         self.sessions_dir.mkdir(parents=True, exist_ok=True)
         transcript_path = self.get_transcript_path(session_id)
-        with open(transcript_path, "w", encoding="utf-8") as f:
-            for msg in messages:
-                f.write(json.dumps(msg, ensure_ascii=False) + "\n")
+        # 原子重写（2026-09-21 体检·Hermes）：旧实现直接 ``"w"`` 截断打开逐条写，
+        # /retry /undo /compress 中途崩溃 ⇒ 会话 JSONL 截断、历史不可逆丢失。
+        # 对齐 _save() 的 tmp+fsync+os.replace 模式：要么旧内容要么完整新内容。
+        import tempfile
+
+        payload = "".join(
+            json.dumps(msg, ensure_ascii=False) + "\n" for msg in messages
+        )
+        fd, tmp_path = tempfile.mkstemp(
+            dir=str(self.sessions_dir), suffix=".tmp", prefix=".transcript_"
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(payload)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_path, transcript_path)
+        except BaseException:
+            try:
+                os.unlink(tmp_path)
+            except OSError as e:
+                logger.debug("Could not remove temp file %s: %s", tmp_path, e)
+            raise
 
         if self._db and not skip_db:
             try:
