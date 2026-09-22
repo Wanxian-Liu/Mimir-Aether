@@ -514,3 +514,30 @@ def test_old_sleep_widening_form_breaks_under_entry_skew(cooldown):
 ⇒ **十连绿不能证明修复**；它只证明「未引入新红」+ 满足 DoD 字面。
 **决定性判据 = 旧形态可被复现红（冻结件）+ 反回归在旧形态必红、新形态必绿（twin-arm）**。
 > 通用：**报「N 次全绿」前先算「修复前 N 次全绿的概率」**；该概率不低 ⇒ N 连绿不是证据。
+
+## ⚠️ 探针实施坑 · 第五批（2026-09-22 实测 · 探针**恒 none** 的静默形态）
+
+### 坑 12 · 探针依赖 **中文 locale 的 `ps` 输出** ⇒ `date -d` 解析失败 ⇒ **正控假 none**（当场踩，1 次）
+
+**场景**：要验「进程启动时刻 > 提交时刻」（即「代码已提交 ≠ 已生效」的排除项）。
+
+**坏探针**（第一次跑，`verdict: UNVERIFIED reason=positive_control_failed`，三条全 `none`）：
+```bash
+test "$(git -C <repo> log -1 --format=%ct <sha>)" -lt "$(date -d "$(ps -o lstart= -p {INPUT})" +%s)" && echo 1 || echo 0
+```
+**根因**（手测一行即现形）：
+```bash
+ps -o lstart= -p <pid>            # → 二 9月 22 14:33:18 2026   （中文 locale）
+date -d "二 9月 22 14:33:18 2026" # → date: 无效的日期          ⇒ +%s 空 ⇒ test 失败 ⇒ echo 0
+LC_ALL=C ps -o lstart= -p <pid>   # → Tue Sep 22 14:33:18 2026   ✅ 可解析
+```
+**好探针**（`LC_ALL=C` 前缀 + `sed` 去首空格）：
+```bash
+t=$(LC_ALL=C ps -o lstart= -p {INPUT} 2>/dev/null | sed 's/^ *//'); \
+test -n "$t" && test "$(git -C <repo> log -1 --format=%ct <sha>)" -lt "$(date -d "$t" +%s 2>/dev/null)" && echo 1 || echo 0
+```
+**通用化（比本坑更值钱）**：**探针输出若依赖任何「本地化 / 时区 / 单位 / 千分位」文本解析，先跑一次手测打印原始串**；
+只看 `echo 0` 会把它读成「负事实」，而真相是「**解析器不认这个格式**」。
+判据：**正控必须 seen** —— 正控假 none = 探针坏了，不是世界为 0（与「探针崩溃被读成 none」同族，但此形态**不报错、不超时**，更静默）。
+> 本轮同批：`verdict=UNVERIFIED reason=control_is_target`（我把目标 PID 同时当正控）—— **被拒即闸有鉴别力**，
+> 这条拒绝本身可作「闸不是橡皮图章」的反证，值得写进报告。
