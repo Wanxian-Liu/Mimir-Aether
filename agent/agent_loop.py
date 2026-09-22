@@ -1538,7 +1538,7 @@ class MimirAgentLoop:
             # 异常路径（api_failure/empty_response/format_error/no_choices）无写盘 → 注入产出提示
             # （natural 循环内已做、max_turns 循环外已做强制产出、interrupt/tool_storm 主动停止）
             if (not _has_written
-                    and reason in {"api_failure", "empty_response", "format_error", "no_choices"}
+                    and reason in {"api_failure", "empty_response", "format_error", "no_choices", "billing_exhausted"}
                     and any(m.get("role") == "assistant" for m in messages)):
                 logger.info("[%s] [EXIT] 异常路径无写盘产出——注入产出提示", self.task_id[:8])
                 await self._inject_production_nudge(messages)

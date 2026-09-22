@@ -1051,11 +1051,17 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
             # 时 messages 里最后一条 assistant 可能是上一轮的旧回复——不得重发（8/24 复读事故：response=28 chars api_calls=0）。
             # 改为给用户明示状态：故障必须可见，不许伪装成正常回复。
             _final_content = ""
-            _ABNORMAL_EXIT_REASONS = {"api_failure", "empty_response", "format_error", "no_choices"}
+            _ABNORMAL_EXIT_REASONS = {"api_failure", "empty_response", "format_error", "no_choices", "billing_exhausted"}
             if (getattr(_result, "exit_reason", "") in _ABNORMAL_EXIT_REASONS
                     and not getattr(_result, "interrupted", False)):
-                _final_content = "[故障明示] 我这轮没调到模型（连续错误），请让我重启或查看日志——故障已记录，不会伪装成正常回复"
-                logger.error("[%s] [EXIT] 异常退出 %s：不重发旧回复，明示故障状态", task_id[:8], _result.exit_reason)
+                # 断粮单独文案（体检复核 M-2 补修·Mimir 建议）：402/额度耗尽与笼统故障区分，
+                # 保住 9-21 案例的诊断价值（否则billing_exhausted 只会收到笼统"故障明示"）。
+                if getattr(_result, "exit_reason", "") == "billing_exhausted":
+                    _final_content = "[断粮] provider 额度耗尽（402/billing），本轮未调用模型——请充值或切换凭证后重试；不会重发旧回复伪装正常"
+                    logger.error("[%s] [EXIT] billing_exhausted：断粮明示，不重发旧回复", task_id[:8])
+                else:
+                    _final_content = "[故障明示] 我这轮没调到模型（连续错误），请让我重启或查看日志——故障已记录，不会伪装成正常回复"
+                    logger.error("[%s] [EXIT] 异常退出 %s：不重发旧回复，明示故障状态", task_id[:8], _result.exit_reason)
             else:
                 for _md in reversed(_result.messages):
                     if _md.get("role") == "assistant" and _md.get("content"):
