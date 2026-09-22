@@ -90,13 +90,14 @@ class TelegramAdapter(PlatformAdapter):
         while self._state != AdapterState.STOPPING:
             try:
                 updates = await self._get_updates()
+                # 逐条确认 offset（体检段2修复·2026-09-21）：旧行为整批处理完才推进，
+                # 批中第 N 条抛异常 ⇒ 整批重拉 ⇒ 前 N-1 条重复投递（无 update_id 去重）。
+                # 改为每条成功即推进——失败的那条下轮重拉，已处理的绝不重复。
                 for update in updates:
                     await self.handle_raw_message(update)
-
-                if updates:
-                    # Update offset to acknowledge processed updates
-                    last_update_id = max(int(u.get("update_id", 0)) for u in updates)
-                    self._offset = last_update_id + 1
+                    uid = int(update.get("update_id", 0))
+                    if uid:
+                        self._offset = uid + 1
 
             except asyncio.CancelledError:
                 break

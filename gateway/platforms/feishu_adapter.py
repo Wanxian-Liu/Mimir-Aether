@@ -1134,6 +1134,20 @@ class FeishuAdapter(BasePlatformAdapter):
                 headers=self._headers(),
                 timeout=aiohttp.ClientTimeout(total=30),
             ) as resp:
+                # HTTP 层先行分类（体检段2修复·2026-09-21）：网关 502/504 等返回 HTML 时
+                # resp.json() 会抛 ContentTypeError 落入笼统 Exception——先查状态码，
+                # 非 2xx 直接结构化返回（retryable 按 5xx/429 区分），错误不再混类。
+                if resp.status != 200:
+                    body_snippet = (await resp.text())[:200]
+                    logger.warning(
+                        "[%s] send HTTP %s chat_id=%s… body=%s",
+                        self.name, resp.status, (chat_id or "")[:24], body_snippet,
+                    )
+                    return SendResult(
+                        success=False,
+                        error=f"HTTP {resp.status}: {body_snippet}",
+                        retryable=(resp.status >= 500 or resp.status == 429),
+                    )
                 result = await resp.json()
                 if result.get("code") != 0:
                     logger.warning(

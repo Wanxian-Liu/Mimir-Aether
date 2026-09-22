@@ -305,8 +305,14 @@ class GatewayStreamConsumer:
             if self._accumulated and self._message_id:
                 try:
                     await self._send_or_edit(self._accumulated)
-                except Exception:
-                    pass
+                except Exception as _flush_err:
+                    # 取消后的兜底刷新失败必须可见（体检段2修复·2026-09-21）——
+                    # 主路径 final_response_sent 仍为 False 会由 agent_mixin 兜底重发，
+                    # 但此处失败意味着流式已发的部分+尾巴可能重复，观测需要这条日志。
+                    logger.warning(
+                        "Stream consumer cancel-flush failed (msg_id=%s): %s",
+                        self._message_id, _flush_err,
+                    )
             if self._already_sent:
                 self._final_response_sent = True
         except Exception as e:

@@ -599,11 +599,12 @@ def restore_quick_snapshot(
 
         try:
             if dst.suffix == ".db":
-                # Atomic-ish replace for databases
+                # Atomic replace for databases（体检段4修复·2026-09-21）：
+                # 旧实现 copy→unlink→move 有 unlink 窗口（move 失败=目标已丢），
+                # os.replace 原子直替：要么旧 db 要么新 db，无中间丢失态。
                 tmp = dst.parent / f".{dst.name}.snap_restore"
                 shutil.copy2(src, tmp)
-                dst.unlink(missing_ok=True)
-                shutil.move(str(tmp), str(dst))
+                os.replace(tmp, dst)
             else:
                 shutil.copy2(src, dst)
             restored += 1

@@ -687,6 +687,19 @@ class MimirAgentLoop:
             except Exception as e:
                 api_elapsed = _time.monotonic() - api_start
                 logger.error("API call failed on turn %d (%.1fs): %s", turn + 1, api_elapsed, e)
+                # 断粮可观测性（体检段1修复·2026-09-21）：402/额度耗尽从笼统 api_failure
+                # 中单列——0 步空转诊断不再需要人工查余额（9-21 DeepSeek 断粮案例）。
+                _err_text = f"{type(e).__name__} {e}"
+                if any(_p in _err_text.lower() for _p in (
+                    "402", "payment required", "insufficient", "billing",
+                    "credit balance", "quota",
+                )):
+                    logger.error("[%s] BILLING/QUOTA exhaustion detected — credential pool likely empty", self.task_id[:8])
+                    raise AgentLoopExit("billing_exhausted", {
+                        "messages": messages, "turns_used": turn + 1,
+                        "finished_naturally": False, "reasoning_per_turn": reasoning_per_turn,
+                        "tool_errors": tool_errors,
+                    })
                 raise AgentLoopExit("api_failure", {
                     "messages": messages, "turns_used": turn + 1,
                     "finished_naturally": False, "reasoning_per_turn": reasoning_per_turn,
