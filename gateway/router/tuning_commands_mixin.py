@@ -330,6 +330,67 @@ class TuningCommandsMixin:
             logger.warning("Failed to save tool_progress mode: %s", e)
             return f"{descriptions[new_mode]}\n_(could not save to config: {e})_"
 
+    async def _handle_snapshot_command(self, event: MessageEvent) -> str:
+        """Handle /snapshot [create|restore <id>|prune] — state snapshots.
+
+        接线（2026-09-22 复核 M-3 裁决·刘哥批）：restore_quick_snapshot 此前
+        零调用者——run_quick_backup 打印的 "Restore with: /snapshot restore <id>"
+        指向不存在的命令。本 handler 把断头路接通。
+        """
+        from mimir_cli.backup import (
+            create_quick_snapshot,
+            list_quick_snapshots,
+            restore_quick_snapshot,
+            prune_quick_snapshots,
+        )
+
+        raw = (event.get_command_args() or "").strip()
+        parts = raw.split() if raw else []
+
+        if not parts or parts[0].lower() == "list":
+            snaps = list_quick_snapshots()
+            if not snaps:
+                return "📦 No snapshots yet. Create one with `/snapshot create [label]`."
+            lines = [f"📦 **{len(snaps)} snapshot(s)** — newest first:", ""]
+            for snap in snaps[:15]:
+                sid = snap.get("id", "?")
+                label = snap.get("label") or ""
+                when = str(snap.get("timestamp", ""))[:19]
+                n = snap.get("file_count", snap.get("files", ""))
+                suffix = f" · {label}" if label else ""
+                lines.append(f"- `{sid}` {when}{suffix} ({n} files)")
+            lines.append("")
+            lines.append("Restore: `/snapshot restore <id>` · Prune old: `/snapshot prune`")
+            return "\n".join(lines)
+
+        action = parts[0].lower()
+
+        if action == "create":
+            label = " ".join(parts[1:]) if len(parts) > 1 else None
+            snap_id = create_quick_snapshot(label=label)
+            if snap_id:
+                return f"✅ Snapshot `{snap_id}` created. Restore anytime with `/snapshot restore {snap_id}`"
+            return "⚠️ No state files found to snapshot."
+
+        if action == "restore":
+            if len(parts) < 2:
+                return "Usage: `/snapshot restore <id>` — list ids with `/snapshot`"
+            snap_id = parts[1]
+            ok = restore_quick_snapshot(snap_id)
+            if ok:
+                return (
+                    f"✅ Restored from `{snap_id}`. "
+                    "Note: config changes may need a gateway restart to take effect (`/restart`)."
+                )
+            return f"❌ Restore failed: snapshot `{snap_id}` not found or empty (list: `/snapshot`)"
+
+        if action == "prune":
+            removed = prune_quick_snapshots()
+            n = removed if isinstance(removed, int) else 0
+            return f"🧹 Pruned {n} old snapshot(s)."
+
+        return "Usage: `/snapshot [create [label] | restore <id> | prune | list]`"
+
     async def _handle_compress_command(self, event: MessageEvent) -> str:
         """Handle /compress command -- manually compress conversation context.
 

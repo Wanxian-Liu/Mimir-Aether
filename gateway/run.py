@@ -374,6 +374,7 @@ class GatewayRunner(VoiceMixin, CronMixin, HealthMixin, SessionMixin, RouterMixi
         "undo": "_handle_undo_command",
         "sethome": "_handle_set_home_command",
         "compress": "_handle_compress_command",
+        "snapshot": "_handle_snapshot_command",
         "usage": "_handle_usage_command",
         "insights": "_handle_insights_command",
         "reload-mcp": "_handle_reload_mcp_command",
