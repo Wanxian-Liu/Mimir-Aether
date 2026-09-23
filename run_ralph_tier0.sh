@@ -520,12 +520,18 @@ _gate2_pytest \
       # --- U10（2026-09-12 刘哥批「门禁扩 tests/ 整树」）---
       # 显式清单维护不了：69/187 个 tests/ 文件既不在 Gate2 也不在 CI ⇒「假绿区间」
       # （修复有测试、门禁不执行——8/12 tool_quality 过滤器、9/12 skip_db 契约均踩过）。
+      # 2026-09-23（Mimir）：**注释行也算「已覆盖」** ⇒ 两个文件被注释里的路径名永久豁免：
+      #   tests/scripts/test_check_cron_hygiene.py（含 33 条闸臂）、
+      #   tests/scripts/test_scripts_syntax_gate.py
+      #   实测：含注释判 124 gap / 剔除注释判 126 gap（差集即被掩盖的 2 件；两件均绿 44 passed）。
+      #   修法 = 先 grep -v '^\s*#' 再抽路径（量具修正，非放宽）：注释提及 ≠ 门禁执行。
       # 自维护做法：每次跑时用 find 对比本脚本内嵌清单，只补跑「清单外的 tests/ 文件」，
       # 新加测试文件自动纳入 → 结构性消除假绿，且不产生重复收集（清单内文件不重跑）。
       _GATE2_EXPLICIT_EXIT=$?
       _GATE2_TREE_GAP=$(comm -23 \
         <(find "$ROOT_DIR/tests" -name 'test_*.py' | sed "s|^$ROOT_DIR/||" | sort) \
-        <(grep -oE 'tests/[A-Za-z0-9_/]+\.py' "$ROOT_DIR/run_ralph_tier0.sh" | sort -u) \
+        <(grep -vE '^[[:space:]]*#' "$ROOT_DIR/run_ralph_tier0.sh" \
+          | grep -oE 'tests/[A-Za-z0-9_/]+\.py' | sort -u) \
         | tr '\n' ' ')
       _GATE2_SWEEP_EXIT=0
       if [ -n "${_GATE2_TREE_GAP// /}" ]; then
