@@ -31,6 +31,39 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# ── P0-A (2026-09-23)：cron 台账「跑失败却记 ok」的仪表修复 ─────────────────
+# 事故：agent 型 cron job（P0 chroma 6h / wiki-quality-gate 12h）自 2026-09-22
+# 20:00 起 5/5 连续跑失败（provider 402 → 异常退出 → 49 字符「故障明示」文案），
+# 但台账仍写 last_status="ok" / last_error=null / last_delivery_ok=true ——
+# `mimir cron list` 完全看不出异常。
+# 根因：调用点只读 result["error"]，而该键仅在早退分支出现；402/empty_response
+# 走主返回路径，携带的是 **failed=True**（agent_mixin 已透传，只是没人看）。
+# 取证：~/.mimiraether/notes/2026-09-23-P0-chroma体检-结果与agent型cron执行面假绿.md
+_ABNORMAL_EXIT_REASONS = frozenset({
+    # 与 agent/core_loop.py 的 _ABNORMAL_EXIT_REASONS 同源。那份是方法内局部量
+    # （不可 import）⇒ 此处复制。两处漂移风险已登记，改其一须同步另一处。
+    "api_failure", "empty_response", "format_error", "no_choices", "billing_exhausted",
+})
+
+
+def cron_run_outcome(result: Optional[Dict[str, Any]]) -> tuple:
+    """把一次 agent run 的结果映射成 cron 台账的 ``(status, error)``。**纯函数**。
+
+    优先级：显式 ``error`` 字段 > ``failed=True`` / 异常 ``exit_reason`` > ok。
+    单独抽出以便 twin-arm 单元测试（无需起 gateway），并让「旧形态必红」可被
+    固化成一条**对照臂**。
+    """
+    if not isinstance(result, dict):
+        return "ok", None
+    err = result.get("error")
+    if err:
+        return "error", str(err)
+    exit_reason = str(result.get("exit_reason") or "").strip()
+    if result.get("failed") or exit_reason in _ABNORMAL_EXIT_REASONS:
+        return "error", f"agent abnormal exit: {exit_reason or 'failed=True'}"
+    return "ok", None
+
+
 # RS20 (2026-09-15): hard cap for cron *script* jobs.
 # Previously 600s, and — worse — the wait happened ON the event loop thread
 # (bare `subprocess.run` inside `async def execute_cron_job`), so a slow script
@@ -931,8 +964,10 @@ class CronMixin:
                         event_message_id=None,
                     )
                     final_text = result.get("final_response") or ""
-                    if result.get("error"):
-                        mark_job_run(job_id, "error", str(result.get("error")))
+                    # P0-A (2026-09-23): 失败信号不只在 error —— 判据见 cron_run_outcome()
+                    _status, _err = cron_run_outcome(result)
+                    if _status == "error":
+                        mark_job_run(job_id, "error", _err)
                     else:
                         mark_job_run(job_id, "ok", None)
                 except Exception as exc:
