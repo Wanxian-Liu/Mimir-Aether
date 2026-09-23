@@ -90,6 +90,12 @@ cd ~/src/MimirAether
    正确探针二选一：`grep -c 'BLOCKED:verify-before-report' <log>`，或读台账 `source` 字段
    （`probe_attest` = CLI 自测；`verify_before_report_guard` = 进程内拦截）。
    **同理：不要把自己按设计意图拼出来的横幅文字当日志原文引用。**
+9. **跨源证据文件里「同题异源」必须按源归因再比（2026-09-23 · C' 段 1 复核实测）**。
+   证据 JSONL 可能把**同一个标题**存成多条记录、来自**不同源**（OpenAlex / Semantic Scholar）。我只按 `title` 匹配取「第一条」，
+   于是把 S2 的 17,681 当成 OpenAlex 的生成时点读数 ⇒ 算出 Brin&Page 引用数 Δ = **−1,511** 的**假差异**（真值 16,168 → 16,170，Δ=+2）。
+   **判据**：比对前先 `record['src']` 归因（`openalex` 优先、`未记src(首版脚本)` 次之、`semanticscholar` 分开列），
+   **同题异源全部并列打印**再选；delta 行必须带 `gen[src=...]`。
+   同族误读：把「跨源口径差」读成「时间漂移」。**任何「增长/漂移」结论，先证两侧同源。**
 
 ## 闸门行为（守着我，不靠我记）
 
