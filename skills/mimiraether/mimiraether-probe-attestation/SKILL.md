@@ -541,3 +541,28 @@ test -n "$t" && test "$(git -C <repo> log -1 --format=%ct <sha>)" -lt "$(date -d
 判据：**正控必须 seen** —— 正控假 none = 探针坏了，不是世界为 0（与「探针崩溃被读成 none」同族，但此形态**不报错、不超时**，更静默）。
 > 本轮同批：`verdict=UNVERIFIED reason=control_is_target`（我把目标 PID 同时当正控）—— **被拒即闸有鉴别力**，
 > 这条拒绝本身可作「闸不是橡皮图章」的反证，值得写进报告。
+
+## ⚠️ 探针实施坑 · 第六批（2026-09-23 实测 · 探针扫到了**我自己写下的负控串**）
+
+### 坑 13 · 探针介质 = agent 自己的轨迹 ⇒ 负控假 `seen`（「自匹配」的社会层变体）
+
+**场景**：要证明「本日只有本 run 在处理某条唤醒行」——探针
+`grep -rl -- '{INPUT}' /home/rayliu/.mimiraether/data/trajectories/2026-09-23 | wc -l`
+（positive=`chroma`、negative=`ZZQ_IMPOSSIBLE_TASKNAME_9137`、target=唤醒文案）。
+
+**读数**：positive=seen ✅ · **negative=seen ❌** ⇒ `UNVERIFIED / negative_control_failed` ⇒ 整条作废。
+**根因**：那条负控串**写在本次 `write_file` 的脚本正文里**，而工具的**参数**被记进**本 run 自己的 trajectory**；
+探针扫的恰是那个目录 ⇒ **它扫到了自己刚写下的负控串**（`f0b0ae241451ede6.jsonl` = 本次 run）。
+与上文「探针数到自己」（进程表/命令行）同族，但载体换成了**自己的会话存储**。
+
+**修法（结构限定，不是放宽探针）**：只扫**首行** `session_start`
+（`ROOT.glob('*.jsonl')` + `f.open().readline()`，器械 `~/.mimiraether/scripts/probe_firstline_wake.py`）
+⇒ 首行含 `task_name` 而**不含**后续工具参数 ⇒ positive=1 / negative=**0** / target=1 ⇒ **VERIFIED**。
+
+**通用判据（新增纪律）**：
+> 探针的扫描面若包含**本 run 自己的会话 / 轨迹 / 日志**，则**我本轮写下的任何字符串都会成为该介质的"真样本"**。
+> 下「0 命中」结论前先问：**我本轮写下的东西，会不会落进我正扫的那块盘？**
+> 会 ⇒ 把扫描面限定到**结构字段**（首行 / 特定 JSON 键 / 固定 schema），或显式排除自身 session 文件。
+
+**旁证价值**：同一批 A/B 两条 VERIFIED、C1 被拒、C2（修形状后）VERIFIED —— **三类读数并存**才说明闸真在工作，
+别只留通关的那几条。取证：`~/.mimiraether/logs/inbox-processed.log` 行191 那一条 + `data/ops/probe_attest.jsonl` 476→479。
