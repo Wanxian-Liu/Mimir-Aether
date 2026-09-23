@@ -248,6 +248,31 @@ auto_load: false
   **对策**：取证脚本**逐条 append + flush**（失败条目也落盘），并在派单硬点含「必须实测」时**显式区分**
   「读数缺失」与「读数=0」——外部 503 时应标「缺失」，**不得以记忆数字回填**（Reality Checker R2：Default to NEEDS WORK）。
 
+## 2.7 本族四条新坑（2026-09-23 行194 实测 · 全程零实施）
+
+- ⚠️ **「日志里的失败时刻」≠「此刻的进程态」**（本轮首版结论被 RS17 目标读数当场推翻）：
+  读到 `tmp/<task>_resume.log` = `nohup: 无法运行命令 '.venv/bin/python3'`（相对路径 + cwd 非 repo）⇒ 我写下「兄弟取证未启动」；
+  但 RS17 D 臂**目标读数 = 1** ⇒ 盘上推翻：兄弟已于 20:25:27 用 `python3 scripts/xxx.py` **重启成功**（pid 实测）。
+  ⇒ **判据**：判「某进程是否在跑」**只能现场 `ps`**（并排除 `probe_attest` 自身），**不得**据历史日志文件推断；
+  反之亦然 —— **「进程在跑」≠「读数在长」**（本轮实测进程已跑 1:49，其证据文件仍 8 行/mtime 不变 ⇒ 成因未取证时如实写「快照，不推测」）。
+  同族：停机日志「旧码污染」（§1 ④）——**时序错配型误读**是本族最稳定的误判来源。
+- ⚠️ **RS17 探针两个新失败形态（皆器械错，非结论错）**：
+  ① `ls -1 {INPUT}` 对**不存在**路径 rc=2 ⇒ 闸判 `negative_probe_dead(usage_or_read_error)` ⇒ 修法 `ls -1 {INPUT} 2>/dev/null || true`（rc=0 + 空输出 = none 才是合法负控）；
+  ② 探针**取错样本记录**：负控/正控脚本里取了**不含目标字段**的记录（本轮 `n2v2016_short` 的 `filter_extra=null`）⇒ `int("")` 抛错、正控空输出 ⇒ `positive_control_failed`。
+  ⇒ 写探针前先**打印该字段实测类型/取值**（本轮另用 `mkv_stage2_gap_audit.py` 静态核查得 `year:{int}`、`extra:"2016"` ⇒ 据此设计 `int|miss|real` 三模式）。
+- ⚠️ **「存证与正本逐字一致」是可腐坏断言，必须每次改卡后重跑同步器**（本轮自曝）：
+  staging 存证首版 110 行，卡上最终 152 行 ⇒ 存证成**过期副本**（形态 = §2.5「在跑版 ≠ 版本控制版」的文本面）。
+  ⇒ 判据写成可复算：`sync_staging.py` 同时算**两侧 sha256** 并打印 `VERDICT: PASS 逐字一致`；改卡 → 重跑 → 再 commit，**别把「已同步」当不变量**。
+- ⚠️ **「入库声明必须配 `git show --name-only` 逐条对账」（本族两例，其中一例是他人、一例是本 run 自曝）**：
+  ① 他人：段 1 交付 commit `16e0d45` 的 message 自称「新增器械 **7 件**」，而实际文件清单只有 `notes/` 6 件
+     （`.gitignore` 无放行条 · `git check-ignore -v` 全命中 `scripts/*` · `git log --all -- <路径>` 为空）⇒ **0 件入库，纯散文**；
+  ② 本 run 自曝：我写下「放行 `X.py`」的提交信息，但 **`.gitignore` 里没加该条目** ⇒ `git add` 被 ignore 挡下、**commit 根本没产生**，
+     下一条命令才发现 `HEAD` 未变 ⇒ 补齐后重提（并在卡上如实记为第二处「声明 ≠ 盘上」）。
+  ⇒ **纪律**：`scripts/*` 被整体忽略的仓里，「放行 = 一条 `!scripts/<file>` 条目 + `git show --name-only HEAD` 对账」，
+  **两步缺一即假声明**；收口自查问句：**这个 commit 里真的有我声明的那几个文件吗？**
+- 📌 **内联中文 heredoc / 长中文 `-m` 会触发 confusable 扫描**（本轮实测被拦一次，整条命令作废）：
+  `python3 - <<'EOF' ... EOF` 与 `git commit -m "中文…"` 同批出现时判 HIGH。对策 = **逻辑写进 `scripts/<name>.py` + 提交信息写进 msgfile + `git commit -F <msgfile>`**（沿用 §2 已录纪律）。
+
 ## 3. 完成判据
 ① 日志行已追加（含动作/去重标注）② 卡段已落并 commit ③（若有新笔记）索引判据 `VERDICT: PASS` ④ 汇报区分「声明」与「盘上实测」，未闭项显式列出。
 
