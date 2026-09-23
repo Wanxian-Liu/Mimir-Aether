@@ -26,7 +26,7 @@
 规则（只读状态；本脚本**从不写** jobs.json）：
     R1 FAIL        enabled=false 且 disable_reason/paused_reason 皆空
     R2 FAIL        enabled=true 且 deliver 以 local 起（豁免：local_deliver_reason 非空）
-    R3 FAIL        enabled=true 且 next_run_at 早于 now（僵尸/冻结）
+    R3 FAIL        enabled=true 且 next_run_at 逾期超过宽限窗（僵尸/冻结；宽限 = max(120s, 2 倍本 job 间隔)）
     R4 FAIL/LEGACY enabled=false 且理由非实质（len < 10 或缺四要素）
     R5 FAIL/WARN   enabled=true 且投递目标为 feishu/lark 时，通道可达性 ping 不通过
 
@@ -81,6 +81,36 @@ RULE_FEISHU_UNREACHABLE = "R5"
 LEVEL_FAIL = "FAIL"
 LEVEL_WARN = "WARN"
 LEVEL_LEGACY = "LEGACY"
+
+
+# ── R3 宽限窗（2026-09-23）：修「到点 → 调度器执行」之间的竞态假阳性 ──
+# 事故：wiki-watcher（间隔 300s）实测 t0 时 next_run_at 落后 now 仅 12s 即被判
+# R3 FAIL，70s 后同一 job 的 next_run_at 已推进 ⇒ 同一 job 可红可绿（flaky 门禁
+# 与恒红/假绿同病）。判据应为「逾期多久」而非「是否逾期」。
+_FROZEN_GRACE_MIN_S = float(os.environ.get("MIMIR_CRON_HYGIENE_FROZEN_GRACE_S", "120"))
+
+
+def _schedule_interval_s(job: Dict[str, Any]) -> Optional[float]:
+    """从 job 自身推断调度间隔（秒）。
+
+    用 last_run_at 到 next_run_at 的实测差：这是调度器自己的算术结果，比解析
+    schedule 字符串更可靠（interval / cron / 一次性三类都覆盖，不重实现日历）。
+    冻结 job 的这个差仍是间隔 ⇒ 宽限窗不因冻结失效（逾期量才是判据）。
+    """
+    last = _parse_ts(job.get("last_run_at"))
+    nxt = _parse_ts(job.get("next_run_at"))
+    if last is None or nxt is None:
+        return None
+    delta = (nxt - last).total_seconds()
+    return delta if delta > 0 else None
+
+
+def _frozen_grace_s(job: Dict[str, Any]) -> float:
+    """宽限窗 = max(下限 120s, 2 倍本 job 间隔)。间隔未知时只用下限。"""
+    interval = _schedule_interval_s(job)
+    if interval is None:
+        return _FROZEN_GRACE_MIN_S
+    return max(_FROZEN_GRACE_MIN_S, 2.0 * interval)
 
 MIN_REASON_CHARS = 10
 REQUIRED_REASON_FIELDS = ("谁", "何时", "为何", "可逆转")
@@ -415,14 +445,18 @@ def evaluate(
                 )
             )
         nxt = _parse_ts(job.get("next_run_at"))
-        if nxt is not None and nxt < now:
-            findings.append(
-                (
-                    RULE_ENABLED_FROZEN,
-                    LEVEL_FAIL,
-                    f"{tag}: 启用中但 next_run_at={nxt.isoformat()} 已过（僵尸/冻结 · 调度器不会跑它）",
+        if nxt is not None:
+            overdue_s = (now - nxt).total_seconds()
+            grace_s = _frozen_grace_s(job)
+            if overdue_s > grace_s:
+                findings.append(
+                    (
+                        RULE_ENABLED_FROZEN,
+                        LEVEL_FAIL,
+                        f"{tag}: 启用中但 next_run_at={nxt.isoformat()} 已逾期 "
+                        f"{overdue_s:.0f}s（> 宽限 {grace_s:.0f}s · 僵尸/冻结 · 调度器不会跑它）",
+                    )
                 )
-            )
         if _is_feishu_deliver(deliver):
             feishu_dependents.append(name)
     if feishu_dependents:
@@ -569,6 +603,31 @@ def selftest() -> int:
             [_mk_job("b9", "坏-通道无凭据")],
             lambda: {"verdict": "NO_CREDENTIALS", "source": "injected"},
             [(RULE_FEISHU_UNREACHABLE, LEVEL_FAIL)],
+        ),
+        # R3 宽限窗（2026-09-23）三条臂：生产假阳性不得复现 + 真僵尸必须仍红。
+        # 固定 now = 2026-09-19T12:00:00Z（见 selftest 顶部）。
+        (
+            "twin_ok_overdue_within_grace",
+            [_mk_job("g5", "孪生-逾期在宽限内不假红",
+                     next_run_at="2026-09-19T11:59:40+00:00",
+                     last_run_at="2026-09-19T11:54:40+00:00")],
+            _probe_ok,
+            [],
+        ),
+        (
+            "twin_ok_unknown_interval_small_overdue",
+            [_mk_job("g6", "孪生-无间隔信息且逾期小于下限",
+                     next_run_at="2026-09-19T11:59:30+00:00")],
+            _probe_ok,
+            [],
+        ),
+        (
+            "bad_overdue_beyond_grace",
+            [_mk_job("b10", "坏-逾期远超宽限（真僵尸）",
+                     next_run_at="2026-09-19T11:00:00+00:00",
+                     last_run_at="2026-09-19T10:55:00+00:00")],
+            _probe_ok,
+            [(RULE_ENABLED_FROZEN, LEVEL_FAIL)],
         ),
         ("twin_ok_enabled_feishu", [_mk_job("g1", "孪生-启用且 feishu")], _probe_ok, []),
         ("twin_ok_disabled_stamped", [_mk_job("g2", "孪生-停用理由带四要素", enabled=False, disable_reason="谁=Mimir 何时=2026-09-21 为何=任务闭环 可逆转=enabled+deliver")], _probe_ok, []),

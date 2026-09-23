@@ -236,3 +236,85 @@ def test_live_jobs_file_is_clean_if_present():
     if not live.exists():
         pytest.skip(f"no live jobs.json at {live} (CI)")
     assert gate.run(live, feishu_probe_fn=_probe_ok) == gate.EXIT_OK
+
+
+# --- R3 宽限窗（2026-09-23）：修「到点 → 调度器执行」之间的竞态假阳性 ---------
+# 生产事故：wiki-watcher（间隔 300s）实测 t0 时 next_run_at 落后 now 仅 12s
+# 即被判 R3 FAIL；70s 后同一 job 的 next_run_at 已推进 ⇒ 同一 job 可红可绿。
+# 判据由「是否逾期」改为「逾期是否超过宽限」（宽限 = max(120s, 2 倍本 job 间隔)）。
+#
+# 注：本组用例**同时**包含「旧判据必然假红」的对照臂 —— 只证明新形态绿不够，
+# 还要证明旧形态在同一字节上会红（否则无法区分「修好」与「本来就绿」）。
+
+
+def _legacy_frozen_pairs(jobs) -> list:
+    """修复前的判据（逐字复刻）：``next_run_at < now`` 即 FAIL（无宽限窗）。"""
+    now = FIXED_NOW
+    out = []
+    for j in jobs:
+        nxt = gate._parse_ts(j.get("next_run_at"))
+        if nxt is not None and nxt < now:
+            out.append((gate.RULE_ENABLED_FROZEN, gate.LEVEL_FAIL))
+    return sorted(set(out))
+
+
+def _live_job(jid, overdue_s, interval_s=300):
+    """造一个「调度器还活着」的 job：next_run_at 刚刚过去 overdue_s 秒。"""
+    now = FIXED_NOW
+    nxt = now - __import__("datetime").timedelta(seconds=overdue_s)
+    return _job(
+        jid,
+        next_run_at=nxt.isoformat(),
+        last_run_at=(nxt - __import__("datetime").timedelta(seconds=interval_s)).isoformat(),
+    )
+
+
+def test_production_flapping_case_does_not_fail():
+    """生产原案（间隔 300s、逾期 12s）：闸必须放行。"""
+    j = _live_job("w", overdue_s=12)
+    assert _pairs([j]) == []
+    # 对照臂：旧判据在同一字节上必然假红
+    assert _legacy_frozen_pairs([j]) == [(gate.RULE_ENABLED_FROZEN, gate.LEVEL_FAIL)]
+
+
+def test_overdue_just_inside_grace_does_not_fail():
+    assert _pairs([_live_job("w", overdue_s=599)]) == []
+
+
+def test_overdue_just_beyond_grace_fails():
+    assert _pairs([_live_job("w", overdue_s=601)]) == [
+        (gate.RULE_ENABLED_FROZEN, gate.LEVEL_FAIL)
+    ]
+
+
+def test_real_zombie_still_fails_hours_later():
+    """真僵尸（数小时）不得因宽限窗被放过。"""
+    assert _pairs([_live_job("w", overdue_s=25131)]) == [
+        (gate.RULE_ENABLED_FROZEN, gate.LEVEL_FAIL)
+    ]
+
+
+def test_unknown_interval_uses_floor():
+    """无 last_run_at ⇒ 无法推间隔 ⇒ 只用 120s 下限。"""
+    now = FIXED_NOW
+    inside = _job("w1", next_run_at=(now - __import__("datetime").timedelta(seconds=30)).isoformat())
+    beyond = _job("w2", next_run_at=(now - __import__("datetime").timedelta(seconds=200)).isoformat())
+    assert _pairs([inside]) == []
+    assert _pairs([beyond]) == [(gate.RULE_ENABLED_FROZEN, gate.LEVEL_FAIL)]
+
+
+def test_frozen_job_with_inverted_delta_uses_floor():
+    """冻结 job 的 next_run_at 早于 last_run_at ⇒ 差为负 ⇒ 退下限（不失真为「间隔巨大」）。"""
+    now = FIXED_NOW
+    j = _job(
+        "w3",
+        next_run_at="2026-09-19T00:00:00+00:00",
+        last_run_at=(now - __import__("datetime").timedelta(seconds=60)).isoformat(),
+    )
+    assert gate._schedule_interval_s(j) is None
+    assert gate._frozen_grace_s(j) == gate._FROZEN_GRACE_MIN_S
+
+
+def test_grace_formula_is_twice_the_interval():
+    for interval, want in ((300, 600.0), (60, 120.0), (1800, 3600.0), (10, 120.0)):
+        assert gate._frozen_grace_s(_live_job("w", overdue_s=0, interval_s=interval)) == want
