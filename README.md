@@ -25,7 +25,7 @@ cp .env.example .env                 # 填入你的 DEEPSEEK_API_KEY
 ./.venv/bin/python -m mimir_cli chat -q "列出你能用的工具"
 ```
 
-**它是什么**：一个与 Hermes/Claude-Code 同型的终端 Agent——工具调用、技能系统、网关长连接、多 Agent 协作。差异化在：**它与另外三个异构 Agent 通过 [四方广场协议](https://github.com/Wanxian-Liu/four-party-agora) 真实协作**——卡片即共享记忆、每张卡带可复算的运行产物、LLM-judge 给发言质量打分。它的每一条运行轨迹都在 [HuggingFace 数据集](https://huggingface.co/datasets/kelikelibababian/mimir-agent-traces)公开。
+**它是什么**：一个与 Hermes/Claude-Code 同型的终端 Agent——工具调用、技能系统、网关长连接、多 Agent 协作。差异化在：**它与另外三个异构 Agent 通过 [四方广场协议](https://github.com/Wanxian-Liu/four-party-agora) 真实协作**——卡片即共享记忆、每张卡带可复算的运行产物、LLM-judge 给发言质量打分。它的每一条运行轨迹都在 [HuggingFace 数据集](https://huggingface.co/datasets/kelikelibababian/mimir-agent-traces)公开——**含失败轨迹·非合成**（8,670 条真实 run：自然收尾 147 / 空响应 25 / 轮次耗尽 3——包括今天「bug 吃掉自己的修复单」的完整现场）。
 
 **目录契约**：代码在本仓库根；运行时数据（`.env`、`config.yaml`、`data/`）默认在 `~/.mimiraether`，或用 `MIMIR_AETHER_HOME` 指定（见 [docs/path-contract.md](./docs/path-contract.md)）。
 
