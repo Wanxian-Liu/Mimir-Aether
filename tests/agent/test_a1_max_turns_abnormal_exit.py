@@ -73,8 +73,9 @@ def _extract_branch(src: str) -> str:
     )
     assert end is not None, f"锚点丢失：{_END!r} 不在 {SRC_PATH}"
     block = "".join(lines[start:end])
-    assert "_ABNORMAL_EXIT_REASONS" in block, "抽到的块不含白名单——锚点漂了"
-    assert "reversed(_result.messages)" in block, "抽到的块不含复读分支——锚点漂了"
+    # A2 适配（2026-09-24）：白名单已废（fail-closed 反转）——锚新结构标记
+    assert '"natural"' in block and "fail-closed" in block, "抽到的块不含 A2 fail-closed 判定——锚点漂了"
+    assert "reversed(_result.messages)" in block, "抽到的块不含取当前回复分支——锚点漂了"
     return textwrap.dedent(block)
 
 
@@ -84,6 +85,7 @@ def _strip_max_turns(block: str) -> tuple[str, int]:
 
 
 def _run(block: str, exit_reason: str, interrupted: bool, messages: list):
+    block = textwrap.dedent(block)  # 冻结件内嵌字符串自带缩进——exec 前归一
     lg = _Logger()
     ns = {
         "_result": _Result(exit_reason, interrupted, messages),
@@ -99,11 +101,17 @@ def _live_block() -> str:
     return _extract_branch(SRC_PATH.read_text(encoding="utf-8"))
 
 
-# ── 臂 A：负控（旧形态 = 删 token）⇒ 复读，病可复现 ────────────────────────────
+# A2 适配（2026-09-24）：A2 废白名单后「删 token」负控构造失效——臂 A 重锚为
+# **8-25 病形态冻结块**（d95d7fc~1 抽取·max_turns 不在名单·exec 原样跑）。
+# 冻结件纪律（A3 §五）：要验的形态不复存在时先冻下来——这块就是「修复前」的活证据。
+_FROZEN_LESION_825 = '_final_content = ""\n_ABNORMAL_EXIT_REASONS = {"api_failure", "empty_response", "format_error", "no_choices", "billing_exhausted"}\nif (getattr(_result, "exit_reason", "") in _ABNORMAL_EXIT_REASONS\n        and not getattr(_result, "interrupted", False)):\n    # 断粮单独文案（体检复核 M-2 补修·Mimir 建议）：402/额度耗尽与笼统故障区分，\n    # 保住 9-21 案例的诊断价值（否则billing_exhausted 只会收到笼统"故障明示"）。\n    if getattr(_result, "exit_reason", "") == "billing_exhausted":\n        _final_content = "[断粮] provider 额度耗尽（402/billing），本轮未调用模型——请充值或切换凭证后重试；不会重发旧回复伪装正常"\n        logger.error("[%s] [EXIT] billing_exhausted：断粮明示，不重发旧回复", task_id[:8])\n    else:\n        _final_content = "[故障明示] 我这轮没调到模型（连续错误），请让我重启或查看日志——故障已记录，不会伪装成正常回复"\n        logger.error("[%s] [EXIT] 异常退出 %s：不重发旧回复，明示故障状态", task_id[:8], _result.exit_reason)\nelse:\n    for _md in reversed(_result.messages):\n        if _md.get("role") == "assistant" and _md.get("content"):\n            _final_content = _md.get("content", "")\n            break\n'
+
+
+# ── 臂 A：负控（8-25 病形态冻结件）⇒ 复读，病可复现 ────────────────────────────
 def test_armA_legacy_form_replays_tail_assistant():
-    old_block, removed = _strip_max_turns(_live_block())
-    assert removed >= 1, (
-        "受控差分失效：盘上块里已无 `max_turns` token（若 A2 废白名单则本臂须重锚）"
+    old_block = _FROZEN_LESION_825
+    assert "_ABNORMAL_EXIT_REASONS" in old_block and ', "max_turns"' not in old_block, (
+        "冻结件必须是 max_turns 不在名单的 8-25 病形态"
     )
     content, lg = _run(old_block, "max_turns", False, MESSAGES)
     assert content == TAIL_ASSISTANT, "旧形态应复读末条 assistant（这就是本单要修的病）"

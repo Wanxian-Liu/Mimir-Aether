@@ -39,8 +39,10 @@ def test_arm_c_natural_takes_current_reply():
     blk = _final_block()
     natural_branch = blk.split('elif _exit_reason == "natural":')[1].split("elif")[0]
     assert "reversed(" in natural_branch
-    # reversed 复读只允许出现 2 次（interrupted + natural）
-    assert blk.count("reversed(") == 2, "复读面必须锁死在 natural/interrupted 两分支"
+    # reversed 复读代码只允许出现 2 次（interrupted + natural）——注释行不计
+    code_lines = [ln for ln in blk.splitlines() if not ln.strip().startswith("#")]
+    n = sum(ln.count("reversed(") for ln in code_lines)
+    assert n == 2, f"复读面必须锁死在 natural/interrupted 两分支（实测 {n} 处代码调用）"
 
 
 def test_arm_d_special_texts_preserved():
