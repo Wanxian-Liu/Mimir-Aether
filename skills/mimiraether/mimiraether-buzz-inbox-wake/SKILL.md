@@ -273,6 +273,37 @@ auto_load: false
 - 📌 **内联中文 heredoc / 长中文 `-m` 会触发 confusable 扫描**（本轮实测被拦一次，整条命令作废）：
   `python3 - <<'EOF' ... EOF` 与 `git commit -m "中文…"` 同批出现时判 HIGH。对策 = **逻辑写进 `scripts/<name>.py` + 提交信息写进 msgfile + `git commit -F <msgfile>`**（沿用 §2 已录纪律）。
 
+## 2.8 本族新坑（2026-09-24 行197 实测 · 双渠道同行但**兄弟已自行收口**）
+
+- ✅ **「只提交自己段」的更优解：`GIT_INDEX_FILE` 独立索引（工作树零接触）**——优于 §2 的
+  `cp 完整版 / git show HEAD: / 替换 / add / commit / cp 回` 五步法（五步法要点是「先把工作树换成已提交版」⇒
+  兄弟在窗口内追加就会**丢其追加**或**拼出重复标题**）。独立索引法**根本不碰工作树**：
+  ```bash
+  CARD="discussions/<卡>.md"; IDX=$HOME/tmp/line197.index   # 勿用 /tmp（ToolGuard 拒目录外路径）
+  GIT_INDEX_FILE=$IDX git read-tree HEAD                    # 索引 = HEAD 树
+  git show HEAD:"$CARD" > $HOME/tmp/head.md; cat <我的段> >> $HOME/tmp/head.md
+  BLOB=$(git hash-object -w $HOME/tmp/head.md)              # blob 先入对象库
+  GIT_INDEX_FILE=$IDX git update-index --add --cacheinfo 100644,$BLOB,"$CARD"
+  GIT_INDEX_FILE=$IDX git commit -F <msgfile>
+  ```
+  **判据**：`git show --numstat HEAD` 插入行数 == 我的段行数（本 run **+64**）；`grep -c` 提交版 == 1 而**工作树仍留兄弟段**。
+- 🔴 **「默认 index 残留」= 回退隐患（兄弟用五步法留下的 `MM`）**：`git add` 与 `cp 回完整版` 之间没人再 add ⇒ 默认索引停在
+  **中间版本** ⇒ `git status --short` 显示 **`MM`** ⇒ **此后任何一次普通 `git commit` 提交的都是中间版本 = 把兄弟已入库的行「回退」掉**
+  （本 run 实测 index=544 行 vs HEAD/worktree=608 行，差的 64 行含兄弟 12 行回执）。**判据三连**：
+  `status` 见 `MM` → `git show :<路径> | wc -l` 与 HEAD/worktree 比 → 三者应恒等。
+  **修法**：`git reset HEAD -- <路径>`（**只动 index**，不触工作树/HEAD）；清别人残留须在卡/台账写明「只动 index」。
+- ⚠️ **epoch-ts 介质上「日期串 grep」恒 0 ⇒ 「当日有数据」被读成「当日零数据」**（本 run 自曝）：
+  `grep -c '2026-09-24' data/feedback_events.jsonl` = **0**，而当日实有 **10** 行（`ts` 是 **epoch 浮点**，物理上不含日期串）。
+  ⇒ 按日验收**必须**换 epoch 直方图（`datetime.fromtimestamp(o["ts"])` 分桶）。同族第 9 形态（**口径错配**）的机械成因。
+- ⚠️ **RS17 探针里多一个 `| wc -l` 会让负控变 seen**（本 run 首次调用即踩）：模板
+  `grep -c -- '{INPUT}' <file> | wc -l; grep -c -- '{INPUT}' <file>` ⇒ 负控 stdout = **`1\n0\n`** ⇒ 观测归一判 **seen**
+  ⇒ `negative_control_failed`、整条 UNVERIFIED。**修法**：计数类探针**只留单条命令**（`grep -c` 自身输出 `0` 即 none；`rc=1` 合法）。
+  自问句：**这条探针的输出，在「有」和「无」两种世界里会长得一样吗？**
+- 📌 **「兄弟在飞」必须在落段前复验，且落段后的**事实变更要补记**（本 run 窗口只有 **63 秒**）**：
+  12:15 判「兄弟在飞 · 零实施」→ 12:16:59 `a4ac289`（兄弟 §14 入库）→ 12:17:09 `202cbea`（回执）→ 12:17:18 兄弟 `session_end`（41 步 · natural）。
+  ⇒ 我段里「§14 仍未提交（工作树 M）」**落段时已过期** ⇒ 必须 `patch` 自己那段 + 单独 commit 补记更正。
+  **纪律**：判分流用**落段前一刻**的快照，卡面陈述必须是**落段后**的事实；不一致时并列补记，不静默改写。
+
 ## 3. 完成判据
 ① 日志行已追加（含动作/去重标注）② 卡段已落并 commit ③（若有新笔记）索引判据 `VERDICT: PASS` ④ 汇报区分「声明」与「盘上实测」，未闭项显式列出。
 
