@@ -1051,7 +1051,10 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
             # 时 messages 里最后一条 assistant 可能是上一轮的旧回复——不得重发（8/24 复读事故：response=28 chars api_calls=0）。
             # 改为给用户明示状态：故障必须可见，不许伪装成正常回复。
             _final_content = ""
-            _ABNORMAL_EXIT_REASONS = {"api_failure", "empty_response", "format_error", "no_choices", "billing_exhausted"}
+            # A1（2026-09-24 卡 §15 · 实施轮）：补 max_turns —— 轮次耗尽时 messages 末条常是
+            # 「上一轮的半句计划/旧回复」（agent_loop.py:1230 仅在末条为 tool 时才追加强制总结），
+            # 走 else 分支取末条 assistant = 把未收尾的中间态当最终答复发出去（卡 §1.2 现场形态）。
+            _ABNORMAL_EXIT_REASONS = {"api_failure", "empty_response", "format_error", "no_choices", "billing_exhausted", "max_turns"}
             if (getattr(_result, "exit_reason", "") in _ABNORMAL_EXIT_REASONS
                     and not getattr(_result, "interrupted", False)):
                 # 断粮单独文案（体检复核 M-2 补修·Mimir 建议）：402/额度耗尽与笼统故障区分，
@@ -1059,6 +1062,15 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
                 if getattr(_result, "exit_reason", "") == "billing_exhausted":
                     _final_content = "[断粮] provider 额度耗尽（402/billing），本轮未调用模型——请充值或切换凭证后重试；不会重发旧回复伪装正常"
                     logger.error("[%s] [EXIT] billing_exhausted：断粮明示，不重发旧回复", task_id[:8])
+                elif getattr(_result, "exit_reason", "") == "max_turns":
+                    # 到顶专用文案（A1 同批）：max_turns 是**调到了模型但轮次用尽**，与笼统「没调到模型」
+                    # 必须区分——否则诊断被引向 provider 侧（假故障）；原样 reason 供 Q6 投递对账按串归因。
+                    _final_content = (
+                        f"[故障明示] 轮次预算用尽（reason=max_turns turns={getattr(_result, 'turns_used', '?')}）——"
+                        "本轮未收尾即退出，不重发旧回复；请让我继续或拆小任务"
+                    )
+                    logger.error("[%s] [EXIT] max_turns：轮次耗尽明示，不重发旧回复（turns_used=%s）",
+                                 task_id[:8], getattr(_result, "turns_used", "?"))
                 else:
                     _final_content = "[故障明示] 我这轮没调到模型（连续错误），请让我重启或查看日志——故障已记录，不会伪装成正常回复"
                     logger.error("[%s] [EXIT] 异常退出 %s：不重发旧回复，明示故障状态", task_id[:8], _result.exit_reason)
