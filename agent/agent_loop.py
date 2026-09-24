@@ -1127,11 +1127,18 @@ class MimirAgentLoop:
                         and self._should_nudge_production(messages)):
                     _enforce = os.environ.get("MIMIR_PRODUCTION_ENFORCE", "0").strip().lower() not in ("0", "false", "no")
                     _max_hard = int(os.environ.get("MIMIR_PRODUCTION_HARD_NUDGES", "2") or "2")
-                    # TD-03 修订1：research 实质回答豁免（≥50字+实词≥10+无未完成信号+无系统标记 → 视为产出）
-                    if self._is_substantive_research_answer(messages):
-                        logger.info(
-                            "[%s] turn %d: research 实质回答豁免（≥50字+实词≥10）——视为产出，自然退出",
+                    # B1（2026-09-24 四方共识·Hermes 代改——病连续 4 次拦腰放走自己的修复单，派发进不去）：
+                    # 废弃「research 实质回答豁免…视为产出」出口。旧豁免的信号词表为纯中文（接下来/将要/下一步…），
+                    # 英文计划句（"Now Phase 1…"/"Let me read…"）全部穿透 ⇒ run 停在将来时被判「视为产出」自然退出。
+                    # 共识判据：verify 3/3 且 has_written=False ⇒ 明示故障，不记「视为产出」（Q3：透传=作弊，明示=诚实）。
+                    if verify_nudges >= MAX_VERIFY_NUDGES:
+                        logger.warning(
+                            "[%s] turn %d: B1 明示故障（verify 3/3 耗尽 + has_written=False）——不装正常退出",
                             self.task_id[:8], turn + 1,
+                        )
+                        content = (
+                            "[故障明示] verify-before-report 闸 3/3 耗尽，回复未通过验证且本会话零落盘"
+                            "（has_written=False）——本条不判定为正常产出。"
                         )
                     elif _enforce and self._production_hard_nudges >= _max_hard:
                         # L3 中断：连续 _max_hard 次硬拦截后仍无产出 → INTERRUPTED 透传用户
@@ -1403,9 +1410,11 @@ class MimirAgentLoop:
                    "进行", "以及", "对于", "因为", "所以", "但是", "然后", "就是", "已经"}
 
     def _is_substantive_research_answer(self, messages: List[Dict[str, Any]]) -> bool:
-        """TD-03 修订1（OpenClaw R4）：research 实质回答豁免——≥50字 + 实词≥10 + 无未完成信号 + 无系统标记 → 视为产出。
+        """[B1 废弃 2026-09-24] 「research 实质回答豁免」出口已随 B1 共识拆除（verify 3/3 走明示故障）。
 
-        误伤场景防住：综述型 research 回答本身即产出（不要求写盘）。
+        本函数保留仅作历史对照与测试用（旧形态行为的活证据）——生产路径零调用。
+        旧病灶：信号词表纯中文（接下来/将要/下一步…），英文计划句（"Now Phase 1…"/"Let me read…"）
+        穿透后被「视为产出」自然退出 ⇒ run 停在将来时（4 次拦腰实录见卡 §15/§16）。
         """
         import re as _re
         # 取最后一条 assistant 文本
