@@ -1168,6 +1168,20 @@ class FeishuAdapter(BasePlatformAdapter):
                     str(mid)[:24] if mid else "?",
                     (chat_id or "")[:24],
                 )
+                # Q6（2026-09-24 · Hermes 代改·四方共识）：outbound 投递对账——投给谁什么，事后可反查
+                try:
+                    import hashlib as _hl, json as _js, os as _os, time as _tm, re as _re
+                    _txt = content if isinstance(content, str) else str(content)
+                    _t = _re.search(r"[A-Za-z0-9_-]{6,}", _txt or "")
+                    with open(_os.path.expanduser("~/.mimiraether/data/delivery_ledger.jsonl"), "a", encoding="utf-8") as _f:
+                        _f.write(_js.dumps({
+                            "ts": _tm.time(), "channel": "feishu", "target": (chat_id or "")[:48],
+                            "sha1_12": _hl.sha1(_txt.encode()).hexdigest()[:12],
+                            "head80": _txt[:80], "ticket": _t.group(0) if _t else None,
+                            "message_id": str(mid) if mid else None,
+                        }, ensure_ascii=False) + chr(10))
+                except Exception:
+                    pass  # Q6 判据：写台账失败不得阻断投递
                 return SendResult(success=True, message_id=str(mid) if mid else None, raw_response=result)
         except asyncio.TimeoutError:
             logger.error(
