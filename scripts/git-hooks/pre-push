@@ -141,7 +141,71 @@ while read -r _lref _lsha _rref _rsha; do
     fi
   fi
 done < "$_tmp"
+
+# ---------------------------------------------------------------------------
+# 3b. published-path scan (R6; 2026-09-26). A push whose ADDED lines carry an
+#     absolute home path publishes the operator's account name. Added lines
+#     only -- the frozen snapshots already committed are not re-litigated.
+#     The needle is built from $(id -un): a hook that spelled the name out
+#     would be the very leak it exists to catch.
+#     Allowlist: scripts/migrations/ (frozen execution snapshots -- editing
+#     them would falsify the audit trail, so they stay as-is).
+#     Override (traced): export MIMIR_ALLOW_PATH_LEAK=1
+#     Test seam: MIMIR_PATH_LEAK_NEEDLE overrides the derived name.
+# ---------------------------------------------------------------------------
+EMPTY_TREE=4b825dc642cb6eb9a060e54bf8d69288fbee4904
+_needle="${MIMIR_PATH_LEAK_NEEDLE:-}"
+if [ -z "$_needle" ]; then
+  _me=$(id -un 2>/dev/null || printf '')
+  [ -n "$_me" ] && _needle="/home/$_me"
+fi
+_leak_hits=0
+_leak_files=""
+if [ -n "$_needle" ] && [ -s "$_tmp" ]; then
+  while read -r _lref _lsha _rref _rsha; do
+    [ -z "${_lref:-}" ] && continue
+    case "$_lsha" in "$ZERO") continue ;; esac
+    _base="$_rsha"
+    if [ "$_rsha" = "$ZERO" ]; then
+      # The ref does not exist on the remote: pushing it publishes the WHOLE
+      # tree, so the whole tree is what gets scanned. Diffing against the
+      # merge-base instead would only see what the branch adds on top of its
+      # own fork point -- and when the fork point is stale (measured 2026-09-26:
+      # 813 commits behind), every path cleaned up since stays invisible while
+      # still being published. That is the shape that hid this very branch.
+      _hits=$(git grep -c -- "$_needle" "$_lsha" -- . ':(exclude)scripts/migrations/*' 2>/dev/null \
+                | awk -F: '{s += $NF} END {print s + 0}')
+      case "$_hits" in ''|*[!0-9]*) _hits=0 ;; esac
+      _flist=$(git grep -l -- "$_needle" "$_lsha" -- . ':(exclude)scripts/migrations/*' 2>/dev/null \
+                 | sed 's/^[^:]*://' | head -5 | tr '\n' ' ')
+    else
+      # The ref already exists on the remote, so only the added lines are new.
+      _hits=$(git diff --diff-filter=ACMR --unified=0 "$_base" "$_lsha" \
+                -- . ':(exclude)scripts/migrations/*' 2>/dev/null \
+              | grep -E '^[+]' | grep -vE '^[+][+][+] ' \
+              | grep -c -- "$_needle" | head -1)
+      case "$_hits" in ''|*[!0-9]*) _hits=0 ;; esac
+      _flist=$(git diff --name-only --diff-filter=ACMR "$_base" "$_lsha" \
+                 -- . ':(exclude)scripts/migrations/*' 2>/dev/null | head -5 | tr '\n' ' ')
+    fi
+    if [ "$_hits" -gt 0 ] 2>/dev/null; then
+      _leak_hits=$((_leak_hits + _hits))
+      [ -n "$_flist" ] && _leak_files="$_leak_files $_flist"
+    fi
+  done < "$_tmp"
+fi
 rm -f "$_tmp"
+
+if [ "$_leak_hits" -gt 0 ] 2>/dev/null; then
+  if [ "$_block" = "0" ]; then
+    _block=1
+    _outcome="push-path-leak-blocked"
+    _reason="added lines publish the operator home path (${_leak_hits} hit(s))"
+  else
+    _reason="$_reason; plus ${_leak_hits} published-path hit(s)"
+  fi
+  _leak_note="  files  :$(printf '%s' "$_leak_files" | cut -c1-300)"
+fi
 
 if [ "$_force_intent" = "1" ]; then
   if [ "$_block" = "0" ]; then
@@ -160,10 +224,23 @@ elif [ "$_block" = "0" ] && [ "$_deleted" = "$_refs" ]; then
   _outcome="push-delete"
 fi
 
-if [ "$_block" = "1" ] && [ "${MIMIR_ALLOW_FORCE_PUSH:-0}" = "1" ]; then
-  printf 'pre-push: WARNING -- %s (override traced, MIMIR_ALLOW_FORCE_PUSH=1)\n' "$_reason" >&2
-  _outcome="${_outcome}-override"
-  _block=0
+if [ "$_block" = "1" ]; then
+  _override=0
+  _ov_name="MIMIR_ALLOW_FORCE_PUSH=1"
+  case "$_outcome" in
+    push-path-leak-blocked*)
+      _ov_name="MIMIR_ALLOW_PATH_LEAK=1"
+      [ "${MIMIR_ALLOW_PATH_LEAK:-0}" = "1" ] && _override=1
+      ;;
+    *)
+      [ "${MIMIR_ALLOW_FORCE_PUSH:-0}" = "1" ] && _override=1
+      ;;
+  esac
+  if [ "$_override" = "1" ]; then
+    printf 'pre-push: WARNING -- %s (override traced, %s)\n' "$_reason" "$_ov_name" >&2
+    _outcome="${_outcome}-override"
+    _block=0
+  fi
 fi
 
 _dir=$(dirname "$TRACE_LOG" 2>/dev/null)
@@ -177,10 +254,20 @@ if [ "$_block" = "1" ]; then
   printf '\n' >&2
   printf 'pre-push: BLOCKED -- immutable evidence (A6)\n' >&2
   printf '  reason : %s\n' "$_reason" >&2
+  [ -n "${_leak_note:-}" ] && printf '%s\n' "$_leak_note" >&2
   printf '  rule   : pushed history is evidence; a rewrite erases attribution\n' >&2
   printf '           (docs/AGENT_REPO_OWNERSHIP.md sections 3 and 8, four-party ruling Q4)\n' >&2
-  printf '  instead: make a new commit and push it forward; if the rewrite is truly\n' >&2
-  printf '           required, export MIMIR_ALLOW_FORCE_PUSH=1 (traced as an override)\n\n' >&2
+  case "$_outcome" in
+    push-path-leak-blocked*)
+      printf '  instead: abstract the path (a placeholder or a variable) in the source\n' >&2
+      printf '           and push that; if publishing the path is truly intended, export\n' >&2
+      printf '           MIMIR_ALLOW_PATH_LEAK=1 (traced as an override)\n\n' >&2
+      ;;
+    *)
+      printf '  instead: make a new commit and push it forward; if the rewrite is truly\n' >&2
+      printf '           required, export MIMIR_ALLOW_FORCE_PUSH=1 (traced as an override)\n\n' >&2
+      ;;
+  esac
   exit 1
 fi
 
