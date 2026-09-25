@@ -1242,6 +1242,23 @@ class MimirAgentLoop:
                     messages.append({"role": "user", "content": "继续执行·不要只复述计划"})
                     self._task_completion_nudges += 1
                     continue
+                # ===== P0（2026-09-26 · 复读篇）自然出口必须带**本轮自己的正文** =====
+                # 病灶实证（09-26 05:09:01 / 05:12:14 / 05:13:30 三次投递同 sha1=2bff1123ddf7）：
+                # 模型返回**空正文 + 无工具调用**（思考内容有、最终 content 空）⇒ 旧形态仍以
+                # natural 退出 ⇒ core_loop 的 reversed() 跨轮回捞上一轮**已投递过**的回复原样重发。
+                # A1/A2 只给异常 reason 打了补丁，漏的正是最常走的 natural 这一支（fail-open 族第三次复发）。
+                # 判据：本轮正文 strip() 为空 ⇒ 专用 reason empty_content（明示故障），不得装 normal。
+                if not str(content or "").strip():
+                    logger.warning(
+                        "[%s] turn %d: 空正文自然结束（无工具调用且 content 空白）"
+                        "——改 empty_content 明示，禁止跨轮复读",
+                        self.task_id[:8], turn + 1,
+                    )
+                    raise AgentLoopExit("empty_content", {
+                        "messages": messages, "turns_used": turn + 1,
+                        "finished_naturally": False, "reasoning_per_turn": reasoning_per_turn,
+                        "tool_errors": tool_errors, "final_content": "",
+                    })
                 # 任务书含清单且检查通过 → TASK_COMPLETE（有交付语义——对齐 Hermes completed）
                 # 无清单 → DONE（自然结束——has_written 由 TD-03 已检查）
                 self._task_state = TaskState.TASK_COMPLETE if _tc_spec else TaskState.DONE
@@ -1249,6 +1266,8 @@ class MimirAgentLoop:
                     "messages": messages, "turns_used": turn + 1,
                     "finished_naturally": True, "reasoning_per_turn": reasoning_per_turn,
                     "tool_errors": tool_errors,
+                    # final_content 契约（2026-09-26 P0）：显式透传本轮正文 ⇒ core_loop 不得回捞
+                    "final_content": content or "",
                 })
 
 

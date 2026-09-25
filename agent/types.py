@@ -157,7 +157,10 @@ class AgentLoopResult:
     reasoning_per_turn: List[Optional[str]] = field(default_factory=list)
     tool_errors: List[AgentLoopToolError] = field(default_factory=list)
     interrupted: bool = False
-    exit_reason: str = ""  # 2026-08-25 修复卡改动3：退出原因（api_failure/empty_response/format_error/no_choices/max_turns/natural）——供 core_loop 区分"异常退出不得重发旧回复"
+    exit_reason: str = ""  # 2026-08-25 修复卡改动3：退出原因（api_failure/empty_response/format_error/no_choices/max_turns/natural/empty_content/verify_exhausted）——供 core_loop 区分"异常退出不得重发旧回复"
+    # 2026-09-26 P0（复读篇）：**本轮自己的**最终正文，由 agent_loop 显式透传。
+    # 契约：非 None ⇒ core_loop 以此为准（空串 ⇒ 明示故障），**禁止**跨轮 reversed() 回捞。
+    final_content: "str | None" = None
 
 
 # 向后兼容别名

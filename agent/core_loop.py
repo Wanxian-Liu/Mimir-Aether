@@ -1064,10 +1064,26 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
                         _final_content = _md.get("content", "")
                         break
             elif _exit_reason == "natural":
-                for _md in reversed(_result.messages):
-                    if _md.get("role") == "assistant" and _md.get("content"):
-                        _final_content = _md.get("content", "")
-                        break
+                # P0 修复（2026-09-26 · 复读篇）：**以本轮透传的 final_content 为准**。
+                # 病灶：旧形态无条件 reversed() 回捞 ⇒ 本轮正文为空时捞到上一轮**已投递过**的
+                # 回复原样重发（09-26 05:09/05:12/05:13 三次同 sha1=2bff1123ddf7）。
+                # 契约：调用方一旦透传，本分支**不得**回捞（空 ⇒ 明示故障）。
+                _declared = getattr(_result, "final_content", None)
+                if _declared is not None:
+                    if str(_declared).strip():
+                        _final_content = _declared
+                    else:
+                        _final_content = (
+                            "[故障明示] 模型本轮返回空正文（reason=natural）——本条不判定为正常产出，"
+                            "不复读旧回复；请重发或拆小任务"
+                        )
+                        logger.error("[%s] [EXIT] natural 空正文：明示故障，未跨轮复读", task_id[:8])
+                else:
+                    # 兼容路径：调用方未透传（老 AgentResult / 既有夹具）⇒ 保持原检索语义不变
+                    for _md in reversed(_result.messages):
+                        if _md.get("role") == "assistant" and _md.get("content"):
+                            _final_content = _md.get("content", "")
+                            break
             elif _exit_reason == "billing_exhausted":
                 # 断粮单独文案（体检复核 M-2 补修·Mimir 建议）：402/额度耗尽与笼统故障区分，
                 # 保住 9-21 案例的诊断价值（否则billing_exhausted 只会收到笼统"故障明示"）。
@@ -1091,6 +1107,15 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
                     "回复未通过验证且本会话零落盘（has_written=False），本条不判定为正常产出，不重发旧回复"
                 )
                 logger.error("[%s] [EXIT] verify_exhausted：闸 3/3 耗尽明示，不重发旧回复", task_id[:8])
+            elif _exit_reason == "empty_content":
+                # P0（2026-09-26 · 复读篇）：模型**调到了**、但本轮正文为空且无工具调用。
+                # 与「没调到模型」必须区分——否则诊断被引向 provider 侧（假故障）。
+                # 原样 reason 供 Q6 投递对账按串归因。
+                _final_content = (
+                    "[故障明示] 模型本轮返回空正文（reason=empty_content）——"
+                    "本轮无正文可用，不复读旧回复；请重发或拆小任务"
+                )
+                logger.error("[%s] [EXIT] empty_content：空正文明示，不重发旧回复", task_id[:8])
             else:
                 # fail-closed：api_failure/empty_response/format_error/no_choices 及一切未知 reason ⇒ 明示
                 _final_content = "[故障明示] 我这轮没调到模型（连续错误），请让我重启或查看日志——故障已记录，不会伪装成正常回复"

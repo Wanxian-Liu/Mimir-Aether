@@ -46,6 +46,9 @@ _ABNORMAL_EXIT_REASONS = frozenset({
     # T4（2026-09-26）：verify 闸 3/3 耗尽 = 该轮**零落盘 + 未验证**，对 cron 型 job 而言
     # 就是「检查没跑成」——必须记 error，否则重演 P0-A 的假绿（跑失败却记 ok）。
     "verify_exhausted",
+    # P0（2026-09-26 · 复读篇）：空正文自然结束——与 core_loop 的 empty_content 同源，
+    # cron 台账须记 error（否则「模型交白卷」读成 ok）。
+    "empty_content",
 })
 
 
