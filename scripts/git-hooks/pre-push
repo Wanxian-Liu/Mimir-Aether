@@ -143,15 +143,28 @@ while read -r _lref _lsha _rref _rsha; do
 done < "$_tmp"
 
 # ---------------------------------------------------------------------------
-# 3b. published-path scan (R6; 2026-09-26). A push whose ADDED lines carry an
-#     absolute home path publishes the operator's account name. Added lines
-#     only -- the frozen snapshots already committed are not re-litigated.
-#     The needle is built from $(id -un): a hook that spelled the name out
-#     would be the very leak it exists to catch.
-#     Allowlist: scripts/migrations/ (frozen execution snapshots -- editing
-#     them would falsify the audit trail, so they stay as-is).
+# 3b. published-secret scan (R6; 2026-09-26; extended the same day to Feishu
+#     identifiers and key shapes). A push whose ADDED lines carry an absolute
+#     home path, a Feishu id or a key shape publishes something the public repo
+#     must not carry. Added lines only -- frozen snapshots already committed are
+#     not re-litigated.
+#     The home-path needle is built from $(id -un): a hook that spelled the name
+#     out would be the very leak it exists to catch.
+#     Allowlist: scripts/migrations/ (frozen execution snapshots -- editing them
+#     would falsify the audit trail, so they stay as-is).
 #     Override (traced): export MIMIR_ALLOW_PATH_LEAK=1
-#     Test seam: MIMIR_PATH_LEAK_NEEDLE overrides the derived name.
+#     Test seam: MIMIR_PATH_LEAK_NEEDLE overrides the derived home name.
+#     Each entry below is "name|regex" and must be a SHAPE, never a prefix.
+#     Measured 2026-09-26 on this tree (subprocess argv, no shell layer -- the
+#     first measurement double-escaped the ERE and reported 0 for everything):
+#     a bare "oc_" matches 201 lines and a bare "sk-" 108, so a prefix gate
+#     would block ordinary pushes until someone switched it off, which is how a
+#     gate turns into decoration. Every shape here matches 0 lines at HEAD.
+#     The "sk-" floor is 32, not 20: at 20 this tree already trips twice on
+#     documentation examples of key-detection rules, and a gate that fires on
+#     docs is a gate people learn to override. Real keys are >= 32 (the one the
+#     2026-09-25 audit found was 35).
+#     Regexes must not contain "|" (the field separator).
 # ---------------------------------------------------------------------------
 EMPTY_TREE=4b825dc642cb6eb9a060e54bf8d69288fbee4904
 _needle="${MIMIR_PATH_LEAK_NEEDLE:-}"
@@ -159,39 +172,54 @@ if [ -z "$_needle" ]; then
   _me=$(id -un 2>/dev/null || printf '')
   [ -n "$_me" ] && _needle="/home/$_me"
 fi
+_patterns=""
+[ -n "$_needle" ] && _patterns="home-path|${_needle}"
+_patterns="${_patterns}
+feishu-chat-id|oc_[0-9a-f]{32}
+feishu-open-id|ou_[0-9a-f]{32}
+api-key-sk|sk-[A-Za-z0-9]{32,}"
 _leak_hits=0
 _leak_files=""
-if [ -n "$_needle" ] && [ -s "$_tmp" ]; then
+_leak_which=""
+if [ -s "$_tmp" ]; then
   while read -r _lref _lsha _rref _rsha; do
     [ -z "${_lref:-}" ] && continue
     case "$_lsha" in "$ZERO") continue ;; esac
     _base="$_rsha"
-    if [ "$_rsha" = "$ZERO" ]; then
-      # The ref does not exist on the remote: pushing it publishes the WHOLE
-      # tree, so the whole tree is what gets scanned. Diffing against the
-      # merge-base instead would only see what the branch adds on top of its
-      # own fork point -- and when the fork point is stale (measured 2026-09-26:
-      # 813 commits behind), every path cleaned up since stays invisible while
-      # still being published. That is the shape that hid this very branch.
-      _hits=$(git grep -c -- "$_needle" "$_lsha" -- . ':(exclude)scripts/migrations/*' 2>/dev/null \
-                | awk -F: '{s += $NF} END {print s + 0}')
-      case "$_hits" in ''|*[!0-9]*) _hits=0 ;; esac
-      _flist=$(git grep -l -- "$_needle" "$_lsha" -- . ':(exclude)scripts/migrations/*' 2>/dev/null \
-                 | sed 's/^[^:]*://' | head -5 | tr '\n' ' ')
-    else
-      # The ref already exists on the remote, so only the added lines are new.
-      _hits=$(git diff --diff-filter=ACMR --unified=0 "$_base" "$_lsha" \
-                -- . ':(exclude)scripts/migrations/*' 2>/dev/null \
-              | grep -E '^[+]' | grep -vE '^[+][+][+] ' \
-              | grep -c -- "$_needle" | head -1)
-      case "$_hits" in ''|*[!0-9]*) _hits=0 ;; esac
-      _flist=$(git diff --name-only --diff-filter=ACMR "$_base" "$_lsha" \
-                 -- . ':(exclude)scripts/migrations/*' 2>/dev/null | head -5 | tr '\n' ' ')
-    fi
-    if [ "$_hits" -gt 0 ] 2>/dev/null; then
-      _leak_hits=$((_leak_hits + _hits))
-      [ -n "$_flist" ] && _leak_files="$_leak_files $_flist"
-    fi
+    while IFS='|' read -r _pname _pre; do
+      [ -z "${_pname:-}" ] && continue
+      [ -z "${_pre:-}" ] && continue
+      if [ "$_rsha" = "$ZERO" ]; then
+        # The ref does not exist on the remote: pushing it publishes the WHOLE
+        # tree, so the whole tree is what gets scanned. Diffing against the
+        # merge-base instead would only see what the branch adds on top of its
+        # own fork point -- and when the fork point is stale (measured
+        # 2026-09-26: 813 commits behind), everything cleaned up since stays
+        # invisible while still being published. That is the shape that hid
+        # this very branch.
+        _hits=$(git grep -cE -- "$_pre" "$_lsha" -- . ':(exclude)scripts/migrations/*' 2>/dev/null \
+                  | awk -F: '{s += $NF} END {print s + 0}')
+        case "$_hits" in ''|*[!0-9]*) _hits=0 ;; esac
+        _flist=$(git grep -lE -- "$_pre" "$_lsha" -- . ':(exclude)scripts/migrations/*' 2>/dev/null \
+                   | sed 's/^[^:]*://' | head -5 | tr '\n' ' ')
+      else
+        # The ref already exists on the remote, so only the added lines are new.
+        _hits=$(git diff --diff-filter=ACMR --unified=0 "$_base" "$_lsha" \
+                  -- . ':(exclude)scripts/migrations/*' 2>/dev/null \
+                | grep -E '^[+]' | grep -vE '^[+][+][+] ' \
+                | grep -cE -- "$_pre" | head -1)
+        case "$_hits" in ''|*[!0-9]*) _hits=0 ;; esac
+        _flist=$(git diff --name-only --diff-filter=ACMR "$_base" "$_lsha" \
+                   -- . ':(exclude)scripts/migrations/*' 2>/dev/null | head -5 | tr '\n' ' ')
+      fi
+      if [ "$_hits" -gt 0 ] 2>/dev/null; then
+        _leak_hits=$((_leak_hits + _hits))
+        [ -n "$_flist" ] && _leak_files="$_leak_files $_flist"
+        _leak_which="$_leak_which ${_pname}(${_hits})"
+      fi
+    done <<PATTERNS
+$_patterns
+PATTERNS
   done < "$_tmp"
 fi
 rm -f "$_tmp"
@@ -200,11 +228,13 @@ if [ "$_leak_hits" -gt 0 ] 2>/dev/null; then
   if [ "$_block" = "0" ]; then
     _block=1
     _outcome="push-path-leak-blocked"
-    _reason="added lines publish the operator home path (${_leak_hits} hit(s))"
+    _reason="added lines publish protected shapes (${_leak_hits} hit(s):${_leak_which})"
   else
-    _reason="$_reason; plus ${_leak_hits} published-path hit(s)"
+    _reason="$_reason; plus ${_leak_hits} published-secret hit(s)"
   fi
   _leak_note="  files  :$(printf '%s' "$_leak_files" | cut -c1-300)"
+  _leak_note="$_leak_note
+  shapes :$(printf '%s' "$_leak_which" | cut -c1-300)"
 fi
 
 if [ "$_force_intent" = "1" ]; then
@@ -259,8 +289,11 @@ if [ "$_block" = "1" ]; then
   printf '           (docs/AGENT_REPO_OWNERSHIP.md sections 3 and 8, four-party ruling Q4)\n' >&2
   case "$_outcome" in
     push-path-leak-blocked*)
-      printf '  instead: abstract the path (a placeholder or a variable) in the source\n' >&2
-      printf '           and push that; if publishing the path is truly intended, export\n' >&2
+      printf '  instead: replace the value with a placeholder (or read it from the\n' >&2
+      printf '           environment) and push that. Every pattern is a SHAPE --\n' >&2
+      printf '           oc_/ou_ + 32 hex, sk- + 32+ alnum -- never a bare prefix,\n' >&2
+      printf '           because a gate that fails on ordinary work gets switched off.\n' >&2
+      printf '           If publishing the value is truly intended, export\n' >&2
       printf '           MIMIR_ALLOW_PATH_LEAK=1 (traced as an override)\n\n' >&2
       ;;
     *)

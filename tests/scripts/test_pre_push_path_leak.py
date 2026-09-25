@@ -26,6 +26,7 @@ test that spells the leak out would itself be the leak.
 import getpass
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -231,3 +232,143 @@ def test_hook_source_does_not_spell_the_name_out(clone):
     text = HOOK.read_text(encoding="utf-8")
     assert NEEDLE not in text, "the hook hardcodes the very path it exists to catch"
     assert "id -un" in text
+
+
+# ---------------------------------------------------------------------------
+# 2026-09-26 extension: the gate covers Feishu identifiers and key shapes, not
+# only the home path. The audit found a real chat id in public history that no
+# gate could re-check, so the shape -- not the paragraph -- is what gets locked
+# in. Each positive arm below is paired with a clean twin: a gate that cannot
+# tell the two apart is either useless or unlivable, and an unlivable gate ends
+# up switched off.
+#
+# Every value is assembled at run time. A test that spelled a real identifier
+# out would itself be the leak it guards against.
+# ---------------------------------------------------------------------------
+CHAT_ID = "oc_" + ("0123456789abcdef" * 2)      # 32 hex -- the real shape
+OPEN_ID = "ou_" + ("fedcba9876543210" * 2)
+KEY_SHAPE = "sk-" + ("A1b2C3d4" * 4)            # 32 alnum -- at the floor
+
+
+def test_added_feishu_chat_id_is_blocked(clone):
+    """Positive arm: an added line carrying a Feishu chat id must not pass."""
+    _commit_file(clone["work"], "cfg.txt", "home_channel: %s\n" % CHAT_ID, "config id")
+    new, old = _sha(clone["work"], "HEAD"), _sha(clone["work"], "HEAD~1")
+
+    result = _hook(clone, [_ref(clone, "refs/heads/main", new, old)])
+    assert result.returncode != 0, result.stderr
+    assert "BLOCKED" in result.stderr, result.stderr
+    record = _records(clone["trace"])[-1]
+    assert record["outcome"] == "push-path-leak-blocked", record
+    assert "feishu-chat-id" in record["detail"], record
+
+
+def test_short_oc_placeholder_still_passes(clone):
+    """Negative twin: an abbreviated placeholder is what the gate asks for."""
+    _commit_file(clone["work"], "cfg.txt", "home_channel: oc_xxxxxxxx\n", "placeholder")
+    new, old = _sha(clone["work"], "HEAD"), _sha(clone["work"], "HEAD~1")
+
+    result = _hook(clone, [_ref(clone, "refs/heads/main", new, old)])
+    assert result.returncode == 0, result.stderr
+    assert _records(clone["trace"])[-1]["outcome"] == "push-fast-forward"
+
+
+def test_added_api_key_shape_is_blocked(clone):
+    """Positive arm: a key-shaped string must not reach a public ref."""
+    _commit_file(clone["work"], "client.py", 'KEY = "%s"\n' % KEY_SHAPE, "inline key")
+    new, old = _sha(clone["work"], "HEAD"), _sha(clone["work"], "HEAD~1")
+
+    result = _hook(clone, [_ref(clone, "refs/heads/main", new, old)])
+    assert result.returncode != 0, result.stderr
+    record = _records(clone["trace"])[-1]
+    assert record["outcome"] == "push-path-leak-blocked", record
+    assert "api-key-sk" in record["detail"], record
+
+
+def test_short_sk_placeholder_still_passes(clone):
+    """Negative twin: docs quote truncated keys all the time; those are fine."""
+    _commit_file(clone["work"], "doc.md", "set `sk-xxxx` in the environment\n", "docs")
+    new, old = _sha(clone["work"], "HEAD"), _sha(clone["work"], "HEAD~1")
+
+    result = _hook(clone, [_ref(clone, "refs/heads/main", new, old)])
+    assert result.returncode == 0, result.stderr
+    assert _records(clone["trace"])[-1]["outcome"] == "push-fast-forward"
+
+
+def test_existing_remote_ref_scans_the_added_lines(clone):
+    """The everyday path: the ref already exists, so only new lines are judged.
+
+    A gate that only worked for brand-new branches would leave every ordinary
+    commit unscanned -- which is where a leak actually arrives.
+    """
+    _commit_file(clone["work"], "ok.txt", "fine\n", "clean")
+    pushed = _run(["git", "push", "-q", "origin", "main"], clone["work"], env=_env(clone["trace"]))
+    assert pushed.returncode == 0, pushed.stderr
+    base = _sha(clone["work"], "HEAD")
+
+    _commit_file(clone["work"], "cfg.txt", "home_channel: %s\n" % CHAT_ID, "adds an id")
+    tip = _sha(clone["work"], "HEAD")
+
+    result = _hook(clone, [_ref(clone, "refs/heads/main", tip, base)])
+    assert result.returncode != 0, result.stderr
+    record = _records(clone["trace"])[-1]
+    assert record["outcome"] == "push-path-leak-blocked", record
+    assert "feishu-chat-id" in record["detail"], record
+
+
+def test_new_branch_tree_scan_covers_identifiers(clone):
+    """Whole-tree path: an id carried in by an earlier commit still gets caught."""
+    _git(clone["work"], "checkout", "-q", "-b", "carrier")
+    _commit_file(clone["work"], "carried.txt", "id=%s\n" % OPEN_ID, "carry the id")
+    _commit_file(clone["work"], "later.txt", "unrelated\n", "unrelated")
+    tip = _sha(clone["work"], "HEAD")
+
+    result = _hook(clone, [_ref(clone, "refs/heads/carrier", tip, ZERO)])
+    assert result.returncode != 0, result.stderr
+    record = _records(clone["trace"])[-1]
+    assert record["outcome"] == "push-path-leak-blocked", record
+    assert "feishu-open-id" in record["detail"], record
+
+
+def test_clean_first_push_is_not_caught_by_the_new_shapes(clone):
+    """Regression guard for the false-positive risk: shapes, not prefixes.
+
+    Bare "oc_" matches ~200 lines in the real tree and bare "sk-" ~100, so a
+    prefix gate would fire on ordinary work. This arm pins the boundary.
+    """
+    _commit_file(clone["work"], "notes.md",
+                 "the oc_ family and sk- family are both mentioned here\n"
+                 "oc_open_id and sk_prefix appear as bare prefixes\n", "prefixes only")
+    tip = _sha(clone["work"], "HEAD")
+
+    result = _hook(clone, [_ref(clone, "refs/heads/main", tip, ZERO)])
+    assert result.returncode == 0, result.stderr
+    assert _records(clone["trace"])[-1]["outcome"] == "push-fast-forward"
+
+
+def test_hook_source_carries_no_literal_identifier(clone):
+    """The gate must pass its own gate: no real-shaped identifier in its source."""
+    text = HOOK.read_text(encoding="utf-8")
+    for pattern in (r"oc_[0-9a-f]{32}", r"ou_[0-9a-f]{32}", r"sk-[A-Za-z0-9]{20,}"):
+        assert not re.search(pattern, text), "the hook hardcodes a value it exists to catch"
+    assert re.search(r"oc_\[0-9a-f\]\{32\}", text), "the chat-id shape is not actually present"
+
+
+def test_documentation_examples_of_key_shapes_still_pass(clone):
+    """The false-positive class the real repository actually contains.
+
+    The first version of this gate used a 20-character floor and passed all 17
+    fixtures. It then fired on the REAL tree -- twice, on documentation that
+    teaches key detection (a secret-rule example, a `Bearer sk-xxx...xxxx`
+    placeholder). Fixtures only held real-shaped keys, so the fixture suite
+    could not see the class. This arm models what the repo really carries.
+    """
+    _commit_file(clone["work"], "fence.py",
+                 'P = r"sk-[A-Za-z0-9]{32,}"\n'
+                 '"example": "sk-1234567890abcdefghij",\n'
+                 'Authorization: "Bearer sk-xxx...xxxx"\n', "docs about key shapes")
+    new, old = _sha(clone["work"], "HEAD"), _sha(clone["work"], "HEAD~1")
+
+    result = _hook(clone, [_ref(clone, "refs/heads/main", new, old)])
+    assert result.returncode == 0, (result.stderr, "the gate fires on its own documentation")
+    assert _records(clone["trace"])[-1]["outcome"] == "push-fast-forward"
