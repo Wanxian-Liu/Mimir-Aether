@@ -81,3 +81,23 @@ def test_env_first_matches_prod_shape(monkeypatch):
         mod = _load(rel)
         _resolve_with(monkeypatch, "/home/tester", {"MIMIR_HOME": "/tmp/mimir-root"})
         assert str(mod._mimir_home()) == "/tmp/mimir-root", rel
+
+
+def test_health_check_script_resolves_home_without_doubling():
+    """Behavioural arm for the bash probe (5th file in this family).
+
+    Before the fix, ``HOME=~/.mimiraether`` made R4 look for
+    ``<root>/.mimiraether/logs/agent.log`` and downgrade to WARN.
+    """
+    import os
+    import subprocess
+
+    root = "/home/tester/.mimiraether"
+    env = dict(os.environ, HOME=root)
+    for k in ("MIMIR_HOME", "MIMIR_AETHER_HOME", "MIMIRAETHER_HOME"):
+        env.pop(k, None)
+    r = subprocess.run(["bash", "scripts/mimir_health_check.sh", "--quick"],
+                       cwd=REPO, capture_output=True, text=True, timeout=300, env=env)
+    out = r.stdout + r.stderr
+    assert ".mimiraether/.mimiraether" not in out, out[-600:]
+    assert "[WARN] R4" not in out, out[-600:]

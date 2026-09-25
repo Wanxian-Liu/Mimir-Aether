@@ -27,7 +27,18 @@ for arg in "$@"; do
 done
 
 # --- 路径解析 ---
-MIMIR_HOME="${MIMIR_AETHER_HOME:-$HOME/.mimiraether}"
+# Resolution order, double-nesting-safe (2026-09-26): $HOME is already the
+# runtime root inside agent sandboxes, so ``$HOME/.mimiraether`` would become
+# <root>/.mimiraether and the probes would silently miss their logs.
+if [ -n "${MIMIR_AETHER_HOME:-}" ]; then
+  MIMIR_HOME="$MIMIR_AETHER_HOME"
+elif [ -n "${MIMIR_HOME:-}" ]; then
+  :  # provided by the caller (RS19 runner exports it)
+elif [ "$(basename "$HOME")" = ".mimiraether" ]; then
+  MIMIR_HOME="$HOME"
+else
+  MIMIR_HOME="$HOME/.mimiraether"
+fi
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 AGENT_LOG="${MIMIR_HOME}/logs/agent.log"
 TRUNCATE_BASELINE=19  # legacy full-log snapshot (2026-05-20); R4 uses since-gateway-start
