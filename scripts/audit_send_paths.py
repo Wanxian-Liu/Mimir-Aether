@@ -21,7 +21,25 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import sys
 from pathlib import Path
+
+
+def _mimir_home() -> Path:
+    """单一真源：仓库根 ``mimir_constants.get_mimir_home()``（env 优先，回退约定路径）。
+
+    历史：此处曾硬编码 ``/home/<user>/.mimiraether``（会把 OS 用户名写进公开仓）。
+    改为调用真源后**行为等价**（本机 ``MIMIR_AETHER_HOME`` 已设 ⇒ 解析同一路径）。
+    """
+    try:
+        _root = Path(__file__).resolve().parents[1]
+        if str(_root) not in sys.path:
+            sys.path.insert(0, str(_root))
+        from mimir_constants import get_mimir_home  # type: ignore
+
+        return get_mimir_home()
+    except Exception:
+        return Path.home() / ".mimiraether"
 
 # C 组 C4（2026-09-16）修正：原标记要求**前导分隔符**（"/.openclaw/data/" / "~/.openclaw/data/"），
 # 于是把「路径组件式」写法（`Path.home() / ".openclaw/data/buzz-inbox-hermes.jsonl"`）误判为违规
@@ -163,7 +181,7 @@ def scan(scripts_dir: Path) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="发件路径漂移自检（U4/D7）")
-    ap.add_argument("--dir", default="/home/rayliu/.mimiraether/scripts")
+    ap.add_argument("--dir", default=str(_mimir_home() / "scripts"))
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
 

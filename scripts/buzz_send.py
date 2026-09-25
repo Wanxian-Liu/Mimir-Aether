@@ -41,7 +41,31 @@ except ImportError:
     _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
     from report_template import raise_safe
 
-CANONICAL_DIR = Path(os.environ.get("BUZZ_INBOX_DIR", "/home/rayliu/.openclaw/data"))
+def _os_home() -> Path:
+    """OS 家目录。
+
+    本机存在**双语义**：terminal/沙箱里 ``HOME`` 就是 mimir home
+    （``/home/<user>/.mimiraether``），而 gateway 进程里 ``HOME`` 是 ``/home/<user>``。
+    故先用单一真源 ``get_mimir_home()``，若其名恰为 ``.mimiraether`` 则上溯一层。
+    """
+    try:
+        _root = Path(__file__).resolve().parents[1]
+        if str(_root) not in sys.path:
+            sys.path.insert(0, str(_root))
+        from mimir_constants import get_mimir_home  # type: ignore
+
+        h = get_mimir_home()
+    except Exception:
+        h = Path.home() / ".mimiraether"
+    return h.parent if h.name == ".mimiraether" else Path.home()
+
+
+def _default_canonical_dir() -> Path:
+    """canonical 收件箱目录默认值（env ``BUZZ_INBOX_DIR`` 优先覆盖整路径）。"""
+    return _os_home() / ".openclaw" / "data"
+
+
+CANONICAL_DIR = Path(os.environ.get("BUZZ_INBOX_DIR", str(_default_canonical_dir())))
 DEFAULT_SENDER = os.environ.get("BUZZ_SENDER", "mimir")
 KIND_ENUM = {1: "任务令", 2: "回执", 3: "审计票", 4: "待授权", 5: "状态查", 9: "到达信号"}
 # 历史漂移键：出现即视为违规（U2 信封契约）

@@ -20,7 +20,10 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 SCRIPTS = REPO / "scripts"
 SCRIPT = SCRIPTS / "signal-deliver.py"
-REAL_BOX = Path("/home/rayliu/.openclaw/data/buzz-inbox-hermes.jsonl")
+sys.path.insert(0, str(SCRIPTS))
+import buzz_send  # noqa: E402  （单一真源：canonical 目录由发件端单点决定）
+
+REAL_BOX = buzz_send.CANONICAL_DIR / "buzz-inbox-hermes.jsonl"
 
 ORIG_KEYS = ("ts", "id", "from", "to", "type", "content", "task", "summary", "discussion", "commit")
 

@@ -43,7 +43,24 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-ND = Path("/home/rayliu/.mimiraether/notes")
+def _mimir_home() -> Path:
+    """单一真源：仓库根 ``mimir_constants.get_mimir_home()``（env 优先，回退约定路径）。
+
+    历史：此处曾硬编码 ``/home/<user>/.mimiraether``（会把 OS 用户名写进公开仓）。
+    改为调用真源后**行为等价**（本机 ``MIMIR_AETHER_HOME`` 已设 ⇒ 解析同一路径）。
+    """
+    try:
+        _root = Path(__file__).resolve().parents[1]
+        if str(_root) not in sys.path:
+            sys.path.insert(0, str(_root))
+        from mimir_constants import get_mimir_home  # type: ignore
+
+        return get_mimir_home()
+    except Exception:
+        return Path.home() / ".mimiraether"
+
+
+ND = _mimir_home() / "notes"
 IDX_NAME = "INDEX.md"
 LIFECYCLE = ("## 活", "## 冻", "## 归档")
 
