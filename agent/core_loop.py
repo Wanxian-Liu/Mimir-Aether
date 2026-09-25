@@ -1082,6 +1082,15 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
                 )
                 logger.error("[%s] [EXIT] max_turns：轮次耗尽明示，不重发旧回复（turns_used=%s）",
                              task_id[:8], getattr(_result, "turns_used", "?"))
+            elif _exit_reason == "verify_exhausted":
+                # T4（2026-09-26 · 卡 §BR-1/BR-2 收口）：verify-before-report 闸 3/3 耗尽 + 零落盘。
+                # 与 max_turns 同构：原样 reason 供 Q6 投递对账按串归因；**不得**谎称「没调到模型」
+                # （模型调到了，是回复未通过验证）——否则诊断被引向 provider 侧（假故障）。
+                _final_content = (
+                    "[故障明示] verify-before-report 闸 3/3 耗尽（reason=verify_exhausted）——"
+                    "回复未通过验证且本会话零落盘（has_written=False），本条不判定为正常产出，不重发旧回复"
+                )
+                logger.error("[%s] [EXIT] verify_exhausted：闸 3/3 耗尽明示，不重发旧回复", task_id[:8])
             else:
                 # fail-closed：api_failure/empty_response/format_error/no_choices 及一切未知 reason ⇒ 明示
                 _final_content = "[故障明示] 我这轮没调到模型（连续错误），请让我重启或查看日志——故障已记录，不会伪装成正常回复"

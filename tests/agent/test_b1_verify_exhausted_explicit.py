@@ -48,10 +48,27 @@ def test_arm_b_no_production_caller_of_exemption():
     assert calls == [], f"豁免出口必须零调用，实测 {len(calls)} 处"
 
 
-def test_arm_c_explicit_fault_branch_present():
-    """臂 C（新行为）：verify 3/3 耗尽 + 零落盘 ⇒ 明示故障分支在场。"""
+def test_arm_c_explicit_fault_raised_not_just_rendered():
+    """臂 C（T4 2026-09-26 强化 · 治 BR-4 假绿臂）：明示故障必须由**专用 reason 退出**承载。
+
+    本臂 v1 只查「源码含某串」⇒ 漏掉 BR-1（死变量：文案赋给局部变量后零读取）与
+    BR-2（出口不带故障态：代码继续落穿 ⇒ reason="natural" ⇒ 未验证回复被原样投出）——
+    「源码里有这行字」与「真会明示」是两件事。T4 改为结构性双端断言：
+
+      ① 生产端：以 `verify_exhausted` 退出（不再是自然出口）；
+      ② 消费端：core_loop 有该 reason 的专用分支（文案有真实落点）；
+      ③ **行为级**验收（真 loop 跑出该 reason）在
+         `tests/agent/test_t4_verify_exhausted_wired.py::test_armE_producer_exits_with_verify_exhausted`
+         —— 本臂不再承担行为验证，只钉「两端接线存在」。
+    """
     assert "B1 明示故障（verify 3/3 耗尽 + has_written=False）" in _SRC
-    assert "[故障明示] verify-before-report 闸 3/3 耗尽" in _SRC
+    assert 'raise AgentLoopExit("verify_exhausted"' in _SRC, (
+        "生产端必须以专用 reason 退出（否则落穿 natural ⇒ 交付层投出未验证回复）"
+    )
+    _core = (Path(__file__).resolve().parents[2] / "agent" / "core_loop.py").read_text(encoding="utf-8")
+    assert 'elif _exit_reason == "verify_exhausted":' in _core, (
+        "消费端必须有该 reason 的专用明示分支（文案须有落点，不得只存在于生产者局部变量里）"
+    )
     # 旧豁免日志行必须消失
     assert "research 实质回答豁免（≥50字+实词≥10）——视为产出，自然退出" not in _SRC
 

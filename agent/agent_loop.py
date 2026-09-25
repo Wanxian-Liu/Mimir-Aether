@@ -1131,16 +1131,24 @@ class MimirAgentLoop:
                     # 废弃「research 实质回答豁免…视为产出」出口。旧豁免的信号词表为纯中文（接下来/将要/下一步…），
                     # 英文计划句（"Now Phase 1…"/"Let me read…"）全部穿透 ⇒ run 停在将来时被判「视为产出」自然退出。
                     # 共识判据：verify 3/3 且 has_written=False ⇒ 明示故障，不记「视为产出」（Q3：透传=作弊，明示=诚实）。
-                    if verify_nudges >= MAX_VERIFY_NUDGES:
-                        logger.warning(
-                            "[%s] turn %d: B1 明示故障（verify 3/3 耗尽 + has_written=False）——不装正常退出",
-                            self.task_id[:8], turn + 1,
-                        )
-                        content = (
-                            "[故障明示] verify-before-report 闸 3/3 耗尽，回复未通过验证且本会话零落盘"
-                            "（has_written=False）——本条不判定为正常产出。"
-                        )
-                    elif _enforce and self._production_hard_nudges >= _max_hard:
+                    if _enforce and self._production_hard_nudges >= _max_hard:
+                        # T4（2026-09-26 · BR-3 终局兜底）：硬拦截链已走完（拦不动）**且**
+                        # verify 闸 3/3 耗尽 ⇒ **明示故障，不透传**既有回复。
+                        # 依据 = 2026-09-24 四方共识原话「Q3：透传=作弊，明示=诚实」——
+                        # 原 L3 走 interrupt(interrupted=True)，而 core_loop 的 interrupted 分支
+                        # 取 messages 末条 assistant = 那条**未通过验证**的回复 ⇒ 正是共识要禁的透传。
+                        # 保留 L1/L2/L3 的「先逼补产出」顺序（§16.6 主张）：本分支只在**拦不动**时兜底。
+                        if verify_nudges >= MAX_VERIFY_NUDGES:
+                            logger.warning(
+                                "[%s] turn %d: B1 明示故障（verify 3/3 耗尽 + 硬拦截链已走完）"
+                                "——不透传，不装正常退出",
+                                self.task_id[:8], turn + 1,
+                            )
+                            raise AgentLoopExit("verify_exhausted", {
+                                "messages": messages, "turns_used": turn + 1,
+                                "finished_naturally": False, "reasoning_per_turn": reasoning_per_turn,
+                                "tool_errors": tool_errors,
+                            })
                         # L3 中断：连续 _max_hard 次硬拦截后仍无产出 → INTERRUPTED 透传用户
                         logger.warning(
                             "[%s] turn %d: TD-03 L3 中断（has_written=False，硬拦截 %d/%d）——透传用户",
@@ -1181,6 +1189,25 @@ class MimirAgentLoop:
                         await self._inject_production_nudge(messages)
                         self._production_hard_nudges = 1
                         continue
+                    elif verify_nudges >= MAX_VERIFY_NUDGES:
+                        # T4（2026-09-26 · 卡 §BR-1/BR-2/BR-3 收口）
+                        # 病灶：旧形态此处只给局部变量 `content` 赋值，赋值后**全程零读取**
+                        # （死变量 BR-1）；且不 raise，继续落穿到自然出口（reason="natural"）
+                        # ⇒ core_loop 按「natural 取当前回复」把**未通过验证的回复原样投出**（BR-2）。
+                        # 修法：以专用 reason 退出——故障态经 exit_reason 透传，文案由 core_loop
+                        # 的 verify_exhausted 专用分支产出（与 billing/max_turns 同构；
+                        # task_state 不设，与 api_failure 等既有异常出口一致）。
+                        # 位置（BR-3）：**保留 TD-03 L2/L3 优先**——能逼出补产出时先走硬拦截链；
+                        # 本分支只作**终局兜底**（enforce 关闭 / 硬拦截链不适用），不改变既有顺序。
+                        logger.warning(
+                            "[%s] turn %d: B1 明示故障（verify 3/3 耗尽 + has_written=False）——不装正常退出",
+                            self.task_id[:8], turn + 1,
+                        )
+                        raise AgentLoopExit("verify_exhausted", {
+                            "messages": messages, "turns_used": turn + 1,
+                            "finished_naturally": False, "reasoning_per_turn": reasoning_per_turn,
+                            "tool_errors": tool_errors,
+                        })
                     else:
                         # 门控关闭：保持现状 L1 软提示后自然退出
                         logger.info(

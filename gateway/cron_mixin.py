@@ -43,6 +43,9 @@ _ABNORMAL_EXIT_REASONS = frozenset({
     # 与 agent/core_loop.py 的 _ABNORMAL_EXIT_REASONS 同源。那份是方法内局部量
     # （不可 import）⇒ 此处复制。两处漂移风险已登记，改其一须同步另一处。
     "api_failure", "empty_response", "format_error", "no_choices", "billing_exhausted",
+    # T4（2026-09-26）：verify 闸 3/3 耗尽 = 该轮**零落盘 + 未验证**，对 cron 型 job 而言
+    # 就是「检查没跑成」——必须记 error，否则重演 P0-A 的假绿（跑失败却记 ok）。
+    "verify_exhausted",
 })
 
 
