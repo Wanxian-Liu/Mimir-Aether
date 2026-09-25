@@ -44,8 +44,8 @@ def _resolve_with(monkeypatch, home: str, extra: dict | None = None):
 
 
 @pytest.mark.parametrize("home,expected", [
-    ("/home/rayliu/.mimiraether", "/home/rayliu/.mimiraether"),
-    ("/home/rayliu", "/home/rayliu/.mimiraether"),
+    ("/home/tester/.mimiraether", "/home/tester/.mimiraether"),
+    ("/home/tester", "/home/tester/.mimiraether"),
 ])
 def test_runner_home_default_never_doubles(monkeypatch, home, expected):
     mod = _load("scripts/run_mech_checks.py")
@@ -57,7 +57,7 @@ def test_runner_home_default_never_doubles(monkeypatch, home, expected):
 
 def test_runner_home_default_env_wins(monkeypatch):
     mod = _load("scripts/run_mech_checks.py")
-    _resolve_with(monkeypatch, "/home/rayliu/.mimiraether",
+    _resolve_with(monkeypatch, "/home/tester/.mimiraether",
                   {"MIMIR_AETHER_HOME": "/tmp/other-root"})
     assert str(mod._resolve_home_default()) == "/tmp/other-root"
 
@@ -66,18 +66,18 @@ def test_runner_home_default_env_wins(monkeypatch):
     "scripts/check_fts_idempotency.py",
     "scripts/check_persistent_invariants.py",
 ])
-@pytest.mark.parametrize("home", ["/home/rayliu/.mimiraether", "/home/rayliu"])
+@pytest.mark.parametrize("home", ["/home/tester/.mimiraether", "/home/tester"])
 def test_checker_home_helper_never_doubles(monkeypatch, rel, home):
     mod = _load(rel)
     _resolve_with(monkeypatch, home)
     got = mod._mimir_home()
     assert ".mimiraether/.mimiraether" not in str(got), got
-    assert str(got) == "/home/rayliu/.mimiraether"
+    assert str(got) == "/home/tester/.mimiraether"
 
 
 def test_env_first_matches_prod_shape(monkeypatch):
     """MIMIR_HOME (what the runner exports to children) must be honoured."""
     for rel in ("scripts/check_fts_idempotency.py", "scripts/check_persistent_invariants.py"):
         mod = _load(rel)
-        _resolve_with(monkeypatch, "/home/rayliu", {"MIMIR_HOME": "/tmp/mimir-root"})
+        _resolve_with(monkeypatch, "/home/tester", {"MIMIR_HOME": "/tmp/mimir-root"})
         assert str(mod._mimir_home()) == "/tmp/mimir-root", rel
