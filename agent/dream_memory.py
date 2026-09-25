@@ -70,7 +70,22 @@ def _load_persistent(path: str) -> Optional[Dict]:
 
 
 def _save_persistent(path: str, data: Dict) -> bool:
-    """写回 persistent.json（同步写入，不依赖 memory_write_facade 的合并逻辑）。"""
+    """写回 persistent.json（同步写入，不依赖 memory_write_facade 的合并逻辑）。
+
+    RS20（2026-09-26）：本函数是 persistent.json 的**第二条写入路径** ——
+    它不经过 ``persistent_store._save_unlocked``，因此必须**独立**做写盘前规范化，
+    否则「消除废弃字段」在蒸馏这条路上不成立（我此前称 _save_unlocked 为
+    「唯一咽喉」是错的：那是只扫了一层的结论）。
+    fail-open 策略与 persistent_store 一致：规范化失败记 ERROR 后继续写 ——
+    拒绝写盘会丢记忆（更坏）；「失效」由外部哨兵
+    ``scripts/check_persistent_invariants.py``（机械检查每 6h）独立发现。
+    """
+    try:
+        from agent.persistent_normalize import normalize_and_log
+
+        normalize_and_log(data, source="dream-memory")
+    except Exception as e:  # noqa: BLE001 — 见上：不允许因规范化失败丢记忆
+        logger.error("[DreamMemory] PERSISTENT-NORMALIZE 失败（本次写盘未净化）: %s", e)
     try:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)

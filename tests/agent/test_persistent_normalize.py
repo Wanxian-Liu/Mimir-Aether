@@ -222,6 +222,27 @@ def test_c1_save_path_actually_invokes_normalization():
     assert "normalize_and_log" in save_fn, "_save_unlocked 没有调用规范化 —— 治本未接线"
 
 
+def test_c1b_all_known_writers_are_covered():
+    """**审计面先行**：persistent.json 有两条写入路径，两条都必须接线。
+
+    取证（grep 全仓 open(...,"w")/json.dump 写 persistent 的落点）：
+      - agent/persistent_store.py :: _save_unlocked（save / save_merged / read_modify_write 汇此）
+      - agent/dream_memory.py     :: _save_persistent（蒸馏专用，**绕过** facade）
+
+    我第一版只接了前者，并称其为「唯一咽喉」—— 那是只扫一层的结论，已更正。
+    本用例把「两条都接」变成可断言事实，防止将来新增第三条时无人发现。
+    """
+    for rel, fn_name in (
+        ("agent/persistent_store.py", "_save_unlocked"),
+        ("agent/dream_memory.py", "_save_persistent"),
+    ):
+        src = (REPO / rel).read_text(encoding="utf-8")
+        body = src.split(f"def {fn_name}", 1)
+        assert len(body) == 2, f"{rel} 找不到 {fn_name}"
+        assert "normalize_and_log" in body[1], f"{rel}::{fn_name} 未接线（绕过写盘规范化）"
+
+
+
 def test_c2_sentinel_script_agrees_with_normalize(tmp_path):
     """哨兵脚本（机械检查用）与 normalize 必须同源：normalize 后的对象必须无违规。"""
     scripts = REPO / "scripts" / "check_persistent_invariants.py"
