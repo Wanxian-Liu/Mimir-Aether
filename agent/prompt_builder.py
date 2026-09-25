@@ -1338,6 +1338,73 @@ def _build_auto_load_skills_prompt(skills_dirs: list = None) -> str:
     return ""
 
 
+def _build_memory_block() -> str:
+    """记忆注入层：MemoryStore 冻结快照（MEMORY.md + USER.md）。
+
+    历史缺口（2026-09-26 修复）：``tools/memory_tool.py::MemoryStore.format_for_system_prompt``
+    早已实现，但**全仓零调用者** ⇒ 手写记忆（138 条 / 37,006 字符）从未进入系统提示，
+    实际到场的只有 2,000 字符的 cross-session 切片（实测 ≈430 tokens）。
+    对照 Hermes：上限 8,000/4,000 字符、注入 ≈1,430 tokens、注入块会话内冻结。
+
+    语义（与 MemoryStore 一致）：返回 **load 时快照**，会话内不变 —— 保护前缀缓存；
+    写入工具的中途改动从下一个 run 起生效。
+    回退开关：``MIMIR_MEMORY_IN_PROMPT=0``。
+    """
+    if os.environ.get("MIMIR_MEMORY_IN_PROMPT", "1").strip().lower() in ("0", "false", "no", "off"):
+        return ""
+    try:
+        from tools.memory_tool import get_memory_store
+
+        store = get_memory_store()
+    except Exception as e:  # 注入层失败不得拖垮提示组装
+        logger.debug("memory block skipped (store): %s", e)
+        return ""
+    blocks = []
+    for _target in ("memory", "user"):
+        try:
+            _b = store.format_for_system_prompt(_target)
+        except Exception as e:
+            logger.debug("memory block skipped (%s): %s", _target, e)
+            _b = None
+        if _b:
+            blocks.append(_b)
+    return "\n\n".join(blocks)
+
+
+def memory_injection_stats() -> dict:
+    """量「真实注入」的记忆块（供 context_baseline 与回归断言使用）。
+
+    返回 memory_chars / user_chars / total_chars / total_tokens /
+    memory_limit / user_limit / over_limit。
+    """
+    out = {
+        "memory_chars": 0, "user_chars": 0, "total_chars": 0, "total_tokens": 0,
+        "memory_limit": 0, "user_limit": 0, "over_limit": False,
+    }
+    try:
+        from tools.memory_tool import get_memory_store
+
+        store = get_memory_store()
+    except Exception:
+        return out
+    for _target in ("memory", "user"):
+        try:
+            _b = store.format_for_system_prompt(_target) or ""
+        except Exception:
+            _b = ""
+        out[f"{_target}_chars"] = len(_b)
+        try:
+            out[f"{_target}_limit"] = int(getattr(store, f"{_target}_char_limit"))
+        except Exception:
+            pass
+    out["total_chars"] = out["memory_chars"] + out["user_chars"]
+    out["total_tokens"] = out["total_chars"] // 4
+    for _t in ("memory", "user"):
+        if out[f"{_t}_limit"] and out[f"{_t}_chars"] > out[f"{_t}_limit"]:
+            out["over_limit"] = True
+    return out
+
+
 def build_system_prompt(
     model: str,
     cwd: Optional[str] = None,
@@ -1443,6 +1510,11 @@ def build_system_prompt(
     auto_prompt = _build_auto_load_skills_prompt(skills_dirs=skills_dirs)
     if auto_prompt:
         sections.append(auto_prompt)
+
+    # 记忆注入层（2026-09-26 接线）—— 置于最尾，最小化对既有排序的扰动
+    memory_block = _build_memory_block()
+    if memory_block:
+        sections.append(memory_block)
     
     return "\n\n".join(sections)
 
@@ -1545,6 +1617,11 @@ def build_system_prompt_parts(
     retrieved_ctx = build_retrieved_sessions_context()
     if retrieved_ctx:
         volatile_sections.append(retrieved_ctx)
+
+    # 记忆注入层（2026-09-26 接线）—— 置于 volatile 最尾
+    memory_block = _build_memory_block()
+    if memory_block:
+        volatile_sections.append(memory_block)
     
     return {
         "stable": "\n\n".join(s for s in stable_sections if s),
