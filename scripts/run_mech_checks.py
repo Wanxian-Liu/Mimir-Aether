@@ -39,7 +39,25 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-HOME_DEFAULT = Path.home() / ".mimiraether"
+def _resolve_home_default() -> Path:
+    """Resolve the runtime data root without the ``$HOME`` double-nesting trap.
+
+    ``$HOME`` may already point at the runtime root (sandboxes set
+    ``HOME=~/.mimiraether``); appending ``.mimiraether`` again yields
+    ``<root>/.mimiraether`` and every default path silently misses
+    (2026-09-26: registry default became non-existent -> FileNotFoundError).
+    """
+    for key in ("MIMIR_AETHER_HOME", "MIMIRAETHER_HOME", "MIMIR_HOME"):
+        v = os.getenv(key, "").strip()
+        if v:
+            return Path(v).expanduser()
+    home = Path.home()
+    if home.name == ".mimiraether":
+        return home
+    return home / ".mimiraether"
+
+
+HOME_DEFAULT = _resolve_home_default()
 REGISTRY_DEFAULT = HOME_DEFAULT / "data" / "ops" / "mech_checks.json"
 STDOUT_TAIL_CHARS = 800
 STATUSES = ("PASS", "FAIL", "ERROR", "SKIPPED")
@@ -187,7 +205,9 @@ def run_checks(args) -> int:
     defaults = registry.get("defaults", {})
     prev = _prev_statuses(_load_json(cfg["last_run"])) if cfg["last_run"].exists() else {}
     env = dict(os.environ)
+    # Both spellings are read across the repo checkers; keep them in sync.
     env.setdefault("MIMIR_HOME", str(HOME_DEFAULT))
+    env.setdefault("MIMIR_AETHER_HOME", str(HOME_DEFAULT))
 
     run_id = f"mech-{int(time.time())}"
     started_at = _now_iso()

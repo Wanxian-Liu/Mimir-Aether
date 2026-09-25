@@ -24,6 +24,7 @@ persistent.json**，断言废弃字段不存在。因此即便将来有人在别
 from __future__ import annotations
 
 import argparse
+import os
 import json
 import sys
 from pathlib import Path
@@ -38,7 +39,22 @@ from agent.persistent_normalize import (  # noqa: E402
     normalize,
 )
 
-DEFAULT_PATH = Path.home() / ".mimiraether" / "data" / "persistent.json"
+def _mimir_home() -> Path:
+    """Runtime data root: env-first, and immune to the ``$HOME`` double-nesting.
+
+    ``$HOME`` is already the runtime root inside agent sandboxes; appending
+    ``.mimiraether`` again yields ``<root>/.mimiraether`` and the default path
+    silently misses (2026-09-26: two mech-checks items reported "unparseable"
+    for exactly this reason).
+    """
+    for key in ("MIMIR_HOME", "MIMIR_AETHER_HOME", "MIMIRAETHER_HOME"):
+        v = os.environ.get(key, "").strip()
+        if v:
+            return Path(v).expanduser()
+    home = Path.home()
+    return home if home.name == ".mimiraether" else home / ".mimiraether"
+
+DEFAULT_PATH = _mimir_home() / "data" / "persistent.json"
 
 
 def find_violations(data: dict) -> list[str]:

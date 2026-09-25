@@ -30,6 +30,13 @@ SKILLS_DIR = REPO_ROOT / "skills"
 PY_IMPORT_RE = re.compile(
     r"(?:from|import)\s+([a-zA-Z_][a-zA-Z0-9_.]*)"
 )
+# Fenced blocks only — see check_skill() section 3.
+_FENCE_RE = re.compile(r"^```[^\n]*\n(.*?)^```", re.M | re.S)
+
+
+def _fenced_code(content: str) -> str:
+    """Return just the fenced code blocks of a document."""
+    return "\n".join(m.group(1) for m in _FENCE_RE.finditer(content))
 INLINE_PATH_RE = re.compile(
     r"`(~?(?:\.openclaw|\.mimiraether|\.hermes)/[^`]*\.(?:py|md|json|yaml|sh|yaml)[^`]*)`"
 )
@@ -154,8 +161,14 @@ def check_skill(skill_md: Path, skill_index: Dict[str, Path]) -> List[str]:
 
     # ------------------------------------------------------------------
     # 3. Python imports in code blocks
+    #
+    #    2026-09-26 scope fix: this section always claimed "in code blocks",
+    #    but ran finditer(content) over the whole document, so prose examples
+    #    counted as dead imports (a probe illustration containing
+    #    (`from mimicore` -> 22) was reported every run). Restored to the
+    #    scope the comment declares.
     # ------------------------------------------------------------------
-    for m in PY_IMPORT_RE.finditer(content):
+    for m in PY_IMPORT_RE.finditer(_fenced_code(content)):
         imp = m.group(1)
         if imp.startswith("mimicore"):
             ok, err = check_mimicore_import(imp)

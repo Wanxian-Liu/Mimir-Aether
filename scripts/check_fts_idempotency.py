@@ -12,6 +12,7 @@ RS19 统一检查清单的候选检查项之一（形态：只读 + 一行 VERDI
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -21,7 +22,22 @@ if str(ROOT) not in sys.path:
 
 from tools.fts5_search.integrity import check_fts_integrity, format_report
 
-DEFAULT_DB = Path.home() / ".mimiraether" / "data" / "fts5_search.db"
+def _mimir_home() -> Path:
+    """Runtime data root: env-first, and immune to the ``$HOME`` double-nesting.
+
+    ``$HOME`` is already the runtime root inside agent sandboxes; appending
+    ``.mimiraether`` again yields ``<root>/.mimiraether`` and the default path
+    silently misses (2026-09-26: two mech-checks items reported "unparseable"
+    for exactly this reason).
+    """
+    for key in ("MIMIR_HOME", "MIMIR_AETHER_HOME", "MIMIRAETHER_HOME"):
+        v = os.environ.get(key, "").strip()
+        if v:
+            return Path(v).expanduser()
+    home = Path.home()
+    return home if home.name == ".mimiraether" else home / ".mimiraether"
+
+DEFAULT_DB = _mimir_home() / "data" / "fts5_search.db"
 
 
 def main() -> int:
