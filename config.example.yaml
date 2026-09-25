@@ -1,4 +1,4 @@
-FEISHU_HOME_CHANNEL: oc_8af3ea46411e607b3a2e7f2ceed694e8
+FEISHU_HOME_CHANNEL: oc_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 context:
   max_recent_messages: 200
 model:

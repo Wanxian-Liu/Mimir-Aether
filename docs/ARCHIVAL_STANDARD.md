@@ -29,7 +29,7 @@
 **答：不能。** 而且比「不能」更糟 —— 指针会**静默蒸发**。以下为**受控实验**（真跑，可复算）：
 
 ```
-$ HOME=/home/rayliu .venv/bin/python3 ~/.mimiraether/scripts/b7_index_check.py
+$ HOME=/home/<user> .venv/bin/python3 ~/.mimiraether/scripts/b7_index_check.py
 基线              : coverage : disk=140 listed=140 unlisted=0        VERDICT: PASS
 ① 建 notes/archive-probe-tmp/ 并放入 note.md
    → coverage : disk=140 listed=140 unlisted=0   ← disk **完全没变**（子目录不可见）
@@ -54,7 +54,7 @@ $ HOME=/home/rayliu .venv/bin/python3 ~/.mimiraether/scripts/b7_index_check.py
 
 - 脚本（可复跑）：`~/.mimiraether/tmp/q9_poc/a4_rerun_20260917.py`
 - 原文 log：`~/.mimiraether/tmp/q9_poc/a4_archive_probe_rerun_20260917.log`（5577B）
-- 调用：`HOME=/home/rayliu <repo>/.venv/bin/python3 ~/.mimiraether/scripts/b7_index_check.py`
+- 调用：`HOME=/home/<user> <repo>/.venv/bin/python3 ~/.mimiraether/scripts/b7_index_check.py`
 - 检查器 sha8 `25c941dc` · INDEX `sha256(pre)` `d1c92772…` · 备份 `~/.mimiraether/backups/20260917-a4-rerun/INDEX.md.pre`
 
 | 臂 | 动作 | coverage 原文 | 判定 |

@@ -11,11 +11,11 @@ auto_load: false
 
 ## 1. 跑监控（一条命令，勿包装）
 ```
-cd /home/rayliu/.mimiraether/scripts/p0 && /home/rayliu/src/MimirAether/.venv/bin/python3 p0_index_monitor.py; echo "EXIT=$?"
+cd $MIMIR_AETHER_HOME/scripts/p0 && /home/<user>/src/MimirAether/.venv/bin/python3 p0_index_monitor.py; echo "EXIT=$?"
 ```
 - exit 0 = 健康；exit 2 = 有异常项。
 - **不要** `tee` 第二份副本：脚本自身已写 canonical 产物
-  `/home/rayliu/.mimiraether/data/p0_index_health.json`（约 376 B）。多一份 = 同数据两副本（曾犯）。
+  `$MIMIR_AETHER_HOME/data/p0_index_health.json`（约 376 B）。多一份 = 同数据两副本（曾犯）。
 
 ## 2. 复算四项 checks（读盘 json.load，不凭输出截图）
 | 项 | 判据 |
@@ -26,6 +26,12 @@ cd /home/rayliu/.mimiraether/scripts/p0 && /home/rayliu/src/MimirAether/.venv/bi
 | 增量 | `incremental_enabled is True` |
 
 退化特征（区别于安静期）：**chroma_docs 掉而 source_indexable 不降**；两者同降或同平 = 正常。
+
+## 2.5 追加运行留痕（每次必做，1 行）
+读 `data/p0_index_health.json` 复算后，把同一组指标**追加**一行到
+`$MIMIR_AETHER_HOME/data/p0_index_health_history.jsonl`（append，勿覆盖；字段：checked_at/ok/source_indexable/chroma_docs/drift_abs/drift_pct/source_garbage/garbage_in_index/backfill_phase/incremental_enabled/exit_code）。
+用途：漂移趋势可直接机读（趋势比单点更能区分「退化」与「增量正常消化」），替代手抄 §5。
+注意：`python3 -c` 被路径白名单拦截（dangerous command pattern）——用 execute_code / write_file 落盘，不要用 shell heredoc。
 
 ## 3. 汇报格式（硬要求：逐字复现任务书清单）
 `agent/task_completion.py` 的提醒门是**逐字子串**匹配（L46 取 `- [ ]` 原文；L50-56 只看最近 3 条 assistant 消息；L56 `it not in joined`）——
@@ -45,6 +51,8 @@ cd /home/rayliu/.mimiraether/scripts/p0 && /home/rayliu/src/MimirAether/.venv/bi
 - 09-24 02:48 → 20872 / 20874
 - 09-24 08:49 → 20872 / 20874
 - 09-24 14:49 → 20880 / 20882（+8 增量消化，漂移仍 +2）
+- 09-26 00:06 → 20894 / 20896（两侧同增 14，漂移仍 +2；source_garbage 205 不变）
+**判读规则**：source_indexable 与 chroma_docs **同增同平** = 增量正常消化，非退化；仅当 chroma_docs 掉而 source 不降才算退化。
 
 ## 6. 出问题时
 走 `mimiraether-root-cause-debugging` 四阶段：先读 `scripts/p0/p0_index_monitor.py`（4646 B，08-11 定版）+ 复现，

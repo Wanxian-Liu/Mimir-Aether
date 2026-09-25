@@ -4,7 +4,7 @@
 
 `scripts/run_evolution_eval.sh` L73/L84 用裸 `python3`（= `/usr/bin/python3`，无
 torch/sentence-transformers）。`resolve_embedding_function()` 配置了
-`MIMIR_EMBED_MODEL=/home/rayliu/models/bge-m3` 但加载失败时，旧代码**静默降级
+`MIMIR_EMBED_MODEL=/home/<user>/models/bge-m3` 但加载失败时，旧代码**静默降级
 hash(384维)**，而 collection 是 bge-m3（1024维）建的 → 维度不匹配 → 查询空结果 →
 `semantic_hit_rate` 假 0.0（假退化）。
 

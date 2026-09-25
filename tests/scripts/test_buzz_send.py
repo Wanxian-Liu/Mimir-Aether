@@ -26,11 +26,11 @@ sys.path.insert(0, str(REPO / "scripts"))
 import buzz_send as bs  # noqa: E402
 
 # 字面转义序列（\uXXXX / \/）——真中文路径不可能含它们
-BAD_CARD = "/home/rayliu/wiki/discussions/2026-09-16-" + "\\u56db" + "\\u65b9" + ".md"
-BAD_CARD_SLASH = "/home/rayliu/wiki/discussions/a" + "\\/" + "b.md"
+BAD_CARD = "/home/<user>/wiki/discussions/2026-09-16-" + "\\u56db" + "\\u65b9" + ".md"
+BAD_CARD_SLASH = "/home/<user>/wiki/discussions/a" + "\\/" + "b.md"
 
 
-REAL_CANONICAL = Path("/home/rayliu/.openclaw/data")
+REAL_CANONICAL = bs.CANONICAL_DIR  # 单一真源（原为硬编码字面量，改为跟随脚本常量）
 
 
 @pytest.fixture(autouse=True)

@@ -36,7 +36,7 @@ Mimir 有**两道**不同用途的闸，**被拦的含义完全不同** —— �
 
 **调 CLI 的路径坑（必记）**：`execute_code` 里的 `HOME` 可能已被解析成 `~/.mimiraether`，
 导致台账写进**假双根** `~/.mimiraether/.mimiraether/data/ops/…`（自报 `records=0`）。
-**必须显式** `HOME=/home/rayliu`，并**读回真台账**核对，不能只看 CLI 的 stdout。
+**必须显式** `HOME=/home/<user>`，并**读回真台账**核对，不能只看 CLI 的 stdout。
 
 ## 为什么必须机制化（不要靠记性）
 
@@ -219,8 +219,8 @@ cd ~/src/MimirAether && ./.venv/bin/python -m agent.probe_attest ...
 
 **症状**：CLI 自证返回 `VERIFIED`，但生产台账 `~/.mimiraether/data/ops/probe_attest.jsonl` 末条仍是几十分钟前的 ⇒ **四方审计时看不到你的自证**（我本轮 13 条全落错）。
 
-**根因**：脚本用 `Path(get_mimir_home())/"data"/"ops"/...`；在 `execute_code` 里 `HOME=/home/rayliu/.mimiraether`，脚本再展开一次 `~/.mimiraether` ⇒ 落到 **双根假路径** `~/.mimiraether/.mimiraether/data/ops/probe_attest.jsonl`。
-（同族：`expanduser("~/.mimiraether")` 在 `execute_code` 里必然拼双根；`terminal` 里 `~`=`/home/rayliu`。**同一轮里 `~` 有两种含义**。）
+**根因**：脚本用 `Path(get_mimir_home())/"data"/"ops"/...`；在 `execute_code` 里 `HOME=$MIMIR_AETHER_HOME`，脚本再展开一次 `~/.mimiraether` ⇒ 落到 **双根假路径** `~/.mimiraether/.mimiraether/data/ops/probe_attest.jsonl`。
+（同族：`expanduser("~/.mimiraether")` 在 `execute_code` 里必然拼双根；`terminal` 里 `~`=`/home/<user>`。**同一轮里 `~` 有两种含义**。）
 
 **判据（下结论前必查）**：
 1. `tail -1` 生产台账的 `ts` 是不是**刚才这次**；
@@ -233,7 +233,7 @@ cd ~/src/MimirAether && ./.venv/bin/python -m agent.probe_attest ...
 
 实测（本轮投递前的自证）：
 ```
---target /home/rayliu/src/MimirAether      ← 整仓 rglob，撞 20s 超时
+--target /home/<user>/src/MimirAether      ← 整仓 rglob，撞 20s 超时
   "target": {"stdout": "", "rc": -9, "observed": "none"}
   "verdict": "VERIFIED"                     ← ⚠️ 空输出 = 「确认不存在」
 ```
@@ -553,7 +553,7 @@ test -n "$t" && test "$(git -C <repo> log -1 --format=%ct <sha>)" -lt "$(date -d
 ### 坑 13 · 探针介质 = agent 自己的轨迹 ⇒ 负控假 `seen`（「自匹配」的社会层变体）
 
 **场景**：要证明「本日只有本 run 在处理某条唤醒行」——探针
-`grep -rl -- '{INPUT}' /home/rayliu/.mimiraether/data/trajectories/2026-09-23 | wc -l`
+`grep -rl -- '{INPUT}' $MIMIR_AETHER_HOME/data/trajectories/2026-09-23 | wc -l`
 （positive=`chroma`、negative=`ZZQ_IMPOSSIBLE_TASKNAME_9137`、target=唤醒文案）。
 
 **读数**：positive=seen ✅ · **negative=seen ❌** ⇒ `UNVERIFIED / negative_control_failed` ⇒ 整条作废。
@@ -660,7 +660,7 @@ for f in logs/*.log*; do echo "$f  $(head -1 "$f" | cut -c1-19) .. $(tail -1 "$f
 ### 坑 17 · 探针写死单个日志文件 ⇒ 轮转后正控假 `none`（整条作废）
 
 **场景**：验「某 task 的 guard nudge 行数 = 0」（B1 验收的覆盖度判据）。器械内写死
-`LOG = "/home/rayliu/.mimiraether/logs/agent.log"`。
+`LOG = "$MIMIR_AETHER_HOME/logs/agent.log"`。
 
 **症状**：`verdict=UNVERIFIED / reason=positive_control_failed`，
 正控（**已知 3 行**的 task id）observed=**none**，负控「恰好」合格 —— **看起来像通过了**（与第八批同型的"安静失败"）。

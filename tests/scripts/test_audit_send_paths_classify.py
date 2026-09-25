@@ -27,7 +27,7 @@ import audit_send_paths as asp  # noqa: E402
         # 组件式（本次修复的假阳性）
         (".openclaw/data/buzz-inbox-hermes.jsonl", "canonical"),
         # 绝对 / 家目录式（原本就正确）
-        ("/home/rayliu/.openclaw/data/buzz-inbox-hermes.jsonl", "canonical"),
+        ("/home/<user>/.openclaw/data/buzz-inbox-hermes.jsonl", "canonical"),
         ("~/.openclaw/data/buzz-inbox-hermes.jsonl", "canonical"),
         # 负控：死路径与漂移必须继续被判违规
         ("~/.buzz-nostr/state/buzz-inbox-hermes.jsonl", "violation"),

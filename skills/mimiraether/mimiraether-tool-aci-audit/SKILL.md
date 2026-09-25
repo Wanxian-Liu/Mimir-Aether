@@ -38,7 +38,7 @@ auto_load: false
 - **长报告分块写**：`write_file`/`patch` 载荷过大或超过 ~2KB 易 "Invalid JSON: Unterminated string" → 用末尾句作锚点分块 patch 追加。
 - **`skill_manage` 写 repo 侧**（`~/src/MimirAether/skills/...`），home 侧 `~/.mimiraether/skills/...` 需另行同步；**同步前先 `grep -c 关键串` 判侧**，盲 cp 会抹掉自己的改动；改完双侧各 grep 一次（md5 相等只证明"两侧一样"）。
 - **`terminal` 里有整串安全扫描**：命令参数中**出现被禁字面量**（如 `python3 -c`、`eval(`）即整条命令被拒，且报错前缀误写成 "Blocked by path whitelist"。⇒ 审计这类闸时**不要在命令里复述被禁字面量**，用 `search_files`/`read_file` 取证。
-- **execute_code 沙箱 `~` = `/home/rayliu/.mimiraether`**（与 terminal 不同）→ 一概用绝对路径。
+- **execute_code 沙箱 `~` = `$MIMIR_AETHER_HOME`**（与 terminal 不同）→ 一概用绝对路径。
 - **不要写时间戳**：报告用 git/mtime 记录真实时间。
 
 ## 交付形状

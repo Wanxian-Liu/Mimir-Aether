@@ -95,7 +95,7 @@ result = subprocess.run(["tee", "file1.py", "file2.py"], input=content, capture_
 | 日志里出现 `\| sha256=`（管道+空格+`sh`） | `dangerous command pattern '\| sh'` | 打指纹时写 `digest=` / `hash=`，别写 `\| sha256=` |
 | `python3 -c "..."` | `Blocked by path whitelist: dangerous command pattern` | 改用 `execute_code` 内的原生 Python，或写成脚本文件再跑 |
 
-**另一坑（同族）**：`execute_code` 里 `os.path.expanduser("~/wiki/...")` 解析到**沙盒 HOME**（`~/.mimiraether/wiki`，空壳），**不是** `~/wiki`。⇒ 在 `execute_code` 里一律用**绝对路径** `/home/rayliu/wiki/...`（shell `terminal` 的 `~` 则正常 = `/home/rayliu`）。
+**另一坑（同族）**：`execute_code` 里 `os.path.expanduser("~/wiki/...")` 解析到**沙盒 HOME**（`~/.mimiraether/wiki`，空壳），**不是** `~/wiki`。⇒ 在 `execute_code` 里一律用**绝对路径** `/home/<user>/wiki/...`（shell `terminal` 的 `~` 则正常 = `/home/<user>`）。
 
 ## 验证清单
 

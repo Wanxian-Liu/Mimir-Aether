@@ -166,7 +166,7 @@ commit 链：filter-branch 重写 → 1f1b9e5 → 4be1203（conftest）→ bbdb0
   = 1222 passed / 5 skipped，**全绿**。失败步骤 = `Run Ralph (Gate1–3)`（不是 submodule、不是 import）。
 - **根因（确定性复现，非猜测）**：新增测试里有一条**无参数直跑脚本**：
   `subprocess.run([PY, str(SCRIPT)])`，而 `SCRIPT` 内部 `ND` 是**本机硬编码路径**
-  `/home/rayliu/.mimiraether/notes`。
+  `$MIMIR_AETHER_HOME/notes`。
   · 本地：该目录存在 ⇒ 输出含被测行 ⇒ **绿**
   · CI runner：该目录不存在 ⇒ `FAIL index not found: <ghost>/INDEX.md`、`rc=2`、**输出里确无该行** ⇒ **红**
   复现命令（无需 CI 日志，本机即可证）：

@@ -155,7 +155,7 @@ class TestHostToolWhitelistJudgement:
     """纯判据层：名单命中判定（不起子进程）。"""
 
     @pytest.mark.parametrize("prog", [
-        "pytest", "/home/rayliu/src/MimirAether/.venv/bin/pytest", "pytest.exe",
+        "pytest", "/home/<user>/src/MimirAether/.venv/bin/pytest", "pytest.exe",
         "/venv/lib/python3.12/site-packages/pytest/__main__.py", "ruff", "uv",
     ])
     def test_known_host_tool_programs(self, prog):

@@ -128,7 +128,7 @@ Hermes 令③要求给在跑的 `build_phase_alpha.py` 加 `OMP_NUM_THREADS≤4`
 
 | 搜索根 | 命中 |
 |---|---|
-| `/home/rayliu`（家根） | **0 个目标文件** |
+| `/home/<user>`（家根） | **0 个目标文件** |
 | `~/.openclaw/workspace/skills/rag-3c-shadow-embed`（显式隐藏根） | 4 / 4 / 2 |
 
 **纪律**：复核隐藏目录内文件必须给**显式根**，或用 `grep -a <pattern> <绝对路径>`（`-a` 防二进制行被跳过）；**禁以「搜索零命中」下「未改」结论**。

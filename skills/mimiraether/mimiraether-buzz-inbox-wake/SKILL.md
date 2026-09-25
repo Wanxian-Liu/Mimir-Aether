@@ -8,7 +8,7 @@ auto_load: false
 
 ## 0. 触发形态
 
-唤醒 prompt：「Buzz收件箱有 N 条新消息(第 A 到 B 行)。请读取 `/home/rayliu/.openclaw/data/buzz-inbox-mimir.jsonl` 的新消息并处理…处理完成后在 `~/.mimiraether/logs/inbox-processed.log` 追加一行：`<时间戳> processed N lines (up to B)`」。
+唤醒 prompt：「Buzz收件箱有 N 条新消息(第 A 到 B 行)。请读取 `/home/<user>/.openclaw/data/buzz-inbox-mimir.jsonl` 的新消息并处理…处理完成后在 `~/.mimiraether/logs/inbox-processed.log` 追加一行：`<时间戳> processed N lines (up to B)`」。
 
 **边界**：收件箱在 OpenClaw 路径下 —— **只读，禁写**（身份边界；产出只落 `~/.mimiraether/` 与 `~/wiki/`）。
 
@@ -111,7 +111,7 @@ auto_load: false
   （`--list N` 可打印台账末尾 N 条自审）。**不要**用 `python3 agent/probe_attest.py` ——
   直接跑脚本会把 **`agent/` 目录塞进 `sys.path[0]`**，于是 `agent/types.py` **遮蔽 stdlib `types`**，
   报 `ImportError: cannot import name 'GenericAlias' from partially initialized module 'types'`，
-  且 traceback 全程指向 `/home/rayliu/.local/share/uv/...python3.12/{json,re,enum}.py` ——
+  且 traceback 全程指向 `/home/<user>/.local/share/uv/...python3.12/{json,re,enum}.py` ——
   **看起来像 Python 坏了**，实为同名文件遮蔽。同坑适用于 `agent/` 下任何脚本（`types`/`json`/`logging` 等同名件）。
   附：`probe_attest` 的观测契约 = stdout 归一（**空/全 `0` = none**，其余 = seen）+ `rc=1` 视为合法观测
   ⇒ 计数类探针写 `grep -rl -- '{INPUT}' <dir> | wc -l`（正控取已知命中的真实串，负控取保证不存在的串，
@@ -124,8 +124,8 @@ auto_load: false
 
 - **去重 grep 命中可能是「兄弟卡的待办指认」，不是实施痕迹**（2026-09-16 实测）：`grep '收件行 121|<msg-id>'` 唯一命中是 `2026-09-16-六项终裁执行记录.md:12`「终裁三件已投其信箱……**她下次醒来接单**」——那是**指认我做**的记录，不是已做。⇒ 命中后**必须读上下文**：出现「下次 / 待 Mimir / 她醒来」这类措辞 = **未处理**，本 run 照常处置。
 - **台账原子追加走复用脚本**：`~/.mimiraether/scripts/append_ledger_line.py <linefile>`（内部 `open(LEDGER,'a')` 单次 write；双判据 = 行数 +1 且末行前 30 字匹配）。比 `printf … >>` 少一次「Dotfile overwrite」人工审批，自治唤醒无人在场时更稳。
-  - ⚠️ **2026-09-16 实测硬坑（该脚本自身曾有 HOME 双嵌套 bug，已修）**：本机 `HOME=/home/rayliu/.mimiraether`（Mimir home **就是** HOME），而旧脚本写 `Path.home()/".mimiraether"/"logs"/…` ⇒ 解析成 `…/.mimiraether/.mimiraether/logs/inbox-processed.log`（**不存在的嵌套路径**），于是它对着**错的文件**报 `VERDICT: PASS`，真台账一行未动。⇒ **凡「追加成功」类判据必须回读真路径复核**：`tail -1 <真台账>` 与脚本 stdout 的路径都看。修后脚本先 `--dry-run` 打印 `LEDGER = …` 再写，且父目录不存在即拒写。
-  - **通用教训（2026-09-16 一日内连踩 4 次的同族坑）**：本机 **`HOME` 就是 mimir home**（`/home/rayliu/.mimiraether`）⇒ 任何用 `$HOME/.mimiraether` 或 `Path.home()/".mimiraether"` **拼 Mimir 路径**的写法都会得到**嵌套假路径**。四次实例：
+  - ⚠️ **2026-09-16 实测硬坑（该脚本自身曾有 HOME 双嵌套 bug，已修）**：本机 `HOME=$MIMIR_AETHER_HOME`（Mimir home **就是** HOME），而旧脚本写 `Path.home()/".mimiraether"/"logs"/…` ⇒ 解析成 `…/.mimiraether/.mimiraether/logs/inbox-processed.log`（**不存在的嵌套路径**），于是它对着**错的文件**报 `VERDICT: PASS`，真台账一行未动。⇒ **凡「追加成功」类判据必须回读真路径复核**：`tail -1 <真台账>` 与脚本 stdout 的路径都看。修后脚本先 `--dry-run` 打印 `LEDGER = …` 再写，且父目录不存在即拒写。
+  - **通用教训（2026-09-16 一日内连踩 4 次的同族坑）**：本机 **`HOME` 就是 mimir home**（`$MIMIR_AETHER_HOME`）⇒ 任何用 `$HOME/.mimiraether` 或 `Path.home()/".mimiraether"` **拼 Mimir 路径**的写法都会得到**嵌套假路径**。四次实例：
     | # | 位置 | 后果（注意：**全都「看起来正常」**） |
     |:-:|:--|:--|
     | 1 | `scripts/append_ledger_line.py` | 对**错文件**报 `VERDICT: PASS`（真台账一行未动） |

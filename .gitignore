@@ -69,3 +69,8 @@ archive/
 docs/archive/llms-full-2026-05-13.txt
 output/
 learnings/
+
+# env 备份/临时副本（可能含凭据，永不入库）
+..env.bak-*
+..env.*.bak
+*..env.bak-*

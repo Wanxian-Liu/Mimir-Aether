@@ -71,7 +71,7 @@ def gate_ttl() -> int:
 def _resolve_ledger_home() -> Path:
     """解析 Mimir home（修 2026-09-16 台账分叉）。
 
-    本机 HOME=/home/rayliu/.mimiraether（mimir home 即 HOME）⇒ 旧式 expanduser("~/.mimiraether")
+    本机 HOME=$MIMIR_AETHER_HOME（mimir home 即 HOME）⇒ 旧式 expanduser("~/.mimiraether")
     得到 …/.mimiraether/.mimiraether（嵌套假路径）⇒ 自证落进嵌套台账而闸门读真台账
     ⇒「写了但看不见」的确定性重试环。
 

@@ -165,7 +165,7 @@
   - 当前目标：MimirAether 完全独立化 · Phase XIII/XIV ✅
   - 近期里程碑：**85 项**
 - 证据：本证据文件的下行记录即为 `/new` 后的新会话上下文快照
-- `context_usage`：session_key = `agent:main:feishu:dm:oc_8af3ea46411e607b3a2e7f2ceed694e8`（同一飞书窗口，新 session）
+- `context_usage`：session_key = `agent:main:feishu:dm:oc_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`（同一飞书窗口，新 session）
 - 判定：**响应含 key_decisions ✅** → pass
 
 ---

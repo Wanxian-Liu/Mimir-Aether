@@ -12,7 +12,7 @@ from agent import cross_session_retrieval as csr
 from tools.approval import reset_current_session_key, set_current_session_key
 
 
-FEISHU_SESSION_KEY = "agent:main:feishu:dm:oc_8af3ea46411e607b3a2e7f2ceed694e8"
+FEISHU_SESSION_KEY = "agent:main:feishu:dm:oc_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 
 @pytest.fixture

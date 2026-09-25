@@ -489,7 +489,7 @@ def _audit_log_path() -> Optional[str]:
 def _normalize_repo_path(raw: str) -> str:
     """``expanduser`` + ``realpath`` so ``repo`` can be a join key (X1 note).
 
-    Same command, two spellings - ``/home/rayliu/wiki`` vs a literal ``~/wiki``
+    Same command, two spellings - ``/home/<user>/wiki`` vs a literal ``~/wiki``
     - made ``repo`` unusable for cross-stream joins (A stream carries trace_id
     but no sha; B stream carries sha but no trace_id; ``repo`` is what ties a
     record to a repository in both).

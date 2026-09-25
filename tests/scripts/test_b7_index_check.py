@@ -178,7 +178,7 @@ def test_missing_notes_dir_fails_loudly(tmp_path):
     """⚠️ 2026-09-17 CI 事故的固化闸（本测试的前身把 CI 打红）。
 
     前身 `test_real_notes_tree_declares_nested_coverage` **无参数直跑脚本**，
-    而脚本内 `ND` 是**本机硬编码路径** `/home/rayliu/.mimiraether/notes`
+    而脚本内 `ND` 是**本机硬编码路径** `$MIMIR_AETHER_HOME/notes`
     ⇒ 本地有该目录（绿）、CI runner 没有（`FAIL index not found` + 无 `nested` 行 ⇒ 红）。
     「本地全绿 / CI 红」的根因是**测试依赖本机绝对路径**，不是产品缺陷。
 
