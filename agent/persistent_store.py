@@ -141,6 +141,23 @@ def _save_unlocked(data: dict, path: Path | None = None) -> None:
             "persistent.json save: auto-filled %s before write", sorted(filled)
         )
 
+    # ── RS20 治本（2026-09-26）：写盘前消除废弃字段 ──────────────────────────
+    # 为什么在这里：_save_unlocked 是 persistent.json 的**唯一咽喉** ——
+    #   save() / save_merged() / read_modify_write() 三条路径全部汇到这里。
+    # 治的是什么事故：CrossSessionMemory.save() 在 run 收尾用**进程内快照**整文件
+    #   重写（内存胜出），而该实例的加载时刻可能早于初始化时刻 ⇒ 旧内存副本
+    #   复活已废弃字段。实测：瘦身在 7 分钟后被静默回滚（03:10:34 → 03:17:19）。
+    # 为什么懒导入：本模块 import 期不得影响写盘路径。
+    # 为什么 fail-open：规范化抛异常时**拒绝写盘**会丢记忆（更坏），故记 ERROR 后
+    #   继续写。这不是静默降级 —— 外部哨兵 scripts/check_persistent_invariants.py
+    #   已挂进机械检查（每 6h 独立读盘断言），会把「规范化失效」变成红灯。
+    try:
+        from agent.persistent_normalize import normalize_and_log
+
+        normalize_and_log(data, source="pre-save")
+    except Exception as e:  # noqa: BLE001 — 见上：不允许因规范化失败丢记忆
+        logger.error("[PERSISTENT-NORMALIZE] 规范化失败（本次写盘未净化）: %s", e)
+
     target = path or get_persistent_path()
     if target.exists():
         try:
