@@ -637,7 +637,12 @@ class MimirAgentLoop:
                         "[%s] turn %d: parallel-read nudge injected (turn>=3, tools=%d)",
                         self.task_id[:8], turn + 1, tool_calls_so_far,
                     )
-                self._parallel_read_nudge_done = True
+                    # P0-4 fix (2026-09-26): set the flag ONLY after a real injection.
+                    # Original code set it unconditionally, and this block is first
+                    # entered at turn=0 where the hook returns None (turn<3) => the
+                    # guard `not done` is False forever after => the hook can never
+                    # fire (production: 0 injections, see hook_observations.jsonl).
+                    self._parallel_read_nudge_done = True
 
             # --- In-loop compression (P0-3) ---
             # core_loop pre-compresses once before entering the loop; messages keep
