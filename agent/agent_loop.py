@@ -883,8 +883,12 @@ class MimirAgentLoop:
                                 env=get_active_env(self.task_id),
                                 config=self.budget_config,
                             )
-                        except Exception:
-                            pass
+                        # 静默吞异常曾使该机制自 05-16 起从未运行 ⇒ 改为必须喊
+                        except Exception as _offload_exc:
+                            logger.warning(
+                                "[TOOL-OFFLOAD] hook failed (keeping raw result): %s",
+                                _offload_exc,
+                            )
                         messages.append({"role": "tool", "tool_call_id": tid, "content": tool_result})
                     tool_calls_so_far += len(normalized)
                 else:
@@ -989,8 +993,11 @@ class MimirAgentLoop:
                                 env=get_active_env(self.task_id),
                                 config=self.budget_config,
                             )
-                        except Exception:
-                            pass
+                        except Exception as _offload_exc:
+                            logger.warning(
+                                "[TOOL-OFFLOAD] hook failed (keeping raw result): %s",
+                                _offload_exc,
+                            )
 
                         messages.append({"role": "tool", "tool_call_id": tid, "content": tool_result})
                 turn_elapsed = _time.monotonic() - turn_start

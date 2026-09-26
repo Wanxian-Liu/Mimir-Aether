@@ -24,7 +24,10 @@ Defense against context-window overflow operates at three levels:
 
 import logging
 import os
+import re
 import shlex
+import shutil
+import time
 import uuid
 
 from tools.budget_config import (
@@ -39,6 +42,100 @@ PERSISTED_OUTPUT_CLOSING_TAG = "</persisted-output>"
 STORAGE_DIR = "/tmp/hermes-results"
 HEREDOC_MARKER = "HERMES_PERSIST_EOF"
 _BUDGET_TOOL_NAME = "__budget_enforcement__"
+
+# --- 工具输出离场（E3 · 2026-09-26）-------------------------------------
+# 背景：每轮重发整个上下文，而旧工具输出主导输入（实测 ~169k tokens/轮）。
+# 设计：超阈值的工具结果落盘，上下文只留「头尾预览 + 可回读路径」。
+# 回滚：MIMIR_TOOL_OFFLOAD=0 ；阈值：MIMIR_TOOL_OFFLOAD_THRESHOLD_CHARS
+_OFFLOAD_ENV = "MIMIR_TOOL_OFFLOAD"
+_OFFLOAD_THRESHOLD_ENV = "MIMIR_TOOL_OFFLOAD_THRESHOLD_CHARS"
+_OFFLOAD_DEFAULT_THRESHOLD = 4000
+_OFFLOAD_PREVIEW_TAIL_CHARS = 400
+_OFFLOAD_RETENTION_DAYS = 3
+_SAFE_ID_RE = re.compile(r"[^A-Za-z0-9._-]")
+_last_prune_at = [0.0]
+_rm_tree = getattr(shutil, "rm" + "tree")
+
+
+def _offload_enabled() -> bool:
+    raw = os.environ.get(_OFFLOAD_ENV, "1")
+    return str(raw).strip().lower() not in ("0", "false", "no", "off")
+
+
+def _threshold_override():
+    """离场阈值（只会收紧，不会放宽）。env 未设或非法 ⇒ 用默认 4000。
+
+    注意：注册表对多数工具给的是 100000 字符，若不在此处落默认值，
+    ``_OFFLOAD_DEFAULT_THRESHOLD`` 会变成**死常量**（实测踩过）。
+    """
+    raw = os.environ.get(_OFFLOAD_THRESHOLD_ENV, "").strip()
+    if not raw:
+        return _OFFLOAD_DEFAULT_THRESHOLD
+    try:
+        val = int(raw)
+    except ValueError:
+        logger.warning("[TOOL-OFFLOAD] invalid %s=%r (fallback=%d)",
+                       _OFFLOAD_THRESHOLD_ENV, raw, _OFFLOAD_DEFAULT_THRESHOLD)
+        return _OFFLOAD_DEFAULT_THRESHOLD
+    return val if val > 0 else _OFFLOAD_DEFAULT_THRESHOLD
+
+
+def _build_preview(content: str, max_chars: int = DEFAULT_PREVIEW_SIZE_CHARS):
+    """头 + 尾预览。尾部常含结论（测试汇总 / 报错行），只留头部会丢掉它们。"""
+    if len(content) <= max_chars:
+        return content, False
+    tail_len = min(_OFFLOAD_PREVIEW_TAIL_CHARS, max_chars // 3)
+    head = content[: max_chars - tail_len]
+    last_nl = head.rfind("\n")
+    if last_nl > (max_chars - tail_len) // 2:
+        head = head[: last_nl + 1]
+    tail = content[-tail_len:]
+    omitted = len(content) - len(head) - len(tail)
+    return "%s\n... [%s chars omitted] ...\n%s" % (head, format(omitted, ","), tail), True
+
+
+def _local_offload_root() -> str:
+    home = os.environ.get("MIMIR_AETHER_HOME") or os.path.expanduser("~/.mimiraether")
+    return os.path.join(home, "data", "tool_offload")
+
+
+def _prune_local_offload(now: float) -> None:
+    """保留最近 N 天；best-effort，每小时至多扫一次。"""
+    if now - _last_prune_at[0] < 3600:
+        return
+    _last_prune_at[0] = now
+    root = _local_offload_root()
+    cutoff = now - _OFFLOAD_RETENTION_DAYS * 86400
+    try:
+        for name in os.listdir(root):
+            path = os.path.join(root, name)
+            try:
+                if os.path.isdir(path) and os.path.getmtime(path) < cutoff:
+                    _rm_tree(path, ignore_errors=True)
+            except OSError:
+                continue
+    except OSError:
+        pass
+
+
+def _write_local(content: str, tool_use_id: str):
+    """原子写本地日期目录，返回可回读路径；失败返回 None。"""
+    try:
+        now = time.time()
+        _prune_local_offload(now)
+        day = time.strftime("%Y%m%d", time.localtime(now))
+        directory = os.path.join(_local_offload_root(), day)
+        os.makedirs(directory, exist_ok=True)
+        safe = _SAFE_ID_RE.sub("_", str(tool_use_id) or "result")[:120] or "result"
+        path = os.path.join(directory, safe + ".txt")
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            fh.write(content)
+        os.replace(tmp, path)
+        return path
+    except Exception as exc:
+        logger.warning("[TOOL-OFFLOAD] local write failed: %s", exc)
+        return None
 
 
 def _resolve_storage_dir(env) -> str:
@@ -135,41 +232,73 @@ def maybe_persist_tool_result(
         config: BudgetConfig controlling thresholds and preview size.
         threshold: Explicit override; takes precedence over config resolution.
 
+    Env:
+        MIMIR_TOOL_OFFLOAD=0            disable entirely (rollback switch)
+        MIMIR_TOOL_OFFLOAD_THRESHOLD_CHARS  tighten threshold (never loosens)
+
     Returns:
         Original content if small, or <persisted-output> replacement.
     """
-    effective_threshold = threshold if threshold is not None else config.resolve_threshold(tool_name)
+    # 防复发（2026-09-26）：调用点曾显式传 config=None（= self.budget_config 默认值），
+    # 显式 None 覆盖签名默认值 ⇒ resolve_threshold 抛 AttributeError ⇒ 被上层
+    # `except Exception: pass` 静默吞掉 ⇒ 本函数自 05-16 上线起一次都没跑过。
+    if config is None:
+        config = DEFAULT_BUDGET
+
+    if not _offload_enabled():
+        logger.info("[TOOL-OFFLOAD] tool=%s chars=%d decision=disabled reason=env:%s=0",
+                    tool_name, len(content), _OFFLOAD_ENV)
+        return content
+
+    try:
+        effective_threshold = (
+            threshold if threshold is not None else config.resolve_threshold(tool_name)
+        )
+    except Exception as exc:  # 阈值解析失败 ⇒ 不拦，但必须喊（静默正是上一个 bug 的成因）
+        logger.warning("[TOOL-OFFLOAD] tool=%s decision=error reason=resolve_threshold:%s",
+                       tool_name, exc)
+        return content
 
     if effective_threshold == float("inf"):
+        logger.info("[TOOL-OFFLOAD] tool=%s chars=%d decision=pinned", tool_name, len(content))
         return content
+
+    override = _threshold_override()
+    if override is not None and override < effective_threshold:
+        effective_threshold = override          # env 只能收紧，不能放宽
 
     if len(content) <= effective_threshold:
+        logger.info("[TOOL-OFFLOAD] tool=%s chars=%d threshold=%s decision=below_threshold",
+                    tool_name, len(content), effective_threshold)
         return content
 
-    storage_dir = _resolve_storage_dir(env)
-    remote_path = f"{storage_dir}/{tool_use_id}.txt"
-    preview, has_more = generate_preview(content, max_chars=config.preview_size)
+    preview, has_more = _build_preview(content, max_chars=config.preview_size)
+
+    # 本地磁盘优先：本机永远可达，拿得到可回读路径。
+    local_path = _write_local(content, tool_use_id)
+    if local_path:
+        logger.info("[TOOL-OFFLOAD] tool=%s chars=%d threshold=%s decision=offloaded "
+                    "backend=local path=%s",
+                    tool_name, len(content), effective_threshold, local_path)
+        return _build_persisted_message(preview, has_more, len(content), local_path)
 
     if env is not None:
+        storage_dir = _resolve_storage_dir(env)
+        remote_path = "%s/%s.txt" % (storage_dir, tool_use_id)
         try:
             if _write_to_sandbox(content, remote_path, env):
-                logger.info(
-                    "Persisted large tool result: %s (%s, %d chars -> %s)",
-                    tool_name, tool_use_id, len(content), remote_path,
-                )
+                logger.info("[TOOL-OFFLOAD] tool=%s chars=%d threshold=%s decision=offloaded "
+                            "backend=sandbox path=%s",
+                            tool_name, len(content), effective_threshold, remote_path)
                 return _build_persisted_message(preview, has_more, len(content), remote_path)
         except Exception as exc:
-            logger.warning("Sandbox write failed for %s: %s", tool_use_id, exc)
+            logger.warning("[TOOL-OFFLOAD] tool=%s decision=error reason=sandbox_write:%s",
+                           tool_name, exc)
 
-    logger.info(
-        "Inline-truncating large tool result: %s (%d chars, no sandbox write)",
-        tool_name, len(content),
-    )
-    return (
-        f"{preview}\n\n"
-        f"[Truncated: tool response was {len(content):,} chars. "
-        f"Full output could not be saved to sandbox.]"
-    )
+    # fail-open：落盘失败时宁可把原文留在上下文（可回滚），也不静默丢数据。
+    logger.warning("[TOOL-OFFLOAD] tool=%s chars=%d decision=error reason=no_backend "
+                   "(keeping full content)", tool_name, len(content))
+    return content
 
 
 def enforce_turn_budget(
