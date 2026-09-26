@@ -35,6 +35,22 @@ from toolsets import TOOLSETS
 VALID_REASONING_EFFORTS = ("minimal", "low", "medium", "high", "xhigh")
 
 
+def _safe_echo(line: str) -> None:
+    """Emit a progress line without assuming stdout is alive.
+
+    The gateway dispatches tools with stdout redirected/closed (non-TTY), so a
+    bare print() raises "ValueError: I/O operation on closed file" and aborts
+    the whole delegation (production: 2026-09-14 23:37/23:44, delegate_task
+    dispatch error at this file's line 844). CLI behaviour is unchanged:
+    print() is attempted first, the module logger is only the fallback.
+    """
+    try:
+        print(line)
+    except Exception:
+        logger.info("%s", line)
+
+
+
 class DelegateBaseUrlMissingError(RuntimeError):
     """Raised when delegate_task cannot resolve a base_url for child agents.
 
@@ -839,9 +855,9 @@ def delegate_task(
                     try:
                         spinner_ref.print_above(completion_line)
                     except Exception:
-                        print(f"  {completion_line}")
+                        _safe_echo(f"  {completion_line}")
                 else:
-                    print(f"  {completion_line}")
+                    _safe_echo(f"  {completion_line}")
 
                 # Update spinner text to show remaining count
                 if spinner_ref and remaining > 0:
