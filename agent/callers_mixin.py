@@ -325,6 +325,24 @@ class CallersMixin:
             usage = {}
         pt = int(usage.get("prompt_tokens") or usage.get("input_tokens") or 0)
         ct = int(usage.get("completion_tokens") or usage.get("output_tokens") or 0)
+        # 计量透传（2026-09-26）：本函数是**唯一**看见每次 API usage 的咽喉
+        # （core_loop._call_llm_adapter 每轮调用一次）。把「本次调用」的实计累加为**会话总量**，
+        # 供 ①子代理委派（delegate_tool 读 session_prompt_tokens）②gateway（agent_mixin:1495）
+        # 复用。旧形态：这两处 getattr 全仓**无写入点** ⇒ 恒 0（委派成本不可见，账记 0）。
+        # 只累加 API **真报**的值；下方 pt<=0 的兜底粗估**不计入**（避免把估算误差记成用量）。
+        try:
+            _accum_pt = int(usage.get("prompt_tokens") or usage.get("input_tokens") or 0)
+            _accum_ct = int(usage.get("completion_tokens") or usage.get("output_tokens") or 0)
+            self.session_api_calls = int(getattr(self, "session_api_calls", 0) or 0) + 1
+            if _accum_pt > 0:
+                self.session_prompt_tokens = (
+                    int(getattr(self, "session_prompt_tokens", 0) or 0) + _accum_pt
+                )
+                self.session_completion_tokens = (
+                    int(getattr(self, "session_completion_tokens", 0) or 0) + _accum_ct
+                )
+        except Exception as _accum_e:
+            logger.debug("session usage accumulate skipped: %s", _accum_e)
         # S2-20260907: 前缀缓存指标统一提取（覆盖流式+非流式所有路径）
         try:
             _cache_hit = int(usage.get("prompt_cache_hit_tokens") or 0)

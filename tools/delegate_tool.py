@@ -551,6 +551,10 @@ def _run_single_child(
         completed = result.get("completed", False)
         interrupted = result.get("interrupted", False)
         api_calls = result.get("api_calls", 0)
+        if not api_calls:
+            # 计量透传（2026-09-26）：适配层今天才产出该键；老路径回退内部计数器。
+            # 真实计数器名是 _api_call_count（run_agent.py:79），此前从未向上透传。
+            api_calls = int(getattr(child, "_api_call_count", 0) or 0)
 
         if interrupted:
             status = "interrupted"
@@ -609,8 +613,23 @@ def _run_single_child(
             exit_reason = "max_iterations"
 
         # Extract token counts (safe for mock objects)
-        _input_tokens = getattr(child, "session_prompt_tokens", 0)
-        _output_tokens = getattr(child, "session_completion_tokens", 0)
+        # 计量透传（2026-09-26）：优先用适配层回传的**本次实计**；缺失时回退会话累计。
+        # 两者都为 0 ⇒ 标记 source=unavailable（**不伪装成「消耗 0」**）。
+        _input_tokens = result.get("prompt_tokens")
+        if not _input_tokens:
+            _input_tokens = getattr(child, "session_prompt_tokens", 0)
+        _output_tokens = result.get("completion_tokens")
+        if not _output_tokens:
+            _output_tokens = getattr(child, "session_completion_tokens", 0)
+        _tokens_source = (
+            "result" if result.get("prompt_tokens")
+            else ("session" if _input_tokens else "unavailable")
+        )
+        if _tokens_source == "unavailable":
+            logger.warning(
+                "[subagent-%s] 计量不可用：适配层与会话累计均为 0（prompt/completion）——"
+                "记为 unavailable，不记 0", task_index,
+            )
         _model = getattr(child, "model", None)
 
         # K2（2026-08-20 块3·段3）：output_path 提取——子代理产物落盘路径
@@ -632,7 +651,11 @@ def _run_single_child(
             "tokens": {
                 "input": _input_tokens if isinstance(_input_tokens, (int, float)) else 0,
                 "output": _output_tokens if isinstance(_output_tokens, (int, float)) else 0,
+                "source": _tokens_source,
             },
+            "turns_used": int(result.get("turns_used") or 0),
+            "messages_count": len(messages) if isinstance(messages, list) else 0,
+            "metrics_available": bool(result.get("metrics_available", False)),
             "tool_trace": tool_trace,
         }
         if status == "failed":

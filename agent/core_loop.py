@@ -366,6 +366,10 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
         )
 
         self.conversation_history: List[Message] = []
+        # 计量透传（2026-09-26）：本轮运行指标 + 本轮真实消息轨迹（原始 dict 列表）。
+        # 供 run_agent 适配层回传给父代理/delegate（旧形态：适配层硬编码 0 + 回显入参历史）。
+        self.last_run_metrics: Dict[str, Any] = {}
+        self.last_run_messages: List[Dict[str, Any]] = []
         self.max_history_length = 200  # 对齐 1M 上下文 (200条×~5K=~1M tokens)
 
         from agent.subdirectory_hints import SubdirectoryHintTracker
@@ -1014,6 +1018,26 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
                 task_spec=(_um if (_CHECKBOX_RE.search(_um) or any(m in _um for m in _CN_TASK_MARKERS)) else extract_task_spec(_loop_messages)),
             )
             _result = await _loop.run(_loop_messages)
+
+            # 计量透传（2026-09-26）：记录本轮可核指标 + 真实轨迹（dict 列表，已是 API 形态）
+            try:
+                self.last_run_metrics = {
+                    "turns_used": int(getattr(_result, "turns_used", 0) or 0),
+                    "exit_reason": str(getattr(_result, "exit_reason", "") or ""),
+                    "interrupted": bool(getattr(_result, "interrupted", False)),
+                    "tool_error_count": len(getattr(_result, "tool_errors", None) or []),
+                    "api_calls": int(getattr(self, "session_api_calls", 0) or 0),
+                    "prompt_tokens": int(getattr(self, "session_prompt_tokens", 0) or 0),
+                    "completion_tokens": int(
+                        getattr(self, "session_completion_tokens", 0) or 0
+                    ),
+                }
+                self.last_run_messages = [
+                    _md for _md in (getattr(_result, "messages", None) or [])
+                    if isinstance(_md, dict)
+                ]
+            except Exception as _m_e:
+                logger.warning("[METRICS] last_run_metrics 采集失败: %s", _m_e)
 
             # MimirAgentLoop owns turn iteration; sync legacy budget for TurnManager/checkpoints.
             for _ in range(int(_result.turns_used or 0)):

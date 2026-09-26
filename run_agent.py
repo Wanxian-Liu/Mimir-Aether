@@ -2,7 +2,10 @@
 
 import threading
 import time
+import logging
 from typing import Any, Callable, Dict, List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 # Loki-C 2026-08-15（Mimir 条件1）：宽 except 白名单——AgentLoopExit 是正常退出信号，
 # 不能被下面 run_conversation 的 `except Exception` 吞成 "⚠️ Agent error"。
@@ -252,12 +255,43 @@ class AIAgent:
                 self._touch_activity("run_conversation end")
                 cleanup_stale_async_clients()
             
+            # 计量透传（2026-09-26 · Mimir 定案）：旧形态把 api_calls/tokens 硬编码 0、
+            # 且 messages 回显**入参**历史（None ⇒ []）⇒ 委派「花了多少/干了什么」全不可见，
+            # 子代理的 tool_trace 结构上必然为空（只读任务＝黑洞）。
+            # 契约：能取到就报真值；取不到就**显式**标记 metrics_available=False（不伪装成 0）。
+            _ra = self._real_agent
+            _metrics = dict(getattr(_ra, "last_run_metrics", None) or {})
+            _child_messages = getattr(_ra, "last_run_messages", None)
+            _pt = int(
+                _metrics.get("prompt_tokens")
+                or getattr(_ra, "session_prompt_tokens", 0) or 0
+            )
+            _ct = int(
+                _metrics.get("completion_tokens")
+                or getattr(_ra, "session_completion_tokens", 0) or 0
+            )
+            if not _metrics:
+                # fail-visible：指标缺失必须留痕，否则又是「坏消息长得像好消息」
+                logger.warning(
+                    "[METRICS] real agent 未产出 last_run_metrics —— "
+                    "本轮 api_calls/turns 不可核（不填假 0）"
+                )
+            _messages_out = (
+                _child_messages
+                if isinstance(_child_messages, list) and _child_messages
+                else (conversation_history or [])
+            )
             return {
                 "final_response": response,
-                "messages": conversation_history or [],
-                "prompt_tokens": 0,
-                "completion_tokens": 0,
-                "total_tokens": 0,
+                "messages": _messages_out,
+                "prompt_tokens": _pt,
+                "completion_tokens": _ct,
+                "total_tokens": _pt + _ct,
+                "api_calls": int(_metrics.get("api_calls") or self._api_call_count or 0),
+                "turns_used": int(_metrics.get("turns_used") or 0),
+                "exit_reason": str(_metrics.get("exit_reason") or ""),
+                "interrupted": bool(_metrics.get("interrupted") or False),
+                "metrics_available": bool(_metrics),
                 "failed": False,  # 2026-08-25 修复卡改动3：显式失败标记（gateway 据此明示，不伪装正常）
             }
         except Exception as exc:
