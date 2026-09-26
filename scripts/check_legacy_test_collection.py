@@ -21,8 +21,13 @@
     python3 scripts/check_legacy_test_collection.py --selftest     # 受控双测
     python3 scripts/check_legacy_test_collection.py --update-baseline
 
-退出码：0 = PASS，1 = FAIL，2 = 用法/环境错误。
-输出末行恒为 ``VERDICT: PASS`` / ``VERDICT: FAIL``（供 mech_checks verdict_parse）。
+自体检（**不能判定时不得读成 PASS**）：
+
+    基线缺失/损坏  OR  pytest 收集报错（退出码 ∉ (0, 5)）  ⇒  ERROR
+
+退出码：0 = PASS，1 = FAIL（清单漂移），2 = 无法判定（自体检失败）。
+输出末行恒为 ``VERDICT: PASS`` / ``VERDICT: FAIL``（二值契约，供 mech_checks verdict_parse）；
+自体检失败同样打印 FAIL，细节在 ``SELF-HEALTH:`` 行，靠退出码 2 区分。
 """
 
 from __future__ import annotations
@@ -64,13 +69,20 @@ def inventory(park_dir: Path) -> dict:
 
 
 def collect_count(repo: Path, park_rel: str, timeout_s: int = 300):
-    """真实 pytest 收集数。返回 int，**跑不动返回 None**（不得读成 0）。"""
+    """真实 pytest 收集数。返回 int；**判不动返回 None**（不得读成 0）。
+
+    pytest 退出码语义（本函数的判据）：
+      0 = 正常收集（含正常 0）；**5 = 无测试被收集**（= 停放态本身，合法 0）；
+      2 收集错误 / 3 内部错 / 4 用法错 ⇒ **无法判定**，必须返回 None。
+    """
     try:
         proc = subprocess.run(
             [sys.executable, "-m", "pytest", park_rel, "--collect-only", "-q"],
             cwd=str(repo), capture_output=True, text=True, timeout=timeout_s,
         )
     except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode not in (0, 5):
         return None
     text = (proc.stdout or "") + "\n" + (proc.stderr or "")
     return sum(1 for line in text.splitlines() if "::" in line)
@@ -85,7 +97,10 @@ def assess(inv: dict, collected, baseline) -> tuple:
     if collected > 0:
         return "PASS", [f"collected={collected}（文件会跑，停放态已结束）"]
     if not baseline or not isinstance(baseline.get("files"), dict):
-        return "PASS", ["基线未建立 ⇒ 本次记录；此后清单漂移即 FAIL"]
+        return "ERROR", [
+            "SELF-HEALTH: 基线缺失或结构损坏 ⇒ **无法判定漂移**（不得读成 PASS）",
+            "  处置：--update-baseline 重新登记当前清单",
+        ]
     old = baseline["files"]
     if old == inv:
         return "PASS", [f"{len(inv)} 个 .py 停在停放区、collected=0（既定态，已登记）"]
@@ -115,8 +130,9 @@ def _selftest() -> int:
         arms.append(("A 清单==基线", assess(inv, 0, base)[0], "PASS"))
         arms.append(("B 收集>0（孪生）", assess(inv, 3, base)[0], "PASS"))
         arms.append(("C 空停放区（孪生）", assess({}, 0, base)[0], "PASS"))
-        arms.append(("D 无基线", assess(inv, 0, None)[0], "PASS"))
+        arms.append(("D 无基线（坏样本）", assess(inv, 0, None)[0], "ERROR"))
         arms.append(("E 收集失败", assess(inv, None, base)[0], "ERROR"))
+        arms.append(("I 基线结构损坏（坏样本）", assess(inv, 0, {"files": "x"})[0], "ERROR"))
         (park / "new_test.py").write_text("def test_b():\n    assert True\n", encoding="utf-8")
         arms.append(("F 新增文件（坏样本）", assess(inventory(park), 0, base)[0], "FAIL"))
         (park / "a_test.py").write_text("# changed\n", encoding="utf-8")
@@ -167,13 +183,18 @@ def main(argv=None) -> int:
     for h in hints:
         print("HINT: " + h)
 
-    if args.update_baseline and verdict == "PASS":
+    if args.update_baseline:
         bpath.parent.mkdir(parents=True, exist_ok=True)
         bpath.write_text(json.dumps(
             {"files": inv, "park_rel": park_rel, "recorded_by": "check_legacy_test_collection"},
             ensure_ascii=False, indent=1), encoding="utf-8")
         print(f"HINT: 基线已写入 {bpath}（{len(inv)} file(s)）")
-    print(f"VERDICT: {verdict}")
+        if verdict == "FAIL":
+            print("HINT: 本次是把**已漂移**的清单登记为基线（= 明确承认这些文件不会跑）")
+
+    # 输出契约：末行恒为二值 VERDICT（供 mech_checks verdict_parse）。
+    # 自体检失败（无法判定）同样打印 FAIL，细节在 SELF-HEALTH 行，退出码 2 区分。
+    print(f"VERDICT: {'PASS' if verdict == 'PASS' else 'FAIL'}")
     return 0 if verdict == "PASS" else (1 if verdict == "FAIL" else 2)
 
 

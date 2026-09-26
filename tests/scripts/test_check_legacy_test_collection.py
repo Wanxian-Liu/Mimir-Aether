@@ -10,7 +10,8 @@
 恒红 / 假红 / 注释覆盖）。所以用例必须同时证明两件事：
 
   · 坏样本必拦：停放区清单漂移 ⇒ FAIL
-  · 孪生不误拦：清单一致 / 收集>0 / 空目录 / 无基线 / 非停放环境 ⇒ PASS
+  · 孪生不误拦：清单一致 / 收集>0 / 空目录 / 非停放环境 ⇒ PASS
+  · **不能判定 ≠ PASS**：基线缺失/损坏、pytest 收集报错 ⇒ ERROR（自体检）
 
 既有的 18/18 夹具全过却漏掉真实缺口，是本仓反复出现的教训（R6 的「文档示例」
 一类未被夹具建模）⇒ 因此这里带**真实对象臂**（真跑 pytest 收集，读真实停放区）。
@@ -92,12 +93,24 @@ def test_twin_empty_park_passes():
     assert verdict == "PASS"
 
 
-def test_twin_missing_baseline_records_not_alarms():
-    """首跑不得报红（否则等于恒红）。"""
+def test_arm_missing_baseline_is_self_health_error():
+    """**坏样本**：基线缺失 = 判不了漂移 ⇒ ERROR。
+
+    旧实现返回 PASS 并声称「本次记录」，但 main() 只在 --update-baseline 时写盘
+    ⇒ 基线一旦丢失就**永久静默 PASS**（同族病：仪器死了读数像好消息）。
+    """
     mod = _load()
     verdict, hints = mod.assess({"a_test.py": "sha1"}, 0, None)
-    assert verdict == "PASS"
-    assert any("基线未建立" in h for h in hints), hints
+    assert verdict == "ERROR", hints
+    assert any("SELF-HEALTH" in h for h in hints), hints
+
+
+def test_arm_corrupt_baseline_is_self_health_error():
+    """**坏样本**：基线结构损坏（files 不是 dict）⇒ ERROR，不得读成 PASS。"""
+    mod = _load()
+    verdict, hints = mod.assess({"a_test.py": "sha1"}, 0, {"files": "not-a-dict"})
+    assert verdict == "ERROR", hints
+    assert any("SELF-HEALTH" in h for h in hints), hints
 
 
 def test_collection_failure_is_error_not_pass():
@@ -105,6 +118,24 @@ def test_collection_failure_is_error_not_pass():
     mod = _load()
     verdict, _ = mod.assess({"a_test.py": "sha1"}, None, {"files": {}})
     assert verdict == "ERROR"
+
+
+def test_real_pytest_error_is_not_read_as_zero(tmp_path: Path):
+    """**行为级**（旧用例只喂合成 None，没考到 collect_count 的接线）：
+
+    pytest 退出码 2（收集报错）必须 ⇒ None；退出码 5（无测试被收集）才是合法 0。
+    """
+    mod = _load()
+    park = tmp_path / "broken_park"
+    park.mkdir()
+    (park / "broken_test.py").write_text("def test_x(:\n    pass\n", encoding="utf-8")
+    assert mod.collect_count(tmp_path, "broken_park") is None, "收集报错不得读成 0"
+
+    ok = tmp_path / "empty_park"
+    ok.mkdir()
+    (ok / "conftest.py").write_text('collect_ignore_glob = ["*.py"]\n', encoding="utf-8")
+    (ok / "a_test.py").write_text("def test_a():\n    assert True\n", encoding="utf-8")
+    assert mod.collect_count(tmp_path, "empty_park") == 0, "rc=5（无测试被收集）应为合法 0"
 
 
 # ------------------------------------------------------- 受控双测（脚本内 selftest）
@@ -134,8 +165,10 @@ def test_real_object_end_to_end_pass_then_drift_fails(tmp_path: Path):
     common = ["--repo", str(tmp_path), "--park", str(park), "--baseline", str(base)]
 
     first = _run(*common, "--update-baseline")
-    assert first.returncode == 0, first.stdout + first.stderr
-    assert "VERDICT: PASS" in first.stdout
+    # 首跑无基线 ⇒ 判不了（自体检），但**登记动作必须真的发生**（旧实现两条都不成立）
+    assert first.returncode == 2, first.stdout + first.stderr
+    assert "SELF-HEALTH" in first.stdout
+    assert "基线已写入" in first.stdout
     assert json.loads(base.read_text(encoding="utf-8"))["files"], "基线应为非空"
 
     stable = _run(*common)
@@ -147,6 +180,34 @@ def test_real_object_end_to_end_pass_then_drift_fails(tmp_path: Path):
     assert drifted.returncode == 1, drifted.stdout + drifted.stderr
     assert "VERDICT: FAIL" in drifted.stdout
     assert "zz_drift_test.py" in drifted.stdout
+
+    # 漂移时 --update-baseline 必须真的登记（旧实现静默无操作），并明说是登记漂移
+    rebased = _run(*common, "--update-baseline")
+    assert rebased.returncode == 1, rebased.stdout + rebased.stderr
+    assert "基线已写入" in rebased.stdout, rebased.stdout
+    assert "承认" in rebased.stdout, rebased.stdout
+
+    after = _run(*common)
+    assert after.returncode == 0 and "既定态" in after.stdout, after.stdout + after.stderr
+
+
+def test_cli_corrupt_baseline_is_self_health_fail(tmp_path: Path):
+    """CLI 层：基线损坏 ⇒ 退出码 2 + 二值 VERDICT 契约不破 + SELF-HEALTH 明示。"""
+    base = tmp_path / "corrupt.json"
+    base.write_text("{ this is not json", encoding="utf-8")
+    proc = _run("--baseline", str(base))
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert "VERDICT: FAIL" in proc.stdout or "VERDICT: FAIL" in proc.stderr
+    assert "SELF-HEALTH" in (proc.stdout + proc.stderr)
+
+
+def test_cli_missing_baseline_does_not_claim_to_record(tmp_path: Path):
+    """**旧谎话**：提示写「本次记录」，但盘上什么都没写 ⇒ 现改为 SELF-HEALTH 并真的不假装记录。"""
+    base = tmp_path / "absent.json"
+    proc = _run("--baseline", str(base))
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert not base.exists(), "未加 --update-baseline 时不得偷偷建基线"
+    assert "本次记录" not in proc.stdout
 
 
 def test_real_object_gate_wiring():
