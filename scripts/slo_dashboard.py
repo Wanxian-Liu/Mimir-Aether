@@ -23,7 +23,8 @@ from collections import Counter, defaultdict
 LOG_DIR = os.path.expanduser("~/.mimiraether/logs")
 OUT_DIR = os.path.expanduser("~/.mimiraether/slo")
 LOG_FILE = os.path.join(LOG_DIR, "agent.log")
-SRC_REPO = "/home/rayliu/src/MimirAether"
+# 源码仓路径：env 优先，其次 ~/src/MimirAether（不写死家目录字面值）
+SRC_REPO = os.environ.get("MIMIR_SRC_REPO") or os.path.expanduser("~/src/MimirAether")
 BASELINE_LOG = os.path.expanduser("~/.mimiraether/data/context_baseline.jsonl")
 
 # D2（2026-09-24）：新鲜度阈值——默认 26h（容一次漏跑），超时 ⇒ 标「数据陈旧」不静默当现值
