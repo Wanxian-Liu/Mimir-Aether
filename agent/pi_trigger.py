@@ -27,6 +27,15 @@ import os
 import re
 from typing import List, Dict, Optional
 
+try:  # hook observability (2026-09-26 obs step1, pure additive); silent no-op on failure
+    from agent.hook_observe import observe as _hook_observe
+except ImportError:  # pragma: no cover
+    try:
+        from hook_observe import observe as _hook_observe
+    except ImportError:
+        def _hook_observe(*_a, **_k):  # type: ignore
+            return None
+
 PI_NUDGE_MARKER = "[MIMIR_PI_NUDGE]"
 
 # 任务特征关键词（配合长度估算——不单独作为触发条件）
@@ -150,19 +159,23 @@ def maybe_pi_delegate_nudge(messages: List[Dict]) -> Optional[str]:
     自动调 delegate_task（段 6 集成）。
     """
     # env 门控：MIMIR_DELEGATE_ENABLE=1 默认开；=0 回退关闭触发
+    _h = "pi_delegate_nudge"
     if os.environ.get("MIMIR_DELEGATE_ENABLE", "1").strip().lower() in (
         "0", "false", "no", "off",
     ):
+        _hook_observe(_h, "blocked", "env_disabled")
         return None
 
     min_turns = int(os.environ.get("MIMIR_PI_MIN_TURNS", "8"))
     task_text = _extract_user_task(messages)
     if not task_text:
+        _hook_observe(_h, "blocked", "no_task_text")
         return None
 
     # 条件①：预估轮次 ≥ min_turns
     est = _estimate_turns(task_text)
     if est < min_turns:
+        _hook_observe(_h, "blocked", "est_below_min", est=est, min_turns=min_turns)
         return None
 
     # 条件②：可并行度达标（段 2 函数——三信号 ≥MIMIR_PI_MIN_PARALLEL 且无强依赖链）
@@ -172,8 +185,10 @@ def maybe_pi_delegate_nudge(messages: List[Dict]) -> Optional[str]:
         try:
             from parallel_eligibility import parallel_elig_ok
         except ImportError:
+            _hook_observe(_h, "blocked", "parallel_elig_import_missing")
             return None  # 依赖缺失 → 静默（宁漏勿滥）
     if not parallel_elig_ok(task_text):
+        _hook_observe(_h, "blocked", "parallel_elig_false", est=est, min_turns=min_turns)
         return None
 
     # 条件③：反向清单前置闸通过（段 4 函数——12 类五类永拒）
@@ -183,11 +198,15 @@ def maybe_pi_delegate_nudge(messages: List[Dict]) -> Optional[str]:
         try:
             from delegation_guard import check_delegation_guard
         except ImportError:
+            _hook_observe(_h, "blocked", "guard_import_missing")
             return None
     allow, _reason = check_delegation_guard(task_text, messages=messages)
     if not allow:
+        _hook_observe(_h, "blocked", "guard_denied", est=est, min_turns=min_turns,
+                      guard_reason=str(_reason)[:80])
         return None
 
+    _hook_observe(_h, "triggered", "nudge_injected", est=est, min_turns=min_turns)
     return (
         f"{PI_NUDGE_MARKER} [强制委派] 当前任务预估需 {est} 轮（≥{min_turns}），"
         "且可并行度达标、反向清单通过——**必须使用 delegate_task 委派以下子任务，"
@@ -236,8 +255,10 @@ def maybe_pi_delegate_execute(messages: List[Dict]) -> Dict:
       {"triggered": True, "delegated": True, "subtasks": [...], "results": [...]}
       {"triggered": True, "delegated": False, "fallback": True, "error": "..."}
     """
+    _h = "pi_delegate_execute"
     nudge = maybe_pi_delegate_nudge(messages)
     if nudge is None:
+        _hook_observe(_h, "blocked", "parent_gate_not_met")
         return {"triggered": False}
 
     task_text = _extract_user_task(messages) or ""
@@ -251,6 +272,7 @@ def maybe_pi_delegate_execute(messages: List[Dict]) -> Dict:
         try:
             from ..subagent_bridge import spawn_multi  # type: ignore
         except ImportError:
+            _hook_observe(_h, "blocked", "bridge_import_missing", subtasks=len(subtasks))
             return {
                 "triggered": True, "delegated": False, "fallback": True,
                 "error": "subagent_bridge 不可导入——回退单 agent 执行",
@@ -262,6 +284,8 @@ def maybe_pi_delegate_execute(messages: List[Dict]) -> Dict:
             for s in subtasks
         ]
         results = spawn_multi(tasks, parallel=True)
+        _hook_observe(_h, "triggered", "delegated", subtasks=len(subtasks),
+                      ok=sum(1 for r in results if getattr(r, "success", False)))
         return {
             "triggered": True,
             "delegated": True,
@@ -272,6 +296,8 @@ def maybe_pi_delegate_execute(messages: List[Dict]) -> Dict:
             ],
         }
     except Exception as exc:  # 委派异常 → 降级（不静默——带错误信息）
+        _hook_observe(_h, "blocked", "delegate_exception", subtasks=len(subtasks),
+                      err_type=type(exc).__name__)
         return {
             "triggered": True, "delegated": False, "fallback": True,
             "error": f"delegate 执行异常: {exc}",

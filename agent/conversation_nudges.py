@@ -5,6 +5,15 @@ from __future__ import annotations
 import os
 from typing import Optional
 
+try:  # hook observability (2026-09-26 obs step1, pure additive); silent no-op on failure
+    from agent.hook_observe import observe as _hook_observe
+except ImportError:  # pragma: no cover
+    try:
+        from hook_observe import observe as _hook_observe
+    except ImportError:
+        def _hook_observe(*_a, **_k):  # type: ignore
+            return None
+
 MEMORY_NUDGE_MARKER = "[MIMIR_MEMORY_NUDGE]"
 SKILL_NUDGE_MARKER = "[MIMIR_SKILL_NUDGE]"
 
@@ -67,15 +76,20 @@ def maybe_parallel_read_nudge(turn: int, tool_calls_so_far: int) -> Optional[str
     架构钩子（非 AGENTS.md 静态纪律）：运行时注入——模型可拒绝，但显式提示如何并行。
     env 开关 MIMIR_PARALLEL_READ_NUDGE（默认 1=开，0=关回退）。
     """
+    _h = "parallel_read_nudge"
     enabled = os.environ.get("MIMIR_PARALLEL_READ_NUDGE", "1").strip().lower()
     if enabled in ("0", "false", "no", "off"):
+        _hook_observe(_h, "blocked", "env_disabled", turn=turn, tools=tool_calls_so_far)
         return None
     # turn 是 0-based；turn >= 3 即第 4 轮起（执行卡：turn≥3 注入）
     if turn < 3:
+        _hook_observe(_h, "blocked", "turn_lt_3", turn=turn, tools=tool_calls_so_far)
         return None
     # 至少 2 次工具调用后才提示（防首轮打扰）
     if tool_calls_so_far < 2:
+        _hook_observe(_h, "blocked", "tools_lt_2", turn=turn, tools=tool_calls_so_far)
         return None
+    _hook_observe(_h, "triggered", "injected", turn=turn, tools=tool_calls_so_far)
     return _PARALLEL_READ_NUDGE_TEXT
 
 
