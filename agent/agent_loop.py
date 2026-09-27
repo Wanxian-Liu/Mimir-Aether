@@ -1125,6 +1125,7 @@ class MimirAgentLoop:
                 # 问题：no tools 正常结束路径无产出检查——若最后 assistant 只是"调查总结"无落盘动作→0产出静默
                 # 修复：检查本会话是否真的产出过（写盘动作）——若无→注入产出提示（引导补产出）
                 _has_written = self._check_has_written(messages)
+                _has_evidence = self._check_has_evidence(messages)
                 # ===== 架构修复（2026-08-18 拆关注点）：产出校验独立于 nudge 开关 =====
                 # 问题：nudge 停用（MIMIR_NUDGE_ENABLED=0 治空洞确认）→ _nudge_enabled()=False
                 #       → 本 if 短路 → 产出校验失效 → run 无交付也能自然结束
@@ -1135,6 +1136,7 @@ class MimirAgentLoop:
                 # L1 软提示（现状）→ L2 硬拦截（移除无产出回复+明确指令）→ L3 中断（INTERRUPTED 透传用户）
                 # env 门控：MIMIR_PRODUCTION_ENFORCE=1 开启三级；关闭时保持现状（L1 后自然退出）
                 if (not _has_written
+                        and not _has_evidence
                         and any(m.get("role") == "assistant" for m in messages)
                         and self._should_nudge_production(messages)):
                     _enforce = os.environ.get("MIMIR_PRODUCTION_ENFORCE", "0").strip().lower() not in ("0", "false", "no")
@@ -1415,6 +1417,48 @@ class MimirAgentLoop:
                 # 只要有一个非工作记忆的交付物路径，就算有产出
                 if any(p and not any(k in p for k in _WORK_MEMORY_KEYS) for p in _paths):
                     return True
+        return False
+
+    # ===== E5-A2（2026-09-27）：证据型完成 =====
+    # 病灶：完成判据只认「写盘交付物」⇒ 信息型任务（读文件/查数据/报告原文）永不合格
+    #   ⇒ verify 闸 3/3 耗尽 ⇒ 正确答案被故障文案顶掉（委派子代理黑洞同源）。
+    # 语义修正：信息型任务的合法产出是**读到的证据**，不是写下的文件。
+    # 判据：≥1 次信息型工具调用，且有对应的 tool 结果（非空、非错误、非纯提示语）。
+    # 回滚：MIMIR_EVIDENCE_COMPLETION=0（回到纯 has_written）。
+    _EVIDENCE_TOOLS = {
+        "read_file", "search_files", "terminal", "git", "mimir_ops",
+        "session_search", "get_env", "memory", "web_search", "web_extract",
+        "browser_snapshot",
+    }
+    _EVIDENCE_MIN_CHARS = 40
+    _EVIDENCE_ERROR_PREFIXES = ("[ERROR", "Error:", "Traceback", "error:", "BLOCKED")
+
+    def _check_has_evidence(self, messages) -> bool:
+        """本 run 是否有证据型产出（信息型任务的合法完成信号）。"""
+        if os.environ.get("MIMIR_EVIDENCE_COMPLETION", "1").strip().lower() in ("0", "false", "no"):
+            return False
+        _wanted = {}
+        for _m in messages:
+            if _m.get("role") != "assistant":
+                continue
+            for _tc in (_m.get("tool_calls") or []):
+                _name = _get_tc_name(_tc)
+                _tid = _tc.get("id")
+                if _tid and _name in self._EVIDENCE_TOOLS:
+                    _wanted[_tid] = _name
+        if not _wanted:
+            return False
+        for _m in messages:
+            if _m.get("role") != "tool" or _m.get("tool_call_id") not in _wanted:
+                continue
+            _c = _m.get("content")
+            _s = _c if isinstance(_c, str) else json.dumps(_c, ensure_ascii=False)
+            _s = (_s or "").strip()
+            if len(_s) < self._EVIDENCE_MIN_CHARS:
+                continue
+            if _s.startswith(self._EVIDENCE_ERROR_PREFIXES):
+                continue
+            return True
         return False
 
     def _nudge_enabled(self) -> bool:

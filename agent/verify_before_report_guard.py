@@ -79,12 +79,45 @@ WRITE_TOOLS = {"write_file", "patch", "apply_patch", "edit"}
 WRITE_TASK_MARKERS = ["写", "写入", "落盘", "追加", "完成你的段", "输出到", "创建", "更新文件", "写到"]
 
 
+# ── E5-A1（2026-09-27）：否定语境短路 ──
+# 病灶（决定性证据）：委派 E2E 原文「…把原文返回给我（**不要落盘**、不要修改任何文件）」是纯只读任务，
+#   而 `any(m in last_user …)` 命中的标记正是 **`落盘`** —— 它出现在否定短语「不要落盘」里。
+#   ⇒ 越强调「不要落盘」，越被判为「写盘任务」⇒ 只读任务永远拿不出 write_file ⇒ verify 3/3 耗尽
+#   ⇒ 正确答案被故障文案顶掉（子代理黑洞 + 当日 26 次硬拦同源）。
+# 修法：标记词若处于否定语境（前 3 字窗口含否定字/否定词）⇒ 该次出现不计。
+#   回滚：MIMIR_WRITE_TASK_NEGATION=0。
+_NEGATION_CHARS = "不别勿免莫休"
+_NEGATION_WORDS = ("无需", "不用", "禁止", "不能", "不必", "无须")
+_NEGATION_WINDOW = 3
+
+
+def _marker_is_negated(text: str, idx: int) -> bool:
+    """标记词是否处于否定语境（只看前 _NEGATION_WINDOW 字，覆盖「不要落盘」「别写入」「无需创建」「禁止写」）。"""
+    window = text[max(0, idx - _NEGATION_WINDOW):idx]
+    if any(ch in window for ch in _NEGATION_CHARS):
+        return True
+    return any(w in window for w in _NEGATION_WORDS)
+
+
 def _task_requires_write(messages: list[dict[str, Any]]) -> bool:
-    """判断任务是否要求写盘（从最近user消息检测）"""
+    """判断任务是否要求写盘（从最近user消息检测）。
+
+    E5-A1：任一标记词处于否定语境时不计（防「不要落盘」被读成写盘任务）。
+    """
     last_user = _last_user_text(messages)
     if not last_user:
         return False
-    return any(m in last_user for m in WRITE_TASK_MARKERS)
+    _neg_on = os.environ.get("MIMIR_WRITE_TASK_NEGATION", "1").strip().lower() not in ("0", "false", "no")
+    for _mk in WRITE_TASK_MARKERS:
+        _start = 0
+        while True:
+            _idx = last_user.find(_mk, _start)
+            if _idx < 0:
+                break
+            if not (_neg_on and _marker_is_negated(last_user, _idx)):
+                return True
+            _start = _idx + 1
+    return False
 
 
 # ── TD-04（2026-08-18）：空洞确认模板硬拦截 ──
