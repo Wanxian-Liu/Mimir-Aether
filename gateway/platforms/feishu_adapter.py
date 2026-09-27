@@ -582,7 +582,10 @@ class FeishuAdapter(BasePlatformAdapter):
         # 2026-08-25 fix-card change4: read receipts (liuge requirement 8/24) | T1: _BoundedDict FIFO maxlen (cap unbounded growth)
         self._read_receipts: Dict[str, dict] = _BoundedDict()  # message_id -> {reader_id, reader_type, read_at}
         self._sent_msg_chat: Dict[str, str] = _BoundedDict()  # message_id -> chat_id (recorded on send ok)
-        self._last_read_feedback_at: Dict[str, float] = _BoundedDict()  # chat_id -> last feedback ts (300s throttle)
+        self._last_read_feedback_at: Dict[str, float] = _BoundedDict()
+        # 2026-09-27 A: reaction state (message_id -> {emoji: reaction_id})
+        self._msg_reactions: Dict[str, dict] = _BoundedDict()
+        self._reaction_tasks: set = set()  # chat_id -> last feedback ts (300s throttle)
 
     def _origin(self) -> str:
         return _http_origin(self._domain)
@@ -895,6 +898,17 @@ class FeishuAdapter(BasePlatformAdapter):
         fut.add_done_callback(_log_dispatch_error)
 
     async def _async_dispatch_p2(self, payload: dict) -> None:
+        # 2026-09-27 A: 已读表情 -- 入站最前端 fire-and-forget（零 LLM·毫秒级回执 👀）
+        try:
+            _ev0 = payload.get("event", {}) if isinstance(payload, dict) else {}
+            _msg0 = _ev0.get("message", {}) if isinstance(_ev0, dict) else {}
+            _mid0 = str(_msg0.get("message_id") or "") if isinstance(_msg0, dict) else ""
+            if _mid0:
+                _rt = asyncio.ensure_future(self.react_inbound(_mid0))
+                self._reaction_tasks.add(_rt)
+                _rt.add_done_callback(self._reaction_tasks.discard)
+        except Exception as _rexc:
+            logger.debug("[%s] inbound reaction hook error: %s", self.name, _rexc)
         # P0-4: 图片消息在主事件循环中处理──先用 aiohttp 异步下载，避免阻塞
         pre_downloaded = None
         ev = payload.get("event", {}) if isinstance(payload, dict) else {}
@@ -1010,6 +1024,107 @@ class FeishuAdapter(BasePlatformAdapter):
         except Exception as e:
             logger.error("[%s] Token refresh failed: %s", self.name, e)
 
+
+    # ── 2026-09-27 A/B: 已读表情 + 工作状态播报（零 LLM·纯代码 hook） ──
+    _TOKEN_ERR_CODES = frozenset({99991663, 99991664, 99991665, 99991661})
+    # 2026-09-27 实测: emoji_type 取官方 135 项白名单; "EYES" 不在其中(231001 reaction type is invalid)
+    # => 已读回执用 GLANCE(瞄一眼), 完工用 DONE; 可用环境变量改, 不必改码
+    REACTION_READ = (os.getenv("MIMIR_FEISHU_REACTION_READ") or "GLANCE").strip() or "GLANCE"
+    REACTION_DONE = (os.getenv("MIMIR_FEISHU_REACTION_DONE") or "DONE").strip() or "DONE"
+
+    async def _reaction_http(
+        self,
+        message_id: str,
+        emoji_type: str = "GLANCE",
+        *,
+        reaction_id: Optional[str] = None,
+    ) -> Optional[str]:
+        """给消息加/删 emoji reaction。返回 reaction_id（删除=空串）；失败返回 None 且只记日志。
+
+        参考: POST|DELETE /open-apis/im/v1/messages/{message_id}/reactions
+        """
+        if not message_id or not self._session:
+            return None
+        url_base = "{0}/open-apis/im/v1/messages/{1}/reactions".format(self._origin(), message_id)
+        for attempt in (0, 1):
+            url = url_base + "/" + reaction_id if reaction_id else url_base
+            try:
+                timeout = aiohttp.ClientTimeout(total=8)
+                if reaction_id:
+                    ctx = self._session.delete(url, headers=self._headers(), timeout=timeout)
+                else:
+                    ctx = self._session.post(
+                        url, headers=self._headers(),
+                        json={"reaction_type": {"emoji_type": emoji_type}},
+                        timeout=timeout,
+                    )
+                async with ctx as resp:
+                    status = resp.status
+                    try:
+                        body = await resp.json(content_type=None)
+                    except Exception:
+                        body = {}
+            except Exception as exc:
+                logger.warning("[%s] reaction %s %s failed: %s", self.name, emoji_type,
+                               "delete" if reaction_id else "add", exc)
+                return None
+            code = body.get("code") if isinstance(body, dict) else None
+            if code == 0:
+                data = body.get("data") or {}
+                logger.info("[%s] reaction %s %s on %s ok", self.name,
+                            "deleted" if reaction_id else "added", emoji_type, message_id)
+                return str(data.get("reaction_id") or "")
+            if attempt == 0 and code in self._TOKEN_ERR_CODES:
+                logger.info("[%s] reaction token expired (code=%s); refresh+retry", self.name, code)
+                try:
+                    await self._refresh_token()
+                except Exception:
+                    return None
+                continue
+            logger.warning("[%s] reaction %s rejected: HTTP %s code=%s", self.name, emoji_type, status, code)
+            return None
+        return None
+
+    async def react_inbound(self, message_id: str) -> None:
+        """收到消息立即打 👀（零 LLM·毫秒级）——失败只记日志，绝不阻断入站。"""
+        if not message_id:
+            return
+        rid = await self._reaction_http(str(message_id), self.REACTION_READ)
+        if rid:
+            self._msg_reactions[str(message_id)] = {self.REACTION_READ: rid}
+
+    async def on_processing_start(self, event: MessageEvent) -> None:
+        """开工播报（🔧）：消息真正开始处理时才发（排队期间不发 = 不撒谎）。"""
+        try:
+            from gateway.work_status import get_broadcaster
+            b = get_broadcaster()
+            if not b.enabled_for(Platform.FEISHU):
+                return
+            src = getattr(event, "source", None)
+            if src is None or not getattr(src, "chat_id", ""):
+                return
+            await b.start(self, src.chat_id, getattr(src, "thread_id", None), getattr(event, "text", ""))
+        except Exception as exc:
+            logger.debug("[%s] work-status start hook error: %s", self.name, exc)
+
+    async def on_processing_complete(self, event: MessageEvent, outcome: Any = None) -> None:
+        """完工表情（✅ 替 👀）+ 完工播报（✅/⚠️）。"""
+        try:
+            src = getattr(event, "source", None)
+            mid = str(getattr(event, "message_id", "") or "")
+            if mid:
+                rid = (self._msg_reactions.get(mid) or {}).get(self.REACTION_READ)
+                if rid:
+                    await self._reaction_http(mid, self.REACTION_READ, reaction_id=rid)
+                    self._msg_reactions.pop(mid, None)
+                await self._reaction_http(mid, self.REACTION_DONE)
+            from gateway.work_status import get_broadcaster
+            b = get_broadcaster()
+            if b.enabled_for(Platform.FEISHU) and src is not None and getattr(src, "chat_id", ""):
+                await b.finish(self, src.chat_id, getattr(src, "thread_id", None), outcome=outcome)
+        except Exception as exc:
+            logger.debug("[%s] work-status complete hook error: %s", self.name, exc)
+
     async def send_typing(self, chat_id: str, metadata=None) -> None:
         """飞书 typing 指示器"""
         if not self._session:
@@ -1039,6 +1154,12 @@ class FeishuAdapter(BasePlatformAdapter):
         metadata: Optional[Dict[str, Any]] = None,
     ) -> SendResult:
         metadata = metadata or {}
+        # 2026-09-27 B: 出站文本作为「完工：结果一句」素材（状态播报自身自动过滤）
+        try:
+            from gateway.work_status import get_broadcaster as _get_ws
+            _get_ws().record_reply(chat_id, content)
+        except Exception:
+            pass
         if not self._session:
             return SendResult(success=False, error="Not connected")
         # 双保险：token 过期 OR 上次刷新超过阈值 → 强制刷新

@@ -908,6 +908,18 @@ class AgentMixin:
                     }),
                     _loop_for_step,
                 )
+                # 2026-09-27 B: 工作状态播报——中途 ⚙️（≤2 条/run，防刷屏，纯代码零 LLM）
+                try:
+                    from gateway.work_status import get_broadcaster as _get_wsb
+                    _wsb = _get_wsb()
+                    _ws_adapter = self.adapters.get(source.platform)
+                    if _names and _ws_adapter is not None and _wsb.enabled_for(source.platform):
+                        asyncio.run_coroutine_threadsafe(
+                            _wsb.step(_ws_adapter, source.chat_id, _progress_thread_id, _names),
+                            _loop_for_step,
+                        )
+                except Exception as _ws_err:
+                    logger.debug("work_status step hook error: %s", _ws_err)
             except Exception as _e:
                 logger.debug("agent:step hook error: %s", _e)
 
