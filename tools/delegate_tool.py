@@ -463,6 +463,33 @@ def _build_child_agent(
 
     return child
 
+def _derive_child_completed(result: Dict[str, Any]) -> bool:
+    """exit_reason 恒假修复（2026-09-27 Mimir 定因）。
+
+    生产端 run_conversation 返回值**不写** completed 键（core_loop 的 completed 属
+    trajectory entry；delegate_subagent 的属任务状态枚举）⇒ 旧写法读该键并以 False
+    兜底 ⇒ 恒判「未完成」⇒ 三分支永远落到 else ⇒ 委派台账恒报 max_iterations
+    （实测：子代理 4/12 轮、10.7 秒正常收尾也被贴成「撞限」）。
+    修法：键缺失时用真实退出原因推断（natural = 正常收尾）；显式键存在则以其为准。
+    """
+    raw = result.get("completed")
+    if raw is None:
+        return str(result.get("exit_reason") or "") == "natural"
+    return bool(raw)
+
+
+def _derive_child_exit_reason(
+    result: Dict[str, Any], completed: bool, interrupted: bool
+) -> str:
+    """委派台账 exit_reason 标签：interrupted / completed / 真实失败原因（缺省 max_iterations）。"""
+    if interrupted:
+        return "interrupted"
+    if completed:
+        return "completed"
+    raw = str(result.get("exit_reason") or "")
+    return raw or "max_iterations"
+
+
 def _run_single_child(
     task_index: int,
     goal: str,
@@ -548,8 +575,8 @@ def _run_single_child(
         duration = round(time.monotonic() - child_start, 2)
 
         summary = result.get("final_response") or ""
-        completed = result.get("completed", False)
         interrupted = result.get("interrupted", False)
+        completed = _derive_child_completed(result)
         api_calls = result.get("api_calls", 0)
         if not api_calls:
             # 计量透传（2026-09-26）：适配层今天才产出该键；老路径回退内部计数器。
@@ -605,12 +632,7 @@ def _run_single_child(
                         tool_trace[-1].update(result_meta)
 
         # Determine exit reason
-        if interrupted:
-            exit_reason = "interrupted"
-        elif completed:
-            exit_reason = "completed"
-        else:
-            exit_reason = "max_iterations"
+        exit_reason = _derive_child_exit_reason(result, completed, interrupted)
 
         # Extract token counts (safe for mock objects)
         # 计量透传（2026-09-26）：优先用适配层回传的**本次实计**；缺失时回退会话累计。
