@@ -1149,8 +1149,14 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
         # SIGKILL/OOM（运行时**无法**记录：不可捕获信号），退出表里会永远缺行
         # （实测 22:49:50 cgroup OOM：journal 有 oom-kill，表里 0 行）。
         # 启动即对账，把这行补进 append-only 表，再回显。
-        for _rec in reconcile_from_journal():
+        _added = reconcile_from_journal()
+        for _rec in _added:
             logger.warning("Reconciled missed exit from journal: %s", summarize(_rec))
+        # Unconditional trace (2026-09-28): previously this block logged only when
+        # rows were added, so "ran and found no gap" was indistinguishable from
+        # "never ran" (hit for real: validator read only gateway.log while this
+        # logger is __main__ -> goes to agent.log/errors.log -> false zero).
+        logger.warning("Exit reconcile ran: added=%d", len(_added))
 
         _prev_exit = read_last_exit()
         if _prev_exit:
