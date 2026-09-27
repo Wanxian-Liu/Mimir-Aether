@@ -119,20 +119,32 @@ check_r3b() {
     log_result "R3b" "WARN" "skipped — health unavailable"
     return
   fi
+  # three-state passthrough (2026-09-27): /health's `agent` already carries a
+  # third state, `insufficient_samples` (explicit design in
+  # monitor.get_agent_error_rate_detail - over threshold but samples too few).
+  # The old form collapsed it into FAIL together with `degraded`, so
+  # small-sample jitter impersonated a real incident.
+  # Mapping: 0=ok / 2=insufficient_samples(WARN) / 1=degraded(FAIL).
   detail=$(printf '%s' "$health" | MIMIR_MONITOR_ERROR_RATE_THRESHOLD="$MONITOR_ERROR_RATE_MAX" python3 -c '
 import json, os, sys
 h = json.load(sys.stdin)
 rate = float(h.get("agent_error_rate") or 0)
 thresh = float(os.environ.get("MIMIR_MONITOR_ERROR_RATE_THRESHOLD", "0.10"))
 agent = h.get("agent", "ok")
+reason = h.get("agent_error_reason", "?")
+calls = h.get("agent_error_calls", "?")
+need = h.get("agent_error_min_samples", "?")
 p95 = h.get("agent_tool_p95_ms", 0)
-if agent == "degraded" or rate > thresh:
-    print(f"agent={agent} rate={rate:.4f} max={thresh} p95_ms={p95}")
+print(f"agent={agent} reason={reason} rate={rate:.4f} max={thresh} calls={calls}/{need} p95_ms={p95}")
+if agent == "degraded":
     sys.exit(1)
-print(f"agent={agent} rate={rate:.4f} max={thresh} p95_ms={p95}")
+if agent == "insufficient_samples":
+    sys.exit(2)
 ' 2>/dev/null) && rc=0 || rc=$?
   if [ "$rc" -eq 0 ]; then
     log_result "R3b" "PASS" "$detail"
+  elif [ "$rc" -eq 2 ]; then
+    log_result "R3b" "WARN" "insufficient samples (not a failure) - $detail"
   else
     log_result "R3b" "FAIL" "${detail:-monitor check failed}"
   fi

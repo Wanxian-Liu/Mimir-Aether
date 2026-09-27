@@ -52,14 +52,25 @@ DINGTALK = REPO_ROOT / "gateway" / "platforms" / "dingtalk.py"
 LONG_LIVED_TARGETS = {"_blocking_lark_ws_main", "_stream_client"}
 
 HANG_TIMEOUT = 6.0      # the old form must still be hung after this long
-CLEAN_TIMEOUT = 12.0    # the new form must be done well inside this
+# Wall-clock budget for the child process.  Must swallow a cold import of
+# lark_oapi under load: 2026-09-27, CLEAN_TIMEOUT=12.0 produced 3/3 false
+# failures on a busy box (same file: 52.6/56.9/70.8s) while an idle run took
+# 11.9s.  Do NOT tighten this to recover "fastness" -- that claim lives in
+# SCENARIO_BUDGET_MS below, which import cost cannot pollute.
+CLEAN_TIMEOUT = float(os.environ.get("MIMIR_F2_CLEAN_TIMEOUT", "30.0"))
+# The phase F2 actually fixes: asyncio.run() returning while the daemon
+# thread is left behind.  Measured after the child's own import.
+SCENARIO_BUDGET_MS = float(os.environ.get("MIMIR_F2_SCENARIO_BUDGET_MS", "6000"))
 
 CHILD_SRC = '''\
 import asyncio
 import sys
 import threading
+import time
 
+_T0 = time.monotonic()
 from gateway.platforms.feishu_adapter import FeishuAdapter
+_T_IMPORT = time.monotonic()
 
 BLOCK = threading.Event()
 
@@ -94,6 +105,8 @@ async def _scenario(mode: str) -> None:
 
 def main() -> None:
     asyncio.run(_scenario(sys.argv[1]))
+    print(f"F2_IMPORT_MS={(_T_IMPORT - _T0) * 1000:.0f}", flush=True)
+    print(f"F2_SCENARIO_MS={(time.monotonic() - _T_IMPORT) * 1000:.0f}", flush=True)
     print("F2_ASYNCIO_RUN_RETURNED", flush=True)
 
 
@@ -192,14 +205,30 @@ def test_cancelling_the_awaiting_task_propagates_cancelled_error() -> None:
 
 
 # ------------------------------------------------- behavioral green + control
+def _child_phase_ms(stdout: str, key: str) -> float:
+    for line in stdout.splitlines():
+        if line.startswith(key + "="):
+            return float(line.split("=", 1)[1])
+    raise AssertionError(f"child did not report {key} (stdout={stdout!r})")
+
+
 def test_asyncio_run_returns_with_the_daemon_thread(tmp_path) -> None:
-    """GREEN: the process exits cleanly even though the callable never returns."""
-    t0 = time.monotonic()
+    """GREEN: the process exits cleanly even though the callable never returns.
+
+    2026-09-27: the bound moved off subprocess wall clock and onto the child's
+    OWN scenario phase.  The wall-clock budget has to swallow a cold
+    ``import lark_oapi`` (seconds under load), which made the old
+    ``elapsed < 8.0`` claim fail 3/3 on a busy box while the identical file
+    passed in 11.9s idle.  The stop path itself is ~0.3s, so
+    SCENARIO_BUDGET_MS stays a sharp, load-robust discriminator.
+    """
     done = _run_child(tmp_path, "daemon", CLEAN_TIMEOUT)
-    elapsed = time.monotonic() - t0
     assert done.returncode == 0, done.stderr
     assert "F2_ASYNCIO_RUN_RETURNED" in done.stdout
-    assert elapsed < 8.0, f"stop path took {elapsed:.1f}s (pre-F2 hung past 30s)"
+    scenario_ms = _child_phase_ms(done.stdout, "F2_SCENARIO_MS")
+    assert scenario_ms < SCENARIO_BUDGET_MS, (
+        f"stop path took {scenario_ms:.0f}ms (pre-F2 hung past 30s)"
+    )
 
 
 def test_control_old_form_reproduces_the_hang(tmp_path) -> None:
