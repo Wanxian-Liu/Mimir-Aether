@@ -253,6 +253,15 @@ def _backfill_missing_reasoning_content(messages, model: Optional[str]) -> int:
     return _filled
 
 
+def _empty_run_gate_mod():
+    """惰性导入空跑闸门模块（兼容包内相对导入与脚本式绝对导入两种加载方式）。"""
+    try:
+        from . import empty_run_gate as _m
+        return _m
+    except Exception:
+        import empty_run_gate as _m
+        return _m
+
 class AgentLoopExit(Exception):
     """Raised inside the agent loop to exit through the unified validation path.
 
@@ -310,6 +319,20 @@ class MimirAgentLoop:
         self._read_paths_count: dict = {}  # ADR-008 重复计数
         self._read_gate_directive: Optional[str] = None  # 读闸指令标志位（2026-08-25 修复卡改动1：不在 tool_calls 序列中插消息）
         self.task_id = task_id or str(uuid.uuid4())
+        # ===== 空跑闸门（2026-09-28 · 第 3 次空跑后机制化 · 根治线）=====
+        # 病灶实证：run be1eb421e3a066cf（19:48:24→19:49:53 · 10 步）10/10 只读、0 交付、
+        #   空正文退出；run d85a4c1097d19fb4（8 步）只写中转草稿不写交付物。批 1 的
+        #   「单轮只读 ≤3 转写」只有提示词载体 ⇒ 上下文一变长就稀释（约束 ≠ 保证）。
+        # 本闸 = 机制：B 只读预算硬限（每轮 tick → 经安全通道注入强制落盘指令）
+        #             + A exit 前 staging flush（草稿落成半段交付物 ⇒ 静默退出变带伤交付）。
+        self._empty_run_gate = None
+        self._empty_run_flushed_paths: List[str] = []
+        try:
+            _ERG = _empty_run_gate_mod()
+            if _ERG.EmptyRunGate.enabled():
+                self._empty_run_gate = _ERG.EmptyRunGate(task_id=self.task_id)
+        except Exception as _erg_exc:  # 闸门自身不得成为新的失败面
+            logger.warning("空跑闸门初始化失败（降级为现状）: %s", _erg_exc)
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.extra_body = extra_body
@@ -685,6 +708,22 @@ class MimirAgentLoop:
                 messages.append({"role": "user", "content": self._read_gate_directive})
                 logger.warning("[%s] turn %d: 读闸指令经标志位注入（安全通道）", self.task_id[:8], turn + 1)
                 self._read_gate_directive = None
+            # ===== 空跑闸门 B（预防 · 2026-09-28）：只读预算硬限 =====
+            # 连续只读轮数达限且交付物未写 ⇒ 经**同一安全通道**注入「本轮到写」。
+            # 复用 _read_gate_directive 标志位（序列合法：assistant(tool_calls)→tool 结果→此 user 消息）。
+            _erg = getattr(self, "_empty_run_gate", None)
+            if _erg is not None:
+                try:
+                    _erg_dir = _erg.tick(messages, turn + 1)
+                except Exception as _erg_exc:
+                    _erg_dir = None
+                    logger.warning("[%s] 空跑闸门 tick 异常（降级）: %s", self.task_id[:8], _erg_exc)
+                if _erg_dir and not getattr(self, "_read_gate_directive", None):
+                    self._read_gate_directive = _erg_dir
+                    logger.warning(
+                        "[%s] turn %d: 空跑闸门 B 触发——连续只读 %d 轮（限 %d）且交付物未写，注入强制落盘指令",
+                        self.task_id[:8], turn + 1, _erg.streak, _erg.limit,
+                    )
             self._ensure_reasoning_content(messages)
             api_start = _time.monotonic()
             try:
@@ -1268,6 +1307,19 @@ class MimirAgentLoop:
                         "——改 empty_content 明示，禁止跨轮复读",
                         self.task_id[:8], turn + 1,
                     )
+                    # ===== 空跑闸门 A（止血 · 2026-09-28）=====
+                    # 第 3 次实证（run be1eb421）：10/10 只读 → 空正文退出，交付物 0。
+                    # 修法：先 flush staging 草稿成半段交付物（带伤交付），再给模型一次补写机会；
+                    #       补写预算耗尽才 raise —— 此时产物已在盘上，不再是「静默退出」。
+                    _erg_flushed, _erg_force = await self._empty_run_gate_pre_exit(
+                        messages, turn + 1, "empty_content")
+                    if _erg_force:
+                        messages.append({"role": "user", "content": _erg_force})
+                        logger.warning(
+                            "[%s] turn %d: 空跑闸门 A 触发——staging 已落盘 %d 份，注入强制落盘指令后继续",
+                            self.task_id[:8], turn + 1, len(_erg_flushed),
+                        )
+                        continue
                     raise AgentLoopExit("empty_content", {
                         "messages": messages, "turns_used": turn + 1,
                         "finished_naturally": False, "reasoning_per_turn": reasoning_per_turn,
@@ -1387,6 +1439,47 @@ class MimirAgentLoop:
             return False
         return False
 
+    # ===== 空跑闸门 A 辅助（2026-09-28 机制化）=====
+    async def _empty_run_gate_pre_exit(self, messages, turn: int, reason: str,
+                                       allow_force: bool = True):
+        """退出前把 staging 草稿落成半段交付物；返回 (flush 结果列表, 补写指令或 None)。
+
+        设计（实证驱动）：
+          * run be1eb421e3a066cf 10/10 只读 → 空正文退出 ⇒「静默退出」；
+          * run d85a4c1097d19fb4 草稿在 tmp、交付物没写 ⇒ 材料白读；
+          * 本方法把两者合并成「带伤交付」：草稿落进目标卡（+半段标记），再给一次补写机会。
+        幂等：同一草稿重复调用不重复追加（flush_draft 内有标记守卫）。
+        """
+        _erg = getattr(self, "_empty_run_gate", None)
+        if _erg is None:
+            return [], None
+        try:
+            flushed = _erg.flush(messages, turn=turn, reason=reason)
+        except Exception as _exc:
+            logger.warning("[%s] 空跑闸门 flush 异常（降级）: %s", self.task_id[:8], _exc)
+            flushed = []
+        _paths = [str(r.get("target")) for r in (flushed or []) if r.get("flushed")]
+        if _paths:
+            try:
+                self._empty_run_flushed_paths.extend(_paths)
+            except Exception:
+                pass
+            logger.warning("[%s] 空跑闸门 A：staging 草稿已落成半段交付物 → %s",
+                           self.task_id[:8], ", ".join(_paths))
+        # 零回归铁律（2026-09-28 · 盘上实证）：**force-continue 只在「有 staging 实物可救」时触发**。
+        # 反例：纯空回复（无草稿·无只读回环）若也重试，会多烧轮次并把既有的 verify/TD-03 链
+        # 推到 verify_exhausted ⇒ 破坏 test_cross_turn_replay_guard 的 empty_content 契约。
+        # 故：无实物 ⇒ 立即 raise（与修复前完全一致）；有实物 ⇒ flush 后给一次补写机会。
+        if not allow_force or not _paths:
+            return flushed, None
+        if not _erg.take_force_slot():
+            return flushed, None
+        try:
+            _staging = _empty_run_gate_mod().staging_writes(messages)
+        except Exception:
+            _staging = []
+        return flushed, _erg.exit_directive(_staging)
+
     def _check_has_written(self, messages: List[Dict[str, Any]]) -> bool:
         """检查会话是否产生过写盘产出（Loki-C commit 3 提取 + 2026-08-16 目标校验升级）。
 
@@ -1398,6 +1491,11 @@ class MimirAgentLoop:
         根因：Mimir 写 search-notes.md（工作记忆）后 _check_has_written=True 放过，
         但目标交付物（讨论卡段）没写——"写到别处不算"。
         """
+        # 空跑闸门 A（2026-09-28）：flush 已把草稿落到交付物上 ⇒ 视同已写。
+        # 修量具缺口：WRITE_TOOLS 只认 write_file/patch，execute_code 写盘不计（第 2 次空跑
+        # 被读成「从未动笔」）——但 flush 是真写盘，必须计入，否则闸门功劳读不出来。
+        if getattr(self, "_empty_run_flushed_paths", None):
+            return True
         import re as _re
         _WRITE_TOOLS = {"write_file", "patch", "create_file", "edit", "write"}
         _WORK_MEMORY_KEYS = ("search-notes.md", "/tmp/", "PROGRESS.md")
@@ -1641,6 +1739,14 @@ class MimirAgentLoop:
             messages = result_kwargs.get("messages") or []
             # 主动停止（用户中断/系统错误风暴）不视为漏产出
             _ACTIVE_STOP_REASONS = {"interrupt", "tool_storm"}
+            # 空跑闸门 A（2026-09-28）：异常出口（api_failure/empty_response/format_error/
+            # no_choices/billing）同样先 flush staging ⇒ 带伤交付 > 静默空跑。
+            # allow_force=False：已在退出路径，不再索取补写指令（只做落盘）。
+            try:
+                await self._empty_run_gate_pre_exit(
+                    messages, result_kwargs.get("turns_used") or 0, reason, allow_force=False)
+            except Exception as _erg_exc:
+                logger.warning("[%s] [EXIT] 空跑闸门 flush 降级: %s", self.task_id[:8], _erg_exc)
             _has_written = self._check_has_written(messages)
             # SRE 三件套之二：exit 四要素日志（reason/has_written/task/turns）
             logger.info("[%s] [EXIT] reason=%s turns=%s has_written=%s active_stop=%s",
