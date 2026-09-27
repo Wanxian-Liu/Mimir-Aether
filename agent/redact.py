@@ -13,6 +13,17 @@ import re
 
 logger = logging.getLogger(__name__)
 
+# Ops 规则改为**模块导入期**解析（2026-09-28）。
+# 旧码在 redact_sensitive_text() 内惰性 `from agent.redact_rules import ...`，
+# 而该函数由 RedactingFormatter.format() 调用 ⇒ 解释器关闭期
+# （sys.meta_path is None）抛 ImportError ⇒ logging emit 二次失败 ⇒
+# 级联 23 条 Traceback（实测 ~/.mimiraether/logs/gateway.log）。
+# 导入期解析后，该路径不再触达 import 机器。
+try:  # pragma: no cover - 仅在极端环境下失败
+    from agent.redact_rules import apply_loaded_rules as _apply_loaded_rules
+except Exception:  # pragma: no cover
+    _apply_loaded_rules = None
+
 # Snapshot at import time so runtime env mutations (e.g. LLM-generated
 # `export HERMES_REDACT_SECRETS=false`) cannot disable redaction mid-session.
 _REDACT_ENABLED = os.getenv("HERMES_REDACT_SECRETS", "").lower() not in ("0", "false", "no", "off")
@@ -167,9 +178,9 @@ def redact_sensitive_text(text: str) -> str:
         return phone[:4] + "****" + phone[-4:]
     text = _SIGNAL_PHONE_RE.sub(_redact_phone, text)
 
-    from agent.redact_rules import apply_loaded_rules
-
-    return apply_loaded_rules(text)
+    if _apply_loaded_rules is None:  # pragma: no cover - 导入期已失败
+        return text
+    return _apply_loaded_rules(text)
 
 
 class RedactingFormatter(logging.Formatter):
@@ -180,4 +191,10 @@ class RedactingFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         original = super().format(record)
-        return redact_sensitive_text(original)
+        try:
+            return redact_sensitive_text(original)
+        except Exception:
+            # fail-closed：格式化器抛异常会触发 logging 的
+            # "--- Logging error ---" 级联（关闭期尤其致命）。
+            # **不返回原文**（避免未脱敏内容落盘），改为占位符。
+            return "[REDACTION FAILED - message withheld]"

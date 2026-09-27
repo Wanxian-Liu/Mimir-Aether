@@ -779,6 +779,39 @@ class FeishuAdapter(BasePlatformAdapter):
             # E1: 线程退出（或被停）时摘掉 loop 引用，避免 disconnect 对已停 loop 发 stop
             if self._ws_loop is ws_loop:
                 self._ws_loop = None
+            self._drain_ws_loop(ws_loop)
+
+    @staticmethod
+    def _drain_ws_loop(ws_loop: Any) -> None:
+        """取消 start() 遗留的未完成任务并关闭该 loop（2026-09-28）。
+
+        根因（盘上实证 · ~/.mimiraether/logs/gateway.log）：lark_oapi
+        ``ws.Client.start()`` 返回后，其内部 ``Client._ping_loop()`` 任务仍
+        pending（"Task was destroyed but it is pending!"）。该 loop 从未 close
+        ⇒ 解释器关闭期任务 GC，其 ``__del__`` 对已关 loop 调 ``call_soon``
+        ⇒ ``RuntimeError: Event loop is closed`` ⇒ asyncio 异常处理器再去写日志
+        ⇒ 与 ⑤a 的惰性 import 叠加成 23 条级联 Traceback。
+        在本线程内先 cancel + 有界等待，再 close，可消除该级联。
+        """
+        async def _cancel_pending() -> None:
+            cur = asyncio.current_task()
+            pend = [t for t in asyncio.all_tasks() if t is not cur and not t.done()]
+            for t in pend:
+                t.cancel()
+            if pend:
+                await asyncio.wait(pend, timeout=3.0)
+
+        try:
+            if not ws_loop.is_closed():
+                ws_loop.run_until_complete(_cancel_pending())
+        except Exception:
+            pass
+        try:
+            if not ws_loop.is_closed():
+                ws_loop.close()
+            asyncio.set_event_loop(None)
+        except Exception:
+            pass
 
     def _lark_noop_message_read_v1(self, data: Any) -> None:
         """Read receipts — 2026-08-25 fix-card change4: track read state and give a

@@ -1139,7 +1139,18 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
     # 启动回显上一次的退出现场：单槽 state 文件会被本次启动覆盖，
     # 历史在 append-only JSONL 里（2026-09-27 加入）。
     try:
-        from gateway.exit_record import read_last_exit, summarize
+        from gateway.exit_record import (
+            read_last_exit,
+            reconcile_from_journal,
+            summarize,
+        )
+
+        # 补盲区（2026-09-28）：本进程启动 ⇒ 上一个进程已退出。若那次是
+        # SIGKILL/OOM（运行时**无法**记录：不可捕获信号），退出表里会永远缺行
+        # （实测 22:49:50 cgroup OOM：journal 有 oom-kill，表里 0 行）。
+        # 启动即对账，把这行补进 append-only 表，再回显。
+        for _rec in reconcile_from_journal():
+            logger.warning("Reconciled missed exit from journal: %s", summarize(_rec))
 
         _prev_exit = read_last_exit()
         if _prev_exit:

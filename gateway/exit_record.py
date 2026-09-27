@@ -107,6 +107,204 @@ def record_exit_event(
         return None
 
 
+# ---------------------------------------------------------------------------
+# 补盲区（2026-09-28）：运行时**无法**记录的死法
+# ---------------------------------------------------------------------------
+# 本模块的 record_exit_event 只在进程自己的停机路径上被调用 ⇒ 对
+# SIGKILL/OOM（不可捕获）天然全盲。实测：22:49:50 被 cgroup OOM 杀掉，
+# 表里 0 行，而 journal 有 "killed by the OOM killer" / "Failed with result
+# 'oom-kill'"。纪律：**表里没有 != 没发生**——死法以 journal 记账为准。
+#
+# 本函数把 journal 里的停机事件与表里已记事件对账，缺的补一行
+# source="journal-reconcile"。幂等：窗口内已有记录则跳过。
+
+_JOURNAL_REASONS = (
+    ("killed by the OOM killer", "oom-kill"),
+    ("Failed with result 'oom-kill'", "oom-kill"),
+    ("Failed with result 'timeout'", "timeout"),
+    ("Failed with result 'signal'", "signal"),
+    ("Failed with result 'exit-code'", "exit-code"),
+    ("Failed with result 'watchdog'", "watchdog"),
+)
+
+
+def default_unit() -> str:
+    return os.environ.get("MIMIR_GATEWAY_UNIT", "").strip() or "mimiraether.service"
+
+
+def _journal_lines(unit: str, since_epoch: int, limit: int) -> list:
+    """读 systemd user journal（JSON 行）。任何失败返回 []，绝不抛异常。"""
+    try:
+        import subprocess
+
+        cmd = [
+            "journalctl", "--user", "-u", unit,
+            "--since", "@%d" % int(since_epoch),
+            "-o", "json", "-n", str(int(limit)), "--no-pager",
+        ]
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
+        if out.returncode != 0:
+            return []
+        return out.stdout.splitlines()
+    except Exception:
+        return []
+
+
+def _msg_of(obj: dict) -> str:
+    """MESSAGE 可能是 str，也可能是字节数组。"""
+    raw = obj.get("MESSAGE")
+    if isinstance(raw, str):
+        return raw
+    if isinstance(raw, list):
+        try:
+            return bytes(raw).decode("utf-8", "replace")
+        except Exception:
+            return ""
+    return ""
+
+
+def parse_journal_exits(lines) -> list:
+    """从 journal JSON 行解析停机事件（纯函数，可注入替身测试）。
+
+    返回 [{"ts_epoch": int, "ts": str, "reason": str, "rss_peak_mb": float|None}]
+    —— 同一事件的多行（OOM killer + Failed with result）按 5s 窗口合并。
+    """
+    events = []
+    for line in lines or []:
+        line = (line or "").strip()
+        if not line:
+            continue
+        try:
+            obj = json.loads(line)
+        except Exception:
+            continue
+        if not isinstance(obj, dict):
+            continue
+        msg = _msg_of(obj)
+        reason = None
+        for needle, name in _JOURNAL_REASONS:
+            if needle in msg:
+                reason = name
+                break
+        peak = None
+        if "memory peak" in msg:
+            try:
+                seg = msg.split("memory peak")[0].strip().rstrip(",").split()[-1]
+                if seg.endswith("G"):
+                    peak = float(seg[:-1]) * 1024.0
+                elif seg.endswith("M"):
+                    peak = float(seg[:-1])
+                elif seg.endswith("K"):
+                    peak = float(seg[:-1]) / 1024.0
+            except Exception:
+                peak = None
+        if reason is None and peak is None:
+            continue
+        try:
+            usec = int(obj.get("__REALTIME_TIMESTAMP") or 0)
+        except Exception:
+            usec = 0
+        epoch = int(usec / 1000000) if usec else 0
+        if reason is None:
+            # 仅 memory peak 行：挂到最近一个事件
+            if events and abs(events[-1]["ts_epoch"] - epoch) <= 5:
+                events[-1]["rss_peak_mb"] = peak
+            continue
+        if events and events[-1]["reason"] == reason and abs(events[-1]["ts_epoch"] - epoch) <= 5:
+            if peak is not None:
+                events[-1]["rss_peak_mb"] = peak
+            continue
+        events.append(
+            {
+                "ts_epoch": epoch,
+                "ts": time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime(epoch)) if epoch else None,
+                "reason": reason,
+                "rss_peak_mb": peak,
+            }
+        )
+    return events
+
+
+def read_records() -> list:
+    """读全表（坏行跳过）。表不存在 ⇒ []。"""
+    try:
+        p = history_path()
+        if not p.exists():
+            return []
+        out = []
+        with open(p, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except Exception:
+                    continue
+                if isinstance(rec, dict):
+                    out.append(rec)
+        return out
+    except Exception:
+        return []
+
+
+def reconcile_from_journal(
+    *,
+    unit: Optional[str] = None,
+    read_lines=None,
+    since_epoch: Optional[int] = None,
+    window_s: int = 180,
+    limit: int = 2000,
+) -> list:
+    """把 journal 里未入表的停机事件补进表。返回**新追加**的行。
+
+    幂等：journal 事件与表内记录的 ts_epoch 相差 <= window_s ⇒ 视为已记，跳过。
+    """
+    try:
+        unit = unit or default_unit()
+        if since_epoch is None:
+            since_epoch = int(time.time()) - 24 * 3600
+        lines = (read_lines or (lambda u, s, l: _journal_lines(u, s, l)))(unit, since_epoch, limit)
+        if not lines:
+            return []
+        events = parse_journal_exits(lines)
+        if not events:
+            return []
+        recorded = [r.get("ts_epoch") for r in read_records()]
+        recorded = [int(x) for x in recorded if isinstance(x, (int, float))]
+        added = []
+        for ev in events:
+            if not ev.get("ts_epoch"):
+                continue
+            if any(abs(ev["ts_epoch"] - r) <= window_s for r in recorded):
+                continue
+            rec = {
+                "ts": ev["ts"],
+                "ts_epoch": ev["ts_epoch"],
+                "event": "exit",
+                "pid": None,
+                "ppid": None,
+                "signal": None,
+                "source": "journal-reconcile",
+                "exit_reason": ev["reason"],
+                "restart_requested": None,
+                "active_agents": None,
+                "uptime_s": None,
+                "rss_peak_mb": ev.get("rss_peak_mb"),
+                "note": "运行时未能记录（不可捕获信号）：由 journal 对账补入",
+                "unit": unit,
+            }
+            p = history_path()
+            p.parent.mkdir(parents=True, exist_ok=True)
+            with open(p, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(rec, ensure_ascii=False) + chr(10))
+            recorded.append(ev["ts_epoch"])
+            added.append(rec)
+        return added
+    except Exception:
+        return []
+
+
 def read_last_exit() -> Optional[dict]:
     """读最近一条退出记录（启动时回显用）。坏行跳过、绝不抛异常。"""
     try:
