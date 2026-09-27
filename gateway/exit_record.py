@@ -20,11 +20,26 @@ _PROC = _SLASH + "pro" + "c" + _SLASH
 
 
 def _home() -> str:
-    return (
-        os.environ.get("MIMIR_AETHER_HOME")
-        or os.environ.get("HERMES_HOME")
-        or os.path.expanduser("~" + _SLASH + ".mimiraether")
-    )
+    """数据根（单一真源）。
+
+    解析顺序（MIMIR_AETHER_HOME → MIMIRAETHER_HOME → 旧键 → ~/.mimiraether）
+    全仓已有实现 ``mimir_constants.get_mimir_home()``。此处独立复刻一份会漂移，
+    且违反 IND-02 契约（运行时树禁裸读旧键作默认根）—— 首版即因此被契约闸拦下。
+
+    本模块在**停机路径**上被调用 ⇒ 导入失败必须仍可用，故保留只认本项目两个键的
+    窄回退，且默认值与外层一致。
+    """
+    try:
+        from mimir_constants import get_mimir_home
+
+        return str(get_mimir_home())
+    except Exception:
+        pass
+    for _key in ("MIMIR_AETHER_HOME", "MIMIRAETHER_HOME"):
+        _val = os.environ.get(_key, "").strip()
+        if _val:
+            return _val
+    return os.path.expanduser("~" + _SLASH + ".mimiraether")
 
 
 def history_path() -> Path:

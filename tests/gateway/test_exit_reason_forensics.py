@@ -119,3 +119,17 @@ def test_adapter_fatal_paths_tag_source():
 def test_startup_echo_present():
     src = (REPO / "gateway" / "run.py").read_text(encoding="utf-8")
     assert "Previous gateway exit record" in src
+
+
+def test_home_delegates_to_single_source(home):
+    """数据根必须走 mimir_constants.get_mimir_home（单一真源）。
+
+    首版在此处独立复刻了 env 解析链 ⇒ 裸读旧键 ⇒ 被 IND-02 契约闸
+    （tests/contract/test_runtime_path_independence_ind02.py）拦下、Tier-0 Gate2 转红。
+    本臂钉住「同一真源」这件事，避免再次分叉。
+    """
+    er, tmp = home
+    from mimir_constants import get_mimir_home
+
+    assert er._home() == str(get_mimir_home())
+    assert er._home() == str(tmp)
