@@ -1152,6 +1152,8 @@ class SessionMixin:
             return
 
         async def _stop_impl() -> None:
+            if not getattr(self, "_exit_source", None):
+                self._exit_source = "restart_requested" if self._restart_requested else "unspecified"
             logger.info(
                 "Stopping gateway%s...",
                 " for restart" if self._restart_requested else "",
@@ -1256,6 +1258,21 @@ class SessionMixin:
             if self._restart_requested and self._restart_via_service:
                 self._exit_code = GATEWAY_SERVICE_RESTART_EXIT_CODE
                 self._exit_reason = self._exit_reason or "Gateway restart requested"
+
+            # 退出取证（2026-09-27）：state 文件单槽、会被下次启动覆盖，
+            # 故在覆盖前先把现场追加到独立 JSONL（谁调停 / 什么信号 / 存活多久 / 峰值内存）。
+            try:
+                from gateway.exit_record import record_exit_event
+
+                record_exit_event(
+                    exit_reason=self._exit_reason,
+                    signal_name=getattr(self, "_exit_signal_name", None),
+                    source=getattr(self, "_exit_source", None),
+                    restart_requested=self._restart_requested,
+                    active_agents=self._running_agent_count(),
+                )
+            except Exception:
+                pass
 
             self._draining = False
             self._update_runtime_status("stopped", self._exit_reason)

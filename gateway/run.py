@@ -1136,6 +1136,17 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
     from mimiraether_logging import setup_logging
     setup_logging(hermes_home=_hermes_home, mode="gateway")
 
+    # 启动回显上一次的退出现场：单槽 state 文件会被本次启动覆盖，
+    # 历史在 append-only JSONL 里（2026-09-27 加入）。
+    try:
+        from gateway.exit_record import read_last_exit, summarize
+
+        _prev_exit = read_last_exit()
+        if _prev_exit:
+            logger.warning("Previous gateway exit record: %s", summarize(_prev_exit))
+    except Exception:
+        pass
+
     # Optional stderr handler — level driven by -v/-q flags on the CLI.
     # verbosity=None (-q/--quiet): no stderr output
     # verbosity=0    (default):    WARNING and above
@@ -1156,17 +1167,38 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
     runner = GatewayRunner(config)
     
     # Set up signal handlers
-    def shutdown_signal_handler():
-        asyncio.create_task(runner.stop())
+    def _make_stop_handler(_sig):
+        def _handler():
+            try:
+                _name = getattr(_sig, "name", None) or str(_sig)
+            except Exception:
+                _name = "UNKNOWN"
+            # 退出取证（2026-09-27）：外部 kill -TERM 与 systemctl stop 在 journal 里
+            # 形态不同（后者留 Stopping 行），把信号名钉在 runner 上随退出历史落盘。
+            try:
+                runner._exit_signal_name = _name
+                runner._exit_source = "signal:" + _name
+                logger.warning("Signal %s received \u2014 stopping gateway", _name)
+            except Exception:
+                pass
+            asyncio.create_task(runner.stop())
+
+        return _handler
 
     def restart_signal_handler():
+        try:
+            runner._exit_signal_name = "SIGUSR1"
+            runner._exit_source = "signal:SIGUSR1"
+            logger.warning("Signal SIGUSR1 received \u2014 restarting gateway")
+        except Exception:
+            pass
         runner.request_restart(detached=False, via_service=True)
     
     loop = asyncio.get_event_loop()
     if threading.current_thread() is threading.main_thread():
         for sig in (signal.SIGINT, signal.SIGTERM):
             try:
-                loop.add_signal_handler(sig, shutdown_signal_handler)
+                loop.add_signal_handler(sig, _make_stop_handler(sig))
             except NotImplementedError:
                 pass
         if hasattr(signal, "SIGUSR1"):

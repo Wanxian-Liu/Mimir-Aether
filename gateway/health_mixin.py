@@ -214,6 +214,7 @@ class HealthMixin:
 
         if not self.adapters and not self._failed_platforms:
             self._exit_reason = adapter.fatal_error_message or "All messaging adapters disconnected"
+            self._exit_source = "adapter_fatal"
             if adapter.fatal_error_retryable:
                 self._exit_with_failure = True
                 logger.error("No connected messaging platforms remain. Shutting down gateway for service restart.")
@@ -226,6 +227,7 @@ class HealthMixin:
             # can restart the process. Otherwise stay alive and keep retrying in background.
             if adapter.fatal_error_retryable:
                 self._exit_reason = adapter.fatal_error_message or "All messaging platforms failed with retryable errors"
+                self._exit_source = "adapter_fatal"
                 self._exit_with_failure = True
                 logger.error(
                     "All messaging platforms failed with retryable errors. "
