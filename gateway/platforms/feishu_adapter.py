@@ -810,6 +810,13 @@ class FeishuAdapter(BasePlatformAdapter):
             "[%s] message_read_v1: reader=%s type=%s messages=%d (read receipts tracked)",
             self.name, reader_id, reader_type, len(msg_ids),
         )
+        # 2026-09-27: 文本回执默认关闭（收据追踪仍保留）。
+        if not self.READ_TEXT_FEEDBACK:
+            logger.debug(
+                "[%s] read text feedback disabled (MIMIR_FEISHU_READ_TEXT_FEEDBACK=0)",
+                self.name,
+            )
+            return
         chat_id = self._sent_msg_chat.get(str(msg_ids[0])) if msg_ids else None
         if not chat_id:
             return
@@ -1029,6 +1036,14 @@ class FeishuAdapter(BasePlatformAdapter):
     _TOKEN_ERR_CODES = frozenset({99991663, 99991664, 99991665, 99991661})
     # 2026-09-27 实测: emoji_type 取官方 135 项白名单; "EYES" 不在其中(231001 reaction type is invalid)
     # => 已读回执用 GLANCE(瞄一眼), 完工用 DONE; 可用环境变量改, 不必改码
+    # 2026-09-27: 旧文本回执「刘哥读了你的消息」默认关闭 —— GLANCE 表情已在同一时刻
+    # 提供 read 反馈（机器可读、不刷屏）。置 MIMIR_FEISHU_READ_TEXT_FEEDBACK=1 可恢复。
+    READ_TEXT_FEEDBACK = (os.getenv("MIMIR_FEISHU_READ_TEXT_FEEDBACK") or "0").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
     REACTION_READ = (os.getenv("MIMIR_FEISHU_REACTION_READ") or "GLANCE").strip() or "GLANCE"
     REACTION_DONE = (os.getenv("MIMIR_FEISHU_REACTION_DONE") or "DONE").strip() or "DONE"
 

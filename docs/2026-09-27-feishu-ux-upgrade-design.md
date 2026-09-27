@@ -14,7 +14,7 @@
 | 生命周期钩子现成且 Feishu 未覆写 | base.py:1395 `on_processing_start` / 1398 `on_processing_complete(event,outcome)`；调用点 1665 / 1846-1876；`ProcessingOutcome`(649) |
 | 中途步骤信息现成 | agent_mixin.py:889 `_step_callback_sync(iteration, prev_tools)`（已 emit agent:step） |
 | Feishu 无工具进度根因 | agent_mixin:770 `if type(adapter).edit_message is _BaseAdapter.edit_message: return` — Feishu 未实现 edit_message ⇒ 进度被整队丢弃 |
-| 已有 read receipts 但非 reaction | feishu_adapter:780 `_lark_noop_message_read_v1` 只发文本「刘哥读了你的消息」（300s 节流） |
+| 已有 read receipts 但非 reaction | feishu_adapter:783 `_lark_noop_message_read_v1` 原只发文本「刘哥读了你的消息」（300s 节流）—— **本单落地后默认关闭**（GLANCE 表情替代；`MIMIR_FEISHU_READ_TEXT_FEEDBACK=1` 可恢复，收据追踪保留） |
 
 ## 1. 方案（三处改动，零新服务、零 LLM）
 
@@ -53,3 +53,14 @@
 | 重启方式 | `systemd-run --user --unit=mimir-feishu-ux-restart`（独立 cgroup）+ 脚本内 sleep 150s，避免杀掉当前飞书轮 |
 
 验收读数对照：① `grep -c reaction gateway/platforms/feishu_adapter.py` = 见下方 grep 输出（≥3）② 刘哥发消息 1 秒内见表情（刘哥亲眼=终验）③ 三段播报已实测 ④ 单轮播报 = 4 条（=封顶值，未超）
+
+## 附：2026-09-27 变更记录 — 旧文本已读回执默认关闭
+
+- **改动**：`gateway/platforms/feishu_adapter.py`
+  - 新增类常量 `READ_TEXT_FEEDBACK`（env `MIMIR_FEISHU_READ_TEXT_FEEDBACK`，默认 `0`）
+  - `_lark_noop_message_read_v1` 在「收据追踪之后、文本发送之前」加闸：默认 `return`（并记一行 debug，不静默）
+- **保留**：`_read_receipts` 追踪与 `logger.info(... read receipts tracked)` 不变（有价值的半边）
+- **理由**：GLANCE 表情已在同一时刻提供机器可读的 read 反馈；旧文本回执每 300s 往主 chat 发一条纯文本 = 噪声（违背「飞书不是日志屏」）
+- **用例**：`tests/test_feishu_read_text_feedback.py`（7 臂，含受控差分：门关掉 ⇒ 2 failed）
+- **回滚**：`MIMIR_FEISHU_READ_TEXT_FEEDBACK=1`（无需改码）
+- **生效条件**：重启 gateway（类常量在 import 时求值）
