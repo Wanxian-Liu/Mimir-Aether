@@ -67,7 +67,14 @@ log_result() {
 check_r1() {
   local tier0_out
   if [ -f "$REPO_ROOT/run_ralph_tier0.sh" ]; then
-    tier0_out=$(cd "$REPO_ROOT" && bash run_ralph_tier0.sh 2>&1) && rc=0 || rc=$?
+    # 2026-09-27 OOM 定因：tier0 会在 gateway 自己的 4G cgroup 内跑整仓 pytest
+    # （1365 例 / 872s / 峰值 4.0G）⇒ cgroup OOM ⇒ 主进程被 SIGKILL。
+    # 改走隔离包装（独立 scope）；包装缺失时退化为旧行为（不静默）。
+    if [ -x "$REPO_ROOT/scripts/pytest_isolated.sh" ]; then
+      tier0_out=$(cd "$REPO_ROOT" && bash scripts/pytest_isolated.sh --tier0 2>&1) && rc=0 || rc=$?
+    else
+      tier0_out=$(cd "$REPO_ROOT" && bash run_ralph_tier0.sh 2>&1) && rc=0 || rc=$?
+    fi
     if [ "$rc" -eq 0 ]; then
       log_result "R1" "PASS" "tier0 exit 0"
     else
