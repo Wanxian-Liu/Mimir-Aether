@@ -11,6 +11,21 @@ fi
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT_DIR"
 
+# --- 自我隔离（2026-09-27 OOM 治本）------------------------------------------------
+# 为什么：本脚本 Gate2 跑整仓 pytest（1365 例 / 872s / 内存峰值 4.0G）。若调用方位于
+#   gateway 自己的 cgroup（MemoryMax=4G）内 ⇒ cgroup OOM ⇒ **主进程被 SIGKILL**
+#   （2026-09-27 22:49:50 实证：journal `Failed with result 'oom-kill'`）。
+# 做法：检测到在 gateway cgroup 内且尚未隔离 ⇒ 移交 scripts/pytest_isolated.sh --tier0，
+#   由后者经 systemd-run --user --scope 在独立 cgroup 内运行。
+#   MIMIR_PYTEST_ISOLATED=1 由包装设置，用于防递归（本守卫随即短路）。
+if [[ "${MIMIR_PYTEST_ISOLATED:-}" != "1" && -x "${ROOT_DIR}/scripts/pytest_isolated.sh" ]]; then
+  _tier0_cg="$(cut -d: -f3 /proc/self/cgroup 2>/dev/null || echo "")"
+  if [[ "$_tier0_cg" == *mimiraether.service* ]]; then
+    echo "[tier0] 在 gateway cgroup 内 ⇒ 移交 scripts/pytest_isolated.sh --tier0（防 OOM）"
+    exec bash "${ROOT_DIR}/scripts/pytest_isolated.sh" --tier0 "$@"
+  fi
+fi
+
 # --- 解释器单一真源（2026-09-12 F2）-------------------------------------------------
 # 为什么：裸 python3（/usr/bin/python3）没有 torch / sentence-transformers，导致
 #   ① chroma 嵌入解析失败 → 语义检索熔断（circuit OPEN）；
