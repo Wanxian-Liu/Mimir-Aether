@@ -774,3 +774,11 @@ print(r["verdict"], r["controls"]["positive"]["observed"], r["target"]["observed
 
 **与既有条目的关系**：坑 6（先定输出语义）管**判据方向**，本条管**候选面** —— 两者都对，负结论才可用。
 **自纠纪律**：这类假警报一旦进盘（卡/回执/台账），**必须逐处更正 + 留原文撤回痕迹**（不得静默编辑掉）——本次已在卡尾加「🔴 更正（本段自纠）」段并同步回执/台账。
+
+
+### 同日副坑（**正控当场抓到**）· `git` 非 ASCII 文件名默认 C 引号转义 ⇒ 中文样本恒 `none`（2026-09-28）
+
+- 探针：`git -C <repo> log --name-only --pretty=format: -6 | sort -u | grep -c -F '{INPUT}'`，正控样本 = 「四方任务总台账」（明明在本批改动集里）
+- 首跑读数：`positive: none` ⇒ `positive_control_failed`（VERIFIED 被拒）。**真因不是"文件没改"，而是 git 默认 `core.quotepath=true`** —— 中文名被输出成 `"concepts/\345\233\233..."` 转义串，字面中文永远匹配不到。
+- 修法：`git -c core.quotepath=false ...`（或在仓库里持久配置）。修后同一条探针：positive=`seen` / negative=`none` / target=`none` ⇒ **VERIFIED**；分母 = 机器枚举的 **3** 个改动文件（台账 + 批 3 卡 + 批 4 卡）。
+- **判据**：正控失败时**先怀疑通道编码/形态，不要先怀疑结论**（同族于第九批「仪器看不见 ≠ 对象干净」，方向相反：「仪器看不见 ≠ 对象不干净」）。**这次是正控救了一条 VERIFIED 结论**——没有正控，我会把「中文样本恒 none」写成「矿石文本未被触及」（碰巧结论相同，但依据是假的）。
