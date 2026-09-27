@@ -455,6 +455,47 @@ def _find_dormant_skill(name: str) -> Optional[Path]:
     return None
 
 
+def _git_commit_skill_move(paths, message: str) -> str:
+    """Commit a curator-driven skill move so the work tree stays clean.
+
+    The curator relocates directories with ``shutil.move``; with no commit the
+    relocation stays as an uncommitted ``D`` + ``??`` pair forever, so the
+    "clean worktree" completion criterion silently stops holding (observed
+    2026-09-21 .. 2026-09-28: 2 skills, 4 dirty entries). Only the moved paths
+    are staged - never ``git add -A``. Never raises: a failed commit is logged
+    and reported, not propagated.
+    """
+    import subprocess
+    from pathlib import Path as _P
+    try:
+        root = _P(SKILLS_ROOT)
+        while not (root / ".git").exists() and root.parent != root:
+            root = root.parent
+        if not (root / ".git").exists():
+            return "skipped: no repo root"
+        rel = []
+        for x in paths:
+            try:
+                rel.append(str(_P(x).resolve().relative_to(root)))
+            except ValueError:
+                return "skipped: outside repo"
+        add = subprocess.run(["git", "add", "-A", "--"] + rel, cwd=str(root),
+                             capture_output=True, text=True, timeout=30)
+        if add.returncode != 0:
+            logger.warning("skill move: git add failed: %s", (add.stderr or "").strip()[:200])
+            return "add-failed"
+        com = subprocess.run(["git", "commit", "-m", message, "--"] + rel, cwd=str(root),
+                             capture_output=True, text=True, timeout=30)
+        if com.returncode != 0:
+            logger.warning("skill move: git commit failed: %s", (com.stderr or "").strip()[:200])
+            return "commit-failed"
+        logger.info("skill move committed: %s", message)
+        return "committed"
+    except Exception as e:
+        logger.warning("skill move: commit raised: %r", e)
+        return "error: %r" % (e,)
+
+
 def capsulize_and_dormant(name: str) -> dict:
     """
     将技能胶囊化并移入 .dormant/。
@@ -570,11 +611,17 @@ def capsulize_and_dormant(name: str) -> dict:
     }
     _save_dormant_registry(reg)
 
+    commit_note = _git_commit_skill_move(
+        [str(skill_dir), str(dormant_dir)],
+        "chore(skill_curator): dormant %s" % name,
+    )
+
     logger.info("Skill %s capsulized → dormant (category=%s)", name, category)
     return {
         "success": True,
         "name": name,
         "capsule_path": str(dormant_dir.relative_to(SKILLS_ROOT)),
+        "commit": commit_note,
     }
 
 
@@ -630,8 +677,13 @@ def revive_skill(name: str) -> dict:
     except OSError:
         pass
 
+    commit_note = _git_commit_skill_move(
+        [str(dormant_dir), str(target_dir)],
+        "chore(skill_curator): revive %s" % name,
+    )
+
     logger.info("Skill %s revived from dormant → %s", name, category)
-    return {"success": True, "name": name, "restored_to": str(target_dir)}
+    return {"success": True, "name": name, "restored_to": str(target_dir), "commit": commit_note}
 
 
 # ── 行动建议 ────────────────────────────────────────────────────────────────
