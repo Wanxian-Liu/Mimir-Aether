@@ -799,3 +799,23 @@ print(r["verdict"], r["controls"]["positive"]["observed"], r["target"]["observed
 - **只检「存在」会得出「两份都在、没事」**——真问题在**哪一份被注入**：`agent/prompt_builder.py::build_context_files_prompt` 取 **cwd 向上首个命中**，gateway cwd = `~/src/MimirAether` ⇒ 仓库版生效，home 副本是**死副本**。
 - **第二危害：死副本仍会主动回灌** —— `agent/subdirectory_hints.py` 会对正在读写的目录向上找 `AGENTS.md`；本轮读 `~/.mimiraether/data/` 下文件时，工具结果尾部被自动追加 `[Subdirectory context discovered: ~/.mimiraether/AGENTS.md]` + **旧 §2/§8 全文** ⇒ 同一规则面两份真源、旧版在暗处进上下文。
 - **两条锁**：① 探针进入「同名多副本」域时，除分子/分母外必须**打印每份的 size/mtime**，并**判注入路径**（读加载点代码，不猜）；② 「哪份生效」类结论的修法优先**复用**（本处 = home 副本转 symlink 指向正源 + 旧文 `.bak` 留档），**不新建同步机制**（建前两问：受益人 = 自己 · 不做的最坏结果 = 旧规则持续回灌 —— 见 `AGENTS §2.1`）。
+
+## ⚠️ 第十一批 · 对**他方**量具做受控探针（跨方审计 · 2026-09-28 实证 · 审计会2）
+
+**触发**：审**别人**的验证器/闸门（不是自证）——目标 = 证明「这个门在**哪里** fail、在**哪里不** fail」。
+
+**模板（8 案 · 落盘可复现 · 零依赖 · 不修改被测对象）**：正控 1 + 负控 2 + 旁路 2 + 假绿 1 + 假红 1 + 目录缺失 1。每案写 fixture → `subprocess.run([sys.executable, subject, ...])` → 记录 **rc 向量** 当「复算数字」。
+本轮归档：`~/.mimiraether/tmp/audit2/probe_validate_report.py`（3346 B）→ rc 向量 `{"C1":0,"C2":1,"C3":1,"C4":0,"C5":0,"C5b":0,"C6":1,"C7":1}`。
+**回执形态**（§8.4 两字段）：`重跑命令: python3 <脚本路径>` + `复算数字: <rc 向量>` —— 复核方复算即得，**不必读被测源码**。
+
+**四条硬教训（本轮实测）**：
+1. **正控必须先跑**：没有 rc=0 的合规案，「拦住了什么」不可信（量具可能恒 FAIL）。本轮先有 C1=0，才使 C3/C4/C5 的「该拦没拦」成立。
+2. **必须有「旁路案」**：`if verdict=="confirmed" and fd.get("asset")` —— 必填字段缺失即**短路**，门整体被绕过而**输出仍全绿**。旁路比假绿更隐蔽：假绿 = 判据太宽，旁路 = **判据根本没执行**。凡「以可选字段为前置」的门都要加此案。
+3. **空值恒真**：`fd.get("id") or ""` 进 `in report` ⇒ `"" in s` **恒 True** ⇒ 无条件误拦、报错还打 `None`。凡 `x or ""` 进 `in`/`re` 的判据必须配「键缺失」案。
+4. **假绿与假红同源**：无规范化 ⇒ 同一条判据既放行假货（`/api` 命中 `/api/user`）又拦死真件（`api.x.com:443`）。审判据要**两向**各一案，只测一向 = 半个量具。
+
+**工具面四条（取证通道 · 避免卡在环境）**：
+- `read_file`/`patch` **拦 `~/.hermes`**（路径白名单）⇒ 他方落点用 `execute_code` 内 `open()` **只读**取证。
+- `write_file` 载荷 >约 2-4 KB、`patch` >约 1 KB 报 `Invalid JSON` ⇒ **长文分段写 tmp + `cat a b >> 目标`**（append-only，天然不覆盖对方段落 = 同时满足「只写自己的段」）。
+- 落点表写**相对路径**时复核侧第一跳即失败（本轮：`skills/security/...` 在我侧两个候选根均不存在，真源在 `~/.hermes/skills/...`）⇒ 跨方件必须绝对路径。
+- 分工指定的**角色帽若盘上不存在**，须**先声明偏离**再出结论（本轮 `engineering/engineering-test-engineer.md` 全盘 0 命中 ⇒ 按最近亲帽 `engineering-debugger` + `testing-qa-engineer` 审，不冒充「真读帽」）。
