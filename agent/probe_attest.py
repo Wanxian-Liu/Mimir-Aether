@@ -348,9 +348,11 @@ ASSERTIVE_CLAIM_PATTERNS: tuple = (
 
 
 # ── A1（2026-09-15）：assertive 类声明的执法开关与"本轮写盘证据" ──────────
-# 证据工具集合与汇报闸 agent/verify_before_report_guard.WRITE_TOOLS **同集合**，
-# 避免两闸口径分叉（口径分叉本身就是历史事故源）。
+# 证据工具集合：**只认真写工具**（write_file/patch/apply_patch/edit）。
 # execute_code / terminal **刻意不计**：见 A2（Q9 裁决 = 改用"盘上增量"判据）。
+# ⚠️ 2026-09-28 P0-2 后本集合与 `verify_before_report_guard.WRITE_TOOLS` 仍同集合，
+#   但**语义已分**：guard 改走单一真源 `empty_run_gate.classify_tool()`（含 exec 内容级），
+#   本模块按 Q9 裁决**保持名字级**。两处差异是**记录在案的裁决**，非口径分叉事故。
 WRITE_EVIDENCE_TOOLS: frozenset = frozenset({"write_file", "patch", "apply_patch", "edit"})
 ASSERTIVE_ENFORCE_ENV = "MIMIR_PROBE_ATTEST_ASSERTIVE"
 

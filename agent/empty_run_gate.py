@@ -43,13 +43,23 @@ STAGING_MARKERS = (
     "/.mimir-inbox/tmp/",
 )
 # 交付物排除项（工作记忆/运行日志 —— 同 _check_has_written 口径）
-WORK_MEMORY_KEYS = ("search-notes.md", "PROGRESS.md", "/tmp/", "run-log/")
+# P0-1（2026-09-28 · probe_p5 5a 实证）：补 "logs/" / ".log" / ".jsonl" ——
+#   运行日志被读成「交付物」⇒ deliverable_written() 误真 ⇒ B 段掩护被误关（静默空跑）。
+WORK_MEMORY_KEYS = ("search-notes.md", "PROGRESS.md", "/tmp/", "run-log/",
+                    "logs/", ".log", ".jsonl")
 
 _PATH_RE = re.compile(r"[\w./~-]+\.(?:md|py|json|txt|yaml|yml|sh|log|html)")
 _OPEN_W_RE = re.compile(r"open\(\s*['\"]([^'\"]+)['\"]\s*,\s*['\"][wax]")
 _WRITE_TEXT_RE = re.compile(r"write_text\(|Path\(\s*['\"]([^'\"]+)['\"]\s*\)")
 _HEREDOC_RE = re.compile(r">\s*(?:[\w./~-]+\.(?:md|txt|json))")
 _CARD_HINTS = re.compile(r"(?:wiki/(?:discussions|concepts|raw)|/home/rayliu/wiki)/[^\s'\"`)]+\.md")
+
+# ── P0-1（2026-09-28）：写动作 × 目标路径 **配对**的取路径正则 ──
+# 只有写在**写动作参数位**上的路径才算「写目标」；注释/字符串里「提及」的不算。
+_PATH_WRITE_RE = re.compile(r"Path\(\s*['\"]([^'\"]+)['\"]\s*\)\s*\.\s*(?:write_text|write_bytes|open)\s*\(")
+_PATH_OPEN_MODE_RE = re.compile(r"\.\s*open\(\s*['\"][wax]")
+_SHELL_REDIRECT_RE = re.compile(r">>?\s*['\"]?([\w./~-]+\.(?:md|py|json|jsonl|txt|yaml|yml|sh|log|html))")
+_TEE_RE = re.compile(r"\btee\s+(?:-a\s+)?['\"]?([\w./~-]+\.\w+)")
 
 
 def gate_enabled() -> bool:
@@ -109,8 +119,13 @@ def classify_tool(name: str, args_raw: str = "") -> str:
         return "write"
     if n in EXEC_TOOLS:
         s = args_raw or ""
-        if (_OPEN_W_RE.search(s) or "write_text(" in s or ".write(" in s
-                or _WRITE_TEXT_RE.search(s) or _HEREDOC_RE.search(s)):
+        # P0-1（2026-09-28）：判据收紧到**真写形态** —— `Path(p)` 单独出现（只读）不再误判 write；
+        #   写动作清单 = open(p,'w'|'a'|'x') / Path(p).write_text|write_bytes|open('w') / .write*() /
+        #   shell 重定向 & tee / heredoc / 显式委托 write_file·patch。
+        if (_OPEN_W_RE.search(s) or _PATH_WRITE_RE.search(s) or _PATH_OPEN_MODE_RE.search(s)
+                or ".write_text(" in s or ".write_bytes(" in s or ".write(" in s
+                or _SHELL_REDIRECT_RE.search(s) or _TEE_RE.search(s)
+                or _HEREDOC_RE.search(s)):
             return "write"
         if "write_file" in s or "patch(" in s:
             return "write"
@@ -172,6 +187,54 @@ def is_deliverable_path(q: str) -> bool:
     return not any(k in _expand(q) for k in WORK_MEMORY_KEYS)
 
 
+def write_targets(name: str, args_raw: str = "") -> List[str]:
+    """该工具调用的**写目标**路径 —— 「写动作 × 目标路径」配对的唯一取路径入口。
+
+    与 `_norm_paths()`（扫**整串** args）的区别：只认**写动作参数位**上的路径。
+    病灶（probe_p5 5a 实证）：
+        open('<tmp 草稿>','a').write('x')  # log=/home/rayliu/.mimiraether/logs/agent.log
+    旧口径把**注释里提及**的 agent.log 读成交付物 ⇒ deliverable_written() 误真
+    ⇒ tick() 不注入 + flush() 直接 return [] ⇒ **B 段掩护被误关**（静默空跑）。
+    """
+    n = (name or "").strip()
+    raw = args_raw or ""
+    out: List[str] = []
+
+    def _add(q: str) -> None:
+        if q and q not in out:
+            out.append(q)
+
+    if n in WRITE_TOOLS:
+        d = None
+        if raw.strip().startswith("{"):
+            try:
+                d = json.loads(raw)
+            except Exception:
+                d = None
+        if isinstance(d, dict):
+            for k in ("path", "file_path", "filepath", "filename", "target",
+                      "target_path", "notebook_path"):
+                v = d.get(k)
+                if isinstance(v, str):
+                    _add(v)
+        else:
+            # 非 JSON 形态：参数本身即路径（保守回退，仍不含注释/无关串）
+            for q in _norm_paths(raw):
+                _add(q)
+        return out
+
+    if n in EXEC_TOOLS:
+        for q in _OPEN_W_RE.findall(raw):       # open('p', 'w'|'a'|'x')
+            _add(q)
+        for q in _PATH_WRITE_RE.findall(raw):   # Path('p').write_text(... / .open('w')
+            _add(q)
+        for q in _SHELL_REDIRECT_RE.findall(raw):  # > p / >> p
+            _add(q)
+        for q in _TEE_RE.findall(raw):          # tee [-a] p
+            _add(q)
+    return out
+
+
 def staging_writes(messages: List[Dict[str, Any]]) -> List[str]:
     """本 run 里**真实发生**的 staging 写盘路径（execute_code/terminal 内容级 + write_file/patch）。"""
     found: List[str] = []
@@ -181,8 +244,9 @@ def staging_writes(messages: List[Dict[str, Any]]) -> List[str]:
         for tc in (m.get("tool_calls") or []):
             name = _tc_name(tc)
             raw = _tc_args(tc)
-            if name in WRITE_TOOLS or classify_tool(name, raw) == "write":
-                for q in _norm_paths(raw):
+            if classify_tool(name, raw) == "write":
+                # P0-1：路径取「写动作 × 目标路径」配对结果（禁扫整串 args）
+                for q in write_targets(name, raw):
                     if is_staging_path(q) and q not in found:
                         found.append(q)
     return found
@@ -196,8 +260,9 @@ def deliverable_written(messages: List[Dict[str, Any]]) -> bool:
         for tc in (m.get("tool_calls") or []):
             name = _tc_name(tc)
             raw = _tc_args(tc)
-            if name in WRITE_TOOLS or classify_tool(name, raw) == "write":
-                if any(is_deliverable_path(q) for q in _norm_paths(raw)):
+            if classify_tool(name, raw) == "write":
+                # P0-1：配对取路径 —— 代码里「提及」的路径不算交付物写入
+                if any(is_deliverable_path(q) for q in write_targets(name, raw)):
                     return True
     return False
 

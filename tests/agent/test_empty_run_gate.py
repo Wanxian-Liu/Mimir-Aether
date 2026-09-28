@@ -228,3 +228,68 @@ def test_armG_wiring_hooks_present():
         assert marker in al, "接线缺失：" + marker
     assert al.count("_empty_run_gate_pre_exit") >= 3, "应至少 1 处定义 + 2 处调用（empty_content / _finalize_exit）"
     assert 'AgentLoopExit("empty_content"' in al, "empty_content 出口不得被删除（闸门只加不删）"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# P0-1 回归（2026-09-28 · probe_p5 5a 实证）：写动作 × 目标路径 **配对**
+# 病灶：`_norm_paths()` 扫**整串 args** ⇒ 代码注释里「提及」的 *.log 被读成
+#       交付物写入 ⇒ `deliverable_written()` 误真 ⇒ `tick()` 不注入 +
+#       `flush()` 直接 `return []` ⇒ **B 段掩护被误关**（静默空跑，无掩护）。
+# 判据：注释提及不影响判定；只有**写动作参数位**上的路径才算写目标。
+# ═══════════════════════════════════════════════════════════════════════════
+import json as _json  # noqa: E402
+
+
+def _p01_ec(i, body):
+    return {"role": "assistant", "content": "", "tool_calls": [
+        {"id": "e%d" % i, "type": "function",
+         "function": {"name": "execute_code", "arguments": _json.dumps({"code": body})}}]}
+
+
+def test_p0_1_comment_mention_is_not_a_deliverable_write(tmp_path):
+    """5a 型：写 staging 草稿 + 注释里提及 *.log ⇒ 不得判「写了交付物」。"""
+    from agent import empty_run_gate as g
+    draft = tmp_path / "b2" / "src.md"
+    draft.parent.mkdir(parents=True, exist_ok=True)
+    draft.write_text("draft", encoding="utf-8")
+    log = "/home/rayliu/.mimiraether/logs/agent.log"
+    tc = _p01_ec(10, "open(%r,'a').write('x')  # log=%s" % (str(draft), log))
+    msgs = [{"role": "user", "content": "任务：讨论 wiki/discussions/x.md"}, tc]
+    assert g.deliverable_written(msgs) is False
+    # 配对：只取 open() 的**目标位**（草稿），注释里的 .log 不算
+    assert g.write_targets("execute_code", tc["tool_calls"][0]["function"]["arguments"]) == [str(draft)]
+
+
+def test_p0_1_work_memory_keys_cover_logs():
+    """运行日志/JSONL 不是交付物（补 logs//.log/.jsonl）。"""
+    from agent import empty_run_gate as g
+    for k in ("logs/", ".log", ".jsonl"):
+        assert k in g.WORK_MEMORY_KEYS
+    assert g.is_deliverable_path("/home/rayliu/.mimiraether/logs/agent.log") is False
+    assert g.is_deliverable_path("/home/rayliu/.mimiraether/data/ops/x.jsonl") is False
+
+
+def test_p0_1_real_card_write_still_counts(tmp_path):
+    """正控：真写交付卡 ⇒ 仍判「写了」（不得为治误真而治死真）。
+
+    注意：判据是**纯字符串分析**（不执行被测代码），故这里用交付面路径字面量；
+    `tmp_path` 落在 `/tmp/` 下 = staging（`STAGING_MARKERS` 命中）⇒ 不能当正控。
+    """
+    from agent import empty_run_gate as g
+    card = "/home/rayliu/wiki/discussions/_p0_1_probe_literal.md"
+    msgs = [{"role": "user", "content": "任务：落盘"},
+            _p01_ec(11, "open(%r,'a').write('y')" % card)]
+    assert g.is_deliverable_path(card) is True
+    assert g.deliverable_written(msgs) is True
+    assert g.staging_writes(msgs) == []
+
+
+def test_p0_1_staging_draft_still_collected(tmp_path):
+    """正控：staging 草稿仍被 A 段认到（flush 有料可救）。"""
+    from agent import empty_run_gate as g
+    draft = tmp_path / "tmp" / "b2" / "src.md"
+    draft.parent.mkdir(parents=True, exist_ok=True)
+    draft.write_text("d", encoding="utf-8")
+    msgs = [{"role": "user", "content": "任务：落盘"},
+            _p01_ec(12, "pathlib.Path(%r).open('a').write('x')" % str(draft))]
+    assert g.staging_writes(msgs) == [str(draft)]

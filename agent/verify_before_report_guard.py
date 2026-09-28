@@ -76,6 +76,34 @@ def _has_verified_this_turn(messages: list[dict[str, Any]]) -> bool:
 
 WRITE_TOOLS = {"write_file", "patch", "apply_patch", "edit"}
 
+# ── P0-2（2026-09-28 · 空跑专题第 4 次近因 · 审计会2 交叉审计）──────────────
+# 病灶（**闸门互斥**）：本闸原先只认 WRITE_TOOLS（write_file/patch/…）⇒
+#   `execute_code` 写交付卡的 run 被本闸判「没写」⇒ 干完活了还被拦 + 回复被移出历史；
+#   而**空跑闸**（agent/empty_run_gate）同期判「写了」⇒ 两闸对同一事实相反判据 = 互斥。
+# 修法：写动作判定**不在本文件重复实现** —— 单一真源 = `empty_run_gate.classify_tool()`，
+#   它对 execute_code/terminal 走**内容级**判据（真写才 write，纯读仍 readonly）。
+#   ⚠️ 本文件不得再自建一份「写/只读」判据（第 5 份副本 = 下一次互斥）。
+WRITE_CAPABLE_EXEC_TOOLS = frozenset({"execute_code", "terminal"})
+
+
+def _shared_classifier():
+    """写动作分类器：单一真源（empty_run_gate）。导入失败 ⇒ 回退旧口径（不比现状更差）。"""
+    _m = None
+    try:
+        from . import empty_run_gate as _m  # type: ignore
+    except Exception:
+        try:
+            import empty_run_gate as _m  # type: ignore
+        except Exception:
+            _m = None
+    if _m is not None and hasattr(_m, "classify_tool"):
+        return _m.classify_tool, getattr(_m, "_tc_args", None)
+
+    def _fallback(name: str, args_raw: str = "") -> str:
+        return "write" if name in WRITE_TOOLS else "readonly"
+
+    return _fallback, None
+
 WRITE_TASK_MARKERS = ["写", "写入", "落盘", "追加", "完成你的段", "输出到", "创建", "更新文件", "写到"]
 
 
@@ -152,12 +180,32 @@ def _has_any_tool_call_this_turn(messages: list[dict[str, Any]]) -> bool:
 
 
 def _has_written_this_turn(messages: list[dict[str, Any]]) -> bool:
-    """检查本轮是否有写盘动作（write_file/patch等）"""
+    """检查本轮是否有写盘动作。
+
+    P0-2（2026-09-28）：判据改**单一真源** = `empty_run_gate.classify_tool`（内容级）——
+    `execute_code`/`terminal` 真写了文件才算 write（纯读不算）；与空跑闸同口径，
+    治「两闸对同一事实相反判据」（execute_code 写交付卡 ⇒ 本闸误判没写 ⇒ 硬拦）。
+    """
+    classify, tc_args = _shared_classifier()
     for msg in reversed(messages):
         if msg.get("role") == "assistant" and "tool_calls" in msg:
             for tc in msg["tool_calls"]:
-                if tc.get("function", {}).get("name", "") in WRITE_TOOLS:
-                    return True
+                try:
+                    name = (tc.get("function", {}) or {}).get("name", "") or ""
+                except AttributeError:
+                    continue
+                raw = ""
+                if tc_args is not None:
+                    try:
+                        raw = tc_args(tc) or ""
+                    except Exception:
+                        raw = ""
+                try:
+                    if classify(name, raw) == "write":
+                        return True
+                except Exception:  # 量具异常不得影响判定（fail-open：被观测对象优先）
+                    if name in WRITE_TOOLS:
+                        return True
         if msg.get("role") == "user":
             if _is_system_inject(msg):
                 continue

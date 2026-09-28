@@ -105,3 +105,66 @@ def test_not_block_normal_report() -> None:
     text = "已找到论文 2608.14478，作者 Bennett Chow，主题 Ricci 流热核 Fisher 度量。"
     msgs = _mk_messages(text)
     assert should_block_finish(msgs, text) is False
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# P0-2 回归（2026-09-28 · 闸门互斥）：execute_code 写交付卡 ⇒ guard **不拦**
+# 病灶：本闸原先只认 WRITE_TOOLS（write_file/patch/…）⇒ `execute_code` 写盘的 run
+#       被判「没写」⇒ 干完活仍被硬拦 + 回复被移出历史；而**空跑闸**同期判「写了」
+#       ⇒ 两闸对**同一事实**相反判据 = 互斥（第 4 次空跑近因）。
+# 修法：写动作判定**不重复实现** —— 单一真源 `empty_run_gate.classify_tool()`（内容级）。
+# ═══════════════════════════════════════════════════════════════════════════
+import json as _json  # noqa: E402
+
+_P02_TASK = "任务：把审计结论**落盘**到讨论卡（写盘任务）"
+_P02_ANSWER = "段落已追加，材料在盘上可核。"
+
+
+def _p02_ec(code, tid="p2"):
+    return {"role": "assistant", "content": "", "tool_calls": [
+        {"id": tid, "type": "function",
+         "function": {"name": "execute_code", "arguments": _json.dumps({"code": code})}}]}
+
+
+def _p02_msgs(tool_call):
+    return [
+        {"role": "user", "content": _P02_TASK},
+        tool_call,
+        {"role": "tool", "tool_call_id": "p2", "content": "ok"},
+    ]
+
+
+def test_p0_2_exec_write_recognized_and_not_blocked(tmp_path) -> None:
+    """目标：execute_code 真写交付卡 ⇒ 认到写 ∧ 不拦（修前此处必拦）。"""
+    from agent.verify_before_report_guard import _has_written_this_turn
+    card = tmp_path / "wiki" / "discussions" / "c.md"
+    msgs = _p02_msgs(_p02_ec("open(%r,'a').write('y')" % str(card)))
+    assert _has_written_this_turn(msgs) is True
+    assert should_block_finish(msgs, _P02_ANSWER) is False
+
+
+def test_p0_2_exec_readonly_still_blocks() -> None:
+    """负控：execute_code 纯读 ⇒ 仍拦（内容级判据不得把只读读成写）。"""
+    from agent.verify_before_report_guard import _has_written_this_turn
+    msgs = _p02_msgs(_p02_ec("print(open('/tmp/x.log').read())"))
+    assert _has_written_this_turn(msgs) is False
+    assert should_block_finish(msgs, _P02_ANSWER) is True
+
+
+def test_p0_2_mention_without_write_still_blocks(tmp_path) -> None:
+    """配对负控：只在打印里提及卡路径（无写动作）⇒ 仍拦。"""
+    from agent.verify_before_report_guard import _has_written_this_turn
+    card = tmp_path / "wiki" / "discussions" / "c.md"
+    msgs = _p02_msgs(_p02_ec("print('见 %s')" % str(card)))
+    assert _has_written_this_turn(msgs) is False
+    assert should_block_finish(msgs, _P02_ANSWER) is True
+
+
+def test_p0_2_single_truth_source() -> None:
+    """两闸同真源：guard 的分类器必须**就是** empty_run_gate.classify_tool。"""
+    from agent import empty_run_gate as _erg
+    from agent import verify_before_report_guard as _gd
+    classify, _ = _gd._shared_classifier()
+    assert classify is _erg.classify_tool
+    assert "execute_code" in _gd.WRITE_CAPABLE_EXEC_TOOLS
+    assert "terminal" in _gd.WRITE_CAPABLE_EXEC_TOOLS
