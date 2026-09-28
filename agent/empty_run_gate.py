@@ -192,7 +192,7 @@ def write_targets(name: str, args_raw: str = "") -> List[str]:
 
     与 `_norm_paths()`（扫**整串** args）的区别：只认**写动作参数位**上的路径。
     病灶（probe_p5 5a 实证）：
-        open('<tmp 草稿>','a').write('x')  # log=/home/rayliu/.mimiraether/logs/agent.log
+        open('<tmp 草稿>','a').write('x')  # log=<MIMIR_HOME>/logs/agent.log
     旧口径把**注释里提及**的 agent.log 读成交付物 ⇒ deliverable_written() 误真
     ⇒ tick() 不注入 + flush() 直接 return [] ⇒ **B 段掩护被误关**（静默空跑）。
     """

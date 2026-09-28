@@ -238,6 +238,12 @@ def test_armG_wiring_hooks_present():
 # 判据：注释提及不影响判定；只有**写动作参数位**上的路径才算写目标。
 # ═══════════════════════════════════════════════════════════════════════════
 import json as _json  # noqa: E402
+import os as _os  # noqa: E402
+
+_H = _os.path.expanduser("~")
+_MIMIR = _H + "/.mimiraether"
+_WIKI = _H + "/wiki"
+
 
 
 def _p01_ec(i, body):
@@ -252,7 +258,7 @@ def test_p0_1_comment_mention_is_not_a_deliverable_write(tmp_path):
     draft = tmp_path / "b2" / "src.md"
     draft.parent.mkdir(parents=True, exist_ok=True)
     draft.write_text("draft", encoding="utf-8")
-    log = "/home/rayliu/.mimiraether/logs/agent.log"
+    log = _MIMIR + "/logs/agent.log"
     tc = _p01_ec(10, "open(%r,'a').write('x')  # log=%s" % (str(draft), log))
     msgs = [{"role": "user", "content": "任务：讨论 wiki/discussions/x.md"}, tc]
     assert g.deliverable_written(msgs) is False
@@ -265,8 +271,8 @@ def test_p0_1_work_memory_keys_cover_logs():
     from agent import empty_run_gate as g
     for k in ("logs/", ".log", ".jsonl"):
         assert k in g.WORK_MEMORY_KEYS
-    assert g.is_deliverable_path("/home/rayliu/.mimiraether/logs/agent.log") is False
-    assert g.is_deliverable_path("/home/rayliu/.mimiraether/data/ops/x.jsonl") is False
+    assert g.is_deliverable_path(_MIMIR + "/logs/agent.log") is False
+    assert g.is_deliverable_path(_MIMIR + "/data/ops/x.jsonl") is False
 
 
 def test_p0_1_real_card_write_still_counts(tmp_path):
@@ -276,7 +282,7 @@ def test_p0_1_real_card_write_still_counts(tmp_path):
     `tmp_path` 落在 `/tmp/` 下 = staging（`STAGING_MARKERS` 命中）⇒ 不能当正控。
     """
     from agent import empty_run_gate as g
-    card = "/home/rayliu/wiki/discussions/_p0_1_probe_literal.md"
+    card = _WIKI + "/discussions/_p0_1_probe_literal.md"
     msgs = [{"role": "user", "content": "任务：落盘"},
             _p01_ec(11, "open(%r,'a').write('y')" % card)]
     assert g.is_deliverable_path(card) is True
@@ -315,27 +321,27 @@ def _wf(path):
 
 def test_p1_logs_write_is_not_a_deliverable_write():
     """日志写污染：唯一写目标是 logs/*.log ⇒ 不得判「写了交付物」。"""
-    assert _has_written(_wf("/home/rayliu/.mimiraether/logs/agent.log")) is False
+    assert _has_written(_wf(_MIMIR + "/logs/agent.log")) is False
 
 
 def test_p1_jsonl_and_runlog_are_not_deliverables():
-    assert _has_written(_wf("/home/rayliu/.mimiraether/logs/run.jsonl")) is False
-    assert _has_written(_wf("/home/rayliu/.mimiraether/run-log/x.md")) is False
+    assert _has_written(_wf(_MIMIR + "/logs/run.jsonl")) is False
+    assert _has_written(_wf(_MIMIR + "/run-log/x.md")) is False
 
 
 def test_p1_staging_is_not_a_deliverable_write():
-    assert _has_written(_wf("/home/rayliu/.mimiraether/tmp/draft.md")) is False
+    assert _has_written(_wf(_MIMIR + "/tmp/draft.md")) is False
 
 
 def test_p1_real_deliverable_still_counts():
-    assert _has_written(_wf("/home/rayliu/wiki/discussions/x.md")) is True
+    assert _has_written(_wf(_WIKI + "/discussions/x.md")) is True
 
 
 def test_p1_exclusion_is_single_source():
     """口径一致性：empty_run_gate.is_deliverable_path 与 agent_loop._check_has_written 须同判。"""
-    for c in ["/home/rayliu/.mimiraether/logs/agent.log",
+    for c in [_MIMIR + "/logs/agent.log",
               "/tmp/x.md",
-              "/home/rayliu/.mimiraether/PROGRESS.md",
-              "/home/rayliu/.mimiraether/logs/x.jsonl",
-              "/home/rayliu/wiki/discussions/x.md"]:
+              _MIMIR + "/PROGRESS.md",
+              _MIMIR + "/logs/x.jsonl",
+              _WIKI + "/discussions/x.md"]:
         assert erg.is_deliverable_path(c) == _has_written(_wf(c)), c

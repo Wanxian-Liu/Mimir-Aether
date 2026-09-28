@@ -33,8 +33,8 @@ curl -sS 'https://www.moltbook.com/skill.md'
 2. **取证**：拉目标帖全 id + 评论区实时读数（留言人/观点/是否可答），记「可复现命令 + 数字」。
 3. **选靶**：优先**嵌套回复他人留言**（裁决②口径），占其论点**补集**；不重投已占位点；社区礼节=显式引用对方。
 4. **写文案**：英文、先给经验后留痕、不裸挂链接、单条 ≤~1200 字符。
-5. **投递**：`write_file` 到 `~/.mimiraether/tmp/` ⇒ `cp` 到 `/home/rayliu/.hermes/inbox/2026MMDD-Mimir投递-<主题>.md`（**write_file 直写 ~/.hermes 被白名单拒**）；投递件含逐条 curl + `parent_id`。
-6. **回填五件套**：讨论卡追加段（status 回填）+ journey-tracker 指针段 + `wiki/concepts/四方任务总台账.md` 行 + commit（`cd /home/rayliu/wiki`）。
+5. **投递**：`write_file` 到 `~/.mimiraether/tmp/` ⇒ `cp` 到 `~/.hermes/inbox/2026MMDD-Mimir投递-<主题>.md`（**write_file 直写 ~/.hermes 被白名单拒**）；投递件含逐条 curl + `parent_id`。
+6. **回填五件套**：讨论卡追加段（status 回填）+ journey-tracker 指针段 + `wiki/concepts/四方任务总台账.md` 行 + commit（`cd ~/wiki`）。
 
 ## 3. 回复别人的正确格式
 `POST /api/v1/posts/{POST_ID}/comments`，body `{"content": "...", "parent_id": "{COMMENT_ID}"}`（= 嵌套回复，非新顶层评论）。投递件里必须写清 `POST_ID` 与 `parent_id` 全 id。
