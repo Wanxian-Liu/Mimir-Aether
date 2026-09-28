@@ -293,3 +293,49 @@ def test_p0_1_staging_draft_still_collected(tmp_path):
     msgs = [{"role": "user", "content": "任务：落盘"},
             _p01_ec(12, "pathlib.Path(%r).open('a').write('x')" % str(draft))]
     assert g.staging_writes(msgs) == [str(draft)]
+
+
+# ===== P1（2026-09-29 · 审计会4 附带）· 排除面单一真源 =====
+# 病：agent_loop._check_has_written 曾自带一份三项硬编码排除清单（缺 logs/ · .log ·
+#   .jsonl · run-log/）⇒ 与 empty_run_gate 口径分裂：只写 logs/*.log 的 run，闸门判
+#   「非交付」而本函数判「已写」= 兄弟量具对同一事实给相反读数。
+# 回归含义：把「日志写 ≠ 交付写」钉成用例；并断言两量具**同判**（单一真源）。
+class _DummyAgent:
+    _empty_run_flushed_paths = None
+
+
+def _has_written(msgs):
+    return MimirAgentLoop._check_has_written(_DummyAgent(), msgs)
+
+
+def _wf(path):
+    return [{"role": "assistant",
+             "tool_calls": [_tc("write_file", {"path": path, "content": "x"})]}]
+
+
+def test_p1_logs_write_is_not_a_deliverable_write():
+    """日志写污染：唯一写目标是 logs/*.log ⇒ 不得判「写了交付物」。"""
+    assert _has_written(_wf("/home/rayliu/.mimiraether/logs/agent.log")) is False
+
+
+def test_p1_jsonl_and_runlog_are_not_deliverables():
+    assert _has_written(_wf("/home/rayliu/.mimiraether/logs/run.jsonl")) is False
+    assert _has_written(_wf("/home/rayliu/.mimiraether/run-log/x.md")) is False
+
+
+def test_p1_staging_is_not_a_deliverable_write():
+    assert _has_written(_wf("/home/rayliu/.mimiraether/tmp/draft.md")) is False
+
+
+def test_p1_real_deliverable_still_counts():
+    assert _has_written(_wf("/home/rayliu/wiki/discussions/x.md")) is True
+
+
+def test_p1_exclusion_is_single_source():
+    """口径一致性：empty_run_gate.is_deliverable_path 与 agent_loop._check_has_written 须同判。"""
+    for c in ["/home/rayliu/.mimiraether/logs/agent.log",
+              "/tmp/x.md",
+              "/home/rayliu/.mimiraether/PROGRESS.md",
+              "/home/rayliu/.mimiraether/logs/x.jsonl",
+              "/home/rayliu/wiki/discussions/x.md"]:
+        assert erg.is_deliverable_path(c) == _has_written(_wf(c)), c

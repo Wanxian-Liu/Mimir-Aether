@@ -1498,7 +1498,18 @@ class MimirAgentLoop:
             return True
         import re as _re
         _WRITE_TOOLS = {"write_file", "patch", "create_file", "edit", "write"}
-        _WORK_MEMORY_KEYS = ("search-notes.md", "/tmp/", "PROGRESS.md")
+        # P1（2026-09-29 审计会4 附带 · 口径分裂族）：排除面改**单一真源**。
+        #   旧病：本函数曾自带一份三项硬编码排除清单，缺 logs/ · .log · .jsonl · run-log/
+        #   ⇒ 与 empty_run_gate 的排除清单**口径分裂**（兄弟量具对同一事实给相反读数：
+        #   只写 logs/*.log 的 run ⇒ 闸门判「非交付」、本函数判「已写」）。
+        #   修法＝委派 empty_run_gate.is_deliverable_path()（含 staging 排除）——单一真源。
+        def _is_deliverable_path(_q):
+            try:
+                return bool(_empty_run_gate_mod().is_deliverable_path(_q))
+            except Exception:
+                return bool(_q) and not any(
+                    _k in _q for _k in ("search-notes.md", "/tmp/", "PROGRESS.md")
+                )
         for m in messages:
             if m.get("role") != "assistant":
                 continue
@@ -1513,7 +1524,7 @@ class MimirAgentLoop:
                     args_str,
                 )
                 # 只要有一个非工作记忆的交付物路径，就算有产出
-                if any(p and not any(k in p for k in _WORK_MEMORY_KEYS) for p in _paths):
+                if any(_is_deliverable_path(p) for p in _paths):
                     return True
         return False
 
