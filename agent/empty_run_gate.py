@@ -52,7 +52,9 @@ _PATH_RE = re.compile(r"[\w./~-]+\.(?:md|py|json|txt|yaml|yml|sh|log|html)")
 _OPEN_W_RE = re.compile(r"open\(\s*['\"]([^'\"]+)['\"]\s*,\s*['\"][wax]")
 _WRITE_TEXT_RE = re.compile(r"write_text\(|Path\(\s*['\"]([^'\"]+)['\"]\s*\)")
 _HEREDOC_RE = re.compile(r">\s*(?:[\w./~-]+\.(?:md|txt|json))")
-_CARD_HINTS = re.compile(r"(?:wiki/(?:discussions|concepts|raw)|/home/rayliu/wiki)/[^\s'\"`)]+\.md")
+# 家路径禁字面量（pre-push A6 闸）：运行期展开；HOME=/home/<user> 时与硬编码逐字等价。
+_HOME = os.path.expanduser("~")
+_CARD_HINTS = re.compile(r"(?:wiki/(?:discussions|concepts|raw)|" + re.escape(_HOME) + r"/wiki)/[^\s'\"`)]+\.md")
 
 # ── P0-1（2026-09-28）：写动作 × 目标路径 **配对**的取路径正则 ──
 # 只有写在**写动作参数位**上的路径才算「写目标」；注释/字符串里「提及」的不算。
@@ -280,7 +282,7 @@ def infer_target(messages: List[Dict[str, Any]]) -> Optional[str]:
             q = hits[0]
             if q.startswith("/"):
                 return q          # 已是绝对路径（测试/自定义 hint 也走这条）
-            return "/home/rayliu/" + q.lstrip("/")
+            return _HOME + "/" + q.lstrip("/")
     return None
 
 
