@@ -782,3 +782,12 @@ print(r["verdict"], r["controls"]["positive"]["observed"], r["target"]["observed
 - 首跑读数：`positive: none` ⇒ `positive_control_failed`（VERIFIED 被拒）。**真因不是"文件没改"，而是 git 默认 `core.quotepath=true`** —— 中文名被输出成 `"concepts/\345\233\233..."` 转义串，字面中文永远匹配不到。
 - 修法：`git -c core.quotepath=false ...`（或在仓库里持久配置）。修后同一条探针：positive=`seen` / negative=`none` / target=`none` ⇒ **VERIFIED**；分母 = 机器枚举的 **3** 个改动文件（台账 + 批 3 卡 + 批 4 卡）。
 - **判据**：正控失败时**先怀疑通道编码/形态，不要先怀疑结论**（同族于第九批「仪器看不见 ≠ 对象干净」，方向相反：「仪器看不见 ≠ 对象不干净」）。**这次是正控救了一条 VERIFIED 结论**——没有正控，我会把「中文样本恒 none」写成「矿石文本未被触及」（碰巧结论相同，但依据是假的）。
+
+### 同日副坑 #2 · **同名多副本 ⇒ 真源不止要「存在」，还要判「哪份生效」**（2026-09-28 实测）
+
+- 场景：既定「AGENTS §2 加两条规则」的落点。机器枚举到 **38 个** AGENTS.md，其中**两份同属我方规则面、内容不同**：
+  - `~/src/MimirAether/AGENTS.md`（**9,009 B** · 正源 · 7 条 + §2.1/§5.1/§5.5 + blocking §8）
+  - `~/.mimiraether/AGENTS.md`（**3,137 B · mtime 09-27 21:05** · 旧版：5 条 · 无 §2.1/§5.1 · §8 仍旧「五件套」）
+- **只检「存在」会得出「两份都在、没事」**——真问题在**哪一份被注入**：`agent/prompt_builder.py::build_context_files_prompt` 取 **cwd 向上首个命中**，gateway cwd = `~/src/MimirAether` ⇒ 仓库版生效，home 副本是**死副本**。
+- **第二危害：死副本仍会主动回灌** —— `agent/subdirectory_hints.py` 会对正在读写的目录向上找 `AGENTS.md`；本轮读 `~/.mimiraether/data/` 下文件时，工具结果尾部被自动追加 `[Subdirectory context discovered: ~/.mimiraether/AGENTS.md]` + **旧 §2/§8 全文** ⇒ 同一规则面两份真源、旧版在暗处进上下文。
+- **两条锁**：① 探针进入「同名多副本」域时，除分子/分母外必须**打印每份的 size/mtime**，并**判注入路径**（读加载点代码，不猜）；② 「哪份生效」类结论的修法优先**复用**（本处 = home 副本转 symlink 指向正源 + 旧文 `.bak` 留档），**不新建同步机制**（建前两问：受益人 = 自己 · 不做的最坏结果 = 旧规则持续回灌 —— 见 `AGENTS §2.1`）。
