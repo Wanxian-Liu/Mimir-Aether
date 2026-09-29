@@ -247,6 +247,9 @@ def find_broken_links(files: Sequence[Path], index: Dict[str, List[str]]) -> Tup
                 if key in PLACEHOLDER_TARGETS:
                     skipped += 1
                     continue
+                if _has_excluded_component(target):
+                    skipped += 1
+                    continue
                 if key in index:
                     continue
                 broken.append({
@@ -257,6 +260,18 @@ def find_broken_links(files: Sequence[Path], index: Dict[str, List[str]]) -> Tup
                     "key": key,
                 })
     return broken, skipped
+
+
+def _has_excluded_component(target: str) -> bool:
+    """目标路径里**任一段**（末段除外）落在 EXCLUDED_DIRS ⇒ 解析面外。
+
+    为什么必须与建索引算法一致：`_iter_all_md` 用 `any(part in EXCLUDED_DIRS ...)`
+    排除这些目录，所以指向 `llmvt/hermes/archive/X`（真文件）的引用**永远**解不出；
+    而旧判据只比「前缀」，于是把真文件当断链报 —— 假红（2026-09-29 实测：整改后
+    仅剩的这一条正是此类）。末段除外 ⇒ 名为 `archive.md` 的文件不受影响。
+    """
+    parts = [p for p in target.replace(chr(92), "/").split("/") if p]
+    return any(p in EXCLUDED_DIRS for p in parts[:-1])
 
 
 def find_broken_targets(files: Sequence[Path], index: Dict[str, List[str]]) -> Tuple[List[Dict[str, object]], int]:
@@ -284,7 +299,7 @@ def find_broken_targets(files: Sequence[Path], index: Dict[str, List[str]]) -> T
             if not t or "://" in t or t.startswith("mailto:") or t.startswith("[["):
                 skipped += 1
                 continue
-            if t.startswith(TARGET_SKIP_PREFIXES):
+            if t.startswith(TARGET_SKIP_PREFIXES) or _has_excluded_component(t):
                 skipped += 1
                 continue
             base = t.rsplit("/", 1)[-1]

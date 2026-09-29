@@ -280,3 +280,56 @@ def test_bare_path_target_valid_and_out_of_scope_are_not_reported(tmp_path):
     data = json.loads((wiki / "out.json").read_text(encoding="utf-8"))
     assert data["broken_targets_count"] == 0, "存在目标不得报；外域前缀应跳过"
     assert data["target_skipped"] == 1, "外域前缀跳过数必须被计数（不是静默）"
+
+
+# ------------------------------------------- 解析面外的真文件（2026-09-29 同族假红）
+
+def test_target_into_excluded_dir_is_skipped(tmp_path):
+    """正控：指向 archive/ 下**真文件**的 relations.target 不得报断链。
+
+    索引构建按「任一段 ∈ EXCLUDED_DIRS」排除，故 `llmvt/hermes/archive/old`
+    永远解不出；旧判据只比前缀 ⇒ 真文件被报成断链（假红）。
+    """
+    wiki = _mk_wiki(tmp_path)
+    (wiki / "llmvt" / "hermes" / "archive").mkdir(parents=True)
+    (wiki / "llmvt" / "hermes" / "archive" / "old.md").write_text(
+        "---\ntitle: old\n---\n", encoding="utf-8")
+    (wiki / "entities" / "a.md").write_text(
+        "---\ntitle: a\ntype: entity\nrelations:\n  - type: distilled\n"
+        "    target: llmvt/hermes/archive/old\n---\n\n# a\n",
+        encoding="utf-8")
+    r = _run(wiki)
+    assert "裸路径引用失效" not in r.stdout, r.stdout
+
+
+def test_target_missing_still_flagged(tmp_path):
+    """负控：真不存在的 target 仍须报出（不得因上条而静默）。"""
+    wiki = _mk_wiki(tmp_path)
+    (wiki / "entities" / "a.md").write_text(
+        "---\ntitle: a\ntype: entity\nrelations:\n  - type: relates\n"
+        "    target: entities/never-existed\n---\n\n# a\n",
+        encoding="utf-8")
+    r = _run(wiki)
+    assert "裸路径引用失效" in r.stdout, r.stdout
+
+
+def test_wikilink_into_excluded_dir_is_skipped(tmp_path):
+    """正控（① 侧）：`[[archive/old-file]]` 指向真文件 ⇒ 跳过而非死链。"""
+    wiki = _mk_wiki(tmp_path)
+    (wiki / "concepts" / "archive").mkdir(parents=True)
+    (wiki / "concepts" / "archive" / "old-file.md").write_text(
+        "---\ntitle: old\n---\n", encoding="utf-8")
+    (wiki / "entities" / "b.md").write_text(
+        "---\ntitle: b\ntype: entity\n---\n\n见 [[archive/old-file]]\n",
+        encoding="utf-8")
+    r = _run(wiki)
+    assert "① 死链" not in r.stdout, r.stdout
+
+
+def test_wikilink_missing_still_broken(tmp_path):
+    """负控（① 侧）：真缺页仍须报死链。"""
+    wiki = _mk_wiki(tmp_path)
+    (wiki / "entities" / "c.md").write_text(
+        "---\ntitle: c\ntype: entity\n---\n\n见 [[nobody-here]]\n", encoding="utf-8")
+    r = _run(wiki)
+    assert "① 死链" in r.stdout, r.stdout
