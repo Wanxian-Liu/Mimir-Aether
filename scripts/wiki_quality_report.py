@@ -79,6 +79,15 @@ LINK_RE = re.compile(r"\[\[([^\[\]]+)\]\]")
 FENCE_RE = re.compile(r"^\s*(```|~~~)")
 INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
 
+# 裸路径引用（frontmatter relations.target）判据用的常量。
+# 为什么需要单独的跳过表：解析面 _iter_all_md 排除了 raw/discussions/archive 等目录，
+#   指向这些目录的 target 是**合法形态**（不是死链）——不显式列出就只能靠肉眼无视告警
+#   （与 PLACEHOLDER_TARGETS 同族：把「过滤掉什么」写进判据真源并计数）。
+TARGET_SKIP_PREFIXES = ("raw/", "skills/", "discussions/", "archive/", "drafts/",
+                        "misc/", "wiki/", "books/", "~")
+FM_BLOCK_RE = re.compile(r"\A---\n(.*?)\n---", re.S)
+TARGET_RE = re.compile(r"(?m)^\s*target:\s*(.+?)\s*$")
+
 
 def normalize(name: str) -> str:
     """归一化页面名：小写、空格/下划线 -> 连字符、折叠多个连字符。
@@ -89,6 +98,17 @@ def normalize(name: str) -> str:
     s = s.replace("_", "-").replace(" ", "-")
     s = re.sub(r"-{2,}", "-", s)
     return s.strip("-")
+
+
+def _sep_insensitive(name: str) -> str:
+    """抹掉全部分隔符的键 —— 抓「连字符位移」这一类同页变体。
+
+    为什么必须有第二级键：normalize() 只把空格/下划线**换成**连字符，不移除连字符，
+    所以「连字符位置不同」的同页名（实测 `AERIS-10开源相控阵雷达` vs
+    `aeris10-开源相控阵雷达`）对 normalize 判据恒不相等 => 永久盲区
+    （2026-09-29 实证：该组重复从未被报出）。
+    """
+    return re.sub(r"[\s_\-]+", "", name.strip().lower())
 
 
 def strip_code(text: str) -> str:
@@ -166,12 +186,16 @@ def find_duplicates(scan_files: Sequence[Path], wiki: Path) -> Tuple[List[Tuple[
         同页变体那一类）；跨目录同名只作**信息级**计数，不计入问题。
     """
     by_dir: Dict[Tuple[str, str], List[str]] = {}
+    by_dir_sep: Dict[Tuple[str, str], List[str]] = {}
     by_scope: Dict[Tuple[str, str], List[str]] = {}
     for f in scan_files:
         stem = normalize(f.stem)
         if stem in CONVENTIONAL_STEMS:
             continue
         by_dir.setdefault((str(f.parent), stem), []).append(str(f))
+        sep = _sep_insensitive(f.stem)
+        if sep:
+            by_dir_sep.setdefault((str(f.parent), sep), []).append(str(f))
         try:
             scope = f.relative_to(wiki).parts[0]     # 层 = wiki 下第一段
         except ValueError:
@@ -179,6 +203,12 @@ def find_duplicates(scan_files: Sequence[Path], wiki: Path) -> Tuple[List[Tuple[
         by_scope.setdefault((scope, stem), []).append(str(f))
 
     real = [(k[1], sorted(set(v))) for k, v in sorted(by_dir.items()) if len(set(v)) >= 2]
+    # 第二级：分隔符位移变体（normalize 判据看不见的那一类）。按「文件集合」去重，
+    #   避免与第一级已报组重复计数 —— 键命名空间不同，不能直接比 key。
+    covered = {frozenset(v) for _, v in real}
+    shift = [(k[1], sorted(set(v))) for k, v in sorted(by_dir_sep.items())
+             if len(set(v)) >= 2 and frozenset(set(v)) not in covered]
+    real = sorted(real + shift)
     cross = [(k[1], sorted(set(v))) for k, v in sorted(by_scope.items()) if len(set(v)) >= 2]
     cross_keys = {k for k, _ in real}
     cross = [(k, v) for k, v in cross if k not in cross_keys]
@@ -229,6 +259,44 @@ def find_broken_links(files: Sequence[Path], index: Dict[str, List[str]]) -> Tup
     return broken, skipped
 
 
+def find_broken_targets(files: Sequence[Path], index: Dict[str, List[str]]) -> Tuple[List[Dict[str, object]], int]:
+    """裸路径引用死链：扫 frontmatter 的 `relations.target:`（不是 [[...]]）。
+
+    为什么必须单独扫：find_broken_links 只认 `[[...]]`，而 relations.target 用的是
+    「entities/青豆 Aomame」这种**裸路径**形态 —— 2026-09-29 实测该面存在从未被门禁
+    报过的失效引用（青豆-aomame / 天吾-tengo 指向已不存在的页），是「无人守的真断链」。
+
+    返回 (失效列表, 被跳过条数)。跳过：URL、空值、占位形态 [[x]]（归 find_broken_links），
+    以及 TARGET_SKIP_PREFIXES 前缀（解析面外目录，合法形态）。
+    """
+    bad: List[Dict[str, object]] = []
+    skipped = 0
+    for f in files:
+        try:
+            raw = f.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        m = FM_BLOCK_RE.match(raw)
+        if not m:
+            continue
+        for tm in TARGET_RE.finditer(m.group(1)):
+            t = tm.group(1).strip().strip(chr(34)).strip(chr(39)).strip()
+            if not t or "://" in t or t.startswith("mailto:") or t.startswith("[["):
+                skipped += 1
+                continue
+            if t.startswith(TARGET_SKIP_PREFIXES):
+                skipped += 1
+                continue
+            base = t.rsplit("/", 1)[-1]
+            if base.endswith(".md"):
+                base = base[:-3]
+            key = normalize(base)
+            if key in index:
+                continue
+            bad.append({"src": str(f), "target": t, "key": key})
+    return bad, skipped
+
+
 def count_drafts(files: Sequence[Path]) -> List[str]:
     """frontmatter 里 maturity: draft 的页面（信息级，不算 issue）。"""
     drafts: List[str] = []
@@ -272,11 +340,14 @@ def _rel(paths: Sequence[str], wiki: Path, limit: int) -> List[str]:
 
 def render_report(wiki: Path, files: Sequence[Path], resolve_count: int, dups, cross, broken,
                   skipped_ph: int, drafts, present, missing,
-                  elapsed_s: float, list_limit: int) -> Tuple[str, bool]:
+                  elapsed_s: float, list_limit: int,
+                  broken_targets: Sequence[Dict[str, object]] = (), skipped_tg: int = 0) -> Tuple[str, bool]:
     """返回 (报告文本, 是否有 issue)。报告首行是判定行 —— 它会被投递到飞书。"""
     ts = _dt.datetime.now().strftime("%Y-%m-%d %H:%M")
-    issues = bool(dups or broken)
+    issues = bool(dups or broken or broken_targets)
     ph_note = (" · 例举占位符跳过 " + str(skipped_ph)) if skipped_ph else ""
+    if skipped_tg:
+        ph_note += " · 裸路径外域跳过 " + str(skipped_tg)
     head = "[Wiki 质量门禁] " + ("⚠ 有真问题" if issues else "✅ 无问题") + " · " + ts
     lines = [
         head,
@@ -293,8 +364,15 @@ def render_report(wiki: Path, files: Sequence[Path], resolve_count: int, dups, c
             lines.append("   - " + src + ":" + str(b["line"]) + " → " + str(b["raw"]))
         if len(broken) > list_limit:
             lines.append("   …余 " + str(len(broken) - list_limit) + " 条（全量见 JSON）")
+    if broken_targets:
+        lines.append("①b 裸路径引用失效 " + str(len(broken_targets)) + " 条（frontmatter relations.target）:")
+        for b in broken_targets[:list_limit]:
+            src_p = _rel([str(b["src"])], wiki, 1)[0]
+            lines.append("   - " + src_p + " → target " + str(b["target"]))
+        if len(broken_targets) > list_limit:
+            lines.append("   …余 " + str(len(broken_targets) - list_limit) + " 条（全量见 JSON）")
     if dups:
-        lines.append("② 同页重复 " + str(len(dups)) + " 组（同目录、归一化后同名）:")
+        lines.append("② 同页重复 " + str(len(dups)) + " 组（同目录、归一化后同名；含分隔符位移变体）:")
         for key, paths in dups[:list_limit]:
             lines.append("   - " + key + " → " + ", ".join(_rel(paths, wiki, 4)))
         if len(dups) > list_limit:
@@ -341,11 +419,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     index = build_index(resolve_files)
     dups, cross = find_duplicates(files, wiki)
     broken, skipped_ph = find_broken_links(files, index)
+    broken_targets, skipped_tg = find_broken_targets(files, index)
     drafts = count_drafts(files)
     elapsed = (_dt.datetime.now() - t0).total_seconds()
 
     text, issues = render_report(wiki, files, len(resolve_files), dups, cross, broken, skipped_ph,
-                                 drafts, present, missing, elapsed, args.list_limit)
+                                 drafts, present, missing, elapsed, args.list_limit,
+                                 broken_targets, skipped_tg)
     print(text)
 
     if args.append_log:
@@ -370,8 +450,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             "cross_dir_same_name": len(cross),
             "resolve_files": len(resolve_files),
             "placeholder_skipped": skipped_ph,
+            "broken_targets_count": len(broken_targets),
+            "target_skipped": skipped_tg,
             "draft_count": len(drafts),
             "broken": broken[:200],
+            "broken_targets": broken_targets[:200],
             "duplicates": [{"key": k, "paths": v} for k, v in dups[:50]],
             "elapsed_s": round(elapsed, 3),
             "exit_code": 1 if (issues and args.strict) else 0,

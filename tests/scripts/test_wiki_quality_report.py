@@ -225,3 +225,58 @@ def test_legacy_scope_would_have_flagged_the_sample(tmp_path):
     stripped = mod.strip_code((wiki / "concepts" / "doc.md").read_text(encoding="utf-8"))
     assert "[[no-such-page]]" not in stripped
     assert "无问题" in _run(wiki).stdout
+
+
+# ------------------------------------------------- 盲区补丁（2026-09-29 双族命名整改）
+
+def test_separator_shift_duplicate_is_detected(tmp_path):
+    """位移变体（连字符位置不同）必须报 —— normalize 判据在此恒不相等（曾永久盲区）。
+
+    实证来源：concepts/AERIS-10开源相控阵雷达.md vs concepts/aeris10-开源相控阵雷达.md
+    """
+    wiki = _mk_wiki(tmp_path)
+    (wiki / "concepts" / "AERIS-10开源相控阵雷达.md").write_text("---\ntitle: a\n---\nx\n", encoding="utf-8")
+    (wiki / "concepts" / "aeris10-开源相控阵雷达.md").write_text("---\ntitle: b\n---\ny\n", encoding="utf-8")
+    r = _run(wiki)
+    assert r.returncode == 0, r.stderr
+    data = json.loads((wiki / "out.json").read_text(encoding="utf-8"))
+    assert data["duplicate_groups"] >= 1, "位移变体必须被报为同页重复"
+
+
+def test_cross_dir_near_name_is_not_same_page_duplicate(tmp_path):
+    """反臂：跨目录近名不算同页重复（防止把位移判据放宽成噪声源）。"""
+    wiki = _mk_wiki(tmp_path)
+    (wiki / "concepts" / "a-b.md").write_text("---\ntitle: a\n---\nx\n", encoding="utf-8")
+    (wiki / "entities" / "ab.md").write_text("---\ntitle: b\n---\ny\n", encoding="utf-8")
+    r = _run(wiki)
+    assert r.returncode == 0, r.stderr
+    data = json.loads((wiki / "out.json").read_text(encoding="utf-8"))
+    assert data["duplicate_groups"] == 0, "跨目录近名不得计入同页重复"
+
+
+def test_bare_path_target_broken_is_detected(tmp_path):
+    """frontmatter relations.target 的裸路径失效必须报（曾完全不在门禁判据内）。"""
+    wiki = _mk_wiki(tmp_path)
+    (wiki / "entities" / "x.md").write_text(
+        "---\ntitle: X\nrelations:\n  - type: knows\n    target: entities/nope\n---\n# X\n",
+        encoding="utf-8")
+    r = _run(wiki)
+    assert r.returncode == 0, r.stderr
+    data = json.loads((wiki / "out.json").read_text(encoding="utf-8"))
+    assert data["broken_targets_count"] == 1, "裸路径失效必须被报"
+    assert data["broken_targets"][0]["target"] == "entities/nope"
+
+
+def test_bare_path_target_valid_and_out_of_scope_are_not_reported(tmp_path):
+    """反臂：目标存在 => 不报；解析面外前缀（raw/ 等）=> 跳过并计数。"""
+    wiki = _mk_wiki(tmp_path)
+    (wiki / "entities" / "ok.md").write_text("---\ntitle: Ok\n---\n# Ok\n", encoding="utf-8")
+    (wiki / "concepts" / "c.md").write_text(
+        "---\ntitle: C\nrelations:\n  - type: knows\n    target: entities/ok\n"
+        "  - type: src\n    target: raw/papers/whatever\n---\n# C\n",
+        encoding="utf-8")
+    r = _run(wiki)
+    assert r.returncode == 0, r.stderr
+    data = json.loads((wiki / "out.json").read_text(encoding="utf-8"))
+    assert data["broken_targets_count"] == 0, "存在目标不得报；外域前缀应跳过"
+    assert data["target_skipped"] == 1, "外域前缀跳过数必须被计数（不是静默）"
