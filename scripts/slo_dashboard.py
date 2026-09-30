@@ -16,7 +16,7 @@ v3（2026-09-24 D 组三件）：
 数据源: ~/.mimiraether/logs/agent.log（agent_loop turn 行 + EXIT 行）
 输出: ~/.mimiraether/slo/YYYY-MM-DD.md
 """
-import os, re, sys, glob, subprocess, json
+import os, re, sys, glob, subprocess, json, random
 from datetime import datetime, timedelta
 from collections import Counter, defaultdict
 
@@ -129,6 +129,57 @@ def stats_of(turns):
     n = len(totals)
     return (n, percentile(totals, 50), percentile(totals, 95),
             percentile(totals, 99), sum(totals) / n)
+
+def stat_cells(turns):
+    """D1 全族（2026-09-30）：窗口无数据 ⇒ 统一印「无数据 / —」，禁印 0.0。
+
+    D1（09-24）当年只补了「①」段，③ 段同族缺陷漏了 ⇒ 空窗口印 `0 | 0.0 | 0.0`，
+    被下游读成「实测 0.0s」。同类风险全量扫 ⇒ 收敛成单一函数，各段一律调它。
+    """
+    n, p50, p95, p99, mean = stats_of(turns)
+    if n == 0:
+        return "无数据", ["—", "—", "—", "—"]
+    return str(n), [f"{p50:.1f}", f"{p95:.1f}", f"{p99:.1f}", f"{mean:.1f}"]
+
+
+BOOTSTRAP_SEED = 20260930
+BOOTSTRAP_N = 1000
+MIN_N_FOR_CI = 5
+
+
+def bootstrap_ci(turns, p=95, n_boot=BOOTSTRAP_N, alpha=0.05, seed=BOOTSTRAP_SEED):
+    """百分位 bootstrap 95% CI（默认 P95 区间）。无数据 ⇒ (None, None)。
+
+    为什么必须真算：③ 段段名自称 bootstrap CI 却从未算过区间（2026-09-30 实证），
+    而该段做的是**逐 commit 因果归因** —— 无区间时 commit 间 P95 差异
+    与重采样噪声无法区分 ⇒ 归因结论不成立。
+    seed 固定 ⇒ 同一份数据两次运行读数逐字一致（禁随机抖动被当成变化）。
+    """
+    vals = [t[3] for t in turns]
+    if not vals:
+        return (None, None)
+    if len(vals) == 1:
+        return (vals[0], vals[0])
+    rnd = random.Random(seed)
+    k = len(vals)
+    draws = []
+    for _ in range(n_boot):
+        draws.append(percentile(sorted(vals[rnd.randrange(k)] for _ in range(k)), p))
+    draws.sort()
+    lo = draws[int(n_boot * alpha / 2)]
+    hi = draws[min(n_boot - 1, int(n_boot * (1 - alpha / 2)))]
+    return (lo, hi)
+
+
+def _ci_cell(win):
+    """③ 段 CI 单元：窗口不足 MIN_N_FOR_CI ⇒ 标不可靠，不印看着像结论的区间。"""
+    if not win:
+        return "—"
+    if len(win) < MIN_N_FOR_CI:
+        return f"—（n={len(win)}<{MIN_N_FOR_CI}）"
+    lo, hi = bootstrap_ci(win)
+    return f"[{lo:.1f}, {hi:.1f}]"
+
 
 def git_perf_commits():
     """git log 拉性能相关 commit（时间戳 + subject），按时间升序"""
@@ -277,6 +328,74 @@ def hook_obs_section(lines):
     lines.append("")
 
 
+def attribution_section(lines, commits, full_turns, pre_cutoff):
+    """③ 逐 commit 归因（含真算的 bootstrap CI）。抽成函数 ⇒ 用例可喂合成数据。"""
+    lines.append("## ③ bootstrap CI · 逐 commit 归因")
+    lines.append("")
+    lines.append(f"- 口径: P95 的 95% 百分位 bootstrap CI · {BOOTSTRAP_N} 次重采样 · "
+                 f"seed={BOOTSTRAP_SEED} 固定（同数据两次运行读数逐字一致）")
+    lines.append(f"- 窗口 = [该 commit 时间, 下一 commit 时间)；窗口 turns < {MIN_N_FOR_CI} ⇒ CI 不可靠，标 `—`")
+    lines.append("")
+    round_start = datetime(2026, 8, 19, 0, 0, 0)
+    round_commits = [c for c in commits if c[0] >= round_start]
+    if not round_commits:
+        lines.append("- 本轮（2026-08-19 起）未发现性能相关 commit（git log 读取失败或关键词无命中）")
+        lines.append("")
+        return
+    lines.append("| commit | 时间 | 窗口 turns | P50 | P95 | P95 95%CI | 说明 |")
+    lines.append("|:--|:--|--:|--:|--:|:--|:--|")
+    for i, (ts, h, subj) in enumerate(round_commits):
+        end = round_commits[i + 1][0] if i + 1 < len(round_commits) else datetime.now()
+        win = [t for t in full_turns if ts <= t[0] < end]
+        n_disp, cells = stat_cells(win)
+        lines.append(
+            f"| `{h}` | {ts.strftime('%m-%d %H:%M')} | {n_disp} | {cells[0]} | {cells[1]} | "
+            f"{_ci_cell(win)} | {subj} |"
+        )
+    pre_win = [t for t in full_turns if t[0] < pre_cutoff]
+    n_disp, cells = stat_cells(pre_win)
+    lines.append(
+        f"| `pre` | < {pre_cutoff.strftime('%m-%d %H:%M')} | {n_disp} | {cells[0]} | {cells[1]} | "
+        f"{_ci_cell(pre_win)} | 修复前基线 |"
+    )
+    lines.append("")
+
+
+def _single_tool_ratio(days=7):
+    """⑤ 段与「对照」段共用同一读数与阈值 —— 两处各写一套 = 新造 D-1 同族（口径不一）。
+
+    返回 (total, total_single, ratio_or_None, max_ratio)；ratio=None 表示窗口无数据。
+    """
+    turns, single, _ptok = _efficiency_stats(days)
+    total, total_single = sum(turns.values()), sum(single.values())
+    ratio = (total_single / total * 100) if total else None
+    max_ratio = float(os.environ.get("MIMIR_SLO_SINGLE_TOOL_MAX", "50") or "50")
+    return total, total_single, ratio, max_ratio
+
+
+def comparison_section(lines, days, session_turn_counts):
+    """对照（执行卡目标）—— D3（2026-09-30）：原为 3 行硬编码串，永不显示当前值。
+
+    「402s/消息」**无对应量具**：本看板只按 turn 计时（秒/turn），而「消息」= 一次交互含 N 轮，
+    单位不同 ⇒ 不做换算（换算 = 发明口径，正是 D-2 同族罪），显式标「无读数」。
+    """
+    lines.append("## 对照（执行卡目标）")
+    lines.append("")
+    total, total_single, ratio, max_ratio = _single_tool_ratio(days)
+    if ratio is None:
+        lines.append(f"- 目标: 每轮工具数 1 → 2+ —— **无数据**（窗口 {days} 天内无 turn 行）")
+    else:
+        verdict = "✅ 达标" if ratio < max_ratio else "❌ 未达标"
+        lines.append(f"- 目标: 每轮工具数 1 → 2+ —— 当前 单工具轮 **{ratio:.1f}%**"
+                     f"（{total_single}/{total} 轮 · 阈值 < {max_ratio:g}%）⇒ {verdict}")
+    over100 = sum(1 for t in session_turn_counts if t > 100)
+    lines.append(f"- 目标: 无 >100 turns 失控会话 —— 当前 **{over100} 个** ⇒ "
+                 + ("✅ 达标" if over100 == 0 else "❌ 未达标"))
+    lines.append("- 目标: 402s/消息 → <150s（-63%）—— **无读数**（本看板无「消息」级量具："
+                 "只有秒/turn；402s 为执行卡历史观测值，单位不同 ⇒ 禁直接换算）")
+    lines.append("")
+
+
 def main():
     days = int(os.environ.get("SLO_DAYS", "7"))
     turns, sessions = parse_log(days)
@@ -324,15 +443,11 @@ def main():
     lines.append("| 窗口 | turns | P50 | P95 | P99 | mean |")
     lines.append("|:--|--:|--:|--:|--:|--:|")
     # D1（2026-09-24）：无数据 ⇒ 印「无数据/—」，禁印 0.0（0.0 是有效读数，不是缺数据）
-    if n_pre == 0:
-        lines.append("| pre（修复前） | 无数据 | — | — | — | — |")
-    else:
-        lines.append(f"| pre（修复前） | {n_pre} | {p50_pre:.1f} | {p95_pre:.1f} | {p99_pre:.1f} | {mean_pre:.1f} |")
-    if n_now == 0:
-        lines.append(f"| 近 {days} 天滚动 | 无数据 | — | — | — | — |")
-    else:
-        lines.append(f"| 近 {days} 天滚动 | {n_now} | {p50_now:.1f} | {p95_now:.1f} | {p99_now:.1f} | {mean_now:.1f} |")
-    if p50_pre > 0:
+    n_disp, cells = stat_cells(pre_turns)
+    lines.append(f"| pre（修复前） | {n_disp} | {cells[0]} | {cells[1]} | {cells[2]} | {cells[3]} |")
+    n_disp, cells = stat_cells(turns)
+    lines.append(f"| 近 {days} 天滚动 | {n_disp} | {cells[0]} | {cells[1]} | {cells[2]} | {cells[3]} |")
+    if p50_pre > 0 and p50_now > 0:
         delta = (p50_now - p50_pre) / p50_pre * 100
         lines.append("")
         lines.append(f"- P50 变化: {p50_pre:.1f}s → {p50_now:.1f}s（{delta:+.1f}%）")
@@ -347,36 +462,12 @@ def main():
     for t in turns:
         day_groups[t[0].strftime("%Y-%m-%d")].append(t)
     for d in sorted(day_groups):
-        n, p50, p95, p99, mean = stats_of(day_groups[d])
-        lines.append(f"| {d} | {n} | {p50:.1f} | {p95:.1f} | {p99:.1f} | {mean:.1f} |")
+        n_disp, cells = stat_cells(day_groups[d])
+        lines.append(f"| {d} | {n_disp} | {cells[0]} | {cells[1]} | {cells[2]} | {cells[3]} |")
     lines.append("")
 
-    # --- ③ bootstrap CI 逐 commit 归因段 ---
-    lines.append("## ③ bootstrap CI · 逐 commit 归因")
-    lines.append("")
-    # 本轮归因窗口：只统计 2026-08-19 之后的性能 commit（本轮修复周期），pre 为锚点行
-    round_start = datetime(2026, 8, 19, 0, 0, 0)
-    round_commits = [c for c in commits if c[0] >= round_start]
-    if round_commits:
-        lines.append("| commit | 时间 | 窗口 turns | P50 | P95 | 说明 |")
-        lines.append("|:--|:--|--:|--:|--:|:--|")
-        for i, (ts, h, subj) in enumerate(round_commits):
-            # 窗口: [commit 时间, 下一个 commit 时间)
-            end = round_commits[i + 1][0] if i + 1 < len(round_commits) else datetime.now()
-            win = [t for t in full_turns if ts <= t[0] < end]
-            n, p50, p95, p99, mean = stats_of(win)
-            lines.append(
-                f"| `{h}` | {ts.strftime('%m-%d %H:%M')} | {n} | {p50:.1f} | {p95:.1f} | {subj} |"
-            )
-        # pre 行（锚点：P0-1 上线前）
-        pre_win = [t for t in full_turns if t[0] < pre_cutoff]
-        n, p50, p95, p99, mean = stats_of(pre_win)
-        lines.append(
-            f"| `pre` | < {pre_cutoff.strftime('%m-%d %H:%M')} | {n} | {p50:.1f} | {p95:.1f} | 修复前基线 |"
-        )
-    else:
-        lines.append("- 本轮（2026-08-19 起）未发现性能相关 commit（git log 读取失败或关键词无命中）")
-    lines.append("")
+    # --- ③ 逐 commit 归因（D-2 2026-09-30：真算 CI，抽成 attribution_section）---
+    attribution_section(lines, commits, full_turns, pre_cutoff)
 
     # --- 每轮工具数分布 ---
     lines.append("## 每轮工具数分布")
@@ -451,13 +542,8 @@ def main():
         lines.append("- **无数据**（context_baseline.jsonl 缺失或空——`scripts/context_baseline.py` 尚未运行）")
     lines.append("")
 
-    # --- 对照（执行卡目标） ---
-    lines.append("## 对照（执行卡目标）")
-    lines.append("")
-    lines.append("- 目标: 402s/消息 → <150s（-63%）")
-    lines.append("- 目标: 每轮工具数 1 → 2+")
-    lines.append("- 目标: 无 >100 turns 失控会话")
-    lines.append("")
+    # --- 对照（执行卡目标）（D-3 2026-09-30：改逐项实测读数）---
+    comparison_section(lines, days, session_turn_counts)
 
     report = "\n".join(lines)
     with open(out_path, "w", encoding="utf-8") as f:
