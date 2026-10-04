@@ -22,7 +22,10 @@ _INJECTED_USER_PREFIXES = (
     "[intent-action-guard]",
     "<intent-context>",
     # 中文方括号注入族（对齐 verify_before_report_guard 2026-09-29 全扫结论）
+    # A1（2026-10-04 · Mimir 角色审计）：上轮只补 4 项，仍缺 4 项 ⇒ 同族清单漂移。
+    #   全族扫描后补齐（权威参照 agent/verify_before_report_guard.py:33）。
     "【空跑闸门", "【读闸", "【架构", "【任务完成度提示",
+    "【自动唤醒", "【讨论室唤醒", "【任务】", "【审计统计】",
 )
 
 

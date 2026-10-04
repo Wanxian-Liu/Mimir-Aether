@@ -87,8 +87,15 @@ logger = logging.getLogger(__name__)
 #      + intent-context 注入文本自身（<intent-context> 开头，user 角色）
 #      + TD-02 摘要注入（[HISTORY SUMMARY]）
 _INTENT_SKIP_PREFIXES = (
-    "[BLOCKED", "[SEARCH-FIRST", "【架构", "[intent-action-guard]",
+    "[BLOCKED", "[SEARCH-FIRST", "[MIMIR_", "[intent-action-guard]",
     "[intent-context]", "[HISTORY SUMMARY]", "<intent-context>",
+    # ── A1（2026-10-04 · Mimir 角色审计 blocker）中文方括号注入族漏项 ──
+    # 病灶：本表原有裸词 "【架构"（仅一项）⇒ 【空跑闸门】/【读闸】/【任务完成度提示】/
+    #   【自动唤醒】/【讨论室唤醒】/【任务】/【审计统计】 未被识别为注入
+    #   ⇒ 被当「最近真实 user 消息」⇒ 误触发 intent 重估。
+    # 权威参照：agent/verify_before_report_guard.py:33（同集）
+    "【架构", "【空跑闸门", "【读闸", "【任务完成度提示", "【自动唤醒",
+    "【讨论室唤醒", "【任务】", "【审计统计】",
 )
 
 
@@ -1578,6 +1585,9 @@ class MimirAgentLoop:
     _SYSTEM_INJECT_PREFIXES = (
         "[MIMIR_", "[BLOCKED:", "[SEARCH-FIRST", "<intent-context>",
         "【架构产出提示】", "[intent-action-guard]",
+        # ── A1（2026-10-04）：中文方括号注入族缺项（同族全扫）——权威参照同 verify_before_report_guard
+        "【空跑闸门", "【读闸", "【任务完成度提示", "【自动唤醒",
+        "【讨论室唤醒", "【任务】", "【审计统计】",
     )
 
     def _should_nudge_production(self, messages: List[Dict[str, Any]]) -> bool:
