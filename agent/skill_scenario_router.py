@@ -6,7 +6,7 @@ import os
 import re
 from typing import Any, List, Optional, Sequence, Tuple
 
-from agent.search_first_guard import last_user_text
+from agent.search_first_guard import is_injected_user_message, last_user_text
 
 MARKER = "[MIMIR_SKILL_ROUTE_NUDGE]"
 SKILL_VIEW_TOOL = "skill_view"
@@ -117,7 +117,9 @@ _SCENARIOS: List[Tuple[re.Pattern[str], List[str], str]] = [
         "checkpoint",
     ),
     (
-        re.compile(r"上下文超|context|compressor|超长|压缩", re.IGNORECASE),
+        # H-1：原含裸词 context ⇒ 撞注入块标签名 <intent-context>（93% 假命中的直接触发点）。
+        # 收紧为真实压缩语义；上下文剥离已由 last_user_text 承担（R1）。
+        re.compile(r"上下文超|上下文窗口|压缩|compressor|超长|context\s*compress", re.IGNORECASE),
         ["mimiraether-context-compressor"],
         "context",
     ),
@@ -222,7 +224,9 @@ def skill_route_satisfied_since_last_user(
         if m.get("role") != "user":
             continue
         content = str(m.get("content") or "")
-        if content.strip().startswith(MARKER):
+        # H-1：原只跳 MARKER ⇒ <intent-context> 等注入块被当成"最后真实用户"
+        # ⇒ 切片从注入块开始 ⇒ 此前已加载的技能不计入 ⇒ 恒重复注入。改为复用统一判据。
+        if is_injected_user_message(content):
             continue
         last_user_idx = i
     if last_user_idx < 0:

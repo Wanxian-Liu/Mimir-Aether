@@ -12,19 +12,27 @@ SESSION_SEARCH_TOOL = "session_search"
 MAX_SEARCH_FIRST_NUDGES = 5
 
 # Injected user-role messages (nudges / preemptive search) — not real user turns.
+# 与 verify_before_report_guard._SYSTEM_INJECT_PREFIXES / agent_loop._SYSTEM_INJECT_PREFIXES 对齐。
+# H-1（2026-10-04 · Mimir 实证）：本表原漏 "<intent-context>" 与中文【】族 ⇒ 每轮 intent 注入块
+#   被 last_user_text 当真实用户消息返回（其标签名自身含 "context"）⇒ skill-route 路由 93% 假命中。
 _INJECTED_USER_PREFIXES = (
     _MARKER,
     PREEMPTIVE_MARKER,
-    "[MIMIR_SKILL_ROUTE_NUDGE]",
-    "[MIMIR_MEMORY_NUDGE]",
-    "[MIMIR_SKILL_NUDGE]",
+    "[MIMIR_",
     "[intent-action-guard]",
+    "<intent-context>",
+    # 中文方括号注入族（对齐 verify_before_report_guard 2026-09-29 全扫结论）
+    "【空跑闸门", "【读闸", "【架构", "【任务完成度提示",
 )
 
 
 def _is_injected_user_message(content: str) -> bool:
     text = (content or "").strip()
     return any(text.startswith(prefix) for prefix in _INJECTED_USER_PREFIXES)
+
+
+# 公开别名：消费方（skill_scenario_router 等）复用同一判据，禁止各自再写一份前缀表拷贝。
+is_injected_user_message = _is_injected_user_message
 
 # Keep aligned with scripts/search_first_audit.py (WA-A06 exclusions).
 RECALL_RE = re.compile(
