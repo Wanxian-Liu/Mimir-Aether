@@ -165,6 +165,13 @@ done < "$_tmp"
 #     docs is a gate people learn to override. Real keys are >= 32 (the one the
 #     2026-09-25 audit found was 35).
 #     Regexes must not contain "|" (the field separator).
+#
+# 3c. history scan for a NEW remote ref (R6b; 2026-09-30). Pushing a ref the
+#     remote does not have publishes its ENTIRE history, so the tree scan of 3b
+#     is not enough: a shape that entered in one commit and left in a later one
+#     is invisible to it. Measured on archive/mimicore-prototype -- tip tree 0
+#     hits, history 2 commits, push allowed. Pickaxe (-G) closes that. Applied
+#     only to new refs: for an existing ref the history is already public.
 # ---------------------------------------------------------------------------
 EMPTY_TREE=4b825dc642cb6eb9a060e54bf8d69288fbee4904
 _needle="${MIMIR_PATH_LEAK_NEEDLE:-}"
@@ -202,6 +209,24 @@ if [ -s "$_tmp" ]; then
         case "$_hits" in ''|*[!0-9]*) _hits=0 ;; esac
         _flist=$(git grep -lE -- "$_pre" "$_lsha" -- . ':(exclude)scripts/migrations/*' 2>/dev/null \
                    | sed 's/^[^:]*://' | head -5 | tr '\n' ' ')
+        # 2026-09-30 -- blind spot, measured on archive/mimicore-prototype:
+        # a NEW remote ref publishes the whole HISTORY, not only the tip tree.
+        # There the tip tree carried 0 "sk-..." files while TWO commits in
+        # history did (26d3a86 added the key, dd7dc1d removed it again), and the
+        # tree-only scan let the push through (measured rc=0). Pickaxe (-G) reads
+        # the diffs a tree scan cannot see, so a key that entered and left again
+        # is still found. Without this, "cleaned up later" is indistinguishable
+        # from "never there" -- which is exactly the shape this gate exists for.
+        # An existing remote ref keeps the added-lines scan only: its history is
+        # already published, and re-walking it every push would make the gate
+        # fire on ordinary work (the way a gate turns into decoration).
+        _hist=$(git log -G "$_pre" "$_lsha" --format=%H -- . ':(exclude)scripts/migrations/*' 2>/dev/null \
+                  | grep -c .)
+        case "$_hist" in ''|*[!0-9]*) _hist=0 ;; esac
+        if [ "$_hist" -gt 0 ] 2>/dev/null; then
+          _hits=$((_hits + _hist))
+          _flist="$_flist <history:$_hist commit(s) introduced this shape>"
+        fi
       else
         # The ref already exists on the remote, so only the added lines are new.
         _hits=$(git diff --diff-filter=ACMR --unified=0 "$_base" "$_lsha" \
