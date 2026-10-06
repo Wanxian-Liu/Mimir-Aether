@@ -138,3 +138,61 @@ def test_5_no_new_lines_is_silent_unchanged(sandbox):
     r = _run(sandbox)
     assert r.returncode == 0
     assert r.stdout.strip() == ""
+
+
+# ── T7-F1（2026-10-07）：认领原子性 —— 同单双投只进一次 + 真实状态不得被碰 ──────
+import hashlib  # noqa: E402
+import sys  # noqa: E402
+import time  # noqa: E402
+
+REAL_STATE = [
+    os.path.expanduser("~/.openclaw/data/buzz-inbox-mimir.offset"),
+    os.path.expanduser("~/.openclaw/data/buzz-inbox-mimir.dispatched"),
+    os.path.expanduser("~/.openclaw/data/buzz-inbox-mimir.dispatched.claim.json"),
+]
+CLAIM_TOOL = Path(os.path.expanduser("~/.mimiraether/scripts/buzz_inbox_claim.py"))
+
+
+def _real_sig():
+    out = {}
+    for q in REAL_STATE:
+        try:
+            with open(q, "rb") as f:
+                out[q] = hashlib.sha256(f.read()).hexdigest()
+        except OSError:
+            out[q] = None
+    return out
+
+
+def test_6_claim_concurrency_single_entry(sandbox):
+    """同单双投（多进程同刻取同一条记录）⇒ 仅一次进入；真实游标/认领零改动。
+
+    认领器状态文件派生自 DISPATCHED ⇒ sandbox 覆写即隔离（G2 同族回归面）。
+    """
+    if not CLAIM_TOOL.exists():
+        pytest.skip("认领器不在本机")
+    before = _real_sig()
+    _seed(sandbox, total=3, offset=0, dispatched=0,
+          ledger_line="2026-10-07 00:00:00 processed 0 lines (up to 0)\n")
+    env = dict(sandbox["env"])
+    env["CLAIM_T0"] = "%.6f" % (time.time() + 1.0)
+    worker = sandbox["tmp"] / "worker.py"
+    worker.write_text(
+        "import os,subprocess,sys,time\n"
+        "t0=float(os.environ.get('CLAIM_T0','0'))\n"
+        "time.sleep(max(0.0,t0-time.time()))\n"
+        "sys.exit(subprocess.call(sys.argv[1:]))\n",
+        encoding="utf-8",
+    )
+    procs = [
+        subprocess.Popen(
+            [sys.executable, str(worker), sys.executable, str(CLAIM_TOOL),
+             "reserve", "--owner", "c%d" % i],
+            env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+        for i in range(3)
+    ]
+    rcs = [pr.wait(timeout=60) for pr in procs]
+    assert rcs.count(0) == 1, "并发认领必须恰 1 次进入，实测 rc=%s" % rcs
+    assert sandbox["dispatched"].read_text(encoding="utf-8").strip() == "3"
+    assert _real_sig() == before, "真实游标/认领文件被越界写（G2 同族）"
