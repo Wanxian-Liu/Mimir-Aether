@@ -6,7 +6,13 @@
   · 账本损坏（行数骤降）→ **fail-closed**（exit 3，不派发）
 
 安全：``MIMIR_GATEWAY_URL`` 指向死端口 —— 即使判据失效也不会真实派发 run。
-所有路径经 env 覆写进 tmp_path，**不碰真实收件箱/账本/offset**。
+所有路径经 env 覆写进 tmp_path，**不碰真实收件箱/账本/offset/派发游标**。
+
+2026-10-07 勘误（G2）：上面这句原先**不成立**——fixture 漏覆写
+``BUZZ_INBOX_MIMIR_DISPATCHED``，watcher 的 ROTATION 分支（total < max(offset,
+dispatched)）遂写到**真实**派发游标（实测 39→0）：整仓 pytest 每跑一次即清空一次
+真实派发门控（INC-10 同族重复派发窗口）。四个 env 覆写 ≠ 全部 env 覆写——脚本里每个
+``${VAR:-默认}`` 都是一条需要 sandbox 化的真实路径。判据（跑后真游标不得变）见回执。
 """
 import os
 import shutil
@@ -29,20 +35,27 @@ def sandbox(tmp_path):
     offset = tmp_path / "inbox.offset"
     lock = tmp_path / "inbox.waking"
     ledger = tmp_path / "inbox-processed.log"
+    # G2 (2026-10-07)：**必须**覆写派发游标。watcher 的 ROTATION/TRUNCATION 分支
+    # （脚本 L41 `echo 0 > "$DISPATCHED_FILE"`，触发条件 total < max(offset, dispatched)）
+    # 会写这个文件；fixture 原先漏了它 ⇒ 脚本读到**真实**游标（实测 39），sandbox 的
+    # total 小于它 ⇒ 逐例越界写真实文件。整仓 pytest 每跑一次 = 真实派发门控被清空一次
+    # （INC-10 同族重复派发窗口）。test_1 也因真实 d_old=39 < 113 而门控不放行、断言落空。
+    dispatched = tmp_path / "inbox.dispatched"
     env = dict(os.environ)
     env.update(
         {
             "BUZZ_INBOX_MIMIR": str(inbox),
             "BUZZ_INBOX_MIMIR_OFFSET": str(offset),
+            "BUZZ_INBOX_MIMIR_DISPATCHED": str(dispatched),
             "BUZZ_INBOX_MIMIR_LOCK": str(lock),
             "BUZZ_INBOX_MIMIR_LEDGER": str(ledger),
             "MIMIR_GATEWAY_URL": DEAD,
         }
     )
-    env.pop("BUZZ_INBOX_MIMIR_OFFSET", None) if False else None
     return {
         "inbox": inbox,
         "offset": offset,
+        "dispatched": dispatched,
         "lock": lock,
         "ledger": ledger,
         "env": env,
@@ -60,18 +73,28 @@ def _run(sb):
     )
 
 
-def _seed(sb, total, offset, ledger_line=None, extra="", day_dir=None):
+def _seed(sb, total, offset, ledger_line=None, dispatched=0, extra="", day_dir=None):
     sb["inbox"].write_text(
         "".join('{"id":"m%d"}\n' % i for i in range(1, total + 1)), encoding="utf-8"
     )
     sb["offset"].write_text(str(offset), encoding="utf-8")
+    # 派发游标＝同纪元门控判据（watcher L70 `d_old >= total`）；不播种则读不到文件→0。
+    sb["dispatched"].write_text(str(dispatched), encoding="utf-8")
     if ledger_line is not None:
         sb["ledger"].write_text(ledger_line, encoding="utf-8")
 
 
 def test_1_ledger_ahead_blocks_redispatch_inc10(sandbox):
-    """INC-10 反演：total=113 / offset=112 / 账本「up to 113」→ 不得重复派发。"""
-    _seed(sandbox, total=113, offset=112, ledger_line="2026-09-13 10:17:21 processed 1 lines (up to 113)\n")
+    """INC-10 反演：已处理到 total → 不得重复派发。
+
+    门控语义 2026-10-07 改判（watcher 脚本 L67-73 原文）：「账本最后 up to N >= total」
+    → 「**同纪元** dispatched 游标 >= total」。原因：账本编号跨纪元累计（实测 234 vs
+    total 34）⇒ 旧判据恒真 ⇒ 门控永久关闭、watcher 自动唤醒静默死。
+    故本用例按**现行**语义播种 dispatched=113（本用例最后改动 2026-09-13，早于该改判）。
+    账本行仍保留：它现在是 degraded / fail-closed 的判据来源（test_3 / test_4）。
+    """
+    _seed(sandbox, total=113, offset=112, dispatched=113,
+          ledger_line="2026-09-13 10:17:21 processed 1 lines (up to 113)\n")
     r = _run(sandbox)
     assert r.returncode == 0, r.stderr
     assert "不重复派发" in r.stdout, r.stdout

@@ -856,9 +856,29 @@ class MimirAgentLoop:
                     )
                     else:
                         _batch_results = []
-                    for _br in _batch_results:
+                    for _bi, _br in enumerate(_batch_results):
                         if _br is None:
                             continue
+                        # F-4 (2026-10-07) 形状闸门：契约是 4 元组 (name, tid, raw_args, result)。
+                        # 形状不符时**不得**直接解包——一次并行工具超时即整轮 run 作废，且异常被
+                        # run_agent.py 的 except 吞成文本、栈丢失（生产 2026-10-05 02:26:58）。
+                        # 这里 fail-visible 转成可见工具错误，并用同序的 _valid_norm[_bi] 补齐
+                        # name/id ⇒ tool 结果与 assistant.tool_calls 仍配对（不留孤儿 tool_call）。
+                        if not (isinstance(_br, (tuple, list)) and len(_br) == 4):
+                            _ftc = _valid_norm[_bi] if _bi < len(_valid_norm) else {}
+                            logger.error(
+                                "[F-4] parallel dispatch malformed result #%d (type=%s len=%s, "
+                                "expected 4-tuple) — 转为可见工具错误，本轮继续",
+                                _bi, type(_br).__name__,
+                                len(_br) if isinstance(_br, (tuple, list)) else "n/a",
+                            )
+                            _br = (
+                                _get_tc_name(_ftc),
+                                _get_tc_id(_ftc),
+                                _get_tc_args(_ftc),
+                                json.dumps({"error": "malformed result from parallel dispatcher: "
+                                                     + str(_br)[:200]}),
+                            )
                         tname, tid, raw_args, tool_result = _br
                         # task_state注入点2（四方共识）：按工具名更新状态
                         _ts = TaskState.from_tool_name(tname)

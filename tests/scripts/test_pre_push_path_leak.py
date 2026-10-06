@@ -199,7 +199,7 @@ def test_leaking_push_is_refused_end_to_end(clone):
 
 
 def test_stale_fork_point_does_not_hide_the_leak(clone):
-    """The failure this gate was caught on (2026-09-26).
+    """The failure this gate was caught on (2026-09-26); setup realigned 2026-10-07.
 
     A new branch forked long ago carries files that main has since cleaned up.
     Against the merge-base the diff is EMPTY -- the branch adds nothing -- so a
@@ -209,16 +209,41 @@ def test_stale_fork_point_does_not_hide_the_leak(clone):
     Construction: leak -> clean up on main -> push main -> branch off the leak
     commit. merge-base(branch, origin/main) == the leak commit, so the diff
     range is empty on purpose. Only a whole-tree scan can answer.
+
+    Policy expansion, hook section 3c (2026-09-30): pushing a ref the remote does
+    not have publishes its whole HISTORY, so the scan stopped being tree-only -- a
+    shape that entered in one commit and left in a later one is counted too
+    ("<history:N commit(s) introduced this shape>", via git log -G). That rule is
+    newer than this fixture (last touched 2026-09-26) and it fires on the SETUP
+    push below, whose history is literally "entered, then cleaned up" (2 commits).
+    The setup therefore publishes main through the gate's own TRACED override
+    (MIMIR_ALLOW_PATH_LEAK=1): product behaviour, not a bypass. The assertion under
+    test is the STALE push, and that one carries no override -- it must still be
+    refused. Publishing the one leak this fixture needs is what makes the stale
+    fork point reachable at all; a fixture that cannot arrange its own premise
+    tests nothing.
     """
     _commit_file(clone["work"], "leaked.txt", "v=%s/stale\n" % NEEDLE, "leak")
     leak = _sha(clone["work"], "HEAD")
     _git(clone["work"], "rm", "-q", "leaked.txt")
     _git(clone["work"], "commit", "-q", "-m", "clean up the path")
-    pushed = _run(["git", "push", "-q", "origin", "main"], clone["work"], env=_env(clone["trace"]))
+
+    # SETUP: make origin/main a descendant of the leak commit. Under section 3c this
+    # history is legitimately blocked, so the traced override is the only way to
+    # arrange the premise -- and its trace line is itself asserted, so the escape
+    # stays reviewable instead of silent.
+    pushed = _run(["git", "push", "-q", "origin", "main"], clone["work"],
+                  env=_env(clone["trace"], {"MIMIR_ALLOW_PATH_LEAK": "1"}))
     assert pushed.returncode == 0, pushed.stderr
+    assert "WARNING" in pushed.stderr, pushed.stderr
+    assert _records(clone["trace"])[-1]["outcome"] == "push-path-leak-blocked-override"
 
     # Sanity: the diff range really is empty, so the arm cannot pass by accident.
-    diff = _git(clone["work"], "diff", "--name-only", leak, leak).stdout.strip()
+    # 2026-10-07: this compared `leak` with itself (vacuously empty, so it could not
+    # fail). It now reads the actual range a merge-base scan would use.
+    base = _git(clone["work"], "merge-base", leak, "origin/main").stdout.strip()
+    assert base == leak, base
+    diff = _git(clone["work"], "diff", "--name-only", base, leak).stdout.strip()
     assert diff == "", diff
 
     result = _hook(clone, [_ref(clone, "refs/heads/stale", leak, ZERO)])

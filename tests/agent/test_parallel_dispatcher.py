@@ -4,6 +4,7 @@ Uses asyncio.run() for async dispatch tests (no pytest-asyncio plugin).
 """
 
 import asyncio
+import json
 from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import MagicMock, patch
 
@@ -177,3 +178,51 @@ class TestRetryEnv:
         tool_calls = [{"id": "call_1", "type": "function", "function": {"name": "read_file", "arguments": '{"path": "/tmp/a"}'}}]
         _run_dispatch(tool_calls, dispatcher)
         assert calls["n"] == 1  # 不重试
+
+
+class TestF4ReadOnlyFailureResultShape:
+    """F-4 (2026-10-07): 并行只读工具失败/超时后，dispatch_all 仍必须返回**4 元组**。
+
+    原缺陷：失败分支返回 `(tool_calls[idx], outcome)` —— **2 元组**，且首元素是 tool_call
+    的 dict 而非工具名（与函数 docstring 的 Returns 契约冲突）；唯一调用点
+    `agent/agent_loop.py:862` 做 `tname, tid, raw_args, tool_result = _br` ⇒
+    `ValueError: not enough values to unpack (expected 4, got 2)`，再被
+    `run_agent.py:297` 的 `except Exception` 吞成 final_response 文本（栈丢失）⇒ 整轮 run 作废。
+    生产实证：agent.log 2026-10-05 02:26:58（两并行 search_files 各超时 60s×2 后崩）
+    与 agent.log.1 2026-09-29 01:23。
+
+    为什么原测试没拦住：`TestDispatchAll` 只覆盖成功路径（dispatcher 恒定返回
+    `{"ok": true}`），失败分支（`results[idx] = (tool_calls[idx], outcome)`）零覆盖。
+    """
+
+    def test_f4_positive_original_crash_shape_covered_and_negative_control(self):
+        # ---- 正控：原崩溃形态（只读工具重试耗尽 → 返回 2 元组）不得再出现 ----
+        # 异常类型与文案与生产逐字同形：TimeoutError('search_files timed out after 60.0s')
+        def always_timeout(name, args, tid):
+            raise TimeoutError(f"{name} timed out after 60.0s")
+
+        tool_calls = [
+            {"id": "call_a", "type": "function",
+             "function": {"name": "search_files", "arguments": '{"pattern":"x"}'}},
+            {"id": "call_b", "type": "function",
+             "function": {"name": "search_files", "arguments": '{"pattern":"y"}'}},
+        ]
+        results = _run_dispatch(tool_calls, always_timeout)
+
+        assert len(results) == 2
+        assert all(isinstance(r, tuple) and len(r) == 4 for r in results), results
+        # 旧代码在这一行抛 ValueError: not enough values to unpack (expected 4, got 2)
+        for (tname, tid, raw_args, tool_result) in results:
+            assert tname == "search_files"
+            assert tid in ("call_a", "call_b")
+            assert json.loads(raw_args)["pattern"] in ("x", "y")
+            # 失败必须**可见**（不是静默空串、也不是伪装成功）
+            assert "timed out after 60.0s" in json.loads(tool_result)["error"]
+
+        # ---- 负控：正常 4 元输入仍通过（闸门不得误伤成功路径）----
+        ok_dispatcher = MagicMock(return_value='{"ok": true}')
+        ok_results = _run_dispatch(tool_calls, ok_dispatcher)
+        assert len(ok_results) == 2
+        for (tname, tid, raw_args, tool_result) in ok_results:
+            assert (tname, tid, tool_result) == ("search_files", tid, '{"ok": true}')
+        assert ok_dispatcher.call_count == 2

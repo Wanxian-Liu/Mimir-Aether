@@ -139,8 +139,24 @@ async def dispatch_all(
         for spec, outcome in zip(ro_specs, ro_outcomes):
             idx = spec[0]
             if isinstance(outcome, Exception):
+                # F-4 (2026-10-07)：失败分支必须与成功分支**同形**（4 元组契约，见本函数
+                # Returns）。原实现放 (tool_calls[idx], outcome)——2 元组，且第一个元素是
+                # tool_call 的 **dict** 而不是工具名 ⇒ 唯一调用点 agent_loop.py:862
+                # `tname, tid, raw_args, tool_result = _br` 抛
+                # ValueError: not enough values to unpack (expected 4, got 2)，
+                # 再被 run_agent.py:297 的 `except Exception` 吞成 final_response 文本
+                # （栈丢失）⇒ **整轮 run 作废**。
+                # 生产实证：2026-10-05 02:26:58 两个并行 search_files 各超时 60s×2 后崩；
+                # 2026-09-29 01:23 同形一次（agent.log / agent.log.1 各一条）。
+                # 改为与 serial 失败分支（下方 :165）同款 JSON error ⇒ 失败可见、本轮不丢。
+                tc = tool_calls[idx]
                 logger.error("[%s] parallel tool %d failed: %s", task_id[:8] if task_id else "", idx, outcome)
-                results[idx] = (tool_calls[idx], outcome)
+                results[idx] = (
+                    tc.get("function", {}).get("name", ""),
+                    tc.get("id", ""),
+                    tc.get("function", {}).get("arguments", "{}"),
+                    json.dumps({"error": f"{type(outcome).__name__}: {outcome}"}),
+                )
             else:
                 results[idx] = outcome
 
