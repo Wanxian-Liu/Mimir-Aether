@@ -67,6 +67,21 @@ def _now() -> datetime:
 # SQLite writes happen first inside the same call and are cheap; only the
 # derived search index can be left stale, and it is rebuildable.
 _REWRITE_OFFLOAD_DEFAULT_TIMEOUT_S = 300.0
+
+def _note_index_failure(stage: str, exc: BaseException) -> None:
+    """Index-side failure must be audible + counted (never debug-only).
+
+    P0 diagnosis 2026-10-05 (S8-2): the derived search index could lose ~91%%
+    of a session while every fail-open path logged at debug only.
+    """
+    try:
+        from tools.chroma_session_indexer import note_index_failure
+
+        note_index_failure(stage, exc, sink="gateway.session")
+    except Exception:  # noqa: BLE001 - fall back to a log so it is never silent
+        logger.warning("[INDEX-FAIL] stage=%s %s: %s", stage, type(exc).__name__, exc)
+
+
 _REWRITE_OFFLOAD_TIMEOUT_ENV = "MIMIR_HYGIENE_INDEX_TIMEOUT_S"
 
 
@@ -1290,7 +1305,7 @@ class SessionStore:
                 title=title,
             )
         except Exception as e:
-            logger.debug("sessions_search index append failed: %s", e)
+            _note_index_failure("sessions_search_append", e)
 
     def _rewrite_sessions_search_index(
         self, session_id: str, messages: List[Dict[str, Any]]
@@ -1310,7 +1325,7 @@ class SessionStore:
                 title=title,
             )
         except Exception as e:
-            logger.debug("sessions_search index rewrite failed: %s", e)
+            _note_index_failure("sessions_search_rewrite", e)
 
     def load_transcript(self, session_id: str) -> List[Dict[str, Any]]:
         """Load all messages from a session's transcript.

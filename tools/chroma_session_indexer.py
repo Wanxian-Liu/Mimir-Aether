@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import math
 import os
 import sqlite3
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
@@ -40,6 +42,59 @@ def _embedding_audit(event: str, detail: str, level: str = "error") -> None:
             )
     except Exception as exc:  # noqa: BLE001 - audit must never mask the real error
         logger.debug("embedding audit log write failed: %s", exc)
+
+
+_INDEX_FAILURE_COUNTS: Dict[str, int] = {}
+
+
+def _index_failure_path() -> Path:
+    from mimir_constants import get_mimir_home
+
+    return Path(get_mimir_home()) / "data" / "index_failure_counts.json"
+
+
+def index_failure_counts() -> Dict[str, Any]:
+    """Read the on-disk index-failure counter (monitor-facing read path)."""
+    try:
+        with open(_index_failure_path(), encoding="utf-8") as fh:
+            return json.load(fh)
+    except Exception:  # noqa: BLE001 - missing/corrupt counter reads as empty
+        return {}
+
+
+def note_index_failure(stage: str, exc: BaseException, *, sink: str = "") -> None:
+    """Index-side failure must be audible + counted, never debug-only.
+
+    P0 diagnosis 2026-10-05 (S8-2): three fail-open paths logged at debug only,
+    so a session that lost 91% of its index left no trace on disk.
+    """
+    count = _INDEX_FAILURE_COUNTS.get(stage, 0) + 1
+    _INDEX_FAILURE_COUNTS[stage] = count
+    detail = f"{type(exc).__name__}: {exc}"
+    logger.warning(
+        "[INDEX-FAIL] stage=%s count=%d sink=%s %s", stage, count, sink or "-", detail
+    )
+    _embedding_audit("index_failure", f"stage={stage} count={count} {detail}", level="warning")
+    try:
+        path = _index_failure_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        data = index_failure_counts()
+        rec = dict(data.get(stage) or {})
+        rec.update(
+            {
+                "count": int(rec.get("count", 0)) + 1,
+                "last_ts": time.time(),
+                "last_error": detail,
+                "sink": sink or "-",
+            }
+        )
+        data[stage] = rec
+        tmp = f"{path}.tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, ensure_ascii=False, indent=2)
+        os.replace(tmp, path)
+    except Exception as audit_exc:  # noqa: BLE001 - counter must not mask the real error
+        logger.debug("index failure counter write failed: %s", audit_exc)
 
 
 def _embed_resolve_failed(reason: str) -> None:
@@ -428,7 +483,7 @@ def sync_message_to_chroma(msg: IndexedMessage) -> bool:
         upsert_indexed_messages([msg])
         return True
     except Exception as exc:
-        logger.debug("chroma incremental upsert failed: %s", exc)
+        note_index_failure("incremental_upsert", exc, sink="chroma_session_indexer")
         return False
 
 
@@ -441,6 +496,7 @@ def delete_session_chroma_documents(session_id: str, *, collection: Any = None) 
     try:
         collection.delete(where={"session_id": session_id})
     except Exception as exc:
+        note_index_failure("delete_session_docs", exc, sink="chroma_session_indexer")
         logger.debug("chroma delete session %s failed: %s", session_id, exc)
 
 
@@ -473,7 +529,7 @@ def sync_session_chroma_from_db(
             count += upsert_indexed_messages(batch, collection=collection)
         return count
     except Exception as exc:
-        logger.debug("chroma session sync failed %s: %s", session_id, exc)
+        note_index_failure("session_resync", exc, sink="chroma_session_indexer")
         return 0
 
 

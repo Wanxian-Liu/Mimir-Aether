@@ -371,14 +371,29 @@ class SessionSearchDB:
         finally:
             conn.close()
 
-    def clear_session_messages(self, session_id: str) -> None:
-        """Remove indexed messages for a session (session row kept for metadata)."""
+    def clear_session_messages(self, session_id: str, keep_first: int = 0) -> None:
+        """Remove indexed messages for a session (session row kept for metadata).
+
+        ``keep_first`` keeps the oldest N rows, so a rewritten transcript can
+        re-index only its tail (incremental watermark, 2026-10-06) instead of
+        re-embedding the whole session on every hygiene compression.
+        """
         conn = sqlite3.connect(self.db_path)
         try:
-            conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+            if keep_first and int(keep_first) > 0:
+                conn.execute(
+                    "DELETE FROM messages WHERE session_id = ? AND id NOT IN ("
+                    "SELECT id FROM messages WHERE session_id = ? ORDER BY id LIMIT ?)",
+                    (session_id, session_id, int(keep_first)),
+                )
+            else:
+                conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+            remaining = conn.execute(
+                "SELECT COUNT(*) FROM messages WHERE session_id = ?", (session_id,)
+            ).fetchone()[0]
             conn.execute(
-                "UPDATE sessions SET message_count = 0 WHERE session_id = ?",
-                (session_id,),
+                "UPDATE sessions SET message_count = ? WHERE session_id = ?",
+                (int(remaining), session_id),
             )
             conn.commit()
         finally:

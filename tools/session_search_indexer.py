@@ -256,9 +256,193 @@ def index_transcript_message(
                 )
             )
         except Exception as exc:
-            logger.debug("chroma incremental hook failed: %s", exc)
+            from tools.chroma_session_indexer import note_index_failure
+
+            note_index_failure("incremental_hook", exc, sink="session_search_indexer")
     return True
 
+
+# --- 增量水位 + 断点续传（2026-10-06 · 治「清空重建 + 30s 截断」） --------------
+#
+# 事故（P0 诊断 2026-10-05）：卫生压缩对某会话「先清空本会话行、再逐条重嵌」，
+# 2908 条在 30s 上限内只做完 258 条 ⇒ 索引只剩块头 9%，且三处 fail-open 只记 debug。
+# 对策：① 水位——前缀未变就不重做前缀（只补尾部）② 续传——没做完的会话落 pending
+# 标记，resume 只补「SQLite 有、chroma 没有」的那部分，不从零重嵌。
+_WATERMARK_ENV = "MIMIR_INDEX_WATERMARK_PATH"
+_PENDING_ENV = "MIMIR_INDEX_PENDING_PATH"
+
+
+def _state_path(env_key: str, filename: str) -> Path:
+    import os
+
+    raw = (os.environ.get(env_key) or "").strip()
+    if raw:
+        return Path(raw)
+    from mimir_constants import get_mimir_home
+
+    return Path(get_mimir_home()) / "data" / filename
+
+
+def _watermark_path() -> Path:
+    return _state_path(_WATERMARK_ENV, "index_watermark.json")
+
+
+def _pending_path() -> Path:
+    return _state_path(_PENDING_ENV, "index_pending.json")
+
+
+def _load_state(path: Path) -> Dict[str, Any]:
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _save_state(path: Path, data: Dict[str, Any]) -> None:
+    import os
+
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = str(path) + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, ensure_ascii=False, indent=2)
+        os.replace(tmp, path)
+    except Exception as exc:
+        logger.warning("index state write failed (%s): %s", path, exc)
+
+
+def messages_digest(messages, upto: Optional[int] = None) -> str:
+    """Stable digest of the first ``upto`` messages.
+
+    Only role/content/tool_name enter the digest: ``extract_searchable_message``
+    stamps a *now* timestamp when the record has none, so hashing its full
+    output would make the digest time-dependent (and the watermark useless).
+    """
+    import hashlib
+
+    h = hashlib.sha256()
+    seq = messages if upto is None else list(messages)[:upto]
+    for m in seq:
+        parsed = extract_searchable_message(m) if isinstance(m, dict) else None
+        key = (parsed[0], parsed[1], parsed[2]) if parsed else None
+        h.update(repr(key).encode("utf-8", "replace"))
+        h.update(b"\x00")
+    return h.hexdigest()[:32]
+
+
+def watermark_prefix_len(session_id: str, messages) -> int:
+    """Leading messages already indexed (0 = prefix changed / unknown)."""
+    rec = (_load_state(_watermark_path()).get(session_id) or {})
+    n = int(rec.get("n") or 0)
+    if n <= 0 or n > len(messages):
+        return 0
+    if messages_digest(messages, n) != rec.get("digest"):
+        return 0
+    return n
+
+
+def record_watermark(session_id: str, messages, indexed_n: Optional[int] = None) -> None:
+    n = len(messages) if indexed_n is None else int(indexed_n)
+    data = _load_state(_watermark_path())
+    data[session_id] = {"n": n, "digest": messages_digest(messages, n), "ts": _now_ts()}
+    _save_state(_watermark_path(), data)
+
+
+def _now_ts() -> float:
+    return datetime.now().timestamp()
+
+
+def record_pending(session_id: str, total: int, *, source: str = "", title: str = "") -> None:
+    """Mark a session as mid-flight BEFORE the expensive work (crash-safe)."""
+    data = _load_state(_pending_path())
+    data[session_id] = {"total": int(total), "source": source, "title": title, "ts": _now_ts()}
+    _save_state(_pending_path(), data)
+
+
+def clear_pending(session_id: str) -> None:
+    data = _load_state(_pending_path())
+    if session_id in data:
+        data.pop(session_id, None)
+        _save_state(_pending_path(), data)
+
+
+def pending_index_report() -> Dict[str, Any]:
+    return _load_state(_pending_path())
+
+
+
+def resume_session_index(session_id: str, *, like_db: Any, batch_size: int = 128) -> Dict[str, Any]:
+    """断点续传：只补「SQLite 有、chroma 缺」的行，不重嵌已就位部分。
+
+    用于 30s 上限把某会话索引截断后的收尾（P0 诊断 2026-10-05）。
+    """
+    out: Dict[str, Any] = {"session_id": session_id}
+    db_path = getattr(like_db, "db_path", None)
+    if not db_path:
+        out["error"] = "like_db has no db_path"
+        return out
+    from tools.chroma_session_indexer import (
+        IndexedMessage,
+        get_chroma_collection,
+        message_doc_id,
+        upsert_indexed_messages,
+    )
+
+    con = sqlite3.connect(str(db_path))
+    try:
+        rows = con.execute(
+            "SELECT id, role, content, tool_name, timestamp FROM messages "
+            "WHERE session_id = ? ORDER BY id",
+            (session_id,),
+        ).fetchall()
+    finally:
+        con.close()
+    out["indexed_rows"] = len(rows)
+
+    col = get_chroma_collection()
+    have, off = set(), 0
+    while True:
+        got = col.get(where={"session_id": session_id}, include=[], limit=1000, offset=off).get("ids") or []
+        if not got:
+            break
+        have |= set(got)
+        off += len(got)
+        if len(got) < 1000:
+            break
+    out["chroma_docs"] = len(have)
+
+    missing = [r for r in rows if message_doc_id(session_id, int(r[0])) not in have]
+    out["filled"] = 0
+    for i in range(0, len(missing), batch_size):
+        chunk = missing[i:i + batch_size]
+        batch = [
+            IndexedMessage(
+                message_id=int(r[0]), session_id=session_id, role=str(r[1] or "unknown"),
+                content=str(r[2] or ""), source="resume", timestamp=float(r[3] or 0.0),
+                tool_name=str(r[4]) if r[4] else None,
+            )
+            for r in chunk
+        ]
+        out["filled"] += upsert_indexed_messages(batch, collection=col)
+    return out
+
+
+def resume_pending_indexes(*, like_db: Any = None, limit: Optional[int] = None) -> Dict[str, Any]:
+    """续传所有 pending 会话（崩溃/超时留下的半成品）。"""
+    pending = _load_state(_pending_path())
+    done: Dict[str, Any] = {}
+    for sid in list(pending)[: limit if limit else None]:
+        try:
+            done[sid] = resume_session_index(sid, like_db=like_db)
+            clear_pending(sid)
+        except Exception as exc:
+            from tools.chroma_session_indexer import note_index_failure
+
+            note_index_failure("resume_pending", exc, sink="session_search_indexer")
+            done[sid] = {"error": f"{type(exc).__name__}: {exc}"}
+    return {"pending_seen": len(pending), "resumed": done}
 
 def reindex_session_transcript(
     session_id: str,
@@ -267,14 +451,27 @@ def reindex_session_transcript(
     like_db: Any,
     source: str = "unknown",
     title: str = "",
+    incremental: bool = True,
 ) -> int:
-    """Replace search index rows for a session (e.g. after rewrite_transcript)."""
+    """Replace search index rows for a session (e.g. after rewrite_transcript).
+
+    Incremental (2026-10-06): when the stored watermark proves the leading ``n``
+    messages are unchanged, those rows are kept and only the tail is re-indexed.
+    A hygiene compression used to clear + re-embed the whole session, which the
+    30s off-loop budget truncated (P0 diagnosis 2026-10-05, S8-2).
+    """
+    keep = watermark_prefix_len(session_id, messages) if incremental else 0
     clear = getattr(like_db, "clear_session_messages", None)
     if callable(clear):
-        clear(session_id)
+        try:
+            clear(session_id, keep_first=keep)
+        except TypeError:
+            clear(session_id)  # legacy store without keep_first
+            keep = 0
     like_db.add_session(session_id, source=source, title=title)
+    record_pending(session_id, len(messages), source=source, title=title)
     count = 0
-    for message in messages:
+    for message in messages[keep:]:
         if index_transcript_message(
             session_id,
             message,
@@ -284,12 +481,17 @@ def reindex_session_transcript(
             ensure_session=False,
         ):
             count += 1
-    try:
-        from tools.chroma_session_indexer import sync_session_chroma_from_db
+    if keep == 0:
+        try:
+            from tools.chroma_session_indexer import sync_session_chroma_from_db
 
-        db_path = getattr(like_db, "db_path", None)
-        if db_path:
-            sync_session_chroma_from_db(session_id, db_path)
-    except Exception as exc:
-        logger.debug("chroma session re-sync failed: %s", exc)
+            db_path = getattr(like_db, "db_path", None)
+            if db_path:
+                sync_session_chroma_from_db(session_id, db_path)
+        except Exception as exc:
+            from tools.chroma_session_indexer import note_index_failure
+
+            note_index_failure("session_resync_hook", exc, sink="session_search_indexer")
+    record_watermark(session_id, messages)
+    clear_pending(session_id)
     return count
