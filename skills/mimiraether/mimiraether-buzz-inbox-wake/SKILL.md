@@ -841,3 +841,10 @@ python3 scripts/append_inbox_processed.py -m "…" --up-to <游标> --dry-run   
 复算数字: SUMMARY passed=6 failed=0 skipped=0
 
 **入仓纪律（本仓实测）**：`~/.mimiraether/.gitignore` 默认 `scripts/*` 忽略 ⇒ 新增脚本必须显式加一行 `!scripts/<name>` 白名单，否则「在盘但不在版本控制」（本单两件已加）。
+
+### 9.2 本族新坑：**探针 cwd 落沙箱** ⇒ `grep -rn ... .` 的 `.` 不是仓库根（2026-10-07 行44 实测 · 本 run 自曝）
+
+- **症状**：`execute_code` 里跑 `grep -rn 'check_run_health_alerts' --include=*.py .`（未传 cwd）⇒ `.` 解析为**进程 cwd = 沙箱 `/tmp/hermes_sandbox_*`**，命中的是探针自身的 `script.py` ⇒ 输出 **2 行假阳性**。若脚本写的模式只在仓库里存在，同一坑会反向产出「0 命中」**假负**（本族最危险的形态）。
+- **判据/修法**：跨域只读探针**一律显式 `cwd=<repo>`**，或把扫描根写成绝对路径而非 `.`；**报「0 命中 / 不存在」前先回显扫描根**（`pwd` 或 `realpath`）。
+- **修前/修后读数**：修前 = 2 命中（沙箱 `script.py`，**假**）· 修后 = 0 命中（真仓库面无 gateway/agent 引用 ⇒ 读口为纯脚本体，无装载窗口）。
+- **同族**：RS17「探针数到自己」· 「作用域过滤器未生效而闸仍判 VERIFIED」——三者共因 = **量具的作用域没被当作判据的一部分**。
