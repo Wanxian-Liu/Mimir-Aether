@@ -35,8 +35,10 @@ def _ledger(tmp_path, name, text):
 
 
 def _cli(*args, home=None):
+    # 不硬编码 HOME（曾硬编码绝对家路径 ⇒ ① 不可移植 ② 触发 repo pre-push
+    # home-path 闸）。继承调用方 HOME；缺失时才 expanduser，且不落字面量。
     env = dict(os.environ)
-    env["HOME"] = "/home/rayliu"
+    env["HOME"] = env.get("HOME") or os.path.expanduser("~")
     if home:
         env["MIMIR_AETHER_HOME"] = str(home)
     return subprocess.run([sys.executable, str(SCRIPT), *args],
