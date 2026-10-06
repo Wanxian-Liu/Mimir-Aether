@@ -27,11 +27,16 @@ cd $MIMIR_AETHER_HOME/scripts/p0 && /home/<user>/src/MimirAether/.venv/bin/pytho
 
 退化特征（区别于安静期）：**chroma_docs 掉而 source_indexable 不降**；两者同降或同平 = 正常。
 
-## 2.5 追加运行留痕（每次必做，1 行）
-读 `data/p0_index_health.json` 复算后，把同一组指标**追加**一行到
-`$MIMIR_AETHER_HOME/data/p0_index_health_history.jsonl`（append，勿覆盖；字段：checked_at/ok/source_indexable/chroma_docs/drift_abs/drift_pct/source_garbage/garbage_in_index/backfill_phase/incremental_enabled/exit_code）。
-用途：漂移趋势可直接机读（趋势比单点更能区分「退化」与「增量正常消化」），替代手抄 §5。
-注意：`python3 -c` 被路径白名单拦截（dangerous command pattern）——用 execute_code / write_file 落盘，不要用 shell heredoc。
+**方向判据（#10 · 2026-10-07）**：阈值不变（`|drift| > max(10, 2%×可索引数)`），但**方向**另外落盘为
+`drift_direction`：`over`=chroma **多**于源（查重复写入）/ `under`=chroma **少**于源（查增量管线）/ `ok`=阈内。
+旧版 `abs()` 把这两种方向相反的故障合并成一个告警 ⇒ 外部读不出方向；已拆两路（正控=+漂移 / 负控=-缺口各有回归用例）。
+
+## 2.5 追加运行留痕（2026-10-07 起**已自动化——不要再手工写**）
+`p0_index_monitor.py` 每轮自己 append 一行到
+`$MIMIR_AETHER_HOME/data/p0_index_health_history.jsonl`（append-only，勿覆盖；字段：checked_at/ok/source_indexable/chroma_docs/drift_abs/drift_pct/**drift_direction**/drift_over/drift_under/source_garbage/garbage_in_index/backfill_phase/incremental_enabled/exit_code）。
+用途：漂移趋势可直接机读（趋势比单点更能区分「退化」与「增量正常消化」）。
+**手工再追加 = 同轮两行（重复计数）**——本步 2026-10-07 前是手工的，现已在脚本内建；§2.5 只剩「**读**」，不要再写盘。
+取证（本次交付）：`~/.mimiraether/tmp/20261007-p0-index-monitor-direction/`（受控差分探针 + README）。
 
 ## 3. 汇报格式（硬要求：逐字复现任务书清单）
 `agent/task_completion.py` 的提醒门是**逐字子串**匹配（L46 取 `- [ ]` 原文；L50-56 只看最近 3 条 assistant 消息；L56 `it not in joined`）——

@@ -182,3 +182,64 @@ def test_module_reads_no_model_client():
     source = MODULE_PATH.read_text(encoding="utf-8")
     for banned in ("openai", "anthropic", "deepseek", "openrouter", "litellm"):
         assert banned not in source.lower(), "the report layer must not talk to a model: %s" % banned
+
+# --- #10 判据分型 (2026-10-07) -------------------------------------------------
+# 旧判据 `abs(drift) > allowed` 把「多」与「缺」两种**方向相反**的故障合并成一个
+# 告警，外部读不出方向。下面两臂是**正控/负控**：同一函数、同一阈值、只差方向，
+# 必须判出**相反**结论。缺任一侧 ⇒ 合并判据会重新溜回来而无人发现。
+
+
+def test_drift_over_threshold_is_reported_as_surplus():
+    """正控：chroma 多于源（多索引），方向 over。"""
+    health = _health(checks={"source_indexable": 20000, "chroma_docs": 20500})
+    healthy, problems, _ = _evaluate(health)
+    assert not healthy
+    assert any("多索引" in p for p in problems), problems
+    assert report.drift_direction_of(health) == "over"
+
+
+def test_drift_under_threshold_is_reported_as_gap():
+    """负控：chroma 少于源（漏索引），方向 under —— 与正控方向相反。"""
+    health = _health(checks={"source_indexable": 20000, "chroma_docs": 19500})
+    healthy, problems, _ = _evaluate(health)
+    assert not healthy
+    assert any("漏索引" in p for p in problems), problems
+    assert report.drift_direction_of(health) == "under"
+
+
+def test_drift_directions_are_opposite_not_merged():
+    """两臂必须给出相反结论；若同向 ⇒ 判据又退回 abs() 合并。"""
+    over = _health(checks={"source_indexable": 20000, "chroma_docs": 20500})
+    under = _health(checks={"source_indexable": 20000, "chroma_docs": 19500})
+    assert report.drift_direction_of(over) == "over"
+    assert report.drift_direction_of(under) == "under"
+    assert report.drift_direction_of(over) != report.drift_direction_of(under)
+
+
+def test_drift_within_threshold_is_aligned():
+    """阴性对照：阈值内不得贴方向标签（否则每轮都告警 = 告警失效）。"""
+    health = _health(checks={"source_indexable": 20000, "chroma_docs": 20005})
+    assert report.drift_direction_of(health) == "ok"
+    assert report.classify_drift(0, 400) == "ok"
+    assert report.classify_drift(401, 400) == "over"
+    assert report.classify_drift(-401, 400) == "under"
+
+
+def test_heartbeat_states_direction():
+    """心跳也带方向：健康时外部同样要能读出「多还是缺」。"""
+    _, _, heartbeat = _evaluate(_health())
+    assert "漂移=+2(ok)" in heartbeat, heartbeat
+
+
+def test_alert_exit_states_direction(tmp_path, capsys):
+    """告警出口带机读方向行（外部不必解析中文文案）。"""
+    hf = tmp_path / "p0_index_health.json"
+    hf.write_text(
+        json.dumps(_health(checks={"source_indexable": 20000, "chroma_docs": 19500}), ensure_ascii=False),
+        encoding="utf-8",
+    )
+    code = report.run(_args(health_file=hf, now=NOW.isoformat(), source_db=tmp_path / "missing.db"))
+    out = capsys.readouterr().out
+    assert code == 2, out
+    assert "漂移方向=under" in out, out
+    assert "缺口为负(缺)=True" in out, out

@@ -45,6 +45,41 @@ INDEX_LAG_TOLERANCE_S = 600
 DRIFT_ABS_FLOOR = 10
 DRIFT_REL = 0.02
 
+# 判据分型（#10 · 2026-10-07）：漂移方向标签。
+#   "over"  = chroma 多于源（多索引）——方向为**正**
+#   "under" = chroma 少于源（漏索引）——方向为**负**
+#   "ok"    = 在阈值内
+#   None    = 读数缺失，无法判向
+# 为什么不是布尔：两种故障的处置路径不同（重复写入 vs 增量管线），
+# 合并成一个 `abs()` 告警会让外部读者走错门。
+DRIFT_DIRECTIONS = ("over", "under", "ok")
+
+
+def classify_drift(drift: int, allowed: int) -> str:
+    """Pure: map a signed drift to a direction label. No I/O, so it is testable."""
+    if abs(drift) <= allowed:
+        return "ok"
+    return "over" if drift > 0 else "under"
+
+
+def drift_threshold(src: int) -> int:
+    """Pure: the same threshold the detector body uses (floor vs 2%)."""
+    return max(DRIFT_ABS_FLOOR, int(src * DRIFT_REL))
+
+
+def drift_direction_of(health: dict | None) -> str | None:
+    """判据分型（#10）读数口：直接由 health JSON 复算方向，供告警出口复用。
+
+    单独成函数（而不是在 run() 里重抄一遍算式）是为了让**出口**与**判据**
+    共用同一实现 —— 两处各写一份 = 迟早分叉成两个口径。
+    """
+    checks = (health or {}).get("checks", {}) or {}
+    src = checks.get("source_indexable")
+    docs = checks.get("chroma_docs")
+    if not (isinstance(src, int) and isinstance(docs, int)):
+        return None
+    return classify_drift(docs - src, drift_threshold(src))
+
 
 def _mimir_home() -> Path:
     """与运行时同一真源；import 失败退回环境变量/约定路径（CI 可用）。"""
@@ -127,11 +162,25 @@ def evaluate(
     src = checks.get("source_indexable")
     docs = checks.get("chroma_docs")
     drift = None
+    drift_direction = None
     if isinstance(src, int) and isinstance(docs, int):
         drift = docs - src
-        allowed = max(DRIFT_ABS_FLOOR, int(src * DRIFT_REL))
-        if abs(drift) > allowed:
-            problems.append("漂移 %+d 超过阈值 %d（chroma %d vs 源 %d）" % (drift, allowed, docs, src))
+        allowed = drift_threshold(src)
+        # 判据分型（#10）：`多`（chroma 超出源）与 `缺`（chroma 少于源）是**方向相反**的
+        # 故障，必须各判各的。旧版 `abs(drift) > allowed` 把两者合并成一个告警，
+        # 外部只读得到「异常」读不到「往哪边异常」——方向是处置的第一步。
+        # 阈值仍取绝对值（|drift| > allowed 才算越阈），分的是**方向归属**，不是阈值。
+        drift_direction = classify_drift(drift, allowed)
+        if drift_direction == "over":
+            problems.append(
+                "漂移 +%d（chroma 多于源）超过阈值 %d（chroma %d vs 源 %d）——多索引，查重复写入"
+                % (drift, allowed, docs, src)
+            )
+        elif drift_direction == "under":
+            problems.append(
+                "缺口 %d（chroma 少于源）超过阈值 %d（chroma %d vs 源 %d）——漏索引，查增量管线"
+                % (abs(drift), allowed, docs, src)
+            )
 
     garbage = checks.get("garbage_in_index")
     scanned = checks.get("garbage_scan_scanned")
@@ -155,7 +204,8 @@ def evaluate(
         coverage = "扫描覆盖=%.0f%%" % (100.0 * scanned / docs)
     parts = ["docs=%s" % (docs if docs is not None else "?")]
     if drift is not None:
-        parts.append("漂移=%+d" % drift)
+        # 心跳也带方向（#10）：健康时外部同样要能读出「多还是缺」，而非只看到 +N。
+        parts.append("漂移=%+d(%s)" % (drift, drift_direction))
     parts.append("垃圾=%s" % (garbage if garbage is not None else "?"))
     if coverage:
         parts.append(coverage)
@@ -202,6 +252,16 @@ def run(args: argparse.Namespace) -> int:
     print("[索引健康] 🔴 %d 项异常 · %s" % (len(problems), now.astimezone().strftime("%Y-%m-%d %H:%M")))
     for item in problems:
         print("  - %s" % item)
+    # 判据分型（#10）：告警出口显式给出两路可分读数——外部不必解析中文文案即可判方向。
+    drift_direction = drift_direction_of(health)
+    print(
+        "  判据分型：漂移方向=%s · 漂移为正(多)=%s · 缺口为负(缺)=%s"
+        % (
+            drift_direction if drift_direction is not None else "unknown",
+            drift_direction == "over",
+            drift_direction == "under",
+        )
+    )
     if health:
         checks = health.get("checks", {})
         print(
