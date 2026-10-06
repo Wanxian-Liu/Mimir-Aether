@@ -143,6 +143,18 @@ cd ~/src/MimirAether
 - **负控失败** = 恒真探针（如 `echo 1`）
 - 三类结构性无效：无 `{INPUT}` 占位符 / 正负控样本相同 / 空探针
 
+## ⚠️ 第十四批 · CJK 路径 + git quotepath ⇒ 正控恒 none（2026-10-07 实测 · T7-F1 独立复核）
+
+**症状**：探针 `git show --name-only … | grep -c -F '{INPUT}'` + 正控喂**真实中文文件名** ⇒ 判 `positive_control_failed`（observed=none）；负控同时 none ⇒ 两次自证都像「空洞控制组」，**探针被误读成没鉴别力**。
+
+**根因**：git 默认 `core.quotepath=true`，非 ASCII 路径在输出里被转义成 `"\345\244\215…"` ⇒ `grep -F '<中文文件名>'` 恒不命中（0）。
+
+**修法**：给 git 加 `-c core.quotepath=false`（等价：正控/靶改用 ASCII 路径样本）。
+
+**读数（修前 → 修后）**：`UNVERIFIED reason=positive_control_failed` → `positive=seen(1) · negative=none(0) · target=none(0)` ⇒ `VERIFIED`。
+
+**纪律**：**正控失败先怀疑探针（编码/环境），不要先改结论**——与本技能「同类 4 种死法」同族：正控 none ≠ 事实为假；但也不得就此宣布结论成立（UNVERIFIED 不得当事实用）。
+
 ## 关键陷阱（都是实测踩过的）
 
 1. **控制样本必须自己先验证**。我曾拿"真实文件第一行"当已知为真样本——那行其实是 rollback 行，正控当场失败。**控制样本本身也是一个未验证假设**，先 `grep -c` 自检（应为 1 / 0）再用。
