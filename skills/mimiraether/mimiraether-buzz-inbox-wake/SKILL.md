@@ -12,6 +12,7 @@ auto_load: false
 2. **读同级回执用 Python 抽字段，别 read_file 整读**：回执 4–15 KB 长行 ⇒ read_file 被 offload/截断、看不到 `重跑命令` 对。正解：Python 取 `startswith('重跑命令')`+紧随 `复算数字` 组对，**原样复跑**（本次 24/24 HIT · rc 全 0 = L2 证据）。
 3. **execute_code 内嵌套引号 f-string 必 SyntaxError**：`f"{sh(\"...\")}"` ⇒ `unexpected character after line continuation`。正解＝先取值入变量再拼串；长回执分 ≤3KB 块 `open(p,'a').write()`（write_file 大载荷报 Invalid JSON）。
 4. **在飞兄弟 run 的 HEAD 是快照**：同一 run 内 `git log -1` 会连变（bc176ed→e0101f2→b296af2）⇒ 登记写「快照 + 时点」，勿写终值；`ls ~/.hermes/inbox | grep -ci <件名>` = 0 ⇒ 实施未收口，L2 顺延，**不在本 run 抢做**。
+5. **`tail -c N` 读含 CJK 的卡/日志 ⇒ `subprocess(text=True)` 抛 `UnicodeDecodeError: 0xa1`**（按字节切在半个汉字上）⇒ 读尾一律 `tail -n <行数>`，且所有 `subprocess.run` 加 `errors="replace"`。另：**「兄弟 run 是否已闭本行」的最强判据 = 收件箱里有没有对应回执**（`ls -la --time-style='+%m-%d %H:%M' ~/.hermes/inbox/ | sort -k6,7 | tail -4` 见 `<本行>…回执` mtime > 派单 ts ⇒ 已闭，本 run 转去重 + L2，**零重复实施**）——行 55 实证（兄弟 run 05:45–05:52 闭，本 run 05:56 只跑 L2 7/7 HIT）。
 
 
 ## 0.00 巡检「idle桶N」类派单：**先查口径再动手**（2026-10-06 实证）
