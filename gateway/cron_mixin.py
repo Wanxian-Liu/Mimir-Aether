@@ -818,6 +818,9 @@ class CronMixin:
         )
         final_text = ""
         try:
+            # S4 (2026-10-06): 失败出声用状态——见本函数末尾 final_text 段。
+            _status: Optional[str] = None
+            _err: Optional[str] = None
             context = build_session_context(source, self.config, session_entry)
             context_prompt = build_session_context_prompt(context, redact_pii=False)
             cron_hint = PLATFORM_HINTS.get("cron")
@@ -981,9 +984,30 @@ class CronMixin:
                     mark_job_run(job_id, "error", str(exc))
                     final_text = f"cron error: {exc}"
 
+            # S4 (2026-10-06, AGENTS 规矩 4「出错必须出声」)：旧写法
+            #   `if not final_text.strip(): return`
+            # ⇒ agent 型 job 跑成 empty_content / api_failure 时 final_response 恒空
+            # ⇒ 连投递都不发生：台账记了 error，**没人被告知**（静默失败家族）。
+            # 现改为：失败时**合成**一条最小失败播报再投递。
+            if _status == "error" and not str(final_text).strip():
+                final_text = (
+                    f"⚠️ cron「{job_name}」本次未产出（{_err or 'unknown'}）"
+                    f"——台账已记 error，请看 cron/jobs.json 的 last_error。"
+                )
+                logger.warning(
+                    "Cron job %s (%s): delivery-on-failure fired (%s)",
+                    job_id, job_name, _err,
+                )
+                # S4: 周报类 job 的 deliver=local ⇒ 仅投 job targets 等于没人被告知。
+                # 另推一条到 HOME 通道（复用 N12 冷却 + 台账），不抛异常。
+                try:
+                    await _alert_job_failure(self, job_id, job_name, _err or "unknown")
+                except Exception:
+                    logger.debug("Cron job %s: job-failure alert failed", job_id, exc_info=True)
             if not str(final_text).strip():
                 return
-            if "[SILENT]" in final_text:
+            # [SILENT] 只对**成功**完成生效：失败不得被 silence 吞掉（否则又一条静默失败）。
+            if "[SILENT]" in final_text and _status != "error":
                 return
 
             targets: List[DeliveryTarget] = []
@@ -1043,6 +1067,23 @@ class CronMixin:
             clear_session_vars(tokens)
 
 
+async def _alert_job_failure(host, job_id: str, job_name, reason: str) -> None:
+    """S4 (2026-10-06, 规矩 4)：job **跑失败**（非投递失败）→ 推 HOME 通道。
+
+    存在的理由：周报 job 的 `deliver="local"`（刻意不投递，避免周刊噪音），
+    因此只把失败文案投给 job 自己的 targets 等于**没人被告知**。这里复用 N12
+    的「事件触发 + 每 job 冷却 + 无论发送成败都写台账」三性质，只换文案。
+    不抛异常（由调用点 try/except 兜底）。
+    """
+    from cron.delivery_alerts import format_job_failure_alert
+
+    await _alert_delivery_failure(
+        host, job_id, job_name, {"run": reason or "unknown"},
+        text_override=format_job_failure_alert(job_id, job_name, reason),
+        platform="feishu",
+    )
+
+
 def _delivery_failures(results) -> Dict[str, str]:
     """N8 (2026-09-18): extract failed targets from `DeliveryRouter.deliver()`.
 
@@ -1062,7 +1103,10 @@ def _delivery_failures(results) -> Dict[str, str]:
     return out
 
 
-async def _alert_delivery_failure(host, job_id: str, job_name, failures) -> None:
+async def _alert_delivery_failure(
+    host, job_id: str, job_name, failures,
+    *, text_override: Optional[str] = None, platform: Optional[str] = None,
+) -> None:
     """N12 (2026-09-18): push a delivery failure to the HOME channel.
 
     Event-triggered replacement for a periodic scanner. Properties:
@@ -1082,11 +1126,14 @@ async def _alert_delivery_failure(host, job_id: str, job_name, failures) -> None
     if not should_alert(job_id):
         return
 
-    text = format_alert(job_id, job_name, failures)
+    # S4 (2026-10-06): 两个**可选**参数——不传时行为与 N12 完全一致。
+    text = text_override or format_alert(job_id, job_name, failures)
     delivered = False
     send_error = None
     router = getattr(host, "delivery_router", None)
-    platform_value = str(next(iter(failures), "feishu")).split(":")[0] or "feishu"
+    platform_value = str(platform) if platform else (
+        str(next(iter(failures), "feishu")).split(":")[0] or "feishu"
+    )
     alert_target = None
     if router is None:
         send_error = "no delivery router"

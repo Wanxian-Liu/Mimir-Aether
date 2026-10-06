@@ -100,6 +100,20 @@ def should_alert(
     return ((now or now_utc()) - last) >= timedelta(seconds=cooldown_s)
 
 
+def format_job_failure_alert(job_id: str, job_name, reason: str) -> str:
+    """S4 (2026-10-06): 「job 本身跑失败」的播报文案（区别于「投递失败」）。
+
+    规矩 4「出错必须出声」：agent 型 job 可能以 empty_content / api_failure
+    收尾且**没有正文**，旧形态连投递都不发生 ⇒ 台账记了 error 而无人被告知。
+    本函数只负责文案，不发不收，便于单测。
+    """
+    return (
+        f"⚠️ cron 任务**跑失败**：{job_name or '-'}（{job_id}）\n"
+        f"失败原因：{reason or 'unknown'}\n"
+        f"（本轮无正文产出；台账已记 last_status=error）"
+    )
+
+
 def format_alert(job_id: str, job_name: Optional[str], failures: Mapping[str, str]) -> str:
     """Human-readable alert. Pure function -> testable without a gateway."""
     lines = [
