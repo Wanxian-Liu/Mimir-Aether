@@ -839,3 +839,5 @@ python3 scripts/append_inbox_processed.py -m "…" --up-to <游标> --dry-run   
 **判据（可复算）**：
 重跑命令: python3 ~/.mimiraether/scripts/buzz_inbox_claim_selftest.py
 复算数字: SUMMARY passed=6 failed=0 skipped=0
+
+**入仓纪律（本仓实测）**：`~/.mimiraether/.gitignore` 默认 `scripts/*` 忽略 ⇒ 新增脚本必须显式加一行 `!scripts/<name>` 白名单，否则「在盘但不在版本控制」（本单两件已加）。
