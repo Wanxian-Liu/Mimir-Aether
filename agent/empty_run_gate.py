@@ -28,8 +28,9 @@ from __future__ import annotations
 import json
 import os
 import re
+import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 # ── 工具分类 ────────────────────────────────────────────────────────────────
 WRITE_TOOLS = {"write_file", "patch", "create_file", "edit", "write"}
@@ -42,11 +43,46 @@ STAGING_MARKERS = (
     "/tmp/",
     "/.mimir-inbox/tmp/",
 )
+# P0-3（2026-10-07 · Hermes 复核 #12 补刀）：临时目录**禁字面量**。
+#   病灶：TMPDIR 非 /tmp 时（Hermes 会话默认 ~/.hermes/cache/scratch），写进临时目录的
+#   草稿不算 staging ⇒ 反被判「写了交付物」⇒ 只读计数清零（P0-2 的病换路径复发）。
+#   修法：临时目录标记运行期由 tempfile.gettempdir() 展开；保留 "/tmp/" 字面量 = 兼容。
+#   同族口径：本文件 `_HOME = os.path.expanduser("~")`（家路径禁字面量 · pre-push A6）。
 # 交付物排除项（工作记忆/运行日志 —— 同 _check_has_written 口径）
 # P0-1（2026-09-28 · probe_p5 5a 实证）：补 "logs/" / ".log" / ".jsonl" ——
 #   运行日志被读成「交付物」⇒ deliverable_written() 误真 ⇒ B 段掩护被误关（静默空跑）。
 WORK_MEMORY_KEYS = ("search-notes.md", "PROGRESS.md", "/tmp/", "run-log/",
                     "logs/", ".log", ".jsonl")
+
+
+def _tempdir_markers() -> Tuple[str, ...]:
+    """运行期临时目录标记（带尾斜杠）——TMPDIR=/tmp 时返回空元组（静态标记已覆盖）。
+
+    `tempfile.gettempdir()` = 本进程临时目录唯一真源（已含 TMPDIR 语义）；不用 realpath
+    （TMPDIR 为符号链接时会与模型实际写下的路径字面量不符）。异常/根目录兜底返回空 ⇒
+    退化为静态标记，绝不因取目录失败把 staging 误判成交付物。
+    """
+    try:
+        d = tempfile.gettempdir()
+    except Exception:
+        return ()
+    if not d:
+        return ()
+    m = str(d).replace("\\", "/").rstrip("/") + "/"
+    if len(m) <= 1 or m == "/tmp/":     # "/" ⇒ 全部路径皆临时目录 ⇒ 拒绝放大
+        return ()
+    return (m,)
+
+
+def staging_markers() -> Tuple[str, ...]:
+    """staging 判据全集（静态 + 运行期临时目录）——分类判定唯一入口。"""
+    return STAGING_MARKERS + _tempdir_markers()
+
+
+def work_memory_keys() -> Tuple[str, ...]:
+    """交付物排除项全集（静态 + 运行期临时目录）。"""
+    return WORK_MEMORY_KEYS + _tempdir_markers()
+
 
 _PATH_RE = re.compile(r"[\w./~-]+\.(?:md|py|json|txt|yaml|yml|sh|log|html)")
 _OPEN_W_RE = re.compile(r"open\(\s*['\"]([^'\"]+)['\"]\s*,\s*['\"][wax]")
@@ -239,7 +275,7 @@ def _expand(q: str) -> str:
 
 
 def is_staging_path(q: str) -> bool:
-    return any(k in _expand(q) for k in STAGING_MARKERS)
+    return any(k in _expand(q) for k in staging_markers())
 
 
 def is_deliverable_path(q: str) -> bool:
@@ -247,7 +283,7 @@ def is_deliverable_path(q: str) -> bool:
         return False
     if is_staging_path(q):
         return False
-    return not any(k in _expand(q) for k in WORK_MEMORY_KEYS)
+    return not any(k in _expand(q) for k in work_memory_keys())
 
 
 def write_targets(name: str, args_raw: str = "") -> List[str]:

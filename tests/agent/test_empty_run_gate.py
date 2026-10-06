@@ -360,3 +360,35 @@ def test_p1_exclusion_is_single_source():
               _MIMIR + "/logs/x.jsonl",
               _WIKI + "/discussions/x.md"]:
         assert erg.is_deliverable_path(c) == _has_written(_wf(c)), c
+
+
+# ===== P0-3（2026-10-07 · Hermes 复核 #12 补刀）· 临时目录**环境无关** =====
+# 病：staging 判据写死字面量 "/tmp/" ⇒ TMPDIR 非 /tmp 的环境（Hermes 会话默认
+#   ~/.hermes/cache/scratch）里，写进临时目录的草稿不算 staging ⇒ 反被读成「写了
+#   交付物」⇒ 只读连续计数被清零 ⇒ 闸门被临时路径解除（P0-2 的病换路径复发）。
+# 回归含义：临时目录由 tempfile.gettempdir() 拼（**不写死 /tmp**）⇒ 换环境不误红；
+#   并断言该路径**确实**被判 staging / 非交付（否则用例只是「没写 /tmp」的空壳）。
+import tempfile as _tempfile  # noqa: E402
+
+
+def _td_staging_file(name="draft.md"):
+    """临时目录里的草稿路径 —— 用运行期真源拼，禁写死 /tmp。"""
+    return str(pathlib.Path(_tempfile.gettempdir()) / "erg_staging" / name)
+
+
+def test_p0_3_tempdir_is_staging_regardless_of_tmpdir():
+    p = _td_staging_file()
+    assert erg.is_staging_path(p) is True, "临时目录（tempfile.gettempdir()）必须判 staging：" + p
+    assert erg.is_deliverable_path(p) is False
+    assert erg.is_staging_path("/tmp/x.md") is True, "字面量 /tmp/ 兼容面不得丢"
+    assert _has_written(_wf(p)) is False, "临时目录写入不得算「有产出」（兄弟量具须同判）"
+
+
+def test_p0_3_tempdir_draft_does_not_reset_readonly_budget(tmp_path):
+    """行为级：写临时目录草稿 ⇒ 只读计数**不清零**（= Hermes 报的 5 failed 根因）。"""
+    card = tmp_path / (CARD_PREFIX + "_P03.md")
+    turns = ([("read", tmp_path / "a.md")] * 3 + [("write", _td_staging_file())]
+             + [("read", tmp_path / "c.md")] * 2)
+    assert erg.readonly_streak(_msgs(turns, card)) == 6, "tmp 草稿不得退还只读预算"
+    gate = erg.EmptyRunGate(task_id="p03", limit=4, force_writes=1)
+    assert gate.tick(_msgs(turns, card), 6) is not None, "staging 写不得解除拦截"

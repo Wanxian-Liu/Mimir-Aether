@@ -1537,8 +1537,18 @@ class MimirAgentLoop:
             try:
                 return bool(_empty_run_gate_mod().is_deliverable_path(_q))
             except Exception:
+                # P0-3（2026-10-07 · Hermes 复核 #12 补刀）：兜底面同样禁 /tmp 字面量
+                #   ——TMPDIR 非 /tmp 时，临时草稿会被本兜底读成「有产出」。与
+                #   empty_run_gate.staging_markers() 同判（单一真源失联时的保守副本）。
+                import tempfile
+                try:
+                    _td = tempfile.gettempdir().replace("\\", "/").rstrip("/") + "/"
+                except Exception:
+                    _td = "/tmp/"
                 return bool(_q) and not any(
-                    _k in _q for _k in ("search-notes.md", "/tmp/", "PROGRESS.md")
+                    _k in _q for _k in ("/.mimiraether/tmp/", "/tmp/", _td, "/.mimir-inbox/tmp/",
+                                        "search-notes.md", "PROGRESS.md", "run-log/",
+                                        "logs/", ".log", ".jsonl")
                 )
         for m in messages:
             if m.get("role") != "assistant":
