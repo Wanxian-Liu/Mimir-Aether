@@ -25,6 +25,15 @@ auto_load: false
    （stream=True + `max_tokens=4096` + 长上下文 ≈29K tokens + 重推理任务 ⇒ 期望 `length/0/4096/4096`）。
    **探针条件必须与生产一致**（stream 与否、模型名、max_tokens）——否则结论不可用。
 3. **参数定位**：`agent/callers_mixin.py` `_builtin_call_model_with_tokens` 里
+   - **2026-10-06 更正（本技能旧文写「两臂等价」，实测不成立）**：关思考臂只有
+     `thinking={"type":"disabled"}` 干净（`finish_reason=stop` · content_len 2912）；
+     `reasoning_effort="none"` **不够**（有正文 7200 但 `finish_reason` 仍 `=length`）。
+     选臂必跑 `bash scripts/probes/empty_content_diagnosis.py fixmode` 看 `finish_reason`，
+     别只看 `content_len`（有正文 ≠ 没收顶）。
+   - **修复已落地（B1/B2 · commit c3cbc23）**：唯一窄口改为 `_BuiltinLlmBackend.call_model_with_tokens`
+     外包健康闸（纯函数 `classify_output_health` / `plan_output_retry`），
+     原实现更名 `_builtin_call_model_with_tokens_once`（新增 `max_tokens_override` / `disable_thinking`）。
+     回归 `tests/test_output_budget_retry.py`（20 例）。排障时先看 `grep OUTPUT_HEALTH agent.log`。
    `max_output_tokens = ... else 4096`（**非 claude 硬编码 4096**）；`max_tokens = min(max_output_tokens, context_length//4)`。
 4. **判定点定位**：`agent/agent_loop.py` 空正文分支（`if not str(content or "").strip()`）——它**不看** `finish_reason/usage`。
 5. **修复臂（同条件差分）**：
