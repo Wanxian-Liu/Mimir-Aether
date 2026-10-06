@@ -100,6 +100,38 @@ MIMIR_TIER0_PYTHON=<repo>/.venv/bin/python3 bash scripts/pytest_isolated.sh <受
    处置 = 用产品自带回滚开关（`MIMIR_RUN_HEALTH=0` · `agent/run_health.py:27` 文档化）在 autouse fixture 里关观测，**不改断言**。
 5. 三条证据缺一不可：① 旧 ns 复现红 → 新 ns 绿（setup 敏感性）② 受控差分（破坏被判据 ⇒ **读数必须变**，防空跑探针）③ 逐条引用源改动 `commit + 行号` 说明「旧 setup 为何过期」（拒「默默改断言」）。
 
+### 5.2 L2 异源复核三判据（2026-10-07 实证 · 修完之后「谁来验」）
+
+修完只算 **L1 自证**（自报读数）；完工须过 L2 = 他者重跑。复核方**不重写修复**，只重跑三判据：
+
+```bash
+# ① 聚焦：受影响文件（快，~4s）
+cd /home/rayliu/src/MimirAether && TMPDIR=/tmp env HOME=/home/rayliu bash scripts/pytest_isolated.sh \
+  <受影响文件...> -q --no-header -rf 2>&1 | tail -3
+# ② 整仓两环境（A: TMPDIR=/tmp；B: 默认不覆写）——两读必须逐条相同
+cd /home/rayliu/src/MimirAether && TMPDIR=/tmp env HOME=/home/rayliu bash scripts/pytest_isolated.sh tests -q --no-header 2>&1 | tail -1
+# ③ 正控可反转：抽块三臂差分（残契约 ⇒ 报错；完整契约 ⇒ 明示；同一块 1 token 差分 ⇒ 读数必须变）
+```
+③ 的现成探针：`~/.mimiraether/tmp/probe_family1_reversal.py`（import 测试模块 → `_live()` → 自建 ns 三臂）。
+**判据：三臂读数互异**（如全同 ⇒ 探针空跑/恒绿，同 `2c0b303` 第 4 种死法）。
+⚠ `pytest_isolated.sh ... | tail -1` 的末行是 `[isolated] gateway MemoryCurrent(后)=…`，
+**pytest 汇总行不是最后一行** ⇒ 要 `grep -E '[0-9]+ (failed|passed|skipped)'` 或先重定向到文件再读。
+
+### 5.3 并发 run 撞同一单（双路唤醒）：先探活，再决定写不写
+
+同一派单行可能被**两个 run 并行消费**（游标"读取"与"推进"之间没有原子认领步）。
+开工与**每次写盘前**都探活一次：
+
+```bash
+tail -300 ~/.mimiraether/logs/agent.log | grep -oE '\[[0-9a-f]{8}\]' | sort | uniq -c | sort -rn   # ≥2 条 trace = 并发
+ls -lt --time-style=+%H:%M:%S /home/rayliu/.hermes/inbox/ | head -3                                  # 对侧是否已投回执
+```
+- 命中 ⇒ **只做增量**：不覆盖/不删对侧产物，改写「独立复核回执」（L2）+ 双路唤醒记录；对侧段与产物一律保留。
+- 自己写盘前先做**幂等自检**（如 `git diff | grep -c <自己的新符号>` = 0 才落笔），避免与对侧交叉污染。
+- 按 `AGENTS §5.1` 第 2 级上报（**改机制**：认领即原子推进游标 / flock 关键区），不是再提醒一次。
+- 别用 `pgrep -f <脚本名>` 或 `ps -eo cmd | grep <脚本名>` 判对侧是否在跑——**命令行含脚本名即自匹配**
+  （连"等待对侧跑完再开跑"的看门循环都会自我死等）；判活改用「记下 PID 后 `ps -p`」或读日志末行。
+
 ## 6. 出场（报告骨架 + 回执）
 
 报告必含：① 跑命令原文（逐字可复制）② 三臂表（总数/passed/failed/error/skipped/耗时/rc + 原始日志路径）
