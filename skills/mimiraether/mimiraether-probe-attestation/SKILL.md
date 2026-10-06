@@ -853,3 +853,31 @@ print(r["verdict"], r["controls"]["positive"]["observed"], r["target"]["observed
 - `write_file` 载荷 >约 2-4 KB、`patch` >约 1 KB 报 `Invalid JSON` ⇒ **长文分段写 tmp + `cat a b >> 目标`**（append-only，天然不覆盖对方段落 = 同时满足「只写自己的段」）。
 - 落点表写**相对路径**时复核侧第一跳即失败（本轮：`skills/security/...` 在我侧两个候选根均不存在，真源在 `~/.hermes/skills/...`）⇒ 跨方件必须绝对路径。
 - 分工指定的**角色帽若盘上不存在**，须**先声明偏离**再出结论（本轮 `engineering/engineering-test-engineer.md` 全盘 0 命中 ⇒ 按最近亲帽 `engineering-debugger` + `testing-qa-engineer` 审，不冒充「真读帽」）。
+
+## ⚠️ 第二十二批 · 探针**范围**缺口 ⇒ 假负结论（2026-10-07 实证 · P0 chroma 监控复启）
+
+**场景**：cron job `1bc613c4aa65`（P0 chroma 索引健康监控）在盘上 `enabled=false`，要判「**谁**关的、**为什么**」。
+
+**我犯的错**：用三条负证据落盘「**无主静默关闭**」——
+① `logs/{agent,gateway,errors}.log` grep job id 无 disable 行；
+② `data/trajectories/2026-10-06/*` 无 `cronjob(update|pause)` 调用；
+③ `jobs.json` 的 `disable_reason` 仍是旧文、`paused_at=null`。
+
+**三条读数全真，结论全假。** 真相写在 `~/wiki/concepts/四方任务总台账.md` §#48 第 405 行：
+> 关停记录（琬弦按刘哥批示）：RS19 统一机械检查 · P0 chroma 索引健康监控——已计入 §4，只 disable 未删
+
+⇒ **有意停用、按刘哥批示、有记录在案**（重建/回填期第二读进程撞 hnsw compactor ⇒ 假告警，停是对的；缺陷只在重建后无人恢复）。
+
+**两条独立的探针缺口（同时踩中才造假负）**：
+1. **目录范围**：我的 grep 根只有 `~/.mimiraether/{logs,notes,trajectories}`——**没扫 `~/wiki`**（四方台账/讨论卡/笔记都在那）。
+2. **标识符形态**：台账**只写中文名**「P0 chroma 索引健康监控」，**不写 job id** ⇒ 按 id `grep` **必然 0**。
+   我是先拿 id 当探针关键词，再把「0 命中」读成「无人记录」。
+
+**修法（两条，缺一不可）**：
+- **跨根**：负结论探针的搜索根必须**一次列全**（`~/.mimiraether` + `~/wiki` + `~/src/MimirAether` + `~/.hermes`），并在报告里**写出搜索根清单**——没列的根 = 未检验域。
+- **多别名**：对象同时有 **id / 中文名 / 文件名 / 脚本名** 时，探针必须**逐个形态**跑（`OR` 起来），并在报告里写出用过的关键词清单。
+  `-F` 字面量 grep 对「同一对象的别名」是**四个不同探针**，不是一个探针的四个参数。
+
+**过闸语义**：跨根 + 别名两清单齐 ⇒ 才允许写「在 A/B/C 范围内未见记录」（**带域的负结论**）；
+两清单缺一 ⇒ 只允许写「**我未找到**（探针未覆盖 X 域/未用 Y 别名）」——**不得**写「无人 / 无记录 / 不存在」。
+判据：报告里 `grep -c '搜索根:' <报告>` ≥1 ∧ `grep -c '别名:' <报告>` ≥1。
