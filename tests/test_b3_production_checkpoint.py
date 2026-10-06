@@ -202,3 +202,69 @@ def test_rule3_ledger_resolves_via_mimir_aether_home(tmp_path):
     r = subprocess.run([sys.executable, SCRIPT, "--inbox", str(inbox)],
                        capture_output=True, text=True, env=env)
     assert r.returncode == 0 and "lag=0" in r.stdout, r.stdout + r.stderr
+
+
+# ---------------------------------------------------------------------------
+# 规则③ 治本件：补账必须同步 .hwm（否则 patrol L213 报「⚠陈旧水位」= 幻影告警）
+# 2026-10-06 行 229 实测：手工 append 只动台账不动 hwm ⇒ led=158 vs hwm=156 漂移。
+# ---------------------------------------------------------------------------
+APPENDER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "scripts", "append_inbox_processed.py")
+
+
+def _seed(tmp_path, seed_lines=1, hwm="1"):
+    led = tmp_path / "inbox-processed.log"
+    led.write_text("2026-10-06 20:00:00 processed 1 lines (up to 5)\n", encoding="utf-8")
+    (tmp_path / "inbox-processed.log.hwm").write_text(hwm + "\n", encoding="utf-8")
+    return led
+
+
+def test_appender_appends_and_syncs_hwm(tmp_path):
+    """补账一行 ⇒ 台账 +1 行 ∧ `.hwm` 同步到新行数（不变量 wc-l == hwm 成立）。"""
+    led = _seed(tmp_path)
+    r = subprocess.run([sys.executable, APPENDER, "--ledger", str(led),
+                        "-m", "[pytest] smoke", "--up-to", "6"],
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
+    lines = led.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 2 and "up to 6" in lines[-1] and "[pytest] smoke" in lines[-1]
+    assert (tmp_path / "inbox-processed.log.hwm").read_text().strip() == "2"
+
+
+def test_appender_dry_run_writes_nothing(tmp_path):
+    """--dry-run ⇒ rc 0 但台账与 hwm 均不变（控制组：防「预演顺手写盘」）。"""
+    led = _seed(tmp_path)
+    r = subprocess.run([sys.executable, APPENDER, "--ledger", str(led),
+                        "-m", "x", "--up-to", "6", "--dry-run"],
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert len(led.read_text(encoding="utf-8").splitlines()) == 1
+    assert (tmp_path / "inbox-processed.log.hwm").read_text().strip() == "1"
+
+
+def test_appender_sync_hwm_subcommand(tmp_path):
+    """--sync-hwm 只对齐 hwm 到当前行数（治漂移的兜底入口）。"""
+    led = _seed(tmp_path, hwm="1")
+    with open(led, "a", encoding="utf-8") as fh:
+        fh.write("2026-10-06 21:00:00 processed 1 lines (up to 9) [x]\n")
+    r = subprocess.run([sys.executable, APPENDER, "--ledger", str(led), "--sync-hwm"],
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert (tmp_path / "inbox-processed.log.hwm").read_text().strip() == "2"
+
+
+def test_appender_bad_args_rc3(tmp_path):
+    """缺 --up-to / 非整数 / message 含换行 ⇒ rc=3（不得静默按 0 行记账）。"""
+    led = _seed(tmp_path)
+    for args in (["-m", "x"], ["-m", "x", "--up-to", "abc"], ["-m", "a\nb", "--up-to", "7"]):
+        r = subprocess.run([sys.executable, APPENDER, "--ledger", str(led), *args],
+                           capture_output=True, text=True)
+        assert r.returncode == 3, (args, r.stdout + r.stderr)
+    assert len(led.read_text(encoding="utf-8").splitlines()) == 1
+
+
+def test_appender_missing_ledger_rc3(tmp_path):
+    """台账缺失 ⇒ rc=3（量具不可用，不得读成「已补账」）。"""
+    r = subprocess.run([sys.executable, APPENDER, "--ledger", str(tmp_path / "nope.log"),
+                        "-m", "x", "--up-to", "7"], capture_output=True, text=True)
+    assert r.returncode == 3, r.stdout + r.stderr

@@ -653,3 +653,36 @@ hermes 巡检报「账本水位落后（ledger=151/hwm=150）+ 收件箱 221/222
 实测 `coverage: disk=347 listed=262 unlisted=85`（存量最早到 09-29）⇒ 本检查**不可能**在单 run 内 PASS。
 纪律：**只登记本 run 新笔记**（本轮 unlisted 85→84 = 唯一可归因读数），余量作为**存量缺口**如实上报 +
 标注 owner（历史 run），**不得**批量代登记他人笔记凑绿。落卡写「本 run 贡献读数 + 存量缺口」两段。
+
+## 2.15 唤醒行里的括号读数**多半是「他方量纲」**（2026-10-06 行 229 实测 · 第十 run）
+
+唤醒行形如 `处理lag=1积压邮件（inbox 45→46）`——**一句话撮了两个不同量纲**，处置前必须**逐项溯源到产它的函数**：
+
+| 片段 | 真实量纲 | 溯源 |
+|---|---|---|
+| `lag=1` | 我方**收件箱未补账行数** | `check_inbox_ledger_lag.py`：`收件箱总行数 − 台账末条 up to N`（本轮 229−228=1，且**这一行就是该唤醒自身**） |
+| `inbox 45→46` | **hermes 自己箱的 `.md` 文件个数** | `patrol_scan.py`：`INBOX = ~/.hermes/inbox` · `s_inbox()` = `glob(f"{INBOX}/*.md")` 计数 ⇒ 与本方行数/lag **无量纲关系**（本轮实测 46 = 我方 21:09 回执落箱导致的 +1） |
+
+- **判据（一行复现）**：`ls ~/.hermes/inbox/*.md | wc -l` ⇒ 46 ≡ 唤醒行括号里的「46」⇒ 归属 hermes 箱，非我方积压。
+- **两类失真复用 §0.00 分类**：① **误读**（把文件计数读成「积压 45→46 条」）② **误派**（他方量纲投进我方单）。
+- **处置模板**：真 lag ⇒ 补账归零 + 回执（两字段）；括号读数 ⇒ 溯源 + 口径更正写进回执；**唤醒本身无指令 ⇒ 反 KPI：零新建、零改码**，只补账 + 回执。
+- **建议交对侧裁**（不越界改 hermes 侧脚本）：`s_lag()`/`s_inbox()` 输出带 **owner + 单位**（`lag(Mimir)=1 行` · `inbox(hermes)=46 文件`），唤醒行按 owner 路由。
+- 与 §2.14① 同族：**凡「落后/不一致」类读数，先溯源量纲与采样时刻，再判**。
+
+### 2.15.1 补账必须走生产者脚本（治「幻影水位告警」的机制源）
+
+**不变量**（hermes 巡检 `patrol_scan.py` L208-214）：`wc -l <台账> == <台账>.hwm`；
+违反 ⇒ 巡检报 `⚠陈旧水位(ledger=N hwm=M)` ⇒ **幻影告警投回本方**（与 B3 规则③要治的幻影积压同源）。
+
+**实测（2026-10-06 行 229）**：两次手工 `open(...,'a')` 补账各 +1 行、**无人更新 `.hwm`** ⇒ `led=158 vs hwm=156` 漂移。
+
+**纪律**：补账**只用** `scripts/append_inbox_processed.py`（单一入口）——
+
+```bash
+cd ~/src/MimirAether && python3 scripts/append_inbox_processed.py -m "行N = …处置…" --up-to <游标>   # 追加 + 自动同步 hwm
+python3 scripts/append_inbox_processed.py --sync-hwm                                              # 漂移兜底对齐
+python3 scripts/append_inbox_processed.py -m "…" --up-to <游标> --dry-run                          # 预演，不落盘
+```
+- rc：`0` 已写 / `2` 写失败（flock 或 hwm 同步失败 ⇒ **不得当作已补账**）/ `3` 参数或量具不可用。
+- 自检三连：`wc -l <台账>` · `cat <台账>.hwm` · `check_inbox_ledger_lag.py | tail -1` ⇒ **三者应一致**（行数==hwm ∧ lag=0 rc=0）。
+- 回归：`tests/test_b3_production_checkpoint.py`（+5 例 · 隔离 pytest 21 passed）。
