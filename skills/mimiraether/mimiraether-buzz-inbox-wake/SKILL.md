@@ -802,3 +802,25 @@ python3 scripts/append_inbox_processed.py -m "…" --up-to <游标> --dry-run   
 - 本族实测：`buzz-inbox-mimir.dispatched` 02:06:52 由 `39` 变 `0`，而全 `~/.mimiraether` 检索**无** `ROTATION/TRUNCATION` 出声行（§8 该分支必出声）⇒ 归零来源未明。
 - 危害：watcher 门控 = `d_old >= total` ⇒ 变假即**重复派发同一批**（与 §0「重复实施 = 最贵」同源）。
 - 处置：**先用 `buzz_inbox_close.py` 复位**（`dispatched = max(旧,total)`，一次调用复位到 `total`），把「来源不明」单列为未闭项（查写者）；**不要**就地手写 `echo N >` 游标（绕过 flock 与 `.hwm` 不变量）。
+
+## 9. 认领即原子推进（T7-F1 · 2026-10-07 · 跨通道防重复派单）
+
+**症**：同一派单行被两个 run 并行消费（实证：run `9f313cb9` trigger_source=**api** 02:44:41 与 run `5ee412bb` trigger_source=**buzz-watcher** 02:45:01，轨迹 02:44→03:06 交织）。根因 = 「读取」与「推进游标」之间**无原子认领步**（watcher 全序列无 flock，唯一"锁"是派发**之后**才创建的存在性文件 ⇒ TOCTOU 窗口 = 整段决策+派发）。
+
+**唯一认领出口** = `~/.mimiraether/scripts/buzz_inbox_claim.py`（flock 关键区内 read → 比对行号 → 原子写回）：
+
+| 子命令 | 语义 | rc |
+|:--|:--|:--|
+| `reserve --owner ID` | 认领 `[max(offset,dispatched)+1, total]` 并**原子推进 dispatched**（认领即推进） | 0 认领 / 1 无增量 / 2 他人持有 HELD / 3 环境 |
+| `abort --owner ID` | 派发失败回滚（仅当 `dispatched==我的end ∧ offset<end`，即无人推进） | 0 |
+| `commit --owner ID` | 认领落地（清 claim 记录 + claim 台账行） | 0 / 2 owner 不匹配 |
+| `check --line N --owner ID` | 消费者自检「这一行我能不能碰」 | 0 可 / 2 他人持有 / 3 已处理 |
+| `show` | 只读三游标 + 当前 claim（零写入） | 0 |
+
+**跨通道契约**：任何要动收件箱行的消费者（watcher 轮询 / api 直连唤醒的 run）动手前必须先 `check --line N --owner <自己的 run/session id>`；rc=2 ⇒ 跳过该行（不重复实施），rc=3 ⇒ 已处理跳过。watcher 侧已**机器强制**（reserve rc∈{0,1,2} 才决定是否 POST；失败 ⇒ abort 回滚，下次重试）。
+
+**状态文件派生自 `DISPATCHED` 路径**（`${DISPATCHED}.claim.json` / `.claim.lock` / `.claim.log`）⇒ 任何沙箱只要覆写 `BUZZ_INBOX_MIMIR_DISPATCHED` 就**自动隔离**认领态（G2 同族「测试写真实游标」回归面）。
+
+**判据（可复算）**：
+重跑命令: python3 ~/.mimiraether/scripts/buzz_inbox_claim_selftest.py
+复算数字: SUMMARY passed=3 failed=0 skipped=0
