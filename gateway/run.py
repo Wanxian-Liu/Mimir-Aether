@@ -1292,6 +1292,18 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
             target=_semantic_warmup_task, daemon=True, name="semantic-warmup"
         ).start()
 
+    # B4b（2026-10-06 · 任务书 行218）：启动钩子 —— 扫 pending 会话索引并续传
+    # （补 ⑤ 残留缺口①「续传只有手动入口」）。**只加这一处调用**：实现与 env 门控在
+    # tools/session_search_indexer.py；daemon 线程 + 延迟默认 20s + 限 20 条/次，
+    # 无 pending 则早退（不建 DB / 不加载 embedding）；失败静默降级，不接 cron，
+    # 手动入口 scripts/resume_index.py 保留。回滚：MIMIR_PENDING_INDEX_RESUME=0。
+    try:
+        from tools.session_search_indexer import start_pending_index_resume_thread
+
+        start_pending_index_resume_thread(logger=logger)
+    except Exception as exc:  # pragma: no cover - 自愈设施不得拖垮启动
+        logger.warning("pending-index resume hook skipped: %s", exc)
+
     # stack_dump 心跳：本协程每秒喂一次；事件循环被阻塞 ⇒ 看门狗判停滞并 dump 全线程栈。
     if stack_dump_status.get("watchdog"):
         try:

@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sqlite3
+import threading
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -495,3 +498,86 @@ def reindex_session_transcript(
     record_watermark(session_id, messages)
     clear_pending(session_id)
     return count
+
+
+# ── B4b · 启动钩子（2026-10-06 · 任务书 行218「B4b：接启动钩子 + 保留手动入口，不接 cron」）──
+#
+# 病灶：⑤ 的残留缺口①——「续传只有手动入口」（`scripts/resume_index.py`）。崩溃/超时留下的
+# pending 半成品，只有人手动跑脚本才补；gateway 每次重启都不会自愈 ⇒ 索引缺行长期挂着。
+#
+# 形态：**一处**启动调用（`gateway/run.py`）+ 本模块内的实现（不新建文件、不接 cron）。
+# - 无 pending ⇒ 早退，**不建 DB 连接、不加载 embedding**（零成本路径）。
+# - 有 pending ⇒ 串行续传，默认**限 20 条/次**（`MIMIR_PENDING_INDEX_RESUME_LIMIT`）——
+#   内存纪律：本进程 cgroup 上限 4G，chroma + bge-m3 同开曾致整机 OOM（2026-10-05 事故），
+#   故不允许启动时无界回填；余量留给下次启动/手动入口继续。
+# - **失败开放**：任何异常只记 warning，绝不影响启动；保留 `scripts/resume_index.py` 手动入口。
+# - 关断：`MIMIR_PENDING_INDEX_RESUME=0`。
+# - 延迟：`MIMIR_PENDING_INDEX_RESUME_DELAY_S`（默认 20s）——等启动/预热先落地，再吃 CPU/内存。
+
+def _startup_resume_limit() -> Optional[int]:
+    raw = os.environ.get("MIMIR_PENDING_INDEX_RESUME_LIMIT", "20")
+    try:
+        val = int(str(raw).strip() or "20")
+    except Exception:
+        return 20
+    return None if val <= 0 else val
+
+
+def startup_resume_pending(*, limit: Optional[int] = None) -> Dict[str, Any]:
+    """启动钩子的核心逻辑（可离线测）：pending 空 ⇒ 早退；否则续传并回报。
+
+    返回体字段即读数：`skipped` / `pending_seen` / `pending_after` / `resumed` / `error`。
+    """
+    if limit is None:
+        limit = _startup_resume_limit()
+    out: Dict[str, Any] = {"limit": limit}
+    pending = pending_index_report()
+    out["pending_seen"] = len(pending)
+    if not pending:
+        out["skipped"] = "no_pending"
+        return out
+    try:
+        from mimir_constants import get_mimir_session_search_db_path
+        from tools.session_search_tool import SessionSearchDB
+
+        db = SessionSearchDB(str(get_mimir_session_search_db_path()))
+        out["resumed"] = resume_pending_indexes(like_db=db, limit=limit)
+    except Exception as exc:
+        logger.warning("[PENDING_INDEX_RESUME] 续传失败（启动不受影响）：%s", exc)
+        out["error"] = "%s: %s" % (type(exc).__name__, exc)
+        return out
+    out["pending_after"] = len(pending_index_report())
+    return out
+
+
+def start_pending_index_resume_thread(*, logger: Any = None, delay_s: Optional[float] = None):
+    """启动钩子入口：装 daemon 线程跑 `startup_resume_pending`。返回线程或 None（关断时）。
+
+    **只读 env，不读配置系统**；不阻塞启动；任何异常都吞（返回 None）。
+    """
+    log = logger or globals().get("logger")
+    if os.environ.get("MIMIR_PENDING_INDEX_RESUME", "1").strip().lower() in ("0", "false", "no", "off"):
+        log.info("[PENDING_INDEX_RESUME] 已关断（MIMIR_PENDING_INDEX_RESUME=0）")
+        return None
+    try:
+        if delay_s is None:
+            raw = os.environ.get("MIMIR_PENDING_INDEX_RESUME_DELAY_S", "20")
+            try:
+                delay_s = max(0.0, float(str(raw).strip() or "20"))
+            except Exception:
+                delay_s = 20.0
+    except Exception:
+        delay_s = 20.0
+
+    def _task() -> None:
+        if delay_s:
+            time.sleep(delay_s)
+        try:
+            result = startup_resume_pending()
+            log.info("[PENDING_INDEX_RESUME] %s", result)
+        except Exception as exc:  # pragma: no cover - 观测/自愈设施不得拖垮启动
+            log.warning("[PENDING_INDEX_RESUME] 钩子异常（已降级）：%s", exc)
+
+    thread = threading.Thread(target=_task, daemon=True, name="pending-index-resume")
+    thread.start()
+    return thread
