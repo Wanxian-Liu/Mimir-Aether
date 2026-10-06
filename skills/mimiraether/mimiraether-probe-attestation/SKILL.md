@@ -881,3 +881,30 @@ print(r["verdict"], r["controls"]["positive"]["observed"], r["target"]["observed
 **过闸语义**：跨根 + 别名两清单齐 ⇒ 才允许写「在 A/B/C 范围内未见记录」（**带域的负结论**）；
 两清单缺一 ⇒ 只允许写「**我未找到**（探针未覆盖 X 域/未用 Y 别名）」——**不得**写「无人 / 无记录 / 不存在」。
 判据：报告里 `grep -c '搜索根:' <报告>` ≥1 ∧ `grep -c '别名:' <报告>` ≥1。
+
+## 受控差分（旧码 vs 新码 · 2026-10-07 P0 索引监控实证）
+
+改「判据」类修复的唯一合格证据 = **同一探针喂同一输入，旧实现 vs 新实现两边读数都写**。
+只报新版 = 自证；只报旧版 = 没修。
+
+**做法**：改动前把原件复制成 `<name>.py.orig` 存进取证目录（改完就回读不到旧码了；
+`git show HEAD:<path>` 只在**已入库**时可用 —— 未提交时它是「新码」，别拿它当对照）。
+
+**坑（实测）**：`importlib.util.spec_from_file_location(name, "x.py.orig")` 返回 **None**
+（后缀不被识别）⇒ `AttributeError: 'NoneType' object has no attribute 'loader'`。正解：
+
+```python
+import importlib.machinery
+loader = importlib.machinery.SourceFileLoader(name, str(path))
+spec = importlib.util.spec_from_file_location(name, path, loader=loader)
+```
+
+**双锚点要求**：至少两臂（正控 / 负控），且**必须判出相反结论**；两臂同结论 =
+「分型」没成立（旧版 `abs()` 合并即此形：同一判据分支吃掉两种方向相反的故障）。
+
+**别夸大旧版（会被证伪的过头话）**：旧版文案里若**含符号**（如 `漂移 -500`），
+只能声明「缺方向**通道**」——判据分支数 / 机读字段 / API 三者之一；
+不能声明「旧版完全读不出方向」。读数要能顶住复核方重跑。
+
+**副作用纪律**：探针往「生产文件」写合成样本 = 污染（`source_indexable=20000` vs 真实 27237
+会伪造一次 −27% 崩落）⇒ 探针**显式传 `path=<scratch>`**，生产文件只收真实运行行。
