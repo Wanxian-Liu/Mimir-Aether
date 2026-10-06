@@ -18,6 +18,9 @@ Verdicts (VERDICT: PASS only if no FAIL)
   J4 close-phase cascade markers since process start == 0
   J5 evidence of the startup reconcile call -> WARN only (not FAIL) until the
      unconditional "Exit reconcile ran" line lands on a restarted process
+  J6 cap and peak have separated: room = cap - current >= 2 GiB (absolute),
+     with a censored-peak hint (memory.peak pinned at a whole GiB means it
+     was clamped at the cap it lived under, so it alone is not evidence)
 
 Exit: 0 PASS / 1 FAIL / 2 execution error.
 """
@@ -194,6 +197,70 @@ def check_reconcile() -> str:
     return "J5 trace_lines=%d %s" % (len(found), found[-1] if found else "")
 
 
+# --- F-2 (#14) memory headroom: peak-vs-cap separation -----------------------
+# Why a gate and not a note: on 2026-10-05 the 4G->6G relief was written, then
+# reverted, and nothing failed -- the cap stayed glued to the high-water mark
+# (memory.peak == memory.max == 4294967296) with no alarm. A silent revert of
+# this fix is indistinguishable from the bug it fixes, so it gets a verdict.
+F2_MIN_ROOM_BYTES = 2 * 1024 ** 3   # absolute floor; relative terms banned here
+GIB = 1024 ** 3
+
+
+def memory_headroom(live_cap, peak, current, min_room=F2_MIN_ROOM_BYTES):
+    """Pure verdict for "cap and peak have separated" -> (ok, detail dict).
+
+    Inputs are kernel cgroup readings in bytes; None means the kernel said
+    "max" (no limit). ``peak`` is only a *lower bound* while it is pinned at
+    the cap it lived under, so it can never be the sole evidence: whole-GiB
+    peaks are flagged as censored, and the gate runs on ``current``, which a
+    cap cannot clamp.
+    """
+    def g(x):
+        return "max" if x is None else int(x)
+
+    if live_cap is None:
+        return True, {"cap": "max", "peak": g(peak), "current": g(current),
+                      "room_now": "inf", "room_peak": "inf", "censored": False,
+                      "why": "cap=unbounded"}
+    room_now = int(live_cap) - int(current or 0)
+    room_peak = int(live_cap) - int(peak or 0)
+    censored = bool(peak) and int(peak) % GIB == 0
+    ok = room_now >= min_room and room_peak > 0
+    return ok, {"cap": int(live_cap), "peak": g(peak), "current": g(current),
+                "room_now": room_now, "room_peak": room_peak,
+                "censored": censored, "min_room": min_room}
+
+
+def check_memory_headroom() -> str:
+    """J6 live readings: kernel cgroup cap vs real peak vs current."""
+    cg = sc("ControlGroup")
+    base = pathlib.Path("/sys" + "/fs/cgroup") / cg.lstrip("/")
+
+    def read(name):
+        try:
+            v = (base / name).read_text().strip()
+        except Exception as exc:
+            return "ERR:%s" % exc
+        if v == "max":
+            return None
+        try:
+            return int(v)
+        except ValueError:
+            return "ERR:not-int:%s" % v
+
+    cap = read("memory.max")
+    peak = read("memory.peak")
+    cur = read("memory.current")
+    if isinstance(cap, str) or isinstance(peak, str) or isinstance(cur, str):
+        fails.append("J6 unreadable kernel readings cap=%s peak=%s current=%s"
+                     % (cap, peak, cur))
+        return "J6 cap=%s peak=%s current=%s" % (cap, peak, cur)
+    ok, detail = memory_headroom(cap, peak, cur)
+    if not ok:
+        fails.append("J6 no-headroom %s" % detail)
+    return "J6 ok=%s %s" % (ok, detail)
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="post-restart verifier")
     ap.add_argument("--fix", action="store_true", help="recompute empty cron next_run_at")
@@ -206,6 +273,7 @@ def main(argv=None) -> int:
         rows.append(check_exit_table())
         rows.append(check_cascade())
         rows.append(check_reconcile())
+        rows.append(check_memory_headroom())
     except Exception as exc:
         print("VERDICT: FAIL")
         print("error: %r" % (exc,))

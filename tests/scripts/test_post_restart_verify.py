@@ -72,3 +72,50 @@ def test_cascade_counter_sees_a_real_burst(monkeypatch):
     m.warns.clear()
     row = m.check_cascade()
     assert any("cascade-since-start" in f for f in m.fails), row
+
+
+# --- F-2 (#14) memory headroom: cap-vs-peak separation -----------------------
+GIB = 1024 ** 3
+
+
+def test_headroom_old_cap_4g_is_red():
+    """Arm A = the ticket's defect: cap glued to the high-water mark."""
+    m = _load()
+    ok, d = m.memory_headroom(4 * GIB, 4 * GIB, 4 * GIB - 100 * 1024 ** 2)
+    assert ok is False, d
+    assert d["room_now"] < m.F2_MIN_ROOM_BYTES
+    assert d["censored"] is True
+
+
+def test_headroom_new_cap_6g_is_green():
+    """Arm B = the fix: identical peak, cap moved -> room appears."""
+    m = _load()
+    ok, d = m.memory_headroom(6 * GIB, 4 * GIB, 4227858432)
+    assert ok is True, d
+    assert d["room_peak"] == 2 * GIB
+    assert d["censored"] is True
+
+
+def test_peak_alone_cannot_decide_the_verdict():
+    """Anti-gaming: a LOW peak must not buy a pass while `current` sits at the cap."""
+    m = _load()
+    ok, d = m.memory_headroom(4 * GIB, 2 * GIB + 12345, 4 * GIB - 100 * 1024 ** 2)
+    assert ok is False, d
+    assert d["censored"] is False
+
+
+def test_unbounded_cap_passes():
+    m = _load()
+    ok, d = m.memory_headroom(None, 4 * GIB, 4 * GIB)
+    assert ok is True and d["room_now"] == "inf"
+
+
+def test_unreadable_cgroup_is_fail_not_pass(monkeypatch):
+    """Instrument rule: "no reading" must never be reported as a pass."""
+    m = _load()
+    monkeypatch.setattr(m, "sc", lambda prop: "/nonexistent-f2-cgroup")
+    m.fails.clear()
+    m.warns.clear()
+    row = m.check_memory_headroom()
+    assert m.fails, row
+    assert "J6 unreadable" in m.fails[0]
