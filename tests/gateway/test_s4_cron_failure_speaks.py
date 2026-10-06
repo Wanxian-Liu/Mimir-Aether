@@ -91,6 +91,16 @@ def _install(monkeypatch, tmp_home):
     monkeypatch.setattr(cron_jobs, "mark_job_delivery", lambda *a, **k: None)
     # S4：告警台账必须落在 tmp_home，绝不写真家（N12 同纪律）
     monkeypatch.setattr(da, "get_mimir_home", lambda: tmp_home)
+    # 2026-10-06 复核 #1：arm E 的 HOME 通道必须**真实可解析**。告警目标走生产
+    # resolver `DeliveryRouter.home_channel_chat_id()`，三源优先级
+    # gateway_config -> env -> config_yaml；用例的 config=None，故必须给后两源之一。
+    # 这里用 `/sethome` 落盘的那种（config.yaml 的 FEISHU_HOME_CHANNEL），并清掉进程
+    # env 同名变量——否则读数被运行环境的 FEISHU_HOME_CHANNEL 污染。
+    # 不 patch 实现方法本身：patch 实现 = 量具与实现同源，测不出解析错。
+    monkeypatch.delenv("FEISHU_HOME_CHANNEL", raising=False)
+    (tmp_home / "config.yaml").write_text(
+        "FEISHU_HOME_CHANNEL: oc_ok\n", encoding="utf-8"
+    )
 
 
 LEDGER = []
@@ -180,8 +190,10 @@ def test_deliver_local_failure_still_reaches_home(tmp_path, monkeypatch):
     sent, ledger = _run(tmp_path, monkeypatch, {
         "final_response": "", "exit_reason": "empty_content", "failed": True,
     }, deliver="local")
-    # deliver="local" ⇒ 不该有 job-target 投递；剩下的那条只能是 HOME 告警
-    home_hits = [(c, t) for c, t in sent if "跑失败" in t]
+    # deliver="local" ⇒ 不该有 job-target 投递；那条投递只能是 HOME 告警。
+    # 2026-10-06 复核 #1：只按文案过滤会放过「发到别处」，故先钉住投递地址。
+    assert [c for c, _t in sent] == ["oc_ok"], f"deliver=local 却有多余投递：{sent}"
+    home_hits = [(c, t) for c, t in sent if c == "oc_ok" and "跑失败" in t]
     assert home_hits, f"HOME 通道没收到失败告警：{sent}"
     _chat, text = home_hits[0]
     assert "s4 周报" in text and "empty_content" in text, text

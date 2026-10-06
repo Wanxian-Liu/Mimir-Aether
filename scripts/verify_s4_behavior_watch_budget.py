@@ -9,8 +9,11 @@
   R3 prompt 含预算三条（轮次硬顶 / 只读合并 1 次 / 止步落半段）
       —— 防止「声明在、规则被删」的漂移
 
-用法：
-    python3 scripts/verify_s4_behavior_watch_budget.py
+用法（必须带仓内 venv —— 2026-10-06 复核 #2：裸 `python3` 会
+`ModuleNotFoundError: No module named aiohttp`，因为 agent.max_turns_tier 的导入链
+需要仓内依赖。契约要求「复核方原样粘贴即得读数」，故命令写全路径）：
+
+    ~/src/MimirAether/.venv/bin/python3 scripts/verify_s4_behavior_watch_budget.py
 """
 from __future__ import annotations
 
