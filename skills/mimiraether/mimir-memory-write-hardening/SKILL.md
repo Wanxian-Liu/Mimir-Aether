@@ -98,3 +98,11 @@ with write_window(on_timeout="abort") as held:      # 批处理：拿不到就�
 4. **`systemd-run … bash -c '<含 && 的命令>'` 触发审批闸**（`shell command via -c/-lc flag`）⇒ 另存独立脚本件（`run_x.sh`），用 `bash <path>` 调；heredoc 含 CJK 全角标点同样触发。
 5. **commit 粒度 = 取证面**：`git add -A` 会把代码实现收进无关的 `skill(...)` commit ⇒ 复核方按 message 检索**找不到实施**（实测：三件实现藏在 `skill(buzz-inbox)` commit 里，致并行 run 误判「未实施」）。**判「有没有做」要 `git log -S '<函数名>'` + 读主代码，不看目录里是否只剩 staged 副本。**
 6. **重建脚本「EXIT=1 但结果基本可用」要独立复算**：批规划器会报 transient `Error getting embedding` / `Error finding id`，递归劈分 + 补嵌可兜住 ⇒ 别采信日志里的 `freshly_embedded` 计数，用**差集复算**（`db_indexable − chroma`）定去留。
+
+## 取数面 ≠ 备份面（2026-10-07 · 第 17 单实证）
+
+- **清单里列了文件 ≠ 该文件被读**：`_MEMORY_SURFACE`（回滚清单）列了 `memories/MEMORY.md`，注释也写着「本模块今天不写它」⇒ 它是**备份面**；真正被读的只有 `persistent.json` 的两个数组。**「清单含它」不能推出「取数含它」**——判取数面要 grep **读**路径（`open` / `json.load` 的实参），不是 grep 清单常量。
+- **空转的静默形态**：两数组为空 ⇒ `if not memory_text.strip(): return True, "没条目"` ⇒ rc=0、无产出、无读数 ⇒ 每天「成功」。**通用修法 = 在早返回前补一行带 source + 计数的 INFO**（没有这条读数 ⇒ 无人知道它在空转）。
+- **回落类改动必须两臂受控**：臂 A 用 `git show HEAD:<模块>` 把**父版本钉住**（禁凭「改前逻辑我记得」），臂 B 用同一份临时 home 数据；**两臂都报**，禁只报绿臂。
+- **判据字段先跑再发**：回执/报告里的「重跑命令」必须**发前原样粘进 shell 实跑**——本单两次踩到（`grep` 过滤器把关键行滤掉、`.venv/bin/python3` 相对路径离开 cwd 即失效）⇒ 一律绝对路径 + 不加会吞行的过滤器。
+- **纯函数优先**：取数决策抽成纯函数（输入 data + 正文，输出 (文本, 来源)），用例覆盖三优先级 ⇒ 不打 skip 也能回归。
