@@ -885,3 +885,11 @@ python3 scripts/append_inbox_processed.py -m "…" --up-to <游标> --dry-run   
 - 正确处置：**只处理到 N 就停在 N**——账本照常追加 `processed … (up to N)`；`offset` **不动**（接受 `lag = total - N > 0`，并在日志/回执里写明「第 N+1 行于唤醒后到达、未处理」）；该行由下一 tick 按 `dispatched < total` 正常派发（实测 30 分钟/tick）。
 - 与 §3 完成判据的关系：§3 的 `lag=0` **只适用于「唤醒后无新行到达」**；有到达时以「本批行已闭 + lag 归因写明」替代，**不得**为凑 `lag=0` 而推游标（假积压可解释、悬挂不可解释）。
 - 缺口（提议 · 不自行加件）：`buzz_inbox_close.py` 无 `--upto N` 部分推进语义 ⇒ 建议增该参数（或先校验「账本末行 `up to N` == 目标 offset」再写）。
+
+## 2.24 本族新坑（2026-10-07 行 56–57 实测 · 第 2 路唤醒 L2 · **静态哈希带时效**）
+
+① **静态 `sha256sum` 读数不可作契约复算数字**：兄弟回执引用 `~/.mimiraether/data/persistent.json` = `6f1b3963f6620bfc…`，复核方原样复跑**必然**得 `7ee7fd0a86c5e71a…` ⇒ 判 MISS。
+根因（本轮实测）= **写回执那一 run 自己的 session_end**：`stat` mtime **06:21:35** 与文件内 `last_session_end=2026-10-06T22:21:35Z`（= 北京 06:21:35）**同一秒** ⇒ `CrossSessionMemory.save()` 在会话结束时重写 `persistent.json`，**任何静态哈希写完即作废**。
+② **改形态**：静态哈希必须配「**读数时点 + 可重现形态**」——用**探针内 before→after 成对读数**（探针自打印 `persistent X->X`）替代；或改成**相对判据**（「同一 run 内前后相同」= True/False）。单贴一行 `sha256sum` 输出 = 给复核方埋雷。
+③ **L2 命中率按「命令条」报，不按「文件」报**：本单 8 条契约命令 = 7 HIT + 1 读数不等；按「两份回执都复跑过」报会掩盖那条 MISS（回执 ≠ 全绿）。
+④ （同轮附带）**`~/.mimiraether` 仓里的技能文件 `M` 未必是「他 run 在飞」**：本轮实测该仓 `M skills/.../buzz-inbox-wake/SKILL.md` 与 `~/src/MimirAether` 已提交副本 **md5 完全一致（beb209f3f8）** ⇒ 只是该仓 HEAD 落后（同步后未提交）的**陈旧 M**。判断在飞与否要 `md5sum` 对三副本 + `ls -la --time-style` 看 mtime，别只看 `git status`。
