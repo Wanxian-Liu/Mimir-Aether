@@ -1162,6 +1162,20 @@ class SessionMixin:
             self._draining = True
 
             timeout = self._restart_drain_timeout
+            # F-1（2026-10-07）：drain 默认 60s > systemd TimeoutStopSec(30) ⇒ 夹进看门狗
+            # 预算内，免得 drain 独自吃掉整条尾链（无活跃 agent 时本步本就立即返回）。
+            try:
+                from gateway.exit_watchdog import drain_budget_seconds, exit_watchdog_seconds
+
+                _budget = drain_budget_seconds(timeout)
+                if _budget < timeout:
+                    logger.warning(
+                        "F1: drain budget clamped %.1fs -> %.1fs (exit watchdog %.1fs)",
+                        timeout, _budget, exit_watchdog_seconds(),
+                    )
+                timeout = _budget
+            except Exception:
+                pass
             active_agents, timed_out = await self._drain_active_agents(timeout)
             if timed_out:
                 logger.warning(

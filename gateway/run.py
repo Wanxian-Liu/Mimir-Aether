@@ -1198,6 +1198,22 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
                 logger.warning("Signal %s received \u2014 stopping gateway", _name)
             except Exception:
                 pass
+            # F-1 退出看门狗：停机尾链（默认 executor join 上限 300s / 残留 task /
+            # adapter 断开）无界 ⇒ 到点出声 + 落线程栈 + 立刻退出，别让 systemd 用
+            # SIGKILL 收场（那会记 Failed with result 'timeout'）。
+            try:
+                from gateway.exit_watchdog import arm_exit_watchdog
+
+                arm_exit_watchdog(
+                    trigger="signal:" + str(_name),
+                    home=_hermes_home,
+                    logger=logger,
+                    exit_code_provider=lambda: (
+                        runner.exit_code if runner.exit_code is not None else 0
+                    ),
+                )
+            except Exception:
+                pass
             asyncio.create_task(runner.stop())
 
         return _handler
@@ -1207,6 +1223,19 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
             runner._exit_signal_name = "SIGUSR1"
             runner._exit_source = "signal:SIGUSR1"
             logger.warning("Signal SIGUSR1 received \u2014 restarting gateway")
+        except Exception:
+            pass
+        try:
+            from gateway.exit_watchdog import arm_exit_watchdog
+
+            arm_exit_watchdog(
+                trigger="signal:SIGUSR1",
+                home=_hermes_home,
+                logger=logger,
+                exit_code_provider=lambda: (
+                    runner.exit_code if runner.exit_code is not None else 0
+                ),
+            )
         except Exception:
             pass
         runner.request_restart(detached=False, via_service=True)
