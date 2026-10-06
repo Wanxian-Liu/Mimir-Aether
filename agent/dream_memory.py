@@ -52,6 +52,17 @@ _MEMORY_SURFACE = (
     "memories/USER.md",
 )
 
+# ── 取数面改指向（B 档 #17 · 2026-10-07）────────────────────────────────
+# 治的毛病：蒸馏输入只吃 persistent.json 的 memory.key_decisions /
+# memory.learned_patterns（_format_memory_for_distillation）。两数组为空时
+# 本模块每日「成功」空转：run_dream_cycle 走 `if not memory_text.strip()`
+# 早返回 —— rc=0、不产出一行说明原因的读数 ⇒ 无人知道它在空转（可观测性缺失）。
+# 真知识此时在 memories/MEMORY.md（此前它只是 _MEMORY_SURFACE 里的**备份面**）
+# ⇒ 取数面改为：先旧面，旧面为空则回落 MEMORY.md 正文。
+_DISTILL_SOURCE_PERSISTENT = "data/persistent.json#memory.key_decisions+learned_patterns"
+_DISTILL_SOURCE_MEMORY_MD = "memories/MEMORY.md"
+_DISTILL_SOURCE_NONE = "none"
+
 # 梦境蒸馏 API 参数
 _DREAM_MODEL = "deepseek-chat"
 _DREAM_TEMPERATURE = 0.3
@@ -293,6 +304,56 @@ def _format_memory_for_distillation(data: Dict) -> str:
             lines.append(f"{i}. {pattern_text}{ev_suffix}")
 
     return "\n".join(lines)
+
+
+def _memory_markdown_path() -> str:
+    """取数面回落文件 memories/MEMORY.md 的路径。
+
+    HOME 解析复用 _mimir_home()（与 _get_persistent_path 同源）——不要在此
+    重写一遍 expanduser 兜底逻辑：两份实现必然漂移（同族缺陷已两犯）。
+    """
+    return os.path.join(_mimir_home(), "memories", "MEMORY.md")
+
+
+def _load_memory_markdown(path: Optional[str] = None) -> str:
+    """读 MEMORY.md 正文。缺失/不可读 ⇒ 返回空串（由调用方判「无内容」）。"""
+    target = path or _memory_markdown_path()
+    try:
+        with open(target, "r", encoding="utf-8") as f:
+            return f.read()
+    except (FileNotFoundError, OSError, UnicodeDecodeError) as e:
+        logger.warning("[DreamMemory] 读取取数面回落文件失败: %s（%s）", target, e)
+        return ""
+
+
+def build_distillation_input(data: Dict, memory_md_text: str) -> Tuple[str, str]:
+    """纯函数：决定蒸馏取数面并产出输入文本。
+
+    优先级（B 档 #17 判据 = 取数面改指向 memories/MEMORY.md）：
+      ① persistent.json 的 key_decisions / learned_patterns 非空 ⇒ 行为与改前一致
+      ② ①为空 且 MEMORY.md 有正文 ⇒ 输入 = MEMORY.md 正文
+      ③ 皆空 ⇒ 空串 + 标记 none，调用方据此判「无内容可蒸馏」且**不写盘**
+
+    Returns:
+        (输入文本, 取数面标记) —— 标记与读数落日志，治「无人知道它在空转」。
+    """
+    primary = _format_memory_for_distillation(data)
+    if primary.strip():
+        return primary, _DISTILL_SOURCE_PERSISTENT
+    body = (memory_md_text or "").strip()
+    if body:
+        return body, _DISTILL_SOURCE_MEMORY_MD
+    return "", _DISTILL_SOURCE_NONE
+
+
+def distillation_input_metrics(text: str) -> Dict[str, int]:
+    """输入读数（可观测性）：字符数 / 非空行数 / 段数（段 = 独占一行的 §）。"""
+    all_lines = text.splitlines()
+    return {
+        "chars": len(text),
+        "lines": sum(1 for ln in all_lines if ln.strip()),
+        "segments": sum(1 for ln in all_lines if ln.strip() == "§"),
+    }
 
 
 def _build_distillation_prompt(memory_text: str) -> str:
@@ -597,12 +658,29 @@ async def run_dream_cycle(dry_run: bool = False) -> Tuple[bool, str]:
         detail = _record_failure("load", RuntimeError(f"无法加载 {path}"))
         return False, f"❌ 无法加载 persistent.json\n{_FAILURE_MARKER}: {detail}"
 
-    # 2. 格式化为文本
-    memory_text = _format_memory_for_distillation(data)
+    # 2. 取数面 + 格式化为文本（B 档 #17：旧面为空 ⇒ 回落 memories/MEMORY.md）
+    memory_md_path = _memory_markdown_path()
+    memory_text, distill_source = build_distillation_input(
+        data, _load_memory_markdown(memory_md_path)
+    )
+    metrics = distillation_input_metrics(memory_text)
     if not memory_text.strip():
+        logger.info(
+            "[DreamMemory] 无内容可蒸馏：取数面=%s（%s 无 key_decisions/"
+            "learned_patterns，%s 无正文）⇒ 本轮不写盘",
+            distill_source,
+            path,
+            memory_md_path,
+        )
         return True, "⏭ 没有记忆条目需要蒸馏"
 
-    logger.info(f"[DreamMemory] 记忆文本: {len(memory_text)} 字符")
+    logger.info(
+        "[DreamMemory] 取数面=%s · 输入 %d 字符 / %d 行 / %d 段",
+        distill_source,
+        metrics["chars"],
+        metrics["lines"],
+        metrics["segments"],
+    )
 
     # 3. 执行蒸馏
     updated_data, report, produced = await _run_distillation(data, memory_text, dry_run)
