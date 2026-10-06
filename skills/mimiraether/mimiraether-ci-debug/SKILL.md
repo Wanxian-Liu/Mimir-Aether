@@ -233,3 +233,35 @@ _gate2_pytest() {                      # 三处 pytest 调用统一走它
 4. 长套件：`setsid nohup ... > /tmp/x.txt 2>&1 &` 落盘 + 轮询；`tests/gateway` ≈36s/次，`tests/` 全量 ≈150s / 1878 例。
 5. `git add -A` 会把**工作树里的备份文件**（`*.bak-*`）一并扫入 ⇒ 提交前 `git status --porcelain` 过一眼；
    误入且已 push 时**不要 force-push 共享 main**，改用 `git rm --cached <f>` 的追加提交（磁盘文件保留）。
+
+## 实战案例 7（2026-10-07 · **push 被 pre-push 闸拦**且「不是我造成的」：区间级闸 + 命中计数当量具）
+
+**症状族**：`git push` 直接失败，报的是**别人的文件**：
+```
+pre-push: BLOCKED -- immutable evidence (A6)
+  reason : added lines publish protected shapes (18 hit(s): home-path(18))
+  files  : AGENTS.md agent/agent_loop.py agent/callers_mixin.py ...
+```
+⇒ 第一直觉「去改这些文件」是错的：闸扫的是**整条未推送区间**，不是本次这一个提交。
+
+**四步定位（先分「我的 vs 别人的」，再动手）**
+```
+git rev-list --count origin/main..HEAD             # 区间规模（实测 50 ⇒ 不是本单的问题）
+git log --oneline origin/main..HEAD | head -20     # 区间内容
+git show <本单提交> | grep -nE '<受保护形状>'       # 只审自己的新增行
+git log origin/main..HEAD --oneline -S'<针>' -- .  # 谁引入的（-S 逐提交搜）
+```
+本例：本单测试里 `env["HOME"] = "<绝对家路径>"` 是**唯一**本单命中 ⇒ 先修自己。
+
+**关键量具：命中计数 = 可复算的差分读数**
+修前 `18 hit(s)` → 修后 `17 hit(s)` ⇒ **−1 证明修掉的正是本单那一处**，剩余 17 处在他人提交里。
+（不做差分就说「已修 / 是别人的锅」= 无读数声明。）
+
+**修法形态（受保护形状通例）**
+- 硬编码绝对家路径 ⇒ 改**继承调用方**：`env["HOME"] = env.get("HOME") or os.path.expanduser("~")`
+  （一次修好可移植性 + 消形状；`expanduser` 不落字面量）。
+- 命令行**判据**仍可显式 `env HOME=<路径>` —— 进仓的**源码**不许落字面量，口头的**判据命令**可以。
+
+**别做的两件事**
+- 不用 `--no-verify` 绕过：hook 明说「absence of a trace line is itself the signal」⇒ 绕过留下的是永久证据。
+- 不自行 `MIMIR_ALLOW_PATH_LEAK=1` 单方豁免（那是 owner 口径的追踪式豁免）；剩余命中属他人面 ⇒ 出声上报 + 写清「未 push」。
