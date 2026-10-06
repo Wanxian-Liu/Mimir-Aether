@@ -27,6 +27,58 @@ if TYPE_CHECKING:
 import logging
 logger = logging.getLogger(__name__)
 
+# === B1/B2 输出健康闸（2026-10-06 · 静默白跑治本）===
+# 病灶：非 claude 硬编码 4096（:700）⇒ 思考型模型把预算全给 reasoning_content ⇒ content 空
+# + finish_reason=length ⇒ 上层判 empty_content 静默退出（2026-10-06 判死 3 次）。
+# 实测读数见 scripts/probes/empty_content_diagnosis.py；回归见 tests/test_output_budget_retry.py。
+OUTPUT_HEALTH_OK = "ok"                             # 正文或工具调用齐备
+OUTPUT_HEALTH_EMPTY = "empty"                       # B1：无正文、无工具调用
+OUTPUT_HEALTH_TRUNCATED = "truncated"               # B2：finish_reason == length
+OUTPUT_HEALTH_EMPTY_TRUNCATED = "empty_truncated"   # 事故签名：两者同时
+
+# 关思考臂：2026-10-06 实测唯一给出 finish_reason=stop 的参数组。
+# （reasoning_effort=none 实测 content_len=7200 但 finish_reason 仍 =length ⇒ 不采用）
+THINKING_OFF_PARAMS: Dict[str, Any] = {"thinking": {"type": "disabled"}}
+
+# 重发预算上限：不超过上下文的一半（不得让输出吃掉整窗）
+RETRY_BUDGET_CONTEXT_DIVISOR = 2
+
+
+def apply_thinking_off(payload: Dict[str, Any], enabled: bool = True) -> Dict[str, Any]:
+    """注入"关思考"参数（原地改 + 返回同一 dict，便于测试与链式调用）。"""
+    if enabled:
+        for _k, _v in THINKING_OFF_PARAMS.items():
+            payload[_k] = dict(_v) if isinstance(_v, dict) else _v
+    return payload
+
+
+def classify_output_health(resp: Optional[Dict[str, Any]]) -> str:
+    """纯函数：一次 attempt 的返回值 → 输出健康分类（B1/B2 的唯一判据源）。"""
+    resp = resp or {}
+    content_empty = not str(resp.get("content") or "").strip()
+    has_tools = bool(resp.get("tool_calls"))
+    truncated = str(resp.get("finish_reason") or "") == "length"
+    if has_tools:
+        # 有工具调用 ⇒ "无正文"是正常态；但撞顶仍需补预算
+        return OUTPUT_HEALTH_TRUNCATED if truncated else OUTPUT_HEALTH_OK
+    if content_empty:
+        return OUTPUT_HEALTH_EMPTY_TRUNCATED if truncated else OUTPUT_HEALTH_EMPTY
+    return OUTPUT_HEALTH_TRUNCATED if truncated else OUTPUT_HEALTH_OK
+
+
+def plan_output_retry(health: str, attempt_max_tokens: int, context_length: int) -> Dict[str, Any]:
+    """纯函数：健康分类 → 重发参数（B1 关思考 · B2 预算 ×2）。"""
+    attempt_max_tokens = int(attempt_max_tokens or 4096)
+    plan = {
+        "disable_thinking": health in (OUTPUT_HEALTH_EMPTY, OUTPUT_HEALTH_EMPTY_TRUNCATED),
+        "max_tokens": attempt_max_tokens,
+    }
+    if health in (OUTPUT_HEALTH_TRUNCATED, OUTPUT_HEALTH_EMPTY_TRUNCATED):
+        cap = max(int(context_length or 0) // RETRY_BUDGET_CONTEXT_DIVISOR, attempt_max_tokens)
+        plan["max_tokens"] = min(attempt_max_tokens * 2, cap)
+    return plan
+
+
 # === Module-level helper classes (extracted from core_loop.py) ===
 
 class _BuiltinLlmBackend:
@@ -59,6 +111,10 @@ class CallersMixin:
         - 调用所有注册的流式回调
         - 记录流式输出的累积文本
         """
+        # B1/B2 重发期间抑制流式：attempt-1 已外发部分正文时，重发不得重复投递
+        if getattr(self, "_suppress_stream_delta", False):
+            return
+
         # 如果需要段落分隔,在文本前添加
         if self._stream_needs_break and text and text.strip():
             self._stream_needs_break = False
@@ -174,6 +230,7 @@ class CallersMixin:
         tool_schemas: List[Dict],
         max_tokens: int,
         temperature: float,
+        disable_thinking: bool = False,
     ) -> tuple[Dict, float]:
         """
         流式调用OpenAI兼容API
@@ -200,6 +257,7 @@ class CallersMixin:
             "temperature": temperature,
             "stream": True,  # 启用流式
         }
+        apply_thinking_off(payload, disable_thinking)   # B1 重发臂：关思考
 
         if tool_schemas:
             payload["tools"] = tool_schemas
@@ -653,11 +711,15 @@ class CallersMixin:
                 return True
 
         return False
-    async def _builtin_call_model_with_tokens(
-        self, messages: List[Dict], session_id: str
+    async def _builtin_call_model_with_tokens_once(
+        self, messages: List[Dict], session_id: str, *,
+        max_tokens_override: Optional[int] = None,
+        disable_thinking: bool = False,
     ) -> tuple[Dict, float]:
         """
-        内置模型调用实现（HTTP/Anthropic/OpenAI 兼容路径）。
+        单次模型调用实现（HTTP/Anthropic/OpenAI 兼容路径）。
+
+        仅一次 attempt——B1/B2 的健康闸与重发在 ``_builtin_call_model_with_tokens``（本函数包装者）。
 
         统一入口:先解析API配置和工具schemas(只做一次),
         然后根据模型类型和流式需求分发到不同路径。
@@ -698,7 +760,13 @@ class CallersMixin:
             api_key=api_key,
         )
         max_output_tokens = model_metadata.get_anthropic_max_output(model_name) if "claude" in model_name.lower() else 4096
-        max_tokens = min(max_output_tokens, context_length // 4) if context_length else 4096
+        if max_tokens_override:
+            # B2 自适应加倍臂：撞 finish_reason=length 后由重发臂传入（刘哥裁定：先 4096，撞顶再加倍）
+            max_output_tokens = int(max_tokens_override)
+        max_tokens = min(max_output_tokens, context_length // 4) if context_length else max_output_tokens
+        # B1/B2：登记本次预算，供重发臂取判据（同一调用内立即读取，无跨轮语义）
+        self._last_attempt_max_tokens = max_tokens
+        self._last_attempt_context_length = context_length or 0
 
         # 3. 构建工具schemas（使用 toolset 解析，支持 includes + 启用/禁用）
         from tools.toolsets import resolve_enabled_tools
@@ -752,6 +820,7 @@ class CallersMixin:
                 tool_schemas=tool_schemas,
                 max_tokens=max_tokens,
                 temperature=0.7,
+                disable_thinking=disable_thinking,
             )
 
         # 路径C: 标准非流式调用(OpenAI兼容) → P1-5 提取为独立方法
@@ -759,12 +828,14 @@ class CallersMixin:
             base_url=base_url, api_key=api_key, model_name=model_name,
             messages=messages, tool_schemas=tool_schemas,
             max_tokens=max_tokens, session_id=session_id, start=start,
+            disable_thinking=disable_thinking,
         )
 
     async def _call_openai_compatible_nonstreaming(
         self, *, base_url: str, api_key: str, model_name: str,
         messages: List[Dict], tool_schemas: List[Dict],
         max_tokens: int, session_id: str, start: float,
+        disable_thinking: bool = False,
     ) -> tuple[Dict, float]:
         """OpenAI-compatible non-streaming API call (P1-5: 从 _builtin_call_model 提取)."""
         import aiohttp
@@ -788,6 +859,7 @@ class CallersMixin:
             "tools": tool_schemas,
             "tool_choice": "auto"
         }
+        apply_thinking_off(payload, disable_thinking)   # B1 重发臂：关思考
 
         headers = {
             "Authorization": f"Bearer {api_key}",
@@ -869,6 +941,63 @@ class CallersMixin:
             raise RuntimeError(f"API error ({e.status}): {e}")
         except aiohttp.ClientError:
             raise RuntimeError("Network error during model call")
+
+    async def _builtin_call_model_with_tokens(
+        self, messages: List[Dict], session_id: str
+    ) -> tuple[Dict, float]:
+        """B1/B2 输出健康闸：空正文 ⇒ 关思考重发一次；撞 length ⇒ 预算加倍重发一次。
+
+        依据 2026-10-06 实测（`scripts/probes/empty_content_diagnosis.py`）：
+        - 正控复现：`finish_reason=length · content_len=0 · reasoning_tokens=4096`（思考吃光 4096）
+        - 关思考臂：`thinking={"type":"disabled"}` → `finish_reason=stop`（唯一干净收尾臂）
+        - `reasoning_effort=none` → 有正文但 `finish_reason` 仍 `=length`（不采用）
+        重发仍失败 ⇒ ERROR 出声（`OUTPUT_HEALTH_RETRY_FAILED`）+ 交上层判 empty_content，禁静默退出。
+        """
+        resp, latency = await self._builtin_call_model_with_tokens_once(messages, session_id)
+        health = classify_output_health(resp)
+        if health == OUTPUT_HEALTH_OK:
+            return resp, latency
+
+        base_max = int(getattr(self, "_last_attempt_max_tokens", 0) or 4096)
+        ctx_len = int(getattr(self, "_last_attempt_context_length", 0) or 0)
+        plan = plan_output_retry(health, base_max, ctx_len)
+        streamed = len(str(getattr(self, "_current_streamed_text", "") or ""))
+        logger.warning(
+            "[OUTPUT-HEALTH] %s（finish_reason=%s · attempt_max_tokens=%d · streamed_chars=%d）"
+            " ⇒ 重发一次：max_tokens=%d disable_thinking=%s",
+            health, (resp or {}).get("finish_reason"), base_max, streamed,
+            plan["max_tokens"], plan["disable_thinking"],
+        )
+
+        # attempt-1 已外发过部分正文 ⇒ 重发期间抑制流式，防用户看到重复文本
+        _prev_suppress = bool(getattr(self, "_suppress_stream_delta", False))
+        self._suppress_stream_delta = streamed > 0
+        try:
+            resp2, latency2 = await self._builtin_call_model_with_tokens_once(
+                messages, session_id,
+                max_tokens_override=plan["max_tokens"],
+                disable_thinking=plan["disable_thinking"],
+            )
+        except Exception as exc:
+            logger.error("[OUTPUT_HEALTH_RETRY_FAILED] 重发异常：%s", exc)
+            raise
+        finally:
+            self._suppress_stream_delta = _prev_suppress
+
+        health2 = classify_output_health(resp2)
+        if health2 == OUTPUT_HEALTH_OK:
+            logger.info(
+                "[OUTPUT-HEALTH] 重发成功（%s → ok · max_tokens=%d · disable_thinking=%s）",
+                health, plan["max_tokens"], plan["disable_thinking"],
+            )
+        else:
+            logger.error(
+                "[OUTPUT_HEALTH_RETRY_FAILED] 重发仍失败 health=%s finish_reason=%s content_len=%d"
+                " —— 本次空跑由上层以 empty_content 明示，禁静默退出",
+                health2, (resp2 or {}).get("finish_reason"),
+                len(str((resp2 or {}).get("content") or "")),
+            )
+        return resp2, latency + latency2
 
     async def _call_model_with_tokens(
         self, messages: List[Dict], session_id: str
