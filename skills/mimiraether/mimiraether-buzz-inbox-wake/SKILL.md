@@ -77,7 +77,8 @@ auto_load: false
    —— 一次调用三写同源：账本行 `processed N lines (up to TOTAL)` ＋ `offset`=inbox 行数（**已处理游标**）＋ `dispatched`=max(旧,total)，并维护 `.hwm` 不变量；
    重跑幂等 no-op（账本不增行）；只读读数 `--show`。**判据**：`--show` ⇒ `lag=0`（声明「本批已处理」的唯一凭证）。
    原 `printf >> 账本` 已降级为兜底——**它漏推 offset** ⇒ 巡视判「假积压」+ watcher 侧重复投递风险（2026-10-07 实证：33 行 / offset=29）。
-2. **日志行**：`printf '%s\n' "<唤醒给定行> [动作/去重标注]" >> ~/.mimiraether/logs/inbox-processed.log`。
+2. ~~**日志行**~~ **（2026-10-07 起 = 禁手写 · 并入 2a）**：账本那一行**由 2a 的 `buzz_inbox_close.py` 写**（它就是账本行的唯一写者）。
+   **禁**再跑 `printf ... >> ~/.mimiraether/logs/inbox-processed.log` —— 手写只加账本行、**不推 offset、不同步 `.hwm`** ⇒ 巡视判「假积压（信龄=桶N）」+ 陈旧水位告警（**2026-10-07 两犯实证**：04:10:55 手推 offset 消 lag=4；05:25 run 手写账本 ⇒ ledger=173/hwm=172/offset=46≠dispatched=53 ⇒ 05:31 巡视报 `alarm_letter_age=Mimir(桶2)`）。若确需只补记账不动游标，**必须写在 2a 的 `--note` 里**，不要单独 printf。
    **禁用**：沙箱 `write_file`（`~` 二次嵌套成 `~/.mimiraether/.mimiraether/…`）；`read_file`+全量重写（并发丢行）。
 3. **笔记/审计行**：新笔记落 `notes/` 后**必须**跑
    `.venv/bin/python3 ~/.mimiraether/scripts/b7_index_check.py` → 末行须 `VERDICT: PASS`、`unlisted=0`（**2026-09-17 起输出另含 `nested` 行与 `AMBIGUOUS`；`staleness` 已脱离死度量** —— 子目录件**必须以相对路径登记**，如 `evidence/x.txt`，否则 UNLISTED）；未登记即补登 `notes/INDEX.md`（活/冻/归档）+ 重算「末行统计」块。中间产物（commit-msg 草稿、拼接片段）**不留 `notes/`** → 挪 `scripts/`（维护规则 3）。
