@@ -590,3 +590,31 @@ ps -o pid,etime,cmd -C python3 | grep -c '<load/probe 标记>'      # ≥1 且�
 行 174 实测：4 件 disabled 的 `disable_reason` 为空（`Phase β 段间交棒链` / `n8-pos-control` / `n8-neg-control` / `N13 正控`），
 只读脚本按单键口径把它们列成「disabled without reason」⇒ 我一度判「疑似漏账」；逐字段复核后**推翻**（该 4 件 `paused_reason` 非空，闸 `fail=0` 是正确读数）。
 **纪律**：报「N 件无理由 / N 处缺失」前，先读**闸自己的判据定义**（哪个键、豁免条件），并声明口径；否则产出的是假阳性，而不是发现。
+
+## 2.12 本族新坑（2026-10-06 行 215 实测 · 落后方「误判未实施」+「已提交未生效」）
+
+### ① 判「别人有没有做」＝ 主代码读码 + `git log -S` —— **不是**看目录里的 staged 副本
+行 215 本 run 开工即误判：只看 `notes/<件>/` 目录清单，见 `staged_*.py` 就判「三件未进主代码」——
+实为**备份副本**；实现早在 `4aa7f4e` 落地。**判据（三条，逐字可跑）**：
+- `grep -c "def resume_pending_indexes\|def watermark_prefix_len" tools/session_search_indexer.py`（预期 2）
+- `git log --oneline -1 -S 'def resume_pending_indexes' -- tools/session_search_indexer.py`
+- `git show --stat <该 commit> | head -12`（看它到底改了哪些文件）
+
+### ② `git add -A` 会把代码骨架卷进无关 commit ⇒ **不能按 commit message 检索实施**
+`4aa7f4e` 的 message 是 `skill(buzz-inbox): …`，实际含 `gateway/session.py` / `tools/session_search_indexer.py` /
+`tools/chroma_session_indexer.py` / `tools/session_search_tool.py` / `scripts/resume_index.py` / 两个测试文件。
+⇒ **教训**：自己提交时**点名 add**（`git add <路径>`），别 `-A`；查别人时**读 `--stat`**，别读 message。
+
+### ③ 「已提交 ≠ 已生效」有两条时钟：`ActiveEnterTimestamp` vs commit 时刻
+行 215 实测：gateway `ActiveEnterTimestamp 18:07:30`（`NRestarts=0`）**早于**代码 `18:22:41` 15 分钟
+⇒ 运行态仍是旧码，治本三件**未加载**。**判据**：
+`ps -o pid,lstart -p $(systemctl --user show mimiraether.service -p MainPID --value)` 与 `git log -1 --format=%ci <commit>` 比对。
+重启后**必做** cron `next_run_at` 重算（null ⇒ `get_due_jobs()` 全跳 ⇒ 任务永久死）。
+
+### ④ 并行 run 的停手信号落在 **notes 目录的 `HANDOFF-*.md`**（不在收件箱、不在讨论卡）
+本 run 的兄弟 run 写了 `notes/<件>/HANDOFF-RUN7-STOP-…md`。**开工第 3 步就做**：
+`ls -lt <notes 目录> | head -14` —— mtime 比自己新、名字带 HANDOFF/STOP 的，先读它再动手。
+
+### ⑤ 落后方的收官动作面（四件）+ L2 复核＝**原样重跑对方的契约命令**
+① `inbox-processed.log` 1 行（含去重标注）② 讨论卡 **自己的 §段**（追加不覆盖）③ 回执（含 `重跑命令:`/`复算数字:` 两字段，回执命令用字符类破自指）④ 笔记件。
+L2 = 重跑对方 `重跑命令:`（得同数 ⇒ 复现；得异数 ⇒ 报差异，不擅自改对方段）。
