@@ -937,7 +937,36 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
             _valid_names = set(_tool_names)
             
             # ── model_call 适配器 ──
+            # B3 防截断（2026-10-06）：本适配器**每轮恰好调用一次**，是 core_loop 内唯一的
+            # in-loop 挂点；指令以「最后一条 user 消息」注入（与既有 nudge/空跑闸同形态，序列合法）。
+            try:
+                from .iteration_budget import (
+                    ProductionCheckpointPolicy as _B3ProductionCheckpointPolicy,
+                )
+                _b3_policy = _B3ProductionCheckpointPolicy(
+                    max_turns=(self._resolved_max_turns if self._resolved_max_turns is not None
+                               else self.max_iterations),
+                    task_id=task_id,
+                )
+            except Exception as _b3i:
+                _b3_policy = None
+                logger.warning("[%s] B3 policy 初始化失败（降级）: %s", task_id[:8], _b3i)
+            _b3_turns = [0]
+
             async def _model_call_adapter(msgs):
+                if _b3_policy is not None:
+                    try:
+                        _b3_turns[0] += 1
+                        _b3_dir = _b3_policy.tick(msgs, _b3_turns[0])
+                        if _b3_dir:
+                            msgs.append({"role": "user", "content": _b3_dir})
+                            logger.warning(
+                                "[%s] B3 防截断指令注入 turn %d kind=%s",
+                                task_id[:8], _b3_turns[0],
+                                (_b3_policy.decisions[-1].get("kind") if _b3_policy.decisions else "?"),
+                            )
+                    except Exception as _b3e:  # 闸门异常不得影响主流程
+                        logger.warning("[%s] B3 tick 异常（降级）: %s", task_id[:8], _b3e)
                 try:
                     _resp, _lat = await asyncio.wait_for(
                         self._call_model_with_tokens(msgs, session_id),
@@ -1082,6 +1111,14 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
             # 旧形态「白名单内明示 + 其余一律 reversed() 复读」⇒ 每个新退出原因默认复读旧回复；
             # 新形态「仅 natural（interrupted 单独处理）取当前回复 + 其余一切明示」⇒ 未知 reason 不再伪装。
             _exit_reason = getattr(_result, "exit_reason", "")
+            # B3 防截断（2026-10-06）：轮次类退出仍零落盘 ⇒ 框架代写最小半段再收尾。
+            _b3_half = None
+            if _exit_reason in ("max_turns", "circuit_breaker"):
+                _b3_half = _b3_flush_half_segment(
+                    _result, _result.messages, task_id, _exit_reason,
+                    (self._resolved_max_turns if self._resolved_max_turns is not None
+                     else self.max_iterations),
+                )
             if getattr(_result, "interrupted", False):
                 for _md in reversed(_result.messages):
                     if _md.get("role") == "assistant" and _md.get("content"):
@@ -1145,6 +1182,14 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
                 _final_content = "[故障明示] 我这轮没调到模型（连续错误），请让我重启或查看日志——故障已记录，不会伪装成正常回复"
                 logger.error("[%s] [EXIT] 异常退出 %s：不重发旧回复，明示故障状态", task_id[:8], _exit_reason)
             
+            # B3：半段兜底落点写入正文（可观测性——不许落了盘却无声）
+            if _b3_half and _b3_half.get("targets"):
+                _final_content = (
+                    str(_final_content)
+                    + "；B3 已落盘半段（" + "、".join(str(t) for t in _b3_half["targets"])
+                    + "，mode=" + str(_b3_half.get("mode")) + "·框架代写，**不等于完成**）"
+                )
+                logger.error("[%s] B3 半段已落盘: %s", task_id[:8], _b3_half["targets"])
             if _result.interrupted:
                 checkpoint_mgr.save_checkpoint(
                     task_id=task_id,
@@ -1536,4 +1581,44 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
             setattr(self, attr_name, [])
         getattr(self, attr_name).append(hook_func)
         logger.debug(f"Registered hook: {hook_name}")
+
+# ══════════════════════════════════════════════════════════════════════════
+# B3 防截断 · 收尾兜底（2026-10-06 · 刘哥派单）
+#   轮次类退出（max_turns / circuit_breaker）仍零落盘 ⇒ 框架代写最小半段。
+#   复用空跑闸 staging flush（草稿优先），无草稿才写框架半段。
+# ══════════════════════════════════════════════════════════════════════════
+def _b3_flush_half_segment(result, messages, task_id, exit_reason, max_turns):
+    """返回 {'mode','targets'} 或 None（已落盘 / 闸关 / 失败）。不抛异常。"""
+    from .iteration_budget import b3_enabled, write_framework_half_segment
+    if not b3_enabled():
+        return None
+    try:
+        from . import empty_run_gate as _erg
+        if _erg.deliverable_written(messages):
+            return None
+        _turn = int(getattr(result, "turns_used", 0) or 0)
+        gate = _erg.EmptyRunGate(task_id=str(task_id or ""))
+        try:
+            flushed = gate.flush(messages, _turn, str(exit_reason or "")) or []
+        except Exception as _fe:
+            logger.warning("[B3] staging flush 失败（降级到框架代写）: %s", _fe)
+            flushed = []
+        _ok = [str(r.get("target")) for r in flushed if r.get("flushed")]
+        if _ok:
+            logger.error("[B3] %s 退出仍零落盘 ⇒ staging 草稿落成半段: %s", exit_reason, _ok)
+            return {"mode": "staging_flush", "targets": _ok}
+        last = ""
+        for _md in reversed(messages or []):
+            if isinstance(_md, dict) and _md.get("role") == "assistant" and _md.get("content"):
+                last = _md.get("content") or ""
+                break
+        _r = write_framework_half_segment(
+            task_id=str(task_id or ""), turn=_turn, max_turns=int(max_turns or 0),
+            reason=str(exit_reason or ""), messages=messages, last_assistant=last)
+        if _r.get("written"):
+            logger.error("[B3] %s 退出仍零落盘 ⇒ 框架代写半段: %s", exit_reason, _r.get("path"))
+            return {"mode": "framework", "targets": [str(_r.get("path"))]}
+    except Exception as _e:
+        logger.warning("[B3] 收尾兜底异常（不阻断）: %s", _e)
+    return None
 

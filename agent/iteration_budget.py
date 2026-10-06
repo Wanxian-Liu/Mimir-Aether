@@ -12,10 +12,11 @@ Author: MimirAether (self-evolved)
 
 import asyncio
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 logger = logging.getLogger(__name__)
 
@@ -309,3 +310,181 @@ def set_global_budget(budget: EnhancedIterationBudget) -> None:
     """设置全局预算实例"""
     global _global_budget
     _global_budget = budget
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# B3 防截断（2026-10-06 · 刘哥派单）：轮次预算的「产出侧」闸门
+#   治「轮次用满仍未落盘 ⇒ 产出全丢」（2026-10-06 18:21 实证：120 轮·841s·产出全丢）
+#   判据单一真源：empty_run_gate.deliverable_written（run 级，非 turn 级）
+# ══════════════════════════════════════════════════════════════════════════
+B3_PROD_CHECKPOINT = True
+
+DEFAULT_CHECKPOINT_RATIO = 0.8
+DEFAULT_HANDOFF_TURNS = 60
+
+
+def b3_enabled() -> bool:
+    return os.environ.get("MIMIR_B3_GUARD", "1").strip().lower() not in ("0", "false", "no", "off")
+
+
+def checkpoint_ratio() -> float:
+    try:
+        return min(1.0, max(0.0, float(os.environ.get("MIMIR_CHECKPOINT_RATIO", "0.8"))))
+    except Exception:
+        return DEFAULT_CHECKPOINT_RATIO
+
+
+def handoff_turns() -> int:
+    try:
+        return max(0, int(os.environ.get("MIMIR_HANDOFF_TURNS", "60")))
+    except Exception:
+        return DEFAULT_HANDOFF_TURNS
+
+
+def half_segment_threshold(max_turns: int, ratio: Optional[float] = None) -> int:
+    """强制半段阈值 = ceil(ratio * max_turns)（钳在 [1, max_turns]）。"""
+    import math
+    r = checkpoint_ratio() if ratio is None else min(1.0, max(0.0, float(ratio)))
+    return max(1, min(int(max_turns or 1), int(math.ceil(r * int(max_turns or 1)))))
+
+
+def build_half_segment_directive(turn: int, max_turns: int, threshold: int) -> str:
+    """规则①：轮次用满 ~80% 仍未落盘 ⇒ 强制先写「半段」再继续。"""
+    return (
+        f"【B3·防截断】轮次已用 {turn}/{max_turns}（≥{threshold} = 80% 阈值）且本 run **交付物未写** —— "
+        "本轮**必须**先落盘「半段」再继续。半段定义（两件，缺一不算）："
+        "① 已完成的证据读数（每行 = 可复现命令 + 实测数字）；"
+        "② 明确未闭项清单（`- [ ] …` 逐条）。"
+        "写完才允许继续调用工具；禁在零落盘状态下继续只读推进。"
+    )
+
+
+def build_handoff_directive(turn: int, max_turns: int) -> str:
+    """规则②：>60 轮大活 ⇒ 先落盘交棒（分段），禁止一口气跑到轮次耗尽。"""
+    return (
+        f"【B3·防截断·交棒】本 run 已到第 {turn} 轮（>{handoff_turns()} 轮 = 大活）——**先落盘交棒再继续**："
+        "把进度落成「半段 + 交棒清单」（已完成读数 / 未闭项 / 下一段第一件事），"
+        "并按 AGENTS §8.4 带两字段（`重跑命令:` / `复算数字:`）。"
+        f"禁在无落盘状态下跑到 {max_turns} 轮耗尽（120 轮产出全丢事故的充要条件）。"
+    )
+
+
+class ProductionCheckpointPolicy:
+    """轮次预算 × 产出侧的幂等闸门（无 IO；has_written 可注入 ⇒ 可离线测）。
+
+    接线点：core_loop._model_call_adapter（每轮恰好调用一次）⇒ tick()；返回指令则追加为
+    最后一条 user 消息（与既有 nudge/闸门同形态，序列合法）。
+    """
+
+    def __init__(self, max_turns: int, ratio: Optional[float] = None,
+                 handoff: Optional[int] = None, task_id: str = "",
+                 has_written=None) -> None:
+        self.max_turns = int(max_turns or 1)
+        self.half_threshold = half_segment_threshold(self.max_turns, ratio)
+        self.handoff = handoff_turns() if handoff is None else int(handoff)
+        self.task_id = task_id or "run"
+        self._has_written = has_written
+        self.half_fired = False
+        self.handoff_fired = False
+        self.decisions: List[Dict[str, Any]] = []
+
+    def _written(self, messages) -> bool:
+        if self._has_written is not None:
+            try:
+                return bool(self._has_written(messages))
+            except Exception:
+                return False
+        try:
+            from .empty_run_gate import deliverable_written
+        except Exception:  # pragma: no cover - 脚本式导入
+            from empty_run_gate import deliverable_written  # type: ignore
+        try:
+            return bool(deliverable_written(messages))
+        except Exception:
+            return False
+
+    def tick(self, messages, turn: int) -> Optional[str]:
+        """每轮调用一次。返回 None = 无指令；否则返回注入用的指令文本（幂等：每阈值仅一次）。"""
+        if not b3_enabled():
+            return None
+        t = int(turn or 0)
+        written = self._written(messages)
+        if (not self.half_fired) and t >= self.half_threshold and not written:
+            self.half_fired = True
+            self.decisions.append({"kind": "half_segment", "turn": t,
+                                   "threshold": self.half_threshold})
+            return build_half_segment_directive(t, self.max_turns, self.half_threshold)
+        if (not self.handoff_fired) and self.handoff > 0 and self.max_turns > self.handoff \
+                and t >= self.handoff:
+            self.handoff_fired = True
+            self.decisions.append({"kind": "handoff", "turn": t, "threshold": self.handoff})
+            return build_handoff_directive(t, self.max_turns)
+        return None
+
+
+def _b3_half_dir() -> str:
+    home = os.environ.get("MIMIR_AETHER_HOME") or os.path.expanduser("~/.mimiraether")
+    return os.path.join(home, "data", "half_drafts")
+
+
+def _b3_safe_id(task_id: str) -> str:
+    import re as _re
+    return _re.sub(r"[^A-Za-z0-9._-]", "_", task_id or "run")[:40]
+
+
+def write_framework_half_segment(task_id: str, turn: int, max_turns: int, reason: str,
+                                 messages, last_assistant: str = "",
+                                 out_dir: Optional[str] = None) -> Dict[str, Any]:
+    """收尾兜底：轮次耗尽仍零落盘 ⇒ 框架代写**半段**（内容 = 已确证读数 + 未闭项 + 半句原文）。
+
+    幂等：同一 (task_id, reason) 已存在则不重复写（返回 already_written）。
+    返回 {'written': bool, 'path': str, 'chars': int, 'reason': str}
+    """
+    out = {"written": False, "path": "", "chars": 0, "reason": ""}
+    d = out_dir or _b3_half_dir()
+    try:
+        os.makedirs(d, exist_ok=True)
+    except Exception as e:
+        out["reason"] = f"mkdir_failed:{e}"
+        return out
+    path = os.path.join(d, f"{_b3_safe_id(task_id)}-{_b3_safe_id(reason)}.md")
+    if os.path.exists(path):
+        out.update(path=path, reason="already_written",
+                   chars=os.path.getsize(path))
+        return out
+    calls: List[str] = []
+    for m in (messages or []):
+        if not isinstance(m, dict) or m.get("role") != "assistant":
+            continue
+        for tc in (m.get("tool_calls") or []):
+            try:
+                fn = tc.get("function") or {}
+                nm = fn.get("name") or tc.get("name") or "?"
+                ag = str(fn.get("arguments") or "")[:120]
+            except Exception:
+                nm, ag = "?", ""
+            calls.append(f"- `{nm}` {ag}".rstrip())
+    tail = (last_assistant or "").strip()[:4000]
+    body = (
+        f"# 【Mimir · 半段（框架代写 · B3 防截断）】\n"
+        f"<!-- run={_b3_safe_id(task_id)} turn={turn}/{max_turns} reason={reason} "
+        f"written=framework -->\n\n"
+        f"**本 run 以 `{reason}` 退出且交付物未写** ⇒ 此文件为框架代写的最小半段，"
+        f"保证「产出为零」不成立；**不等于任务完成**。\n\n"
+        f"## 1. 已确证读数（本 run 实际发生的工具调用，末 {max(0, len(calls))} 条）\n"
+        + ("\n".join(calls[-40:]) if calls else "(本 run 无工具调用)") + "\n\n"
+        f"## 2. 未收尾的半句原文（末条 assistant 正文，截断至 4000 字符）\n\n"
+        + (tail if tail else "(空)") + "\n\n"
+        f"## 3. 未闭项清单\n"
+        f"- [ ] 任务本体未收尾：以上读数未落成交付物\n"
+        f"- [ ] 下一段第一件事：读本文件 + 续作（拆小任务重发）\n"
+        f"- [ ] 复盘：本 run 为何跑到 {turn} 轮仍未落盘（`{reason}`）\n"
+    )
+    try:
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(body)
+    except Exception as e:
+        out["reason"] = f"write_failed:{e}"
+        return out
+    out.update(written=True, path=path, chars=len(body), reason="written")
+    return out
