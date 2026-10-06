@@ -814,7 +814,7 @@ python3 scripts/append_inbox_processed.py -m "…" --up-to <游标> --dry-run   
 | `reserve --owner ID` | 认领 `[max(offset,dispatched)+1, total]` 并**原子推进 dispatched**（认领即推进） | 0 认领 / 1 无增量 / 2 他人持有 HELD / 3 环境 |
 | `abort --owner ID` | 派发失败回滚（仅当 `dispatched==我的end ∧ offset<end`，即无人推进） | 0 |
 | `commit --owner ID` | 认领落地（清 claim 记录 + claim 台账行） | 0 / 2 owner 不匹配 |
-| `check --line N --owner ID` | 消费者自检「这一行我能不能碰」 | 0 可 / 2 他人持有 / 3 已处理 |
+| `check --line N --owner ID` | 消费者自检「这一行我能不能碰」（**offset 门 + dispatched 门**） | 0 可 / 2 已被派发或他人持有 / 3 已处理 |
 | `show` | 只读三游标 + 当前 claim（零写入） | 0 |
 
 **跨通道契约**：任何要动收件箱行的消费者（watcher 轮询 / api 直连唤醒的 run）动手前必须先 `check --line N --owner <自己的 run/session id>`；rc=2 ⇒ 跳过该行（不重复实施），rc=3 ⇒ 已处理跳过。watcher 侧已**机器强制**（reserve rc∈{0,1,2} 才决定是否 POST；失败 ⇒ abort 回滚，下次重试）。
@@ -824,3 +824,18 @@ python3 scripts/append_inbox_processed.py -m "…" --up-to <游标> --dry-run   
 **判据（可复算）**：
 重跑命令: python3 ~/.mimiraether/scripts/buzz_inbox_claim_selftest.py
 复算数字: SUMMARY passed=3 failed=0 skipped=0
+
+### 9.1 第 2 路唤醒 run 独立复核 ⇒ 两项 P2 修复（2026-10-07）
+
+| 发现 | 症状（复核读数） | 修法 | 修后读数 |
+|:--|:--|:--|:--|
+| **F-A 死信窗口** | reserve 已抬 `dispatched`，调用方崩溃（SIGKILL 不跑 abort）后 `start=end+1` ⇒ 接管分支**不可达**、rc=1「无增量」⇒ 区间无自动出路；且打印「视为死认领」却不接管 = **误导性出声** | 接管改为**真接管同一区间**（`TAKEOVER`），判据 = `age >= CLAIM_TTL_SEC` | `ARM D` PASS（`TAKEOVER B 1 5 … ttl=0s`） |
+| **F-B `check` 只看 offset** | claim 已 commit、`dispatched=5`、`offset=0` 时对行 5 `check` 返 **rc=0** ⇒ api 直连唤醒的 run 会重复处理 watcher 已派出的行（跨通道覆盖不完整） | `check` 补 **dispatched 门**：`行号 ≤ dispatched 且非本 owner` ⇒ rc=2 | `ARM E` PASS（2 / 3 / 0 三态） |
+
+**修 F-A 时我引入的回归（异源 harness Arm1 实测 rc0=2，期望 1）**：认领记录的 `pid` 是 **reserve 这个短命 CLI 进程** ⇒ reserve 一返回进程即退出 ⇒ 任何后到者读成 `alive=False` 并接管**活**认领 = 双进入。
+**修法**：活跃判据改 **TTL**（`ts` 龄 ≥ `CLAIM_TTL_SEC`，默认 300s；只覆盖 reserve→commit 秒级窗口），`pid` 降为诊断字段；「owner dead」措辞同删。
+**守门用例**：`ARM F`（新鲜认领不得被抢 ⇒ B 必须 rc=2 HELD）；异源 harness 修后 `Arm1 rc0=1 PASS`。
+
+**判据（可复算）**：
+重跑命令: python3 ~/.mimiraether/scripts/buzz_inbox_claim_selftest.py
+复算数字: SUMMARY passed=6 failed=0 skipped=0
