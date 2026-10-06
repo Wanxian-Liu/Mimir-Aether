@@ -6,6 +6,14 @@ auto_load: false
 
 # Buzz 收件箱唤醒处理（Mimir）
 
+## 0.00 巡检「idle桶N」类派单：**先查口径再动手**（2026-10-06 实证）
+
+- **口径真源**：`~/.hermes/scripts/patrol_scan.py` → `s_idle()`：`桶 = int((now - 该 agent ACTIVITY glob 最新 mtime) // (STALL_MIN*60))`，`STALL_MIN = 30` ⇒ **纯时间量纲（30 分钟/档），与「任务条数」无关**。巡检行形如 `idle=Loki:桶150|Mimir:桶0|妹妹:桶0 在飞=Mimir`。
+- **判据（先复现再动手）**：`find <该 agent 的 ACTIVITY 路径> -maxdepth 3 -printf '%TY-%Tm-%Td %TH:%TM:%TS %p\n' | sort | tail -1` ⇒ 看「谁的痕迹停了多久」。**桶属该 agent**——`idle=Loki:桶150` 是 **Loki 的桶**（我方实测：Loki 最新痕迹 75.08h 前 ⇒ 桶 150），**不是 Mimir 的**、也**不是 150 条积压**。
+- **两类已知失真**：① **误读**（把桶当成积压条数 ⇒ 「疑似积压任务需要清理」）② **误派**（把某 agent 的桶投进 **Mimir  inbox**）。⇒ 我方正确产出 = **复核读数 + 回执（`重跑命令:`/`复算数字:` 两字段）+ 去重消费**；**无实施面时不得去动他方文件**（跨 agent 边界）。
+- **噪声形态**：同一句催办 26 秒内 4 投（巡检会自报「已启动 4 个清理任务」，实为 4 次唤醒会话）⇒ `content` **逐字相同即为重复投递**，去重后 0 条新需求时才只记账不实施。
+- 建议交对侧裁（**不越界改 hermes 侧脚本**）：`s_idle()` 输出带单位（`桶150(≈75h)`）· 催办按 agent 路由 · 报停摆写「谁停了多久」。
+
 ## 0.0 降级形态 · 全机 fork 失败（Errno 12）时**不得写 processed 行**
 
 2026-10-05 实证：gateway cgroup 内存顶格 ⇒ 全机 fork 失败。`read_file / execute_code / terminal / search_files / write_file / browser_navigate` 全报 `[Errno 12] Cannot allocate memory`（**连读 3 行的小文件也失败**——与文件大小无关）；只有进程内工具活：`skill_view / memory / get_env / mimir_ops`(缓存) 。
