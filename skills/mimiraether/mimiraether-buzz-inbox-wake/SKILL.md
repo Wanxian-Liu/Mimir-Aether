@@ -6,6 +6,16 @@ auto_load: false
 
 # Buzz 收件箱唤醒处理（Mimir）
 
+## 0.0 降级形态 · 全机 fork 失败（Errno 12）时**不得写 processed 行**
+
+2026-10-05 实证：gateway cgroup 内存顶格 ⇒ 全机 fork 失败。`read_file / execute_code / terminal / search_files / write_file / browser_navigate` 全报 `[Errno 12] Cannot allocate memory`（**连读 3 行的小文件也失败**——与文件大小无关）；只有进程内工具活：`skill_view / memory / get_env / mimir_ops`(缓存) 。
+
+- **纪律**：读不到收件箱 ⇒ **`inbox-processed.log` 一行都不许追加**。写 `processed N lines` 而实际未读 = 谎报已处理，且会把游标推过未处理的行（**永久丢行**，比不处理更坏）。
+- **正确出口**：① 用 `mimir_ops(health_check)` 取 R2 pid 佐证「未重启」；② 把受阻读数写成报告交回唤醒来源；③ 恢复动作只能外部做——`systemctl --user stop` 掉吃内存的 transient unit（如 chroma 回填）+ 确认只有一个 Gateway 持飞书长连接 + 重启后重算 cron `next_run_at`。
+- **判据**：本轮若 `read_file <inbox> offset=B limit=1` 返回 Errno 12 ⇒ 走本降级段，收尾报告必须显式写「未读、未处理、未追加日志」。
+- **不要再重试**：同一文件读 ≥3 次会触「读闸」、只读 ≥5 轮会触「空跑闸」——两个闸都要求 `write_file/patch` 落盘，而**这两个工具同样死在 Errno 12**（实测 3 次全拒）。死循环出口 = **停止重试**，改用进程内写路径把读数固化：`memory(action='replace')`（写 `memories/MEMORY.md`）+ `skill_manage(action='patch')`（写技能文件）——**唯二实测存活**的落盘工具。
+- **旁证·通道**：`send_message(action='list')` → 「No messaging platforms connected」、`send_message(target='feishu')` → 「Not connected」⇒ **本进程未持飞书长连接**——与刘哥报的「新旧两 Gateway 在跑」一致（旧 Gateway 活着但不持连接）。此时**无法直接回主 chat**，报告只能落在 run 输出 + 上述进程内写路径。
+
 ## 0. 触发形态
 
 唤醒 prompt：「Buzz收件箱有 N 条新消息(第 A 到 B 行)。请读取 `/home/<user>/.openclaw/data/buzz-inbox-mimir.jsonl` 的新消息并处理…处理完成后在 `~/.mimiraether/logs/inbox-processed.log` 追加一行：`<时间戳> processed N lines (up to B)`」。
