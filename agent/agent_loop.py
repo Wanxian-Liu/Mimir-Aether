@@ -965,6 +965,29 @@ class MimirAgentLoop:
                             messages.append({"role": "tool", "tool_call_id": tid, "content": tr})
                             continue
 
+                        # ===== 空跑闸门·硬限（P0-2 · 2026-10-07）= 机制，不是提醒 =====
+                        # 盘上实证 run 337cb513（09-30 13:42→13:44）：闸门自 turn 5 起每轮注入
+                        # 强制落盘指令、连续 12 轮被忽略（streak 4→15）⇒ 纯文字提醒在长只读回环
+                        # 里饱和。此处把闸门输出接到**工具面**：超硬限的只读调用不再返回内容，
+                        # 模型拿不到新信息 ⇒ 唯一可推进动作＝写。env MIMIR_READONLY_HARD_LIMIT=0 关闭。
+                        _erg_blk = getattr(self, "_empty_run_gate", None)
+                        if _erg_blk is not None:
+                            try:
+                                if _erg_blk.should_block_readonly(tname, targs_raw or ""):
+                                    _erg_m = _empty_run_gate_mod()
+                                    tr = _erg_m.build_blocked_result(
+                                        tname, _erg_blk.streak, _erg_m.readonly_hard_limit())
+                                    logger.warning(
+                                        "[%s] turn %d: 空跑闸门·硬限拒发只读工具 %s"
+                                        "（连续未交付 %d 轮 ≥ 硬限 %d）",
+                                        self.task_id[:8], turn + 1, tname,
+                                        _erg_blk.streak, _erg_m.readonly_hard_limit())
+                                    messages.append({"role": "tool", "tool_call_id": tid, "content": tr})
+                                    continue
+                            except Exception as _blk_exc:
+                                logger.warning("[%s] 空跑闸门硬限判定异常（降级放行）: %s",
+                                               self.task_id[:8], _blk_exc)
+
                         try:
                             t0 = _time.monotonic()
                             _tn, _ta, _tid = tname, args, self.task_id

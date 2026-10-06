@@ -64,6 +64,25 @@ _SHELL_REDIRECT_RE = re.compile(r">>?\s*['\"]?([\w./~-]+\.(?:md|py|json|jsonl|tx
 _TEE_RE = re.compile(r"\btee\s+(?:-a\s+)?['\"]?([\w./~-]+\.\w+)")
 
 
+# ── 别名路径（P0-2 · 2026-10-07）：变量化写路径识别 ──
+# 病灶：p = Path("<card>.md"); p.write_text(...) —— 「写动作 × 目标路径」正则只认
+#   Path('字面量').write_*，变量形态 ⇒ write_targets() 返回 [] ⇒ deliverable_written()
+#   恒 False（而 classify_tool 因 ".write_text(" 命中仍判 write）⇒ 计数口径分裂。
+_ALIAS_PATH_RE = re.compile(
+    r"""(\w+)\s*=\s*(?:pathlib\.)?Path\(\s*['"]([^'"]+)['"]\s*\)""")
+
+
+def _alias_write_paths(raw):
+    """别名变量 → 真实路径：`v = Path(p)` 且 `v.write_text(`/`v.open('w'`。"""
+    out = []
+    for var, path in _ALIAS_PATH_RE.findall(raw or ""):
+        hit = (re.search(re.escape(var) + r"""\s*\.\s*(?:write_text|write_bytes)\s*\(""", raw or "")
+               or re.search(re.escape(var) + r"""\s*\.\s*open\s*\(\s*['"][wax]""", raw or ""))
+        if hit and path not in out:
+            out.append(path)
+    return out
+
+
 def gate_enabled() -> bool:
     """总开关（回滚用）。"""
     return os.environ.get("MIMIR_EMPTY_RUN_GATE", "1").strip().lower() not in ("0", "false", "no")
@@ -74,6 +93,32 @@ def readonly_turn_limit() -> int:
         return max(1, int(os.environ.get("MIMIR_READONLY_TURN_LIMIT", "4") or "4"))
     except Exception:
         return 4
+
+
+def readonly_hard_limit() -> int:
+    """硬限（机制，非提醒）：连续未交付轮数 ≥ 此值 ⇒ 只读工具被 agent_loop 拒发。
+
+    默认 = readonly_turn_limit() * 3（限 4 ⇒ 硬限 12）；显式设 0 关闭（回滚）。
+    为什么需要它（盘上实证 run 337cb513 · 2026-09-30 13:42→13:44）：闸门自 turn 5 起
+    **每轮**注入强制落盘指令（streak 4→15，连续 12 轮），模型全部忽略 ⇒ 纯提醒在长回环
+    里饱和。硬限把「提醒」升级为「工具面拒绝」= 有可观察后果。
+    """
+    raw = os.environ.get("MIMIR_READONLY_HARD_LIMIT")
+    if raw is None or str(raw).strip() == "":
+        return readonly_turn_limit() * 3
+    try:
+        return max(0, int(raw))
+    except Exception:
+        return readonly_turn_limit() * 3
+
+
+def build_blocked_result(name: str, streak: int, hard_limit: int) -> str:
+    """被硬限拒发的只读调用所返回的**替代工具结果**（保持 API 消息序列合法）。"""
+    return (
+        f"[空跑闸门·硬限] 已连续 {streak} 轮未产出交付物（硬限 {hard_limit}）；"
+        f"只读调用 `{name}` 已被拒绝。本轮**只能**写：用 write_file/patch 落**半段**"
+        f"交付物（骨架 + 已确证结论 + 待补清单），写完再补证。"
+    )
 
 
 def max_force_writes() -> int:
@@ -141,10 +186,27 @@ def turn_kind(tool_names: List[str]) -> str:
     return "write" if any(classify_tool(n) == "write" for n in tool_names) else "readonly"
 
 
-def readonly_streak(messages: List[Dict[str, Any]], max_scan: int = 40) -> int:
-    """从尾往前数**连续只读轮数**（assistant 带 tool_calls 的轮次）。
+def turn_deliverable_written(tcs):
+    """该轮是否**真写交付物**（写动作 × 交付物路径 配对）。"""
+    for tc in (tcs or []):
+        name = _tc_name(tc); raw = _tc_args(tc)
+        if classify_tool(name, raw) != "write":
+            continue
+        if any(is_deliverable_path(q) for q in write_targets(name, raw)):
+            return True
+    return False
 
-    - 命中 write 轮 ⇒ 停止（写过了，预算清零）；
+
+def readonly_streak(messages: List[Dict[str, Any]], max_scan: int = 40) -> int:
+    """从尾往前数**连续「未产出交付物」轮数**（assistant 带 tool_calls 的轮次）。
+
+    ★ P0-2（2026-10-07 · 治 10-05 审计 E4「阈值 4 · 实测 15」）计数语义修复：
+      - 旧版：命中**任意 write** 即清零 ⇒ staging 草稿 / logs 写同样退还预算，而
+        deliverable_written() 仍为 False ⇒ **闸门在它自己要防的死法里被自己关掉**
+        （d85a4c10：写 tmp 草稿 → 继续只读 → 空正文退出）。
+      - 新版：**只有真写交付物才清零**；非交付写与只读写同计（都 = 没交付）。
+      - 判据（受控差分）：scripts/probes/empty_run_gate_budget_differential.py
+        —— 旧版 staging 写后**静默 4 轮**，新版下一轮即再触发。
     - 「无工具调用的 assistant 轮」不计入也不打断（那是模型在说话，不是只读回环）。
     """
     streak = 0
@@ -158,8 +220,7 @@ def readonly_streak(messages: List[Dict[str, Any]], max_scan: int = 40) -> int:
         tcs = m.get("tool_calls") or []
         if not tcs:
             continue
-        kinds = [classify_tool(_tc_name(tc), _tc_args(tc)) for tc in tcs]
-        if any(k == "write" for k in kinds):
+        if turn_deliverable_written(tcs):
             break
         streak += 1
     return streak
@@ -232,6 +293,8 @@ def write_targets(name: str, args_raw: str = "") -> List[str]:
             _add(q)
         for q in _SHELL_REDIRECT_RE.findall(raw):  # > p / >> p
             _add(q)
+        for q in _alias_write_paths(raw):   # v = Path('p'); v.write_text(...)
+            _add(q)
         for q in _TEE_RE.findall(raw):          # tee [-a] p
             _add(q)
     return out
@@ -286,13 +349,24 @@ def infer_target(messages: List[Dict[str, Any]]) -> Optional[str]:
     return None
 
 
-def build_directive(streak: int, limit: int, staging: List[str], turn: int = 0) -> str:
-    """只读预算用尽时的硬指令（经 _read_gate_directive 安全通道注入）。"""
+def build_directive(streak: int, limit: int, staging: List[str], turn: int = 0,
+                    ignored: int = 0) -> str:
+    """只读预算用尽时的硬指令（经 _read_gate_directive 安全通道注入）。
+
+    ignored = 连续被忽略的指令数（P0-2）：达硬限后只读工具会被**拒发**，故此处必须
+    把「还剩几轮就硬拒」讲清楚——否则模型只会看到工具突然报错却不知为何。
+    """
     where = ("\n已读材料的中转草稿在：" + "、".join(staging)) if staging else ""
+    _hl = readonly_hard_limit()
+    _esc = ""
+    if _hl > 0:
+        _left = max(0, _hl - streak)
+        _esc = (f"\n⚠️ 硬限 {_hl}：再连续只读 {_left} 轮，只读工具将被**直接拒绝**"
+                f"（机制，不是提醒）。本指令已被忽略 {ignored} 次。")
     return (
         f"【空跑闸门】本 run 已连续 {streak} 轮只读（预算 {limit}）且**交付物未写**——"
         f"本轮**必须**先落盘再继续：用 write_file/patch 把已读材料落成**半段**交付物"
-        f"（骨架 + 已确证部分 + 待补清单），写完再补证。只读=不合格。{where}"
+        f"（骨架 + 已确证部分 + 待补清单），写完再补证。只读=不合格。{where}{_esc}"
     )
 
 
@@ -357,17 +431,31 @@ class EmptyRunGate:
         self.streak = 0
         self.directives_sent = 0
         self.flushed_paths: List[str] = []
+        self.ignored = 0          # 连续被忽略的指令数（P0-2 升级/硬限判据）
 
     # --- B 预防 ---
     def tick(self, messages: List[Dict[str, Any]], turn: int = 0) -> Optional[str]:
         """每轮调用：只读预算用尽 ⇒ 返回硬指令（否则 None）。"""
         self.streak = readonly_streak(messages)
-        if self.streak < self.limit:
-            return None
-        if deliverable_written(messages):
+        if self.streak < self.limit or deliverable_written(messages):
+            self.ignored = 0          # 预算内 / 真交付 ⇒ 复位「被忽略」计数
             return None
         self.directives_sent += 1
-        return build_directive(self.streak, self.limit, staging_writes(messages), turn)
+        self.ignored += 1
+        return build_directive(self.streak, self.limit, staging_writes(messages), turn,
+                               ignored=self.ignored)
+
+    def should_block_readonly(self, name: str, raw: str = "") -> bool:
+        """硬限判定（纯谓词 · agent_loop 工具派发口调用）：超硬限的只读调用 ⇒ 拒发。
+
+        机制理由（run 337cb513 实证）：指令自 turn 5 起每轮注入、连续 12 轮被忽略
+        ⇒ 纯文字提醒在长只读回环里饱和。此处把闸门输出接到**工具面**：超限时只读调用
+        由调用方返回 build_blocked_result()，模型拿不到新信息 ⇒ 唯一可推进动作=写。
+        """
+        hl = readonly_hard_limit()
+        if hl <= 0 or self.streak < hl:
+            return False
+        return classify_tool(name, raw) == "readonly"
 
     # --- A 止血 ---
     def flush(self, messages: List[Dict[str, Any]], turn: int = 0, reason: str = "") -> List[Dict[str, Any]]:

@@ -18,7 +18,7 @@
 
 ## 臂清单
   A 分类纯函数：execute_code 内容级判定（写/读）
-  B 只读连续计数：写轮清零、无工具轮不打断
+  B 未交付轮连续计数：非交付写不清零（P0-2）／交付物写清零／无工具轮不打断
   C tick 触发：达限且未写交付物 ⇒ 返回硬指令；已写 ⇒ None
   D flush 幂等：草稿落成半段卡、重复调用不重复追加
   E 回归（行为级）：只读多的任务 ⇒ 有产出（真跑 loop）
@@ -58,6 +58,10 @@ def _write_args(path):
     return {"code": "open(" + repr(str(path)) + ", 'w').write('x')"}
 
 
+# 交付物级路径（非 staging / 非工作记忆）——只作 tool args 用，无需真实存在。
+_DELIVERABLE_CARD = "/repo/wiki/discussions/card_semantics.md"
+
+
 def _msgs(turns, card_path):
     out = [{"role": "user", "content": "任务书：请回复五问。目标卡 " + str(card_path)}]
     for kind, path in turns:
@@ -86,8 +90,13 @@ def test_armB_readonly_streak_counts_and_resets(tmp_path):
     card = tmp_path / (CARD_PREFIX + "_B.md")
     turns = [("read", tmp_path / "a.md")] * 5
     assert erg.readonly_streak(_msgs(turns, card)) == 5
-    turns = [("read", tmp_path / "a.md")] * 3 + [("write", tmp_path / "b.md")] + [("read", tmp_path / "c.md")] * 2
-    assert erg.readonly_streak(_msgs(turns, card)) == 2, "写轮应清零预算（只数其后的只读轮）"
+    # P0-2（2026-10-07）语义变更：旧版「任意 write 清零」，新版「只有真写交付物清零」。
+    # 判据：scripts/probes/empty_run_gate_budget_differential.py（旧版静默 4 轮 / 新版 0 轮）。
+    staging = [("read", tmp_path / "a.md")] * 3 + [("write", tmp_path / "b.md")] + [("read", tmp_path / "c.md")] * 2
+    assert erg.readonly_streak(_msgs(staging, card)) == 6, \
+        "非交付写（tmp 草稿 = staging）**不得**退还预算——退还即旧版病灶（P0-2 已修）"
+    real = [("read", tmp_path / "a.md")] * 3 + [("write", _DELIVERABLE_CARD)] + [("read", tmp_path / "c.md")] * 2
+    assert erg.readonly_streak(_msgs(real, card)) == 2, "真写交付物应清零预算"
     msgs = _msgs([("read", tmp_path / "a.md")], card)
     msgs.append({"role": "assistant", "content": "我在说话（无工具）"})
     assert erg.readonly_streak(msgs) == 1, "无工具调用的 assistant 轮不得打断计数"
@@ -102,8 +111,14 @@ def test_armC_tick_returns_directive_and_skips_when_written(tmp_path):
     assert isinstance(d, str) and "写" in d and "空跑闸门" in d, d
     assert gate.streak >= 4
     msgs.append({"role": "assistant", "content": "",
-                 "tool_calls": [_tc("write_file", {"path": str(card), "content": "x"})]})
+                 "tool_calls": [_tc("write_file", {"path": _DELIVERABLE_CARD, "content": "x"})]})
     assert gate.tick(msgs, 6) is None, "已写交付物 ⇒ 不得再拦"
+    # 非交付写（staging）⇒ 拦截**不得**被解除（旧版在此被误读成「写过了」）
+    msgs2 = _msgs([("read", tmp_path / "a.md")] * 5, card)
+    msgs2.append({"role": "assistant", "content": "",
+                  "tool_calls": [_tc("write_file", {"path": str(tmp_path / "s.md"), "content": "x"})]})
+    gate2 = erg.EmptyRunGate(task_id="armC2", limit=4, force_writes=1)
+    assert gate2.tick(msgs2, 6) is not None, "staging 写不得解除拦截（P0-2）"
 
 
 # ── 臂 D：flush 幂等 ──────────────────────────────────────────────────

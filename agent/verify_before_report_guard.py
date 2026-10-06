@@ -235,6 +235,41 @@ def get_last_block_reason() -> str | None:
     return _LAST_BLOCK_REASON
 
 
+# ===========================================================================
+# F4（2026-10-07 · 治 10-05 自认缺口）：「待补」类占位检测判据
+# ---------------------------------------------------------------------------
+# 缺口原文：「F4 认窄化：生产端已接 evaluate_finish，缺『待补』占位检测判据」。
+# 病灶：带「待补 / TODO / 暂缺 / 未填」的正文照样被当完成放行 ⇒ 占位符把
+#   「没做完」伪装成「做完了」。
+# 判据形态（AGENTS §8.5，纯函数可离线测）：
+#   正控 = 正文含占位且**未显式标未闭** ⇒ 拦（should_block_finish=True）
+#   负控 = 正常正文（无占位）⇒ 放行
+#   显式未闭 = 正文自称「半段/未闭/待复核/进行中」⇒ 占位是**被声明的**，放行
+# 回滚：env MIMIR_PLACEHOLDER_GUARD=0 ⇒ 本判据失效（其余守卫不变）。
+# ===========================================================================
+PLACEHOLDER_MARKERS = ("待补", "todo", "暂缺", "未填", "tbd", "待定",
+                       "待实现", "未实现", "占位符")
+UNCLOSED_MARKERS = ("未闭", "未完成", "不完整", "半段", "待复核", "进行中",
+                    "wip", "草稿", "staging flush", "未收尾", "缺项")
+PLACEHOLDER_MIN_LEN = 40
+
+
+def placeholder_guard_enabled() -> bool:
+    """F4 判据开关（回滚用）。"""
+    return os.environ.get("MIMIR_PLACEHOLDER_GUARD", "1").strip().lower() not in ("0", "false", "no")
+
+
+def has_unclosed_placeholder(text: str) -> bool:
+    """正文含占位符且**未显式声明未闭** ⇒ True（= 不得判为完成）。纯函数。"""
+    t = (text or "").strip()
+    if len(t) < PLACEHOLDER_MIN_LEN:
+        return False
+    low = t.lower()
+    if not any(m in low for m in PLACEHOLDER_MARKERS):
+        return False
+    return not any(m in low for m in UNCLOSED_MARKERS)
+
+
 def should_block_finish(messages: list[dict[str, Any]], assistant_text: str) -> bool:
     if not guard_enabled():
         return False
@@ -263,6 +298,12 @@ def should_block_finish(messages: list[dict[str, Any]], assistant_text: str) -> 
     _probe_verdict = _probe_attest.evaluate_turn(assistant_text, messages=messages)
     if _probe_verdict and _probe_verdict.get("blocked"):
         _set_block_reason("probe_attest")
+        return True
+
+    # ── F4（2026-10-07 · 10-05 自认缺口）：交付物正文残留占位 ⇒ 不得判为完成 ──
+    # 位置在豁免之后、宽松放行之前 ⇒ 占位不能靠"调过工具"绕过（机制优先）。
+    if placeholder_guard_enabled() and has_unclosed_placeholder(assistant_text):
+        _set_block_reason("placeholder_unclosed")
         return True
 
     # ── P0修复核心：写盘任务必须有"写盘动作"才放行 ──
@@ -341,6 +382,8 @@ def _turn_has_claim(assistant_text: str, block_reason: "str | None") -> bool:
     """
     if block_reason == "probe_attest":
         return True
+    if block_reason == "placeholder_unclosed":
+        return True
     if _is_hollow_ack(assistant_text):
         return True
     text = (assistant_text or "").lower()
@@ -352,6 +395,8 @@ def _failure_type_for(messages: list[dict[str, Any]], assistant_text: str,
     """拦截原因 → 量具 failure_type（与读端 by_type 统计口径对齐）。"""
     if block_reason == "probe_attest":
         return "probe_attest_unverified"
+    if block_reason == "placeholder_unclosed":
+        return "placeholder_unclosed"
     if _is_hollow_ack(assistant_text):
         return "hollow_ack_no_action"
     if _task_requires_write(messages):
