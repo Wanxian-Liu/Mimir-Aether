@@ -6,6 +6,14 @@ auto_load: false
 
 # Buzz 收件箱唤醒处理（Mimir）
 
+## 2.23 第 2 路唤醒 · L2 复核四坑（2026-10-07 实证 · 行 50–53）
+
+1. **判「谁已闭」必须按 mtime 排**：裸 `ls -la ~/.hermes/inbox/ | tail` 是**字典序**（拿到 00:40–01:02 旧件 ⇒ 误判"全未闭"）。正解 `ls -la --time-style='+%m-%d %H:%M' ~/.hermes/inbox/ | sort -k6,7 | tail -6`；再用 `git -C ~/wiki log -1 --pretty='%h|%ad|%s' --date=format:'%m-%d %H:%M' -- '<卡>'` 定位接受方提交（判「卡是否已被追加」）。
+2. **读同级回执用 Python 抽字段，别 read_file 整读**：回执 4–15 KB 长行 ⇒ read_file 被 offload/截断、看不到 `重跑命令` 对。正解：Python 取 `startswith('重跑命令')`+紧随 `复算数字` 组对，**原样复跑**（本次 24/24 HIT · rc 全 0 = L2 证据）。
+3. **execute_code 内嵌套引号 f-string 必 SyntaxError**：`f"{sh(\"...\")}"` ⇒ `unexpected character after line continuation`。正解＝先取值入变量再拼串；长回执分 ≤3KB 块 `open(p,'a').write()`（write_file 大载荷报 Invalid JSON）。
+4. **在飞兄弟 run 的 HEAD 是快照**：同一 run 内 `git log -1` 会连变（bc176ed→e0101f2→b296af2）⇒ 登记写「快照 + 时点」，勿写终值；`ls ~/.hermes/inbox | grep -ci <件名>` = 0 ⇒ 实施未收口，L2 顺延，**不在本 run 抢做**。
+
+
 ## 0.00 巡检「idle桶N」类派单：**先查口径再动手**（2026-10-06 实证）
 
 - **口径真源**：`~/.hermes/scripts/patrol_scan.py` → `s_idle()`：`桶 = int((now - 该 agent ACTIVITY glob 最新 mtime) // (STALL_MIN*60))`，`STALL_MIN = 30` ⇒ **纯时间量纲（30 分钟/档），与「任务条数」无关**。巡检行形如 `idle=Loki:桶150|Mimir:桶0|妹妹:桶0 在飞=Mimir`。
