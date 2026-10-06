@@ -789,3 +789,16 @@ python3 scripts/append_inbox_processed.py -m "…" --up-to <游标> --dry-run   
 **坑 2（工具面）**：`execute_code` / `terminal` 载荷含 shebang 字面量 `/usr/bin/env` 或 `/proc/` 字面量 ⇒ 整块被拒（`denied path segment`，同族）。写脚本首行用拼接（`"#!" + chr(47) + "usr" + ...`）或省略 shebang，改用 `python3 <path>` 跑。
 
 **判据**：`python3 ~/.mimiraether/scripts/buzz_inbox_close.py --show` ⇒ `lag=0`；watcher 门控 = `dispatched >= total ⇒ exit 0`（不再看账本编号）。
+
+## 2.20 本族两条新坑（2026-10-07 行 238/239 实测 · 第十三 run · 落后方 L2）
+
+### ① 复核「HEAD 相对判据」时，先看对方在测后有没有再提交（判据有时效）
+- 兄弟 run 的契约常把 `git diff --stat <base>..HEAD`（或任何含 `HEAD` 的读数）当复算数字。
+- 这类判据**随 HEAD 漂移**：本族实测——报告测时 `9 files / +793`，兄弟 run 事后 02:06:00 又提交 1 文件（+101）⇒ 复算得 `10 files / +894`，**看着像「数字不符」，实为判据未锁定**。
+- 复核纪律：**不判对方错**，先把范围钉成 `git diff --stat <base>..<被测HEAD SHA>` 再复算；回执里把「测时 HEAD」写进判据（如 `3bc9478..7994d3c`）。
+- 一般式：**凡契约判据含 `HEAD` / `@` / `latest` 等浮动引用 ⇒ 时效性缺口**，属量具缺口，不是结论缺口。
+
+### ② 游标类文件被「无出声」归零 ⇒ 先当重派风险处理
+- 本族实测：`buzz-inbox-mimir.dispatched` 02:06:52 由 `39` 变 `0`，而全 `~/.mimiraether` 检索**无** `ROTATION/TRUNCATION` 出声行（§8 该分支必出声）⇒ 归零来源未明。
+- 危害：watcher 门控 = `d_old >= total` ⇒ 变假即**重复派发同一批**（与 §0「重复实施 = 最贵」同源）。
+- 处置：**先用 `buzz_inbox_close.py` 复位**（`dispatched = max(旧,total)`，一次调用复位到 `total`），把「来源不明」单列为未闭项（查写者）；**不要**就地手写 `echo N >` 游标（绕过 flock 与 `.hwm` 不变量）。
