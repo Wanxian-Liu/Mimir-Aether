@@ -23,6 +23,7 @@ max_turns 的明示**不得**谎称「没调到模型」——它是「调到了
 ⇒ 断言明示文案不含 `没调到模型`、且携带原样 `reason=max_turns`（供 Q6 投递对账按串归因）。
 """
 from __future__ import annotations
+import pytest  # setup 适配：run_health 回滚开关 fixture（见文件末尾）
 
 import pathlib
 import textwrap
@@ -50,9 +51,33 @@ MESSAGES = [
 class _Logger:
     def __init__(self) -> None:
         self.errors: list[tuple] = []
+        self.warnings: list[tuple] = []
 
     def error(self, *a, **k):  # noqa: D102
         self.errors.append(a)
+
+    def warning(self, *a, **k) -> None:
+        self.warnings.append(a)
+
+    def info(self, *a, **k) -> None:
+        pass
+
+    def debug(self, *a, **k) -> None:
+        pass
+
+
+
+
+class _HarnessSelf:
+    """锚内 B3/B4 段引用的 loop 属性桩（setup 适配 · 非被测面）。来源 b279c90 / dd7adce。"""
+
+    _resolved_max_turns = None
+    max_iterations = 90
+
+
+def _b3_flush_half_segment_stub(*_a, **_k):
+    """B3 收尾兜底助手桩（被测面外 · 由 b279c90 的 B3 单测覆盖）；真实现会在测试期真写盘。"""
+    return None
 
 
 class _Result:
@@ -92,6 +117,9 @@ def _run(block: str, exit_reason: str, interrupted: bool, messages: list):
         "logger": lg,
         "task_id": "a1max0000",
         "getattr": getattr,
+        "self": _HarnessSelf(),
+        "session_id": "harness-sess",
+        "_b3_flush_half_segment": _b3_flush_half_segment_stub,
     }
     exec(compile(block, "<core_loop.py:1054-branch>", "exec"), ns)
     return ns["_final_content"], lg
@@ -154,3 +182,15 @@ def test_armE_billing_branch_unchanged():
     content, lg = _run(_live_block(), "billing_exhausted", False, MESSAGES)
     assert content.startswith("[断粮]")
     assert lg.errors
+
+
+@pytest.fixture(autouse=True)
+def _disable_run_health_for_harness(monkeypatch):
+    """setup 适配（`dd7adce` 起）：锚内新增的 B4 观测段会调 `agent.run_health.record_run_exit`，
+    其「当日越线」以 `logger.error("[RUN_HEALTH_ALERT] ...")` 出声 ⇒ 污染本文件对 `lg.errors`
+    的断言（armD 误红；`assert lg.errors` 的正控臂则可能被送**假绿**）。
+    按产品自带回滚开关关闭该观测（`agent/run_health.py:27` 文档化 env），
+    被测面（`_final_content` 判定分支）仍原样真跑；观测本身由 tests/agent/test_run_health.py 覆盖。
+    """
+    monkeypatch.setenv("MIMIR_RUN_HEALTH", "0")
+

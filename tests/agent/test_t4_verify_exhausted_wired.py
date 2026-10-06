@@ -23,6 +23,7 @@
   H   cron 台账归类             : cron_run_outcome({"exit_reason":"verify_exhausted"}) == error
 """
 from __future__ import annotations
+import pytest  # setup 适配：run_health 回滚开关 fixture（见文件末尾）
 
 import ast
 import asyncio
@@ -49,9 +50,33 @@ PRODUCER_MESSAGES = [
 class _Logger:
     def __init__(self) -> None:
         self.errors: list = []
+        self.warnings: list[tuple] = []
 
     def error(self, *a, **k):
         self.errors.append(a)
+
+    def warning(self, *a, **k) -> None:
+        self.warnings.append(a)
+
+    def info(self, *a, **k) -> None:
+        pass
+
+    def debug(self, *a, **k) -> None:
+        pass
+
+
+
+
+class _HarnessSelf:
+    """锚内 B3/B4 段引用的 loop 属性桩（setup 适配 · 非被测面）。来源 b279c90 / dd7adce。"""
+
+    _resolved_max_turns = None
+    max_iterations = 90
+
+
+def _b3_flush_half_segment_stub(*_a, **_k):
+    """B3 收尾兜底助手桩（被测面外 · 由 b279c90 的 B3 单测覆盖）；真实现会在测试期真写盘。"""
+    return None
 
 
 class _Result:
@@ -95,6 +120,9 @@ def _run(block: str, exit_reason: str, interrupted: bool, messages: list):
         "logger": lg,
         "task_id": "t4test0000",
         "getattr": getattr,
+        "self": _HarnessSelf(),
+        "session_id": "harness-sess",
+        "_b3_flush_half_segment": _b3_flush_half_segment_stub,
     }
     exec(compile(textwrap.dedent(block), "<core_loop.py:final-content-branch>", "exec"), ns)
     return ns["_final_content"], lg
@@ -348,3 +376,15 @@ def test_armI3_consumer_interrupt_path_still_passthrough():
     content, lg = _run(_extract_block(), "interrupt", True, PRODUCER_MESSAGES)
     assert content == UNVERIFIED_CLAIM, "既有 interrupt 透传语义（仅非 verify-耗尽场景可达）"
     assert not lg.errors
+
+
+@pytest.fixture(autouse=True)
+def _disable_run_health_for_harness(monkeypatch):
+    """setup 适配（`dd7adce` 起）：锚内新增的 B4 观测段会调 `agent.run_health.record_run_exit`，
+    其「当日越线」以 `logger.error("[RUN_HEALTH_ALERT] ...")` 出声 ⇒ 污染本文件对 `lg.errors`
+    的断言（armD 误红；`assert lg.errors` 的正控臂则可能被送**假绿**）。
+    按产品自带回滚开关关闭该观测（`agent/run_health.py:27` 文档化 env），
+    被测面（`_final_content` 判定分支）仍原样真跑；观测本身由 tests/agent/test_run_health.py 覆盖。
+    """
+    monkeypatch.setenv("MIMIR_RUN_HEALTH", "0")
+
