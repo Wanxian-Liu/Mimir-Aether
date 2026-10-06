@@ -91,6 +91,15 @@ MIMIR_TIER0_PYTHON=<repo>/.venv/bin/python3 bash scripts/pytest_isolated.sh <受
 **伪文件名形如 `<core_loop.py:1054-branch>`** ⇒ 读起来像产品 bug，实为**测试基础设施失配**。
 判据：报错行号指向引擎**源码行**、且该用例的 `_extract_branch()` 自身锚点断言**全部通过**。
 
+### 5.1 修法配方（2026-10-07 实证 · 族1 14 红 → 0 · 只动 setup）
+1. `_Logger` 桩补 `warning/info/debug`（`error` 语义不变）——失败第 2 跳（except 体内再抛 AttributeError）就死在这。
+2. 补 `_HarnessSelf`（`_resolved_max_turns=None` / `max_iterations=<int>`）+ ns 键 `"self"` / `"session_id"`。
+3. 补模块级助手（如 `_b3_flush_half_segment`）**受控桩**（返回 `None`）——真实现会在测试期**真写盘**（框架代写半段）污染工作区；其自身由专属单测覆盖。
+4. **假绿必查**：锚内新增的**观测段**（B4 `agent.run_health.record_run_exit`）越线时走 `logger.error("[RUN_HEALTH_ALERT] …")`
+   ⇒ 既让 `assert not lg.errors` 类臂**误红**，又让 `assert lg.errors` 类正控被**冒名送假绿**。
+   处置 = 用产品自带回滚开关（`MIMIR_RUN_HEALTH=0` · `agent/run_health.py:27` 文档化）在 autouse fixture 里关观测，**不改断言**。
+5. 三条证据缺一不可：① 旧 ns 复现红 → 新 ns 绿（setup 敏感性）② 受控差分（破坏被判据 ⇒ **读数必须变**，防空跑探针）③ 逐条引用源改动 `commit + 行号` 说明「旧 setup 为何过期」（拒「默默改断言」）。
+
 ## 6. 出场（报告骨架 + 回执）
 
 报告必含：① 跑命令原文（逐字可复制）② 三臂表（总数/passed/failed/error/skipped/耗时/rc + 原始日志路径）
