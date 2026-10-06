@@ -77,7 +77,7 @@
 **限流理由（内存纪律 · 非保守癖）**：本进程 cgroup 上限 4G，chroma + bge-m3 同开曾致整机 OOM（2026-10-05 事故：gateway 顶格 4.27G 时起吃 2.8G 的回填 unit）⇒ 启动回填**必须有界**，余量交下次启动/手动入口续。
 
 **受控差分读数**（`bash scripts/pytest_isolated.sh tests/gateway/test_pending_index_startup_hook.py -q`）：差分维度 = 有无 pending / DB 构造成败 / 续传抛错 / limit env 三态（20 · 0 · 坏值）/ 钩子开关；判据 = 返回体字段 + `_FakeDB.calls` 计数 + 线程属性。
-- B4b 单测：**10 passed**（含接线守卫：`gateway/run.py` 真调 `start_pending_index_resume_thread`）
+- B4b 单测：**9 passed**（含接线守卫：`gateway/run.py` 真调 `start_pending_index_resume_thread`）· 修正记录：初稿误记 10（把「8 例 + 后补接线守卫」数成 10）⇒ 实测 `--collect-only` 计数 9、`-v` 逐例全绿，本行以实测为准
 - 回归（本文件 + `tests/tools/` + B4 + B3 + B1/B2）：**216 passed**
 - **现场 e2e（真调用 · 非替身）**：`startup_resume_pending()` ⇒ `{"limit": 20, "pending_seen": 0, "skipped": "no_pending"}`；线程钩子（delay=0）返回 daemon=True、`is_alive()=False`、日志 `[PENDING_INDEX_RESUME] {…no_pending}`。探针：`~/.mimiraether/tmp/b4b_probe_hook.py`
 
