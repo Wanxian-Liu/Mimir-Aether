@@ -1111,6 +1111,29 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
             # 旧形态「白名单内明示 + 其余一律 reversed() 复读」⇒ 每个新退出原因默认复读旧回复；
             # 新形态「仅 natural（interrupted 单独处理）取当前回复 + 其余一切明示」⇒ 未知 reason 不再伪装。
             _exit_reason = getattr(_result, "exit_reason", "")
+            # B4 观测（2026-10-06 · 任务书 行218「run 级健康出声」）：run 级计数 + 越线出声。
+            # 判据源 = 上面同一个 _exit_reason（不另造 reason 分类）；fail-open：
+            # 计数/告警失败只降级记一行 warning，绝不打断收尾路径。
+            try:
+                from agent.run_health import record_run_exit as _record_run_exit
+
+                _rh = _record_run_exit(
+                    _exit_reason,
+                    turns_used=int(getattr(_result, "turns_used", 0) or 0),
+                    max_turns=int(
+                        self._resolved_max_turns
+                        if self._resolved_max_turns is not None
+                        else self.max_iterations
+                    ),
+                    task_id=str(task_id or ""),
+                    session_id=str(session_id or ""),
+                    content_len=len(str(getattr(_result, "final_content", "") or "")),
+                )
+                if _rh.get("fired"):
+                    logger.error("[%s] [RUN_HEALTH] 当日越线出声: %s",
+                                 str(task_id or "")[:8], _rh.get("fired"))
+            except Exception as _rh_e:  # pragma: no cover — 观测设施不得拖垮收尾
+                logger.warning("[RUN_HEALTH] 记录失败（已降级）：%s", _rh_e)
             # B3 防截断（2026-10-06）：轮次类退出仍零落盘 ⇒ 框架代写最小半段再收尾。
             _b3_half = None
             if _exit_reason in ("max_turns", "circuit_breaker"):
