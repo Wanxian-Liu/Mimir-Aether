@@ -857,3 +857,21 @@ python3 scripts/append_inbox_processed.py -m "…" --up-to <游标> --dry-run   
 - **纪律（可跑）**：§8.4 两字段落盘后，**写回执的人必须原样粘贴跑一次**，核对输出与本条 `复算数字` **逐字一致**；不一致 ⇒ **改写命令**，不许改数字凑。
 - **本 run 读数**：修前 `tail -1` ⇒ `[isolated] gateway MemoryCurrent(后)=3887M`（≠ 所称汇总）；修后 ⇒ `51 passed, 1 skipped`（两文件同跑 · 双 TMPDIR 逐字同 · rc=0）。
 - **同族**：§9.2（量具作用域）· RS17（负结论须带控制组）——共因 = **声明与量具真实输出之间缺一次对照**。
+
+### 2.22 本族新坑（2026-10-07 行48–49 实测 · 第2路唤醒 L2 复核 · 两条）
+
+**① 回执 `重跑命令` 里的 jq 表达式：`|` 优先级低于 `,` ⇒ 原样复跑 rc=5（契约字段「在」但不可跑）**
+
+- 症状（行48/第11单 回执实测）：`jq -r '.jobs | length, ([.jobs[]|select(.enabled==true)]|length), ([.jobs[]|select(.next_run_at!=null)]|length)' <file>`
+  ⇒ 首行 `19`，随后 `jq: error … Cannot index array with string "jobs"` · **rc=5**
+- 技术根因：`|` 的优先级**低于** `,` ⇒ 实际解析为 `.jobs | (length, ([…]|length))`，第二个分支里 `.` 已是被管道传来的**数组** ⇒ 再取 `.jobs` 必错。
+- 正确写法（实测 rc=0）：`jq -r '.jobs as $j | [($j|length), ([$j[]|select(.enabled==true)]|length), ([$j[]|select(.next_run_at!=null)]|length)] | @tsv' <file>` ⇒ `19	5	11`
+- 纪律：**所有 `|` 与 `,` 混用的 jq 判据，发回执前原样粘贴跑一次**（同 §2.21；本族第三次同因）。
+
+**② 唤醒后又有新行到达时 **不得**跑 `buzz_inbox_close.py`（会推 `offset` 过未处理行 ⇒ 新行悬挂）**
+
+- 实测形态（本 run）：唤醒区间 = 48..49（认领日志 `04:50:02 RESERVE/COMMIT range=48..49`）；唤醒后第 **50** 行于 **04:51:50** 到达 ⇒ 本 run 只处理到 49、**total=50 > 49**。
+- 危害链（读数，不是保守）：`buzz-inbox-watcher.sh:47` = `[ "$total" -le "$offset" ] && exit 0` ⇒ 若 close 把 `offset := total(=50)`，watcher **静默退出**、**不派发行 50**（须等第 51 行到达才被一并带出 ⇒ 新增行悬挂）。
+- 正确处置：**只处理到 N 就停在 N**——账本照常追加 `processed … (up to N)`；`offset` **不动**（接受 `lag = total - N > 0`，并在日志/回执里写明「第 N+1 行于唤醒后到达、未处理」）；该行由下一 tick 按 `dispatched < total` 正常派发（实测 30 分钟/tick）。
+- 与 §3 完成判据的关系：§3 的 `lag=0` **只适用于「唤醒后无新行到达」**；有到达时以「本批行已闭 + lag 归因写明」替代，**不得**为凑 `lag=0` 而推游标（假积压可解释、悬挂不可解释）。
+- 缺口（提议 · 不自行加件）：`buzz_inbox_close.py` 无 `--upto N` 部分推进语义 ⇒ 建议增该参数（或先校验「账本末行 `up to N` == 目标 offset」再写）。
