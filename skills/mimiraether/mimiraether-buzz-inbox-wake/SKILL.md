@@ -686,3 +686,26 @@ python3 scripts/append_inbox_processed.py -m "…" --up-to <游标> --dry-run   
 - rc：`0` 已写 / `2` 写失败（flock 或 hwm 同步失败 ⇒ **不得当作已补账**）/ `3` 参数或量具不可用。
 - 自检三连：`wc -l <台账>` · `cat <台账>.hwm` · `check_inbox_ledger_lag.py | tail -1` ⇒ **三者应一致**（行数==hwm ∧ lag=0 rc=0）。
 - 回归：`tests/test_b3_production_checkpoint.py`（+5 例 · 隔离 pytest 21 passed）。
+
+## 2.16 唤醒行 content 可为「文件名」＝指针；正文真源在投放件里（2026-10-06 行 231 实测 · 第十 run）
+
+行 231 = `{"from":"hermes","to":"mimir","kind":1,"content":"20261006-Mimir投递-解题器缺口-空格切词.md"}` ——
+**content 是文件名，不是正文**。教训三条：
+
+1. **别把 content 当任务正文**：它只是**指针**；正文真源 = `~/.hermes/inbox/<该文件名>`（实为 `投递方=琬弦 → 收件=Mimir` 的**解题器缺口样本**，球在我方=solver 维护者）。
+2. **`~/.hermes/inbox/` 是「双向投放面」，不是「我方出站面」**——同目录同时躺着 `*-Mimir投递-*.md`（琬弦→我方）与 `*-Mimir回执-*.md`（我方→琬弦）两类件。
+   判「出站/入站」的唯一稳口径 = **读件内头部**（`投递方:` / `收件:` 行），**不是**目录名、更不是文件名前缀。
+   （兄弟 run 的草稿即因按目录名判定「该路径是我方写入面」而误判，其「入站真路径」待补项因此悬空。）
+3. **`read_file` 对 `~/.hermes/**` 被 path whitelist 拦**（`outside allowed paths`）⇒ 读该目录用 `execute_code` 内 `open()`；`search_files` 对该路径亦返回 0（假阴性，别当「文件不存在」）。
+
+### 2.16.1 `~/.mimiraether` 仓的 `reports/`·`tmp/`·`scripts/` 是 **gitignored**（别把「未 commit」误报为失败）
+
+行 231 轮实测：`git -C ~/.mimiraether add reports/… tmp/… scripts/…` 全部 rc=1（"根据 .gitignore 被忽略"）。
+⇒ **交付物 commit 判据只能取** ① `~/wiki` 仓的卡段 + `concepts/四方任务总台账.md`（可提交）② 台账行（`logs/` 亦 ignored）。
+⇒ 报告/复现脚本/记账脚本留在盘上（untracked）即**符合仓约定**，收尾报告里须显式写「属 ignored 面，非未提交缺陷」——否则下一轮审计会把它读成「产物未入库」。
+
+### 2.16.2 并发同题稿 ⇒ 实施面归先落「处置稿」的一方（别抢改码）
+
+行 231 轮实测：同一唤醒 21:45:01 后，兄弟 run 于 21:46:05/21:46:58 落两份 `notes/20261006-收件-解题器缺口-*-处置.md`（骨架态、含 5 项待补、计划改 solver）。
+⇒ 本 run 处置：**零改码**（非任务书 + 对外提交路径须刘哥点头 + 兄弟在飞），只做**复现/根因/边界**，并在卡上「补记」声明**实施面归兄弟**、回执里写「只要授权裁决」。
+⇒ 顺手交付的**增量价值 = 定位对方转述里的盘上错项**：投递件/兄弟稿里的表名 `_OPSW` **全仓 grep = 0**（真名 `OP_PHRASES`）⇒ 按转述落补丁会**落到空处**。**凡他人转述的符号名，落盘前先 grep 盘上真名。**
