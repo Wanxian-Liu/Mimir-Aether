@@ -187,3 +187,18 @@ def test_real_sequence_handoff_then_half_segment():
     assert p.tick(_msgs(), 71) is None
     assert "半段" in (p.tick(_msgs(), 72) or "")
     assert [d["kind"] for d in p.decisions] == ["handoff", "half_segment"]
+
+
+def test_rule3_ledger_resolves_via_mimir_aether_home(tmp_path):
+    """回归：台账默认路径须 HOME 无关（曾因裸 expanduser 在非 /home/rayliu HOME 下误报 rc=3）。"""
+    home = tmp_path / "mh"
+    (home / "logs").mkdir(parents=True)
+    (home / "logs" / "inbox-processed.log").write_text(
+        "2026-10-06 20:00:00 processed 1 lines (up to 5)\n", encoding="utf-8")
+    inbox = tmp_path / "inbox.jsonl"
+    inbox.write_text("".join('{"i": %d}\n' % i for i in range(5)), encoding="utf-8")
+    env = dict(os.environ, MIMIR_AETHER_HOME=str(home), HOME=str(tmp_path / "fakehome"))
+    env.pop("MIMIR_LEDGER", None)
+    r = subprocess.run([sys.executable, SCRIPT, "--inbox", str(inbox)],
+                       capture_output=True, text=True, env=env)
+    assert r.returncode == 0 and "lag=0" in r.stdout, r.stdout + r.stderr

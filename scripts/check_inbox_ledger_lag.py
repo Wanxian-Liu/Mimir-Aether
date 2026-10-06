@@ -19,7 +19,34 @@ import re
 import sys
 
 DEFAULT_INBOX = "/home/rayliu/.openclaw/data/buzz-inbox-mimir.jsonl"
-DEFAULT_LEDGER = os.path.expanduser("~/.mimiraether/logs/inbox-processed.log")
+
+
+def _default_ledger():
+    """台账默认路径 —— **HOME 无关**解析。
+
+    2026-10-06 修：裸 `expanduser("~")` 在 HOME != /home/rayliu 时（如 execute_code 沙箱
+    HOME=~/.mimiraether）会拼出 `<home>/.mimiraether/logs/...` 假路径 ⇒ 误报 rc=3
+    「量具不可用」（同一命令两种 rc，取决于调用环境）。
+    顺序：MIMIR_LEDGER（显式覆盖，原样尊重） → MIMIR_AETHER_HOME/MIMIR_HOME → `~` 候选
+    → 绝对兜底；取**第一个存在**者；全不存在 ⇒ 返回绝对兜底（走 rc=3 报缺失）。
+    """
+    env_ledger = os.environ.get("MIMIR_LEDGER")
+    if env_ledger:
+        return env_ledger
+    cands = []
+    for k in ("MIMIR_AETHER_HOME", "MIMIR_HOME"):
+        v = os.environ.get(k)
+        if v:
+            cands.append(os.path.join(v, "logs", "inbox-processed.log"))
+    cands.append(os.path.expanduser("~/.mimiraether/logs/inbox-processed.log"))
+    cands.append("/home/rayliu/.mimiraether/logs/inbox-processed.log")
+    for c in cands:
+        if os.path.exists(c):
+            return c
+    return cands[-1]
+
+
+DEFAULT_LEDGER = _default_ledger()
 HWM_SUFFIX = ".hwm"
 _WM_RE = re.compile(r"up to\s+(\d+)")
 
