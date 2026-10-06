@@ -1077,8 +1077,13 @@ class FeishuAdapter(BasePlatformAdapter):
         "yes",
         "on",
     }
-    REACTION_READ = (os.getenv("MIMIR_FEISHU_REACTION_READ") or "GLANCE").strip() or "GLANCE"
-    REACTION_DONE = (os.getenv("MIMIR_FEISHU_REACTION_DONE") or "DONE").strip() or "DONE"
+    # 2026-10-07 琬弦代刘哥裁定①: 支持**显式关停**（off/0/none/disable/-）；空串仍回退默认。
+    # 理由：每消息一条 GLANCE 噪声；已读语义已由 read-receipt 承担。
+    _REACTION_OFF = {"0", "off", "no", "none", "false", "disable", "disabled", "-"}
+    _raw_read = (os.getenv("MIMIR_FEISHU_REACTION_READ") or "GLANCE").strip()
+    REACTION_READ = "" if _raw_read.lower() in _REACTION_OFF else (_raw_read or "GLANCE")
+    _raw_done = (os.getenv("MIMIR_FEISHU_REACTION_DONE") or "DONE").strip()
+    REACTION_DONE = "" if _raw_done.lower() in _REACTION_OFF else (_raw_done or "DONE")
 
     async def _reaction_http(
         self,
@@ -1135,7 +1140,9 @@ class FeishuAdapter(BasePlatformAdapter):
 
     async def react_inbound(self, message_id: str) -> None:
         """收到消息立即打 👀（零 LLM·毫秒级）——失败只记日志，绝不阻断入站。"""
-        if not message_id:
+        if not message_id or not self.REACTION_READ:
+            if message_id and not self.REACTION_READ:
+                logger.debug("[%s] reaction read disabled (MIMIR_FEISHU_REACTION_READ)", self.name)
             return
         rid = await self._reaction_http(str(message_id), self.REACTION_READ)
         if rid:
@@ -1161,11 +1168,13 @@ class FeishuAdapter(BasePlatformAdapter):
             src = getattr(event, "source", None)
             mid = str(getattr(event, "message_id", "") or "")
             if mid:
-                rid = (self._msg_reactions.get(mid) or {}).get(self.REACTION_READ)
-                if rid:
-                    await self._reaction_http(mid, self.REACTION_READ, reaction_id=rid)
-                    self._msg_reactions.pop(mid, None)
-                await self._reaction_http(mid, self.REACTION_DONE)
+                if self.REACTION_READ:
+                    rid = (self._msg_reactions.get(mid) or {}).get(self.REACTION_READ)
+                    if rid:
+                        await self._reaction_http(mid, self.REACTION_READ, reaction_id=rid)
+                        self._msg_reactions.pop(mid, None)
+                if self.REACTION_DONE:
+                    await self._reaction_http(mid, self.REACTION_DONE)
             from gateway.work_status import get_broadcaster
             b = get_broadcaster()
             if b.enabled_for(Platform.FEISHU) and src is not None and getattr(src, "chat_id", ""):
