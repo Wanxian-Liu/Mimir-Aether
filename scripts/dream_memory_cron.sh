@@ -42,10 +42,14 @@ if [ -d ".venv" ]; then
     source .venv/bin/activate
 fi
 
+# 3 (2026-10-06): 走 cli_main ⇒ 退出码即结论（失败 rc=1）。
+# 旧版直调 sync_run_dream_cycle 只打印报告、永远 rc=0 ⇒ gateway 侧
+# cron_mixin.py:930 判的是 rc ⇒ 永远记 ok ⇒ 失败静默（违规矩 4）。
+# 失败时 stderr 带 DREAM-DISTILL-FAILED 标记，gateway 把 stdout+stderr
+# 一起投递给 job 的 deliver 目标（feishu）⇒ 真有人被告知。
 python3 -c "
 import sys
 sys.path.insert(0, '.')
-from agent.dream_memory import sync_run_dream_cycle
-result = sync_run_dream_cycle(dry_run=False)
-print(result)
+from agent.dream_memory import cli_main
+sys.exit(cli_main())
 "

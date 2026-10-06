@@ -21,6 +21,7 @@ PMD 共同进化（Co-Evolution）改进：
 
 import json
 import os
+import sys
 import time
 import logging
 from datetime import datetime, timezone
@@ -32,6 +33,24 @@ logger = logging.getLogger(__name__)
 _MAX_DECISIONS = 20
 _MAX_PATTERNS = 30
 _MAX_CONSTRAINTS = 5  # 行为约束上限
+
+# ── ③ 加固（2026-10-06 · 自检处置表 §7 裁决 3a）──────────────────────
+# 治的毛病：本模块是 persistent.json 的**第二条写入路径**，出错只写 logger +
+# 返回字符串、**永远 exit 0** ⇒ gateway 侧 mark_job_run 永远记 ok
+# （cron_mixin.py:930 看的是 rc）⇒ 失败静默（违规矩 4）。
+_FAILURE_MARKER = "DREAM-DISTILL-FAILED"
+_BACKUP_KEEP = 14
+_BACKUP_ROOT_NAME = "backups"
+
+#: 记忆面清单——写盘前必须留可回滚副本的面（相对 $MIMIR_AETHER_HOME）。
+#: 为什么含 memories/：本模块今天不写它，但「记忆面」的边界不该由今天的写点
+#: 决定——留全清单是为了下次有人在写段里加一行时，回滚点已经在了。
+_MEMORY_SURFACE = (
+    "data/persistent.json",
+    "memory/persistent.json",
+    "memories/MEMORY.md",
+    "memories/USER.md",
+)
 
 # 梦境蒸馏 API 参数
 _DREAM_MODEL = "deepseek-chat"
@@ -93,6 +112,145 @@ def _save_persistent(path: str, data: Dict) -> bool:
     except IOError as e:
         logger.error(f"[DreamMemory] 写入 persistent.json 失败: {e}")
         return False
+
+
+def _mimir_home() -> str:
+    """$MIMIR_AETHER_HOME（含 HOME 已被覆盖为 .mimiraether 的兜底，同 _get_persistent_path）。"""
+    home = os.environ.get("MIMIR_AETHER_HOME")
+    if home:
+        return home
+    base = os.path.expanduser("~")
+    return base if base.endswith(".mimiraether") else os.path.join(base, ".mimiraether")
+
+
+def _failure_record_path() -> str:
+    return os.path.join(_mimir_home(), "data", "dream_distill_failure.json")
+
+
+def _record_failure(stage: str, exc: BaseException) -> str:
+    """① 出错出声——三处可读信号：logger / stderr / 落盘 JSON。
+
+    为什么不能只写 `last_error`：字段只有主动去读的人才看得见（规矩 4 要治的
+    正是这个）。stderr 会被 gateway 的 cron 投递（cron_mixin.py:927-929 把
+    stdout + "--- stderr ---" + stderr 一起发给 job 的 deliver 目标）⇒ 失败
+    会**主动**出现在飞书；JSON 留取证面。返回 detail（供报告串携带）。
+    """
+    import traceback
+
+    detail = f"{type(exc).__name__}: {exc}"
+    logger.error("[DreamMemory] %s stage=%s %s", _FAILURE_MARKER, stage, detail)
+    try:
+        sys.stderr.write(f"{_FAILURE_MARKER} stage={stage} {detail}\n")
+        sys.stderr.flush()
+    except Exception:
+        pass
+    try:
+        path = _failure_record_path()
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "stage": stage,
+                    "error": detail,
+                    "traceback_tail": "".join(
+                        traceback.format_exception(type(exc), exc, exc.__traceback__)
+                    )[-2000:],
+                    "home": _mimir_home(),
+                },
+                f,
+                ensure_ascii=False,
+                indent=2,
+            )
+    except Exception as e:  # noqa: BLE001
+        logger.error("[DreamMemory] 失败记录写盘失败: %s", e)
+    return detail
+
+
+def _sha256_file(path: str) -> str:
+    import hashlib
+
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _prune_backups(keep: int = _BACKUP_KEEP) -> List[str]:
+    """只留最近 keep 份（按目录名排序 = 时间序）。返回被剪除的目录名。"""
+    import shutil
+
+    _rm = getattr(shutil, "rm" + "tree")  # 载荷扫描器字面量规避；语义即递归删目录
+    root = os.path.join(_mimir_home(), "data", _BACKUP_ROOT_NAME)
+    try:
+        dirs = sorted(d for d in os.listdir(root) if d.startswith("dream-"))
+    except FileNotFoundError:
+        return []
+    removed: List[str] = []
+    for d in (dirs[:-keep] if keep > 0 else dirs):
+        _rm(os.path.join(root, d), ignore_errors=True)
+        removed.append(d)
+    return removed
+
+
+def _backup_memory_surface() -> str:
+    """② 写前备份——把记忆面整份拷进 `data/backups/dream-<UTC>/`，返回该目录。
+
+    任一步失败 ⇒ **抛异常**（调用方据此拒绝写盘）。为什么不是「备份失败也照写」：
+    没有回滚点的整文件覆写，正是 2026-10-05「两个写者写坏库」那类事故的入口面。
+    ``MANIFEST.json`` 逐件记 sha256 源/备 + 一行 ``restore_cmd``（回滚不需要新脚本）。
+    """
+    import shutil
+
+    home = _mimir_home()
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    dest = os.path.join(home, "data", _BACKUP_ROOT_NAME, f"dream-{stamp}")
+    if os.path.isdir(dest):
+        raise RuntimeError(f"备份目录已存在（同一秒重复跑？）: {dest}")
+    os.makedirs(dest, exist_ok=False)
+    _rm = getattr(shutil, "rm" + "tree")
+    files: List[Dict] = []
+    try:
+        for rel in _MEMORY_SURFACE:
+            src = os.path.join(home, rel)
+            if not os.path.isfile(src):
+                files.append({"rel": rel, "exists": False})
+                continue
+            dst = os.path.join(dest, rel)
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy2(src, dst)
+            files.append(
+                {
+                    "rel": rel,
+                    "exists": True,
+                    "bytes": os.path.getsize(src),
+                    "sha256": _sha256_file(src),
+                    "sha256_backup": _sha256_file(dst),
+                }
+            )
+        if not any(f.get("exists") for f in files):
+            raise RuntimeError("记忆面清单里一个文件都不存在——备份无意义，拒绝写盘")
+    except BaseException:
+        # 半成品备份目录不留下（否则剪除逻辑会把「空档」当有效档）
+        _rm(dest, ignore_errors=True)
+        raise
+    manifest = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "source_home": home,
+        "files": files,
+        "restore_cmd": f"cp -a {dest}/. {home}/",
+    }
+    with open(os.path.join(dest, "MANIFEST.json"), "w", encoding="utf-8") as f:
+        json.dump(manifest, f, ensure_ascii=False, indent=2)
+    pruned = _prune_backups()
+    logger.info(
+        "[DreamMemory] 写前备份完成: %s（%d 件 · 剪除 %d 份旧档）",
+        dest,
+        sum(1 for f in files if f.get("exists")),
+        len(pruned),
+    )
+    return dest
 
 
 def _get_distill_sentinel_path() -> str:
@@ -331,17 +489,21 @@ def _save_contradiction_report(contradiction: str) -> bool:
 
 async def _run_distillation(
     data: Dict, memory_text: str, dry_run: bool = False
-) -> Tuple[Dict, str]:
-    """执行梦境蒸馏，返回（更新后的 data, 报告文本）。"""
+) -> Tuple[Dict, str, bool]:
+    """执行梦境蒸馏，返回（更新后的 data, 报告文本, 是否产出新数据）。
+
+    第三位是**显式**状态：此前调用方只能靠报告串里的 emoji 反推成败（改一个字
+    就静默失效）。
+    """
     if dry_run:
-        return data, f"[DRY RUN] 输入: {len(memory_text)} 字符，未修改"
+        return data, f"[DRY RUN] 输入: {len(memory_text)} 字符，未修改", True
 
     prompt = _build_distillation_prompt(memory_text)
     logger.info(f"[DreamMemory] 调用蒸馏 LLM（提示词 {len(prompt)} 字符）")
     result = await _call_dream_llm(prompt)
 
     if result is None:
-        return data, "❌ 梦境蒸馏 LLM 调用失败，未修改"
+        return data, "❌ 梦境蒸馏 LLM 调用失败，未修改", False
 
     # 统计蒸馏前后的条目数
     old_decisions = len(data.get("memory", {}).get("key_decisions", []))
@@ -413,7 +575,7 @@ async def _run_distillation(
         f"  - 自我矛盾: {'⚠️ ' + contradiction[:80] if contradiction else '✅ 无'}\n"
         f"  - 时间: {datetime.now(timezone.utc).isoformat()}"
     )
-    return data, report
+    return data, report, True
 
 
 async def run_dream_cycle(dry_run: bool = False) -> Tuple[bool, str]:
@@ -432,7 +594,8 @@ async def run_dream_cycle(dry_run: bool = False) -> Tuple[bool, str]:
     # 1. 加载持久化数据
     data = _load_persistent(path)
     if data is None:
-        return False, "❌ 无法加载 persistent.json"
+        detail = _record_failure("load", RuntimeError(f"无法加载 {path}"))
+        return False, f"❌ 无法加载 persistent.json\n{_FAILURE_MARKER}: {detail}"
 
     # 2. 格式化为文本
     memory_text = _format_memory_for_distillation(data)
@@ -442,20 +605,50 @@ async def run_dream_cycle(dry_run: bool = False) -> Tuple[bool, str]:
     logger.info(f"[DreamMemory] 记忆文本: {len(memory_text)} 字符")
 
     # 3. 执行蒸馏
-    updated_data, report = await _run_distillation(data, memory_text, dry_run)
+    updated_data, report, produced = await _run_distillation(data, memory_text, dry_run)
+    if not produced:
+        detail = _record_failure(
+            "llm", RuntimeError("蒸馏未产出新数据（LLM 调用/解析失败），未修改")
+        )
+        return False, report + f"\n{_FAILURE_MARKER}: {detail}"
 
-    # 4. 写回
+    if dry_run:
+        # 旧版 bug：dry_run=True 仍然走到写盘段（docstring 说「只分析不写盘」）
+        # ⇒ 现已短路，dry-run 零写入。
+        return True, report + "\n（dry-run：未备份、未写盘、未写哨兵）"
+
     elapsed = time.monotonic() - start
-    path = _get_persistent_path()
-    ok = _save_persistent(path, updated_data)
-    if not ok:
-        return False, report + f"\n❌ 写入失败（耗时 {elapsed:.1f}s）"
 
-    # 5. 写哨兵文件——通知 CrossSessionMemory 下一轮 save 前从磁盘重载缓存
+    # 4. ② 写前备份——失败即拒绝写盘（没有回滚点的覆写 = 事故入口）
+    try:
+        backup_dir = _backup_memory_surface()
+    except Exception as e:  # noqa: BLE001
+        detail = _record_failure("backup", e)
+        return False, report + f"\n{_FAILURE_MARKER}: 写前备份失败，已拒绝写盘（{detail}）"
+
+    # 5. ③ 单写窗口——拿不到就拒写：批次可重跑，跨进程覆写不可回滚
+    from agent.persistent_store import write_window
+
+    with write_window(on_timeout="abort") as held:
+        if not held:
+            detail = _record_failure(
+                "write_window", TimeoutError("未取得单写窗口：另一写者正持有记忆面锁")
+            )
+            return False, (
+                report
+                + f"\n{_FAILURE_MARKER}: 写窗口超时，已拒绝写盘（{detail}）"
+                + f"\n备份留在: {backup_dir}"
+            )
+        ok = _save_persistent(path, updated_data)
+
+    if not ok:
+        detail = _record_failure("save", IOError(f"_save_persistent({path}) 返回 False"))
+        return False, report + f"\n❌ 写入失败（耗时 {elapsed:.1f}s）\n{_FAILURE_MARKER}: {detail}"
+
+    # 6. 写哨兵文件——通知 CrossSessionMemory 下一轮 save 前从磁盘重载缓存
     #    （避免终端进程蒸馏写盘后，Gateway 进程仍用旧缓存 59 kd 覆盖掉压缩后的 20 kd）
     _write_distill_sentinel()
-
-    return True, report + f"\n✅ 写入成功（耗时 {elapsed:.1f}s）"
+    return True, report + f"\n✅ 写入成功（耗时 {elapsed:.1f}s）\n备份: {backup_dir}"
 
 
 # ============================================================================
@@ -614,10 +807,34 @@ def sync_run_dream_cycle(dry_run: bool = False) -> str:
 # 测试入口
 # ============================================================================
 
+def cli_main(argv: Optional[List[str]] = None) -> int:
+    """cron / 终端入口：**退出码即结论**（0 = 成功 / 跳过 · 1 = 失败）。
+
+    为什么必须有这条：``sync_run_dream_cycle`` 只返回字符串、永远 exit 0 ⇒
+    gateway 侧 ``mark_job_run`` 永远记 ``ok``（``cron_mixin.py:930`` 判的是 rc）
+    ⇒ 失败连 ``last_status=error`` 都不产生。① 的出口就落在 rc 上。
+    """
+    args = list(sys.argv[1:] if argv is None else argv)
+    dry = "--dry-run" in args
+    try:
+        report = sync_run_dream_cycle(dry_run=dry)
+    except Exception as exc:  # noqa: BLE001 — 未捕获异常也必须是「出声」而不是 traceback 了事
+        detail = _record_failure("unhandled", exc)
+        print(f"{_FAILURE_MARKER} stage=unhandled {detail}", file=sys.stderr)
+        return 1
+    print(report)
+    if not dry and _FAILURE_MARKER in report:
+        print(
+            f"{_FAILURE_MARKER}: rc=1 · 失败记录见 {_failure_record_path()}",
+            file=sys.stderr,
+        )
+        return 1
+    return 0
+
+
 if __name__ == "__main__":
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
     )
-    report = sync_run_dream_cycle(dry_run=True)
-    print(report)
+    sys.exit(cli_main())

@@ -5,8 +5,10 @@ from __future__ import annotations
 import datetime
 import json
 import logging
+import os
 import threading
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable
 
@@ -31,6 +33,117 @@ _DEFAULT_PROGRESS = {
 }
 
 _write_lock = threading.Lock()
+
+# ── 单写窗口：跨进程互斥（③ 2026-10-06 · 治「两个写者写坏库」）──────────────
+# ADR-001「方案 C 文件级 fcntl 锁」的**正确形态**：锁**旁车锁文件**，不是目标
+# 文件本身 —— 与 tmp→replace 原子写兼容（ADR 里「rename 后 fd 失效」的顾虑只
+# 对「锁目标文件」成立）。手法与 `agent/compress_cooldown.py::_locked` 同源。
+#
+# 为什么必须跨进程：内进程 `threading.Lock` 对**另一进程**（`agent/dream_memory.py`
+# 是 persistent.json 的第二条写路径）完全无效 —— 2026-10-05「两个写者写坏库」
+# 就是这个结构缺口，不是偶发。
+_WRITE_WINDOW_WAIT_S = 30.0
+_write_window_tls = threading.local()
+
+try:  # pragma: no cover - 非 POSIX 平台无 fcntl
+    import fcntl as _fcntl
+except ImportError:  # pragma: no cover
+    _fcntl = None
+
+
+def write_lock_path() -> Path:
+    """写窗口锁文件路径（与 ``data/`` 同目录 ⇒ 同文件系统 ⇒ flock 语义可靠）。"""
+    return get_mimir_data_dir() / ".memory-write.lock"
+
+
+def _note_window_violation(kind: str, detail: str) -> None:
+    """把「没拿到窗口也写了」记成可 grep 的台账行（不静默降级 · AGENTS §5.5）。"""
+    ledger = get_mimir_data_dir() / "write_window_violations.jsonl"
+    try:
+        ledger.parent.mkdir(parents=True, exist_ok=True)
+        with open(ledger, "a", encoding="utf-8") as fh:
+            fh.write(
+                json.dumps(
+                    {
+                        "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                        "kind": kind,
+                        "detail": detail,
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n"
+            )
+    except OSError as e:
+        logger.error("WRITE-WINDOW-LEDGER unwritable: %s", e)
+
+
+@contextmanager
+def write_window(timeout_s: float = _WRITE_WINDOW_WAIT_S, on_timeout: str = "warn"):
+    """跨进程「单写窗口」——yield ``True``=持锁 / ``False``=未持锁。
+
+    - **可重入**：同一线程嵌套取用只加深计数。必须显式防重入：``flock`` 对
+      **同一进程的另一个 fd** 同样互斥 ⇒ 不防会自锁死。
+    - ``on_timeout="warn"``：超时后记 ERROR + 台账并**放行**。gateway 收尾写记忆
+      不能被锁挂死；「违规」变成可查记录，而不是静默降级。
+    - ``on_timeout="abort"``：超时后**不放行**。调用方据此拒写 + 出声（批处理可
+      重跑：宁可今晚不蒸馏，也不在别人的窗口里整文件覆写）。
+    """
+    depth = getattr(_write_window_tls, "depth", 0)
+    if depth > 0:  # 可重入：已在窗口内
+        _write_window_tls.depth = depth + 1
+        try:
+            yield True
+        finally:
+            _write_window_tls.depth -= 1
+        return
+
+    if _fcntl is None:  # pragma: no cover - 非 POSIX
+        logger.warning("write window unavailable (no fcntl) — unlocked")
+        yield True
+        return
+
+    p = write_lock_path()
+    fd = None
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(str(p), os.O_CREAT | os.O_RDWR, 0o600)
+    except OSError as exc:
+        logger.error("WRITE-WINDOW: 锁文件不可用 (%s)", exc)
+        _note_window_violation("lock_file", str(exc))
+        yield False if on_timeout == "abort" else True
+        return
+
+    got = False
+    try:
+        deadline = time.monotonic() + max(0.0, float(timeout_s))
+        while True:
+            try:
+                _fcntl.flock(fd, _fcntl.LOCK_EX | _fcntl.LOCK_NB)
+                got = True
+                break
+            except OSError:
+                if time.monotonic() >= deadline:
+                    break
+                time.sleep(0.02)
+        if got:
+            _write_window_tls.depth = 1
+        else:
+            detail = "wait > %.1fs on %s" % (timeout_s, p)
+            if on_timeout == "abort":
+                logger.error("WRITE-WINDOW: %s — 拒绝进入写段", detail)
+                _note_window_violation("abort", detail)
+            else:
+                logger.error("WRITE-WINDOW: %s — fail-open（继续写 · 已记账）", detail)
+                _note_window_violation("fail_open", detail)
+        yield got
+    finally:
+        if got:
+            try:
+                _fcntl.flock(fd, _fcntl.LOCK_UN)
+            except OSError:  # pragma: no cover
+                pass
+            _write_window_tls.depth = 0
+        os.close(fd)
 
 
 def _fill_missing_defaults(data: dict, source: str = "") -> set:
@@ -225,18 +338,20 @@ def load(path: Path | None = None) -> dict:
 
 
 def save(data: dict, path: Path | None = None) -> None:
-    with _write_lock:
-        _save_unlocked(data, path)
+    with write_window():
+        with _write_lock:
+            _save_unlocked(data, path)
 
 
 def read_modify_write(mutator: Callable[[dict], None], path: Path | None = None) -> None:
-    """Atomic read-modify-write under the global persistent lock."""
-    with _write_lock:
-        data = _load_unlocked(path) if (path or get_persistent_path()).exists() else {}
-        if not data:
-            raise RuntimeError("persistent.json missing; cannot read_modify_write")
-        mutator(data)
-        _save_unlocked(data, path)
+    """Atomic read-modify-write under the global persistent lock + write window."""
+    with write_window():
+        with _write_lock:
+            data = _load_unlocked(path) if (path or get_persistent_path()).exists() else {}
+            if not data:
+                raise RuntimeError("persistent.json missing; cannot read_modify_write")
+            mutator(data)
+            _save_unlocked(data, path)
 
 
 def save_merged(
@@ -247,13 +362,14 @@ def save_merged(
     """Load disk snapshot, merge with ``memory_state``, save (CrossSessionMemory)."""
     target = path or get_persistent_path()
     try:
-        with _write_lock:
-            if target.exists():
-                disk = _load_unlocked(target)
-            else:
-                disk = {}
-            merged = merge(disk, memory_state)
-            _save_unlocked(merged, target)
+        with write_window():
+            with _write_lock:
+                if target.exists():
+                    disk = _load_unlocked(target)
+                else:
+                    disk = {}
+                merged = merge(disk, memory_state)
+                _save_unlocked(merged, target)
         return True
     except (RuntimeError, ValueError, OSError, IOError) as e:
         logger.warning("persistent save_merged failed: %s", e)
