@@ -260,6 +260,28 @@ for _attempt in $(seq 1 $((RETRY_COUNT > 0 ? RETRY_COUNT + 1 : 1))); do
       echo "*** Gate1 cron 记账卫生闸 FAILED: 见上方 [cron-hygiene] FAIL 行 ***"
       exit 1
     fi
+
+    # --- F2（2026-10-07 Mimir · 全清任务清单 #2 / 第 8 单）: run_health 告警读口 -------
+    # 为什么：agent/run_health.py 越线时 append data/ops/run_health_alerts.jsonl，但
+    #   **无外部消费者** ⇒ 「只写字段、无人被告知」：告警躺在 jsonl 里，发现它必须人工开文件。
+    #   （接入前读数：grep -rln run_health_alerts --include=*.py . 只命中生产端 + 其单测。）
+    # 做法：scripts/check_run_health_alerts.py 作独立读口，此处以 --gate 接进 Gate1。
+    #   **--gate 的 rc 语义**：只对「出声通路故障」（台账缺失 / 不可读 / 坏行）非 0；
+    #   「有告警」照常打印在本闸输出里（跨通道出声）但不判死 —— 否则一条告警会让
+    #   本闸永久红（红久了就被绕过，等于没闸）。
+    #   非 Mimir 主机（无 ~/.mimiraether）⇒ 脚本自查为 SKIP(0)，不假红。
+    #   台账缺失再三分辨（既防假红也防假绿）：SKIP / NO_ALERTS_YET / MISSING。
+    # 负控：--selftest（5 坏病例 + 4 孪生对照 + 1 非静默），再加
+    #   tests/scripts/test_check_run_health_alerts.py（16 例，含 gate 模式两臂）。
+    # 守卫式 if ! …; then exit 1; fi（防 `set +e` 吞码 —— 与上一条同族）。
+    if ! "${MIMIR_TIER0_PYTHON:-python3}" scripts/check_run_health_alerts.py --selftest; then
+      echo "*** Gate1 告警读口自证 FAILED（坏病例/孪生对照不成立，闸本身不可信）***"
+      exit 1
+    fi
+    if ! "${MIMIR_TIER0_PYTHON:-python3}" scripts/check_run_health_alerts.py --gate; then
+      echo "*** Gate1 告警读口 FAILED: 见上方 RUN_HEALTH_ALERTS 行（出声通路故障）***"
+      exit 1
+    fi
     if [ "$INCREMENTAL" = true ]; then
       CHANGED_TARGETS=()
       for f in "${TARGET_FILES[@]}"; do
