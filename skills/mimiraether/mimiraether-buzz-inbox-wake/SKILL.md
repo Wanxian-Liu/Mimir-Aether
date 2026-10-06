@@ -726,3 +726,20 @@ python3 scripts/append_inbox_processed.py -m "…" --up-to <游标> --dry-run   
 3. **`agent.log` 双前缀并行**：`tail -6 logs/agent.log` 见两个 session 前缀（如 `7ec610c1` / `503784f0`）同时在 `turn N`。
 ⇒ 满足即：**零改码** + 只写「收件核验与去重」回执（含 §8.4 两字段）+ 补账，**不抢实施面**。
 ⇒ 反例代价：并发同题双写 = 同文件双改 / 双 commit / 双回执（技能 §0 已记「重复实施 = 双 pin/双重启/双落段，成本最高」）。
+
+### 2.18 B5「任务浅化」已接进自动唤醒派单（2026-10-06 · 刘哥令「B5 纳入执行」）
+
+**背景**：静默白跑方案 §7 差分结论——死的是**深任务型 run**（任务型死率 21–29%，对话型 0/23）⇒ 治本不是加预算，而是「别让任何一轮跑那么深」。B3 已落「轮次 80% 未落盘强制半段 / >60 轮交棒」，但那是**轮次到达即触发（被动）**；B5 要求**派单时就声明段界（主动）**。
+
+**落点（一处，复用现有 watcher，不新建机制）**：`~/.mimiraether/scripts/buzz-inbox-watcher.sh` 的 `/v1/runs` 派发正文加两处：
+1. 正文前缀 `【B5段界】本段一段一任务·每段≤60 步：到 60 步或轮次 80% 仍未落盘 ⇒ 先落半段（骨架+已确证+未闭项清单）再交棒，不得跑到轮次顶才产出。`
+2. `metadata` 加机读字段 `"segment_policy": "B5: one-task-per-segment,<=60 turns,flush-half-segment"`（供后续按 run 统计段长命中率——B5 的可证伪预测：api/任务型死率 21–29% → <10%）。
+
+**可跑判据（复现用）**：
+- `grep -c 'B5段界' ~/.mimiraether/scripts/buzz-inbox-watcher.sh` ⇒ 期望 ≥1（实测 1）
+- `bash -n ~/.mimiraether/scripts/buzz-inbox-watcher.sh; echo $?` ⇒ 期望 0（实测 0）
+- `grep -c 'segment_policy' ~/.mimiraether/scripts/buzz-inbox-watcher.sh` ⇒ 期望 ≥1（实测 1）
+
+**版本化**：该脚本原被 `~/.mimiraether/.gitignore` 的 `scripts/*` 排除 ⇒ 按本仓既有惯例（逐件 `!scripts/<file>` 白名单）加 `!scripts/buzz-inbox-watcher.sh` 一行后纳入 git，**首次进版本控制**。
+
+**边界**：cron 派发的任务型 run 段界**尚未接**（cron 的 prompt 由 jobs.json 逐条持有，属另一落点）——本轮只接自动唤醒通道；cron 侧排期 P2（判据 `grep -c 'B5段界' ~/.mimiraether/cron/jobs.json` ⇒ 期望 ≥1，现状 0）。
