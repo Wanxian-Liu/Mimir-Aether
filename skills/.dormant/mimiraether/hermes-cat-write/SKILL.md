@@ -116,6 +116,20 @@ open(REPO, "w", encoding="utf-8").write(NEW)       # 4. 写回全量
 3. 再按上面四步重做（写前先把 md5 打印出来留痕）。
 > 纪律：覆写前**先打印** `len(bytes)` + `md5`；写完**再打印一次**；两次数量级不符立即 git 还原。
 
+## ⚠️ `execute_code` 大载荷也会被截断 —— 走「临时块 + 拼接回写」（2026-10-07 实测）
+
+**症状**：`execute_code` 的 `code` 参数超过 ≈2.5 KB 时，**入参本身**被截断 ⇒ 报 `Invalid JSON: Unterminated string starting at: line 1 column 10`（写 `write_file` 的 ≥2–4 KB 报 Invalid JSON 是**同族**病）。
+
+**安全形态（本次修 `agent/dream_memory.py` 用此形态一次通过）**：
+
+```
+① write_file → /home/rayliu/.mimiraether/tmp/<name>_a.py   # 新代码块 ≤3KB，可多块（_b1 / _b2）
+② execute_code（小载荷）：读块 → 全量读目标 → assert 锚唯一 → 拼接 → 整串写回 → py_compile 验
+```
+
+- 仓内 `.py` 只能用 `execute_code` 写回（`~/src/MimirAether` 对 `write_file`/`patch` 只读）⇒ 先落 `tmp/` 再拼接，**别**把新代码直接塞进 `execute_code` 字符串。
+- 拼接处用 `src.index("def 头")` / `src.index("下一个 def")` 切片替换整函数，比逐行锚更抗漂移；替换后打印 `bytes 旧 → 新` + `py_compile` + `grep -c` 计数当读数。
+
 ## 验证清单
 
 写入后建议验证：
