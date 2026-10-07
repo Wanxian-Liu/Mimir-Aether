@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import os
@@ -136,6 +137,224 @@ def _build_web_ui(web_dir: Path, *, fatal: bool = False) -> bool:
     print("  ✓ Web UI built")
     return True
 
+# =========================================================================
+# Q11 · 覆盖前漂移闸（与 Q9 tools/skills_sync.py 同法）
+# -------------------------------------------------------------------------
+# 根因：替换 skills/ scripts/ config/ 等目录前整目录 rmtree + copytree，
+# 全文件无漂移检测、无备份、无声 ⇒ 部署侧本地改动在下次 mimir update 时
+# 被静默抹掉，事后不可追。
+# 治法：① 覆盖前比对「部署侧现状」vs「上次更新后记录的部署侧摘要」，不等
+# 即判本地改过 ⇒ 先备份 + 出声；② 源侧仍是唯一权威（不阻塞、不双向合并）；
+# ③ 部署根落只读政策，把「改动回源」写死。
+# =========================================================================
+
+#: 部署侧只读政策文件名（放**部署根目录**：不在任何被覆盖的目录内，
+#: 既不会被 copytree 抹掉，也不污染「部署侧内容摘要」这一漂移判据）
+UPDATE_READONLY_README = "README-只读.md"
+
+#: 漂移告警前缀（用转义序列写，避免源码里出现变体选择符）
+UPDATE_DRIFT_WARN_PREFIX = "\u26a0\ufe0f 部署侧漂移:"
+
+UPDATE_READONLY_TEXT = """# 本目录只读（由 update 覆盖）
+
+**本目录由 `mimir update`（`mimir_cli/update_command.py`）从源侧整目录替换，
+任何本地改动都会在下次更新时被覆盖。**
+
+- 唯一真源（源侧）：`~/src/MimirAether/<item>/`
+- 改动一律回源侧；**不要在本目录（部署侧）做本地修复** —— 会被静默覆盖。
+
+更新器覆盖每个目录前会比对「部署侧当前内容摘要」与「上次更新时记下的部署侧摘要」，
+不等即判定**部署侧被本地改过**，此时它会：
+
+1. 先把被改过的目录备份到 `<cache_dir>/drift-backup/<item>-<摘要前8>/`
+2. 打一行漂移告警（含备份路径）
+3. **仍按源侧内容覆盖**（源侧是唯一权威；不做双向合并、不阻塞更新）
+"""
+
+#: 漂移判据要忽略的易变产物：__pycache__ / *.pyc 等每次运行都会变，
+#: 若计入摘要则**每次更新都假漂移** —— 闸一旦恒响就等于没有闸。
+_DRIFT_IGNORE_DIRS = frozenset({
+    "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache",
+    "node_modules", ".git", "venv", ".venv", ".worktrees",
+})
+_DRIFT_IGNORE_SUFFIXES = (".pyc", ".pyo")
+
+
+def _drift_ignore_patterns():
+    """copytree 的 ignore 回调（备份时跳过易变产物，与摘要同尺）。"""
+
+    def _ignore(dirpath, names):
+        return [
+            n for n in names
+            if n in _DRIFT_IGNORE_DIRS or n.endswith(_DRIFT_IGNORE_SUFFIXES)
+        ]
+
+    return _ignore
+
+
+def _dir_digest(d: Path) -> str:
+    """目录内容摘要（相对路径 + 每文件 sha256 汇总）——Q9 同尺。
+
+    用**内容摘要**而非 mtime：mtime 在 cp / 解压 / git checkout 下会漂移，
+    会造成假阳性重拷（本事故同类）。易变产物按上表剔除。
+    """
+    if not d.exists():
+        return ""
+    h = hashlib.sha256()
+    for f in sorted(p for p in d.rglob("*") if p.is_file()):
+        parts = f.relative_to(d).parts
+        if any(p in _DRIFT_IGNORE_DIRS for p in parts[:-1]):
+            continue
+        if f.name.endswith(_DRIFT_IGNORE_SUFFIXES):
+            continue
+        rel = str(f.relative_to(d)).replace(os.sep, "/")
+        h.update(rel.encode("utf-8"))
+        h.update(b"\x00")
+        h.update(hashlib.sha256(f.read_bytes()).digest())
+        h.update(b"\x00")
+    return h.hexdigest()
+
+
+def _update_drift_cache_path() -> Path:
+    """漂移基线缓存路径（与 Q9 同域：数据根 cache 下）。"""
+    try:
+        from mimir_constants import get_mimir_data_dir
+        base = Path(get_mimir_data_dir())
+    except Exception:
+        base = Path(os.path.expanduser("~/.mimiraether"))
+    return base / "cache" / "update_sync_baseline.json"
+
+
+def _load_update_baseline() -> Dict[str, str]:
+    """读漂移基线（item -> 上次更新后的部署侧内容摘要）。
+
+    缺文件 / 坏 JSON / 旧形态 ⇒ 空表 ⇒ 不判漂移（首轮只建基线，防假阳性）。
+    """
+    p = _update_drift_cache_path()
+    try:
+        if p.exists():
+            data = json.loads(p.read_text(encoding="utf-8"))
+            raw = data.get("target", {})
+            return dict(raw) if isinstance(raw, dict) else {}
+    except (OSError, ValueError):
+        pass
+    return {}
+
+
+def _save_update_baseline(baseline: Dict[str, str]) -> None:
+    """回写漂移基线（只更新本次覆盖过的 item，不吞别的键）。"""
+    p = _update_drift_cache_path()
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        data: Dict[str, Any] = {}
+        if p.exists():
+            try:
+                loaded = json.loads(p.read_text(encoding="utf-8"))
+                if isinstance(loaded, dict):
+                    data = loaded
+            except (OSError, ValueError):
+                data = {}
+        if not isinstance(data.get("target"), dict):
+            data["target"] = {}
+        data["target"].update(baseline)
+        tmp = p.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        tmp.replace(p)
+    except OSError:
+        pass
+
+
+def _detect_deploy_drift(item: str, target: Path, baseline: Dict[str, str]) -> Optional[Path]:
+    """覆盖前漂移闸：部署侧当前内容 vs **上次更新后记录的部署侧摘要**。
+
+    为什么比的是「部署侧基线」而不是「源侧摘要」：源侧一旦有新版本，部署侧
+    与源侧就必然不同 —— 拿源侧摘要当基线会**每次更新都判漂移**（恒响 = 无闸）。
+    部署侧基线答的才是本题：**有人改过部署侧吗**。
+
+    判据（Q11 治本，与 Q9 同法）：不等 ⇒ 先备份 + 出声，**仍按源侧覆盖**
+    （源侧是唯一权威；不阻塞、不双向合并）。
+
+    返回备份目录（有漂移时）；无漂移 / 无基线 / 目标不存在 返回 ``None``。
+    """
+    if not target.exists():
+        return None                      # 首次部署：无旧内容可丢
+    recorded = baseline.get(item)
+    if not recorded:
+        return None                      # 无基线：不误报（旧部署首轮）
+    current = _dir_digest(target)
+    if not current or current == recorded:
+        return None                      # 部署侧未被改过：零出声零备份
+
+    backup_root = _update_drift_cache_path().parent / "drift-backup"
+    backup = backup_root / ("%s-%s" % (item, current[:8]))
+    if backup.exists():
+        shutil.rmtree(backup)            # 同摘要重跑：以本次部署侧现状为准
+    backup_root.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(target, backup, ignore=_drift_ignore_patterns())
+    logger.warning(UPDATE_DRIFT_WARN_PREFIX + " %s（已备份至 %s）", item, backup)
+    return backup
+
+
+def _ensure_update_readonly_policy(deploy_root: Path) -> Path:
+    """在部署**根目录**写只读政策 ``README-只读.md``（幂等）。
+
+    位置取部署根而非每个被覆盖目录：本闸判据是「部署侧内容 vs 基线」，
+    根目录文件不在任何被覆盖目录内 ⇒ 既不会被 copytree 抹掉，
+    也不会污染漂移判据（避免每轮假漂移）。
+    """
+    notice = deploy_root / UPDATE_READONLY_README
+    try:
+        if not notice.exists() or notice.read_text(encoding="utf-8") != UPDATE_READONLY_TEXT:
+            notice.write_text(UPDATE_READONLY_TEXT, encoding="utf-8")
+    except OSError:
+        pass
+    return notice
+
+
+def _apply_zip_overwrite(extracted: str, project_root: Path):
+    """把解压出来的顶层项覆盖到部署根 —— Q11 唯一动刀处。
+
+    原先此处对每个目录直接 ``rmtree`` + ``copytree``：无漂移检测、无备份、
+    无声 ⇒ 部署侧本地改动静默消失（与 Q9 ``tools/skills_sync.py`` 同族）。
+    现在每个目录覆盖前过 :func:`_detect_deploy_drift`（有本地改动 ⇒ 先备份 +
+    出声告警），覆盖后回记「部署侧内容摘要」基线（下次覆盖前拿它比对）。
+
+    源侧仍是唯一权威：**不阻塞更新、不双向合并**（与 Q9 同语义）。
+    返回 ``(update_count, drift_items)`` —— 读数可断言、可留痕。
+    """
+    # Copy updated files over existing installation, preserving venv/node_modules/.git
+    preserve = {'venv', 'node_modules', '.git', '.env'}
+    drift_baseline = _load_update_baseline()
+    new_baseline: Dict[str, str] = {}
+    drift_items: List[str] = []
+    update_count = 0
+    for item in os.listdir(extracted):
+        if item in preserve:
+            continue
+        src = os.path.join(extracted, item)
+        dst = os.path.join(str(project_root), item)
+        if os.path.isdir(src):
+            # Q11：覆盖前比对部署侧现状 vs 基线；有本地改动 ⇒ 先备份 + 出声
+            if _detect_deploy_drift(item, Path(dst), drift_baseline) is not None:
+                drift_items.append(item)
+            if os.path.exists(dst):
+                shutil.rmtree(dst)
+            shutil.copytree(src, dst)
+            # 覆盖后回记基线（下次覆盖前拿它与部署侧现状比对）
+            digest = _dir_digest(Path(dst))
+            if digest:
+                new_baseline[item] = digest
+        else:
+            shutil.copy2(src, dst)
+        update_count += 1
+
+    _save_update_baseline(new_baseline)
+    _ensure_update_readonly_policy(project_root)
+    return update_count, drift_items
+
+
+
+
 def _update_via_zip(args):
     """Update MimirAether by downloading a ZIP archive.
     
@@ -176,23 +395,15 @@ def _update_via_zip(args):
                     extracted = candidate
                     break
         
-        # Copy updated files over existing installation, preserving venv/node_modules/.git
-        preserve = {'venv', 'node_modules', '.git', '.env'}
-        update_count = 0
-        for item in os.listdir(extracted):
-            if item in preserve:
-                continue
-            src = os.path.join(extracted, item)
-            dst = os.path.join(str(PROJECT_ROOT), item)
-            if os.path.isdir(src):
-                if os.path.exists(dst):
-                    shutil.rmtree(dst)
-                shutil.copytree(src, dst)
-            else:
-                shutil.copy2(src, dst)
-            update_count += 1
+        # Q11 覆盖前漂移闸（唯一动刀处，见 _apply_zip_overwrite）：
+        # 原为无检测 rmtree + copytree —— 部署侧本地改动会被静默抹掉
+        update_count, drift_items = _apply_zip_overwrite(extracted, PROJECT_ROOT)
         
         print(f"✓ Updated {update_count} items from ZIP")
+        if drift_items:
+            print("  " + UPDATE_DRIFT_WARN_PREFIX
+                  + " %d 个部署侧目录有本地改动（已备份后再覆盖）: %s"
+                  % (len(drift_items), ", ".join(drift_items)))
         
         # Cleanup
         shutil.rmtree(tmp_dir, ignore_errors=True)
