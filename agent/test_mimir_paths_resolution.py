@@ -33,10 +33,25 @@ def test_get_mimir_home_accepts_mimiraether_home_alias(
     assert mimir_constants.get_mimir_home() == tmp_path
 
 
-def test_get_mimir_home_falls_back_to_hermes_home(
+def test_get_mimir_home_ignores_hermes_home(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, clear_mimir_home_env: None
 ) -> None:
+    """I-1 定版：HERMES_HOME 是 **Hermes 自家**的键 —— 绝不作为 Mimir 的家。
+
+    旧断言（要求回落到 HERMES_HOME）停在改造前的行为上；实现现为
+    「忽略 + stderr 出声」（见 mimir_constants._warn_ignored_hermes_home），
+    故本用例随 I-1 定版翻转。新家 = 默认运行数据根 ~/.mimiraether。
+
+    同探针正控（防「忽略」二字其实是探针整体失灵 = 恒负）：
+    MIMIR_AETHER_HOME 一设必须被采纳。
+    """
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    # 负向：Hermes 家的键不得成为 Mimir 的家
+    assert mimir_constants.get_mimir_home() != tmp_path
+    assert mimir_constants.get_mimir_home() == Path.home() / ".mimiraether"
+
+    # 正控（同一次调用面）：自家键一设即被采纳 —— 证明探针有分辨力
+    monkeypatch.setenv("MIMIR_AETHER_HOME", str(tmp_path))
     assert mimir_constants.get_mimir_home() == tmp_path
 
 

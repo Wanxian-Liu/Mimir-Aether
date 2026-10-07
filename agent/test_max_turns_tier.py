@@ -175,7 +175,7 @@ def test_short_task_not_truncated() -> None:
         print(f"[regression] short tier: turns_used={result.turns_used}, called={called} — 未被 20 截断 ✅")
     finally:
         if _saved_enforce is None:
-            E.pop("MIMIR_PRODUCTION_ENFORCE", None)
+            os.environ.pop("MIMIR_PRODUCTION_ENFORCE", None)
         else:
             os.environ["MIMIR_PRODUCTION_ENFORCE"] = _saved_enforce
 
