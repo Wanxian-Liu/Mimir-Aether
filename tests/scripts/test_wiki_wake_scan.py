@@ -66,7 +66,9 @@ def mod(tmp_path, monkeypatch):
     wiki.mkdir()
     monkeypatch.setenv("WIKI_WAKE_WIKI_DIR", str(wiki))
     monkeypatch.setenv("WIKI_WAKE_INBOX", str(tmp_path / "inbox.jsonl"))
-    monkeypatch.setenv("WIKI_WAKE_OFFSET", str(tmp_path / "inbox.offset"))
+    monkeypatch.setenv("WIKI_WAKE_OFFSET", str(tmp_path / "inbox.offset"))  # 退役：只展示
+    monkeypatch.setenv("WIKI_WAKE_DISPATCHED", str(tmp_path / "inbox.dispatched"))
+    monkeypatch.setenv("WIKI_WAKE_LEDGER", str(tmp_path / "inbox-processed.log"))
     monkeypatch.setenv("WIKI_WAKE_CLAIM_DIR", str(tmp_path / "claims"))
     monkeypatch.setenv("WIKI_WAKE_LOG", str(tmp_path / "wiki-waker.log"))
     monkeypatch.setenv("WIKI_WAKE_SUPPRESS_WINDOW_S", "900")
@@ -93,13 +95,29 @@ def _put_card(m, name: str, body: str = CARD) -> Path:
     return p
 
 
-def _put_inbox(m, pending: int, ts: float) -> None:
+def _set_watermarks(m, dispatched=None, ledger=None, note: str = "") -> None:
+    """写**活水位**：None ⇒ 删该源（用于"单源推进"/"量具不可用"臂）。"""
+    dp = m.dispatched_path()
+    if dispatched is None:
+        dp.unlink(missing_ok=True)
+    else:
+        dp.write_text(str(dispatched), encoding="utf-8")
+    lp = m.ledger_path()
+    if ledger is None:
+        lp.unlink(missing_ok=True)
+    else:
+        lp.write_text("2026-10-07 00:00:00 processed 1 lines (up to %d)%s\n" % (ledger, note),
+                      encoding="utf-8")
+
+
+def _put_inbox(m, pending: int, ts: float, watermark: int = 1) -> None:
+    """夹具：1 行旧行 + `pending` 行新行；活水位推到 `watermark`（前 watermark 行视为已消费）。"""
     inbox = m.inbox_path()
     lines = ['{"id": "old", "ts": %d}' % int(ts - 5000)]
     for i in range(pending):
         lines.append('{"id": "p%d", "ts": %d}' % (i, int(ts)))
     inbox.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    m.offset_path().write_text("1", encoding="utf-8")  # 只认第 1 行为已处理
+    _set_watermarks(m, dispatched=watermark, ledger=watermark)
 
 
 def _run(m, *argv) -> int:
@@ -176,9 +194,65 @@ def test_B4_stale_inbox_pending_fails_open(mod):
     """L1 是 fail-open：未处理行已变旧（A 通则坏掉）⇒ B 必须接管。"""
     _put_card(mod, "card-g.md")
     _put_inbox(mod, pending=1, ts=time.time() - mod.SUPPRESS_WINDOW_S - 300)
-    assert mod.suppression_reason(mod.inbox_path(), mod.offset_path()) is None
+    assert mod.suppression_reason(mod.inbox_path(), mod.offset_hint_path()) is None
     assert _run(mod) == 0
     assert len(_Catcher.received) == 1, "A 通路停摆时 B 必须接管（否则安全网失效）"
+
+
+# ---------------------------------------------------------------------------
+# 活水位（P-2b · 2026-10-07 · 死水位退役）—— 正控 / 负控 / 反掩盖
+# ---------------------------------------------------------------------------
+
+def test_C1_retired_offset_frozen_below_n_does_not_suppress(mod):
+    """**主回归**：`.offset` 冻在 1（退役死水位）而活水位推到 2 ⇒ pending=0、不得抑制。
+
+    这是生产事故现场复刻：旧口径 `2-1=1` ⇒ 永久假红；新口径取活水位 ⇒ 0。"""
+    _put_card(mod, "card-k.md")
+    _put_inbox(mod, pending=1, ts=time.time(), watermark=2)   # 活水位=2，offset 缺席=退役
+    mod.offset_hint_path().write_text("1", encoding="utf-8")   # 死水位落后
+    pend, _ts, why = mod.inbox_pending(mod.inbox_path(), mod.offset_hint_path())
+    assert pend == 0 and why == "no-pending"
+    assert mod.suppression_reason(mod.inbox_path(), mod.offset_hint_path()) is None
+    assert _run(mod) == 0
+    assert len(_Catcher.received) == 1, "活水位已到顶 ⇒ 必须唤醒（不得被死水位压住）"
+
+
+def test_C2_single_source_suffices(mod):
+    """三源任一推进即视为已消费：仅台账到顶 / 仅 .dispatched 到顶 都不算积压。"""
+    for dsp, led in ((0, 3), (3, 0)):
+        _Catcher.received = []
+        _put_card(mod, f"card-s{dsp}{led}.md")
+        mod.inbox_path().write_text('{"id": "o", "ts": 1}\n{"id": "a", "ts": 2}\n'
+                                    '{"id": "b", "ts": 3}\n', encoding="utf-8")
+        _set_watermarks(mod, dispatched=dsp, ledger=led)
+        pend, _ts, why = mod.inbox_pending(mod.inbox_path(), mod.offset_hint_path())
+        assert pend == 0 and why == "no-pending", f"dsp={dsp} led={led} ⇒ {pend}/{why}"
+
+
+def test_C3_dead_offset_ahead_does_not_mask_backlog(mod):
+    """**负控（真未消费仍要抓得到）**：死水位反向领先（=9）不得掩盖活水位欠账。"""
+    _put_card(mod, "card-l.md")
+    mod.inbox_path().write_text("".join('{"id": "x%d", "ts": %d}\n' % (i, int(time.time()))
+                                      for i in range(5)), encoding="utf-8")
+    _set_watermarks(mod, dispatched=2, ledger=2)
+    mod.offset_hint_path().write_text("9", encoding="utf-8")   # 死水位领先（脏值）
+    pend, _ts, why = mod.inbox_pending(mod.inbox_path(), mod.offset_hint_path())
+    assert pend == 3 and why == "pending"
+    assert mod.suppression_reason(mod.inbox_path(), mod.offset_hint_path()) is not None
+    assert _run(mod) == 0
+    assert _Catcher.received == [], "真欠账必须抑制（死水位不得给假绿）"
+
+
+def test_C4_ledger_note_with_unrelated_up_to_is_ignored(mod):
+    """台账备注里出现无关 `up to 234` ⇒ 水位必须取台账行末条（锚定句式）。"""
+    _put_card(mod, "card-m.md")
+    _put_inbox(mod, pending=2, ts=time.time(), watermark=1)
+    lp = mod.ledger_path()
+    lp.write_text("2026-10-07 00:00:00 processed 1 lines (up to 1)\n"
+                  "备注：另一台账 up to 234 与本水位无关\n", encoding="utf-8")
+    wm, meta = mod.consumed_watermark(mod.ledger_path(), mod.dispatched_path(), mod.offset_hint_path())
+    assert wm == 1 and meta["ledger_watermark"] == 1, "裸 `up to (\\d+)` 会误取 234"
+    assert meta["offset_hint_retired"] is None, ".offset 缺席 ⇒ hint=None（退役字段可缺，不进判据）"
 
 
 # ---------------------------------------------------------------------------
@@ -199,14 +273,19 @@ def test_gateway_unreachable_returns_nonzero(mod, monkeypatch):
     assert not mod.claim_path(mod.wiki_dir() / "card-h.md").exists()
 
 
-def test_pending_without_offset_counts_all(mod):
-    """offset 缺失 ⇒ 全部行视为未处理（保守方向：宁可抑制）。"""
+def test_pending_without_live_watermark_counts_all(mod):
+    """**活水位缺失**（台账与 .dispatched 均不可用）⇒ 全部行视为未处理（宁可抑制）。
+
+    2026-10-07 改造：原臂 `test_pending_without_offset_counts_all` 判的是退役的 `.offset`；
+    语义保留、口径换活水位，`why` 细化为 `pending-watermark-unknown`（量具不可用
+    必须与"真无积压"区分开 —— §5.5 错误语义不可裁剪）。
+    """
     p = _put_card(mod, "card-i.md")
     _put_inbox(mod, pending=1, ts=time.time())
-    mod.offset_path().unlink()
-    pending, last_ts, why = mod.inbox_pending(mod.inbox_path(), mod.offset_path())
-    assert pending == 2 and why == "pending"
-    assert mod.suppression_reason(mod.inbox_path(), mod.offset_path()) is not None
+    _set_watermarks(mod, dispatched=None, ledger=None)
+    pending, last_ts, why = mod.inbox_pending(mod.inbox_path(), mod.offset_hint_path())
+    assert pending == 2 and why == "pending-watermark-unknown"
+    assert mod.suppression_reason(mod.inbox_path(), mod.offset_hint_path()) is not None
     assert _run(mod) == 0
     assert _Catcher.received == []
     assert p.exists()

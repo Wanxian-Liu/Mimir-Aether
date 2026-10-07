@@ -42,6 +42,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -72,8 +73,61 @@ def inbox_path() -> Path:
     )
 
 
-def offset_path() -> Path:
-    return Path(os.environ.get("WIKI_WAKE_OFFSET", str(inbox_path()) + ".offset"))
+def offset_hint_path() -> Path:
+    """**已退役**的旧水位文件路径（2026-10-07 退役 · 只读展示，禁作判据）。
+
+    历史：旧收信循环把「读到第几行」写进 `<inbox>.offset`，其包装器
+    `~/.hermes/scripts/buzz-mimir-auto.sh` 已改名留档 `.retired-20261007`，
+    两个 cron 库零引用 ⇒ 该文件**不再被任何进程推进**，冻结在退役时刻的行号
+    （实测冻结在 54，而信已全处理完 ⇒ 曾造成**永久假红**）。
+    保留用途：历史诊断字段显示。禁删/改名（历史数据）。
+    """
+    return Path(os.environ.get("WIKI_WAKE_OFFSET", str(sidecar(".offset"))))
+
+
+def sidecar(ext: str) -> Path:
+    """收件箱旁挂文件的**生产命名**：`buzz-inbox-mimir.jsonl` → `buzz-inbox-mimir{ext}`。
+
+    实测坑（本轮发现）：旧代码用 `str(inbox) + ".offset"` 拼出
+    `buzz-inbox-mimir.jsonl.offset`，而生产侧旁挂文件**没有 .jsonl 段**
+    （真名 `buzz-inbox-mimir.offset` / `.dispatched`）⇒ 旧默认路径恒指不存在的文件。
+    """
+    base = inbox_path()
+    stem = base.name[: -len(".jsonl")] if base.name.endswith(".jsonl") else base.name
+    return base.with_name(stem + ext)
+
+
+def dispatched_path() -> Path:
+    """活水位①：派发水位（watcher 侧维护）。env 覆写 `WIKI_WAKE_DISPATCHED`。"""
+    return Path(os.environ.get("WIKI_WAKE_DISPATCHED", str(sidecar(".dispatched"))))
+
+
+def ledger_path() -> Path:
+    """活水位②：补账台账 `inbox-processed.log`（末条 `up to N` = 已消费水位）。
+
+    env 覆写 `WIKI_WAKE_LEDGER`。默认路径 **HOME 无关**解析（沙箱 HOME 差异会拼出
+    假路径 ⇒ 误报「量具不可用」，同 `check_inbox_ledger_lag.py` 2026-10-06 修）。
+    """
+    env_ledger = os.environ.get("WIKI_WAKE_LEDGER")
+    if env_ledger:
+        return Path(env_ledger)
+    cands: List[Path] = []
+    for k in ("MIMIR_AETHER_HOME", "MIMIR_HOME"):
+        v = os.environ.get(k)
+        if v:
+            cands.append(Path(v) / "logs" / "inbox-processed.log")
+    cands.append(Path.home() / ".mimiraether" / "logs" / "inbox-processed.log")
+    cands.append(Path("/home/rayliu/.mimiraether/logs/inbox-processed.log"))
+    for c in cands:
+        if c.exists():
+            return c
+    return cands[-1]
+
+
+# 台账水位行 = `processed N lines (up to M)`，M 即水位。锚定整句而非裸 `up to (\d+)`：
+# 实测备注里出现过别的 `up to N` 数字（裸 regex 取 max 得 234 ≠ 末条 58）⇒ 必须锚句式
+# 并取**最后一个**匹配（台账 append-only ⇒ 末条即当前水位）。
+LEDGER_WM_RE = re.compile(r"processed\s+\d+\s+lines\s*\(up to\s+(\d+)\)")
 
 
 def claim_dir() -> Path:
@@ -112,12 +166,90 @@ def is_candidate(text: str) -> Tuple[bool, str]:
     return True, "candidate"
 
 
-def inbox_pending(inbox: "Path", offset: "Path") -> Tuple[int, Optional[float], str]:
+def _read_int(path: "Path") -> Tuple[Optional[int], str]:
+    """读整型水位文件。返回 (值 或 None, 状态)。
+
+    状态语义：missing（文件不存在）/ unreadable（IO 或非整数）/ ok。
+    **不把缺失读成 0** —— 0 是合法水位（第 0 行），缺失是「量具不可用」，两者必须可区分
+    （否则负控与"真无积压"混为一谈）。
+    """
+    if not path.exists():
+        return None, "missing"
+    try:
+        return int(path.read_text(encoding="utf-8").strip() or "0"), "ok"
+    except (ValueError, OSError):
+        return None, "unreadable"
+
+
+def read_ledger_watermark(path: "Path") -> Tuple[Optional[int], int, str]:
+    """台账活水位 = **末条** `processed N lines (up to M)` 的 M。返回 (水位, 条目数, 状态)。"""
+    if not path.exists():
+        return None, 0, "missing"
+    last: Optional[int] = None
+    hits = 0
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                m = LEDGER_WM_RE.search(line)
+                if m:
+                    last = int(m.group(1))
+                    hits += 1
+    except OSError:
+        return None, 0, "unreadable"
+    return (last, hits, "ok") if last is not None else (None, 0, "no-watermark")
+
+
+def consumed_watermark(
+    ledger: "Path", dispatched: "Path", offset_hint: Optional["Path"] = None
+) -> Tuple[int, Dict[str, Any]]:
+    """**消费水位**（P-2b · 2026-10-07）静水位 → 活水位。
+
+    口径 = `max(台账末条 up to N, 收件箱 .dispatched)` —— 三源任一推进即视为该行已消费。
+
+    为什么改：旧口径只认 `.offset`，而它随包装器退役后**冻结**（不再被推进）⇒
+    已消费的行被永久读成未消费 = 永久假红（实测冻结 54 vs 全处理完）。
+    为什么取 max 而不是取某一个：两个活水位维护者（watcher 派发 / 补账台账）节奏不同，
+    任一领先都证明该行已被接手 ⇒ 取 max 才是「已消费」的正确下界。
+    `.offset` 退役后**只作历史诊断字段显示**，不进 max（旧值即脏值：它偏小 ⇒ 会低估水位）。
+    """
+    led_wm, led_hits, led_state = read_ledger_watermark(ledger)
+    dsp_wm, dsp_state = _read_int(dispatched)
+    if led_wm is None and dsp_wm is None:
+        # 两个活水位都不可用 ⇒ 保守：水位记 0（全部未消费 ⇒ 宁可抑制）。调用方按状态出理由。
+        watermark, usable = 0, False
+    else:
+        watermark, usable = max(led_wm or 0, dsp_wm or 0), True
+    meta: Dict[str, Any] = {
+        "watermark": watermark,
+        "usable": usable,
+        "ledger_watermark": led_wm,
+        "ledger_entries": led_hits,
+        "ledger_state": led_state,
+        "ledger_path": str(ledger),
+        "dispatched_watermark": dsp_wm,
+        "dispatched_state": dsp_state,
+        "dispatched_path": str(dispatched),
+        # 退役字段：只读展示，禁作判据（2026-10-07）
+        "offset_hint_retired": None,
+    }
+    if offset_hint is not None:
+        hint, _hint_state = _read_int(offset_hint)
+        meta["offset_hint_retired"] = hint
+        meta["offset_path_retired"] = str(offset_hint)
+    return watermark, meta
+
+
+def inbox_pending(
+    inbox: "Path", offset: "Path", dispatched: Optional["Path"] = None, ledger: Optional["Path"] = None
+) -> Tuple[int, Optional[float], str]:
     """返回 (未处理行数, 最新未处理行的 epoch ts 或 None, 理由)。
 
-    未处理行数 = 行数 - offset（offset 缺失视为 0）。
-    最新未处理行的 ts 取该行 JSON 的 `ts` 字段；解析失败则返回 None
+    未处理行数 = 总行数 - **消费水位**（活水位 max(台账, .dispatched)）。
+    最新未处理行的 ts 取**该行自身**的 `ts` 字段；解析失败则返回 None
     （调用方退化为用文件 mtime 判新鲜度 —— 宁可抑制也不双唤醒）。
+
+    兼容：`offset` 位置参数保留但已退役（只作 hint），活水位走
+    `dispatched`/`ledger`（None ⇒ 用默认路径）。
     """
     if not inbox.exists():
         return 0, None, "inbox-missing"
@@ -125,42 +257,52 @@ def inbox_pending(inbox: "Path", offset: "Path") -> Tuple[int, Optional[float], 
         raw = inbox.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
         return 0, None, "inbox-unreadable"
-    total = len([l for l in raw if l.strip()])
-    off = 0
-    if offset.exists():
-        try:
-            off = int(offset.read_text(encoding="utf-8").strip() or "0")
-        except (ValueError, OSError):
-            off = 0
-    pending = max(0, total - off)
+    blank = [k for k, l in enumerate(raw) if not l.strip()]
+    if blank:
+        del raw[blank[0]:]
+    total = len(raw)
+    wm, meta = consumed_watermark(
+        ledger if ledger is not None else ledger_path(),
+        dispatched if dispatched is not None else dispatched_path(),
+        offset,
+    )
+    pending = max(0, total - wm)
     if pending == 0:
         return 0, None, "no-pending"
+    # 只吃「最后 wm 行之后」的行 —— 前段行既无 ts 也无信息量
+    tail = raw[wm:]
     last = None
-    for line in reversed(raw):
+    for line in reversed(tail):
         if not line.strip():
             continue
         try:
-            last = float(json.loads(line).get("ts"))
+            obj = json.loads(line)
+            last = float(obj.get("ts")) if isinstance(obj, dict) and obj.get("ts") is not None else None
         except (ValueError, TypeError, json.JSONDecodeError):
             last = None
         break
-    return pending, last, "pending"
+    why = "pending" if meta["usable"] else "pending-watermark-unknown"
+    return pending, last, why
 
 
 def suppression_reason(inbox: "Path", offset: "Path", now: Optional[float] = None) -> Optional[str]:
-    """L1 跨生产者抑制：A 通路有新鲜未处理行 ⇒ 返回抑制理由，否则 None。"""
+    """L1 跨生产者抑制：A 通路有**新鲜**未处理行 ⇒ 返回抑制理由，否则 None。
+
+    新鲜度 = 未处理行的 ts 年龄（取不到 ts 则退化为箱 mtime）。
+    2026-10-07：未处理行的判定改用活水位（`.offset` 已退役）。
+    """
     now = now if now is not None else now_ts()
-    pending, last_ts, _why = inbox_pending(inbox, offset)
+    pending, last_ts, why = inbox_pending(inbox, offset)
     if pending <= 0:
         return None
     if last_ts is None:
         try:
             last_ts = inbox.stat().st_mtime
         except OSError:
-            return f"inbox-pending({pending})-unknown-age->suppress"
+            return f"inbox-pending({pending})-{why}-unknown-age->suppress"
     age = now - float(last_ts)
     if age <= SUPPRESS_WINDOW_S:
-        return f"inbox-pending({pending})-fresh({int(age)}s<={SUPPRESS_WINDOW_S}s)->suppress"
+        return f"inbox-pending({pending})-{why}-fresh({int(age)}s<={SUPPRESS_WINDOW_S}s)->suppress"
     return None
 
 
@@ -277,7 +419,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--explain", action="store_true", help="打印逐卡判定理由")
     args = ap.parse_args(argv)
 
-    reason = suppression_reason(inbox_path(), offset_path())
+    reason = suppression_reason(inbox_path(), offset_hint_path())
     if reason:
         log_line(f"SUPPRESS {reason}")
         if args.explain:
