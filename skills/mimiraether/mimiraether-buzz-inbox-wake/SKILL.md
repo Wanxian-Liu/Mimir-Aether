@@ -6,6 +6,25 @@ auto_load: false
 
 # Buzz 收件箱唤醒处理（Mimir）
 
+## 2.32 唤醒口径「1..N 全为新」≠ 真有 N 条新件：先查游标纪元重置（2026-10-08 实证）
+
+**场景**：收到 `processed ... range=1..106` 式唤醒（说第 1 到 106 行全为新），但收件箱早就处理过。
+
+1. **别急着全量重读**。先三读定口径：① `.offset` 内容 ② `buzz-inbox-mimir.dispatched` 内容 ③ `buzz-inbox-mimir.dispatched.claim.log` 末 3 行。
+   实证：唤醒 `RESERVE ... range=1..106 prev_dispatched=0`，其上一行是 `01:56:24 COMMIT range=107..107 prev_dispatched=106`
+   ⇒ 不是 106 条新件，是**游标被归零后重派全文**。
+2. **归零是 watcher 的设计行为，不是 bug**：`buzz-inbox-watcher.sh` 有「轮转/截断检测」——
+   `total < max(offset, dispatched)` ⇒ 判「行号纪元重置」⇒ 双游标置 0 并出声；取向明写「**宁可一次重复处理，不可静默丢信**」。
+   触发条件（本例）：收件箱被裁剪归档后重写（106 行）而 dispatched 仍停在 107 ⇒ 纪元重置。
+3. **真正待判 = 自己账本的 `up to N` 之后的行**：`logs/inbox-processed.log` 末条 `up to 84` ⇒ 只需判 85-106，而不是 1-106。
+4. **收尾必做两件（缺一 ⇒ 下次还会全量重派）**：
+   - 账本追加一行含 `up to <总行数>` 的字面（watcher 的账本级幂等判据取**最后一次** `up to N`，`N >= total` 即静默）——这是**比 offset 更硬的防重派闸**（offset 可被纪元重置，账本不会被）。
+   - 再把 `.offset` 写成 `total`（watcher 注释写明「offset 待 run 侧闭环」）。
+   - 同时同步 `logs/inbox-processed.log.hwm` = 账本行数（不变量：`wc -l 账本 == hwm`；脚本 `scripts/inbox_watermark_sync.py` 本是干这个的，但它自生成的行格式与派单方要求的字面行不同 ⇒ 要求逐字行时改用它 + 手工补 hwm）。
+5. **判「已闭」的硬证据 = 对侧收件箱回执，不是自己记忆**：`~/.hermes/inbox/` 逐条按主题 glob（如 `*§十复核4*mimir*`、`*尾巴清零*`）⇒ 有回执 = 已闭。
+   本次 22 条全闭（含 106 的 Q9 冒烟原始输出已在 `2026-10-08-尾巴清零-mimir.md`），本 run 零重复实施。
+6. **防什么事故**：把「纪元重置」误读成「积压 106 条」⇒ 逐条重做/重发回执，既烧 token 又给对方制造重复件。
+
 ## 2.31 归属核实类回执：探针只打一处 = 假归属（2026-10-08 实证）
 
 **场景**：收到「本轮新冒事项登记」类卡（多项 · 每项标了归属），要回「归属是否对、要不要改派」。
