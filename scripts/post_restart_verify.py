@@ -202,18 +202,35 @@ def check_reconcile() -> str:
 # reverted, and nothing failed -- the cap stayed glued to the high-water mark
 # (memory.peak == memory.max == 4294967296) with no alarm. A silent revert of
 # this fix is indistinguishable from the bug it fixes, so it gets a verdict.
-F2_MIN_ROOM_BYTES = 2 * 1024 ** 3   # absolute floor; relative terms banned here
+# Two criteria, in priority order (I-4, 2026-10-07 Liu-approved).
+#   PRIMARY  room_peak = cap - peak > 0   -> "cap and peak have separated".
+#     This is the only *relative* term here and it does NOT violate the older
+#     "relative terms banned" note: that ban was about ``peak`` as SOLE
+#     evidence -- a peak clamped at the cap it lived under is a censored lower
+#     bound, so cap-vs-peak could be fooled while a live workload sat at the
+#     cap. It bans (peak as evidence), not (cap vs peak as a separation
+#     check). Once the cap is raised the separation IS the assertion, and peak
+#     is monotone (never decreases) -> cannot flicker.
+#   FALLBACK room_now = cap - current >= F2_MIN_NOW_ROOM_BYTES (1 GiB).
+#     ``current`` cannot be clamped by a cap (uncensored) but tracks load: at
+#     the 6 GiB cap the live range is ~3.8-4.0 GiB => room_now 2.00-2.18 GiB,
+#     so a 2 GiB floor flapped red/green *at the operating point* (I-4:
+#     room_now=2323361792 PASS vs 2.00e9 FAIL). 1 GiB = genuinely low
+#     headroom, demoted to a backstop.
+F2_MIN_NOW_ROOM_BYTES = 1 * 1024 ** 3   # fallback floor on cap-current
+F2_MIN_ROOM_BYTES = F2_MIN_NOW_ROOM_BYTES   # legacy alias (callers/tests)
 GIB = 1024 ** 3
 
 
-def memory_headroom(live_cap, peak, current, min_room=F2_MIN_ROOM_BYTES):
+def memory_headroom(live_cap, peak, current, min_room=F2_MIN_NOW_ROOM_BYTES):
     """Pure verdict for "cap and peak have separated" -> (ok, detail dict).
 
     Inputs are kernel cgroup readings in bytes; None means the kernel said
-    "max" (no limit). ``peak`` is only a *lower bound* while it is pinned at
-    the cap it lived under, so it can never be the sole evidence: whole-GiB
-    peaks are flagged as censored, and the gate runs on ``current``, which a
-    cap cannot clamp.
+    "max" (no limit). Criteria (module notes above):
+      * PRIMARY  ``room_peak > 0``        -- cap/peak separation, monotone
+      * FALLBACK ``room_now >= min_room`` -- live headroom, uncensored
+    ``verdict_reason`` names which criterion decided: a bare ok=False cannot
+    tell a demoted fallback apart from a re-glued cap (forensics).
     """
     def g(x):
         return "max" if x is None else int(x)
@@ -221,14 +238,28 @@ def memory_headroom(live_cap, peak, current, min_room=F2_MIN_ROOM_BYTES):
     if live_cap is None:
         return True, {"cap": "max", "peak": g(peak), "current": g(current),
                       "room_now": "inf", "room_peak": "inf", "censored": False,
-                      "why": "cap=unbounded"}
+                      "why": "cap=unbounded", "verdict_reason": "cap-unbounded"}
     room_now = int(live_cap) - int(current or 0)
     room_peak = int(live_cap) - int(peak or 0)
     censored = bool(peak) and int(peak) % GIB == 0
-    ok = room_now >= min_room and room_peak > 0
+    ok_peak = room_peak > 0
+    ok_now = room_now >= min_room
+    ok = ok_peak and ok_now
+    if ok_peak and ok_now:
+        reason = "room_peak=%d>0 and room_now=%d>=%d" % (room_peak, room_now, min_room)
+    elif not ok_peak and not ok_now:
+        reason = "room_peak=%d<=0 (cap glued to peak) and room_now=%d<%d" % (
+            room_peak, room_now, min_room)
+    elif not ok_peak:
+        reason = "room_peak=%d<=0 (cap glued to peak; fallback ok)" % room_peak
+    else:
+        reason = "room_now=%d<%d (fallback; cap/peak separated room_peak=%d)" % (
+            room_now, min_room, room_peak)
     return ok, {"cap": int(live_cap), "peak": g(peak), "current": g(current),
                 "room_now": room_now, "room_peak": room_peak,
-                "censored": censored, "min_room": min_room}
+                "censored": censored, "min_room": min_room,
+                "ok_peak": ok_peak, "ok_now": ok_now,
+                "verdict_reason": reason}
 
 
 def check_memory_headroom() -> str:
