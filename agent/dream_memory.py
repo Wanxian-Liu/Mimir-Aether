@@ -69,6 +69,13 @@ _DREAM_TEMPERATURE = 0.3
 _DREAM_MAX_TOKENS = 4096
 _DREAM_TIMEOUT = 45
 
+# 截断重发预算（finish_reason == "length" ⇒ 抬到这里再发一次）
+_DREAM_MAX_TOKENS_RETRY = 8192
+
+# 上一次蒸馏调用的原始载荷（content 全文 / finish_reason / usage / 尝试次数）：
+# 失败时由 _record_failure 落进 dream_distill_failure.json ⇒ 死因可回读。
+_LAST_DREAM_DIAG: Dict = {}
+
 
 def _get_persistent_path() -> str:
     """获取 persistent.json 路径（与 CrossSessionMemory 同源）。
@@ -168,6 +175,8 @@ def _record_failure(stage: str, exc: BaseException) -> str:
                         traceback.format_exception(type(exc), exc, exc.__traceback__)
                     )[-2000:],
                     "home": _mimir_home(),
+                    # 原始载荷（仅追加；为空则与旧格式等价）
+                    **(_LAST_DREAM_DIAG or {}),
                 },
                 f,
                 ensure_ascii=False,
@@ -396,21 +405,102 @@ def _build_distillation_prompt(memory_text: str) -> str:
 }}"""
 
 
+def _extract_dream_choices(result: Optional[Dict]) -> Tuple[str, Optional[str], Dict]:
+    """从 chat/completions 响应取（content, finish_reason, usage）——**纯函数**。
+
+    为什么必须单独取 finish_reason：此前只取 content，把「输出被截断」
+    （``length``）与「模型写坏 JSON」混成同一个 None ⇒ 死因不可回读
+    （可观测性缺失：logs 少了事件细节）。
+    """
+    if not isinstance(result, dict):
+        return "", None, {}
+    choices = result.get("choices") or []
+    if not choices or not isinstance(choices[0], dict):
+        return "", None, {}
+    first = choices[0]
+    message = first.get("message")
+    if not isinstance(message, dict):
+        message = {}
+    content = message.get("content") or ""
+    if not isinstance(content, str):
+        content = str(content)
+    usage = result.get("usage")
+    if not isinstance(usage, dict):
+        usage = {}
+    return content, first.get("finish_reason"), usage
+
+
+def _strip_code_fence(content: str) -> str:
+    """去掉 ```json ... ``` 包裹（纯函数）。"""
+    text = (content or "").strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[-1]
+        text = text.rsplit("```", 1)[0].strip()
+    return text
+
+
+def plan_dream_retry(
+    finish_reason: Optional[str], attempts: int, max_tokens: int
+) -> Optional[int]:
+    """截断重发决策（**纯函数**）：None = 不重发；int = 用该预算重发。
+
+    判据一条：``finish_reason == "length"`` ⇒ 输出预算被吃光（同族先例：
+    Hermes 侧 empty_content —— max_tokens 硬编码 4096 吃光预算）。
+    ``attempts`` = **已完成**尝试次数 ⇒ 只有 =1（首次）截断才重发 ⇒ 最多重发一次。
+    """
+    if attempts != 1:
+        return None
+    if finish_reason != "length":
+        return None
+    return max(int(max_tokens or 0) * 2, _DREAM_MAX_TOKENS_RETRY)
+
+
+async def _post_dream_chat(
+    prompt: str, max_tokens: int, api_key: str, base_url: str
+) -> Tuple[Optional[Dict], Optional[str]]:
+    """单次 HTTP 调用——**唯一 I/O 边界**，独立成函数以便离线替身注入。"""
+    import aiohttp
+
+    payload = {
+        "model": _DREAM_MODEL,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": max_tokens,
+        "temperature": _DREAM_TEMPERATURE,
+    }
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    async with aiohttp.ClientSession(
+        timeout=aiohttp.ClientTimeout(total=_DREAM_TIMEOUT)
+    ) as session:
+        async with session.post(
+            f"{base_url}/v1/chat/completions", json=payload, headers=headers
+        ) as resp:
+            if resp.status != 200:
+                text = await resp.text()
+                return None, f"LLM HTTP {resp.status}: {text[:200]}"
+            return await resp.json(), None
+
+
 async def _call_dream_llm(prompt: str) -> Optional[Dict]:
     """调用 DeepSeek API 执行梦境蒸馏（同步模式用于 cron，异步模式用于 agent）。
 
-    注意：不直接从进程环境读 DEEPSEEK_API_KEY（该变量常为 *** 占位符）。
-    通过 provider_registry.resolve_api_key_provider_credentials 解析真实 key，
+    注意：不直接从进程环境读 key（该变量常为 *** 占位符）。通过
+    provider_registry.resolve_api_key_provider_credentials 解析真实 key，
     该函数支持 credential_pool 回退，与 Gateway 主循环同源。
-    """
-    import aiohttp
 
+    ③ 死因可回读：原始载荷（content 全文 / finish_reason / usage / 尝试次数）
+    留在 ``_LAST_DREAM_DIAG``，由 ``_record_failure`` 落进失败件；
+    解析失败时日志行仍留 200 字摘要（``_safe_json_parse`` 内）。
+    """
     # 优先级1: os.environ（sync_run_dream_cycle 已从 /proc 注入正确的 key）
     api_key = os.environ.get("DEEPSEEK_API_KEY", "")
-    # 优先级2: provider_registry（Gateway 进程凭据池，但可能返回僵尸进程的过期 key）
+    # 优先级2: provider_registry（Gateway 进程凭据池）
     if not api_key or api_key == "***":
         try:
             from agent.provider_registry import resolve_api_key_provider_credentials
+
             creds = resolve_api_key_provider_credentials("deepseek")
             if creds:
                 api_key = creds.get("api_key", "") or ""
@@ -421,42 +511,79 @@ async def _call_dream_llm(prompt: str) -> Optional[Dict]:
         return None
 
     base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "model": _DREAM_MODEL,
-        "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": _DREAM_MAX_TOKENS,
-        "temperature": _DREAM_TEMPERATURE,
-    }
+    _LAST_DREAM_DIAG.clear()
+    max_tokens = _DREAM_MAX_TOKENS
+    attempts = 0
 
-    try:
-        async with aiohttp.ClientSession(
-            timeout=aiohttp.ClientTimeout(total=_DREAM_TIMEOUT)
-        ) as session:
-            async with session.post(
-                f"{base_url}/v1/chat/completions",
-                json=payload,
-                headers=headers,
-            ) as resp:
-                if resp.status != 200:
-                    text = await resp.text()
-                    logger.error(f"[DreamMemory] LLM HTTP {resp.status}: {text[:200]}")
-                    return None
-                result = await resp.json()
-                content = result["choices"][0]["message"]["content"]
-                # 提取 JSON
-                content = content.strip()
-                # 去掉可能的 ```json ... ``` 包裹
-                if content.startswith("```"):
-                    content = content.split("\n", 1)[-1]
-                    content = content.rsplit("```", 1)[0].strip()
-                return _safe_json_parse(content)
-    except Exception as e:
-        logger.error(f"[DreamMemory] LLM 调用失败: {e}")
-        return None
+    while True:
+        try:
+            result, err = await _post_dream_chat(prompt, max_tokens, api_key, base_url)
+        except Exception as e:
+            logger.error(f"[DreamMemory] LLM 调用失败: {e}")
+            _LAST_DREAM_DIAG.update(
+                {
+                    "attempts": attempts + 1,
+                    "error": f"{type(e).__name__}: {e}",
+                    "finish_reason": None,
+                    "usage": {},
+                    "max_tokens_last": max_tokens,
+                    "content": "",
+                    "content_len": 0,
+                }
+            )
+            return None
+
+        if err is not None or result is None:
+            logger.error(f"[DreamMemory] {err or '空响应'}")
+            _LAST_DREAM_DIAG.update(
+                {
+                    "attempts": attempts + 1,
+                    "error": str(err or "空响应"),
+                    "finish_reason": None,
+                    "usage": {},
+                    "max_tokens_last": max_tokens,
+                    "content": "",
+                    "content_len": 0,
+                }
+            )
+            return None
+
+        content, finish_reason, usage = _extract_dream_choices(result)
+        attempts += 1
+        _LAST_DREAM_DIAG.update(
+            {
+                "attempts": attempts,
+                "finish_reason": finish_reason,
+                "usage": usage,
+                "max_tokens_last": max_tokens,
+                "content": content,
+                "content_len": len(content),
+            }
+        )
+
+        parsed = _safe_json_parse(_strip_code_fence(content))
+        if parsed is not None:
+            return parsed
+
+        nxt = plan_dream_retry(finish_reason, attempts, max_tokens)
+        if nxt is None:
+            if finish_reason == "length":
+                reason = "输出被截断（finish_reason=length）"
+            else:
+                reason = f"finish_reason={finish_reason}"
+            logger.error(
+                f"[DreamMemory] 蒸馏输出不可用：{reason} · content_len={len(content)}"
+                f" · 尝试 {attempts} 次 ⇒ 原始载荷见失败件"
+            )
+            return None
+
+        logger.warning(
+            f"[DreamMemory] 输出被截断（finish_reason=length）⇒ max_tokens "
+            f"{max_tokens}→{nxt} 重发一次"
+        )
+        _LAST_DREAM_DIAG["retry_due_to"] = "length"
+        _LAST_DREAM_DIAG["retry_from"] = max_tokens
+        max_tokens = nxt
 
 
 def _safe_json_parse(text: str) -> Optional[Dict]:
