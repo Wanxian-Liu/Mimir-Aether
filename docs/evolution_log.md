@@ -1,4 +1,6 @@
 # Evolution audit log (M6)
+<!-- Q2-2 归档文档不删不改/真源看 ~/.mimiraether/data/tuned_thresholds.json (本文数字为历史值·2026-10-07 刘哥批留·治本=查现值: grep MIMIR_COMPRESS_THRESHOLD_TOKENS ~/.mimiraether/.env | cut -d= -f2) -->
+
 
 Append-only. Newest rows at the **bottom**. See `**docs/M6_EVOLUTION.md`** for rules and `./scripts/record_m6_evolution.sh` for automation.
 
