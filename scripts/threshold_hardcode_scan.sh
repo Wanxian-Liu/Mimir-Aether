@@ -1,13 +1,21 @@
 #!/usr/bin/env bash
 # Q6-2 文档/技能写死阈值数字扫描 —— **出声不阻断**（2026-10-07 · A6 后续 Q6 落地 · 刘哥批）
+# 2026-10-07 收尾补丁（统筹方复验 · 刘哥转）：**分类计数**——只有「现值断言」出警。
 #
 # 来源（口径不是我发明的）：A6 压缩闭环审计会 Q6-2（OpenClaw 妹妹出的 grep）：
 #   grep -rnE '(300000|350000|120000|80000|30万|12万)' <repo>/skills <repo>/docs
 # 语义：写死数字 != 立刻错——它是**分叉源**（数字写死 = 必然过期 ⇒ 阈值又变成两个真源，A6 根因）。
-#   ⇒ 只要求「可见」，不阻断任何既有门禁（本脚本恒 rc=0；无命中/有命中都算跑完）。
-# 处置（人工/技能侧）：把写死的数字换成「怎么查现值」的命令：
-#   bash /home/rayliu/.mimiraether/scripts/threshold_ledger_check.sh
-# 退出码：0 = 扫描跑完 · 2 = 仪表故障（扫描面全不存在——刻意与「无命中」区分，防假绿）
+#   ⇒ 只要求「可见」，不阻断任何既有门禁。
+#
+# 为什么必须分类（复验实测）：旧版把**历史叙述**成片报出来（SKILL.md 的 2026-09-13 实证记录、
+#   .env 示例、threshold_tokens=120000 旧读数）⇒ 噪音淹没信号 = 等于没信号。另有一族假阳性：
+#   ISO 时间戳里的 T120000Z（妹妹也踩了）。故分三类，**只有第 1 类计入 exit code**：
+#     现值断言 = 唯一出警类（声称「当前/现在/生效」的阈值数字）
+#     历史叙述 = 行内含 历史/实证/2026-0x/真源见台账 等标记 ⇒ 不报警
+#     假阳性   = ISO 时间戳 T[0-9]{6}Z 等 ⇒ 不报警
+#
+# 退出码：0 = 跑完且无现值断言（含「有历史叙述/假阳性」）· 1 = 有现值断言（出警）
+#         2 = 仪表故障（扫描面全不存在——刻意与「无命中」区分，防假绿）
 set -u
 REPO_SCAN="${REPO_SCAN:-/home/rayliu/src/MimirAether}"
 # 两条分离（2026-10-07 实测修）：数字版本必须带 \b 词界——否则 120000 会命中 1200000、
@@ -17,8 +25,17 @@ NUM_PATTERN='\b(300000|350000|120000|80000|200000|300000|200_000|300_000)\b'
 CJK_PATTERN='(30万|35万|12万|20万|8万)'
 SURFACES=("$REPO_SCAN/skills" "$REPO_SCAN/docs")
 
-TMP="$(mktemp)"
-trap 'rm -f "$TMP"' EXIT
+# ---- 分类判据（逐条可跑 · 顺序即优先级：假阳性 > 历史叙述 > 现值断言）----------
+# 假阳性：ISO 8601 时间戳片段 T120000Z / T300000Z（6 位数字 + Z）——不是阈值。
+RE_FP='T[0-9]{6}Z'
+# 历史叙述：行内含以下任一标记 ⇒ 该行在讲「过去/出处/口径表」，不是现值断言。
+#   标记来源 = 复验实测的那几族：日期戳 2026-0x / 实证 / 真源 / 台账 / 历史 / 变更记录 / 实测。
+RE_HIST='(历史|实证|曾|旧|原|以前|过往|归档|溯源|真源|台账|见 *`|2026-0[0-9]|2025-[0-9]{2}|SUPERSEDED|deprecated|历史默认|变更记录|实测)'
+# 现值断言：行内含「当前/现在/生效/现值/默认值 =」等断言词 ⇒ 声称这是当下生效的数字。
+#   ⚠️ 刻意**不含**「应为」——那是历史补丁里的期望值叙述（2026-09-13 那族），会造噪音。
+RE_NOW='(当前|现在|现值|生效|当下|目前|默认值|默认 *=|即 *=)'
+
+TMP="$(mktemp)"; trap 'rm -f "$TMP"' EXIT
 found=0
 for d in "${SURFACES[@]}"; do
   [ -d "$d" ] || continue
@@ -30,11 +47,24 @@ if [ "$found" = "0" ]; then
   echo "[阈值写死扫描 · Q6-2] 仪表故障: 扫描面全不存在 (${SURFACES[*]})"
   exit 2
 fi
+
 HITS=$(wc -l < "$TMP" | tr -d ' ')
-echo "[阈值写死扫描 · Q6-2] 命中 ${HITS} 处写死阈值数字（出声不阻断）· 面: ${SURFACES[*]}"
-if [ "$HITS" -gt 0 ]; then
-  head -8 "$TMP" | sed 's/^/  · /'
-  [ "$HITS" -gt 8 ] && echo "  · …（余 $((HITS-8)) 处）"
-  echo "  处置: 写死数字=分叉源 ⇒ 改成查现值: bash /home/rayliu/.mimiraether/scripts/threshold_ledger_check.sh"
+# 三分类计数（同一行只归一类）
+FP=$(grep -cE -- "$RE_FP" "$TMP" || true)
+HIST=$(grep -vE -- "$RE_FP" "$TMP" | grep -cE -- "$RE_HIST" || true)
+NOW=$(grep -vE -- "$RE_FP" "$TMP" | grep -vE -- "$RE_HIST" | grep -cE -- "$RE_NOW" || true)
+OTHER=$(( HITS - FP - HIST - NOW ))
+
+echo "[阈值写死扫描 · Q6-2] 命中 ${HITS} 处 · 现值断言=${NOW}（唯一出警类）· 历史叙述=${HIST} · 假阳性=${FP} · 未分类=${OTHER}"
+echo "  面: ${SURFACES[*]} · 口径: 现值断言→出警 / 历史叙述·假阳性→不报警"
+
+# 每文件最多 1 行摘要（只列现值断言所在文件——真信号）
+if [ "$NOW" -gt 0 ]; then
+  echo "  --- 现值断言（需处置：写死数字=分叉源 ⇒ 改成查现值） ---"
+  grep -vE -- "$RE_FP" "$TMP" | grep -vE -- "$RE_HIST" | grep -E -- "$RE_NOW" \
+    | awk -F: '{print $1}' | sort | uniq -c | sort -rn | head -20 \
+    | sed 's/^/  · /'
+  echo "  处置: bash /home/rayliu/.mimiraether/scripts/threshold_ledger_check.sh"
 fi
+[ "$NOW" -gt 0 ] && exit 1
 exit 0
