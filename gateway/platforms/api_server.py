@@ -45,6 +45,10 @@ from gateway.platforms.base import (
     SendResult,
     is_network_accessible,
 )
+from gateway.inbox_claim_gate import (
+    claim_for_api_run,
+    commit_api_claim,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1661,6 +1665,29 @@ class APIServerAdapter(BasePlatformAdapter):
         # user wake -- the exact blind spot in the Q3 card sec.3.3.
         _run_metadata = body.get("metadata") if isinstance(body.get("metadata"), dict) else {}
 
+        # ── I-2 机器闸（2026-10-07）· api 直连通道与 watcher 共用同一套收件箱认领 ──
+        # 为什么两通道共用一个 claim：`~/.hermes/scripts/mimir-send.sh` 把**同一封信封**
+        # ①追加入 buzz 收件箱（留档）②同时 POST /v1/runs 直连唤醒；而 watcher（<=5min）
+        # 只看「行号 vs dispatched 游标」，不看 api 通道做过什么 ⇒ 同一单被认领两次
+        # （实证 2026-10-07 03:36:17 api 投第 8 单 / 03:50:01 watcher
+        #  `RESERVE range=44..44 prev_dispatched=43` -> COMMIT）。
+        # claim 文件 + dispatched 游标是两通道**唯一的共享幂等状态**，所以直连侧必须
+        # 先认领（reserve）再唤醒；watcher 随后到只会读到「无增量 / 已被持有」被机器拒。
+        # 边界：只对带 `metadata.inbox_line` 的请求生效（不带该字段 = 用户/前端直连调用，
+        # 完全不触碰 claim，行为与改动前一致）；只挡重复**认领**，不挡单通道内重复执行；
+        # 闸故障（认领器缺失/环境错）走 degraded 放行，不因闸停摆而阻断投递。
+        _claim_decision = claim_for_api_run(run_id, _run_metadata)
+        if _claim_decision.rejected:
+            _api_log("[api] run 被认领闸拒绝 run_id=%s %s" % (run_id, _claim_decision.readout()))
+            return web.json_response(
+                _openai_error(
+                    "Inbox line already claimed by the other channel (%s): %s"
+                    % (_claim_decision.reason, _claim_decision.readout()),
+                    code="inbox_line_already_claimed",
+                ),
+                status=409,
+            )
+
         # Accept explicit conversation_history from the request body.
         # Precedence: explicit conversation_history > previous_response_id.
         conversation_history: List[Dict[str, str]] = []
@@ -1774,6 +1801,9 @@ class APIServerAdapter(BasePlatformAdapter):
             pass
         if hasattr(task, "add_done_callback"):
             task.add_done_callback(self._background_tasks.discard)
+
+        # I-2 闸：run 已被受理 ⇒ 认领落地（清 claim 记录 + 写共享台账行）
+        commit_api_claim(_claim_decision)
 
         return web.json_response({"run_id": run_id, "status": "started"}, status=202)
 

@@ -901,3 +901,34 @@ python3 scripts/append_inbox_processed.py -m "…" --up-to <游标> --dry-run   
 3. **同族通则**：凡「自家解析」类任务（hermes/mimir home 类），**修复了 `HERMES_HOME` 之后，`$HOME` 就是下一个隐式共用键** ⇒ L2 harness 必须把它当第一变量钉住，否则复核读数只是噪音。
 4. **自建 harness 优于复用实施方脚本**（异源原则）：本 run 自写 `~/.mimiraether/data/tmp/homefix-l2/arms_l2.sh`（A 默认 / B `TMPDIR`+`HERMES_HOME` / C 改前树由 `git archive <fix>^` **按需生成**）⇒ 一条命令出 `ARM_A≡ARM_B` 与 `B≠C` 两个判词 + 回归三臂计数，不复用实施方脚本内的假设。
 5. **别把「真红」记成本单残留**：本例修复后 `hygiene rc=1` 仍在，但是**真**水位超阈（86.9% > 85%），与「混家假红」是两回事——L2 结论要分开写（`假红已消 / 真红另单`）。
+
+## api 直连通道与 watcher 共用认领闸（I-2 · 2026-10-07）
+
+**触发**：`POST /v1/runs` 直连唤醒与 buzz watcher 唤醒**指向同一封信封** ⇒ 同一单被唤醒两次。
+
+**为什么**：`~/.hermes/scripts/mimir-send.sh` 把同一封信封 ①写入收件箱 ②立刻 api 唤醒；
+watcher（<=5min）只看「行号 vs dispatched」⇒ 认领两次
+（实证 2026-10-07 03:36:17 api 投第 8 单 / 03:50:01 watcher RESERVE range=44..44 prev_dispatched=43）。
+
+**闸在哪**：`gateway/inbox_claim_gate.py`（api 侧三态闸）+ `~/.mimiraether/scripts/buzz_inbox_claim.py`
+（认领器 · 两通道共用）；接线点 `gateway/platforms/api_server.py::_handle_runs` 建 run 之前。
+
+**复用照抄**：
+1. 派单方在唤醒 body 带 `metadata.inbox_line`（该信封在收件箱中的行号）
+2. `claim_for_api_run(run_id, metadata)` -> `issued` / `rejected` / `degraded`
+3. `issued` -> 放行 + 受理后 `commit_api_claim()`；`rejected` -> **HTTP 409**；`degraded` -> 放行（闸故障不停摆）
+
+**闸拒时看什么读数**：
+1. `~/.mimiraether/data/ops/api_claim_gate.jsonl` 的 `event=rejected` 行（run_id/declared/rc/reason）
+2. `<dispatched>.claim.log` 的 `RESERVE` / `HELD` / `COMMIT` 行
+3. HTTP 409 body（`code=inbox_line_already_claimed`）
+4. `python3 ~/.mimiraether/scripts/buzz_inbox_claim.py show`（三游标 + 当前 claim）
+
+**边界（已知）**：只挡重复**认领**；不挡单通道内重复执行 / watcher 自身重跑 / TTL 接管
+（接管是**有意**的，保不死信）；幂等键是**行号区间**非信封内容摘要；不带 `inbox_line` 的调用完全不走闸。
+
+**坑（血泪 · 同族先例 test_buzz_watcher_ledger 头注 G2）**：两臂 harness「只覆写部分 env」= 没隔离 ——
+漏 `BUZZ_INBOX_MIMIR_DISPATCHED` ⇒ 认领器打到**生产**收件箱（实测把第 59 行标成已派发）。
+覆写**全部** `${VAR:-默认}`，并加 `_assert_sandbox()`（路径非 `/tmp/` 拒跑）。
+
+**判据**：`python3 ~/.mimiraether/scripts/i2_two_arm_harness.py` ⇒ Arm A 唤醒=2 / Arm B 唤醒=1 / VERDICT=PASS
