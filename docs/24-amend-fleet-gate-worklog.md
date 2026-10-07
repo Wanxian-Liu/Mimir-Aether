@@ -145,3 +145,53 @@ hook 以 `MIMIR_GIT_COMMIT_AUDIT_LOG` / `MIMIR_HOOK_OBS_PATH` 全部重定向到
 - **未动**：`scripts/git-hooks/commit-msg` / `.git/hooks/commit-msg*`（**M3 押后，本单不翻**）、
   `~/.hermes/scripts/patrol_scan.py`（他人文件，只读取证）、`AGENTS.md`/`SOUL.md`/wiki 正文、
   任何 `.offset` 文件；未重启生产（`MainPID` 前后一致）
+
+## 6. 生产仓只读臂 + 巡视面端到端（补强，禁改写历史）
+
+### 6.1 生产仓只读臂（钩子直调，**不做 amend**；身份用 `GIT_CONFIG_COUNT/KEY/VALUE` env 注入，**未改 config**）
+
+| 臂 | 场景 | 期望 rc | 实测 rc | trace outcome |
+|:--|:--|--:|--:|:--|
+| A6 | HEAD=Mimir（本仓真 HEAD），注入 committer=琬弦 | 0 | **0** | `amend-fleet` |
+| A7 | 同 HEAD，注入 committer=stranger `<stranger@example.com>` | 1 | **1** | `amend-foreign-blocked` |
+
+- `git config user.name/email` 臂后仍为 `Mimir / mimir@mimiraether.local` ⇒ 生产配置未被污染
+
+### 6.2 巡视面端到端（生产面写点 + 真实渲染器复算）
+
+- 受控探针（标记 `trace_id=card24-probe-on-prod-surface`）：钩子直调写点 ⇒ 生产
+  `data/ops/hook_observations.jsonl` 行数 **1350 → 1351**，新行逐字：
+  `{"ts":"2026-10-07T11:38:30","hook":"git_foreign_amend_override","decision":"override","reason":"MIMIR_ALLOW_FOREIGN_AMEND=1","head_author":"Mimir <mimir@mimiraether.local>","committer":"stranger <stranger@example.com>","repo":"/home/rayliu/src/MimirAether","branch":"main","trace_id":"card24-probe-on-prod-surface","pid":3626215}`
+- **真实渲染器**（非复刻逻辑）`scripts/slo_dashboard.py::hook_obs_section()` 输出（该函数即日报
+  「## ⑥ 钩子观测」的数据源）：
+
+```
+## ⑥ 钩子观测（parallel-read nudge / PI delegate）
+- 累计 1351 条 · 末次 2026-10-07T11:38:30 · 数据源 /home/rayliu/.mimiraether/data/ops/hook_observations.jsonl
+| 钩子 | 决策 | 原因 | 次数 |
+| git_foreign_amend_override | override | MIMIR_ALLOW_FOREIGN_AMEND=1 | 1 |
+```
+
+⇒ override **不再只躺 jsonl**：下一次日报（cron `mimir-slo-dashboard` `0 22 * * *`）即渲染此行。
+
+### 6.3 零误伤自证（判据⑤）——本单自己的提交跑双闸
+
+本单 commit `85d51bf` 由**真钩子链**（`.git/hooks/pre-commit` wrapper → `pre-commit-mimir-audit`；
+`.git/hooks/commit-msg` → `commit-msg-mimir-sign`）放行，**未用 `--no-verify`**；同 run trace 3 行：
+
+```
+action=commit      outcome=commit          committer=Mimir <mimir@mimiraether.local>
+action=signature   outcome=signed-explicit
+action=post-commit outcome=committed
+```
+
+### 6.4 M3 押后自证（未被本单顺手翻）
+
+- `scripts/git-hooks/commit-msg` 对**无 trailer** 消息实测 `rc=0`（非阻塞），`signed_by=auto`
+- `git status --porcelain scripts/git-hooks/commit-msg .git/hooks/commit-msg` 输出空 ⇒ 两处均未改动
+
+## 7. 本单 commit
+
+- 钩子 + 本文档首版：`85d51bf`（`git show --stat 85d51bf`）
+- 边界：**未重启生产** —— `MainPID=3470713` / `NRestarts=0`，改动前后一致（钩子是 git 调用时执行的
+  独立进程，不进网关进程）
