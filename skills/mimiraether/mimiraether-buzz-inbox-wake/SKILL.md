@@ -969,3 +969,10 @@ watcher（<=5min）只看「行号 vs dispatched」⇒ 认领两次
 覆写**全部** `${VAR:-默认}`，并加 `_assert_sandbox()`（路径非 `/tmp/` 拒跑）。
 
 **判据**：`python3 ~/.mimiraether/scripts/i2_two_arm_harness.py` ⇒ Arm A 唤醒=2 / Arm B 唤醒=1 / VERDICT=PASS
+
+## 2.31 「修理单」类收口四坑（2026-10-07 行 75 · 修理单B 实证）
+
+1. **派单引数 ≠ 现跑**：派单书里的状态读数（如「memory 96.4% / user 97.7%」）是**当时**读数；收口必须本 run 重跑同一命令，回执只引现读（本例现读 memory 91.1% / user 30.5%）。状态型判据一律现跑。
+2. **整仓 pytest 首跑的红可能是自己造的新红**：跑法固定 `bash ~/src/MimirAether/scripts/pytest_isolated.sh`（禁在 gateway cgroup 内直跑整仓 ⇒ OOM），结果贴 `X passed / Y failed` 原始尾行；若首跑非 0，先 `git log -1 --format='%h %ad %s' -- <红源文件>` 定引入时点 —— 常见自伤形态 = **技能里写字面占位符路径**（如 `/x/scripts/<脚本>.py`）⇒ `scripts/check_dead_refs.py` 判 dead hard path ⇒ `test_check_dead_refs_scope` 红。修 1 行 + 复跑 `check_dead_refs.py`（应 `Clean: N/N`）即可。
+3. **闸要挂进现有周期 job，不新建 cron**：加步骤 = 持 `~/.mimiraether/cron/.tick.lock` flock 改 `jobs.json`（无需重启），判据写 `grep -c '<步标题>' jobs.json ≥1`；段内必带 rc 语义 + 输出行要求（禁静默）。
+4. **回执末标记必须在文末**：`【END-XXX】` 之后补写内容 = 破坏派单方的结束标记语义（本轮踩过：补「未闭项」时把 END 顶到中间）⇒ 补写后回读末行确认标记在最后。
