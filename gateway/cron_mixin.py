@@ -20,7 +20,7 @@ import subprocess
 import tempfile
 import uuid as _uuid
 from pathlib import Path
-from typing import Dict, Any, Optional, TYPE_CHECKING
+from typing import Dict, Any, Mapping, Optional, TYPE_CHECKING
 
 from gateway.config import Platform
 from gateway.home_paths import _hermes_home, get_hermes_home
@@ -1043,20 +1043,47 @@ class CronMixin:
             # no log line and left last_status="ok". Two real deliveries were
             # lost this way before anyone noticed.
             failures = _delivery_failures(delivery_results)
+            # 2026-10-07 第27单（n8 假警报治理）：按 job spec 把「按设计就该失败」
+            # 的受控臂与真故障分流。控制臂失败是真的（可听性验证通过），但它
+            # **不是事故** —— 见 cron/delivery_alerts.expected_failure_map。
+            try:
+                from cron.delivery_alerts import expected_failure_map, split_failures
+                expected_map = expected_failure_map(job)
+            except Exception:
+                expected_map = {}
             detail = ""
             if failures:
                 detail = "; ".join(f"{k}: {v}" for k, v in failures.items())
-                logger.warning(
-                    "Cron job %s: DELIVERY FAILED for %s — %s",
-                    job_id,
-                    ", ".join(failures),
-                    detail,
+                _expected_failures, _unexpected_failures = split_failures(
+                    failures, expected_map
                 )
+                if _unexpected_failures:
+                    logger.warning(
+                        "Cron job %s: DELIVERY FAILED for %s — %s",
+                        job_id,
+                        ", ".join(_unexpected_failures),
+                        "; ".join(f"{k}: {v}" for k, v in _unexpected_failures.items()),
+                    )
+                if _expected_failures:
+                    # 出声降到 INFO：控制台/日志可查，不进告警面（不推人）。
+                    logger.info(
+                        "Cron job %s: EXPECTED control failure for %s (control=%s)"
+                        " — recorded, not alerted",
+                        job_id,
+                        ", ".join(_expected_failures),
+                        ",".join(
+                            sorted(
+                                {expected_map.get(t, "expected") for t in _expected_failures}
+                            )
+                        ),
+                    )
                 # N12 (2026-09-18): alert on the EVENT. The 12h `n9-report`
                 # scanner is paused, so without this a delivery outage is only
                 # visible to whoever reads the job list. Never raises.
                 try:
-                    await _alert_delivery_failure(self, job_id, job_name, failures)
+                    await _alert_delivery_failure(
+                        self, job_id, job_name, failures, expected_map=expected_map
+                    )
                 except Exception:
                     logger.debug("Cron job %s: delivery alert failed", job_id, exc_info=True)
             try:
@@ -1106,6 +1133,7 @@ def _delivery_failures(results) -> Dict[str, str]:
 async def _alert_delivery_failure(
     host, job_id: str, job_name, failures,
     *, text_override: Optional[str] = None, platform: Optional[str] = None,
+    expected_map: Optional[Mapping[str, str]] = None,
 ) -> None:
     """N12 (2026-09-18): push a delivery failure to the HOME channel.
 
@@ -1120,8 +1148,28 @@ async def _alert_delivery_failure(
       not become a notification storm;
     * bounded by the caller's try/except -- this function does not raise.
     """
-    from cron.delivery_alerts import format_alert, record_alert, should_alert
+    from cron.delivery_alerts import (
+        format_alert, record_alert, should_alert, split_failures,
+    )
     from gateway.delivery import DeliveryTarget
+
+    # 2026-10-07 第27单：受控失败 = **只记账不出声**（台账可查、日志可见、不推人）。
+    # 理由：控制臂的失败是它的设计目的；把它当真事故推给操作者 = 每 12h 一条
+    # 形态与真事故完全一样的假警报（2026-10-07T03:59:57Z · job 71ea0213e413）。
+    expected_failures, unexpected_failures = split_failures(failures, expected_map)
+    if expected_failures:
+        _labels = sorted(
+            {(expected_map or {}).get(t, "expected") for t in expected_failures}
+        )
+        record_alert(
+            job_id, job_name, expected_failures,
+            delivered=False, send_error=None,
+            expected=True, control=",".join(_labels),
+        )
+    if not unexpected_failures:
+        # 全为受控失败 ⇒ 到此为止：没人被打扰，但盘上有账。
+        return
+    failures = unexpected_failures
 
     if not should_alert(job_id):
         return

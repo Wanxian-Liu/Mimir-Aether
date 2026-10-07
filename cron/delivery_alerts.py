@@ -31,6 +31,50 @@ from mimir_constants import get_mimir_home
 LEDGER_RELATIVE = Path("data") / "ops" / "delivery_failure_alerts.jsonl"
 
 
+# --- 预期（受控）投递失败 — 2026-10-07 第27单 ------------------------------
+# 为什么写在 job spec（数据）而不是代码里：n8 投递双控 job 是**故意**投一个
+# 不存在的 chat_id，它的失败就是预期结果。没有标记时该控制失败与真故障不可
+# 区分：台账照记、告警器照推 HOME ⇒ 操作者每 12h 收到一条**形态与真事故完全
+# 一样**的假警报（2026-10-07T03:59:57Z · job 71ea0213e413 实证）。
+#
+# job spec 接受两种写法：
+#   expected_failures:        {"feishu:oc_0000…": "positive"}   # 目标 -> 控制标签
+#   expected_failure_targets: ["feishu:oc_0000…"]               # 标签默认 "expected"
+EXPECTED_FAILURES_KEY = "expected_failures"
+EXPECTED_TARGETS_KEY = "expected_failure_targets"
+
+
+def expected_failure_map(job: Optional[Mapping[str, Any]]) -> Dict[str, str]:
+    """job spec 声明的「按设计就该失败」的投递目标。永不起抛。
+
+    畸形 spec 退化为「没有任何预期」——这是安全方向：宁可警报吵，不可警报哑
+    （与 rule 4 同族：告警路径不得因自身错误而静默）。
+    """
+    if not isinstance(job, Mapping):
+        return {}
+    out: Dict[str, str] = {}
+    raw_map = job.get(EXPECTED_FAILURES_KEY)
+    if isinstance(raw_map, Mapping):
+        for target, label in raw_map.items():
+            out[str(target)] = str(label or "expected")
+    raw_list = job.get(EXPECTED_TARGETS_KEY)
+    if isinstance(raw_list, (list, tuple)):
+        for target in raw_list:
+            out.setdefault(str(target), "expected")
+    return out
+
+
+def split_failures(failures, expected=None):
+    """把投递失败按 spec 拆成 (expected, unexpected)，两者都是 dict。纯函数。"""
+    expected = expected or {}
+    exp: Dict[str, str] = {}
+    unexp: Dict[str, str] = {}
+    for target, reason in (failures or {}).items():
+        key = str(target)
+        (exp if key in expected else unexp)[key] = str(reason)
+    return exp, unexp
+
+
 def default_cooldown_s() -> int:
     try:
         return int(os.getenv("MIMIR_DELIVERY_ALERT_COOLDOWN_S", "1800"))
@@ -75,11 +119,19 @@ def _parse_ts(value: Any) -> Optional[datetime]:
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
-def last_alert_at(job_id: str, path: Optional[Any] = None) -> Optional[str]:
+def last_alert_at(job_id: str, path: Optional[Any] = None, *, include_expected: bool = False) -> Optional[str]:
+    """该 job 最近一次**真**告警时刻（2026-10-07 第27单：expected 行不计入）。
+
+    受控控制行（expected=True）若计入冷却，n8 双控每 12h 的「预期失败」就会把
+    同 job **真故障**的告警静音 30 min ⇒ 假警报的修法变成真警报的哑因。
+    """
     last: Optional[str] = None
     for rec in iter_alerts(path):
-        if rec.get("job_id") == job_id and rec.get("ts"):
-            last = str(rec["ts"])
+        if rec.get("job_id") != job_id or not rec.get("ts"):
+            continue
+        if rec.get("expected") and not include_expected:
+            continue
+        last = str(rec["ts"])
     return last
 
 
@@ -137,6 +189,8 @@ def record_alert(
     failures: Mapping[str, str],
     delivered: bool,
     send_error: Optional[str] = None,
+    expected: bool = False,
+    control: Optional[str] = None,
     now: Optional[datetime] = None,
     path: Optional[Any] = None,
 ) -> Dict[str, Any]:
@@ -148,6 +202,9 @@ def record_alert(
         "failed_targets": {str(k): str(v) for k, v in (failures or {}).items()},
         "delivered": bool(delivered),
         "send_error": send_error,
+        # 2026-10-07 第27单：预期标记 —— 台账可查、日志可见、不推人。
+        "expected": bool(expected),
+        "control": str(control) if control else None,
     }
     p = alerts_path(path)
     try:
