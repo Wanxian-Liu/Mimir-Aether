@@ -972,4 +972,4 @@ spec = importlib.util.spec_from_file_location(name, path, loader=loader)
 **副作用纪律**：探针往「生产文件」写合成样本 = 污染（`source_indexable=20000` vs 真实 27237
 会伪造一次 −27% 崩落）⇒ 探针**显式传 `path=<scratch>`**，生产文件只收真实运行行。
 
-- ⚠️ **探针模板必须带解释器**（2026-10-07 行 65 实测）：`~/.mimiraether/scripts/*.py` 多为 **644 不可执行**，探针模板若写成 `<脚本> '{INPUT}'`，`shell=True` 执行 ⇒ `rc=126 权限不够` ⇒ stdout 空 ⇒ `observed=none` ⇒ **`positive_control_failed` / UNVERIFIED**（是**调用形态**错，不是结论错；台账会留一条 UNVERIFIED 记录，落卡时须说明）。正解 = `/home/rayliu/src/MimirAether/.venv/bin/python3 /home/rayliu/.mimiraether/scripts/<脚本>.py '{INPUT}'`。
+- ⚠️ **探针模板必须带解释器**（2026-10-07 行 65 实测）：`~/.mimiraether/scripts/*.py` 多为 **644 不可执行**，探针模板若写成 `<脚本> '{INPUT}'`，`shell=True` 执行 ⇒ `rc=126 权限不够` ⇒ stdout 空 ⇒ `observed=none` ⇒ **`positive_control_failed` / UNVERIFIED**（是**调用形态**错，不是结论错；台账会留一条 UNVERIFIED 记录，落卡时须说明）。正解 = `/home/rayliu/src/MimirAether/.venv/bin/python3 /home/rayliu/.mimiraether/scripts/probe_firstline_wake.py '{INPUT}'`（把示例脚本名换成自己那条探针的实文件名——**别把 `<脚本>` 字面写进模板**，`scripts/check_dead_refs.py` 会把它判成 dead hard path，令整仓 `test_check_dead_refs_scope` 变红）。
