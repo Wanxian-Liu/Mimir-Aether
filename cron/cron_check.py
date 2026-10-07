@@ -56,10 +56,14 @@ def load_jobs() -> List[Dict[str, Any]]:
 
 
 def save_jobs(jobs: List[Dict[str, Any]]) -> bool:
-    """保存 jobs 到文件 (原子操作: 先写.tmp,再重命名)."""
+    """保存 jobs 到文件 (原子操作: 先写.tmp,再重命名).
+
+    ⚠ 必须写 ``{"jobs": [...]}`` 字典形——曾写扁平 list ⇒ 与 scheduler/jobs.py 同族地雷
+    （读容忍 · 写破坏：能读进生产 ``{"jobs": [...]}``，回写即毁）。
+    """
     try:
         tmp_file = JOBS_FILE.with_suffix(".tmp")
-        content = json.dumps(jobs, indent=2, ensure_ascii=False)
+        content = json.dumps({"jobs": jobs}, indent=2, ensure_ascii=False)
         tmp_file.write_text(content, encoding="utf-8")
         tmp_file.rename(JOBS_FILE)
         return True

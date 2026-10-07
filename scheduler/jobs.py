@@ -44,10 +44,15 @@ def load_jobs() -> List[Dict]:
         return []
 
 def save_jobs(jobs: List[Dict]):
-    """保存任务列表"""
+    """保存任务列表
+
+    ⚠ 必须写 ``{"jobs": [...]}`` 字典形（与 cron/jobs.py 一致）——曾写扁平 list：
+    本模块能被生产文件 ``{"jobs": [...]}`` 读进来（load_jobs 双形容错），
+    回写却把它毁成扁平 ⇒ 「读容忍 · 写破坏」。load_jobs 双形都能读，故本改动往返安全。
+    """
     ensure_dirs()
-    with open(JOBS_FILE, "w") as f:
-        json.dump(jobs, f, indent=2)
+    with open(JOBS_FILE, "w", encoding="utf-8") as f:
+        json.dump({"jobs": jobs}, f, indent=2, ensure_ascii=False)
 
 def _get_cron_expr(job: Dict) -> Optional[str]:
     """从不同格式的任务字段中提取 cron 表达式"""
