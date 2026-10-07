@@ -6,6 +6,14 @@ auto_load: false
 
 # Buzz 收件箱唤醒处理（Mimir）
 
+## 2.26 第 27 单实证 · 告警分级类任务五坑（2026-10-07 行 65）
+
+1. **`buzz_inbox_close.py` 在 home 不在 repo**：步骤 2a 的命令是 `python3 ~/.mimiraether/scripts/buzz_inbox_close.py`；本 run 先按 repo 路径试 ⇒ `No such file`（`~/src/MimirAether/scripts/` 下没有此件）。判据：先 `find ~/.mimiraether ~/src/MimirAether -maxdepth 3 -name 'buzz_inbox*'` 定位再跑。
+2. **手写账本行会留「假积压」**：本 run 接手时 `--show` ⇒ `total=65 offset=54 dispatched=65 lag=11`（行 55–58 由兄弟 run 手写账本、未推 offset）⇒ 一次 `--close` 推齐 offset=65、lag=0。**结论**：`lag>0` 不等于「有信未处理」——先 `grep -rln '<msg-id>' ~/wiki` 判内容面。
+3. **`write_file` 大载荷 = `Invalid JSON`**：本轮写 3.7 KB 脚本报 `Unterminated string starting at: line 1 column 13`；1.5–1.9 KB 均通。长脚本要么分块写，要么直接在 `execute_code` 里 `open(p,'w')` 落盘（repo 内文件本来也只能这么写）。
+4. **数据面 vs 代码面的装载判据不同（本单核心）**：`cron/jobs.json` 每 tick 由 `cron/jobs.py::load_jobs()` **重读盘** ⇒ 数据改动**无需重启**即生效；而 `gateway/cron_mixin.py` 的函数对象在 gateway 启动时绑定 ⇒ 代码改动**必须重启**才装载。⇒ 「改了但现象没变」的排查顺序 = 先分清「这次改的是数据还是代码」，再比 `MainPID` 启动时刻 vs commit 时刻。
+5. **告警分级 = 受控失败的机制化修法**：控制类 job 的「按设计失败」必须在**数据里声明**（`expected_failures: {target: "positive"}`），由告警器分流 —— 预期 ⇒ `record_alert(expected=True, control=…)` **zero-send 只记账**；非预期 ⇒ 原路径出声。两个易漏点：① 台账 `expected` 行**不得占用冷却**（否则假警报的修法变成真警报的哑因）；② 畸形 spec 必须退化为「什么都不预期」（宁可吵不可哑）。
+
 ## 2.23 第 2 路唤醒 · L2 复核四坑（2026-10-07 实证 · 行 50–53）
 
 1. **判「谁已闭」必须按 mtime 排**：裸 `ls -la ~/.hermes/inbox/ | tail` 是**字典序**（拿到 00:40–01:02 旧件 ⇒ 误判"全未闭"）。正解 `ls -la --time-style='+%m-%d %H:%M' ~/.hermes/inbox/ | sort -k6,7 | tail -6`；再用 `git -C ~/wiki log -1 --pretty='%h|%ad|%s' --date=format:'%m-%d %H:%M' -- '<卡>'` 定位接受方提交（判「卡是否已被追加」）。
