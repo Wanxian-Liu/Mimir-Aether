@@ -517,17 +517,21 @@ def do_inspect(identifier: str, console: Optional[Console] = None) -> None:
 
 def do_list(source_filter: str = "all", console: Optional[Console] = None) -> None:
     """List installed skills, distinguishing hub, builtin, and local skills."""
+    from skills.skills_loader import SKILLS_DIR, _scan_dir_for_skills, skills_list
     from tools.skills_hub import HubLockFile, ensure_hub_dirs
-    from tools.skills_sync import _read_manifest
-    from tools.skills_tool import _find_all_skills
 
     c = console or _console
     ensure_hub_dirs()
     lock = HubLockFile()
     hub_installed = {e["name"]: e for e in lock.list_installed()}
-    builtin_names = set(_read_manifest())
 
-    all_skills = _find_all_skills()
+    # 内置名单真源 = 仓内 skills/（get_skills_source_dir docstring:「MimirAether内置」）。
+    # 必须逐 SKILL.md 扫出**技能名**；SkillSync.list_skills() 返回的是**分类名**
+    # （data/feeds/github/...），拿它当 builtin 判据会恒 0 —— 已实测排除。
+    builtin_names = {s["name"] for s in _scan_dir_for_skills(SKILLS_DIR)}
+
+    # 全量技能真源 = 仓内 skills/ + 用户侧 ~/.mimiraether/skills（合并去重，repo 侧优先）
+    all_skills = skills_list()
 
     table = Table(title="Installed Skills")
     table.add_column("Name", style="bold cyan")
