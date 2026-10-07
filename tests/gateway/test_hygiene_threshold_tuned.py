@@ -71,11 +71,11 @@ def test_constant_is_actually_used_as_trigger() -> None:
 
 
 def test_registry_key_is_bounded() -> None:
-    """注册表必须有界（bounded）且默认值 = 历史值。"""
+    """注册表必须有界（bounded）；default = 冷备，2026-10-07 Q6 起对齐生效值 30 万（真源 = tuned 表）。"""
     from agent.tuned_thresholds import _REGISTRY
 
     spec = _REGISTRY["compressor.hygiene_token_threshold"]
-    assert spec["default"] == 200_000
+    assert spec["default"] == 300_000
     assert spec["min"] < spec["max"]
     assert spec["min"] <= 300_000 <= spec["max"], "刘哥令的目标值必须落在合法区间内"
     assert spec["type"] == "int"

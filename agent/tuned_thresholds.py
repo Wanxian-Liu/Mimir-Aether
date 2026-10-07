@@ -69,11 +69,13 @@ _REGISTRY: Dict[str, Dict[str, Union[int, float]]] = {
         "type": "int",
     },
     # 2026-09-16 刘哥令（阈值 12万->30万 实验）：**会话卫生层**触发阈值（ACTUAL tokens）。
-    # 此前是 agent_route_mixin.py 里的裸常量 200_000 ⇒ 它比 agent 层 30万 更早拦下会话，
+    # 此前是 agent_route_mixin.py 里的裸常量（历史值 20 万）⇒ 它比 agent 层 30万 更早拦下会话，
     # 使 agent 层那条线不可达。注册为有界键后：每轮读盘 ⇒ 调阈值**不需重启**。
-    # default 保留历史值 200_000（键被移除即回退到旧行为，不做隐性变更）。
+    # 2026-10-07 Q6（A6 后续 · 刘哥批）：注册 default 对齐生效值 30 万。
+    # **真源 = tuned 表 `data/tuned_thresholds.json`，此值为冷备**——仅 overrides 缺该键时兜底；
+    # 改它不改变生效值（生效值每轮读盘取 overrides）。
     "compressor.hygiene_token_threshold": {
-        "default": 200_000,
+        "default": 300_000,
         "min": 20_000,
         "max": 1_048_576,
         "step": 10_000,
