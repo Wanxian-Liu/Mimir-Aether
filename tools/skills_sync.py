@@ -8,10 +8,13 @@ MimirAether Skill同步
 - 版本控制
 """
 
+import logging
 import os
 import shutil
 from pathlib import Path
 from typing import Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 # =============================================================================
 # 路径配置
@@ -111,45 +114,131 @@ class SkillSync:
         
         return True
     
-    def sync_all(self) -> Dict[str, bool]:
-        """同步所有Skills"""
+    def sync_all(self, only: Optional[List[str]] = None) -> Dict[str, bool]:
+        """同步Skills。
+
+        ``only`` 给定时只同步这些（= ``get_sync_status()["pending_skills"]``）——
+        这是「未变的不动」的消费端；默认 ``None`` 保持原语义（全量），
+        既有调用方不受影响（向后兼容 + 可逆）。
+        """
         results = {}
-        for skill_name in self.list_skills():
+        skill_names = self.list_skills() if only is None else list(only)
+        for skill_name in skill_names:
             results[skill_name] = self.sync_skill(skill_name)
         return results
     
+    def _cached_digests(self) -> Dict[str, str]:
+        """读缓存中的「skill -> 源侧内容摘要」表。
+
+        向后兼容：旧形态是 ``{"synced": [name, ...]}``（只记名字、无摘要）。
+        历史名单既可能含已删技能、也可能缺新增技能，因此**不可**与源侧存量
+        相减——旧判据 ``len(all_skills) - len(synced)`` 即此错，实测 19-29=-10。
+        这里把旧形态读成空表 ⇒ 本轮全部计为待同步一次，同步后自愈。
+        """
+        import json
+
+        if not self.cache_path.exists():
+            return {}
+        with open(self.cache_path) as f:
+            data = json.load(f)
+        raw = data.get("synced", {})
+        return dict(raw) if isinstance(raw, dict) else {}
+
+    def _skill_digest(self, skill_name: str) -> str:
+        """源侧 skill 目录的内容摘要（相对路径 + 每文件 sha256 汇总）。
+
+        判据用**内容摘要**而非 mtime：mtime 在 git checkout / cp / 部署侧改动下
+        会漂移（假阳性重拷 = 本次事故同类）。实测全量 436 文件 / 6.8MB 算 sha256
+        仅 0.040s（stat-only 0.027s），不值得为省 13ms 换正确性。
+        """
+        import hashlib
+
+        skill_dir = self.source_dir / skill_name
+        if not skill_dir.exists():
+            return ""
+        h = hashlib.sha256()
+        for f in sorted(p for p in skill_dir.rglob("*") if p.is_file()):
+            rel = str(f.relative_to(skill_dir)).replace(os.sep, "/")
+            h.update(rel.encode("utf-8"))
+            h.update(b"\x00")
+            h.update(hashlib.sha256(f.read_bytes()).digest())
+            h.update(b"\x00")
+        return h.hexdigest()
+
+    def _needs_sync(self, skill_name: str, cached: Dict[str, str]) -> bool:
+        """单个 skill 是否需要同步（三条充分条件，任一成立即待同步）"""
+        digest = cached.get(skill_name)
+        if digest is None:
+            return True                      # 缓存无该条（含旧形态升级后首轮）
+        if not (self.target_dir / skill_name).exists():
+            return True                      # 目标缺失（被删 / 从未拷贝）
+        return self._skill_digest(skill_name) != digest   # 源侧内容真变了
+
     def get_sync_status(self) -> Dict:
-        """获取同步状态"""
-        synced = set()
-        if self.cache_path.exists():
-            import json
-            with open(self.cache_path) as f:
-                data = json.load(f)
-                synced = set(data.get("synced", []))
-        
+        """获取同步状态。
+
+        口径（2026-10-07 修）：``pending`` = 待同步 skill 数 =
+        「源侧内容摘要 ≠ 缓存摘要」+「目标缺失」+「缓存无记录」。
+        旧口径把「源目录当前存量」与「缓存历史累积名单」两个不同语义的集合
+        相减 ⇒ 读数可为负（实测 -10）⇒ ``pending == 0`` 恒 False ⇒ 闸从不生效。
+        """
+        cached = self._cached_digests()
         all_skills = self.list_skills()
-        
+        pending_skills = [n for n in all_skills if self._needs_sync(n, cached)]
+
         return {
             "total": len(all_skills),
-            "synced": len(synced),
-            "pending": len(all_skills) - len(synced),
+            "synced": len(all_skills) - len(pending_skills),
+            "pending": len(pending_skills),
+            "pending_skills": pending_skills,
+            "cached_total": len(cached),
             "skills": all_skills,
         }
-    
+
     def _update_cache(self, skill_name: str):
-        """更新同步缓存"""
+        """更新同步缓存（记源侧内容摘要；旧 list 形态在此升级为 dict）"""
         import json
-        
-        data = {"synced": []}
+
+        data = {"synced": {}}
         if self.cache_path.exists():
             with open(self.cache_path) as f:
                 data = json.load(f)
-        
-        if skill_name not in data["synced"]:
-            data["synced"].append(skill_name)
-        
+        if not isinstance(data.get("synced"), dict):
+            data["synced"] = {}
+
+        data["synced"][skill_name] = self._skill_digest(skill_name)
+
         with open(self.cache_path, 'w') as f:
             json.dump(data, f)
+
+# =============================================================================
+# 闸门判决落痕（可观测性）
+# =============================================================================
+
+def _record_sync_decision(cache_path: Path, status: Dict) -> None:
+    """把本次闸门判决写入缓存文件（``last_decision``）。
+
+    目的：本闸 2026-10-07 前**恒不生效且零痕迹** —— 事故只能靠外部复算
+    （19-29=-10）才发现。「跳过」与「重拷」必须在盘上可区分，否则同类故障
+    仍不可见。副作用仅多一个键，删除本函数与调用点即可完全回滚。
+    """
+    import json
+
+    data = {"synced": {}}
+    if cache_path.exists():
+        with open(cache_path) as f:
+            data = json.load(f)
+    if not isinstance(data.get("synced"), dict):
+        data["synced"] = {}
+    data["last_decision"] = {
+        "pending": status["pending"],
+        "total": status["total"],
+        "pending_skills": status.get("pending_skills", []),
+        "action": "skip" if status["pending"] == 0 else "sync",
+    }
+    with open(cache_path, "w") as f:
+        json.dump(data, f)
+
 
 # =============================================================================
 # CLI接口
@@ -176,13 +265,22 @@ def sync_skills(quiet: bool = False) -> bool:
         print(f"  已同步: {status['synced']}")
         print(f"  待同步: {status['pending']}")
     
+    _record_sync_decision(sync.cache_path, status)
+
     if status['pending'] == 0:
         if not quiet:
             print("  所有Skills已是最新")
+        # 可观测性(§5.5 不可裁剪): 本闸 2026-10-07 前恒不生效且全程零日志,
+        # 事故只能靠外部复算发现 -- 留一行 INFO 让「跳过」与「重拷」可区分。
+        logger.info("skills_sync: no change, skip (total=%d synced=%d)",
+                    status['total'], status['synced'])
         return True
+
+    logger.info("skills_sync: syncing %d/%d: %s", status["pending"],
+                status['total'], ','.join(status.get('pending_skills', [])))
     
-    # 执行同步
-    results = sync.sync_all()
+    # 执行同步 —— 只同步判据认定的待同步项（未变的不动）
+    results = sync.sync_all(only=status["pending_skills"])
     
     if not quiet:
         success = sum(1 for v in results.values() if v)
