@@ -379,6 +379,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.selftest:
         return selftest()
 
+    if args.home:
+        # 显式 --home 优先于任何环境键（且**不走共用键 HERMES_HOME**）
+        # 2026-10-07 第 20 单：旧版 --home 只影响诊断、不影响读路径 ⇒ 假红。
+        os.environ["MIMIR_AETHER_HOME"] = str(Path(args.home).expanduser())
     window = parse_window(args.since)
     p = Path(args.path) if args.path else alert_path()
     home = Path(args.home) if args.home else _home_of(p)

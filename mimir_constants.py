@@ -1,6 +1,7 @@
 """Shared constants for MimirAether Agent - 统一版本"""
 
 import os
+import sys
 from pathlib import Path
 
 # Default when no env override (runtime data root; separate from git clone)
@@ -10,22 +11,53 @@ _DEFAULT_MIMIR_HOME = Path.home() / ".mimiraether"
 def get_mimir_home() -> Path:
     """Return the MimirAether home directory (reads env on each call).
 
-    Resolution order matches ``hermes_constants.get_hermes_home()`` for the
-    shared keys, plus ``MIMIRAETHER_HOME`` for backward compatibility:
+    Own-home keys only — ``HERMES_HOME`` is **Hermes'** own home key, never
+    Mimir's. Sharing it made Mimir resolve to ``~/.hermes`` inside a Hermes
+    environment, which produced false reds (2026-10-07, cross-env false-red
+    family):
 
     1. ``MIMIR_AETHER_HOME``
     2. ``MIMIRAETHER_HOME``
-    3. ``HERMES_HOME`` (systemd / legacy deploys often set only this)
-    4. Default runtime data layout ``~/.mimiraether`` (not the git checkout)
+    3. Default runtime data layout ``~/.mimiraether`` (not the git checkout)
+
+    A set ``HERMES_HOME`` is ignored **loudly** (one stderr line per process,
+    see :func:`_warn_ignored_hermes_home`) — never used as a home source.
     """
     for key in ("MIMIR_AETHER_HOME", "MIMIRAETHER_HOME"):
         v = os.getenv(key, "").strip()
         if v:
             return Path(v).expanduser()
-    hermes = os.getenv("HERMES_HOME", "").strip()
-    if hermes:
-        return Path(hermes).expanduser()
+    _warn_ignored_hermes_home()
     return _DEFAULT_MIMIR_HOME
+
+
+_HERMES_HOME_WARNED = False
+
+
+def _warn_ignored_hermes_home() -> None:
+    """出声（每进程一次）：HERMES_HOME 是 Hermes 自家的键，已忽略。
+
+    不出声的共用键 = 下一个读口又会静默指错家（第 20 单：三处假红全因静默共用键）。
+    故必须可见，且**只警告不改行为**。
+    """
+    global _HERMES_HOME_WARNED
+    if _HERMES_HOME_WARNED:
+        return
+    _HERMES_HOME_WARNED = True
+    legacy = os.getenv("HERMES_HOME", "").strip()
+    if not legacy:
+        return
+    try:
+        legacy_path = Path(legacy).expanduser()
+    except Exception:
+        return
+    if legacy_path == _DEFAULT_MIMIR_HOME:
+        return  # 指向自家 —— 无歧义，不吵
+    print(
+        "[mimir-home] 忽略 HERMES_HOME=%s（Hermes 自家键）；Mimir 自家=%s。"
+        "要覆盖请设 MIMIR_AETHER_HOME。" % (legacy_path, _DEFAULT_MIMIR_HOME),
+        file=sys.stderr,
+    )
 
 
 # Snapshot at import — prefer calling :func:`get_mimir_home` when env may change.
