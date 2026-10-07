@@ -31,6 +31,25 @@
 # Bypass:   git commit --no-verify  (deliberately NOT traced: the *absence* of a
 #           trace line next to a commit is itself the signal)
 # ---------------------------------------------------------------------------
+# 2026-10-07（卡 24 / #23 · 刘哥批「投」）-- 「拦自己人」根治：fleet 协作身份集合
+#   病：Mimir 与 Hermes 在**同一个仓**里接续干活，正当 amend（如给上一条补 `Agent:` 尾巴）
+#       也被判 foreign ⇒ 日常靠 MIMIR_ALLOW_FOREIGN_AMEND=1 绕 ⇒ **判据失效**
+#       （「该拦的真偷改」与「不该拦的正当修复」共用同一把钥匙）。
+#   方：引入协作身份集合（fleet）——HEAD 作者/提交者与当前 committer **都在 fleet** ⇒ 放行
+#       （exit 0），但**照留痕**（trace outcome=amend-fleet，含双方身份）；
+#       任一方不在 fleet / 认不出 ⇒ **行为一个字不改**（出声 + 两条出路 + trace + exit 1）。
+#   fleet 取证（2026-10-07 · `git log --format='%an <%ae>'` / `%cn <%ce>` 全量实取）：
+#     Mimir       : Mimir|mimir|MimirAether + mimir@{mimiraether.local,local,mimir.aether,worldweaver.ai,mimiraether}
+#     Hermes(琬弦) : 琬弦 <wanxian@worldweaver.ai>（824 次）· 另 Wanxian-Liu <lwqtnb@gmail.com>（作者 21 次）
+#     Loki        : Loki <loki@MiniMax.local>（1 次）
+#     OpenClaw    : **未观测到作者/提交者身份，暂不纳入**（无取证的白名单 = 白名单腐化）；
+#                   未纳入 GitHub <noreply@github.com>（合并器，非协作身份）。
+#   override 上巡视面（同批硬约束②）：每次 override 除 trace jsonl 外，追加一行到
+#     <mimir_home>/data/ops/hook_observations.jsonl（hook=git_foreign_amend_override）
+#     —— 该文件是 scripts/slo_dashboard.py::hook_obs_section() 的数据源，渲染进日报
+#        「## ⑥ 钩子观测」表格；cron `mimir-slo-dashboard`（0 22 * * *）每日出报
+#        ⇒ override 次日必在**巡视读面**出现一次（不再只躺 jsonl）。
+# ---------------------------------------------------------------------------
 
 # 2026-09-16 修「审计台账双血统」：本机 HOME 即 mimir home ⇒ 旧写法 $HOME/.mimiraether 得到
 # **嵌套假路径**（真台账 2620 行 vs 嵌套 101 行，我的提交只进嵌套）。
@@ -74,6 +93,43 @@ _detect_amend() {
   return 1
 }
 
+# 巡视面（硬约束②）：override 追加落点 —— 与 agent/hook_observe.py 同文件同 schema 子集，
+# 该文件由 scripts/slo_dashboard.py::hook_obs_section() 读入日报「⑥ 钩子观测」，cron 每日渲染。
+HOOK_OBS_LOG="${MIMIR_HOOK_OBS_PATH:-$(_mimir_home)/data/ops/hook_observations.jsonl}"
+
+# --- fleet（协作身份集合）-----------------------------------------------------
+# 判据形态：POSIX case 模式（**不用 tr/locale**——CJK 姓名按字节模式匹配，避免管道进解释器与
+# 大小写折叠的额外依赖）。$1 = 姓名，$2 = 邮箱；两者任一命中即视为 fleet 成员。
+# 邮箱按**域**匹配而非逐值白名单：实测同一 agent 有 5 种 mimir@* 写法（见文件头取证）。
+_is_fleet_identity() {
+  case "${1:-}" in
+    Mimir|mimir|MIMIR|MimirAether|mimiraether|MIMIRAETHER) return 0 ;;
+    琬弦*|Wanxian*|wanxian*) return 0 ;;
+    Loki|loki|LOKI) return 0 ;;
+  esac
+  case "${2:-}" in
+    mimir@*|Mimir@*|MIMIR@*) return 0 ;;
+    wanxian@*|Wanxian@*|WANXIAN@*) return 0 ;;
+    *@worldweaver.ai|*@WorldWeaver.ai) return 0 ;;
+    loki@*|Loki@*) return 0 ;;
+  esac
+  return 1
+}
+
+# override 留痕上巡视面：append 一行（一行一事件，追加写；与 python 侧 writer 同文件）
+_append_hook_obs_override() {
+  case "${MIMIR_HOOK_OBSERVE:-1}" in
+    0|false|no|off|False|FALSE|No|NO|Off|OFF) return 0 ;;
+  esac
+  _dir=$(dirname "$HOOK_OBS_LOG" 2>/dev/null)
+  [ -n "$_dir" ] && mkdir -p "$_dir" 2>/dev/null
+  printf '{"ts":"%s","hook":"git_foreign_amend_override","decision":"override","reason":"MIMIR_ALLOW_FOREIGN_AMEND=1","head_author":"%s <%s>","committer":"%s <%s>","repo":"%s","branch":"%s","trace_id":"%s","pid":%s}\n' \
+    "$(date +%Y-%m-%dT%H:%M:%S)" \
+    "$_head_author_name" "$_head_author_email" "$_cur_name" "$_cur_email" \
+    "$_repo" "$_branch" "$TRACE_ID" "$$" >> "$HOOK_OBS_LOG" 2>/dev/null
+  return 0
+}
+
 _is_amend=0
 _detect_amend && _is_amend=1
 
@@ -108,11 +164,24 @@ if [ "$_is_amend" = "1" ] && [ "$_head" != "no-head" ]; then
   [ -n "$_head_committer_name" ] && [ "$_head_committer_name" != "$_cur_name" ] && _foreign=1
   [ -n "$_head_committer_email" ] && [ "$_head_committer_email" != "$_cur_email" ] && _foreign=1
 
-  if [ "$_foreign" = "1" ]; then
+  # fleet 判定（卡 24 / #23）：HEAD 作者/提交者 与 当前 committer 是否都是协作身份
+  _head_fleet=0
+  _cur_fleet=0
+  _is_fleet_identity "$_head_author_name" "$_head_author_email" && _head_fleet=1
+  _is_fleet_identity "$_head_committer_name" "$_head_committer_email" && _head_fleet=1
+  _is_fleet_identity "$_cur_name" "$_cur_email" && _cur_fleet=1
+
+  if [ "$_foreign" = "1" ] && [ "$_head_fleet" = "1" ] && [ "$_cur_fleet" = "1" ]; then
+    # 同仓接续干活（Mimir<->Hermes<->Loki）：放行，但**不静默** —— 留痕 amend-fleet（含双方身份）
+    printf 'pre-commit: OK -- fleet amend: %s <%s> amending commit authored/committed by %s <%s> (traced as amend-fleet)\n' \
+      "$_cur_name" "$_cur_email" "$_head_author_name" "$_head_author_email" >&2
+    _trace "amend-fleet" "false"
+  elif [ "$_foreign" = "1" ]; then
     if [ "${MIMIR_ALLOW_FOREIGN_AMEND:-0}" = "1" ]; then
       printf 'pre-commit: WARNING -- amending a commit authored by %s <%s> with identity %s <%s> (override traced)\n' \
         "$_head_author_name" "$_head_author_email" "$_cur_name" "$_cur_email" >&2
       _trace "amend-foreign-override" "true"
+      _append_hook_obs_override
     else
       _trace "amend-foreign-blocked" "false"
       printf '\n' >&2
