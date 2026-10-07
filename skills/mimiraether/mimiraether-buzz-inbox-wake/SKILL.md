@@ -893,3 +893,11 @@ python3 scripts/append_inbox_processed.py -m "…" --up-to <游标> --dry-run   
 ② **改形态**：静态哈希必须配「**读数时点 + 可重现形态**」——用**探针内 before→after 成对读数**（探针自打印 `persistent X->X`）替代；或改成**相对判据**（「同一 run 内前后相同」= True/False）。单贴一行 `sha256sum` 输出 = 给复核方埋雷。
 ③ **L2 命中率按「命令条」报，不按「文件」报**：本单 8 条契约命令 = 7 HIT + 1 读数不等；按「两份回执都复跑过」报会掩盖那条 MISS（回执 ≠ 全绿）。
 ④ （同轮附带）**`~/.mimiraether` 仓里的技能文件 `M` 未必是「他 run 在飞」**：本轮实测该仓 `M skills/.../buzz-inbox-wake/SKILL.md` 与 `~/src/MimirAether` 已提交副本 **md5 完全一致（beb209f3f8）** ⇒ 只是该仓 HEAD 落后（同步后未提交）的**陈旧 M**。判断在飞与否要 `md5sum` 对三副本 + `ls -la --time-style` 看 mtime，别只看 `git status`。
+
+## 2.25 第 2 路唤醒 · L2 复核环境自身的「尺子假红」（2026-10-07 实证 · 行 58）
+
+1. **复核方必须在钉死的环境里复跑，否则会把「环境差异」误判成「修复不成立」**：本 run 首次**裸跑**实施方 9 条重跑命令 ⇒ 5 条读数不符（hygiene 读成 `entries=0` **假绿** · pytest `No module named pytest`）。根因**不在修复**，而在复核沙箱 `HOME` 被覆写（execute_code 沙箱 `HOME=/home/rayliu/.mimiraether`）⇒ 自家解析落到 `Path.home()/".mimiraether"` = 空家。
+2. **修法**：复核命令前显式钉 `HOME=/home/rayliu` + 解释器 `<repo>/.venv/bin/python`；回执里**两行都报**——「钉后 N/N HIT」**与**「裸跑 M 条不可复现」。只报 HIT = 掩盖量具缺口。
+3. **同族通则**：凡「自家解析」类任务（hermes/mimir home 类），**修复了 `HERMES_HOME` 之后，`$HOME` 就是下一个隐式共用键** ⇒ L2 harness 必须把它当第一变量钉住，否则复核读数只是噪音。
+4. **自建 harness 优于复用实施方脚本**（异源原则）：本 run 自写 `~/.mimiraether/data/tmp/homefix-l2/arms_l2.sh`（A 默认 / B `TMPDIR`+`HERMES_HOME` / C 改前树由 `git archive <fix>^` **按需生成**）⇒ 一条命令出 `ARM_A≡ARM_B` 与 `B≠C` 两个判词 + 回归三臂计数，不复用实施方脚本内的假设。
+5. **别把「真红」记成本单残留**：本例修复后 `hygiene rc=1` 仍在，但是**真**水位超阈（86.9% > 85%），与「混家假红」是两回事——L2 结论要分开写（`假红已消 / 真红另单`）。
