@@ -3,10 +3,10 @@
 ## 阈值真源（三处，改一处不够）
 | 层 | 键 | 现值 | 生效方式 |
 |:--|:--|--:|:--|
-| gateway 卫生压缩 | tuned 键 `compressor.hygiene_token_threshold` | 300000 | **每会话每轮读一次**（`_hygiene_token_threshold()`）⇒ 热调**免重启** |
-| agent 层 | env `MIMIR_COMPRESS_THRESHOLD_TOKENS` | 300000 | 日志 `source=env:...` 可见 |
+| gateway 卫生压缩 | tuned 键 `compressor.hygiene_token_threshold` | <!-- Q2-2 查现值→ grep MIMIR_COMPRESS_THRESHOLD_TOKENS ~/.mimiraether/.env | cut -d= -f2 · 写死=分叉源 --> | **每会话每轮读一次**（`_hygiene_token_threshold()`）⇒ 热调**免重启** |
+| agent 层 | env `MIMIR_COMPRESS_THRESHOLD_TOKENS` | <!-- Q2-2 查现值→ grep MIMIR_COMPRESS_THRESHOLD_TOKENS ~/.mimiraether/.env | cut -d= -f2 · 写死=分叉源 --> | 日志 `source=env:...` 可见 |
 | gateway 消息数硬限 | `hard_msg_limit` | **400 条** | msgs>400 即唤起卫生压缩（与 token 无关） |
-旁证：`tuned_thresholds.json` 另有 `compressor.effective_window_tokens=300000` / `compressor.threshold_percent=0.35`。
+旁证：`tuned_thresholds.json` 另有 `compressor.effective_window_tokens=<!-- Q2-2 查现值→ grep MIMIR_COMPRESS_THRESHOLD_TOKENS ~/.mimiraether/.env | cut -d= -f2 · 写死=分叉源 -->` / `compressor.threshold_percent=0.35`。
 
 ## 台账 `data/compression_quality.jsonl` 字段口径（易误读）
 - `prompt_tokens_before` = **估算**（`_pre_tokens_for_ledger`）——与实计可差 2×，**引用它立论前先看 next**
