@@ -19,11 +19,13 @@ description: 审「他方证据型回执 / 交叉审视票」的九查清单—�
 7. **时间窗**：计数类判据必须带窗口（无窗计数 ⇒ 恒真或假阳性；`+1` 若无窗口 = 非判据）
 8. **读整行**：别只读数字段 —— 实测 `EXIT code=9 elapsed=0s（脚本主动退出·非崩溃非硬杀）`，括注**否掉**了「SIGKILL」结论
 9. **被审件漂移**：`stat -c %y <被引文件>` vs 回执落款；若会期内被改且无版本控制 ⇒ 要求定稿前 `sha256sum` 三件并写进决议
+10. **前提实测（转述的系统行为一律要本机实证）**：被审件声称的语言/库行为（"无上限 join"、"3.12 才支持"、"会一直等"）⇒ 用**本机解释器 + 标准库源码行**实测（`importlib.util.find_spec` + 读 `asyncio/runners.py`/`base_events.py` 行号），别接受转述。本案实证：3.12.13 `Runner.close()` 传 `constants.THREAD_JOIN_TIMEOUT = 300` ⇒ **有界**，推翻「无上限 join」。（同类：读源码确认 `shutdown_default_executor` **无幂等短路** ⇒「协程内先关一次」挡不住 close 的二次 join = 反证某"更小改法"）
+11. **同向修复重叠（最小改动视角的第一问）**：被审件要"修 X"时，先查**同一条路径上近期是否已有修复**——`git log --since=<N> -- <文件>` + 运行期指标复测（`journalctl … | grep -cE 'Killing process|Failed with result'` + Stopping→Stopped 耗时）。若已覆盖，最小改动答案常是「**不实施**」；少了这一查，会给出"再改一处"的方案（双修同一病 + 白增生产入口风险面）。
 
 ## 判据（本技能自身 · §8.5 形态 3）
 ```
 重跑命令: grep -cE '^[0-9]+\. ' /home/rayliu/src/MimirAether/skills/mimiraether/mimiraether-evidence-receipt-audit/SKILL.md
-复算数字: 9
+复算数字: 11
 ```
 
 ## 坑（实测）
