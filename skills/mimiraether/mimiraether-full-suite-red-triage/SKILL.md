@@ -59,6 +59,31 @@ git worktree add /tmp/<x>/baseline-<sha> <改动前 sha>     # 不动主工作�
 cd <worktree> && MIMIR_TIER0_PYTHON=<repo>/.venv/bin/python3 bash scripts/pytest_isolated.sh tests -q --no-header -rf
 ```
 
+## 2.5 可移植性臂（`HOME` 变量）——**禁用同进程批跑**（2026-10-08 实测）
+
+**症状**：你想测「哪些用例假设了操作者本机」，于是 `env HOME=<干净目录> pytest <N 个文件>`。
+**血压陷阱**：读数不可信——因为 pytest **收集期会 import 所有测试模块**，模块 import 期的副作用会改变整个进程的 env。
+
+**本仓实活**：`tests/security/test_least_privilege.py:14-18` 在 import 期执行
+```python
+os.environ["HOME"] = pwd.getpwuid(os.getuid()).pw_dir   # 复位为 passwd 库真值
+```
+⇒ 只要它被收集（与目标文件同一批跑），其后**运行时**解析 `HOME` 的用例就改用真 HOME ⇒ **假绿**。
+实测：`tests/tools/test_memory_hygiene_gate.py` 单文件跑 = `1 failed`，与上述文件同批跑 = `passed`（两种顺序都一样——是**收集期**污染，不是运行顺序）。
+
+**正确姿势（逐文件独立进程臂）**：
+```
+for f in <信号面内的文件…>; do
+  rm -rf /tmp/clean-home; mkdir -p /tmp/clean-home
+  env HOME=/tmp/clean-home <repo>/.venv/bin/python3 -m pytest "$f" -q --tb=no -p no:cacheprovider 2>&1 | tail -1
+done
+```
+- 每个文件独立进程 ⇒ 无跨文件 env 泄漏；每轮重建干净 HOME ⇒ 无残留。
+- **负控必做**：同式去掉 `env HOME=` 再跑一遍，应全绿；两臂差 = 真·HOME 假设红集。
+- 判「套件是否 hermetic」的探针 = **同一文件单跑 vs 与他文件同跑** 的读数差（不是覆盖率）。
+
+**同族坑（Q1 类）**：`grep -c 'reason='` **不是** skip 合规判据——`pytest.skip("msg")` 的首位置参数即 reason，关键字口径恒得 0（假阴性，本仓实测 0/13 vs 真值 13/13）。要判合规，解析**首个字符串字面量**的前缀（如 `DATA:` / `GIT:`），别匹配 `reason=`。
+
 ## 3. worktree 臂的两个「测量工件」——必须先排除，否则会误报回归
 
 1. **路径派生型断言会翻**：凡「项目根只读 / 路径白名单」这类用 `_project_root()`（由**代码位置**派生）
