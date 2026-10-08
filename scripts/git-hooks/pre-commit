@@ -40,7 +40,7 @@
 #       任一方不在 fleet / 认不出 ⇒ **行为一个字不改**（出声 + 两条出路 + trace + exit 1）。
 #   fleet 取证（2026-10-07 · `git log --format='%an <%ae>'` / `%cn <%ce>` 全量实取）：
 #     Mimir       : Mimir|mimir|MimirAether + mimir@{mimiraether.local,local,mimir.aether,worldweaver.ai,mimiraether}
-#     Hermes(琬弦) : 琬弦 <wanxian@worldweaver.ai>（824 次）· 另 Wanxian-Liu <lwqtnb@gmail.com>（作者 21 次）
+#     Hermes(琬弦) : 琬弦 <wanxian@worldweaver.ai>（824 次）· 另 Wanxian-Liu <***@gmail.com>（作者 21 次 · 原值已脱敏 2026-10-08）
 #     Loki        : Loki <loki@MiniMax.local>（1 次）
 #     OpenClaw    : **未观测到作者/提交者身份，暂不纳入**（无取证的白名单 = 白名单腐化）；
 #                   未纳入 GitHub <noreply@github.com>（合并器，非协作身份）。
@@ -156,6 +156,40 @@ _trace() {
     "$_cur_name" "$_cur_email" "$_head_author_name" "$_head_author_email" \
     "$_diff_files" "$$" >> "$TRACE_LOG" 2>/dev/null
 }
+
+# --- 个人信息闸（2026-10-08 · 快速会议 §6 规则 R3 / N7 选项 A）-------------------
+# 病（实测）：为修闸而把**身份清单逐字抄进公开仓文档** —— pre-commit:43 与
+#   docs/24-amend-fleet-gate-worklog.md:41 本就写着个人 Gmail ⇒ 闸的取证材料自己
+#   成了泄漏源（L58 口径：抽样面之外多出来的那一份，恰是最脏的那份）。
+# 方：只查**本次暂存的新增行**（不追历史、不改旧行），命中即 BLOCK 并给改法。
+#
+# 规则分两层（本闸第一版犯过同一个错：把要保护的串抄进了公开钩子，故改为分层）：
+#   ① 通用形态 → 进公开仓，**不含任何具体字符串**：个人邮箱域 + 任意用户的绝对 home 路径
+#   ② 具体串（本名 / 本机用户名 / 拼音变体）→ **本地未跟踪清单**
+#      ${MIMIR_PERSONAL_PATTERNS:-$(_mimir_home)/personal-patterns.txt}（一行一条）
+# override: MIMIR_ALLOW_PERSONAL_INFO=1（照留痕）。
+_pi_re='[A-Za-z0-9._%+-]+@(gmail|qq|163|126|outlook|hotmail|foxmail|yeah)\.(com|net|cn)([^A-Za-z0-9]|$)|/home/[A-Za-z][A-Za-z0-9_.-]*/|/Users/[A-Za-z]'
+_pi_file="${MIMIR_PERSONAL_PATTERNS:-$(_mimir_home)/personal-patterns.txt}"
+_pi_added=$(git diff --cached -U0 2>/dev/null | grep -E '^\+[^+]')
+_pi_hits=$(printf '%s\n' "$_pi_added" | grep -nE "$_pi_re" 2>/dev/null | head -5)
+if [ -z "$_pi_hits" ] && [ -f "$_pi_file" ]; then
+  _pi_hits=$(printf '%s\n' "$_pi_added" | grep -nF -f "$_pi_file" 2>/dev/null | head -5)
+fi
+if [ -n "$_pi_hits" ]; then
+  if [ "${MIMIR_ALLOW_PERSONAL_INFO:-0}" = "1" ]; then
+    printf 'pre-commit: WARNING -- 新增行含个人信息（override 已留痕）\n' >&2
+    _trace "personal-info-override" "true"
+  else
+    _trace "personal-info-blocked" "false"
+    printf '\npre-commit: BLOCKED -- 暂存的新增行含个人信息\n' >&2
+    printf '%s\n' "$_pi_hits" | sed 's/^/  /' >&2
+    printf '  rule   : 公开仓文档/代码禁出现个人邮箱 · 本机用户名 · 本名形态 · 绝对 home 路径\n' >&2
+    printf '  why    : 2026-10-08 实测 —— 为修闸把身份清单写进公网文档，闸的取证材料成了泄漏源\n' >&2
+    printf '  instead: 写成掩码（***@gmail.com）或用 $HOME / ~/ 代替绝对路径\n' >&2
+    printf '  override (traced): MIMIR_ALLOW_PERSONAL_INFO=1 git commit ...\n\n' >&2
+    exit 1
+  fi
+fi
 
 if [ "$_is_amend" = "1" ] && [ "$_head" != "no-head" ]; then
   _foreign=0

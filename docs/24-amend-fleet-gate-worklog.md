@@ -38,7 +38,7 @@
 ### 1.3 身份取样（`git log --format='%an <%ae>'` / `%cn <%ce>` 全量）
 
 作者：824 琬弦 <wanxian@worldweaver.ai> / 314 Mimir <mimir@mimiraether.local> / 33 Mimir <mimir@local> /
-21 Wanxian-Liu <lwqtnb@gmail.com> / 8 Mimir <mimir@worldweaver.ai> / 3 mimir <mimir@local> /
+21 Wanxian-Liu <***@gmail.com> / 8 Mimir <mimir@worldweaver.ai> / 3 mimir <mimir@local> /
 2 mimir <mimir@mimir.aether> / 1 mimir <mimir@worldweaver.ai> / 1 Mimir <mimir@mimiraether> /
 1 mimir <mimir@mimiraether> / 1 MimirAether <mimir@worldweaver.ai> / 1 MimirAether <mimir@local> /
 1 Loki <loki@MiniMax.local>
