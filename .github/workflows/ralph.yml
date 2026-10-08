@@ -67,15 +67,18 @@ jobs:
       # 本仓部分测试依赖 `$HOME/.mimiraether/{scripts,data/ops}`（运行时数据面）。
       # 该面在 CI 上不存在 ⇒ FileNotFound。正解**不是**让测试跳过（覆盖面缩水 +
       # 训练出对 skip 麻木），而是让 CI **自举**出所需数据面：源在仓内
-      # （scripts/ + tests/fixtures/），部署到 $HOME ⇒ 同一份源，两环境都真跑。
+      # （deploy/data-surface/ + tests/fixtures/），部署到 $HOME ⇒ 同一份源，两环境都真跑。
+      # 注：部署源**不放 scripts/** —— 既有架构约束（单点写口）禁止仓内 scripts/ 直接
+      # 引用 inbox 路径，由 tests/scripts/test_signal_deliver_single_point.py 把守。
+      # 该约束是对的（它抓的正是「旁路写手」），故不豁免，改放 deploy/data-surface/。
       - name: Bootstrap local data surface for tests
         run: |
           set -euo pipefail
           HOME_DIR="$HOME/.mimiraether"
           mkdir -p "$HOME_DIR/scripts" "$HOME_DIR/data/ops"
-          cp scripts/buzz_inbox_claim.py "$HOME_DIR/scripts/"
-          cp scripts/buzz-inbox-watcher.sh "$HOME_DIR/scripts/"
-          cp scripts/probe_firstline_wake.py "$HOME_DIR/scripts/"
+          cp deploy/data-surface/buzz_inbox_claim.py "$HOME_DIR/scripts/"
+          cp deploy/data-surface/buzz-inbox-watcher.sh "$HOME_DIR/scripts/"
+          cp deploy/data-surface/probe_firstline_wake.py "$HOME_DIR/scripts/"
           chmod +x "$HOME_DIR/scripts/buzz-inbox-watcher.sh"
           # mech_checks.json 含占位符真值（本机绝对路径）⇒ 就地改写为 CI 路径
           sed -e "s#__REPO__#${GITHUB_WORKSPACE}#g" \
