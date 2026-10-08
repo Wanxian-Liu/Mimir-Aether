@@ -60,7 +60,7 @@ priority: medium
 
 12. **DeepMind 官网是可用的一手源**（本轮实测）：`deepmind.google/research/publications/page/<N>/` 经 `web_extract` 可读，列出「日期 + 标题 + `/publications/<id>/`」；进详情页有**完整 abstract + 作者名单 + Venue**。263 篇分 9 页。比 arXiv 检索更准（官方页在列 = 确属 DeepMind）。
 
-13. **`write_file` 不能写 `/tmp`**（path whitelist：`resolves outside allowed base (/home/rayliu)`）⇒ 临时脚本/中转文件一律落 `~/.mimiraether/tmp/`。另：`terminal` 内联 `python3 -c` 被危险模式拦（记忆已有），脚本必须先 `write_file` 再跑。
+13. **`write_file` 不能写 `/tmp`**（path whitelist：`resolves outside allowed base ($HOME)`）⇒ 临时脚本/中转文件一律落 `~/.mimiraether/tmp/`。另：`terminal` 内联 `python3 -c` 被危险模式拦（记忆已有），脚本必须先 `write_file` 再跑。
 
 ## 验证清单
 - [ ] Layer1 文件存在 + 魔数/大小验证
