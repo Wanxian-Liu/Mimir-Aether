@@ -1,5 +1,3 @@
-<!-- Q2-2 归档文档不删不改/真源看 ~/.mimiraether/data/tuned_thresholds.json (本文数字为历史值·2026-10-07 刘哥批留·治本=查现值: grep MIMIR_COMPRESS_THRESHOLD_TOKENS ~/.mimiraether/.env | cut -d= -f2) -->
-
 {
   "queries": 20,
   "like_db": "~/.mimiraether/data/sessions_search.db",
@@ -155,5 +153,6 @@
       "fts_hits": 0,
       "fts_ms": 1.0781959999803803
     }
-  ]
+  ],
+  "_archive_note": "Q2-2 归档文档不删不改/真源看 ~/.mimiraether/data/tuned_thresholds.json (本文数字为历史值·2026-10-07 刘哥批留·治本=查现值: grep MIMIR_COMPRESS_THRESHOLD_TOKENS ~/.mimiraether/.env | cut -d= -f2)"
 }

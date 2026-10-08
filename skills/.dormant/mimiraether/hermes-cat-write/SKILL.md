@@ -159,7 +159,7 @@ open(REPO, "w", encoding="utf-8").write(NEW)       # 4. 写回全量
 **安全形态（本次修 `agent/dream_memory.py` 用此形态一次通过）**：
 
 ```
-① write_file → /home/rayliu/.mimiraether/tmp/<name>_a.py   # 新代码块 ≤3KB，可多块（_b1 / _b2）
+① write_file → <MIMIR_HOME>/tmp/<name>_a.py   # 新代码块 ≤3KB，可多块（_b1 / _b2）
 ② execute_code（小载荷）：读块 → 全量读目标 → assert 锚唯一 → 拼接 → 整串写回 → py_compile 验
 ```
 
