@@ -71,13 +71,31 @@ def build_skill_index() -> Dict[str, Path]:
     return index
 
 
+# 2026-10-08（CI Only-Red 根因 · 量具环境相关）：
+# 语料里存在**历史开发机绝对路径**写法（家目录 + 子路径）。若不归一化，同一份
+# 语料在 HOME 不同的机器上会判出**相反**结论（本机判「存活」、CI 判「死」）
+# —— 那使这条闸的读数不可跨机复现。规则与具体用户名无关（不写死任何家目录）：
+#   1. <家目录>/src/<本仓目录名>/...  -> REPO_ROOT/...      （仓产物引用）
+#   2. <家目录>/<其余>                -> Path.home()/<其余>  （家目录引用）
+# 本地恒等（同一用户 ⇒ 归一化结果与原路径相同），故本地行为零变化。
+def _normalize_abs(ref: str) -> str:
+    """Normalize a foreign-machine absolute home path against THIS machine's roots."""
+    parts = Path(ref).parts
+    if len(parts) >= 3 and parts[0] == "/" and parts[1] == "home":
+        rest = parts[3:]
+        if len(rest) >= 2 and rest[0] == "src" and rest[1] == REPO_ROOT.name:
+            return str(REPO_ROOT.joinpath(*rest[2:]))
+        return str(Path.home().joinpath(*rest))
+    return ref
+
+
 def resolve_path(ref: str) -> Path:
-    """Resolve a path reference against REPO_ROOT or $HOME."""
+    """Resolve a path reference against REPO_ROOT or $HOME (home-normalized)."""
     ref = ref.strip()
     if ref.startswith("~/"):
         return Path(ref).expanduser()
     if ref.startswith("/"):
-        return Path(ref)
+        return Path(_normalize_abs(ref))
     return REPO_ROOT / ref
 
 

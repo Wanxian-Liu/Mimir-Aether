@@ -1,0 +1,141 @@
+{
+  "version": 1,
+  "note": "RS19 P0 · 统一机械检查注册表（唯一真源·声明式）。见 ~/wiki/discussions/2026-09-14-提案-RS19统一机械检查清单与失败告警.md 与 §31 裁决（Q1-Q5 全通过）。P0 只注册 owner=mimir 的 4 项；hermes/joint 项待其自持注册表。",
+  "placeholders": {
+    "{repo}": "__REPO__",
+    "{home}": "__HOME__"
+  },
+  "defaults": {
+    "owner": "mimir",
+    "interval_min": 360,
+    "timeout_s": 60,
+    "readonly": true,
+    "severity": "high",
+    "exit_ok": [
+      0
+    ]
+  },
+  "alerts": {
+    "channel": "feishu",
+    "chat_id": "__CHAT_ID__",
+    "log": "{home}/logs/mech_checks_alert.log",
+    "policy": "state_change_only",
+    "note": "Q1 裁决：飞书直发刘哥 + 状态变化才报；15min 静默窗口与每日摘要属 P1"
+  },
+  "outputs": {
+    "last_run": "{home}/data/ops/mech_checks/last_run.json",
+    "history": "{home}/data/ops/mech_checks/history.jsonl"
+  },
+  "items": [
+    {
+      "id": "notes_index_coverage",
+      "owner": "mimir",
+      "interval_min": 360,
+      "timeout_s": 60,
+      "readonly": true,
+      "severity": "high",
+      "exit_ok": [
+        0
+      ],
+      "verdict_parse": "^VERDICT\\s*:\\s*(PASS|FAIL)\\s*$",
+      "cmd": "{repo}/.venv/bin/python3 {home}/scripts/b7_index_check.py",
+      "note": "B7：notes/INDEX.md 覆盖全部 notes（unlisted=0 / staleness=0）。判据来自 INDEX.md 三生命周期小节。"
+    },
+    {
+      "id": "fts_idempotency",
+      "owner": "mimir",
+      "interval_min": 360,
+      "timeout_s": 120,
+      "readonly": true,
+      "severity": "high",
+      "exit_ok": [
+        0
+      ],
+      "verdict_parse": "^VERDICT:\\s*(PASS|FAIL)$",
+      "cmd": "{repo}/.venv/bin/python3 {repo}/scripts/check_fts_idempotency.py",
+      "note": "RS20：批写入行数 vs distinct hash；(session_id,hash) 重复出现即 FAIL。"
+    },
+    {
+      "id": "health_probe",
+      "owner": "mimir",
+      "interval_min": 60,
+      "timeout_s": 240,
+      "readonly": true,
+      "severity": "high",
+      "exit_ok": [
+        0
+      ],
+      "cmd": "{repo}/scripts/mimir_health_check.sh --quick",
+      "note": "R1-R5 快速体检；无 VERDICT 行，判据 = 退出码（0=全绿）。"
+    },
+    {
+      "id": "dead_refs",
+      "owner": "mimir",
+      "interval_min": 1440,
+      "timeout_s": 180,
+      "readonly": true,
+      "severity": "low",
+      "exit_ok": [
+        0
+      ],
+      "cmd": "{repo}/.venv/bin/python3 {repo}/scripts/check_dead_refs.py",
+      "note": "技能引用 / 路径死链扫描；判据 = 退出码。低优先级 ⇒ 汇总不直发。"
+    },
+    {
+      "id": "persistent_invariants",
+      "owner": "mimir",
+      "interval_min": 360,
+      "timeout_s": 60,
+      "readonly": true,
+      "severity": "high",
+      "exit_ok": [
+        0
+      ],
+      "verdict_parse": "^VERDICT\\s*:\\s*(PASS|FAIL)\\s*$",
+      "cmd": "{repo}/.venv/bin/python3 {repo}/scripts/check_persistent_invariants.py",
+      "note": "RS20：persistent.json 不变量（无 progress.milestone_relations / 无 dormant_skills[*].capsule_path / dormant_at 已是日期 / summary ≤120 字）。这是写盘前规范化（agent/persistent_normalize.py）的**外部独立哨兵** —— 它只读盘、不读内存，故任何绕开 persistent_store 的新写入路径也会被它抓到。背景：2026-09-26 瘦身被自己回滚（旧内存副本整文件重写）。"
+    },
+    {
+      "id": "legacy_test_collection",
+      "owner": "mimir",
+      "interval_min": 1440,
+      "timeout_s": 180,
+      "readonly": true,
+      "severity": "low",
+      "exit_ok": [
+        0
+      ],
+      "verdict_parse": "^VERDICT\\s*:\\s*(PASS|FAIL)\\s*$",
+      "cmd": "{repo}/.venv/bin/python3 {repo}/scripts/check_legacy_test_collection.py",
+      "note": "U10b：tests/legacy 零收集漂移哨兵。该目录自带 conftest collect_ignore_glob=[*.py] ⇒ 9 个 .py 静默 0 收集（有意停放区，2026-09-18 批2.3）。本项**不常驻报红**，只在「有 .py + collected==0 + 清单 != 基线」时报 FAIL —— 即有人往停放区放了东西却不知道它不会跑（结构同 U10 注释覆盖）。基线：{home}/data/ops/legacy_tests_baseline.json，显式刷新用 --update-baseline。severity=low ⇒ 不直发飞书。"
+    },
+    {
+      "id": "memory_hygiene",
+      "owner": "mimir",
+      "interval_min": 360,
+      "timeout_s": 60,
+      "readonly": true,
+      "severity": "high",
+      "exit_ok": [
+        0
+      ],
+      "verdict_parse": "^VERDICT\\s*:\\s*(PASS|FAIL)\\s*$",
+      "cmd": "{repo}/.venv/bin/python3 {repo}/scripts/check_memory_hygiene.py",
+      "note": "记忆卫生：R1 单条 ≤1200 字符 / R2 用量 ≤85% 上限 / R3 注入态无截断标记。防 _maybe_compact Phase 2.5 结构性丢失复发。"
+    },
+    {
+      "id": "restart_verifier",
+      "owner": "mimir",
+      "interval_min": 360,
+      "timeout_s": 90,
+      "readonly": true,
+      "severity": "high",
+      "exit_ok": [
+        0
+      ],
+      "verdict_parse": "^VERDICT\\s*:\\s*(PASS|FAIL)\\s*$",
+      "cmd": "{repo}/.venv/bin/python3 {repo}/scripts/post_restart_verify.py",
+      "note": "重启后验证器：J1 服务 active / J2 enabled cron 空 next_run_at=0 / J3 退出表非空 / J4 本进程启动后关闭期级联=0 / J5 ④ 对账痕迹（WARN 不计 FAIL）。J4 自带自锁：uptime>120s 而作用域 0 记录 ⇒ FAIL，防边界过滤器坏掉被读成 PASS。它自身曾两度假读数（Traceback 续行误入作用域 ⇒ 假 FAIL 47；systemd CST 被当 UTC 再转本地 ⇒ 假 PASS），2026-09-28 修复并加正控（同量具在 09-27 18:00 边界下能见 62 条）。cron 重算只在 --fix 下执行，登记项不带 --fix。"
+    }
+  ]
+}

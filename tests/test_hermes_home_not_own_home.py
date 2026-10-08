@@ -76,7 +76,9 @@ def test_read_gates_agree_with_hermes_home_set():
     fake = "/tmp/fake_hermes_home_regression"
     env = {
         "PATH": "/usr/bin:/bin:/usr/local/bin",
-        "HOME": "/home/rayliu",
+        # 2026-10-08 修（CI Only-Red 根因）：此前写死开发机家目录，
+        # 与本进程真实 HOME 不一致 ⇒ 子进程解析到别的家目录、断言必败。
+        "HOME": str(Path.home()),
         "HERMES_HOME": fake,
         "PYTHONPATH": str(ROOT),
     }

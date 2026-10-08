@@ -52,17 +52,20 @@ from typing import Any, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-# 与 watcher.sh 同一默认值（两侧必须指向同一认领器，否则闸退化回契约层）
-DEFAULT_CLAIM_TOOL = "/home/rayliu/.mimiraether/scripts/buzz_inbox_claim.py"
-
-
 def _home() -> str:
     return ENV.get("MIMIR_AETHER_HOME") or (opath.expanduser("~") + "/.mimiraether")
 
 
+# 与 watcher.sh 同一默认值（两侧必须指向同一认领器，否则闸退化回契约层）
+# 2026-10-08 修（CI Only-Red 根因）：此前写死历史开发机家目录绝对路径 ⇒ 在 CI
+# （家目录不同）解析成不存在路径，闸静默降级。改走 `_home()` 制，
+# 由 MIMIR_AETHER_HOME 单一控制；本地行为不变（_home() 回落到 ~/.mimiraether）。
+DEFAULT_CLAIM_TOOL = _home() + "/scripts/buzz_inbox_claim.py"
+
+
 def claim_tool_path() -> str:
     """认领器路径（env 可覆写 —— 沙箱/测试用）。"""
-    return ENV.get("BUZZ_INBOX_MIMIR_CLAIM_TOOL") or DEFAULT_CLAIM_TOOL
+    return ENV.get("BUZZ_INBOX_MIMIR_CLAIM_TOOL") or (_home() + "/scripts/buzz_inbox_claim.py")
 
 
 def gate_log_path() -> str:
