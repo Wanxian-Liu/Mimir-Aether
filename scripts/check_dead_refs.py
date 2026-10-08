@@ -78,12 +78,24 @@ def build_skill_index() -> Dict[str, Path]:
 #   1. <家目录>/src/<本仓目录名>/...  -> REPO_ROOT/...      （仓产物引用）
 #   2. <家目录>/<其余>                -> Path.home()/<其余>  （家目录引用）
 # 本地恒等（同一用户 ⇒ 归一化结果与原路径相同），故本地行为零变化。
+def _same_repo_name(name: str) -> bool:
+    """Compare repo dir names ignoring separator/case drift.
+
+    CI clones into a workspace dir named after the REMOTE repo (`Mimir-Aether`,
+    hyphen) while the开发机 checkout dir is `MimirAether` (no hyphen) -- a raw
+    equality test silently fails there and every repo-relative reference is then
+    judged dead (2026-10-08 CI 实证).
+    """
+    norm = lambda s: s.replace("-", "").replace("_", "").lower()
+    return norm(name) == norm(REPO_ROOT.name)
+
+
 def _normalize_abs(ref: str) -> str:
     """Normalize a foreign-machine absolute home path against THIS machine's roots."""
     parts = Path(ref).parts
     if len(parts) >= 3 and parts[0] == "/" and parts[1] == "home":
         rest = parts[3:]
-        if len(rest) >= 2 and rest[0] == "src" and rest[1] == REPO_ROOT.name:
+        if len(rest) >= 2 and rest[0] == "src" and _same_repo_name(rest[1]):
             return str(REPO_ROOT.joinpath(*rest[2:]))
         return str(Path.home().joinpath(*rest))
     return ref
