@@ -232,7 +232,7 @@ date: <日期>
 **判据（§8.5 形态 1 脚本 + 形态 2 字段）**：
 
 ```
-重跑命令: /home/rayliu/src/MimirAether/.venv/bin/python3 scripts/check_receipt_selflimit.py <回执文件>
+重跑命令: ~/src/MimirAether/.venv/bin/python3 scripts/check_receipt_selflimit.py <回执文件>
 复算数字: rc=0 过 / rc=1 拦（R1 状态 · R2-R4 三字段非空 · R5 弃权须带数字证据）；--selftest rc=0
 ```
 
