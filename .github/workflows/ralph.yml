@@ -82,6 +82,13 @@ jobs:
               -e "s#__HOME__#${HOME_DIR}#g" \
               -e "s#__CHAT_ID__#oc_local_placeholder#g" \
               tests/fixtures/mech_checks.json > "$HOME_DIR/data/ops/mech_checks.json"
+          # Gate1「告警读口」自查（scripts/check_run_health_alerts.py --gate）：
+          # 该闸的自查逻辑是「home 目录不存在 ⇒ 非 Mimir 主机 ⇒ SKIP(0)」。
+          # 自举出 home 之后就不再 SKIP，于是走 missing_diagnosis：state 快照缺席
+          # 会判 MISSING（出声通路断了）⇒ Gate1 fail-fast（2026-10-08 实证：57s 早退）。
+          # 正解是补上语义正确的 state：alerted 为空 = 「从未 fire 过告警」= 合法态
+          # NO_ALERTS_YET（rc=0）。注入的是**已知受控输入**，不是掩盖。
+          echo '{"alerted": {}}' > "$HOME_DIR/data/ops/run_health_state.json"
           echo "bootstrapped data surface at $HOME_DIR"
           ls -la "$HOME_DIR/scripts" "$HOME_DIR/data/ops"
 
