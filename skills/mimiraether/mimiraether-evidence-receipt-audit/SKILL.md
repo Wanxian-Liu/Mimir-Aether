@@ -22,10 +22,12 @@ description: 审「他方证据型回执 / 交叉审视票」的九查清单—�
 10. **前提实测（转述的系统行为一律要本机实证）**：被审件声称的语言/库行为（"无上限 join"、"3.12 才支持"、"会一直等"）⇒ 用**本机解释器 + 标准库源码行**实测（`importlib.util.find_spec` + 读 `asyncio/runners.py`/`base_events.py` 行号），别接受转述。本案实证：3.12.13 `Runner.close()` 传 `constants.THREAD_JOIN_TIMEOUT = 300` ⇒ **有界**，推翻「无上限 join」。（同类：读源码确认 `shutdown_default_executor` **无幂等短路** ⇒「协程内先关一次」挡不住 close 的二次 join = 反证某"更小改法"）
 11. **同向修复重叠（最小改动视角的第一问）**：被审件要"修 X"时，先查**同一条路径上近期是否已有修复**——`git log --since=<N> -- <文件>` + 运行期指标复测（`journalctl … | grep -cE 'Killing process|Failed with result'` + Stopping→Stopped 耗时）。若已覆盖，最小改动答案常是「**不实施**」；少了这一查，会给出"再改一处"的方案（双修同一病 + 白增生产入口风险面）。
 
+12. **配置类结论先查「读数来自哪个 profile」**：凡「键未生效 / 白名单不生效 / 配置改了没用」类结论，先确认**活动 profile**（`env | grep HERMES_HOME`）与**读文件路径**是否同一份——同一命令在不同 profile 下读数可**相反**（2026-10-08 实证：同一检测器、同一命令，`HERMES_HOME=~/.hermes` 侧 MATCH、`=~/.mimiraether` 侧全 NO-MATCH）。另两查：**进程内缓存**（源码注释搜 `re-reads` / `hot path`：改盘≠生效，可能要重启）与**键名族**（检测器实际产出的键 vs 名单里的键，两集合求交——别名表 `_approval_key_aliases` 不一定桥接，如 `shell execution via heredoc` ↔ `script execution via heredoc`）。
+
 ## 判据（本技能自身 · §8.5 形态 3）
 ```
 重跑命令: grep -cE '^[0-9]+\. ' /home/rayliu/src/MimirAether/skills/mimiraether/mimiraether-evidence-receipt-audit/SKILL.md
-复算数字: 11
+复算数字: 12
 ```
 
 ## 坑（实测）
