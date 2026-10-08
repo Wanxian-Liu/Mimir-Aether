@@ -1383,9 +1383,25 @@ def main():
             data = json.load(f)
             config = GatewayConfig.from_dict(data)
     
+    # F2-c (2026-10-08): asyncio.run() finalizes the loop with
+    # shutdown_default_executor(constants.THREAD_JOIN_TIMEOUT) == a 300s join, so any
+    # long job still parked on the default executor (RS20 cron / RS21 index rewrite)
+    # keeps the process alive past systemd's TimeoutStopSec=30 and it gets SIGKILLed.
+    # Same three closing steps as asyncio.run(), but the executor join is capped at 5s.
     # Run the gateway - exit with code 1 if no platforms connected,
     # so systemd Restart=on-failure will retry on transient errors (e.g. DNS)
-    success = asyncio.run(start_gateway(config))
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        success = loop.run_until_complete(start_gateway(config))
+    finally:
+        try:
+            asyncio.runners._cancel_all_tasks(loop)
+            loop.run_until_complete(loop.shutdown_asyncgens())
+            loop.run_until_complete(loop.shutdown_default_executor(5.0))
+        finally:
+            asyncio.set_event_loop(None)
+            loop.close()
     if not success:
         sys.exit(1)
 
