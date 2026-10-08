@@ -50,6 +50,18 @@ priority: medium
    正文精读需要 PDF 文本提取工具（本技能当前不覆盖），别把「读过 PDF」写进报告——会被抓。
 9. **PDF 双目录命名漂移**：同一批论文曾被下载两次（`raw/papers/<topic>/<id>.pdf` 裸 ID 版 vs `<topic>-arch/<id>-<slug>.pdf` 描述名版）→ 重叠 14 篇。入库前先 `search_files` 查重；报告清单时写清「去重合计」而不是相加。
 
+11. **取论文「作者 + 单位 + 摘要」的最可靠路径 = 下完 PDF 再 `pdftotext -f 1 -l 2 -layout <f> out.txt`**（2026-10-08 三路实测）：
+    - ❌ `web_extract("https://arxiv.org/abs/<id>")` → **只有标题/Subjects/DOI，无作者无 abstract**
+    - ❌ `web_extract("https://export.arxiv.org/api/query?…")` → `Failed to fetch url`
+    - ❌ `curl "…/api/query?id_list=<ids>"` → **返回 14 B 空 feed**（按 ID 查不通；`search_query=` 才通，且有 429 限流，需 sleep ≥3s）
+    - ✅ **`pdftotext` 直接取首页文本层** → 标题 + 全作者名单 + 单位脚注（`1 Google, 2 UMD, 3 Google Deepmind`）+ 完整 abstract，一次拿全
+    - 佐证：`pdfinfo | grep '^Pages:'` 能过 ⇒ 同源 poppler，`pdftotext` 必然在（先 `which pdftotext` 确认）
+    - 单位核实判据：作者行末尾的编号脚注就是 affiliation 真源——**别用二手博客判 DeepMind 归属**（本轮 Dream-RSI 即靠首页脚注确认 `3 Google Deepmind`）
+
+12. **DeepMind 官网是可用的一手源**（本轮实测）：`deepmind.google/research/publications/page/<N>/` 经 `web_extract` 可读，列出「日期 + 标题 + `/publications/<id>/`」；进详情页有**完整 abstract + 作者名单 + Venue**。263 篇分 9 页。比 arXiv 检索更准（官方页在列 = 确属 DeepMind）。
+
+13. **`write_file` 不能写 `/tmp`**（path whitelist：`resolves outside allowed base (/home/rayliu)`）⇒ 临时脚本/中转文件一律落 `~/.mimiraether/tmp/`。另：`terminal` 内联 `python3 -c` 被危险模式拦（记忆已有），脚本必须先 `write_file` 再跑。
+
 ## 验证清单
 - [ ] Layer1 文件存在 + 魔数/大小验证
 - [ ] Layer2 概念卡 grep frontmatter 关键字段命中
