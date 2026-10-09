@@ -29,6 +29,95 @@ from gateway.platforms.base import MessageEvent, MessageType
 if TYPE_CHECKING:
     from gateway.run import GatewayRunner
 
+
+# ── B5 (2026-10-09 · A 组审计整改 · 作者=Mimir) ────────────────────────────
+# 事故形态：O-11 修好「受控臂失败 ≠ 事故」之后，本文件的 except-fallback 会把它
+# **改回原样**：fallback 版 delivery_verdict 收 `_expected` 却不用它，且
+# expected_failure_map 退化成 `{}` ⇒ import 失败时受控臂失败全部计入 unexpected
+# ⇒ ok=False ⇒ last_status 又被压成 `delivery_failed` ⇒ 真故障与设计失败再次同形
+# （O-11 症状在降级路径复活），而且**看不出这是降级态**（读起来像真故障）。
+#
+# 为什么保留 fallback（而不是改成抛错）：本模块告警路径的铁律是「不得因自身错误
+# 静默或自爆」（cron/delivery_alerts.py 头 L10-19：a broken target must not
+# silence its own alarm · never raises）。import 失败若上抛，cron 循环会被告警
+# 路径自己打断 —— 那是拿一个更大的事故换一个小的。
+#
+# 正确行为（选 (b) 并加强）= 保留降级，但三件事同时成立：
+#   ① 不抛错（告警路径铁律）；
+#   ② **显式标记**降级（verdict["degraded"] + 调用点 WARNING 出声）——
+#      「静默降级」这个形态本身被消掉；
+#   ③ **判据语义不因降级而改变**：降级版 expected_failure_map 只读 job spec 的
+#      两个键（纯数据，不需要 import）⇒「受控臂失败不算事故」在降级路径下仍成立。
+#      等价性由 tests/gateway/test_b5_degraded_verdict.py 的「漂移守卫」用例钉住
+#      （同一 spec 两侧必须给出同一 map）——这是**有测试保护的复制**，不是无保护
+#      的重复（Code Reviewer 卡 L52「Code duplication that should be extracted」
+#      的替代合规：无法抽公共时，用漂移守卫把复制钉死）。
+_EXPECTED_FAILURES_KEY = "expected_failures"
+_EXPECTED_TARGETS_KEY = "expected_failure_targets"
+
+
+def _degraded_expected_failure_map(job):
+    """降级版 expected_failure_map：只读 spec 纯数据，语义与真函数一致。
+
+    畸形 spec ⇒ 什么都不预期（安全方向：宁可警报吵，不可警报哑）。
+    """
+    if not isinstance(job, Mapping):
+        return {}
+    out = {}
+    raw_map = job.get(_EXPECTED_FAILURES_KEY)
+    if isinstance(raw_map, Mapping):
+        for target, label in raw_map.items():
+            out[str(target)] = str(label or "expected")
+    raw_list = job.get(_EXPECTED_TARGETS_KEY)
+    if isinstance(raw_list, (list, tuple)):
+        for target in raw_list:
+            out.setdefault(str(target), "expected")
+    return out
+
+
+def _degraded_delivery_verdict(failures, expected=None, reason=None):
+    """降级版 delivery_verdict：与真函数**同语义**（按 expected 分流）+ 标记降级。
+
+    降级只该降低可观测性，不该改变判据 —— 否则 O-11 修的东西在降级路径复活。
+    """
+    expected = expected or {}
+    exp = {}
+    unexp = {}
+    for target, value in (failures or {}).items():
+        key = str(target)
+        (exp if key in expected else unexp)[key] = str(value)
+    return {
+        "ok": not unexp,
+        "control": sorted(exp),
+        "expected": exp,
+        "unexpected": unexp,
+        "degraded": True,
+        "degraded_reason": reason,
+    }
+
+
+def _load_delivery_verdict():
+    """返回 (delivery_verdict, expected_failure_map, degraded_reason)。
+
+    import 成功 ⇒ (真函数, 真函数, None)。
+    import 失败 ⇒ (降级版, 降级版, 原因串) —— **不抛错**（告警路径铁律），
+    但把降级态作为返回值的一部分显式交出去，调用点据此出声。
+    """
+    try:
+        from cron.delivery_alerts import delivery_verdict, expected_failure_map
+
+        return delivery_verdict, expected_failure_map, None
+    except Exception as exc:  # 真实 import 失败极窄；测试用 sys.modules 注入
+        _reason = "%s: %s" % (type(exc).__name__, exc)
+
+        def _efm(job):
+            return _degraded_expected_failure_map(job)
+
+        def _dv(failures, expected=None):
+            return _degraded_delivery_verdict(failures, expected, reason=_reason)
+
+        return _dv, _efm, _reason
+
 logger = logging.getLogger(__name__)
 
 # ── P0-A (2026-09-23)：cron 台账「跑失败却记 ok」的仪表修复 ─────────────────
@@ -1046,16 +1135,21 @@ class CronMixin:
             # 2026-10-07 第27单（n8 假警报治理）：按 job spec 把「按设计就该失败」
             # 的受控臂与真故障分流。控制臂失败是真的（可听性验证通过），但它
             # **不是事故** —— 见 cron/delivery_alerts.expected_failure_map。
-            try:
-                from cron.delivery_alerts import delivery_verdict, expected_failure_map
-                expected_map = expected_failure_map(job)
-            except Exception:  # pragma: no cover - import/env failure fallback
-                expected_map = {}
-
-                def delivery_verdict(_failures, _expected=None):
-                    _unexp = dict(_failures or {})
-                    return {"ok": not _unexp, "control": [],
-                            "expected": {}, "unexpected": _unexp}
+            # B5 (2026-10-09 · A 组审计整改): import 失败不再静默降级 ——
+            # 见模块级 _load_delivery_verdict()（降级版仍按 expected 分流，
+            # 且把 degraded 原因交回调用点出声）。
+            delivery_verdict, expected_failure_map, _degraded = _load_delivery_verdict()
+            expected_map = expected_failure_map(job)
+            if _degraded:
+                logger.warning(
+                    "Cron job %s: cron.delivery_alerts unavailable (%s) — "
+                    "DEGRADED delivery verdict: control-arm failures stay split "
+                    "out, but the expected-failure spec is unreadable; alerting "
+                    "as-if nothing is designed to fail. Delivery is NOT lost, "
+                    "but this job's control arm is blind until import recovers.",
+                    job_id,
+                    _degraded,
+                )
             detail = ""
             # O-11 (2026-10-09): 判据一律算（failures 为空也要算）—— 下面
             # mark_job_delivery 按「无**意外**失败」定 ok，并把受控臂证据单列。
