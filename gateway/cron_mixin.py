@@ -1047,16 +1047,23 @@ class CronMixin:
             # 的受控臂与真故障分流。控制臂失败是真的（可听性验证通过），但它
             # **不是事故** —— 见 cron/delivery_alerts.expected_failure_map。
             try:
-                from cron.delivery_alerts import expected_failure_map, split_failures
+                from cron.delivery_alerts import delivery_verdict, expected_failure_map
                 expected_map = expected_failure_map(job)
-            except Exception:
+            except Exception:  # pragma: no cover - import/env failure fallback
                 expected_map = {}
+
+                def delivery_verdict(_failures, _expected=None):
+                    _unexp = dict(_failures or {})
+                    return {"ok": not _unexp, "control": [],
+                            "expected": {}, "unexpected": _unexp}
             detail = ""
+            # O-11 (2026-10-09): 判据一律算（failures 为空也要算）—— 下面
+            # mark_job_delivery 按「无**意外**失败」定 ok，并把受控臂证据单列。
+            verdict = delivery_verdict(failures, expected_map)
+            _expected_failures = verdict["expected"]
+            _unexpected_failures = verdict["unexpected"]
             if failures:
                 detail = "; ".join(f"{k}: {v}" for k, v in failures.items())
-                _expected_failures, _unexpected_failures = split_failures(
-                    failures, expected_map
-                )
                 if _unexpected_failures:
                     logger.warning(
                         "Cron job %s: DELIVERY FAILED for %s — %s",
@@ -1087,7 +1094,12 @@ class CronMixin:
                 except Exception:
                     logger.debug("Cron job %s: delivery alert failed", job_id, exc_info=True)
             try:
-                mark_job_delivery(job_id, ok=not failures, error=detail or None)
+                mark_job_delivery(
+                    job_id,
+                    ok=verdict["ok"],
+                    error=detail or None,
+                    control_only=verdict["control"] or None,
+                )
             except Exception:
                 logger.debug("Cron job %s: mark_job_delivery failed", job_id, exc_info=True)
         finally:

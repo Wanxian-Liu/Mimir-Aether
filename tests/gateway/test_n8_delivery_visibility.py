@@ -278,7 +278,9 @@ def _install_cron_stubs(monkeypatch, tmp_home, runs, deliveries):
     monkeypatch.setattr(
         cron_jobs,
         "mark_job_delivery",
-        lambda job_id, ok, error=None: deliveries.append((job_id, ok, error)),
+        lambda job_id, ok, error=None, control_only=None: deliveries.append(
+            (job_id, ok, error)
+        ),
     )
 
 
@@ -336,3 +338,74 @@ def test_e2e_delivery_success_is_recorded_as_success(tmp_path, monkeypatch):
     assert adapter.sent and adapter.sent[0][0] == "oc_home", adapter.sent
     assert deliveries and deliveries[-1][1] is True, deliveries
     assert "n8-payload" in adapter.sent[0][1]
+
+
+# ------------------------------- (e) O-11 (2026-10-09) two-way controls
+# 事故：n8-投递双控 job 的 deliver 里没有真实 chat（脚本头却声明有）⇒ 负控臂
+# 从未跑过；且正控臂（按设计必失败）把 last_status 永久钉在 delivery_failed
+# ⇒ 真故障与设计失败同形（它把统筹席骗了一次）。修法 = 判据只算「意外失败」，
+# 受控臂证据单列 last_delivery_control。
+
+
+def test_delivery_verdict_control_arm_alone_is_not_an_incident():
+    """正控：只有「按设计必失败」的臂失败 —— 不是事故。"""
+    from cron.delivery_alerts import delivery_verdict
+
+    v = delivery_verdict(
+        {"feishu:control": "invalid receive_id"},
+        {"feishu:control": "positive"},
+    )
+    assert v["ok"] is True
+    assert v["control"] == ["feishu:control"]
+    assert v["unexpected"] == {}
+
+
+def test_delivery_verdict_unexpected_failure_is_an_incident():
+    """负控：未声明为 expected 的目标失败 —— 仍是事故。"""
+    from cron.delivery_alerts import delivery_verdict
+
+    v = delivery_verdict(
+        {"feishu:control": "invalid receive_id", "feishu:real": "HTTP 500"},
+        {"feishu:control": "positive"},
+    )
+    assert v["ok"] is False
+    assert v["control"] == ["feishu:control"]
+    assert set(v["unexpected"]) == {"feishu:real"}
+
+
+def test_delivery_verdict_no_failures_is_ok():
+    from cron.delivery_alerts import delivery_verdict
+
+    v = delivery_verdict({}, {})
+    assert v["ok"] is True
+    assert v["control"] == []
+    assert v["unexpected"] == {}
+
+
+def test_mark_job_delivery_control_only_leaves_run_status_readable(job_store):
+    """O-11：控制臂证据独立成字段；运行状态不被受控失败压掉。"""
+    from cron.jobs import mark_job_delivery
+
+    mark_job_delivery(
+        "job-n8",
+        ok=True,
+        error="feishu:control: invalid receive_id",
+        control_only=["feishu:control"],
+    )
+    job = job_store[0]
+    assert job["last_delivery_ok"] is True
+    assert job["last_delivery_control"] == "feishu:control"
+    assert job["last_status"] == "ok"          # 未被压成 delivery_failed
+    assert job["last_delivery_error"] is None  # 受控失败不是故障
+
+
+def test_mark_job_delivery_real_failure_still_loud(job_store):
+    """O-11 两向之负向：真故障必须照旧出声 + 无控制臂证据。"""
+    from cron.jobs import mark_job_delivery
+
+    mark_job_delivery("job-n8", ok=False, error="feishu:real: HTTP 500")
+    job = job_store[0]
+    assert job["last_delivery_ok"] is False
+    assert job["last_status"] == "delivery_failed"
+    assert job["last_error"] == "feishu:real: HTTP 500"
+    assert job["last_delivery_control"] is None

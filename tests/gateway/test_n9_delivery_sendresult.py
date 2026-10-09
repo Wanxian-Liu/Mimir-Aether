@@ -191,7 +191,9 @@ def _install_cron_stubs(monkeypatch, tmp_home, runs, deliveries):
     monkeypatch.setattr(
         cron_jobs,
         "mark_job_delivery",
-        lambda job_id, ok, error=None: deliveries.append((job_id, ok, error)),
+        lambda job_id, ok, error=None, control_only=None: deliveries.append(
+            (job_id, ok, error)
+        ),
     )
 
 

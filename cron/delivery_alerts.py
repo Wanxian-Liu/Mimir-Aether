@@ -75,6 +75,27 @@ def split_failures(failures, expected=None):
     return exp, unexp
 
 
+def delivery_verdict(failures, expected=None):
+    """O-11 (2026-10-09): one pure place turning raw delivery results into the
+    verdict the ledger records.
+
+    Returns a dict:
+      ok         -- True when **no unexpected** target failed. A designed
+                    (control-arm) failure must not make a job look broken;
+      control    -- sorted list of control targets that failed == positive
+                    evidence the control arm really ran this round;
+      expected   -- {target: reason} for the control arm;
+      unexpected -- {target: reason} for everything else (the real incident).
+    """
+    exp, unexp = split_failures(failures, expected)
+    return {
+        "ok": not unexp,
+        "control": sorted(exp),
+        "expected": exp,
+        "unexpected": unexp,
+    }
+
+
 def default_cooldown_s() -> int:
     try:
         return int(os.getenv("MIMIR_DELIVERY_ALERT_COOLDOWN_S", "1800"))

@@ -443,7 +443,12 @@ def mark_job_run(job_id: str, status: str, error: Optional[str] = None):
     )
 
 
-def mark_job_delivery(job_id: str, ok: bool, error: Optional[str] = None):
+def mark_job_delivery(
+    job_id: str,
+    ok: bool,
+    error: Optional[str] = None,
+    control_only: Optional[List[str]] = None,
+):
     """N8 (2026-09-18): record a cron job's DELIVERY outcome.
 
     Deliberately does **not** touch `repeat.completed` / `next_run_at` — those
@@ -452,12 +457,22 @@ def mark_job_delivery(job_id: str, ok: bool, error: Optional[str] = None):
     disabled one run early). This only makes delivery failures visible:
     `last_delivery_error` (surfaced by `mimir cron list`) + `last_status`.
 
+    O-11 (2026-10-09): `control_only` = the targets that failed **by design**
+    (the positive-control arm). Such a failure verifies the alarm path; it is
+    NOT an incident. The caller therefore passes `ok` computed from
+    *unexpected* failures only, and the control evidence is kept in its own
+    field: `last_delivery_control` non-empty => the control arm really ran.
+    Old shape (`ok=not failures`) pinned `last_status="delivery_failed"` for
+    ever => a real outage and a designed failure were indistinguishable (it
+    fooled the coordinator once).
+
     Returns the updated job (or None if the job is unknown).
     """
     detail = error or "delivery failed"
     updates: Dict[str, Any] = {
         "last_delivery_error": None if ok else detail,
         "last_delivery_ok": bool(ok),
+        "last_delivery_control": "; ".join(control_only) if control_only else None,
     }
     if not ok:
         # Loud in BOTH surfaces a human/script reads: `last_status` (summary) and
