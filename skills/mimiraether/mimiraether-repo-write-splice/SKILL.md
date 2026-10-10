@@ -35,6 +35,27 @@ with open(TARGET, "w", encoding="utf-8", newline="") as fh: fh.write(src)
 py_compile.compile(TARGET, doraise=True)                   # 落盘即验语法
 ```
 - **锚点必须 `count==1` 断言**——不做的话失配会静默不生效（"以为改了"）。
+  实测：同一文件里两处**逐字相同**的行（如两处 `got = _resolve(... HOMEX=...)`）会让 `count==1` 直接炸；
+  正解不是放宽断言，而是**先用更长的块锚点 replace 掉其中一处**，或改用"同替换串 ⇒ replace_all + 断言期望总数"。
+  另：断言要写**期望值**（`assert n == want`），别只写 `n == 1`——否则多命中会掩盖"改错了地方"。
+
+### 3b. 落盘后的**最低验收 = 名字解析，不是语法**（2026-10-10 实测）
+
+`py_compile` / `bash -n` 只证明**语法**合法，**不证明名字存在**。实测事故：给 4 个文件把
+`sys.path.insert(0, "/home/<user>/src/MimirAether")` 换成 `Path(__file__)...`，语法全绿，
+但其中 2 个文件**根本没 `from pathlib import Path`** ⇒ pytest **收集期** `NameError: name 'Path' is not defined`。
+
+**新增验收步（便宜且必跑）**：
+- 测试面：`bash scripts/pytest_isolated.sh tests/ --collect-only -q`（收集期即暴露 NameError/ImportError）
+- 全仓面：跑该件自己的 `--selftest` / rc 语义（如 `check_inbox_ledger_lag.py` 期望 rc=2 而非恒 0）
+- 改 `sys.path` 注入前先 `grep -cE '^s*(from pathlib import|import pathlib)' <file>`，或用**已有 import 的模块**
+  （`os.path.dirname(os.path.dirname(os.path.abspath(__file__)))`）以免新增 import
+
+### 3c. 字符串替换要保**判据语义**，不只保形状（2026-10-10 实测）
+
+把测试夹具里的绝对家路径"脱敏"成 `/tmp/...` ⇒ 该路径命中 `agent/empty_run_gate.py::staging_markers()`
+⇒ 「已落盘交付物」判据**被翻转** ⇒ 用例红。**凡改的字符串会喂给某个判据/闸/分类器（交付物、白名单、
+staging、路径作用域），先读那个判据的实现再改值**；改完必须跑**该判据的用例**（不是仅跑语法）。
 - 大块代码用 `# ===== <名>（BEGIN）===== / （END） =====` 包起来，便于日后定位与幂等判断。
 - 备份**别留在仓内**（`git add -A` 会误提交，且可能被测试收集）⇒ 拼完 `mv` 到 `~/.mimiraether/backups/<tag>/`。
 
