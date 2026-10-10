@@ -14,6 +14,7 @@ restore --drill 恢复到临时副本核对（不写回生产卡）。
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import os
@@ -23,7 +24,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from state_event_log import append_event, line_count  # noqa: E402
+from state_event_log import append_event, line_count, replay  # noqa: E402
 
 
 def _home():
@@ -114,6 +115,12 @@ def locate_state_line(text, card_id):
                 "reason": "block state hits=%d (need exactly 1) -> refuse"
                           % len(hits)}
     ln, line, val = hits[0]
+    if val not in ALL_STATES:
+        return {"card_id": card_id, "rc": RC_INVALID_STATE, "hits": 1,
+                "line_no": ln, "line": line, "value": val,
+                "block_head_line": block_head_line,
+                "reason": "invalid state value %r (P-1 whitelist: %s)"
+                          % (val, "|".join(ALL_STATES))}
     return {"card_id": card_id, "rc": 0, "hits": 1, "line_no": ln,
             "line": line, "value": val, "block_head_line": block_head_line,
             "reason": "ok"}
@@ -148,6 +155,10 @@ def parse_cards(text):
             "title": kv.get("title", ""),
             "depends_on": kv.get("depends_on", ""),
             "blocked_by": kv.get("blocked_by", ""),
+            "has_depends_on": "depends_on" in kv,
+            "has_blocked_by": "blocked_by" in kv,
+            "gate": kv.get("gate", ""),
+            "state_value_ok": loc["rc"] == 0 and state_value_ok(loc["value"]),
         })
     return cards
 
@@ -300,6 +311,9 @@ def plan_card(card, by_id, events_path):
                            % (cid, card["hits"]))
     if not st:
         return "blocked", ("blocked: card=%s reason=no_state_value" % cid)
+    if not card.get("state_value_ok", True):
+        return "blocked", ("blocked: card=%s reason=invalid_state_%r "
+                           "(P-1 value whitelist)" % (cid, st))
     if st == "closed":
         return "NOOP", "NOOP: card=%s state=closed (terminal)" % cid
     if st == "frozen":
@@ -309,6 +323,12 @@ def plan_card(card, by_id, events_path):
         return "NOOP", ("NOOP: card=%s state=stalled (等 ack_received 回前态 · "
                         "段2 第二批)" % cid)
     if st == "pending":
+        if (card.get("gate") or "").strip():
+            return "blocked", ("blocked: card=%s reason=gate_open "
+                               "(P-2: gate 非空 = 人工挂起, fail-closed)" % cid)
+        if not card.get("has_depends_on", False):
+            return "blocked", ("blocked: card=%s reason=depends_on_missing "
+                               "(P-2: 字段缺失 != 显式空依赖, fail-closed)" % cid)
         deps = _as_ids(card.get("depends_on"))
         open_deps = [d for d in deps
                      if by_id.get(d, {}).get("state") != "closed"]
@@ -335,9 +355,13 @@ def plan_card(card, by_id, events_path):
 def cmd_plan(args):
     if not os.path.exists(args.registry):
         print("ERROR: registry not found: %s" % args.registry)
-        return 1
+        return 2
     text = open(args.registry, encoding="utf-8").read()
     cards = parse_cards(text)
+    rc_pf, msg = preflight_registry(args.registry, cards)
+    if rc_pf != 0:
+        print(msg)
+        return rc_pf
     if args.card:
         if args.card not in [c["card_id"] for c in cards]:
             print("ERROR: card not found: %s" % args.card)
@@ -365,7 +389,13 @@ def cmd_locate(args):
 
 
 def cmd_list(args):
-    for c in parse_cards(open(args.registry, encoding="utf-8").read()):
+    text = open(args.registry, encoding="utf-8").read()
+    cards = parse_cards(text)
+    rc_pf, msg = preflight_registry(args.registry, cards)
+    if rc_pf != 0:
+        print(msg)
+        return rc_pf
+    for c in cards:
         print("%-4s line=%-4s state=%-20s owner=%s"
               % (c["card_id"], c["line_no"], c["state"], c["owner"]))
     return 0
@@ -478,8 +508,536 @@ def selftest(registry=None, events=None):
           % (rc, "PASS" if good else "FAIL"))
     ok = ok and good
 
+    print("== 段2 批2 追加臂（P-1 值白名单 / P-2 外域出声 / P-3 真写+演练） ==")
+    ok = _selftest_batch2(reg) and ok
+
     print("[selftest] rc=%d" % (0 if ok else 1))
     return 0 if ok else 1
+
+
+# ===== N13 段2 批2 注入块（BEGIN） =====
+# -*- coding: utf-8 -*-
+"""N13 段2 批2 · 真转移引擎 —— 注入块（由 state_patch_apply.py 追加进 state_engine.py）
+
+内容 = P-1 值白名单 / P-2 外域出声 / P-3 preflight + 真 apply_transition（原子写 /
+写后双校 / 失败回滚 / 幂等 / CAS / frozen 拒写 / T 表白名单）/ 真回滚 / CLI。
+零新依赖（stdlib）· 零删除 · 只替换 apply_transition 空壳 + main() 路由。
+"""
+
+# ===== 段2 批2 追加常量 =====
+
+RC_TABLE_DENY = 9          # 转移不在 T 表白名单内（GUARD_DENY）
+RC_INVALID_STATE = 6       # 值不在九态白名单（P-1）
+
+# T 表（真源：预置卡 L738-751）—— 本引擎管「写 state 行」的子集。
+T_TRANSITIONS = {
+    ("pending", "deps_all_closed"): "in_progress",            # T2
+    ("in_progress", "produces_persisted"): "awaiting_verify",  # T3
+    ("awaiting_verify", "L2_passed"): "closed",                # T4
+    ("awaiting_verify", "L2_failed"): "in_progress",           # T5
+    ("awaiting_orchestrator", "orchestrator_no_reply"): "awaiting_human",  # T7
+}
+# 任意 from 态的事件（T8/T11：超时沉默 / 舵手停令）
+ANY_FROM_EVENTS = {
+    "deadline_exceeded": "stalled",   # T8
+    "liuge.says.stop": "frozen",      # T11（停）
+    "freeze": "frozen",               # T11 别名
+}
+# 目标由调用方给定（回前态语境），但目标值仍须过九态白名单
+FREE_FROM_EVENTS = ("ack_received", "liuge.says.start", "unfreeze")  # T9/T12
+
+
+# ===== P-1 · state 值白名单（Loki 10-10 实证：malicious_value 曾 rc=0） =====
+
+class StateValueError(ValueError):
+    """非法 state 值（不在九态白名单内）。"""
+
+
+def validate_state_value(value):
+    """值合法性闸（P-1）。返回归一化值；非法 ⇒ raise StateValueError。
+
+    与「位置闸」正交：locate_state_line 管「哪一行」，本函数管「值合不合法」。
+    """
+    v = (value or "").strip().strip("'\"")
+    if v not in ALL_STATES:
+        raise StateValueError(
+            "illegal state value %r (allowed: %s)"
+            % (value, "|".join(ALL_STATES)))
+    return v
+
+
+def state_value_ok(value):
+    try:
+        validate_state_value(value)
+        return True
+    except StateValueError:
+        return False
+
+
+def resolve_transition(cur, event, to_state):
+    """T 表白名单闸。返回 (ok, reason)。
+
+    白名单外（T3→T99 之类）⇒ ok=False ⇒ 调用方 rc=9 拒改 + GUARD_DENY 报警。
+    """
+    if event in FREE_FROM_EVENTS:
+        if cur == "frozen" and event == "ack_received":
+            return False, "ack_received not allowed on frozen card"
+        return True, "free"
+    want = ANY_FROM_EVENTS.get(event) or T_TRANSITIONS.get((cur, event))
+    if want is None:
+        return False, "transition not in whitelist: from=%s event=%s" % (cur, event)
+    if to_state != want:
+        return False, "target mismatch: event=%s wants=%s got=%s" % (event, want,
+                                                                    to_state)
+    return True, "ok"
+
+
+# ===== P-2 · 外域 / 空扫出门（与 watchdog preflight_guard 对称） =====
+
+def preflight_registry(registry, cards):
+    """前置闸（出声）：registry 不存在 / 扫到 0 张卡 / 卡与 state 行数不等 ⇒ rc!=0。
+
+    防的事故（Mimir 10-10 自曝 · 审计会裁定采纳）：把引擎指向别的 registry 或
+    格式漂移时，它报 scanned=0 且 rc=0 —— 静默 0，无人知道它什么都没扫到。
+    """
+    if not os.path.exists(registry):
+        return 2, "ERROR: registry not found: %s" % registry
+    if not cards:
+        return 3, ("ERROR: scanned=0 cards (registry=%s) - 路径/格式错，"
+                   "拒绝静默报绿" % registry)
+    n_state = _count_state_lines(open(registry, encoding="utf-8").read())
+    if n_state != len(cards):
+        return 4, ("ERROR: cards=%d but top-level state lines=%d "
+                   "(registry=%s) - 格式漂移，出声拒绝"
+                   % (len(cards), n_state, registry))
+    return 0, "preflight ok: cards=%d" % len(cards)
+
+
+# ===== P-3 · 真写路径（单行替换 + tmp/fsync/replace + 写后双校 + 失败回滚） =====
+
+def _atomic_write_text(path, text):
+    """tmp -> flush -> fsync -> os.replace（读者永不见半份卡）。"""
+    d = os.path.dirname(os.path.abspath(path))
+    tmp = os.path.join(d, ".%s.tmp-state.%d"
+                       % (os.path.basename(path), os.getpid()))
+    with open(tmp, "w", encoding="utf-8", newline="") as fh:
+        fh.write(text)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, path)
+
+
+def append_alert(alerts_path, rec):
+    """报警行（append-only 逐行 JSON · 可 grep）。alerts_path 为 None ⇒ 不写。"""
+    if not alerts_path:
+        return None
+    rec = dict(rec)
+    rec.setdefault("ts", time.time())
+    d = os.path.dirname(alerts_path)
+    if d:
+        os.makedirs(d, exist_ok=True)
+    with open(alerts_path, "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        fh.flush()
+        os.fsync(fh.fileno())
+    return alerts_path
+
+
+def _rollback(card_path, backup_path, alerts=None, card_id=None, trace_id=None):
+    """回滚 = 把备份镜像原样写回生产卡（走同一原子路径）。"""
+    with open(backup_path, encoding="utf-8", newline="") as fh:
+        text = fh.read()
+    _atomic_write_text(card_path, text)
+    append_alert(alerts, {"kind": "STATE_WRITE_FAIL", "card_id": card_id,
+                          "event": "rollback", "to": "restored",
+                          "actor": "state_engine", "trace_id": trace_id,
+                          "backup": backup_path})
+
+
+def apply_transition(card_id, event, actor, trace_id, guard_passed,
+                     *, to_state=None, card_path=None, backup_dir=None,
+                     events_path=None, alerts_path=None, dry_run=False,
+                     expect_from=None):
+    """唯一写卡入口（段2 批2 真实现 · 段3 也走这里）。
+
+    写序（Q5）：锁 -> 备份 -> 卡(tmp/fsync/replace) -> 事件 append -> 写后双校。
+    任一步失败 ⇒ 从备份回滚再退，不留中间态。
+
+    rc 语义：
+      0 ok（或 duplicate / would_write） / 1 卡文件不存在 / 2 块内 state 命中 !=1 /
+      3 写后双校失败（已回滚） / 4 CAS 不匹配（态已变，未动卡） / 5 guard 未过 /
+      6 值不在九态白名单（P-1） / 7 frozen 卡拒写（FROZEN_DENY） /
+      8 备份失败（fail-closed，未动卡） / 9 转移不在 T 表白名单（GUARD_DENY）
+    """
+    card_path = card_path or DEFAULT_REGISTRY
+    backup_dir = backup_dir or DEFAULT_BACKUP_DIR
+    events_path = events_path or DEFAULT_EVENTS
+    alerts_path = alerts_path if alerts_path is not None else DEFAULT_ALERTS
+
+    def _ret(rc, verdict, **kw):
+        out = {"rc": rc, "verdict": verdict, "card_id": card_id,
+               "event": event, "actor": actor, "trace_id": trace_id}
+        out.update(kw)
+        return out
+
+    if not guard_passed:
+        return _ret(5, "refused", reason="guard not passed")
+
+    # P-1 值白名单：目标值非法 ⇒ 拒改，绝不落盘
+    try:
+        to_state = validate_state_value(to_state)
+    except StateValueError as e:
+        append_alert(alerts_path, {"kind": "GUARD_DENY", "card_id": card_id,
+                                   "event": event, "actor": actor,
+                                   "trace_id": trace_id, "reason": str(e)})
+        return _ret(6, "refused", reason=str(e))
+
+    if not os.path.exists(card_path):
+        return _ret(1, "error", reason="card file not found: %s" % card_path)
+
+    lock_path = card_path + ".lock"
+    with open(lock_path, "a+") as lockfh:
+        fcntl.flock(lockfh, fcntl.LOCK_EX)
+        try:
+            with open(card_path, encoding="utf-8", newline="") as fh:
+                text = fh.read()
+            loc = locate_state_line(text, card_id)
+            if loc["rc"] != 0:
+                return _ret(loc["rc"], "refused", reason=loc["reason"])
+            cur = loc["value"]
+
+            # 现值本身必须合法（防「卡已被写坏」被继续推进）
+            if not state_value_ok(cur):
+                append_alert(alerts_path,
+                             {"kind": "STATE_INVALID", "card_id": card_id,
+                              "event": event, "from": cur, "actor": actor,
+                              "trace_id": trace_id})
+                return _ret(7, "refused",
+                            reason="current state illegal: %r" % cur)
+
+            # frozen 卡拒绝一切自动转移（段3 接口 · 本引擎只读此态）
+            if cur == "frozen":
+                append_alert(alerts_path,
+                             {"kind": "FROZEN_REJECT", "card_id": card_id,
+                              "event": event, "from": cur, "actor": actor,
+                              "trace_id": trace_id, "skip_reason": "frozen"})
+                return _ret(7, "refused", **{"from": cur, "to": to_state,
+                                             "reason": "FROZEN_DENY"})
+
+            if cur == to_state:
+                return _ret(0, "noop", **{"from": cur, "to": to_state,
+                                          "reason": "already in target state"})
+
+            # 乐观 CAS（副）：锁内比对「读到的现值」与调用方声明
+            # 先于表闸——陈旧写者该得 state_mismatch（J3），不是 GUARD_DENY
+            if expect_from is not None and expect_from != cur:
+                append_alert(alerts_path,
+                             {"kind": "STATE_MISMATCH", "card_id": card_id,
+                              "event": event, "from": cur, "to": to_state,
+                              "expect_from": expect_from, "actor": actor,
+                              "trace_id": trace_id})
+                return _ret(4, "refused", **{"from": cur, "to": to_state,
+                                             "reason": "state_mismatch"})
+
+            # T 表白名单（J8：白名单外拒 ⇒ GUARD_DENY）
+            ok_t, why_t = resolve_transition(cur, event, to_state)
+            if not ok_t:
+                append_alert(alerts_path,
+                             {"kind": "GUARD_DENY", "card_id": card_id,
+                              "event": event, "from": cur, "to": to_state,
+                              "actor": actor, "trace_id": trace_id,
+                              "reason": why_t})
+                return _ret(RC_TABLE_DENY, "refused",
+                            **{"from": cur, "to": to_state, "reason": why_t})
+
+            base_sha = sha256_without_state_line(card_path, card_id)[0]
+
+            if dry_run:
+                return _ret(0, "would_write", **{"from": cur, "to": to_state,
+                                                 "dry_run": True})
+
+            # ① 备份（fail-closed）
+            bk = backup_card(card_path, card_id, backup_dir=backup_dir,
+                             reason="pre_write:%s:%s->%s"
+                                    % (event, cur, to_state), actor=actor)
+            if bk.get("rc") != 0:
+                return _ret(8, "refused",
+                            reason="backup failed: %s" % bk.get("error"),
+                            fail_closed=True)
+
+            # ② 单行替换 + 原子写
+            lines = text.split("\n")
+            lines[loc["line_no"] - 1] = "state: %s" % to_state
+            _atomic_write_text(card_path, "\n".join(lines))
+
+            # ③ 写后双校（值校 + 非目标行字节校）
+            after = open(card_path, encoding="utf-8", newline="").read()
+            loc2 = locate_state_line(after, card_id)
+            after_sha = sha256_without_state_line(card_path, card_id)[0]
+            ok_val = loc2["rc"] == 0 and loc2["value"] == to_state
+            ok_bytes = after_sha == base_sha
+            if not (ok_val and ok_bytes):
+                _rollback(card_path, bk["path"], alerts=alerts_path,
+                          card_id=card_id, trace_id=trace_id)
+                return _ret(3, "rolled_back", **{
+                    "from": cur, "to": to_state, "value_ok": ok_val,
+                    "bytes_ok": ok_bytes, "reason": "post-write verify failed"})
+
+            # ④ 事件流（卡先、事件后；卡=权威）
+            verdict = append_event({"card_id": card_id, "from": cur,
+                                    "to": to_state, "event": event,
+                                    "actor": actor, "trace_id": trace_id},
+                                   path=events_path)
+            return _ret(0, "ok", **{"from": cur, "to": to_state,
+                                    "event_log": verdict,
+                                    "backup": bk["path"],
+                                    "sha_before": base_sha,
+                                    "sha_after": after_sha})
+        finally:
+            fcntl.flock(lockfh, fcntl.LOCK_UN)
+
+
+def restore_card(card_id, backup_path, *, card_path=None, alerts_path=None):
+    """真回滚：把备份镜像写回生产卡（走原子路径 + 写后 sha 校）。"""
+    card_path = card_path or DEFAULT_REGISTRY
+    if not os.path.exists(backup_path):
+        return {"rc": 1, "error": "backup not found: %s" % backup_path}
+    want = sha256_file(backup_path)
+    _rollback(card_path, backup_path, alerts=alerts_path, card_id=card_id)
+    got = sha256_file(card_path)
+    return {"rc": 0 if got == want else 3, "card_id": card_id,
+            "sha256_want": want, "sha256_got": got, "match": got == want}
+
+# -*- coding: utf-8 -*-
+"""N13 段2 批2 · CLI 子命令块（注入 state_engine.py 的 main() 之前）"""
+
+def _load_cards(registry):
+    if not os.path.exists(registry):
+        return None, None
+    text = open(registry, encoding="utf-8").read()
+    return text, parse_cards(text)
+
+
+def cmd_apply(args):
+    """真转移（唯一写口）。--dry-run 只算不写。"""
+    text, cards = _load_cards(args.registry)
+    if text is None:
+        print("ERROR: registry not found: %s" % args.registry)
+        return 2
+    rc_pf, msg = preflight_registry(args.registry, cards)
+    if rc_pf != 0:
+        print(msg)
+        return rc_pf
+    if args.card not in [c["card_id"] for c in cards]:
+        print("ERROR: card not found: %s" % args.card)
+        return 1
+    if args.event not in ANY_FROM_EVENTS and args.event not in FREE_FROM_EVENTS \
+            and not any(k[1] == args.event for k in T_TRANSITIONS):
+        print("ERROR: unknown event: %s" % args.event)
+        return 1
+    r = apply_transition(args.card, args.event, args.actor, args.trace_id, True,
+                         to_state=args.to, card_path=args.registry,
+                         backup_dir=args.backup_dir, events_path=args.events,
+                         alerts_path=args.alerts, dry_run=args.dry_run,
+                         expect_from=args.expect_from)
+    print(json.dumps(r, ensure_ascii=False))
+    if r["rc"] == 0 and r["verdict"] == "ok":
+        print("APPLIED card=%s %s -> %s event=%s backup=%s"
+              % (args.card, r["from"], r["to"], args.event, r.get("backup")))
+    elif r["rc"] == 0 and r["verdict"] == "would_write":
+        print("DRY-RUN card=%s %s -> %s (未落盘)" % (args.card, r["from"], r["to"]))
+    return r["rc"]
+
+
+def cmd_restore_real(args):
+    r = restore_card(args.card, args.backup, card_path=args.registry,
+                     alerts_path=args.alerts)
+    print(json.dumps(r, ensure_ascii=False))
+    return r["rc"]
+
+
+def cmd_preflight(args):
+    text, cards = _load_cards(args.registry)
+    if text is None:
+        print("ERROR: registry not found: %s" % args.registry)
+        return 2
+    rc_pf, msg = preflight_registry(args.registry, cards)
+    print(msg)
+    return rc_pf
+# ===== N13 段2 批2 注入块（END） =====
+
+
+def reconcile_check(registry, events_path=None, alerts_path=None,
+                    card_ids=None):
+    """撕裂检测（J7 · 只读）：卡 state（权威） vs 事件流末条 `to`。
+
+    卡为权威（真源唯一）= 卡内 `state` 字段 ⇒ 不一致时**不改卡**，只出声：
+      · 有事件但末态 != 卡态 ⇒ `STATE_SPLIT`（写报警行）
+      · 卡无事件基线 ⇒ 不计（unbaselined，看门狗同口径）
+    返回 {"rc", "splits": [...], "unbaselined": [...], "lines": [...]}
+    """
+    text = open(registry, encoding="utf-8").read()
+    cards = parse_cards(text)
+    rc_pf, msg = preflight_registry(registry, cards)
+    if rc_pf != 0:
+        return {"rc": rc_pf, "error": msg, "splits": [], "unbaselined": [],
+                "lines": [msg]}
+    last = {}
+    for rec in replay(events_path):
+        last[rec.get("card_id")] = rec.get("to")
+    splits, unbase, lines = [], [], []
+    for c in cards:
+        cid = c["card_id"]
+        if card_ids and cid not in card_ids:
+            continue
+        want = last.get(cid)
+        if want is None:
+            unbase.append(cid)
+            continue
+        if want != c["state"]:
+            splits.append((cid, c["state"], want))
+            line = ("STATE_SPLIT card=%s card_state=%s log_state=%s"
+                    % (cid, c["state"], want))
+            lines.append(line)
+            append_alert(alerts_path,
+                         {"kind": "STATE_SPLIT", "card_id": cid,
+                          "event": "state.reconciled", "from": want,
+                          "to": c["state"], "actor": "state_engine",
+                          "trace_id": "reconcile", "reason": "card_is_truth"})
+    return {"rc": 0, "splits": splits, "unbaselined": unbase, "lines": lines}
+
+
+def cmd_reconcile(args):
+    r = reconcile_check(args.registry, events_path=args.events,
+                        alerts_path=args.alerts)
+    for ln in r["lines"]:
+        print(ln)
+    print("reconcile: cards=%d splits=%d unbaselined=%d"
+          % (_count_state_lines(open(args.registry, encoding="utf-8").read()),
+             len(r["splits"]), len(r["unbaselined"])))
+    return r["rc"]
+
+
+def _selftest_batch2(reg):
+    """段2 批2 追加臂 —— 全部在 tmp 副本上跑（生产卡零改）。"""
+    import tempfile
+
+    ok = True
+    text = open(reg, encoding="utf-8").read()
+    with tempfile.TemporaryDirectory() as td:
+        card = os.path.join(td, "registry.md")
+        with open(card, "w", encoding="utf-8", newline="") as fh:
+            fh.write(text)
+        env = dict(backup_dir=os.path.join(td, "backups"),
+                   events_path=os.path.join(td, "events.jsonl"),
+                   alerts_path=os.path.join(td, "alerts.jsonl"))
+
+        loc = locate_state_line(text, "N3")
+        good = loc["rc"] == 0 and loc["value"] == "awaiting_decision"
+        print("[P-1 正控] locate N3 rc=%d value=%s -> %s"
+              % (loc["rc"], loc["value"], "PASS" if good else "FAIL"))
+        ok = ok and good
+
+        lines = text.split("\n")
+        lines[loc["line_no"] - 1] = "state: malicious_value"
+        with open(card, "w", encoding="utf-8", newline="") as fh:
+            fh.write("\n".join(lines))
+        loc2 = locate_state_line(open(card, encoding="utf-8").read(), "N3")
+        good = loc2["rc"] == RC_INVALID_STATE
+        print("[P-1 负控] state=malicious_value -> rc=%d (期望 %d) -> %s"
+              % (loc2["rc"], RC_INVALID_STATE, "PASS" if good else "FAIL"))
+        ok = ok and good
+        with open(card, "w", encoding="utf-8", newline="") as fh:
+            fh.write(text)
+
+        foreign = os.path.join(td, "foreign.md")
+        with open(foreign, "w", encoding="utf-8") as fh:
+            fh.write("# no cards here\n")
+        rc = cmd_plan(argparse.Namespace(registry=foreign, card=None,
+                                         events=env["events_path"]))
+        good = rc != 0
+        print("[P-2 负控/外域] plan rc=%d (期望 !=0) -> %s"
+              % (rc, "PASS" if good else "FAIL"))
+        ok = ok and good
+
+        rc = cmd_plan(argparse.Namespace(registry=reg, card=None,
+                                         events=env["events_path"]))
+        good = rc == 0
+        print("[P-2 正控] plan --all rc=%d -> %s"
+              % (rc, "PASS" if good else "FAIL"))
+        ok = ok and good
+
+        b4 = sha256_file(card)
+        r = apply_transition("N12", "deps_all_closed", "mimir", "selftest", True,
+                             to_state="in_progress", card_path=card,
+                             dry_run=True, **env)
+        zero = sha256_file(card) == b4
+        good = r["rc"] == 0 and r["verdict"] == "would_write" and zero
+        print("[P-3 正控/dry-run] rc=%d verdict=%s 零落盘=%s -> %s"
+              % (r["rc"], r["verdict"], zero, "PASS" if good else "FAIL"))
+        ok = ok and good
+
+        r = apply_transition("N12", "deps_all_closed", "mimir", "selftest", True,
+                             to_state="in_progress", card_path=card, **env)
+        same = r["sha_before"] == r["sha_after"]
+        good = (r["rc"] == 0 and r["verdict"] == "ok" and same
+                and line_count(env["events_path"]) == 1)
+        print("[P-3 正控/真写] rc=%d %s->%s 单行=%s events=%d -> %s"
+              % (r["rc"], r.get("from"), r.get("to"), same,
+                 line_count(env["events_path"]), "PASS" if good else "FAIL"))
+        ok = ok and good
+
+        d = restore_drill(r["backup"], card_id="N12", expect_state="pending",
+                          tmp_dir=os.path.join(td, "drill"))
+        good = bool(d["rc"] == 0 and d["sha_match"] and d["state_match"])
+        print("[P-3 正控/DRILL] rc=%d sha_match=%s state_match=%s -> %s"
+              % (d["rc"], d["sha_match"], d["state_match"],
+                 "PASS" if good else "FAIL"))
+        ok = ok and good
+
+        r2 = apply_transition("N12", "deps_all_closed", "mimir", "selftest", True,
+                              to_state="in_progress", card_path=card, **env)
+        good = r2["verdict"] == "noop" and line_count(env["events_path"]) == 1
+        print("[P-3 幂等] 重放 verdict=%s events=%d -> %s"
+              % (r2["verdict"], line_count(env["events_path"]),
+                 "PASS" if good else "FAIL"))
+        ok = ok and good
+
+        b4 = sha256_file(card)
+        r3 = apply_transition("N12", "produces_persisted", "mimir", "selftest",
+                              True, to_state="awaiting_verify", card_path=card,
+                              expect_from="pending", **env)
+        zero = sha256_file(card) == b4
+        good = r3["rc"] == 4 and zero
+        print("[P-3 负控/CAS] rc=%d 零改=%s -> %s"
+              % (r3["rc"], zero, "PASS" if good else "FAIL"))
+        ok = ok and good
+
+        r4 = apply_transition("N12", "produces_persisted", "mimir", "selftest",
+                              True, to_state="T99", card_path=card, **env)
+        good = r4["rc"] == 6
+        print("[P-1 负控/目标值] to=T99 rc=%d -> %s"
+              % (r4["rc"], "PASS" if good else "FAIL"))
+        ok = ok and good
+
+        ltext = open(card, encoding="utf-8").read()
+        fl = locate_state_line(ltext, "N12")
+        ln2 = ltext.split("\n")
+        ln2[fl["line_no"] - 1] = "state: frozen"
+        with open(card, "w", encoding="utf-8", newline="") as fh:
+            fh.write("\n".join(ln2))
+        b4 = sha256_file(card)
+        r5 = apply_transition("N12", "deadline_exceeded", "watchdog", "selftest",
+                              True, to_state="stalled", card_path=card, **env)
+        good = r5["rc"] == 7 and "FROZEN" in r5["reason"] \
+            and sha256_file(card) == b4
+        print("[P-3 负控/frozen] rc=%d reason=%s 零改=%s -> %s"
+              % (r5["rc"], r5["reason"], sha256_file(card) == b4,
+                 "PASS" if good else "FAIL"))
+        ok = ok and good
+
+        print("[selftest/batch2] rc=%d" % (0 if ok else 1))
+    return ok
 
 
 def main(argv=None):
@@ -508,6 +1066,22 @@ def main(argv=None):
     r.add_argument("--drill", action="store_true")
     r.add_argument("--expect-sha")
     r.add_argument("--expect-state")
+    a = sub.add_parser("apply")
+    a.add_argument("--card", required=True)
+    a.add_argument("--event", required=True)
+    a.add_argument("--to", required=True)
+    a.add_argument("--actor", default="mimir")
+    a.add_argument("--trace-id", default="")
+    a.add_argument("--expect-from")
+    a.add_argument("--alerts", default=DEFAULT_ALERTS)
+    a.add_argument("--dry-run", action="store_true")
+    rr = sub.add_parser("restore-real")
+    rr.add_argument("--card", required=True)
+    rr.add_argument("--backup", required=True)
+    rr.add_argument("--alerts", default=DEFAULT_ALERTS)
+    sub.add_parser("preflight")
+    rc_ = sub.add_parser("reconcile")
+    rc_.add_argument("--alerts", default=DEFAULT_ALERTS)
     args = ap.parse_args(argv)
     if args.selftest:
         return selftest(args.registry, args.events)
@@ -521,6 +1095,14 @@ def main(argv=None):
         return cmd_backup(args)
     if args.cmd == "restore":
         return cmd_restore(args)
+    if args.cmd == "apply":
+        return cmd_apply(args)
+    if args.cmd == "restore-real":
+        return cmd_restore_real(args)
+    if args.cmd == "preflight":
+        return cmd_preflight(args)
+    if args.cmd == "reconcile":
+        return cmd_reconcile(args)
     ap.print_help()
     return 0
 
