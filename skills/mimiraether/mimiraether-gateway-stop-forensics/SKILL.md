@@ -43,6 +43,31 @@ tail -6 ~/.mimiraether/data/ops/gateway_exit_history.jsonl
 - 过闸：`t ≤ 阈值` ∧ exit ∈ {0}（**exit=-9 = 被 SIGKILL = 红**）∧ 停机路径日志齐 ∧ 无 bad marker
 - **两臂必须一红一绿**，否则判据是恒绿的空枪
 
+## 已测伪的一条「修法」：F2-c 给收尾加 join 上限 **无效**（2026-10-08 实测，勿重做）
+
+`asyncio.run()` 收尾确实是 `shutdown_default_executor(constants.THREAD_JOIN_TIMEOUT=300)`（3.12，**有界**，
+不是「无上限」）；把它换成 `loop.run_until_complete(loop.shutdown_default_executor(5.0))` +
+显式 `_cancel_all_tasks`/`shutdown_asyncgens`（= 复刻 `Runner.close()`，见 `asyncio/runners.py:67-82`）
+**不会缩短停机时长** —— 改前 20.06s / 改后 20.06s（受控实例 + `--inject-executor-stall`，两臂同法）。
+
+原因（栈是证据，不是推理）：上限只在**事件循环收尾**这一层生效；进程退出还过两道**非 daemon join**：
+```
+MainThread: threading.py:1594 _shutdown → concurrent/futures/thread.py:31 _python_exit → t.join()   # 等 worker
+Thread-2 (_do_shutdown) daemon=False: asyncio/base_events.py:616 self._default_executor.shutdown(wait=True)
+```
+= `ThreadPoolExecutor` worker（**自 3.9 起非 daemon**）+ 超时分支自己生的 `_do_shutdown`。
+⇒ **只要长活儿还占着默认执行器，进程就退不出**；真正兜底的是本仓库 F-1 退出看门狗（`os._exit`，20s）。
+要真出收益，只有「让长活儿线程 daemon 化」（= F2 用过的同一手法），不是加 join 上限。
+
+自证「上限确实生效」的探针指纹：`RuntimeWarning: The executor did not finishing joining its threads within 5.0 seconds.`
+（打印的是**你传的数**；300 臂不会打 5.0）。
+
+## 红灯三分类方法（整仓 pytest 出现红时，判「是不是我引入的」）
+不要靠「与改点无关」下结论 —— 同环境受控差分：
+`git restore --source=<baseline> --worktree -- <你改的文件>`（+移走新测试）→ 重跑同一批文件 → 红数相同 ⇒ 既有红。
+2026-10-08 例：`tests/scripts/test_pre_push_path_leak.py`(7)+`test_pre_push_real_object_arms.py`(1) 8 项在 HEAD
+与「HEAD 减改动」下**同红** ⇒ 既有红（与本单无关）。
+
 ## 修（最小面 · 只动停机路径）
 1. `gateway/exit_watchdog.py`：整条尾链硬上限（默认 20s < `TimeoutStopSec`30，夹 [1,29]），到点 → 落线程栈 → `ERROR F1_EXIT_WATCHDOG_FIRED` → 刷新日志 → `os._exit(意图码)`
 2. `gateway/run.py`：SIGTERM/SIGINT 与 SIGUSR1 handler 内 `arm_exit_watchdog(...)`（在 `create_task(runner.stop())` **之前**）
