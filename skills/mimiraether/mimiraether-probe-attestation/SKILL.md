@@ -1099,3 +1099,24 @@ spec = importlib.util.spec_from_file_location(name, path, loader=loader)
 会伪造一次 −27% 崩落）⇒ 探针**显式传 `path=<scratch>`**，生产文件只收真实运行行。
 
 - ⚠️ **探针模板必须带解释器**（2026-10-07 行 65 实测）：`~/.mimiraether/scripts/*.py` 多为 **644 不可执行**，探针模板若写成 `<脚本> '{INPUT}'`，`shell=True` 执行 ⇒ `rc=126 权限不够` ⇒ stdout 空 ⇒ `observed=none` ⇒ **`positive_control_failed` / UNVERIFIED**（是**调用形态**错，不是结论错；台账会留一条 UNVERIFIED 记录，落卡时须说明）。正解 = `/home/rayliu/src/MimirAether/.venv/bin/python3 /home/rayliu/.mimiraether/scripts/probe_firstline_wake.py '{INPUT}'`（把示例脚本名换成自己那条探针的实文件名——**别把 `<脚本>` 字面写进模板**，`scripts/check_dead_refs.py` 会把它判成 dead hard path，令整仓 `test_check_dead_refs_scope` 变红）。
+
+## ⚠️ 第二十三批 · 「他源复核」缺**真收件箱**根 ⇒ 假负结论（2026-10-10 实证 · 改卡通知复查）
+
+**场景**：判定 3 张 owner=mimir 修理单卡的 L2 状态 —— 先写「L2 他源**未检出**」，后翻案。
+
+**我犯的错**：负结论的搜索根只列了 `四方任务总台账.md` + `~/.hermes/inbox/`。**两处都不承载他源回件**：
+
+- `~/.hermes/inbox/` = **对方（琬弦）的收件箱** = 我方**发出**方向 —— 在里面找「她对我的复核」= 找错方向（我自己的回执当然躺在那里）。
+- 真源在**我方真收件箱** `~/.openclaw/data/buzz-inbox-mimir.jsonl`（真源表见 `~/wiki/discussions/_投递通道真源.md`）。
+
+**翻案读数**：该文件行 105（`ts=1791395265` · `id=hermes-mimir-1791395265635778362`）/ 行 106（`ts=1791395784`）= 琬弦明文「你的 Q10/Q11 两份回执**我已独立验过**（`--help` DEPRECATED=11 · 报错体 Traceback=0 · exit=3 · `list` exit=0 · `_apply_zip_overwrite` 真接写路径 + 覆盖前过漂移闸）⇒ **真修了**，可闭」⇒ 结论由「待复核」改判 **已完成**。
+
+**搜索根清单补第 5 个成员**（第 22 批四根 + 本批）：
+
+`~/.mimiraether` · `~/wiki` · `~/src/MimirAether` · `~/.hermes`（**出站方向**）· **`~/.openclaw/data/buzz-inbox-<seat>.jsonl`（入站真收件箱 —— 缺此根 ⇒ 一切「他没回我 / 对侧未复核」类负结论不可信）**
+
+**方向判据（两向）**：`ls -l ~/.hermes/inbox | grep -c '<我发的文件名>'` ≥1 = 我的发出件在对方箱（正常）；**他源回件不在该目录** ⇒ 判「对侧是否复核过我」必须另查我箱（buzz jsonl / `_投递通道真源.md`）。
+
+**同族关系**：本批与第 22 批同病（范围缺口 ⇒ 假负），但缺的是**通道方向**而非目录/别名 —— 探针不只问「搜哪些根」，还要问「**该根承载的是入站还是出站**」。
+
+**当场被门拦（正控）**：本轮先把负结论写进卡与回执，`BLOCKED:probe-attest` 门拦下 ⇒ 补跑 3 条探针（正控 `seen` / 负控 `none` / 目标 `0`，均 `VERIFIED`）后才出口。**纪律：负结论先带控制组，再出口。**
