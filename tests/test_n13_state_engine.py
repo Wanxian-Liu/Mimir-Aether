@@ -8,6 +8,7 @@
 """
 import argparse
 import hashlib
+import json
 import os
 import shutil
 import sys
@@ -310,6 +311,229 @@ def test_p3_guard_not_passed_refuses(tmp_path):
                             to_state="in_progress", card_path=p, **env)
     assert r["rc"] == 5 and r["verdict"] == "refused"
     assert _sha(p) == before
+
+
+
+
+# ================= N13 段3 · G1-G4 两向 pytest =================
+# 纪律同上：负控走真实文件往返（副本受控差分）；生产卡全程只读。
+
+def _seg3_cfg(tmp_path):
+    """自造 config.yaml 真源（不读生产 config · 不与运行时耦合）。"""
+    p = str(tmp_path / "config.yaml")
+    open(p, "w", encoding="utf-8").write("FEISHU_HOME_CHANNEL: oc_test_home\n")
+    return p, "oc_test_home"
+
+
+def _seg3_fp(cfg, home):
+    return se.derive_sender_fingerprint(se.STOP_ORDER_CHANNEL, home, cfg)
+
+
+def _whole(tmp_path, name, body):
+    p = str(tmp_path / name)
+    open(p, "w", encoding="utf-8").write(body)
+    return open(p, encoding="utf-8").read()
+
+
+# ---------- G1 值白名单（全路径加严） ----------
+
+def test_g1_positive_whole_file_unique_legal_value(tmp_path):
+    text = _whole(tmp_path, "one.md", "### N1 · x\nstate: pending\n")
+    r = se.whole_file_guard_result(text)
+    assert r["rc"] == 0 and r["value"] == "pending" and r["line_no"] == 2
+
+
+def test_g1_negative_whole_file_malicious_value_rc6(tmp_path):
+    """段2 整文件口径的静默面：唯一命中 + 非法值 ⇒ 必须 rc=6（非 0）。"""
+    text = _whole(tmp_path, "bad.md", "### N1 · x\nstate: malicious_value\n")
+    r = se.whole_file_guard_result(text)
+    assert r["rc"] != 0
+    assert r["rc"] == se.RC_INVALID_STATE
+
+
+def test_g1_negative_whole_file_position_gate_still_rc2(tmp_path):
+    """位置闸不得被值闸吞掉：真实 registry 11+ 条 state ⇒ 仍 rc=2。"""
+    text = open(REG, encoding="utf-8").read()
+    r = se.whole_file_guard_result(text)
+    assert r["rc"] == 2
+
+
+def test_g1_parity_block_and_whole_file_same_rc(tmp_path):
+    """两口径同值 ⇒ 同 rc（块内 / 整文件不再分叉）。"""
+    text = _whole(tmp_path, "bad2.md", "### N1 · x\nstate: malicious_value\n")
+    blob = se.locate_state_line(text, "N1")
+    whole = se.whole_file_guard_result(text)
+    assert blob["rc"] == whole["rc"] == se.RC_INVALID_STATE
+
+
+def test_g1_positive_real_registry_blocks_all_legal():
+    cards = se.parse_cards(open(REG, encoding="utf-8").read())
+    assert cards and all(c["state_value_ok"] for c in cards)
+
+
+# ---------- G2 外域 / 格式错出声 ----------
+
+def test_g2_negative_path_no_cards_no_state_all_loud(tmp_path):
+    missing = str(tmp_path / "nope.md")
+    rc1, m1 = se.preflight_registry(missing, [])
+    assert rc1 != 0 and m1.startswith("ERROR")
+
+    t = _whole(tmp_path, "nocards.md", "# 无卡\n正文\n")
+    rc2, m2 = se.preflight_registry(str(tmp_path / "nocards.md"),
+                                    se.parse_cards(t))
+    assert rc2 != 0 and m2.startswith("ERROR")
+
+    t = _whole(tmp_path, "nostate.md", "### N1 · x\nowner: mimir\n")
+    rc3, m3 = se.preflight_registry(str(tmp_path / "nostate.md"),
+                                    se.parse_cards(t))
+    assert rc3 != 0 and m3.startswith("ERROR")
+
+
+def test_g2_negative_sub_block_state_count_drift(tmp_path):
+    """段2 静默面：块内 state!=1 但**全局计数相等** ⇒ 旧闸放行，新闸必须出声。"""
+    body = "### N1 · a\nstate: pending\nstate: pending\n### N2 · b\nowner: x\n"
+    p = str(tmp_path / "drift.md")
+    open(p, "w", encoding="utf-8").write(body)
+    cards = se.parse_cards(body)
+    rc, msg = se.preflight_registry(p, cards)
+    assert rc != 0 and msg.startswith("ERROR") and "!=1" in msg
+    assert se._count_state_lines(body) == len(cards)      # 全局相等（旧闸看不到）
+
+
+def test_g2_positive_real_registry():
+    cards = se.parse_cards(open(REG, encoding="utf-8").read())
+    assert se.preflight_registry(REG, cards)[0] == 0
+
+
+# ---------- G3 停止令渠道指纹（白名单）· T11/T12 ----------
+
+def test_g3_positive_liuge_feishu_dm_accepted(tmp_path):
+    cfg, home = _seg3_cfg(tmp_path)
+    fp = _seg3_fp(cfg, home)
+    v = se.verify_stop_order({"channel": se.STOP_ORDER_CHANNEL, "chat_id": home,
+                              "sender_fingerprint": fp, "scope": "all",
+                              "action": "stop", "order_id": "T-1"}, cfg)
+    assert v["ok"] and v["decision"] == "accepted"
+    assert v["fingerprint"] == "feishu:dm:oc_test_home"
+
+
+def test_g3_negative_channel_not_whitelisted(tmp_path):
+    """预置卡 L777 负控的收编：非白名单渠道（讨论卡/群/信箱）⇒ 拦住。"""
+    cfg, home = _seg3_cfg(tmp_path)
+    fp = _seg3_fp(cfg, home)
+    for ch in ("discussion", "buzz-inbox", "feishu:group", "feishu:dm "):
+        v = se.verify_stop_order({"channel": ch, "chat_id": home,
+                                  "sender_fingerprint": fp, "scope": "all",
+                                  "order_id": "T-%s" % ch}, cfg)
+        assert not v["ok"], ch
+        assert "not in whitelist" in v["reason"]
+
+
+def test_g3_negative_chat_id_must_exact_match(tmp_path):
+    """精确匹配（非前缀）：home 加尾字符也必须拒。"""
+    cfg, home = _seg3_cfg(tmp_path)
+    for bad_cid in ("oc_attacker", home + "x", home[:-1], home.upper()):
+        v = se.verify_stop_order({"channel": se.STOP_ORDER_CHANNEL,
+                                  "chat_id": bad_cid,
+                                  "sender_fingerprint": "feishu:dm:" + bad_cid,
+                                  "scope": "all", "order_id": "T-x"}, cfg)
+        assert not v["ok"], bad_cid
+
+
+def test_g3_negative_missing_and_forged_fingerprint(tmp_path):
+    cfg, home = _seg3_cfg(tmp_path)
+    fp = _seg3_fp(cfg, home)
+    miss = se.verify_stop_order({"channel": se.STOP_ORDER_CHANNEL,
+                                 "chat_id": home, "scope": "all",
+                                 "order_id": "T-m"}, cfg)
+    assert not miss["ok"] and "missing" in miss["reason"]
+    forged = se.verify_stop_order({"channel": se.STOP_ORDER_CHANNEL,
+                                   "chat_id": home,
+                                   "sender_fingerprint": fp + ":forged",
+                                   "scope": "all", "order_id": "T-f"}, cfg)
+    assert not forged["ok"] and "mismatch" in forged["reason"]
+
+
+def test_g3_negative_fail_closed_when_config_unreadable(tmp_path):
+    """渠道白名单真源读不到 ⇒ fail-closed（拒一切停止令）。"""
+    cfg, home = _seg3_cfg(tmp_path)
+    fp = _seg3_fp(cfg, home)
+    gone = str(tmp_path / "absent.yaml")
+    v = se.verify_stop_order({"channel": se.STOP_ORDER_CHANNEL, "chat_id": home,
+                              "sender_fingerprint": fp, "scope": "all",
+                              "order_id": "T-c"}, gone)
+    assert not v["ok"]
+    assert se.derive_sender_fingerprint(se.STOP_ORDER_CHANNEL, home, gone) is None
+
+
+def test_g3_negative_scope_and_action_denied(tmp_path):
+    cfg, home = _seg3_cfg(tmp_path)
+    fp = _seg3_fp(cfg, home)
+    base = {"channel": se.STOP_ORDER_CHANNEL, "chat_id": home,
+            "sender_fingerprint": fp}
+    assert not se.verify_stop_order(dict(base, scope="bogus",
+                                         order_id="T-s"), cfg)["ok"]
+    assert not se.verify_stop_order(dict(base, scope="all", action="nuke",
+                                         order_id="T-a"), cfg)["ok"]
+
+
+# ---------- G4 可撤 + 留痕 ----------
+
+def test_g4_append_then_revoke_is_append_only(tmp_path):
+    cfg, home = _seg3_cfg(tmp_path)
+    fp = _seg3_fp(cfg, home)
+    log = str(tmp_path / "stop-orders.jsonl")
+    order = {"order_id": "T-9", "channel": se.STOP_ORDER_CHANNEL,
+             "chat_id": home, "sender_fingerprint": fp, "scope": "all",
+             "action": "stop"}
+    v = se.verify_stop_order(order, cfg)
+    se.append_stop_event(se.stop_order_event(order, v, card_id="N12"), log)
+    first_raw = open(log, encoding="utf-8").readline()
+    rec = json.loads(first_raw)
+    assert rec["sender_fingerprint"] == fp and rec["decision"] == "accepted"
+    assert rec["reason"] == "ok" and rec["card_id"] == "N12"
+
+    se.revoke_stop_order("T-9", path=log)
+    lines = open(log, encoding="utf-8").read().strip().split("\n")
+    assert len(lines) == 2
+    last = json.loads(lines[-1])
+    assert last["decision"] == "revoked" and last["revokes"] == "T-9"
+    assert open(log, encoding="utf-8").readline() == first_raw   # 历史行零改
+    assert se.stop_order_seen("T-9", log) and not se.stop_order_seen("X", log)
+
+
+def test_g4_negative_revoke_unknown_order_rc1(tmp_path, capsys):
+    log = str(tmp_path / "stop-orders.jsonl")
+    rc = se.cmd_unstop(argparse.Namespace(order_id="NOPE", stop_log=log,
+                                          actor="pytest"))
+    assert rc == 1
+    assert "not found" in capsys.readouterr().out
+    assert not os.path.exists(log)
+
+
+def test_g4_cli_accepted_rc0_refused_rc8_duplicate_no_extra_line(tmp_path,
+                                                                 capsys):
+    cfg, home = _seg3_cfg(tmp_path)
+    fp = _seg3_fp(cfg, home)
+    log = str(tmp_path / "stop-orders.jsonl")
+    good = argparse.Namespace(order_id="C-1", channel=se.STOP_ORDER_CHANNEL,
+                              chat_id=home, sender_fingerprint=fp,
+                              scope="all", action="stop", card="N12",
+                              config=cfg, stop_log=log, record=True)
+    assert se.cmd_stop(good) == 0
+    assert se.line_count(log) == 1
+    assert se.cmd_stop(good) == 0          # 重放：幂等，不重复落行
+    assert se.line_count(log) == 1
+    capsys.readouterr()
+
+    bad = argparse.Namespace(order_id="C-2", channel="discussion",
+                             chat_id=home, sender_fingerprint=fp,
+                             scope="all", action="stop", card="N12",
+                             config=cfg, stop_log=log, record=True)
+    assert se.cmd_stop(bad) == se.RC_STOP_REFUSED
+    out = capsys.readouterr().out
+    assert "ERROR: stop order refused" in out       # 出声（不静默）
+    assert se.line_count(log) == 2                  # 拒绝也留痕
 
 
 def test_no_test_touched_the_production_registry():

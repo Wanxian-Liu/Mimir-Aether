@@ -159,6 +159,7 @@ def parse_cards(text):
             "has_blocked_by": "blocked_by" in kv,
             "gate": kv.get("gate", ""),
             "state_value_ok": loc["rc"] == 0 and state_value_ok(loc["value"]),
+            "state_hits": loc["hits"],   # N13 段3 · G2：块内 state 行数（!=1 出声）
         })
     return cards
 
@@ -287,8 +288,16 @@ def locate_state_line_whole_file(text):
                 "line": None, "value": None, "block_head_line": None,
                 "reason": "whole-file state hits=%d (need exactly 1) -> refuse"
                           % len(hits)}
-    return {"card_id": None, "rc": 0, "hits": 1, "line_no": hits[0][0],
-            "line": hits[0][1], "value": hits[0][1].split(":", 1)[1].strip(),
+    ln, line = hits[0]
+    val = line.split(":", 1)[1].strip().strip("'\"")
+    if val not in ALL_STATES:      # N13 段3 · G1：整文件口径补值白名单
+        return {"card_id": None, "rc": RC_INVALID_STATE, "hits": 1,
+                "line_no": ln, "line": line, "value": val,
+                "block_head_line": None,
+                "reason": "invalid state value %r (P-1 whitelist: %s)"
+                          % (val, "|".join(ALL_STATES))}
+    return {"card_id": None, "rc": 0, "hits": 1, "line_no": ln,
+            "line": line, "value": val,
             "block_head_line": None, "reason": "ok"}
 
 
@@ -511,6 +520,9 @@ def selftest(registry=None, events=None):
     print("== 段2 批2 追加臂（P-1 值白名单 / P-2 外域出声 / P-3 真写+演练） ==")
     ok = _selftest_batch2(reg) and ok
 
+    print("== 段3 追加臂（G1 值白名单全路径 / G2 出声 / G3 停止令验签 / G4 可撤+留痕） ==")
+    ok = _selftest_seg3(reg) and ok
+
     print("[selftest] rc=%d" % (0 if ok else 1))
     return 0 if ok else 1
 
@@ -610,6 +622,11 @@ def preflight_registry(registry, cards):
         return 4, ("ERROR: cards=%d but top-level state lines=%d "
                    "(registry=%s) - 格式漂移，出声拒绝"
                    % (len(cards), n_state, registry))
+    off_spec = [c["card_id"] for c in cards if c.get("state_hits", 1) != 1]
+    if off_spec:                    # N13 段3 · G2：块内 state!=1 而全局相等
+        return 5, ("ERROR: cards with !=1 top-level state: line = %s "
+                   "(registry=%s) - 块内 state 数异常，出声拒绝"
+                   % (",".join(off_spec), registry))
     return 0, "preflight ok: cards=%d" % len(cards)
 
 
@@ -1040,6 +1057,452 @@ def _selftest_batch2(reg):
     return ok
 
 
+# ===== N13 段3 guard 注入块（BEGIN） =====
+# -*- coding: utf-8 -*-
+"""N13 段3 · 4 道 guard 刹车 + 停止令验签
+
+G1 值白名单（全路径加严）· G2 外域/格式错出声 · G3 停止令渠道指纹（白名单）· G4 可撤+留痕
+
+真源（段3 规格 §二 段3 行 + 预置卡 L932 舵手定案 2026-10-09）：
+  「采纳『渠道白名单』—— 停止令只认『舵手的飞书私聊』（平台身份认证）
+    ＋ 每次停止留审计行（谁/何时/何范围）＋ 停止可撤；**不新增秘密存储**。」
+
+零新依赖（stdlib）· 零删除 · 零改生产卡（演练全走副本）。
+"""
+
+
+# ===== G1 · 值白名单（全路径加严） =====
+# 段2 批2 只覆盖「块内」口径（locate_state_line 已校验值）；
+# 整文件口径命中 1 条时**不校验值** ⇒ 非法值静默放行。
+
+def whole_file_value_guard(text):
+    """整文件口径的值白名单闸（与块内口径同常量 / 同 rc）。
+
+    返回 dict：{rc, value, line_no, reason}
+      · rc=0                  唯一命中且值合法
+      · rc=2                  命中 != 1（位置闸）
+      · rc=RC_INVALID_STATE   唯一命中但值非法（**段3 新增**）
+    """
+    loc = locate_state_line_whole_file(text)
+    if loc["rc"] != 0:
+        return {"rc": loc["rc"], "value": None, "line_no": None,
+                "reason": loc["reason"]}
+    val = validate_state_value(loc["value"])   # 非法 ⇒ StateValueError
+    return {"rc": 0, "value": val, "line_no": loc["line_no"],
+            "reason": "ok (whole-file value whitelist)"}
+
+
+def whole_file_guard_result(text):
+    """统一出口：把 StateValueError 转成 rc，供 selftest / CLI 复用（不抛异常）。"""
+    try:
+        return whole_file_value_guard(text)
+    except StateValueError as e:
+        return {"rc": RC_INVALID_STATE, "value": None, "line_no": None,
+                "reason": str(e)}
+
+
+# ===== G3 · 停止令渠道指纹（白名单）· T11/T12 =====
+
+# 白名单 = **单一渠道**（舵手 2026-10-09 定案）。精确匹配，不做前缀/子串匹配。
+STOP_ORDER_CHANNEL = "feishu:dm"
+RC_STOP_REFUSED = 8        # 停止令被拒（渠道非白名单 / 验签不过）；7 已属 FROZEN_REJECT
+
+# 渠道标识真源 = 运行时配置（**不新增秘密存储** · 舵手定案）。
+# 只读 config.yaml 的 FEISHU_HOME_CHANNEL；读不到 ⇒ fail-closed（拒一切停止令）。
+CONFIG_FILE = os.path.join(_home(), "config.yaml")
+STOP_LOG_DEFAULT = os.path.join(DATA_DIR, "stop-orders.jsonl")
+
+
+def _read_home_channel(config_file=None):
+    """从 config.yaml 读 FEISHU_HOME_CHANNEL（真源）。读不到 ⇒ None（fail-closed）。"""
+    p = config_file or CONFIG_FILE
+    if not os.path.exists(p):
+        return None
+    for ln in open(p, encoding="utf-8", errors="replace"):
+        ln = ln.strip()
+        if ln.startswith("FEISHU_HOME_CHANNEL:"):
+            v = ln.split(":", 1)[1].strip().strip("'\"")
+            return v or None
+    return None
+
+
+def derive_sender_fingerprint(channel, chat_id, config_file=None):
+    """**服务端派生**指纹（不采信报文自称字段 · 角色卡 §Rules 2）。
+
+    指纹 = "feishu:dm:<chat_id>" —— chat_id 必须**精确等于** config.yaml 的
+    FEISHU_HOME_CHANNEL（舵手主 chat）。派生失败 ⇒ None。
+    """
+    if channel != STOP_ORDER_CHANNEL:
+        return None
+    cid = chat_id or ""                    # 精确匹配：不 strip（防尾随空格绕过）
+    if not cid:
+        return None
+    home = _read_home_channel(config_file)
+    if not home:
+        return None
+    if cid != home:          # 精确匹配（非前缀 / 非子串）
+        return None
+    return "%s:%s" % (STOP_ORDER_CHANNEL, cid)
+
+
+def verify_stop_order(order, config_file=None):
+    """T11/T12 停止令验签（唯一判据入口）。
+
+    order = {channel, chat_id, sender_fingerprint(自称), scope, action, order_id}
+    返回 {ok, fingerprint, reason, decision}（decision ∈ {accepted, refused}）
+
+    规则（fail-closed）：
+      1. 渠道必须 == feishu:dm（白名单唯一项）
+      2. 服务端派生指纹必须成功（chat_id 精确等于 config 的 FEISHU_HOME_CHANNEL）
+      3. 自称 sender_fingerprint 必须**存在且等于**派生值（防伪造 / 防缺字段）
+      4. scope ∈ {all, card_id}；action ∈ {stop, start}
+    """
+    order = order or {}
+    ch = order.get("channel") or ""        # 精确匹配：不 strip（防尾随空格绕过）
+    if ch != STOP_ORDER_CHANNEL:
+        return {"ok": False, "fingerprint": None, "decision": "refused",
+                "reason": "channel not in whitelist: %r (only %r allowed)"
+                          % (ch, STOP_ORDER_CHANNEL)}
+    derived = derive_sender_fingerprint(ch, order.get("chat_id"), config_file)
+    if not derived:
+        return {"ok": False, "fingerprint": None, "decision": "refused",
+                "reason": "fingerprint derive failed (chat_id != "
+                          "FEISHU_HOME_CHANNEL in config, or config unreadable)"}
+    claimed = order.get("sender_fingerprint") or ""   # 精确匹配：不 strip
+    if not claimed:
+        return {"ok": False, "fingerprint": derived, "decision": "refused",
+                "reason": "sender_fingerprint missing (T11 guard: 无指纹 => 拦住)"}
+    if claimed != derived:
+        return {"ok": False, "fingerprint": derived, "decision": "refused",
+                "reason": "sender_fingerprint mismatch: claimed=%r derived=%r"
+                          % (claimed, derived)}
+    scope = (order.get("scope") or "").strip()
+    if scope not in ("all", "card_id"):
+        return {"ok": False, "fingerprint": derived, "decision": "refused",
+                "reason": "scope not in {all, card_id}: %r" % scope}
+    action = (order.get("action") or "stop").strip()
+    if action not in ("stop", "start"):
+        return {"ok": False, "fingerprint": derived, "decision": "refused",
+                "reason": "action not in {stop, start}: %r" % action}
+    return {"ok": True, "fingerprint": derived, "decision": "accepted",
+            "reason": "ok"}
+
+
+# ===== G4 · 可撤 + 留痕 =====
+
+STOP_EVENT_FIELDS = ("ts", "order_id", "card_id", "event", "actor",
+                     "sender_fingerprint", "channel", "scope", "decision",
+                     "reason", "revokes")
+
+
+def stop_order_event(order, verdict, *, card_id="", actor="state_engine",
+                     event="liuge.says.stop", revokes=""):
+    """构造停止令事件行（append-only · 含指纹与判定依据 · G4 留痕）。"""
+    return {
+        "ts": time.time(),
+        "order_id": order.get("order_id") or "",
+        "card_id": card_id or order.get("card_id") or "",
+        "event": event,
+        "actor": actor,
+        "sender_fingerprint": verdict.get("fingerprint") or "",
+        "channel": order.get("channel") or "",
+        "scope": order.get("scope") or "",
+        "decision": verdict.get("decision") or "",
+        "reason": verdict.get("reason") or "",
+        "revokes": revokes,
+    }
+
+
+def append_stop_event(rec, path):
+    """停止令事件落盘（append-only · flock 单写窗口 · fsync）。
+
+    与 state_event_log 同族（同 flock/fsync 语义），但**独立文件** ——
+    不污染 state-events.jsonl 的 7 字段契约（watchdog/replay 消费面）。
+    """
+    d = os.path.dirname(path)
+    if d:
+        os.makedirs(d, exist_ok=True)
+    line = json.dumps({k: rec.get(k, "") for k in STOP_EVENT_FIELDS},
+                      ensure_ascii=False)
+    with open(path + ".lock", "a+") as lk:
+        fcntl.flock(lk, fcntl.LOCK_EX)
+        try:
+            with open(path, "a", encoding="utf-8") as fh:
+                fh.write(line + "\n")
+                fh.flush()
+                os.fsync(fh.fileno())
+        finally:
+            fcntl.flock(lk, fcntl.LOCK_UN)
+    return line
+
+
+def stop_order_seen(order_id, path):
+    """幂等：同 order_id 已落 ⇒ True（防重放停止令）。"""
+    if not order_id or not os.path.exists(path):
+        return False
+    for ln in open(path, encoding="utf-8", errors="replace"):
+        ln = ln.strip()
+        if not ln:
+            continue
+        try:
+            rec = json.loads(ln)
+        except json.JSONDecodeError:
+            continue
+        if rec.get("order_id") == order_id:
+            return True
+    return False
+
+
+def revoke_stop_order(order_id, *, path, actor="state_engine", reason="revoked"):
+    """撤销停止令（可逆 · G4）：**追加** revoked 行（不改历史行 · append-only）。"""
+    rec = {"ts": time.time(), "order_id": order_id, "card_id": "",
+           "event": "liuge.says.start", "actor": actor,
+           "sender_fingerprint": "", "channel": STOP_ORDER_CHANNEL,
+           "scope": "", "decision": "revoked", "reason": reason,
+           "revokes": order_id}
+    return append_stop_event(rec, path)
+
+
+def cmd_stop(args):
+    """CLI：停止令验签 + 留痕（**段3 只做 guard 与验签 · 不真写生产卡**）。"""
+    order = {"order_id": args.order_id, "channel": args.channel,
+             "chat_id": args.chat_id,
+             "sender_fingerprint": args.sender_fingerprint,
+             "scope": args.scope, "action": args.action,
+             "card_id": args.card}
+    v = verify_stop_order(order, config_file=args.config)
+    if not v["ok"]:
+        print("ERROR: stop order refused: %s" % v["reason"])
+    else:
+        print("STOP ORDER ACCEPTED fingerprint=%s scope=%s"
+              % (v["fingerprint"], args.scope))
+    rec = stop_order_event(order, v, card_id=args.card)
+    if args.record:
+        if stop_order_seen(args.order_id, args.stop_log):
+            print("audit: duplicate order_id=%s -> 不重复落行（幂等）"
+                  % args.order_id)
+        else:
+            append_stop_event(rec, args.stop_log)
+            print("audit: appended to %s" % args.stop_log)
+    print(json.dumps(rec, ensure_ascii=False))
+    return 0 if v["ok"] else RC_STOP_REFUSED
+
+
+def cmd_unstop(args):
+    """CLI：撤销停止令（可逆 · G4 留痕）。"""
+    if not stop_order_seen(args.order_id, args.stop_log):
+        print("ERROR: order_id not found in stop log: %s" % args.order_id)
+        return 1
+    revoke_stop_order(args.order_id, path=args.stop_log, actor=args.actor)
+    print("REVOKED order_id=%s (audit line appended)" % args.order_id)
+    return 0
+
+
+# ===== N13 段3 · selftest 追加臂 =====
+
+def _selftest_seg3(reg, tmpdir=None):
+    """N13 段3 · G1-G4 两向判据（真实调用路径 + 副本受控差分 · 零改生产卡）。
+
+    返回 bool（全臂 PASS）。钻取目录 = DATA_DIR/state-seg3-drill（自有 scratch）。
+    """
+    ok = True
+    tmp = tmpdir or os.path.join(DATA_DIR, "state-seg3-drill")
+    os.makedirs(tmp, exist_ok=True)
+    cfg = os.path.join(tmp, "config.yaml")
+    with open(cfg, "w", encoding="utf-8") as fh:
+        fh.write("FEISHU_HOME_CHANNEL: oc_selftest_home\n")
+    stoplog = os.path.join(tmp, "stop-orders.jsonl")
+    open(stoplog, "w").close()          # 自有 scratch 置空（幂等 · 不删任何文件）
+
+    def _arm(arm, good, detail):
+        nonlocal ok
+        ok = ok and good
+        print("%s %s -> %s" % (arm, detail, "PASS" if good else "FAIL"))
+
+    reg_sha_in = sha256_file(reg)
+    text = open(reg, encoding="utf-8").read()
+
+    # ---------- G1 值白名单（全路径加严） ----------
+    print("== G1 值白名单（全路径）：块内 + 整文件两口径 ==")
+    r = whole_file_guard_result(text)
+    _arm("[G1 正控/真 registry]", r["rc"] == 2,
+         "whole-file 真实 registry rc=%d (期望 2 位置闸)" % r["rc"])
+
+    one = os.path.join(tmp, "one-good.md")
+    with open(one, "w", encoding="utf-8") as fh:
+        fh.write("### N1 · x\nstate: pending\n")
+    r = whole_file_guard_result(open(one, encoding="utf-8").read())
+    _arm("[G1 正控/整文件合法值]", r["rc"] == 0 and r["value"] == "pending",
+         "rc=%d value=%s" % (r["rc"], r["value"]))
+
+    bad = os.path.join(tmp, "one-bad.md")
+    with open(bad, "w", encoding="utf-8") as fh:
+        fh.write("### N1 · x\nstate: malicious_value\n")
+    r = whole_file_guard_result(open(bad, encoding="utf-8").read())
+    _arm("[G1 负控/整文件非法值]", r["rc"] == RC_INVALID_STATE,
+         "state=malicious_value rc=%d (期望 %d)" % (r["rc"], RC_INVALID_STATE))
+
+    loc = locate_state_line(open(bad, encoding="utf-8").read(), "N1")
+    _arm("[G1 负控/块内非法值]", loc["rc"] == RC_INVALID_STATE,
+         "locate --card N1 rc=%d (期望 %d)" % (loc["rc"], RC_INVALID_STATE))
+
+    # ---------- G2 外域 / 格式错出声 ----------
+    print("== G2 外域/格式错出声（不静默） ==")
+    rc_pf, msg = preflight_registry(os.path.join(tmp, "nonexistent.md"), [])
+    _arm("[G2 负控/路径错]", rc_pf != 0 and msg.startswith("ERROR"),
+         "rc=%d msg=%r" % (rc_pf, msg[:52]))
+
+    empty = os.path.join(tmp, "no-cards.md")
+    with open(empty, "w", encoding="utf-8") as fh:
+        fh.write("# 无卡\n正文\n")
+    rc_pf, msg = preflight_registry(
+        empty, parse_cards(open(empty, encoding="utf-8").read()))
+    _arm("[G2 负控/无 N 卡块]", rc_pf != 0 and msg.startswith("ERROR"),
+         "rc=%d msg=%r" % (rc_pf, msg[:52]))
+
+    nostate = os.path.join(tmp, "no-state.md")
+    with open(nostate, "w", encoding="utf-8") as fh:
+        fh.write("### N1 · x\nowner: mimir\n")
+    rc_pf, msg = preflight_registry(
+        nostate, parse_cards(open(nostate, encoding="utf-8").read()))
+    _arm("[G2 负控/块内无顶格 state]", rc_pf != 0 and msg.startswith("ERROR"),
+         "rc=%d msg=%r" % (rc_pf, msg[:52]))
+
+    drift = os.path.join(tmp, "sub-block-drift.md")
+    with open(drift, "w", encoding="utf-8") as fh:
+        fh.write("### N1 · a\nstate: pending\nstate: pending\n### N2 · b\nowner: x\n")
+    rc_pf, msg = preflight_registry(
+        drift, parse_cards(open(drift, encoding="utf-8").read()))
+    _arm("[G2 负控/块内 state!=1 而全局相等]",
+         rc_pf != 0 and msg.startswith("ERROR") and "!=1" in msg,
+         "rc=%d msg=%r" % (rc_pf, msg[:52]))
+
+    rc_pf, msg = preflight_registry(reg, parse_cards(text))
+    _arm("[G2 正控/真 registry]", rc_pf == 0, "rc=%d msg=%r" % (rc_pf, msg[:52]))
+
+    # ---------- G3 停止令渠道指纹（白名单） ----------
+    print("== G3 停止令渠道指纹（白名单）· T11/T12 ==")
+    home = _read_home_channel(cfg)
+    _arm("[G3 前置/config 真源]", home == "oc_selftest_home",
+         "FEISHU_HOME_CHANNEL=%r" % home)
+
+    fp = derive_sender_fingerprint(STOP_ORDER_CHANNEL, home, cfg)
+    _arm("[G3 正控/服务端派生]", fp == "feishu:dm:oc_selftest_home",
+         "fingerprint=%r" % fp)
+
+    v = verify_stop_order({"channel": STOP_ORDER_CHANNEL, "chat_id": home,
+                           "sender_fingerprint": fp, "scope": "all",
+                           "action": "stop", "order_id": "SELF-OK"}, cfg)
+    _arm("[G3 正控/舵手飞书私聊]", v["ok"] and v["decision"] == "accepted",
+         "ok=%s decision=%s" % (v["ok"], v["decision"]))
+
+    v = verify_stop_order({"channel": "discussion", "chat_id": home,
+                           "sender_fingerprint": fp, "scope": "all",
+                           "order_id": "SELF-2"}, cfg)
+    _arm("[G3 负控/讨论卡渠道]",
+         (not v["ok"]) and "not in whitelist" in v["reason"],
+         "ok=%s reason=%r" % (v["ok"], v["reason"][:46]))
+
+    v = verify_stop_order({"channel": "feishu:dm", "chat_id": "oc_attacker",
+                           "sender_fingerprint": "feishu:dm:oc_attacker",
+                           "scope": "all", "order_id": "SELF-3"}, cfg)
+    _arm("[G3 负控/非白名单 chat_id]", not v["ok"],
+         "ok=%s reason=%r" % (v["ok"], v["reason"][:46]))
+
+    v = verify_stop_order({"channel": "feishu:dm", "chat_id": home + "x",
+                           "sender_fingerprint": "feishu:dm:" + home + "x",
+                           "scope": "all", "order_id": "SELF-3b"}, cfg)
+    _arm("[G3 负控/前缀扩展 chat_id（精确匹配）]", not v["ok"],
+         "ok=%s reason=%r" % (v["ok"], v["reason"][:46]))
+
+    v = verify_stop_order({"channel": "feishu:dm", "chat_id": home,
+                           "scope": "all", "order_id": "SELF-4"}, cfg)
+    _arm("[G3 负控/无 sender_fingerprint]",
+         (not v["ok"]) and "missing" in v["reason"],
+         "ok=%s reason=%r" % (v["ok"], v["reason"][:46]))
+
+    v = verify_stop_order({"channel": "feishu:dm", "chat_id": home,
+                           "sender_fingerprint": fp + ":forged",
+                           "scope": "all", "order_id": "SELF-5"}, cfg)
+    _arm("[G3 负控/伪造验签字段]", (not v["ok"]) and "mismatch" in v["reason"],
+         "ok=%s reason=%r" % (v["ok"], v["reason"][:46]))
+
+    v = verify_stop_order({"channel": "feishu:dm", "chat_id": home,
+                           "sender_fingerprint": fp, "scope": "all",
+                           "order_id": "SELF-6"},
+                          os.path.join(tmp, "absent.yaml"))
+    _arm("[G3 负控/config 读不到 fail-closed]", not v["ok"],
+         "ok=%s reason=%r" % (v["ok"], v["reason"][:46]))
+
+    v = verify_stop_order({"channel": STOP_ORDER_CHANNEL, "chat_id": home,
+                           "sender_fingerprint": fp, "scope": "bogus",
+                           "order_id": "SELF-7"}, cfg)
+    _arm("[G3 负控/scope 非法]", (not v["ok"]) and "scope" in v["reason"],
+         "ok=%s reason=%r" % (v["ok"], v["reason"][:46]))
+
+    # ---------- G4 可撤 + 留痕 ----------
+    print("== G4 可撤 + 留痕（append-only） ==")
+    ord_ok = {"order_id": "SELF-OK", "channel": STOP_ORDER_CHANNEL,
+              "chat_id": home, "sender_fingerprint": fp, "scope": "all",
+              "action": "stop"}
+    v_ok = verify_stop_order(ord_ok, cfg)
+    append_stop_event(stop_order_event(ord_ok, v_ok, card_id="N12"), stoplog)
+
+    ord_bad = {"order_id": "SELF-BAD", "channel": "discussion",
+               "chat_id": home, "sender_fingerprint": fp, "scope": "all"}
+    v_bad = verify_stop_order(ord_bad, cfg)
+    append_stop_event(stop_order_event(ord_bad, v_bad), stoplog)
+
+    _arm("[G4 正控/触发留痕（接受+拒绝各 1 行）]", line_count(stoplog) == 2,
+         "stop-orders.jsonl 行数=%d (期望 2)" % line_count(stoplog))
+
+    first = json.loads(open(stoplog, encoding="utf-8").readline())
+    _arm("[G4 正控/行含指纹与判定依据]",
+         first.get("sender_fingerprint") == fp
+         and first.get("decision") == "accepted"
+         and first.get("reason") == "ok"
+         and first.get("order_id") == "SELF-OK",
+         "fp=%s decision=%s reason=%s"
+         % (first.get("sender_fingerprint"), first.get("decision"),
+            first.get("reason")))
+
+    _arm("[G4 正控/幂等探针]", stop_order_seen("SELF-BAD", stoplog)
+         and not stop_order_seen("NOPE", stoplog),
+         "SELF-BAD seen=%s NOPE seen=%s"
+         % (stop_order_seen("SELF-BAD", stoplog),
+            stop_order_seen("NOPE", stoplog)))
+
+    revoke_stop_order("SELF-OK", path=stoplog)
+    last = json.loads(
+        open(stoplog, encoding="utf-8").read().strip().split("\n")[-1])
+    _arm("[G4 正控/撤销留痕（不改历史行）]",
+         line_count(stoplog) == 3 and last.get("decision") == "revoked"
+         and last.get("revokes") == "SELF-OK",
+         "行数=%d decision=%s revokes=%s"
+         % (line_count(stoplog), last.get("decision"), last.get("revokes")))
+
+    _arm("[G4 正控/首行未被改写]",
+         json.loads(open(stoplog, encoding="utf-8").readline())
+         .get("decision") == "accepted",
+         "首行 decision=%s"
+         % json.loads(open(stoplog, encoding="utf-8").readline())
+         .get("decision"))
+
+    rc_un = cmd_unstop(argparse.Namespace(order_id="NOPE", stop_log=stoplog,
+                                          actor="state_engine"))
+    _arm("[G4 负控/撤销不存在的单号]", rc_un == 1,
+         "cmd_unstop(NOPE) rc=%d (期望 1)" % rc_un)
+
+    print("== 段3 边界：生产 registry 字节零变 ==")
+    _arm("[段3 边控/零改生产卡]", sha256_file(reg) == reg_sha_in,
+         "sha256 前=%s 后=%s" % (reg_sha_in[:12], sha256_file(reg)[:12]))
+
+    return ok
+
+
+# ===== N13 段3 guard 注入块（END） =====
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="N13 段2 八态转移引擎（第一批=只读）")
     ap.add_argument("--registry", default=DEFAULT_REGISTRY)
@@ -1080,6 +1543,21 @@ def main(argv=None):
     rr.add_argument("--backup", required=True)
     rr.add_argument("--alerts", default=DEFAULT_ALERTS)
     sub.add_parser("preflight")
+    st = sub.add_parser("stop")          # N13 段3 · G3/G4
+    st.add_argument("--order-id", required=True)
+    st.add_argument("--channel", default="feishu:dm")
+    st.add_argument("--chat-id", default=None)
+    st.add_argument("--sender-fingerprint", default=None)
+    st.add_argument("--scope", default="all")
+    st.add_argument("--action", default="stop")
+    st.add_argument("--card", default="")
+    st.add_argument("--config", default=None)
+    st.add_argument("--stop-log", default=STOP_LOG_DEFAULT)
+    st.add_argument("--record", action="store_true")
+    us = sub.add_parser("unstop")        # N13 段3 · G4 可撤
+    us.add_argument("--order-id", required=True)
+    us.add_argument("--stop-log", default=STOP_LOG_DEFAULT)
+    us.add_argument("--actor", default="state_engine")
     rc_ = sub.add_parser("reconcile")
     rc_.add_argument("--alerts", default=DEFAULT_ALERTS)
     args = ap.parse_args(argv)
@@ -1103,6 +1581,10 @@ def main(argv=None):
         return cmd_preflight(args)
     if args.cmd == "reconcile":
         return cmd_reconcile(args)
+    if args.cmd == "stop":
+        return cmd_stop(args)
+    if args.cmd == "unstop":
+        return cmd_unstop(args)
     ap.print_help()
     return 0
 
