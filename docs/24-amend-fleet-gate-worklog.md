@@ -4,8 +4,8 @@
 
 ## 0. 角色帽（SRE 🛡️ · 每单必戴）
 
-- 卡（真源）：`/home/rayliu/wiki/raw/agency-agents/engineering/engineering-sre.md`（3882 B）
-- 索引卡：`/home/rayliu/wiki/concepts/角色-engineering-Sre.md`
+- 卡（真源）：`~/wiki/raw/agency-agents/engineering/engineering-sre.md`（3882 B）
+- 索引卡：`~/wiki/concepts/角色-engineering-Sre.md`
 - 引用规则（≥3 · 逐字原文）：
   1. 「**Measure before optimizing** — No reliability work without data showing the problem」
   2. 「**Automate toil, don't heroic through it** — If you did it twice, automate it」
@@ -78,7 +78,7 @@
 **override 事件行（逐字字段）**：`{"ts":..., "hook":"git_foreign_amend_override", "decision":"override",
 "reason":"MIMIR_ALLOW_FOREIGN_AMEND=1", "head_author":"...", "committer":"...", "repo":..., "pid":...}`
 
-**可 grep 判据**：日报 `/home/rayliu/.mimiraether/slo/<date>.md` 内
+**可 grep 判据**：日报 `~/.mimiraether/slo/<date>.md` 内
 `grep -c 'git_foreign_amend_override'` ≥1（当日有 override 时）
 
 ## 2. 待补清单
@@ -161,13 +161,13 @@ hook 以 `MIMIR_GIT_COMMIT_AUDIT_LOG` / `MIMIR_HOOK_OBS_PATH` 全部重定向到
 
 - 受控探针（标记 `trace_id=card24-probe-on-prod-surface`）：钩子直调写点 ⇒ 生产
   `data/ops/hook_observations.jsonl` 行数 **1350 → 1351**，新行逐字：
-  `{"ts":"2026-10-07T11:38:30","hook":"git_foreign_amend_override","decision":"override","reason":"MIMIR_ALLOW_FOREIGN_AMEND=1","head_author":"Mimir <mimir@mimiraether.local>","committer":"stranger <stranger@example.com>","repo":"/home/rayliu/src/MimirAether","branch":"main","trace_id":"card24-probe-on-prod-surface","pid":3626215}`
+  `{"ts":"2026-10-07T11:38:30","hook":"git_foreign_amend_override","decision":"override","reason":"MIMIR_ALLOW_FOREIGN_AMEND=1","head_author":"Mimir <mimir@mimiraether.local>","committer":"stranger <stranger@example.com>","repo":"~/src/MimirAether","branch":"main","trace_id":"card24-probe-on-prod-surface","pid":3626215}`
 - **真实渲染器**（非复刻逻辑）`scripts/slo_dashboard.py::hook_obs_section()` 输出（该函数即日报
   「## ⑥ 钩子观测」的数据源）：
 
 ```
 ## ⑥ 钩子观测（parallel-read nudge / PI delegate）
-- 累计 1351 条 · 末次 2026-10-07T11:38:30 · 数据源 /home/rayliu/.mimiraether/data/ops/hook_observations.jsonl
+- 累计 1351 条 · 末次 2026-10-07T11:38:30 · 数据源 ~/.mimiraether/data/ops/hook_observations.jsonl
 | 钩子 | 决策 | 原因 | 次数 |
 | git_foreign_amend_override | override | MIMIR_ALLOW_FOREIGN_AMEND=1 | 1 |
 ```

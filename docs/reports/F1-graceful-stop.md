@@ -91,7 +91,7 @@ ERROR __main__: F1_EXIT_WATCHDOG_FIRED trigger=signal:SIGTERM after=20.0s thread
 ## 8. 角色帽三件套（§2.3 · 本单件型 = 停机/可靠性 ⇒ 基座帽）
 
 - **角色**：SRE (Site Reliability Engineer) 🛡️
-- **卡路径**：`/home/rayliu/wiki/raw/agency-agents/engineering/engineering-sre.md`（真源 3822 B · 本次全文重读）；索引卡 `~/wiki/concepts/角色-engineering-Sre.md`
+- **卡路径**：`~/wiki/raw/agency-agents/engineering/engineering-sre.md`（真源 3822 B · 本次全文重读）；索引卡 `~/wiki/concepts/角色-engineering-Sre.md`
 - **引用规则（逐字原文）**：
   - `引用规则1: **Measure before optimizing** — No reliability work without data showing the problem`（先取 E1–E4 读数再动手，不修症状）
   - `引用规则2: **Blameless culture** — Systems fail, not people. Fix the system.`（修机制：看门狗，而非追「谁没退出」）

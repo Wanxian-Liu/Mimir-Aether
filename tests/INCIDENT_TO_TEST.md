@@ -4,7 +4,7 @@
 **目的**：每条已发生事故必须对应 **≥1 条可跑回归用例**（SRE · Incident Response Integration：post-incident reviews focused on **systemic fixes**）——否则事故复发时无闸门。
 **口径**：`用例` 列一律写 `文件路径::用例名`；本表**零新增用例**，全部复用仓内现成用例。
 **校验**：表内每个用例名都可 `grep -rn '<用例名>' tests/` 命中；表内**无占位标记**（占位词清单见审计卡 F4 判据）。
-**跑法**：`env HOME=/home/rayliu bash scripts/pytest_isolated.sh <文件> -q`（重测试必须隔离，见 INC-FORK-ENOMEM）。
+**跑法**：`env HOME=~ bash scripts/pytest_isolated.sh <文件> -q`（重测试必须隔离，见 INC-FORK-ENOMEM）。
 
 | 事故标识 | 一句话现象 | 对应用例（`文件路径::用例名`） |
 |---|---|---|

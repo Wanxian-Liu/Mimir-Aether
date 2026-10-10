@@ -17,7 +17,7 @@
 # 退出码：0 = 跑完且无现值断言（含「有历史叙述/假阳性」）· 1 = 有现值断言（出警）
 #         2 = 仪表故障（扫描面全不存在——刻意与「无命中」区分，防假绿）
 set -u
-REPO_SCAN="${REPO_SCAN:-/home/rayliu/src/MimirAether}"
+REPO_SCAN="${REPO_SCAN:-$(cd "$(dirname "$0")/.." && pwd)}"
 # 两条分离（2026-10-07 实测修）：数字版本必须带 \b 词界——否则 120000 会命中 1200000、
 #   80000 会命中 1800000/480000（本机实测：mlops 技能文档 3 处此类假阳性）。
 #   中文版本（30万/12万…）不能带尾 \b：万 非 ASCII 词字符，尾 \b 会恒不匹配。
@@ -64,7 +64,7 @@ if [ "$NOW" -gt 0 ]; then
   grep -vE -- "$RE_FP" "$TMP" | grep -vE -- "$RE_HIST" | grep -E -- "$RE_NOW" \
     | awk -F: '{print $1}' | sort | uniq -c | sort -rn | head -20 \
     | sed 's/^/  · /'
-  echo "  处置: bash /home/rayliu/.mimiraether/scripts/threshold_ledger_check.sh"
+  echo "  处置: bash ~/.mimiraether/scripts/threshold_ledger_check.sh"
 fi
 [ "$NOW" -gt 0 ] && exit 1
 exit 0

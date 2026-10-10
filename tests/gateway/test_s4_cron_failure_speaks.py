@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 from dataclasses import dataclass
 from types import SimpleNamespace
@@ -172,7 +173,8 @@ def test_tier_declaration_in_cron_prompt_is_honoured():
 
     复用现有机制（agent/max_turns_tier.resolve_max_turns_tier）——不新建预算系统。
     """
-    sys.path.insert(0, "/home/rayliu/src/MimirAether")
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__)))))
     from agent.max_turns_tier import resolve_max_turns_tier
 
     turns, tier, cleaned = resolve_max_turns_tier("写周报 [tier:短]", default=90)

@@ -34,7 +34,7 @@ description: 审「他方证据型回执 / 交叉审视票」的九查清单—�
 
 ## 判据（本技能自身 · §8.5 形态 3）
 ```
-重跑命令: grep -cE '^[0-9]+\. ' /home/rayliu/src/MimirAether/skills/mimiraether/mimiraether-evidence-receipt-audit/SKILL.md
+重跑命令: grep -cE '^[0-9]+\. ' ~/src/MimirAether/skills/mimiraether/mimiraether-evidence-receipt-audit/SKILL.md
 复算数字: 16
 ```
 

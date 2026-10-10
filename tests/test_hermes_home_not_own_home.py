@@ -28,7 +28,7 @@ def _resolve(monkeypatch, **env):
 
 def test_hermes_home_alone_does_not_change_own_home(monkeypatch):
     """HERMES_HOME 单独存在 ⇒ 自家仍是默认 ~/.mimiraether（不是 ~/.hermes）。"""
-    got = _resolve(monkeypatch, HERMES_HOME="/home/rayliu/.hermes")
+    got = _resolve(monkeypatch, HERMES_HOME=str(Path.home() / ".hermes"))
     assert got == mimir_constants._DEFAULT_MIMIR_HOME, got
     assert got.name == ".mimiraether", got
 
@@ -38,7 +38,7 @@ def test_own_key_wins_over_hermes_home(monkeypatch):
     got = _resolve(
         monkeypatch,
         MIMIR_AETHER_HOME="/tmp/own_home",
-        HERMES_HOME="/home/rayliu/.hermes",
+        HERMES_HOME=str(Path.home() / ".hermes"),
     )
     assert got == Path("/tmp/own_home"), got
 
@@ -48,7 +48,7 @@ def test_legacy_own_key_wins_over_hermes_home(monkeypatch):
     got = _resolve(
         monkeypatch,
         MIMIRAETHER_HOME="/tmp/legacy_own",
-        HERMES_HOME="/home/rayliu/.hermes",
+        HERMES_HOME=str(Path.home() / ".hermes"),
     )
     assert got == Path("/tmp/legacy_own"), got
 
@@ -56,10 +56,10 @@ def test_legacy_own_key_wins_over_hermes_home(monkeypatch):
 def test_hermes_home_is_ignored_loudly(monkeypatch, capsys):
     """忽略必须出声（stderr 一行），且**只警告不改行为**。"""
     monkeypatch.setattr(mimir_constants, "_HERMES_HOME_WARNED", False)
-    got = _resolve(monkeypatch, HERMES_HOME="/home/rayliu/.hermes")
+    got = _resolve(monkeypatch, HERMES_HOME=str(Path.home() / ".hermes"))
     err = capsys.readouterr().err
     assert "[mimir-home]" in err, err
-    assert "HERMES_HOME=/home/rayliu/.hermes" in err, err
+    assert "HERMES_HOME=%s" % (Path.home() / ".hermes") in err, err
     assert got == mimir_constants._DEFAULT_MIMIR_HOME, got
 
 

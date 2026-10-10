@@ -10,7 +10,7 @@ from __future__ import annotations
 import json, os, subprocess, sys, tempfile
 from pathlib import Path
 
-WIKI = Path(os.environ.get("WIKI_DIR", "/home/rayliu/wiki"))
+WIKI = Path(os.environ.get("WIKI_DIR", str(Path.home() / "wiki")))
 REPORT = Path(__file__).resolve().parent / "wiki_quality_report.py"
 EXCL_DIRS = {"raw", "reports", "archive", "discussions", "templates", ".git", "node_modules"}
 EXCL_FILES = {"log.md"}

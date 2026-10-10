@@ -12,7 +12,7 @@ import sys
 import time
 import traceback
 
-sys.path.insert(0, "/home/rayliu/src/MimirAether")
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[2]))
 
 os.environ["MIMIR_PARALLEL_TOOLS"] = "1"
 os.environ["MIMIR_TOOL_TIMEOUT"] = "0.2"

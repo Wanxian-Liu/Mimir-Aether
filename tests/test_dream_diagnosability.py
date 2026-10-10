@@ -10,7 +10,7 @@ import os
 import sys
 import tempfile
 
-sys.path.insert(0, "/home/rayliu/src/MimirAether")
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 TMP = tempfile.mkdtemp(prefix="dreamdiag-")
 os.environ["MIMIR_AETHER_HOME"] = TMP
 os.environ["DEEPSEEK_API_KEY"] = "sk-" + "0" * 40

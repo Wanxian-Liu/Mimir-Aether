@@ -13,9 +13,12 @@
 import re
 import sys
 
-SRC = "/home/rayliu/src/MimirAether/tools/memory_tool.py"
-MEM = "/home/rayliu/.mimiraether/memories/MEMORY.md"
-BAK = "/home/rayliu/.mimiraether/memories/MEMORY.md.bak-pre-slim-20261007-043929"
+from pathlib import Path
+_REPO = Path(__file__).resolve().parents[2]
+SRC = str(_REPO / "tools" / "memory_tool.py")
+MEM = str(Path.home() / ".mimiraether" / "memories" / "MEMORY.md")
+BAK = str(Path.home() / ".mimiraether" / "memories" /
+          "MEMORY.md.bak-pre-slim-20261007-043929")
 
 
 def read_limit_and_ratio(src=SRC):

@@ -117,7 +117,7 @@ def ledger_path() -> Path:
         if v:
             cands.append(Path(v) / "logs" / "inbox-processed.log")
     cands.append(Path.home() / ".mimiraether" / "logs" / "inbox-processed.log")
-    cands.append(Path("/home/rayliu/.mimiraether/logs/inbox-processed.log"))
+    cands.append(Path.home() / ".mimiraether" / "logs" / "inbox-processed.log")
     for c in cands:
         if c.exists():
             return c

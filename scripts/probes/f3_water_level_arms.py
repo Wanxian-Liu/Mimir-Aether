@@ -7,8 +7,8 @@
   臂 B 未越阈：记忆 100/8000 = 1.3%       => rc=0 · 首行 `WATER_LEVEL: OK over=0` · 不写台账
 
 用法（两环境各跑一遍）：
-    env HOME=/home/rayliu python3 scripts/probes/f3_water_level_arms.py
-    env HOME=/home/rayliu TMPDIR=/tmp python3 scripts/probes/f3_water_level_arms.py
+    env HOME=~ python3 scripts/probes/f3_water_level_arms.py
+    env HOME=~ TMPDIR=/tmp python3 scripts/probes/f3_water_level_arms.py
 rc：0 = 两臂全部符合预期；1 = 有臂不符（打印逐臂读数）。
 """
 from __future__ import annotations

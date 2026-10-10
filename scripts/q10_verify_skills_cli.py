@@ -3,7 +3,7 @@
 
 Re-runnable: paste the command, compare the numbers.
 
-    /home/rayliu/src/MimirAether/.venv/bin/python3 scripts/q10_verify_skills_cli.py
+    ./.venv/bin/python3 scripts/q10_verify_skills_cli.py
 
 Readings: imports=<n>  unresolvable=<m>  controls=pass
 rc: 0 = pass (no phantom imports) ; 1 = phantom imports present ; 2 = probe blind

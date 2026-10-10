@@ -25,7 +25,7 @@ READ_ONLY_TURN = {
 WRITE_TURN = {
     "role": "assistant", "content": "",
     "tool_calls": [{"id": "c2", "type": "function",
-                    "function": {"name": "write_file", "arguments": '{"path": "/home/rayliu/wiki/discussions/card.md", "content": "x"}'}}],
+                    "function": {"name": "write_file", "arguments": '{"path": "~/wiki/discussions/card.md", "content": "x"}'}}],
 }
 
 
@@ -190,7 +190,7 @@ def test_real_sequence_handoff_then_half_segment():
 
 
 def test_rule3_ledger_resolves_via_mimir_aether_home(tmp_path):
-    """回归：台账默认路径须 HOME 无关（曾因裸 expanduser 在非 /home/rayliu HOME 下误报 rc=3）。"""
+    """回归：台账默认路径须 HOME 无关（曾因裸 expanduser 在非真实家目录 HOME 下误报 rc=3）。"""
     home = tmp_path / "mh"
     (home / "logs").mkdir(parents=True)
     (home / "logs" / "inbox-processed.log").write_text(

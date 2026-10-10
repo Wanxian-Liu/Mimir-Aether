@@ -38,7 +38,8 @@ def _default_ledger() -> str:
         if v:
             cands.append(os.path.join(v, "logs", "inbox-processed.log"))
     cands.append(os.path.expanduser("~/.mimiraether/logs/inbox-processed.log"))
-    cands.append("/home/rayliu/.mimiraether/logs/inbox-processed.log")
+    cands.append(os.path.join(os.path.expanduser("~"), ".mimiraether",
+                             "logs", "inbox-processed.log"))
     for c in cands:
         if os.path.exists(c):
             return c

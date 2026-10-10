@@ -23,7 +23,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]          # worktree-friendly: repo root of THIS copy
 PY = REPO / ".venv" / "bin" / "python3"
 if not PY.exists():                                 # worktree has no venv -> borrow the main one
-    PY = Path("/home/rayliu/src/MimirAether") / ".venv" / "bin" / "python3"
+    PY = Path(__file__).resolve().parents[2] / ".venv" / "bin" / "python3"
 CLEAN_MARK = ".clean_stop_marker"
 
 SANDBOX_CONFIG = """\
@@ -85,8 +85,7 @@ def main() -> int:
         "API_SERVER_PORT": str(args.port),
         "MIMIR_SEMANTIC_WARMUP": "0",
         "PYTHONUNBUFFERED": "1",
-        "HOME": "/home/rayliu",
-        "HOME": "/home/rayliu",
+        "HOME": str(Path.home()),
     })
     if args.inject_executor_stall:
         env["PYTHONPATH"] = str(home / "inject") + os.pathsep + env.get("PYTHONPATH", "")

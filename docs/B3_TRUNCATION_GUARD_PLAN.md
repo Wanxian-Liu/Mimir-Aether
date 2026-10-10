@@ -104,15 +104,15 @@ in-loop tick 的**调用点**在 `agent/agent_loop.py:721-733`（既有 `_erg.ti
 **背景**：刘哥 20:4x 飞书直联「回到主线：B3 防截断（按原计划 1/2/3）」——盘上核验结论是**三条早已落盘**（`b279c90`，20:18:08，本 run 之前的兄弟 run 交付），故本轮**不重复实施**，只做三件事：
 
 1. **核验**：`git log -1 b279c90` 命中三条规则代码（`MIMIR_B3_GUARD`/`MIMIR_CHECKPOINT_RATIO`/`MIMIR_HANDOFF_TURNS` 于 `agent/iteration_budget.py:327/332/339`）；隔离 pytest **36 passed**（B3 16 + B1/B2 20）。
-2. **修一处真缺陷（规则③脚本自身）**：`scripts/check_inbox_ledger_lag.py` 的台账默认路径原为裸 `os.path.expanduser("~/.mimiraether/...")` ⇒ 当 `HOME != /home/rayliu`（如 execute_code 沙箱 `HOME=~/.mimiraether`）会拼成 `<home>/.mimiraether/logs/...` 假路径，**误报 rc=3「量具不可用」**——同一命令两种 rc，取决于调用环境。修法：`_default_ledger()` 按 `MIMIR_LEDGER` → `MIMIR_AETHER_HOME/MIMIR_HOME` → `~` 候选 → 绝对兜底 取第一个存在者；配 1 条回归用例（`test_rule3_ledger_resolves_via_mimir_aether_home`）。
+2. **修一处真缺陷（规则③脚本自身）**：`scripts/check_inbox_ledger_lag.py` 的台账默认路径原为裸 `os.path.expanduser("~/.mimiraether/...")` ⇒ 当 `HOME != ~`（如 execute_code 沙箱 `HOME=~/.mimiraether`）会拼成 `<home>/.mimiraether/logs/...` 假路径，**误报 rc=3「量具不可用」**——同一命令两种 rc，取决于调用环境。修法：`_default_ledger()` 按 `MIMIR_LEDGER` → `MIMIR_AETHER_HOME/MIMIR_HOME` → `~` 候选 → 绝对兜底 取第一个存在者；配 1 条回归用例（`test_rule3_ledger_resolves_via_mimir_aether_home`）。
 3. **补账**：`lag=1`（收件箱 228 行 vs 台账水位 227）⇒ 处置完追加 `processed 1 lines (up to 228)` ⇒ `lag=0·rc=0`。
 
 **受控差分（同一命令，唯一变量 = 调用环境）**：
 
 | 臂 | 命令 | 实测 |
 |---|---|---|
-| 修复前 · 沙箱 HOME | `python3 scripts/check_inbox_ledger_lag.py`（HOME=~/.mimiraether） | **rc=3**「台账缺失：/home/rayliu/.mimiraether/.mimiraether/logs/...」= 假阳性 |
-| 修复前 · 控制组 | `env HOME=/home/rayliu python3 …` | lag=1 · **rc=2** = 真读数 |
+| 修复前 · 沙箱 HOME | `python3 scripts/check_inbox_ledger_lag.py`（HOME=~/.mimiraether） | **rc=3**「台账缺失：~/.mimiraether/.mimiraether/logs/...」= 假阳性 |
+| 修复前 · 控制组 | `env HOME=~ python3 …` | lag=1 · **rc=2** = 真读数 |
 | 修复后 · 沙箱 HOME | `python3 scripts/check_inbox_ledger_lag.py` | lag=1→（补账后）lag=0 · **rc=2→0** = 与控制组一致 |
 
 **未加载声明（禁自行重启）**：gateway PID **2092279** `STARTED 2026-10-06 19:13:01` < 提交 **20:18:08** ⇒ B3 运行时改动**尚未加载**；重启权在刘哥（派单明令「改完报我」）。

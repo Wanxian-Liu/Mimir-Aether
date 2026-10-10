@@ -46,7 +46,7 @@
 
 ## 5. 根因确证（2026-10-07 盘上读数）
 
-**派单方脚本**：`/home/rayliu/.hermes/scripts/mimir-send.sh`（头注逐字）：
+**派单方脚本**：`~/.hermes/scripts/mimir-send.sh`（头注逐字）：
 > 「给 Mimir 发单 = 邮箱留档 + API 立刻唤醒（刘哥 2026-10-05 定 · 升级版）」
 > 「原版（2026-08-18 刘哥定）：只走 API 直连 18999/v1/runs——秒到但不留档」
 > 「现版：先写邮箱（六键信封）再唤醒——信留档；万一它没跑，watcher（≤5min）会自己取」
@@ -169,5 +169,5 @@ watcher 随后到 ⇒ 同一行已被 dispatched 覆盖 ⇒ `reserve` 返 rc=1�
 - 重启窗口内 gateway 内存 4.0G / 帽 6G（room≈2G）⇒ 若 OOM，按 §14 记录
   `Failed with result 'oom-kill'` 并回滚本次 commit。
 
-重跑命令: python3 /home/rayliu/.mimiraether/scripts/i2_two_arm_harness.py
+重跑命令: python3 ~/.mimiraether/scripts/i2_two_arm_harness.py
 复算数字: Arm A 唤醒=2 / Arm B 唤醒=1 / VERDICT=PASS

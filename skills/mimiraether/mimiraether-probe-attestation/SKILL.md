@@ -93,7 +93,7 @@ find <dir> -type f -printf '%TY-%Tm-%Td %TH:%TM %p\n' | sort -r | head -1
 
 **症状**：`glob.glob('/home/…/**/某个文件', recursive=True)` 返回 `[]` —— 但文件其实存在，**只是位于以 `.` 开头的隐藏目录**（`~/.hermes/…`、`~/.mimiraether/…`）。Python `glob` 的 `**` 默认**不匹配隐藏目录条目** ⇒ 负结论「文件不存在 / 未落地」凭空成立。
 
-**实测**：复核 P4 时首探返回 `[]`，差一点写成「技能半行未落地」；换 `find /home/rayliu -name '…'` 立刻命中 1 份（`~/.hermes/skills/debugging/…`）。
+**实测**：复核 P4 时首探返回 `[]`，差一点写成「技能半行未落地」；换 `find ~ -name '…'` 立刻命中 1 份（`~/.hermes/skills/debugging/…`）。
 
 **判据**：跨信任边界（隐藏目录、`~` 下点目录）检索文件 ⇒ **禁用 `glob('**')`**，一律 `find` / `os.walk`（或显式 `glob` 隐藏前缀）。声明「不存在」前必须先做**正控**：同一探针在**同类的已知存在文件**上要能返回命中。
 
@@ -169,7 +169,7 @@ find <dir> -type f -printf '%TY-%Tm-%Td %TH:%TM %p\n' | sort -r | head -1
 **症状**：同一脚本在 A 环境判红、在 B 环境读数分叉——因为「自家」是用**共用键**解析的
 （我方读 `HERMES_HOME`，而 Hermes 也读同一个键）⇒ 在 Hermes 环境里指错家。
 
-**实证**：`get_mimir_home()` 第 3 顺位取 `HERMES_HOME` ⇒ `/home/rayliu/.hermes`；三处读数分叉：
+**实证**：`get_mimir_home()` 第 3 顺位取 `HERMES_HOME` ⇒ `~/.hermes`；三处读数分叉：
 F2 告警读口 `MISSING n=0 rc=3`（tier0 Gate1 硬红）· F4 记忆闸 `entries=36 chars=7605 (95.1%) rc=1`
 （读的是 Hermes 家）· F3 水位与 F4 同会话**混家读数**。
 
@@ -199,7 +199,7 @@ SCRIPT = Path(os.path.expanduser("~/.mimiraether/scripts/buzz-inbox-watcher.sh")
 pytestmark = pytest.mark.skipif(not SCRIPT.exists(), reason="watcher 脚本不在本机")
 ```
 
-而该 run 的进程 `HOME=/home/rayliu/.mimiraether`（execute_code 沙箱语义）⇒ `~` 解析成数据根 ⇒
+而该 run 的进程 `HOME=~/.mimiraether`（execute_code 沙箱语义）⇒ `~` 解析成数据根 ⇒
 `SCRIPT.exists()` 为假 ⇒ **5 例全 skip** ⇒ 「游标未变」是因为**没有任何代码去动它**。判据 delta ≡ 0。
 
 **判别式（三选一，写进声明里）**：
@@ -209,7 +209,7 @@ pytestmark = pytest.mark.skipif(not SCRIPT.exists(), reason="watcher 脚本不�
    读数不变 = 探针没接上（不是「系统很稳」）。这与本技能既有的「负控」要求同源，只是加了
    「例数为 0 时负控必然也通过」这一层。
 3. **显式钉环境**：凡探针/用例路径走 `expanduser("~")`、`$HOME`、相对 cwd ⇒ 判据命令里显式写死
-   `env HOME=/home/rayliu`（或绝对路径），别让调用方的家目录决定判据是否执行。
+   `env HOME=~`（或绝对路径），别让调用方的家目录决定判据是否执行。
 
 **一句可复用的判据**：`grep -c 'passed' <读数> ≥1 ∧ grep -c 'skipped' <读数> == 0`。
 **给复核方的写法**：交付时把「例数 + skip 数」一并写出（如 `5 passed, 0 skipped`），
@@ -1120,7 +1120,7 @@ spec = importlib.util.spec_from_file_location(name, path, loader=loader)
 **副作用纪律**：探针往「生产文件」写合成样本 = 污染（`source_indexable=20000` vs 真实 27237
 会伪造一次 −27% 崩落）⇒ 探针**显式传 `path=<scratch>`**，生产文件只收真实运行行。
 
-- ⚠️ **探针模板必须带解释器**（2026-10-07 行 65 实测）：`~/.mimiraether/scripts/*.py` 多为 **644 不可执行**，探针模板若写成 `<脚本> '{INPUT}'`，`shell=True` 执行 ⇒ `rc=126 权限不够` ⇒ stdout 空 ⇒ `observed=none` ⇒ **`positive_control_failed` / UNVERIFIED**（是**调用形态**错，不是结论错；台账会留一条 UNVERIFIED 记录，落卡时须说明）。正解 = `/home/rayliu/src/MimirAether/.venv/bin/python3 /home/rayliu/.mimiraether/scripts/probe_firstline_wake.py '{INPUT}'`（把示例脚本名换成自己那条探针的实文件名——**别把 `<脚本>` 字面写进模板**，`scripts/check_dead_refs.py` 会把它判成 dead hard path，令整仓 `test_check_dead_refs_scope` 变红）。
+- ⚠️ **探针模板必须带解释器**（2026-10-07 行 65 实测）：`~/.mimiraether/scripts/*.py` 多为 **644 不可执行**，探针模板若写成 `<脚本> '{INPUT}'`，`shell=True` 执行 ⇒ `rc=126 权限不够` ⇒ stdout 空 ⇒ `observed=none` ⇒ **`positive_control_failed` / UNVERIFIED**（是**调用形态**错，不是结论错；台账会留一条 UNVERIFIED 记录，落卡时须说明）。正解 = `~/src/MimirAether/.venv/bin/python3 ~/.mimiraether/scripts/probe_firstline_wake.py '{INPUT}'`（把示例脚本名换成自己那条探针的实文件名——**别把 `<脚本>` 字面写进模板**，`scripts/check_dead_refs.py` 会把它判成 dead hard path，令整仓 `test_check_dead_refs_scope` 变红）。
 
 ## ⚠️ 第二十三批 · 「他源复核」缺**真收件箱**根 ⇒ 假负结论（2026-10-10 实证 · 改卡通知复查）
 

@@ -131,10 +131,10 @@ MIMIR_TIER0_PYTHON=<repo>/.venv/bin/python3 bash scripts/pytest_isolated.sh <受
 
 ```bash
 # ① 聚焦：受影响文件（快，~4s）
-cd /home/rayliu/src/MimirAether && TMPDIR=/tmp env HOME=/home/rayliu bash scripts/pytest_isolated.sh \
+cd ~/src/MimirAether && TMPDIR=/tmp env HOME=~ bash scripts/pytest_isolated.sh \
   <受影响文件...> -q --no-header -rf 2>&1 | tail -3
 # ② 整仓两环境（A: TMPDIR=/tmp；B: 默认不覆写）——两读必须逐条相同
-cd /home/rayliu/src/MimirAether && TMPDIR=/tmp env HOME=/home/rayliu bash scripts/pytest_isolated.sh tests -q --no-header 2>&1 | tail -1
+cd ~/src/MimirAether && TMPDIR=/tmp env HOME=~ bash scripts/pytest_isolated.sh tests -q --no-header 2>&1 | tail -1
 # ③ 正控可反转：抽块三臂差分（残契约 ⇒ 报错；完整契约 ⇒ 明示；同一块 1 token 差分 ⇒ 读数必须变）
 ```
 ③ 的现成探针：`~/.mimiraether/tmp/probe_family1_reversal.py`（import 测试模块 → `_live()` → 自建 ns 三臂）。
@@ -149,7 +149,7 @@ cd /home/rayliu/src/MimirAether && TMPDIR=/tmp env HOME=/home/rayliu bash script
 
 ```bash
 tail -300 ~/.mimiraether/logs/agent.log | grep -oE '\[[0-9a-f]{8}\]' | sort | uniq -c | sort -rn   # ≥2 条 trace = 并发
-ls -lt --time-style=+%H:%M:%S /home/rayliu/.hermes/inbox/ | head -3                                  # 对侧是否已投回执
+ls -lt --time-style=+%H:%M:%S ~/.hermes/inbox/ | head -3                                  # 对侧是否已投回执
 ```
 - 命中 ⇒ **只做增量**：不覆盖/不删对侧产物，改写「独立复核回执」（L2）+ 双路唤醒记录；对侧段与产物一律保留。
 - 自己写盘前先做**幂等自检**（如 `git diff | grep -c <自己的新符号>` = 0 才落笔），避免与对侧交叉污染。

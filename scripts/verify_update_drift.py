@@ -2,7 +2,7 @@
 """Q11 部署侧漂移闸 · 两向判据（正控 / 负控 / 噪声 / 边界）—— 全临时目录，零生产写入。
 
 跑法（cwd = 仓根）:
-  /home/rayliu/src/MimirAether/.venv/bin/python3 scripts/verify_update_drift.py
+  ./.venv/bin/python3 scripts/verify_update_drift.py
 输出：每项判据一行 `KEY=value`；末行 `failed_checks=N`；rc=0 表示全过。
 
 - 正控：部署侧被本地改过 ⇒ 覆盖前必须

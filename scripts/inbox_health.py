@@ -73,7 +73,7 @@ VIOLATION_KEYS = ("subject", "body")
 # ---------------------------------------------------------------------------
 DEFAULT_LEDGER = os.environ.get(
     "MIMIR_LEDGER",
-    str(Path("/home/rayliu") / ".mimiraether" / "logs" / "inbox-processed.log"),
+    str(Path.home() / ".mimiraether" / "logs" / "inbox-processed.log"),
 )
 # 锚定整句：台账备注里出现过别的 `up to N` 数字 ⇒ 裸 regex 会误取（实测 max 得 234 ≠ 末条 58）
 LEDGER_WM_RE = re.compile(r"processed\s+\d+\s+lines\s*\(up to\s+(\d+)\)")
