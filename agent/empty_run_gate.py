@@ -413,13 +413,53 @@ def _safe_id(task_id: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]", "_", task_id or "run")[:40]
 
 
+FLUSH_MODE_ENV = "MIMIR_EMPTY_RUN_GATE_FLUSH_MODE"
+OWN_DRAFT_DIR_ENV = "MIMIR_EMPTY_RUN_GATE_DRAFT_DIR"
+
+
+def flush_mode() -> str:
+    """落点模式：own（默认·只写自有目录）| legacy（旧行为·写推断卡，仅供回滚对照）。"""
+    return (os.environ.get(FLUSH_MODE_ENV) or "own").strip().lower()
+
+
+def own_draft_dir() -> Path:
+    """闸门自有草稿目录 —— 闸门唯一被允许写入的位置（write-side 单一收口）。"""
+    override = os.environ.get(OWN_DRAFT_DIR_ENV)
+    if override:
+        return Path(_expand(override))
+    home = Path(os.environ.get("MIMIR_AETHER_HOME") or (Path.home() / ".mimiraether"))
+    return home / "data" / "half_drafts"
+
+
+def _resolve_flush_target(suggested: str, task_id: str) -> Tuple[Path, str]:
+    """决定 flush 落点 —— 恒为**自有目录**；推断出的目标卡只降级为标签。
+
+    为什么不让推断目标当落点（2026-10-11 根因，见 wiki 讨论卡）：
+    flush 的触发前提是「本 run 什么都没写」⇒ 那一刻**不存在可信目标**；唯一线索是
+    任务书里出现过的卡路径，那是启发式猜测。实测已造成跨所有权写入。
+    故「不丢工作」（自有目录 100% 可达）与「落到正确位置」（此刻不可知）必须解耦：
+    前者由本函数保证，后者交给人（读块内 suggested_target= 标签归位）。
+    legacy 分支仅供回滚对照，不推荐。
+    """
+    if flush_mode() == "legacy" and suggested:
+        cand = Path(suggested)
+        if cand.parent.exists():
+            return cand, "legacy_guessed"
+        return own_draft_dir() / f"{_safe_id(task_id)}.md", "own_dir"
+    src = "own_dir_guess_downgraded" if suggested else "own_dir_no_guess"
+    return own_draft_dir() / f"{_safe_id(task_id)}.md", src
+
+
 def flush_draft(draft_path: str, target_path: Optional[str], task_id: str,
                 turn: int = 0, reason: str = "") -> Dict[str, Any]:
     """把 staging 草稿落成**半段交付物**（幂等：同一草稿第二次调用不重复追加）。
 
-    目标缺失/卡内已有本段标记 ⇒ 走 fallback（mimir home 的 data/half_drafts/）。
+    落点恒为**自有目录**（mimir home 的 data/half_drafts/）；推断出的目标卡只降级为块内
+    标签 suggested_target=，供人事后归位 —— **绝不**直接写入推断卡（2026-10-11 根因修复）。
+    卡内已有本段标记 ⇒ 幂等跳过。回滚：MIMIR_EMPTY_RUN_GATE_FLUSH_MODE=legacy（旧行为，仅供对照）。
     """
-    out: Dict[str, Any] = {"flushed": False, "target": "", "chars": 0, "reason": ""}
+    out: Dict[str, Any] = {"flushed": False, "target": "", "chars": 0, "reason": "",
+                           "target_source": "", "suggested_target": ""}
     src = Path(_expand(draft_path))
     if not src.exists() or not src.is_file():
         out["reason"] = "draft_missing"
@@ -428,26 +468,25 @@ def flush_draft(draft_path: str, target_path: Optional[str], task_id: str,
     if not body:
         out["reason"] = "draft_empty"
         return out
-    tgt = Path(_expand(target_path)) if target_path else None
-    if tgt is not None and not tgt.parent.exists():
-        tgt = None
-    if tgt is None:
-        home = Path(os.environ.get("MIMIR_AETHER_HOME") or (Path.home() / ".mimiraether"))
-        tgt = home / "data" / "half_drafts" / f"{_safe_id(task_id)}.md"
-        tgt.parent.mkdir(parents=True, exist_ok=True)
+    suggested = _expand(target_path) if target_path else ""
+    tgt, target_source = _resolve_flush_target(suggested, task_id)
+    tgt.parent.mkdir(parents=True, exist_ok=True)
     existing = tgt.read_text(encoding="utf-8", errors="replace") if tgt.exists() else ""
     if HALF_MARK in existing and "## 【Mimir · 半段（staging flush）】" in existing:
-        out.update(target=str(tgt), reason="already_flushed")
+        out.update(target=str(tgt), reason="already_flushed",
+                   target_source=target_source, suggested_target=suggested)
         return out
     block = (
         f"\n\n---\n\n## 【Mimir · 半段（staging flush）】\n"
         f"{HALF_MARK}\n"
-        f"<!-- run={_safe_id(task_id)} turn={turn} reason={reason} draft={draft_path} -->\n\n"
+        f"<!-- run={_safe_id(task_id)} turn={turn} reason={reason} draft={draft_path} "
+        f"target_source={target_source} suggested_target={suggested or '-'} -->\n\n"
         f"{body}\n"
     )
     with tgt.open("a", encoding="utf-8") as fh:
         fh.write(block)
-    out.update(flushed=True, target=str(tgt), chars=len(body), reason="flushed")
+    out.update(flushed=True, target=str(tgt), chars=len(body), reason="flushed",
+               target_source=target_source, suggested_target=suggested)
     return out
 
 

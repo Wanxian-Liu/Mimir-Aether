@@ -122,19 +122,43 @@ def test_armC_tick_returns_directive_and_skips_when_written(tmp_path):
 
 
 # ── 臂 D：flush 幂等 ──────────────────────────────────────────────────
-def test_armD_flush_draft_is_idempotent(tmp_path):
+def test_armD_flush_draft_lands_in_own_dir_and_is_idempotent(tmp_path, monkeypatch):
+    """臂 D（方案 A · 2026-10-11）：落点**恒为自有目录**；推断卡只做标签，绝不被写。"""
+    monkeypatch.setenv("MIMIR_EMPTY_RUN_GATE_DRAFT_DIR", str(tmp_path / "own"))
     draft = tmp_path / "staging" / "draft.md"
     draft.parent.mkdir(parents=True, exist_ok=True)
     draft.write_text(DRAFT_BODY, encoding="utf-8")
     card = tmp_path / (CARD_PREFIX + "_D.md")
-    card.write_text("原有卡头\n", encoding="utf-8")
+    card.write_text("原有卡头", encoding="utf-8")
     r1 = erg.flush_draft(str(draft), str(card), "armD", 3, "empty_content")
-    assert r1["flushed"] is True and r1["target"] == str(card)
-    t1 = card.read_text(encoding="utf-8")
-    assert DRAFT_BODY in t1 and erg.HALF_MARK in t1 and "原有卡头" in t1
+    assert r1["flushed"] is True
+    own = pathlib.Path(r1["target"])
+    assert own.parent == (tmp_path / "own"), "落点必须在自有目录，实得 " + str(own)
+    assert r1["target_source"] == "own_dir_guess_downgraded"
+    assert r1["suggested_target"] == str(card), "推断目标须留标签供人事后归位"
+    t1 = own.read_text(encoding="utf-8")
+    assert DRAFT_BODY in t1 and erg.HALF_MARK in t1
+    assert "suggested_target=" + str(card) in t1, "块头须带目标标签"
+    # 负控（↑本臂的核心）：推断卡**不得**被闸门碰 —— 跨所有权写入的根因
+    assert card.read_text(encoding="utf-8") == "原有卡头", "闸门不得写入推断卡"
     r2 = erg.flush_draft(str(draft), str(card), "armD", 4, "empty_content")
     assert r2["flushed"] is False and r2["reason"] == "already_flushed"
-    assert card.read_text(encoding="utf-8").count(erg.HALF_MARK) == 1, "重复 flush 不得重复追加"
+    assert own.read_text(encoding="utf-8").count(erg.HALF_MARK) == 1, "重复 flush 不得重复追加"
+
+
+def test_armD2_legacy_mode_is_rollback_control(tmp_path, monkeypatch):
+    """回滚对照（档位 ④ 负控）：legacy 模式恢复旧行为（写推断卡）⇒ 开关双向有效。"""
+    monkeypatch.setenv("MIMIR_EMPTY_RUN_GATE_FLUSH_MODE", "legacy")
+    monkeypatch.setenv("MIMIR_EMPTY_RUN_GATE_DRAFT_DIR", str(tmp_path / "own"))
+    draft = tmp_path / "staging" / "draft.md"
+    draft.parent.mkdir(parents=True, exist_ok=True)
+    draft.write_text(DRAFT_BODY, encoding="utf-8")
+    card = tmp_path / (CARD_PREFIX + "_D2.md")
+    card.write_text("原有卡头", encoding="utf-8")
+    r = erg.flush_draft(str(draft), str(card), "armD2", 3, "empty_content")
+    assert r["target"] == str(card) and r["target_source"] == "legacy_guessed"
+    assert erg.HALF_MARK in card.read_text(encoding="utf-8")
+    assert not list((tmp_path / "own").glob("*.md")), "legacy 模式不得再写自有目录"
 
 
 # ── 臂 E/F 的行为级驱动（真跑 MimirAgentLoop · 非字符串断言）────────────
@@ -194,13 +218,16 @@ def test_armE_regression_readonly_heavy_task_has_artifact(tmp_path, monkeypatch,
     # （本臂测的是空跑闸门；那条链已由 test_cross_turn_replay_guard 覆盖）
     monkeypatch.setenv("MIMIR_VERIFY_BEFORE_REPORT", "0")
     monkeypatch.setenv("MIMIR_PRODUCTION_ENFORCE", "0")
+    monkeypatch.setenv("MIMIR_EMPTY_RUN_GATE_DRAFT_DIR", str(tmp_path / "own"))
     with caplog.at_level(logging.WARNING):
         res, card, draft = _drive(tmp_path, readonly_turns=6, gate_on=True)
     assert getattr(res, "exit_reason", "") == "empty_content", (
         "空正文仍须显式记为 empty_content（不得装 normal）—— 实得 "
         + repr(getattr(res, "exit_reason", None)))
-    assert card.exists(), "只读多的任务必须留下产出（否则=同类空跑复发）"
-    txt = card.read_text(encoding="utf-8")
+    files = sorted((tmp_path / "own").glob("*.md"))
+    assert files, "只读多的任务必须留下产出（否则=同类空跑复发）"
+    assert not card.exists(), "推断卡不得被闸门写入（跨所有权写入根因）"
+    txt = "".join(f.read_text(encoding="utf-8") for f in files)
     assert DRAFT_BODY in txt, "交付物必须含已读材料（草稿内容）"
     assert erg.HALF_MARK in txt, "必须带半段标记（可续写、不谎称完工）"
     assert any("空跑闸门" in r.getMessage() for r in caplog.records), "闸门触发必须留 WARNING 日志"
@@ -220,13 +247,16 @@ def test_armE2_guards_on_still_leaves_artifact(tmp_path, monkeypatch):
     monkeypatch.setenv("MIMIR_EMPTY_RUN_GATE", "1")
     monkeypatch.setenv("MIMIR_READONLY_TURN_LIMIT", "4")
     monkeypatch.setenv("MIMIR_EMPTY_RUN_MAX_FORCE", "0")
+    monkeypatch.setenv("MIMIR_EMPTY_RUN_GATE_DRAFT_DIR", str(tmp_path / "own"))
     for k in ("MIMIR_VERIFY_BEFORE_REPORT", "MIMIR_PRODUCTION_ENFORCE"):
         monkeypatch.delenv(k, raising=False)
     res, card, draft = _drive(tmp_path, readonly_turns=6, gate_on=True)
     reason = getattr(res, "exit_reason", "")
     assert reason and reason != "natural", "空正文/无产出不得以 natural 退出（实得 " + repr(reason) + "）"
-    assert card.exists(), "任何失败出口都必须留下产出（这是本闸门的核心不变式）"
-    assert DRAFT_BODY in card.read_text(encoding="utf-8")
+    files = sorted((tmp_path / "own").glob("*.md"))
+    assert files, "任何失败出口都必须留下产出（这是本闸门的核心不变式）"
+    assert not card.exists(), "推断卡不得被闸门写入（跨所有权写入根因）"
+    assert DRAFT_BODY in "".join(f.read_text(encoding="utf-8") for f in files)
 
 
 # ── 臂 G：接线守卫（防「函数存在但没人调」）──────────────────────────────
