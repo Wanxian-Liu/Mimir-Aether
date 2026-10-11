@@ -27,7 +27,8 @@ import re
 from typing import Any, Dict, List, Optional, Tuple
 
 # 低于此长度不包卡：极短回复包卡 = 形式主义（用户 2026-10-11 明确反对）
-CARD_MIN_CHARS = 300
+# 2026-10-11 用户令：默认短回复 => 闸门 300 -> 120（>=120 字符即包卡）
+CARD_MIN_CHARS = 120
 MAX_ELEMENTS = 50
 MAX_MD_CHARS = 6000      # 单个 markdown 元素上限
 MAX_TABLE_COLS = 6       # 飞书表格组件列数上限（保守取值）

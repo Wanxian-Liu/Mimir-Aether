@@ -123,8 +123,9 @@ class WorkStatusBroadcaster:
               "last_sent_at": 0.0, "last_msg": "", "task": task}
         self._runs[key] = st
         self._replies.pop(str(chat_id), None)
-        msg = f"{START_EMOJI} 开工：{task}" if task else f"{START_EMOJI} 开工"
-        return await self._emit(adapter, chat_id, thread_id, st, msg)
+        # 2026-10-11 用户令：不再发「开工」播报（每 run 少一条消息）；仅登记状态。
+        # 中途 ⚙️ / 完工 ✅ 播报保留。
+        return True
 
     async def step(self, adapter: Any, chat_id: str, thread_id: Optional[str], tool_names: Sequence[str]) -> bool:
         key = self._key(getattr(adapter, "platform", None) or "feishu", chat_id)

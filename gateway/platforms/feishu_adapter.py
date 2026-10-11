@@ -1275,6 +1275,7 @@ class FeishuAdapter(BasePlatformAdapter):
             and isinstance(content, str)
             and "<!-- MIMIR:PLAIN" not in content
             and len(content) >= CARD_MIN_CHARS
+            and not metadata.get("_no_card")  # 2026-10-11: 卡片被拒后的纯文本重发，防递归
         ):
             # 2026-10-11 用户令：主 chat 回复默认卡片化。
             # 三道闸：① 长度闸（<CARD_MIN_CHARS 不包卡，防形式主义）
@@ -1351,6 +1352,11 @@ class FeishuAdapter(BasePlatformAdapter):
                         "[%s] send HTTP %s chat_id=%s… body=%s",
                         self.name, resp.status, (chat_id or "")[:24], body_snippet,
                     )
+                    # 2026-10-11 用户令：卡片被拒 => 回退纯文本重发（防静默丢消息）
+                    if is_html_card and isinstance(content, str):
+                        logger.warning("[%s] card rejected (HTTP %s) -> retry as plain text", self.name, resp.status)
+                        _m2 = dict(metadata); _m2["_no_card"] = True
+                        return await self.send(chat_id, content, reply_to=reply_to, metadata=_m2)
                     return SendResult(
                         success=False,
                         error=f"HTTP {resp.status}: {body_snippet}",
@@ -1365,6 +1371,11 @@ class FeishuAdapter(BasePlatformAdapter):
                         (chat_id or "")[:24],
                         result,
                     )
+                    # 2026-10-11 用户令：卡片被拒 => 回退纯文本重发（防静默丢消息）
+                    if is_html_card and isinstance(content, str):
+                        logger.warning("[%s] card rejected (api code=%s) -> retry as plain text", self.name, result.get("code"))
+                        _m2 = dict(metadata); _m2["_no_card"] = True
+                        return await self.send(chat_id, content, reply_to=reply_to, metadata=_m2)
                     return SendResult(success=False, error=str(result))
                 mid = result.get("data", {}).get("message_id")
                 # 2026-08-25 fix-card change4: map message_id -> chat_id for read feedback
