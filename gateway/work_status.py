@@ -123,7 +123,9 @@ class WorkStatusBroadcaster:
               "last_sent_at": 0.0, "last_msg": "", "task": task}
         self._runs[key] = st
         self._replies.pop(str(chat_id), None)
-        # 2026-10-11 用户令：不再发「开工」播报（每 run 少一条消息）；仅登记状态。
+        # 2026-10-11 用户令（有出处·原话+日期+记录路径）：原话「发的特别多」/「发得太多、一件事一件事聊」，
+        # 记录见 ~/wiki/discussions/2026-10-11-飞书卡片-重启后验证.md 「问题」节第 2 条；
+        # 经统筹席 2026-10-11 派单转达 ⇒ 不再发「开工」播报（每 run 少一条消息）；仅登记状态。
         # 中途 ⚙️ / 完工 ✅ 播报保留。
         return True
 
@@ -153,7 +155,9 @@ class WorkStatusBroadcaster:
         if not self._allow(st, now):
             self.sent_log.append({"key": key, "msg": "(finish dropped: cap/throttle)", "ok": False})
             return False
-        # 2026-10-11 用户令：不再回显回复正文（与主回复重复，等于发两遍）。
+        # 2026-10-11 用户令（有出处·原话+日期+记录路径）：原话「发的特别多」（每轮至少 2 条消息），
+        # 记录见 ~/wiki/discussions/2026-10-11-飞书卡片-重启后验证.md 「问题」节第 2 条；
+        # 落于提交 07193d4 ⇒ 不再回显回复正文（与主回复重复，等于发两遍）。
         if ok_outcome:
             msg = f"{DONE_EMOJI} 完工"
         else:
