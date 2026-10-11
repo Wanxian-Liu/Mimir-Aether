@@ -26,6 +26,13 @@ auto_load: false
 
 **本族第十六 run 产出**：判定件 `~/.mimiraether/tmp/2026-10-11-行159-状态推送器-判定.md`（tmp 被 `.gitignore:8` 覆盖 ⇒ 不需 commit）+ `~/.mimiraether/logs/inbox-processed.log` 追加行。
 
+**第十七 run 补（行 160-162 · 同一 job 的第三种模板 · 三判据仍全绿）**：本次 payload 换成「⚠️ [openclaw] … 静默 20 分钟（派单 14:40）· 📥 我箱有 2/4 件未认领」——即**他方执行方进度告警 + 跨箱认领通知**。两条新读法：
+
+1. **进度告警的「被监控对象」不在我方**：`sed -n '5,6p;64,65p' ~/wiki/discussions/2026-10-11-方案-链接策略P2候选召回.md` ⇒ `status: openclaw` / `owner: hermes`，第 64 行 mimir 仅出现在**角色分配表**（`| mimir | SRE + KG Engineer | 异源复核 + 最坏情况 |`），全文 `grep -c '@mimir'` = **0** ⇒ **角色表出现 ≠ 已派单**——判「是否派给我」锚 **卡 status + @mimir 计数**，不锚「表里有我的名字」。
+2. **广播互锁升级为三箱对读**：`cd ~/.openclaw/data && grep -c '6f7729a9b8cf' buzz-inbox-mimir.jsonl buzz-inbox-loki.jsonl buzz-inbox-hermes.jsonl` ⇒ **mimir=5 · loki=5 · hermes=0**，且 loki 末行 ts 与我方箱行 162 ts 逐字相同（`1791703336854`）⇒ 同文同 ts 双箱落地 = **广播**（点对点派单不会同 ts 落两箱）。
+
+**本族第十七 run 产出**：判定件 `~/.mimiraether/tmp/2026-10-11-行160-162-状态推送器-判定.md`（tmp 被 `.gitignore:8` 覆盖 ⇒ 不需 commit）+ `~/.mimiraether/logs/inbox-processed.log` 追加行。
+
 ## 2.33 「改卡通知」类唤醒：通知方=收件方 ⇒ **自触发回环**；同族 run 并发重复（2026-10-10 19:49 实证 · 本族第十四 run）
 
 **场景**：收 `collab-guard.py` 自动通知「卡 `<X>` 元信息行变化」（依据 `2026-10-10-A3-协作四缺口改法.md` §缺口③：改卡方主动通知 Mimir）。
