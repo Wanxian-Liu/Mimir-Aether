@@ -2,7 +2,7 @@
 # 单一真源漂移检测（SSOT drift check）—— 只读 · 零写入
 #
 # 真源表：~/wiki/discussions/_单一真源总表.md §1
-# 用法：bash ~/.mimiraether/scripts/check_ssot_drift.sh
+# 用法：bash ~/src/MimirAether/scripts/check_ssot_drift.sh
 # 输出：每行 `KEY=value`；末行 rc=0（全一致）/ rc=1（至少一行漂移）
 #
 # 判据语义（为什么这样判）：
@@ -34,8 +34,15 @@ cmp_pair() {
   fi
 }
 
-# ---- 1. SOUL.md（真源 = 数据根）----
-cmp_pair "soul" "$MIMIR_ROOT/SOUL.md" "$REPO_ROOT/SOUL.md"
+# ---- 1. SOUL.md（真源 = 仓内；数据根为 symlink 派生 - 2026-10-11 归一）----
+cmp_pair "soul" "$REPO_ROOT/SOUL.md" "$MIMIR_ROOT/SOUL.md"
+# A 案护栏：数据根必须仍是 symlink。若被原子写（tmp+rename）换成普通文件，
+# 链接静默消失 => 两份重新分叉且「漂移」要等到内容不同才可见。故即使内容暂同也报红。
+if [ -L "$MIMIR_ROOT/SOUL.md" ]; then
+  emit "soul_link=ok"
+else
+  emit "soul_link=REPLACED_BY_FILE"; fail=1
+fi
 
 # ---- 2. AGENTS.md（真源 = 仓内）----
 cmp_pair "agents" "$REPO_ROOT/AGENTS.md" "$MIMIR_ROOT/AGENTS.md"
