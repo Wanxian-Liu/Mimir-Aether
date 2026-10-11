@@ -152,10 +152,11 @@ class WorkStatusBroadcaster:
         if not self._allow(st, now):
             self.sent_log.append({"key": key, "msg": "(finish dropped: cap/throttle)", "ok": False})
             return False
+        # 2026-10-11 用户令：不再回显回复正文（与主回复重复，等于发两遍）。
         if ok_outcome:
-            msg = f"{DONE_EMOJI} 完工：{reply}" if reply else f"{DONE_EMOJI} 完工"
+            msg = f"{DONE_EMOJI} 完工"
         else:
-            msg = f"{FAIL_EMOJI} 中断：{reply}" if reply else f"{FAIL_EMOJI} 中断"
+            msg = f"{FAIL_EMOJI} 中断"
         return await self._emit(adapter, chat_id, thread_id, st, msg)
 
 _BROADCASTER: Optional[WorkStatusBroadcaster] = None

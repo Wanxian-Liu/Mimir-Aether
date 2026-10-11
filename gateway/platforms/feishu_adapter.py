@@ -34,6 +34,11 @@ from gateway.html_to_feishu_card import (
     convert_or_fallback,
     USE_HTML_OUTPUT,
 )
+from gateway.md_to_feishu_card import (
+    CARD_MIN_CHARS,
+    USE_MD_CARD,
+    convert_or_fallback as convert_md_or_fallback,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -863,7 +868,7 @@ class FeishuAdapter(BasePlatformAdapter):
 
         async def _send_read_feedback() -> None:
             try:
-                await self.send(chat_id, "刘哥读了你的消息")
+                await self.send(chat_id, "用户读了你的消息")
             except Exception as exc:
                 logger.warning("[%s] read feedback send failed: %s", self.name, exc)
 
@@ -1069,7 +1074,7 @@ class FeishuAdapter(BasePlatformAdapter):
     _TOKEN_ERR_CODES = frozenset({99991663, 99991664, 99991665, 99991661})
     # 2026-09-27 实测: emoji_type 取官方 135 项白名单; "EYES" 不在其中(231001 reaction type is invalid)
     # => 已读回执用 GLANCE(瞄一眼), 完工用 DONE; 可用环境变量改, 不必改码
-    # 2026-09-27: 旧文本回执「刘哥读了你的消息」默认关闭 —— GLANCE 表情已在同一时刻
+    # 2026-09-27: 旧文本回执「用户读了你的消息」默认关闭 —— GLANCE 表情已在同一时刻
     # 提供 read 反馈（机器可读、不刷屏）。置 MIMIR_FEISHU_READ_TEXT_FEEDBACK=1 可恢复。
     READ_TEXT_FEEDBACK = (os.getenv("MIMIR_FEISHU_READ_TEXT_FEEDBACK") or "0").strip().lower() in {
         "1",
@@ -1077,7 +1082,7 @@ class FeishuAdapter(BasePlatformAdapter):
         "yes",
         "on",
     }
-    # 2026-10-07 琬弦代刘哥裁定①: 支持**显式关停**（off/0/none/disable/-）；空串仍回退默认。
+    # 2026-10-07 琬弦代用户裁定①: 支持**显式关停**（off/0/none/disable/-）；空串仍回退默认。
     # 理由：每消息一条 GLANCE 噪声；已读语义已由 read-receipt 承担。
     _REACTION_OFF = {"0", "off", "no", "none", "false", "disable", "disabled", "-"}
     _raw_read = (os.getenv("MIMIR_FEISHU_REACTION_READ") or "GLANCE").strip()
@@ -1264,6 +1269,31 @@ class FeishuAdapter(BasePlatformAdapter):
                     "[%s] HTML→Card fallback: %s",
                     self.name,
                     result.get("fallback_reason", "unknown"),
+                )
+        elif (
+            USE_MD_CARD
+            and isinstance(content, str)
+            and "<!-- MIMIR:PLAIN" not in content
+            and len(content) >= CARD_MIN_CHARS
+        ):
+            # 2026-10-11 用户令：主 chat 回复默认卡片化。
+            # 三道闸：① 长度闸（<CARD_MIN_CHARS 不包卡，防形式主义）
+            #         ② 逃生舱（正文含 MIMIR:PLAIN 强制纯文本）
+            #         ③ 失败回退（convert_md_or_fallback 任何异常 ⇒ 纯文本）
+            _md_res = convert_md_or_fallback(content)
+            if _md_res["mode"] == "card":
+                msg_content = _md_res["content_json"]
+                msg_type = "interactive"
+                is_html_card = True
+                logger.info(
+                    "[%s] MD→Card conversion succeeded (%d chars)",
+                    self.name, len(content),
+                )
+            else:
+                logger.info(
+                    "[%s] MD→Card fallback: %s",
+                    self.name,
+                    _md_res.get("fallback_reason", "unknown"),
                 )
         # ─────────────────────────────────────────────────────────
 
