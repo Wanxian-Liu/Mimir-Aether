@@ -6,6 +6,26 @@ auto_load: false
 
 # Buzz 收件箱唤醒处理（Mimir）
 
+## 2.36 同一 job 的 payload 会变 ⇒ 判据锚「job 归属 + 箱归属 + 同源已办」，**不读 payload 文本**（2026-10-11 行 159 实证 · 本族第十六 run）
+
+**场景**：行 158（14:28:10）与行 159（14:38:17）**同一 job**（`6f7729a9b8cf`）· 同 `source`（频道 `7eb862af`）· 同 `from`（`1aede276257c`），但 payload 完全不同：
+- 158 =「📥 我箱有 16 件未认领（最老 999 分钟）——跑 `collab-guard.py --seal` 认领」（**pending 计数**型）
+- 159 =「📨 我箱新到 2 件（loki×2）· 最新 [loki] **读盘时间**：2026-10-11 14:28 …」（**新到件摘要**型）
+
+⇒ **payload 是变量**：同一 job 每次广播换模板。若把判据写成「content 里出现 `--seal` 才算通知」，换模板即漏判（纯通知被读成待办，或真待办被读成通知）。
+
+**三条硬判据（与 payload 文本无关 · 全部可复跑 · 我方实例读数）**：
+
+1. **job 归属**：`grep -c '6f7729a9b8cf' ~/.mimiraether/cron/jobs.json` = **0**（rc=1）⇒ 非我方 job。
+   **正控（防把空读成事实）**：同文件 `grep -o '"name":[^,]*' ~/.mimiraether/cron/jobs.json` 能列出 9 个 job 名（梦境蒸馏/wiki-quality-gate/P0 chroma 索引/mimir-slo-dashboard/mimir-behavior-watch-weekly/n8 双控×3/N13-闭环看门狗）⇒ 文件存在 19033 B、探针活着，**0 = 真无命中**（非路径错）。
+2. **箱归属（读脚本常量，不读消息措辞）**：`grep -n -E '^H|INBOX' ~/.hermes/scripts/collab-guard.py` ⇒ `H = HOME / ".hermes"` · `INBOX = HOME / ".openclaw/data/buzz-inbox-hermes.jsonl"` ⇒ 正文「我箱」= **琬弦箱**，非我方箱。
+   **互锁**：`~/.openclaw/data/buzz-inbox-hermes.jsonl` 末段 `from=loki` 两行（`kind=1` 验尺回执 + `kind=9` 读盘时间 **14:28**）= 广播所引「最新 [loki] … 14:28」**时间戳逐字吻合** ⇒ 件确在他方箱。
+3. **同源是否已办**：`cd ~/wiki && git log --oneline | grep -i 验尺` ⇒ `606f402 验尺·loki段(对账定位)·5差异定位到行号·R5推荐让位v4`（`git show --stat` = 执行单 +120 行）⇒ 广播内容**我方已入库**，无未办项 ⇒ **零动作**。
+
+**纪律**：判「需行动 / 纯通知」锚在 **① job 归属 ② 箱归属 ③ 同源已办** 三条 **结构**读数上；`content` 只作**线索**（用于找真源），**不作判据**——这是 2.34（判归属）在「同 job 变模板」下的推广。
+
+**本族第十六 run 产出**：判定件 `~/.mimiraether/tmp/2026-10-11-行159-状态推送器-判定.md`（tmp 被 `.gitignore:8` 覆盖 ⇒ 不需 commit）+ `~/.mimiraether/logs/inbox-processed.log` 追加行。
+
 ## 2.33 「改卡通知」类唤醒：通知方=收件方 ⇒ **自触发回环**；同族 run 并发重复（2026-10-10 19:49 实证 · 本族第十四 run）
 
 **场景**：收 `collab-guard.py` 自动通知「卡 `<X>` 元信息行变化」（依据 `2026-10-10-A3-协作四缺口改法.md` §缺口③：改卡方主动通知 Mimir）。
