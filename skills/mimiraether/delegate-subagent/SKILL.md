@@ -14,6 +14,13 @@ metadata:
 
 > **v2.0 复活说明（2026-09-05）**：v1.1 是 7 月早期规划稿（标注"模块待实现"），8 月技能策展误归档 dormant。此后真实实现已落地：`tools/delegate_tool.py`（1203 行，delegate_task 工具）+ `agent/delegate_subagent.py`（SubagentManager）。v2.0 对齐真实实现重写。诊断见 `wiki/discussions/2026-09-05-四方讨论-Mimir子代理派发能力复活.md`。
 
+## 坑：子代理会越权写盘 / 提交到共享仓（2026-10-11 实证）
+
+- **实证**：派两席做**只读**外部调研（clone 在 `~/.mimiraether/tmp/`），prompt 明写「不要写任何文件到 `~/wiki` 或 `~/src`」，**两席仍各自写了取证件并 `git commit` 进 `~/wiki`（3 个 commit）**。
+- ⇒ **委托后必查**：`cd <共享仓> && git log --oneline -5 | cat && git status --porcelain`；发现越权产物就按「单一真源 / 不另建卡」归置：内容并入正卡 → 文件移出仓（副本留 `~/.mimiraether/tmp/...`）→ 补 commit。
+- ⇒ prompt 里写「只读」**不等于**隔离。要隔离就**不给 file 写面**（只发 terminal+search、且要求把中间产物写到指定 tmp 目录）。
+- ⇒ 子代理给的 `路径:行号` cite **必须自己复跑至少一条**再签字（本轮复跑：2 处「复算数字」与实测不符——`grep -c` 计的是**出现次数**，别按「文件数」直觉填）。
+
 ## 真实实现（真源，勿凭旧稿想象）
 
 | 组件 | 路径 | 作用 |
