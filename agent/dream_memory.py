@@ -492,7 +492,8 @@ async def _call_dream_llm(prompt: str) -> Optional[Dict]:
 
     ③ 死因可回读：原始载荷（content 全文 / finish_reason / usage / 尝试次数）
     留在 ``_LAST_DREAM_DIAG``，由 ``_record_failure`` 落进失败件；
-    解析失败时日志行仍留 200 字摘要（``_safe_json_parse`` 内）。
+    解析失败时日志行仍留 200 字摘要（**在调用方**：本层只看 JSON 形态，
+    不知道调用方是否还会重发 ⇒ 归因错层，2026-10-11 修）。
     """
     # 优先级1: os.environ（sync_run_dream_cycle 已从 /proc 注入正确的 key）
     api_key = os.environ.get("DEEPSEEK_API_KEY", "")
@@ -573,7 +574,7 @@ async def _call_dream_llm(prompt: str) -> Optional[Dict]:
                 reason = f"finish_reason={finish_reason}"
             logger.error(
                 f"[DreamMemory] 蒸馏输出不可用：{reason} · content_len={len(content)}"
-                f" · 尝试 {attempts} 次 ⇒ 原始载荷见失败件"
+                f" · 尝试 {attempts} 次 ⇒ 原始载荷见失败件 · 前200字: {content[:200]}"
             )
             return None
 
@@ -636,7 +637,11 @@ def _safe_json_parse(text: str) -> Optional[Dict]:
         except json.JSONDecodeError:
             pass
 
-    logger.error(f"[DreamMemory] 所有 JSON 解析策略均失败，前200字: {text[:200]}")
+    # 归因不在此层（2026-10-11 修）：本函数只看 JSON 形态，不知道调用方
+    # 是否还会重发。实证：finish_reason=length 截断 ⇒ 四策略全失败 ⇒ 旧版在
+    # 此报 logger.error ⇒ stderr 进飞书，而调用方随后重发成功 ⇒ 每晚假告警。
+    # 可观测性未减：调用方按 finish_reason 归因 + 留 200 字预览 + 原始载荷
+    # 仍进 _LAST_DREAM_DIAG / 失败件。
     return None
 
 

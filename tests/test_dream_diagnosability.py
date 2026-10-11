@@ -2,6 +2,8 @@
 
 正控：finish_reason="length" ⇒ ①记「截断」②抬 max_tokens 重发一次 ③失败件含原始载荷
 负控：finish_reason="stop" + 合法 JSON ⇒ 一次成功、不重发
+假告警控制（2026-10-11 加）：①截断 ②重发成功 ⇒ **全程不得出现 error 级日志**——
+  这是生产每天走的路径；旧版在此路径上误报「所有 JSON 解析策略均失败」进飞书。
 """
 import asyncio
 import json
@@ -18,11 +20,14 @@ os.environ["DEEPSEEK_API_KEY"] = "sk-" + "0" * 40
 from agent import dream_memory as dm  # noqa: E402
 
 MSGS = []
+ERRS = []
 
 
 class Cap(logging.Handler):
     def emit(self, record):
         MSGS.append(record.getMessage())
+        if record.levelno >= logging.ERROR:
+            ERRS.append(record.getMessage())
 
 
 dm.logger.addHandler(Cap())
@@ -53,6 +58,7 @@ def run_pos():
     assert out is None, out
     assert calls == [4096, 8192], calls
     assert any("输出被截断" in m for m in MSGS), MSGS
+    assert not any("所有 JSON 解析策略均失败" in m for m in MSGS), MSGS
     d = dict(dm._LAST_DREAM_DIAG)
     assert d["retry_due_to"] == "length" and d["attempts"] == 2, d
     assert d["content"] == truncated and d["finish_reason"] == "length", d
@@ -84,9 +90,36 @@ def run_neg():
     return out
 
 
+def run_retry_ok():
+    """真实夜跑路径：①截断 ②重发成功 ⇒ 不得出现任何 error 级误报。"""
+    MSGS.clear()
+    ERRS.clear()
+    truncated = '{"key_decisions": ["x"'
+    r1 = {
+        "choices": [{"message": {"content": truncated}, "finish_reason": "length"}],
+        "usage": {"completion_tokens": 4096},
+    }
+    r2 = {
+        "choices": [
+            {"message": {"content": '{"key_decisions": ["a"]}'}, "finish_reason": "stop"}
+        ],
+        "usage": {"completion_tokens": 30},
+    }
+    fake, calls = fake_factory([r1, r2])
+    dm._post_dream_chat = fake
+    out = asyncio.run(dm._call_dream_llm("p"))
+    assert out == {"key_decisions": ["a"]}, out
+    assert calls == [4096, 8192], calls
+    assert any("输出被截断" in m for m in MSGS), MSGS
+    assert not ERRS, ERRS
+    return out
+
+
 if __name__ == "__main__":
     pos = run_pos()
     neg = run_neg()
     print("POS ok: calls 4096->8192 · failure keys =", sorted(pos.keys()))
     print("NEG ok: once · no retry · parsed =", neg)
+    retry_ok = run_retry_ok()
+    print("RETRY_OK: truncated->retried->parsed, zero ERROR =", retry_ok)
     print("ALL CONTROLS PASS")
