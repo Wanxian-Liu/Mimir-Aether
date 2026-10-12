@@ -316,19 +316,91 @@ def _dual_write_mirror(raw: str) -> None:
 # ── ByteRover AKL fields (importance / maturity / last_access / decay_factor) ──
 
 
+def _apply_decay(entry: dict, days_passed: int) -> dict:
+    """ByteRover AKL decay: importance *= decay_factor ** days_passed.
+
+    Moved verbatim from ``agent/test_persistent_store_akl.py`` (S1', 2026-10-13)
+    so the formula lives on the production side, not only in tests.
+    Only lowers the score — never removes the entry (zero-loss).
+    """
+    factor = entry.get("decay_factor", 0.95) ** days_passed
+    entry["importance"] = max(0, int(entry.get("importance", 50) * factor))
+    return entry
+
+
+def _parse_ts(value: object) -> datetime.datetime | None:
+    """Parse an ISO-8601 timestamp; return None when absent/unparseable."""
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        ts = datetime.datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=datetime.timezone.utc)
+    return ts
+
+
+def _apply_lifecycle_decay(data: dict, now: datetime.datetime | None = None) -> int:
+    """Entry-level 整并: decay every kd/lp entry by its idle age.
+
+    S1' (2026-10-13, 会议卡 §B). Only lowers ``importance`` — never deletes
+    (zero-loss).
+
+    **Idempotency (found by this change's own test, 2026-10-13)**: the score is
+    recomputed from the *base* importance, never from the live value — ``int()``
+    truncation is not idempotent (90 → 85 → 85 → 85…), so a plain in-place decay
+    keeps shaving the score on every call. Base = ``importance_base`` when
+    present, else ``max(importance, 50)`` (the AKL default = "never decayed
+    yet"). ⇒ a second call in the same day is a no-op, and the score is a pure
+    function of ``(last_access, decay_factor)``.
+
+    Returns the number of entries whose ``importance`` actually changed.
+    """
+    memory = data.get("memory")
+    if not isinstance(memory, dict):
+        return 0
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    changed = 0
+    for key in ("key_decisions", "learned_patterns"):
+        rows = memory.get(key)
+        if not isinstance(rows, list):
+            continue
+        for entry in rows:
+            if not isinstance(entry, dict):
+                continue
+            ts = _parse_ts(entry.get("last_access"))
+            if ts is None:
+                continue
+            days = max(0, (now - ts).days)
+            before = entry.get("importance")
+            if "importance_base" not in entry:
+                entry["importance_base"] = max(int(before or 0), 50)
+            # recompute from the base: _apply_decay stays verbatim, the loop
+            # guarantees the score is a pure function of (last_access, factor).
+            entry["importance"] = entry["importance_base"]
+            _apply_decay(entry, days)
+            if entry.get("importance") != before:
+                changed += 1
+    return changed
+
+
 def _init_akl_fields(entry: dict) -> dict:
     """Initialize ByteRover AKL fields for a knowledge entry (kd or lp)."""
     now = datetime.datetime.now(datetime.timezone.utc).isoformat()
     entry.setdefault("importance", 50)
     entry.setdefault("maturity", "draft")
     entry.setdefault("last_access", now)
+    entry.setdefault("created_at", now)
+    entry.setdefault("access_count", 0)
     entry.setdefault("decay_factor", 0.95)
     return entry
 
 
 def _update_akl_last_access(entry: dict) -> dict:
-    """Update last_access timestamp; decay applied during distillation."""
+    """Update last_access timestamp and bump access_count; decay applied during distillation."""
     entry["last_access"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    entry["access_count"] = int(entry.get("access_count", 0)) + 1
     return entry
 
 
@@ -344,13 +416,19 @@ def save(data: dict, path: Path | None = None) -> None:
 
 
 def read_modify_write(mutator: Callable[[dict], None], path: Path | None = None) -> None:
-    """Atomic read-modify-write under the global persistent lock + write window."""
+    """Atomic read-modify-write under the global persistent lock + write window.
+
+    S1' (2026-10-13): before writing back, every ``memory.key_decisions`` /
+    ``memory.learned_patterns`` entry is decayed by its idle age
+    (``_apply_lifecycle_decay``). Score-only — no entry is ever removed.
+    """
     with write_window():
         with _write_lock:
             data = _load_unlocked(path) if (path or get_persistent_path()).exists() else {}
             if not data:
                 raise RuntimeError("persistent.json missing; cannot read_modify_write")
             mutator(data)
+            _apply_lifecycle_decay(data)
             _save_unlocked(data, path)
 
 
