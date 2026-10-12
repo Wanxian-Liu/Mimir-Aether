@@ -500,6 +500,76 @@ def delete_session_chroma_documents(session_id: str, *, collection: Any = None) 
         logger.debug("chroma delete session %s failed: %s", session_id, exc)
 
 
+def prune_session_chroma_orphans(
+    session_id: str,
+    like_db_path: Path | str,
+    *,
+    collection: Any = None,
+    dry_run: bool = False,
+) -> Dict[str, Any]:
+    """Drop Chroma docs for one session whose SQLite source row no longer exists.
+
+    Incremental transcript rewrites (``reindex_session_transcript`` with a warm
+    watermark) DELETE the changed tail rows and re-INSERT them, so the new rows
+    carry *new* row ids and the pre-rewrite ``{session}:{id}`` docs are stranded.
+    The full-resync branch (delete + re-embed the whole session) never runs on
+    that path -- deliberately, because re-embedding is what the 2026-10-05 P0
+    truncated at the 30s off-loop budget -- so nothing pruned them
+    (2026-10-12 measurement: 1454 orphans, 1421 from a single rewrite).
+
+    This deletes **stale ids only**: no embedding is computed, and docs whose
+    source row still exists are never touched (kept prefix stays intact).
+
+    Returns a reading dict: ``chroma_docs`` / ``wanted`` / ``orphans`` / ``deleted``.
+    """
+    out: Dict[str, Any] = {
+        "session_id": session_id,
+        "chroma_docs": 0,
+        "wanted": 0,
+        "orphans": 0,
+        "deleted": 0,
+    }
+    if not chroma_incremental_enabled():
+        # Pairing invariant: only clean up on the path that also writes. With the
+        # incremental writer off the tail was never (re)upserted either, so
+        # deleting here would trade stale docs for missing ones.
+        return out
+    like_db_path = Path(like_db_path)
+    if not like_db_path.is_file():
+        return out
+    try:
+        if collection is None:
+            collection = _get_incremental_collection()
+        have: set = set()
+        offset = 0
+        while True:
+            got = collection.get(
+                where={"session_id": session_id}, include=[], limit=1000, offset=offset
+            ).get("ids") or []
+            if not got:
+                break
+            have |= set(got)
+            offset += len(got)
+            if len(got) < 1000:
+                break
+        wanted = {
+            message_doc_id(session_id, msg.message_id)
+            for msg in iter_indexable_messages(like_db_path)
+            if msg.session_id == session_id
+        }
+        stale = sorted(have - wanted)
+        out["chroma_docs"] = len(have)
+        out["wanted"] = len(wanted)
+        out["orphans"] = len(stale)
+        if stale and not dry_run:
+            collection.delete(ids=stale)
+            out["deleted"] = len(stale)
+        return out
+    except Exception as exc:
+        note_index_failure("prune_session_orphans", exc, sink="chroma_session_indexer")
+        return out
+
+
 def sync_session_chroma_from_db(
     session_id: str,
     like_db_path: Path | str,

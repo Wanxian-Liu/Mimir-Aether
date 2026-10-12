@@ -495,6 +495,29 @@ def reindex_session_transcript(
             from tools.chroma_session_indexer import note_index_failure
 
             note_index_failure("session_resync_hook", exc, sink="session_search_indexer")
+    else:
+        # Incremental path: the rewritten tail was re-inserted under NEW row ids,
+        # so the pre-rewrite docs for this session are stranded. A full resync
+        # here would re-embed the whole session -- exactly what the 2026-10-05 P0
+        # truncated at the 30s off-loop budget -- so instead drop only the stale
+        # ids (no embedding, kept prefix untouched).
+        # 2026-10-12 measurement: 1454 orphans, 1421 from a single rewrite.
+        try:
+            from tools.chroma_session_indexer import prune_session_chroma_orphans
+
+            db_path = getattr(like_db, "db_path", None)
+            if db_path:
+                pruned = prune_session_chroma_orphans(session_id, db_path)
+                if pruned.get("orphans"):
+                    logger.debug(
+                        "incremental reindex pruned %s stale chroma docs (%s)",
+                        pruned["orphans"],
+                        session_id,
+                    )
+        except Exception as exc:
+            from tools.chroma_session_indexer import note_index_failure
+
+            note_index_failure("session_prune_hook", exc, sink="session_search_indexer")
     record_watermark(session_id, messages)
     clear_pending(session_id)
     return count
