@@ -5,6 +5,63 @@ description: RS17 探针自证闸——凡声明类结论（未生效/为 0/缺�
 
 # 探针自证闸（Probe Attestation Gate · RS17）
 
+## 同类第 19 种死法：**跨列口径把「正文命中」读成「路径存在」**（假阳性 · 2026-10-12 实测 · L2 检索层审计）
+
+**症状**：要判「文件 X 在不在 FTS 索引里」，写成
+`SELECT count(*) FROM wiki_chunks_fts WHERE wiki_chunks_fts MATCH '"<文件名 token>"'` ——
+读数 **1**（看似「在」）。但集合对账（`SELECT DISTINCT file_path` 相减）显示它**不在**。**两个读数打架。**
+
+**根因**：FTS5 的 `MATCH` 检索的是**该行所有被索引列**。本例表为
+`CREATE VIRTUAL TABLE wiki_chunks_fts USING fts5(file_path, content, tokenize='unicode61 remove_diacritics 2')`
+⇒ `MATCH` **同时**搜 `file_path` **和 `content`**。目标 token 出现在**别篇正文**里
+（如某讨论卡引用了这个文件名）⇒ 该命中被读成「**路径**被索引」。
+
+**修法（口径收严到单列）**：
+
+```sql
+-- 坏：跨列，会被正文骗
+... WHERE wiki_chunks_fts MATCH '"USER-PERSONALITY"'
+-- 好：钉到单列
+... WHERE file_path LIKE '%USER-PERSONALITY.md%'
+```
+
+**三查（凡「某行 / 某路径在不在索引 / 表里」的判定，逐条过）**：
+1. **谓词落在单列上吗**？`WHERE <col> LIKE ?` / `= ?` ✅；`MATCH` / `WHERE <表名>` 这类**跨列**原语 ❌（列不唯一 ⇒ 语义不唯一）。
+2. **集合对账做正控**：两侧各自 `SELECT DISTINCT <key>` 后相减，读数必须能对上（本例 vec 5406 / fts 4798 / 差 1124）。
+3. **目标件做双向正控**：同一 token 在**载体表**里单列 `=` 命中 ≥1，在**被查表**里单列 LIKE = 0 ⇒ 才可下「缺失」结论。
+
+**为什么单列这一条**：这类探针**不报错、不失败、读数看起来完全正常**（1 条命中），属「**读数真 · 语义假**」家族；
+而 `MATCH` 是全文检索的**惯用原语**，重犯率极高。
+**自限**：本条的判据（列级口径）自身也要有正控——用一个**确定存在**的 token 跑同一列级谓词，读数必须 ≥1。
+
+**附（同次实测）**：即便口径修对，`SELECT count(*) FROM <fts5 表>` 与 `SELECT count(*) FROM <vec0 表>`
+是**两个不同语义的计数**（索引行 vs 向量行），相减出来的差额**只能说明「不一致」**，
+**不能**说明方向（谁多谁少要各自 `DISTINCT <key>` 才判得准）。
+
+## 同类第 18 种死法：**「假负控」——断言自己改写结果，从未重跑管道**（2026-10-12 实测 · M 系列审计）
+
+**症状**：量具报告「负控 = 0 ✅ · 尺未恒过」，但该断言**恒过**——它把**输出**改写成失败值再数一遍，
+**从未调用被测管道**。例（`rag-eval/l4_recall.py:163`）：
+
+```python
+neg_rows = [dict(r, rank=0, expected=r["expected"] + ".NO_SUCH_FILE") for r in rows]  # 只是复制+改写
+neg_hits = sum(1 for r in neg_rows if r["rank"] > 0)                                   # ⇒ 恒 0
+```
+
+⇒ 「负控通过」是**自己证明自己**（Δ≡0 第七形态：**读数真、控制组假**）。
+
+**三查（凡「控制组通过」的声明都过一遍）**：
+1. **有没有真调用**被测件？`grep -n 'neg_rows' <量具>` 该段若**不含** `call(` / `requests.` / 被测函数名 ⇒ 恒过。
+2. **负控的输入真换过吗**？必须是**换输入后重跑**（不存在路径真去打一次网关/库），不是**改写输出**。
+3. **读数件记了臂状态吗**？（`rerank_enabled` / `forced` / `code_sha` / `index_blocks`）——不记 ⇒ 「两轮可比」只是口号：
+   实测 `l4-baseline-v3-m2.json` 声称「重排生效 79」，逐行核算实为 **79/79 `rerank_reason=off`**（那轮重排根本没开）。
+
+**附带死法 · 探针污染被审数据**：探针脚本调用了往 `~/.hermes/data/*.jsonl` 追写的函数（如 `_log_degraded` 用
+`expanduser("~")` 拼路径）而**沙箱/子进程未钉 HOME** ⇒ 合成记录混进被审数据。修法：跑前 `HOME=<自有草稿>`；
+已污染则**按行精确删除 + 公示 删前行数/md5 → 删后行数/md5**（不是悄悄删）。
+
+**活证**：`~/wiki/discussions/2026-10-12-审计回执-Mimir-M系列内容代码逻辑.md`（commit `20d6927`）· 探针 `~/.mimiraether/tmp/mseries_probe.py`（`gate/log/notify/shell/fts` 五组两向用例）。
+
 ## 同类第 17 种死法：**「口径未冻结」——同一份库，两套读数**（2026-10-11 实测）
 
 **症状**：一个团队拿**同一个数字**在开会（"796 篇零双链"），却**没有一条命令能产出这个数字** ⇒ 每方各算各的，读数差几十上百，且**无人能判定谁对**。更隐蔽的一层：**同一个人两次自算也不一致**。
