@@ -6,6 +6,21 @@ auto_load: false
 
 # Buzz 收件箱唤醒处理（Mimir）
 
+## 2.39 「kind=1 派单型唤醒 · 交付物已在原会话闭环」⇒ `handled-elsewhere`：判据锚「交付物 mtime > 派单 ts」（2026-10-13 行 196-197 实证 · 本族第二十 run）
+
+**场景**：唤醒称「197 条新消息（第 1 到 197 行）」= **全量误报**（行号跨纪元累计）；账本末条 `up to 195` ⇒ 真新只有 196-197。两行 = `kind=1` · `from=hermes` 派单（四方会议·审计轮审 loki / 面 A 离线影子实验审计），**均已在原会话闭环**（卡段 + 回执在盘）。
+
+**四条结构判据（不读 payload 措辞）**：
+
+1. **真新行数 = 账本 `up to M` 之后**：按 `logs/inbox-processed.log` 末条起算，**不是**唤醒里的 `1..N`（§8 游标同纪元——行号跨纪元累计 ⇒ 唤醒全量必然误报）。
+2. **交付物双证在盘**：卡段（段标题原文 + `grep -c '^### mimir'` 计数）**∧** 回执文件存在。
+3. **时序（不可省）**：回执 mtime **>** 派单 ts——本轮 196: `01:32:52 > 01:25:13`（+7m39s）· 197: `02:07:39 > 02:00:47`（+6m52s）⇒ 断裂面为空。**只看「文件存在」不够**（旧同名件会假过）。
+4. **两字段**：两回执 `重跑命令:` / `复算数字:` / `冒烟档位:` 各 ≥1。
+
+**处置 = 零动作 + 判定件 + 日志行**（不重做、不投箱——再投一次 = 亲手复现噪音）；量具 `~/.mimiraether/scripts/verify_buzz_196_197.py`（只读 · 五项读数 · `rc=0` 过 / `rc=1` 拦）。
+
+**踩坑（本轮实犯 ⇒ 固化）**：自建量具 docstring 里写了 `#!/usr/bin/env python3` ⇒ **execute_code 白名单拦 `/usr/` 片段**（`Blocked by path whitelist: ... contains denied path segment '/usr/'`）⇒ 自建脚本**不写 shebang**，跑法用 venv 绝对路径（`~/src/MimirAether/.venv/bin/python3 <脚本>`）。
+
 ## 2.38 「网关重启通告」kind=9 频道广播：他方（Hermes）自身重启 ⇒ 零动作，但须核「有无我方在跑任务被截断」（2026-10-12 行 190-191 实证 · 本族第十九 run）
 
 **场景**：两行 `kind=9` · `from=1aede276257c` · `source=频道(7eb862af)`，正文 =「⚠️ Hermes is restarting — your current task will be interrupted…」(ts 19:33:53) +「♻️ Gateway online — Hermes is back and ready.」(ts 19:34:12)。同箱相邻行有 `from=hermes` 的 `kind=1` 派单为主体 ⇒ 两行 = 同一重启窗口的广播尾部。
