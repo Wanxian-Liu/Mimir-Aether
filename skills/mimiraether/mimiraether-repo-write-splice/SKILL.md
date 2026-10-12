@@ -81,6 +81,32 @@ staging、路径作用域），先读那个判据的实现再改值**；改完�
 **正确姿势**：只对**自己新建的片段文件**做替换 + 自检（`grep -c` 各串 = 0），再 `cat 片段 >> 共享文件`（纯追加）。
 **误改后的还原**：`git diff --numstat` 取证 → `git checkout HEAD -- <共享文件>` → 重做「只追加」→ 复核 `--numstat` = `+N / -0`。
 
+### 机械核「只改了我那一段」四读数（2026-10-12 实证 · 一席一段卡的交付证明）
+
+派单说「只改你自己那段」时，**自述不算**——下面四条一次性给出，才叫证明（全部可复跑）：
+
+```python
+before = open(CARD, encoding="utf-8").read()
+print("PRE sha256", hashlib.sha256(before.encode()).hexdigest())
+assert before.count(ANCHOR) == 1, "锚点不唯一 ⇒ 拒写"     # ① 锚点唯一（拒多命中）
+assert MARK not in before, "幂等：块已在 ⇒ 拒写"           # ② 幂等护栏
+new = before.replace(ANCHOR, block + REST, 1)             # ③ 单次锚定替换（绝不整文件重写）
+open(CARD, "w", encoding="utf-8").write(new)
+after = open(CARD, encoding="utf-8").read()
+assert after.startswith(before.rstrip("\n")), "前缀变了 = 发生了覆盖"   # ④ 前缀不变断言
+```
+
+配上 shell 两条：
+- `git diff --numstat -- <卡>` ⇒ **`N  0`**（0 删 ⇒ 未碰他人文字）
+- `git diff -U0 -- <卡>` 里**所有 `@@` hunk 都落在自己段的 `L起始-L结束` 区间内**（用 `grep -n '^### ' <卡>` 先取自己段的边界行号）
+- commit 后 `git show --stat HEAD -- <卡>` ⇒ `1 file changed, N insertions(+)`（`-0` 的签发版）
+
+**判「段头是否重复」别只数 `grep -c`**：实测 `grep -c '### §mimir' <卡>` = 2，其中 1 处是**协议段里的举例文字**，不是段头。
+正解 = `grep -n '^### ' <卡>` 列全部段头，或 `grep -n '### §mimir'` 逐条看上下文——**数到 2 先别慌，先定位**。
+
+**共享卡的版本锁别引单一 SHA**：卡在审计窗口内被他人追加后，实读 SHA 必然 ≠ R1 写入的 SHA ⇒ 会被判「版本锁不实」。
+稳健写法 = `(path, 行数, 引用原文逐字)` 三元组（行数 + 原文比 SHA 抗追加）。
+
 ## 关联
 - 写盘防护：`hermes-cat-write`（write_file 截断）；`.env` 类：`env-safe-update`
 - 重测试隔离：`scripts/pytest_isolated.sh`（本技能 §4）
