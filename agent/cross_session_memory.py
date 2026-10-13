@@ -46,6 +46,60 @@ logger = logging.getLogger(__name__)
 # 持久化文件路径（随 MIMIR_AETHER_HOME 解析；与 persistent_store 一致）
 PERSISTENT_FILE = get_persistent_path()
 
+# ── S1′ 写者收敛（2026-10-13）：生命周期字段的归属 ───────────────────────────
+# 真写者 = `agent/persistent_store.py`（衰减钩子 `_apply_lifecycle_decay` 挂在
+# `read_modify_write` 上）。本模块是 run 收尾的**进程内快照回写**，其加载时刻可能
+# 早于 ① 的写盘时刻 ⇒ 若由内存侧整条胜出，① 刚写下的 `importance_base` 会被旧内存
+# 副本压回（2026-10-13 实证：49/49 → 0/49，bytes 66220 → 64701）。
+# ⇒ ② 不再决策这些字段：已有条目**随磁盘带上**，只在条目缺 `last_access` 时做一次
+# 性初始化。
+_LIFECYCLE_FIELDS = (
+    "importance",
+    "importance_base",
+    "last_access",
+    "created_at",
+    "access_count",
+    "maturity",
+    "decay_factor",
+)
+
+
+def _carry_lifecycle_fields(mem_rows: list, disk_rows: list, id_key: str) -> int:
+    """把磁盘侧的生命周期字段覆盖到内存侧同 id 条目（未知键同理随磁盘保留）。
+
+    方向必须是「磁盘 → 内存」：内存副本的加载时刻可能早于 ① 的写盘时刻。
+    """
+    disk_by_id = {
+        row[id_key]: row
+        for row in disk_rows
+        if isinstance(row, dict) and row.get(id_key)
+    }
+    carried = 0
+    for row in mem_rows:
+        if not isinstance(row, dict):
+            continue
+        disk_row = disk_by_id.get(row.get(id_key))
+        if disk_row is None:
+            continue
+        for field in _LIFECYCLE_FIELDS:
+            if field in disk_row and row.get(field) != disk_row[field]:
+                row[field] = disk_row[field]
+                carried += 1
+    return carried
+
+
+def _stamp_missing_last_access(*row_lists: list) -> int:
+    """仅给**缺** `last_access` 的条目打创建时间戳（不重写已有条目的龄）。"""
+    now = datetime.now(timezone.utc).isoformat()
+    stamped = 0
+    for rows in row_lists:
+        if not isinstance(rows, list):
+            continue
+        for row in rows:
+            if isinstance(row, dict) and not row.get("last_access"):
+                row["last_access"] = now
+                stamped += 1
+    return stamped
 
 class CrossSessionMemory:
     """跨会话记忆管理器"""
@@ -303,6 +357,7 @@ class CrossSessionMemory:
                     if item["pattern"] not in seen_patterns:
                         mem_lp.append(item)
                         seen_patterns.add(item["pattern"])
+        _carry_lifecycle_fields(mem_lp, disk_lp, "pattern")
 
         disk_kd = disk_data.get("memory", {}).get("key_decisions", [])
         mem_kd = out.setdefault("memory", {}).setdefault("key_decisions", [])
@@ -316,16 +371,15 @@ class CrossSessionMemory:
                     if item["decision"] not in seen_decisions:
                         mem_kd.append(item)
                         seen_decisions.add(item["decision"])
+        _carry_lifecycle_fields(mem_kd, disk_kd, "decision")
 
-        # 更新 ByteRover AKL last_access（磁盘合并 = 记忆被访问）
-        _now_akl = datetime.now(timezone.utc).isoformat()
-        for item in mem_kd:
-            if isinstance(item, dict):
-                item["last_access"] = _now_akl
-        if disk_lp:
-            for item in mem_lp:
-                if isinstance(item, dict):
-                    item["last_access"] = _now_akl
+        # S1′ 写者收敛（2026-10-13）：此处原来无条件把全部 kd/lp 的 last_access 刷成
+        # 同一个 now（旧口径「磁盘合并 = 记忆被访问」）。后果有二：① 判据
+        # `distinct(last_access) > 1` 恒假（条目龄被抹平）② `_apply_lifecycle_decay`
+        # 的衰减永远从 0 天起算（importance 恒 50）。
+        # ⇒ 收敛为：已有条目不动（推进权归 persistent_store），**只给缺 last_access
+        # 的条目做一次性创建时间戳**。
+        _stamp_missing_last_access(mem_kd, mem_lp)
 
         for key in ("skill_usage", "dormant_skills"):
             if key in disk_data:
