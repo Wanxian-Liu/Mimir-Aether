@@ -37,6 +37,13 @@ systemd-run --user --scope --collect -p MemoryMax=<帽> -p MemorySwapMax=0 --uni
 - 别用 `pgrep -f <脚本名>` 判活（自匹配假阳性）；用 `MainPID` 或 `ps -p <记下的 PID>`。
 - 工具面：`/sys/`、`/proc/`、`/.git/` 是 `terminal` 与 `execute_code` 的**拒载片段**（`write_file` 不拦）⇒ 这类取证**落成脚本文件再跑**，或用 `chr(47)` 拼路径。
 
+## 活体配置的真源 = drop-in（2026-10-13 知识库审计实证）
+
+- **被审件 ≠ 活体入口**：审「某个服务的行为」前先 `ps -eo pid,lstart,rss,cmd | grep <port>` + `ss -ltnp`——实证：派单冻结基线给的是 `semantic_server.py`，而 18993 端口真正在跑的是 `uvicorn semantic_http:app`（另一个文件、另一个 SHA）。`ps` 的 `lstart` 还能告出「进程启动时刻」，用来判「改的文件是否已在跑」（启动时刻 < 文件 mtime ⇒ 跑的是旧代码）。
+- **功能开关真源在 drop-in，不在源码默认值**：`systemctl --user show <unit> -p DropInPaths --value` → 读 `*.conf`。实证：源码 `MIMIR_CJK_LEG` 默认 `"0"`，而 drop-in `20-cjk-leg.conf` 写 `Environment=MIMIR_CJK_LEG=1` ⇒ 活体返回体里出现 `"match":"cjk"`。**判「功能是否启用」只认活体产物**（返回体/日志），源码默认值与单元文件都可能过期。
+- **单元文件常与活体矛盾**（本技能主结论再证）：文件写 `MemoryMax=2G`/`CPUQuota=200%`，`systemctl show` 与内核值同为 `4G`/`800%` ⇒ 真值取 `systemctl show` + `/sys/fs/cgroup<cg>/memory.{max,high,peak,events}`。`memory.events` 的 `high` 计数（如 1434）说明反复撞软限，`max 0 / oom 0` 说明未被杀——两个数一起读才有意义。
+- `/proc/<pid>/environ` 可能拒读（`PermissionError`）⇒ 别把它当唯一取证路径，改走 drop-in。
+
 ## 回滚
 
 删 drop-in 文件 + `daemon-reload`（同样**即时生效**，无需重启）。
