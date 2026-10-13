@@ -191,6 +191,42 @@ if [ -n "$_pi_hits" ]; then
   fi
 fi
 
+# --- 会议卡「他席段删除」闸（2026-10-13 · 落盘事故通报 · AGENTS §5.1 第 2 级）------
+# 病（同族两次实证）：把并发期间他席追加的内容写没 ——
+#   ① 2026-10-12 全卡行首匹配（grep）误改他席 3 行；
+#   ② 2026-10-13 用**内存旧副本整卡重放**，删掉 loki（L2 复核）整段 + 哨兵
+#      【END-loki-S3-review】（commit 61641ff；统筹席从 18c2f14 逐字取回，eaa296b）。
+#   两次都发生在「共享卡 + 并发追加 + 整文件写回」结构下 ⇒ 按第 2 级上闸门，不是再提醒。
+# 方：只审**本次暂存的删除行**（--diff-filter=ACMR：整文件删除不在此闸语义内）；
+#   命中**他席段标记**（哨兵 【END-<seat> 或段头 ### <seat>）即 BLOCK。
+#   本席自己的标记（MIMIR_AGENT_ID）不拦 —— 改自己的段是允许的。
+# 覆盖边界：本闸只认**显式席名**；无名片段被删仍会漏（那是下一级枚举问题，不假装已解决）。
+_cur_seat="${MIMIR_AGENT_ID:-mimir}"
+_sd_removed=$(git diff --cached -U0 --diff-filter=ACMR -- 'discussions/*.md' '*discussions/*.md' 2>/dev/null | grep -E '^-[^-]')
+if [ -n "$_sd_removed" ]; then
+  _sd_hits=$(printf '%s\n' "$_sd_removed" \
+    | grep -E '【END-(loki|hermes|wanxian|openclaw|mimir|Loki|Hermes|OpenClaw|Mimir)|^-[[:space:]]*#{2,4}[[:space:]]+(loki|hermes|wanxian|openclaw|mimir|Loki|Hermes|OpenClaw|Mimir)([[:space:]]|（|\(|$)' 2>/dev/null \
+    | grep -v "$_cur_seat" | head -5)
+  if [ -n "$_sd_hits" ]; then
+    if [ "${MIMIR_ALLOW_SECTION_DELETE:-0}" = "1" ]; then
+      printf 'pre-commit: WARNING -- staged diff deletes another seat section marker (override traced)\n' >&2
+      _trace "section-delete-override" "true"
+    else
+      _trace "section-delete-blocked" "false"
+      printf '\npre-commit: BLOCKED -- staged diff deletes ANOTHER seat section marker\n' >&2
+      printf '%s\n' "$_sd_hits" | sed 's/^/  /' >&2
+      printf '  rule   : shared card -- re-read disk, append or patch ONLY your own section;\n' >&2
+      printf '           other seats sections (incl. 【END-<seat>】 sentinels) must show 0 deletions\n' >&2
+      printf '  why    : 2026-10-13 61641ff replayed a stale in-memory copy of the card and\n' >&2
+      printf '           silently deleted loki L2-review section (fixed by eaa296b)\n' >&2
+      printf '  instead: git diff --numstat / git diff -- <card> and count the "-" lines that\n' >&2
+      printf '           are not inside your own section; anything else -> rewrite your change\n' >&2
+      printf '  override (traced): MIMIR_ALLOW_SECTION_DELETE=1 git commit ...\n\n' >&2
+      exit 1
+    fi
+  fi
+fi
+
 if [ "$_is_amend" = "1" ] && [ "$_head" != "no-head" ]; then
   _foreign=0
   [ "$_head_author_name" != "$_cur_name" ] && _foreign=1
