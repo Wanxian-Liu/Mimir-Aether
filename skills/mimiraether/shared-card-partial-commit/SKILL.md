@@ -33,6 +33,29 @@ git commit -m '<msg>'             # 4. 提交（工作区里别人的改动原�
 现成脚本：`~/.mimiraether/tmp/p3/partial_commit3.py <repo相对路径> <关键词> <commit-msg>`
 （跑法：`cd ~/wiki && ~/src/MimirAether/.venv/bin/python3 …/partial_commit3.py "concepts/四方任务总台账.md" "台账更新 #29" "msg"`）
 
+### 变体：我段与他席段**同处一个 hunk**（纯追加场景）—— 2026-10-14 实战新增
+
+**症状**：`git diff -U3` 只出**一个** hunk（如 `@@ -428,3 +428,234 @@`）——HEAD 的卡止于我段之前，我段 + 他席在途段全是「新增」⇒ 关键词法（按 hunk 选）**必然 ABORT**。
+
+**判据（先看一眼再动手）**：
+```bash
+git diff --numstat -- <卡>        # 插入数 >> 我自己那段的行数 ⇒ 里面混着他席内容
+git diff -U0 -- <卡> | grep -c '^@@'   # =1 ⇒ 同 hunk（走本变体）；≥2 ⇒ 走关键词法
+```
+
+**修法**：按「起关键词 → 段尾关键词 → 停关键词」从该 hunk 里**切出自己那几行**，重建单 hunk（保留前置 context、丢掉尾随 context），再 `git apply --cached`：
+
+```bash
+cd ~/wiki && ~/src/MimirAether/.venv/bin/python3 ~/.mimiraether/scripts/partial_stage_mine.py \
+  "discussions/<卡>.md" "### mimir（第2轮" "【END-mimir】" "### loki（第1轮"
+```
+
+**自检（与关键词法同款三判据）**：① `index numstat` 插入数 = **我自己那段**行数；② `工作区仍剩（他席）numstat` > 0 ⇒ **没带走**（真负控）；③ commit 后 `git show --stat HEAD | head -3` 插入数 = 自己那段。
+
+**实战读数（2026-10-14）**：`git add <卡>` 走整件 = 231 行（我 63 + loki 在途 168）⇒ 会被 pre-commit 拦住（他席行里含**绝对 home 路径形式的占位样例**，掩码规则命中）**且**带走他席署名；改用本脚本 ⇒ index 63 行 / 工作区余 168 行。
+
+**配套纪律（必看）**：**长内容落盘仍走「分片 + 拼接器」**（见下），别用一次大 `patch`；且共享卡写前先 `git diff --numstat` —— **他席在途改动会在你 `git add <卡>` 时静默进 index**。
+
 **自检（必做）**：脚本拒绝 `len(sel) != 1`（匹配 0 或多于 1 个 hunk 一律 ABORT）⇒ 防「关键词撞进他席段落」。
 
 ## 三次实战判据（照抄顺序）
