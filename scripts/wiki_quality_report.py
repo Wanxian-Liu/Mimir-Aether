@@ -312,6 +312,28 @@ def find_broken_targets(files: Sequence[Path], index: Dict[str, List[str]]) -> T
     return bad, skipped
 
 
+STACKED_FM_RE = re.compile(r"(?m)^---$\n^---$")
+
+
+def find_stacked_frontmatter(files: Sequence[Path]) -> List[Dict[str, object]]:
+    """叠置 frontmatter = 文件头附近出现**连续两行顶格 `---`**（空壳块 + 真块）。
+
+    为何算真问题：`FM_BLOCK_RE` 用非贪婪 `.*?` ⇒ 只吃**第一块**，第二块
+    （常含 `relations`）永不进入检查面 ⇒ 死链 / 裸路径两条判据对该文件**全盲**。
+    实证：`entities/Agent-架构三篇论文.md`、`entities/Agentic-Design-Patterns.md`
+    （2026-10-14 修；10-13 那次「修 7 篇」只补了字段、没并块）。
+    判据只认「连续两行」⇒ 正文里作水平线用的 `---` 不误报。
+    """
+    out: List[Dict[str, object]] = []
+    for f in files:
+        try:
+            head = f.read_text(encoding="utf-8", errors="replace")[:4000]
+        except OSError:
+            continue
+        m = STACKED_FM_RE.search(head)
+        if m:
+            out.append({"src": str(f), "line": head[: m.start()].count("\n") + 1})
+    return out
 def count_drafts(files: Sequence[Path]) -> List[str]:
     """frontmatter 里 maturity: draft 的页面（信息级，不算 issue）。"""
     drafts: List[str] = []
@@ -356,10 +378,11 @@ def _rel(paths: Sequence[str], wiki: Path, limit: int) -> List[str]:
 def render_report(wiki: Path, files: Sequence[Path], resolve_count: int, dups, cross, broken,
                   skipped_ph: int, drafts, present, missing,
                   elapsed_s: float, list_limit: int,
-                  broken_targets: Sequence[Dict[str, object]] = (), skipped_tg: int = 0) -> Tuple[str, bool]:
+                  broken_targets: Sequence[Dict[str, object]] = (), skipped_tg: int = 0,
+                  stacked: Sequence[Dict[str, object]] = ()) -> Tuple[str, bool]:
     """返回 (报告文本, 是否有 issue)。报告首行是判定行 —— 它会被投递到飞书。"""
     ts = _dt.datetime.now().strftime("%Y-%m-%d %H:%M")
-    issues = bool(dups or broken or broken_targets)
+    issues = bool(dups or broken or broken_targets or stacked)
     ph_note = (" · 例举占位符跳过 " + str(skipped_ph)) if skipped_ph else ""
     if skipped_tg:
         ph_note += " · 裸路径外域跳过 " + str(skipped_tg)
@@ -396,6 +419,13 @@ def render_report(wiki: Path, files: Sequence[Path], resolve_count: int, dups, c
         lines.append("   （信息级）同名跨目录 " + str(len(cross)) + " 组，未计入问题")
     if drafts:
         lines.append("③ 成熟度 draft 待晋级 " + str(len(drafts)) + " 篇（信息级）")
+    if stacked:
+        lines.append("④ 叠置 frontmatter " + str(len(stacked))
+                     + " 篇（连续两行 --- ⇒ 第二块对检查面全盲）:")
+        for s in stacked[:list_limit]:
+            lines.append("   - " + _rel([str(s["src"])], wiki, 1)[0] + ":" + str(s["line"]))
+        if len(stacked) > list_limit:
+            lines.append("   …余 " + str(len(stacked) - list_limit) + " 篇")
     lines.append("判定真源: repo scripts/wiki_quality_report.py（零 LLM）")
     return "\n".join(lines), issues
 
@@ -436,11 +466,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     broken, skipped_ph = find_broken_links(files, index)
     broken_targets, skipped_tg = find_broken_targets(files, index)
     drafts = count_drafts(files)
+    stacked = find_stacked_frontmatter(files)
     elapsed = (_dt.datetime.now() - t0).total_seconds()
 
     text, issues = render_report(wiki, files, len(resolve_files), dups, cross, broken, skipped_ph,
                                  drafts, present, missing, elapsed, args.list_limit,
-                                 broken_targets, skipped_tg)
+                                 broken_targets, skipped_tg, stacked)
     print(text)
 
     if args.append_log:
@@ -468,8 +499,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "broken_targets_count": len(broken_targets),
             "target_skipped": skipped_tg,
             "draft_count": len(drafts),
+            "stacked_frontmatter_count": len(stacked),
             "broken": broken[:200],
             "broken_targets": broken_targets[:200],
+            "stacked_frontmatter": stacked[:200],
             "duplicates": [{"key": k, "paths": v} for k, v in dups[:50]],
             "elapsed_s": round(elapsed, 3),
             "exit_code": 1 if (issues and args.strict) else 0,
