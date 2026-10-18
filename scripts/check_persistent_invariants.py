@@ -39,6 +39,13 @@ from agent.persistent_normalize import (  # noqa: E402
     normalize,
 )
 
+# AKL 空转判据（2026-10-19 · D3）：写回路径若绕过 read_modify_write，
+# kd/lp 会整批缺 importance_base ⇒ 权重每晚被 setdefault 抹平、衰减锚点重置。
+# 阈值取「过半缺失且样本够多」，单一新条目缺失不算故障（防误报）。
+AKL_MISS_RATIO = 0.5
+AKL_MIN_ENTRIES = 5
+
+
 def _mimir_home() -> Path:
     """Runtime data root: env-first, and immune to the ``$HOME`` double-nesting.
 
@@ -87,6 +94,25 @@ def find_violations(data: dict) -> list[str]:
             bad.append(f"dormant_skills[*].dormant_at 仍为完整时间戳（{n_at} 条）")
         if n_sum:
             bad.append(f"dormant_skills[*].summary 超 {MAX_DORMANT_SUMMARY_CHARS} 字（{n_sum} 条）")
+
+    mem = data.get("memory")
+    if isinstance(mem, dict):
+        total = miss = 0
+        for key in ("key_decisions", "learned_patterns"):
+            rows = mem.get(key)
+            if not isinstance(rows, list):
+                continue
+            for entry in rows:
+                if not isinstance(entry, dict):
+                    continue
+                total += 1
+                if "importance_base" not in entry:
+                    miss += 1
+        if total >= AKL_MIN_ENTRIES and miss / total > AKL_MISS_RATIO:
+            bad.append(
+                f"memory.kd/lp 缺 importance_base {miss}/{total} 条"
+                f"（AKL 衰减空转：写回路径未补字段）"
+            )
     return bad
 
 
@@ -182,6 +208,28 @@ def _arms() -> list[tuple[str, bool]]:
     edge["dormant_skills"]["skill-a"]["summary"] = "S" * MAX_DORMANT_SUMMARY_CHARS
     edge["dormant_skills"]["skill-a"]["dormant_at"] = "2026-07-12"
     arms.append(("A4 边界·恰好达限值 ⇒ 必须绿", find_violations(edge) == []))
+
+    # AKL 两向（2026-10-19 · D3）：过半缺失必须红；全齐必须绿（不误报）
+    akl_bad = _clean_twin()
+    akl_bad["memory"] = {
+        "key_decisions": [{"decision": f"d{i}"} for i in range(6)],
+        "learned_patterns": [],
+    }
+    arms.append(("A9 AKL·6 条全缺 importance_base ⇒ 必须红", bool(find_violations(akl_bad))))
+    akl_ok = _clean_twin()
+    akl_ok["memory"] = {
+        "key_decisions": [{"decision": f"d{i}", "importance_base": 50} for i in range(6)],
+        "learned_patterns": [],
+    }
+    arms.append(("A10 AKL·6 条全带 importance_base ⇒ 必须绿", find_violations(akl_ok) == []))
+    # 边界：恰好 50% 缺失不算越阈（1/2 不报，因 |miss|/total 不大于 0.5）
+    akl_edge = _clean_twin()
+    akl_edge["memory"] = {
+        "key_decisions": [{"decision": f"e{i}"} for i in range(5)]
+        + [{"decision": f"f{i}", "importance_base": 50} for i in range(5)],
+        "learned_patterns": [],
+    }
+    arms.append(("A11 AKL·恰好 50% 缺失 ⇒ 必须绿（边界不越阈）", find_violations(akl_edge) == []))
 
     # 治本闭环：normalize 后必须无违规（这是「治本是否覆盖全部四类」的断言）
     n1 = _dirty()
