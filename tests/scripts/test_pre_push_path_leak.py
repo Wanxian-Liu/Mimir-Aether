@@ -95,7 +95,11 @@ def clone(tmp_path):
     work = tmp_path / "work"
     _git(tmp_path, "clone", "-q", str(remote), str(work))
     _config(work)
-    installed = _run(["sh", str(INSTALLER), "--repo", str(work)], REPO_ROOT)
+    # 只装 pre-push：本文件测的是推时闸。全量安装会连 pre-commit 的
+    # 个人信息闸一起装进临时库，于是夹具自己 commit 泄漏样本时先被
+    # 拦下（2026-10-18 实证：7 failed，报 pre-commit BLOCKED）。
+    installed = _run(["sh", str(INSTALLER), "--repo", str(work),
+                      "--only", "pre-push"], REPO_ROOT)
     assert installed.returncode == 0, installed.stderr
     _commit_file(work, "base.txt", "base\n", "base")
     return {"remote": remote, "work": work, "trace": tmp_path / "trace.jsonl"}
