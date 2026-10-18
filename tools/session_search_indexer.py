@@ -339,17 +339,41 @@ def watermark_prefix_len(session_id: str, messages) -> int:
     """Leading messages already indexed (0 = prefix changed / unknown)."""
     rec = (_load_state(_watermark_path()).get(session_id) or {})
     n = int(rec.get("n") or 0)
-    if n <= 0 or n > len(messages):
+    if n <= 0:
         return 0
-    if messages_digest(messages, n) != rec.get("digest"):
-        return 0
-    return n
+    if n <= len(messages) and messages_digest(messages, n) == rec.get("digest"):
+        return n
+    # F4(2026-10-19): 压缩会让消息数**变短**(实测 1753 -> 94)；旧实现 n > len
+    # 直接 return 0 => 该会话永远全量 resync(每次 30s 超时 + 全量重嵌，水位永不动)。
+    # 阶梯回退：取仍能匹配上的最大前缀(marks 只含记录时内容，新内容不会假匹配)。
+    marks = rec.get("marks") or {}
+    for L in sorted((int(k) for k in marks if str(k).isdigit()), reverse=True):
+        if 0 < L <= len(messages) and messages_digest(messages, L) == marks.get(str(L)):
+            return L
+    return 0
+
+
+_WATERMARK_LADDER = (8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384)
+
+
+def _watermark_ladder(n: int) -> list:
+    """前缀长度阶梯（<= n）：压缩后消息变短时，靠它回退到仍匹配的最大前缀。"""
+    out = [L for L in _WATERMARK_LADDER if L <= n]
+    if n > 0 and (not out or out[-1] != n):
+        out.append(n)
+    return out
 
 
 def record_watermark(session_id: str, messages, indexed_n: Optional[int] = None) -> None:
     n = len(messages) if indexed_n is None else int(indexed_n)
     data = _load_state(_watermark_path())
-    data[session_id] = {"n": n, "digest": messages_digest(messages, n), "ts": _now_ts()}
+    data[session_id] = {
+        "n": n,
+        "digest": messages_digest(messages, n),
+        "ts": _now_ts(),
+        # F4(2026-10-19): 同时记阶梯摘要，供压缩后（消息变短）回退匹配。
+        "marks": {str(L): messages_digest(messages, L) for L in _watermark_ladder(n)},
+    }
     _save_state(_watermark_path(), data)
 
 
@@ -538,10 +562,29 @@ def _stale_docs_before_clear(session_id: str, db_path: Any, keep: int) -> Tuple[
     Returns ``(doc_ids, ceiling)``. ``ceiling`` = highest rowid in this snapshot:
     ids above it were inserted *after* the read (concurrent compression) and are
     excluded on purpose, so a racing writer's fresh rows never enter the delete
-    list. ``keep <= 0`` => ``([], 0)``: caller takes the full-resync path instead.
+    list. ``keep <= 0`` => names **every** current row of this session (clear deletes
+    them all); returning ``([], 0)`` here is what leaked orphans before 2026-10-19.
     """
-    if keep <= 0 or not db_path:
+    if not db_path:
         return [], 0
+    if keep <= 0:
+        # F1(2026-10-19): clear_session_messages(keep_first=0) 删**全部**行，旧实现
+        # 返回 ([],0) 交给全量 resync —— 而 resync 的 delete 异常被 except 吞掉
+        # (只落一条 debug)，于是旧 doc 与新 doc 并存 = 孤儿无限累积。
+        # 现在：先点名本快照内全部行（ceiling 挡住并发写者后插入的行），clear 后立刻删。
+        con = sqlite3.connect(str(db_path))
+        try:
+            rows = con.execute(
+                "SELECT id FROM messages WHERE session_id = ? ORDER BY id",
+                (session_id,),
+            ).fetchall()
+        finally:
+            con.close()
+        if not rows:
+            return [], 0
+        from tools.chroma_session_indexer import message_doc_id
+
+        return [message_doc_id(session_id, int(r[0])) for r in rows], int(rows[-1][0])
     con = sqlite3.connect(str(db_path))
     try:
         row = con.execute(
@@ -608,8 +651,15 @@ def _delete_stale_session_docs(session_id: str, doc_ids: list) -> Dict[str, Any]
         target = [d for d in doc_ids if d in have]
         out["present"] = len(target)
         if target:
-            collection.delete(ids=target)
-            out["deleted"] = len(target)
+            # 分批(blast radius)：keep=0 一次可能点名上万条，单次巨型 delete 又慢又
+            # 容易撞资源上限。1000 一批，逐批累计(deleted = 实际删成功的条数)。
+            _BATCH = 1000
+            deleted = 0
+            for _i in range(0, len(target), _BATCH):
+                _chunk = target[_i:_i + _BATCH]
+                collection.delete(ids=_chunk)
+                deleted += len(_chunk)
+            out["deleted"] = deleted
     except Exception as exc:
         try:
             from tools.chroma_session_indexer import note_index_failure
@@ -693,6 +743,14 @@ def reindex_session_transcript(
             ensure_session=False,
         ):
             count += 1
+            # F4(2026-10-19): 水位原先只在函数**返回前**写；30s off-loop 预算一截断
+            # (今天 17 次 TIMEOUT)，水位就永远停在旧值 => 下次还是 keep=0。
+            # 随进度打点：被打断也留下「已索引到哪」，下次走增量、逐次收敛。
+            if count % 50 == 0:
+                try:
+                    record_watermark(session_id, messages, indexed_n=keep + count)
+                except Exception:  # pragma: no cover - 打点失败不得拖垮索引
+                    pass
     if keep == 0:
         try:
             from tools.chroma_session_indexer import sync_session_chroma_from_db
