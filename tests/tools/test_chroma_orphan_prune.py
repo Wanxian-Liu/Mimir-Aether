@@ -189,7 +189,11 @@ def test_append_only_rewrite_creates_no_orphans(tmp_path, env, monkeypatch):
 
 
 def test_without_prune_hook_orphans_would_persist(tmp_path, env, monkeypatch):
-    """负控（= 修前行为）：把 prune 打成 no-op => 孤儿必须残留。
+    """负控（= 修前行为）：把**清理钩子**打成 no-op => 孤儿必须残留。
+
+    2026-10-18 解耦后清理不再走 `csi.prune_session_chroma_orphans`（全库扫描旧路径），
+    改锚 `ssi._delete_stale_session_docs`——负控锚点必须跟着实现走，否则锚在
+    被解耦掉的那条路上，绿得没有鉴别力。
 
     证明 test_compress_shaped_rewrite_prunes_orphans 真有鉴别力 ——
     否则「绿」可能只是因为那条路径本来就不产生孤儿。两向缺一即不及格。
@@ -198,8 +202,8 @@ def test_without_prune_hook_orphans_would_persist(tmp_path, env, monkeypatch):
     col = _FakeCollection()
     _wire(monkeypatch, col)
     monkeypatch.setattr(
-        csi, "prune_session_chroma_orphans",
-        lambda *a, **k: {"session_id": "", "chroma_docs": 0, "wanted": 0, "orphans": 0, "deleted": 0},
+        ssi, "_delete_stale_session_docs",
+        lambda *a, **k: {"seeded": 0, "present": 0, "deleted": 0},
     )
 
     msgs = _msgs(4)

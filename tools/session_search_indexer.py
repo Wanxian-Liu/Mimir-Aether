@@ -432,13 +432,87 @@ def resume_session_index(session_id: str, *, like_db: Any, batch_size: int = 128
     return out
 
 
+def reconcile_session_orphans(
+    session_id: str, db_path: Any, *, dry_run: bool = False, collection: Any = None
+) -> Dict[str, Any]:
+    """Scoped orphan reconcile for ONE session (no full-library scan).
+
+    ``chroma_session_indexer.prune_session_chroma_orphans`` answers the same
+    question but pays ``iter_indexable_messages()`` over the whole DB, so it is
+    unusable on a hot path. This reads only this session's docs and rows -- which
+    makes it safe to call from the pending-resume path (runs at gateway start)
+    and from the monitor's whitelist self-heal.
+
+    Reading dict: ``chroma_docs`` / ``wanted`` / ``orphans`` / ``deleted``
+    (+``skipped``/``error``). Never raises.
+    """
+    out: Dict[str, Any] = {
+        "session_id": session_id,
+        "chroma_docs": 0,
+        "wanted": 0,
+        "orphans": 0,
+        "deleted": 0,
+    }
+    if not db_path:
+        out["skipped"] = "no_db_path"
+        return out
+    try:
+        import tools.chroma_session_indexer as _csi
+        from tools.chroma_session_indexer import message_doc_id
+
+        if not _csi.chroma_incremental_enabled():
+            # 配对不变量（与 prune 同口径）：增量写者关着就不清理。
+            out["skipped"] = "incremental_off"
+            return out
+        col = collection
+        if col is None:
+            factory = getattr(_csi, "_get_incremental_collection", None) or _csi.get_chroma_collection
+            col = factory()
+        have, offset = set(), 0
+        while True:
+            got = col.get(
+                where={"session_id": session_id}, include=[], limit=1000, offset=offset
+            ).get("ids") or []
+            if not got:
+                break
+            have |= set(got)
+            offset += len(got)
+            if len(got) < 1000:
+                break
+        con = sqlite3.connect(str(db_path))
+        try:
+            rows = con.execute(
+                "SELECT id FROM messages WHERE session_id = ?", (session_id,)
+            ).fetchall()
+        finally:
+            con.close()
+        wanted = {message_doc_id(session_id, int(r[0])) for r in rows}
+        stale = sorted(have - wanted)
+        out["chroma_docs"] = len(have)
+        out["wanted"] = len(wanted)
+        out["orphans"] = len(stale)
+        if stale and not dry_run:
+            col.delete(ids=stale)
+            out["deleted"] = len(stale)
+    except Exception as exc:
+        out["error"] = "%s: %s" % (type(exc).__name__, exc)
+    return out
+
+
 def resume_pending_indexes(*, like_db: Any = None, limit: Optional[int] = None) -> Dict[str, Any]:
     """续传所有 pending 会话（崩溃/超时留下的半成品）。"""
     pending = _load_state(_pending_path())
     done: Dict[str, Any] = {}
     for sid in list(pending)[: limit if limit else None]:
         try:
+            # 2026-10-18：恢复前先做一次**本会话范围**的孤儿对账。
+            # 为什么在 resume 之前：pending = 「上次没写完」，而没写完的重写
+            # 正是孤儿产地；先对账再续传，续传面对干净基线，也不会把上次
+            # 被删行的残留 doc 留到「下次重写才清」（旧行为）。
+            rec = reconcile_session_orphans(sid, getattr(like_db, "db_path", None))
             done[sid] = resume_session_index(sid, like_db=like_db)
+            if rec.get("orphans") or rec.get("deleted") or rec.get("error") or rec.get("skipped"):
+                done[sid]["reconcile"] = rec
             clear_pending(sid)
         except Exception as exc:
             from tools.chroma_session_indexer import note_index_failure
@@ -446,6 +520,132 @@ def resume_pending_indexes(*, like_db: Any = None, limit: Optional[int] = None) 
             note_index_failure("resume_pending", exc, sink="session_search_indexer")
             done[sid] = {"error": f"{type(exc).__name__}: {exc}"}
     return {"pending_seen": len(pending), "resumed": done}
+
+# ── 孤儿清理解耦（2026-10-18 · DBRE：large deletes need a blast-radius estimate）──
+# 旧形态：清理挂在重写循环**之后**（跑完全部 re-embed 才 prune），且 prune 要
+# `iter_indexable_messages()` **全库扫描**。后果：① 30s off-loop 预算一截断，
+# 清理那步根本没机会跑（orphans 复发）；② 只删本会话几个 id 却按全库算。
+# 新形态：clear **之前**点名将被删的 rowid → clear 之后**立刻**删对应 doc。
+# 不依赖重写跑完、不依赖全库扫描；窗口从「整个重写」缩到「clear 前后两次调用」。
+
+def _stale_docs_before_clear(session_id: str, db_path: Any, keep: int) -> Tuple[list, int]:
+    """Point-name the docs that ``clear_session_messages(keep_first=keep)`` will strand.
+
+    Runs **before** the clear: the rows it returns are exactly the ones the DELETE
+    removes (``id NOT IN (first keep rows)`` == ``id > last-kept id``), so their
+    ``{session}:{id}`` docs become orphans the moment the clear commits.
+
+    Returns ``(doc_ids, ceiling)``. ``ceiling`` = highest rowid in this snapshot:
+    ids above it were inserted *after* the read (concurrent compression) and are
+    excluded on purpose, so a racing writer's fresh rows never enter the delete
+    list. ``keep <= 0`` => ``([], 0)``: caller takes the full-resync path instead.
+    """
+    if keep <= 0 or not db_path:
+        return [], 0
+    con = sqlite3.connect(str(db_path))
+    try:
+        row = con.execute(
+            "SELECT id FROM messages WHERE session_id = ? ORDER BY id LIMIT 1 OFFSET ?",
+            (session_id, int(keep) - 1),
+        ).fetchone()
+        if not row:
+            return [], 0  # 行数不足 keep => clear 不删任何行
+        prefix_max = int(row[0])
+        rows = con.execute(
+            "SELECT id FROM messages WHERE session_id = ? AND id > ? ORDER BY id",
+            (session_id, prefix_max),
+        ).fetchall()
+    finally:
+        con.close()
+    if not rows:
+        return [], prefix_max
+    from tools.chroma_session_indexer import message_doc_id
+
+    return [message_doc_id(session_id, int(r[0])) for r in rows], int(rows[-1][0])
+
+
+_PRUNE_LEDGER_ENV = "MIMIR_INDEX_PRUNE_LEDGER_PATH"
+_PRUNE_LEDGER_MAX = 200
+
+
+def _prune_ledger_path() -> Path:
+    return _state_path(_PRUNE_LEDGER_ENV, "orphan_prune_ledger.json")
+
+
+def _delete_stale_session_docs(session_id: str, doc_ids: list) -> Dict[str, Any]:
+    """Delete exactly the docs the pre-clear snapshot named (whitelist scope guard).
+
+    Whitelist, not a range: only ids **named by the snapshot** AND currently present
+    for this session are deleted. A racing writer's rows are never in that set
+    (their rowids postdate the snapshot ceiling) and other sessions are never
+    touched — ``collection.get`` is filtered by ``session_id``, so the read cost is
+    this session only (no full-library scan). Returns a measured reading; never
+    raises, but failures are no longer silent (index-failure log + ``error`` field).
+    """
+    out: Dict[str, Any] = {"seeded": len(doc_ids or []), "present": 0, "deleted": 0}
+    if not out["seeded"]:
+        return out
+    try:
+        import tools.chroma_session_indexer as _csi
+
+        if not _csi.chroma_incremental_enabled():
+            # 配对不变量：增量写者关着 => 尾部从未重嵌，删了就是把「陈旧」换成「缺失」。
+            out["skipped"] = "incremental_off"
+            return out
+        factory = getattr(_csi, "_get_incremental_collection", None) or _csi.get_chroma_collection
+        collection = factory()
+        have, offset = set(), 0
+        while True:
+            got = collection.get(
+                where={"session_id": session_id}, include=[], limit=1000, offset=offset
+            ).get("ids") or []
+            if not got:
+                break
+            have |= set(got)
+            offset += len(got)
+            if len(got) < 1000:
+                break
+        target = [d for d in doc_ids if d in have]
+        out["present"] = len(target)
+        if target:
+            collection.delete(ids=target)
+            out["deleted"] = len(target)
+    except Exception as exc:
+        try:
+            from tools.chroma_session_indexer import note_index_failure
+
+            note_index_failure("session_prune_inline", exc, sink="session_search_indexer")
+        except Exception:  # pragma: no cover - 观测设施不得拖垮索引路径
+            pass
+        out["error"] = "%s: %s" % (type(exc).__name__, exc)
+    return out
+
+
+def _note_prune_candidates(session_id: str, reading: Dict[str, Any]) -> None:
+    """Record the sessions the write path pointed at => the monitor's prune whitelist.
+
+    The monitor may only self-heal sessions that the writer itself named (whitelist
+    scope guard): an unbounded "delete anything that looks stale" would make the
+    monitor able to delete rows it never proved orphan.
+    """
+    try:
+        path = _prune_ledger_path()
+        data = _load_state(path)
+        seeded = int(reading.get("seeded") or 0)
+        deleted = int(reading.get("deleted") or 0)
+        data[session_id] = {
+            "ts": _now_ts(),
+            "seeded": seeded,
+            "deleted": deleted,
+            "residual": max(0, seeded - deleted),
+        }
+        if len(data) > _PRUNE_LEDGER_MAX:
+            ordered = sorted(data.items(), key=lambda kv: float((kv[1] or {}).get("ts") or 0.0))
+            data = dict(ordered[-_PRUNE_LEDGER_MAX:])
+        _save_state(path, data)
+    except Exception:  # pragma: no cover
+        logger.debug("prune ledger write failed (%s)", session_id)
+
 
 def reindex_session_transcript(
     session_id: str,
@@ -464,6 +664,10 @@ def reindex_session_transcript(
     30s off-loop budget truncated (P0 diagnosis 2026-10-05, S8-2).
     """
     keep = watermark_prefix_len(session_id, messages) if incremental else 0
+    db_path = getattr(like_db, "db_path", None)
+    # 解耦（2026-10-18）：clear 之前点名「将被删的 rowid」→ clear 之后立刻删。
+    # 不再等重写循环跑完（30s 预算一截断，那一步永远等不到），也不再全库扫描。
+    stale_docs, _stale_ceiling = _stale_docs_before_clear(session_id, db_path, keep)
     clear = getattr(like_db, "clear_session_messages", None)
     if callable(clear):
         try:
@@ -471,6 +675,11 @@ def reindex_session_transcript(
         except TypeError:
             clear(session_id)  # legacy store without keep_first
             keep = 0
+            stale_docs = []  # legacy 整会话清空 => 走下方全量重同步
+    pruned = _delete_stale_session_docs(session_id, stale_docs)
+    if pruned.get("seeded"):
+        _note_prune_candidates(session_id, pruned)
+        logger.debug("inline prune %s: %s", session_id, pruned)
     like_db.add_session(session_id, source=source, title=title)
     record_pending(session_id, len(messages), source=source, title=title)
     count = 0
@@ -495,29 +704,6 @@ def reindex_session_transcript(
             from tools.chroma_session_indexer import note_index_failure
 
             note_index_failure("session_resync_hook", exc, sink="session_search_indexer")
-    else:
-        # Incremental path: the rewritten tail was re-inserted under NEW row ids,
-        # so the pre-rewrite docs for this session are stranded. A full resync
-        # here would re-embed the whole session -- exactly what the 2026-10-05 P0
-        # truncated at the 30s off-loop budget -- so instead drop only the stale
-        # ids (no embedding, kept prefix untouched).
-        # 2026-10-12 measurement: 1454 orphans, 1421 from a single rewrite.
-        try:
-            from tools.chroma_session_indexer import prune_session_chroma_orphans
-
-            db_path = getattr(like_db, "db_path", None)
-            if db_path:
-                pruned = prune_session_chroma_orphans(session_id, db_path)
-                if pruned.get("orphans"):
-                    logger.debug(
-                        "incremental reindex pruned %s stale chroma docs (%s)",
-                        pruned["orphans"],
-                        session_id,
-                    )
-        except Exception as exc:
-            from tools.chroma_session_indexer import note_index_failure
-
-            note_index_failure("session_prune_hook", exc, sink="session_search_indexer")
     record_watermark(session_id, messages)
     clear_pending(session_id)
     return count
