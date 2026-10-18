@@ -243,9 +243,15 @@ def test_no_direct_rewrite_transcript_calls_outside_session_module():
         "direct (event-loop blocking) rewrite_transcript call(s) found: %s"
         % offenders
     )
-    # session.py may only host the sync primitive + its SessionManager
-    # delegation; a third one would mean a new inline call path appeared.
-    assert session_calls == 1, (
-        "expected exactly 1 internal delegation in session.py, found %d"
-        % session_calls
+    # session.py may only host the sync primitive + its off-loop wrappers.
+    # F5 (2026-10-19): the single-flight guard added a second, *thread-side*
+    # delegation (`_run_guarded`) -- it runs INSIDE asyncio.to_thread and
+    # releases the guard only when the worker really exits (asyncio.wait_for
+    # cannot cancel a thread, so releasing on timeout would let the next call
+    # double-write the same chroma collection and corrupt its HNSW segment).
+    # That is not a new inline path: it is the same call, wrapped. A THIRD
+    # call site WOULD mean a new inline path appeared, so the ceiling is 2.
+    assert session_calls == 2, (
+        "expected 2 internal delegations in session.py (sync primitive + "
+        "single-flight wrapper), found %d" % session_calls
     )

@@ -557,14 +557,14 @@ class AgentRouteMixin:
                                     session_entry.session_id = _hyg_new_sid
                                     self.session_store._save()
 
-                                await rewrite_transcript_off_loop(
-                                    self.session_store,
-                                    session_entry.session_id,
-                                    _compressed,
-                                    phase="hygiene-compress",
-                                    timeout_s=_hygiene_index_timeout_s(),
-                                )
-                                # Reset stored token count — transcript was rewritten
+                                # F5 (2026-10-19): 索引重写从**此处**下移到 noop 判定
+                                # 之后。原位置无论压缩真假都会触发 ~1900 docs 全量
+                                # 重同步；盘上读数 26 次 begin / 22 次 TIMEOUT /
+                                # **0 次成功** / 4 次进程中途死，而压缩本身是
+                                # `pruned=0 msgs=1901->1901` 空操作 ⇒ 纯浪费 + 双写
+                                # 风险源（abandoned worker 与下一轮 worker 同写一个
+                                # collection ⇒ HNSW 坏 ⇒ SEGV）。
+                                # Reset stored token count
                                 session_entry.last_prompt_tokens = 0
                                 history = _compressed
                                 _new_count = len(_compressed)
@@ -592,13 +592,24 @@ class AgentRouteMixin:
                                         "[COMPRESS] abort layer=gateway reason=noop "
                                         "msgs=%s->%s tokens=%s(actual)->%s(rough) "
                                         "threshold=%s elapsed=%.2fs "
-                                        "(compress returned messages unchanged)",
+                                        "(compress returned messages unchanged; "
+                                        "index rewrite skipped)",
                                         _msg_count, _new_count,
                                         f"{_approx_tokens:,}", f"{_new_tokens:,}",
                                         f"{_compress_token_threshold:,}", _hyg_elapsed,
                                     )
                                 else:
                                     _hyg_outcome = "applied"
+                                    # F5: 只有**真压缩**（条数确实变少）才重写索引。
+                                    # noop 时 transcript 内容未变 ⇒ 重写不产生新信息，
+                                    # 只制造一次全量嵌入 + 一次双写窗口。
+                                    await rewrite_transcript_off_loop(
+                                        self.session_store,
+                                        session_entry.session_id,
+                                        _compressed,
+                                        phase="hygiene-compress",
+                                        timeout_s=_hygiene_index_timeout_s(),
+                                    )
                                     logger.info(
                                         "[COMPRESS] result layer=gateway msgs=%s->%s "
                                         "tokens=%s(actual)->%s(rough) threshold=%s "

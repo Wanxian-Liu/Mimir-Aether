@@ -82,6 +82,44 @@ def _note_index_failure(stage: str, exc: BaseException) -> None:
         logger.warning("[INDEX-FAIL] stage=%s %s: %s", stage, type(exc).__name__, exc)
 
 
+# F5 (2026-10-19): 同一会话的 transcript 重写必须单飞。
+#
+# 事故链（盘上实证）：asyncio.wait_for 超时**只停止等待**，线程不可取消 ⇒
+# 被"放弃"的 worker 继续写 chroma；卫生层每轮（~30min）再起一个新 worker ⇒
+# 两个 writer 同时写同一 collection ⇒ HNSW 段与 sqlite 不同步
+# （段 00:37 / 库 02:18）⇒ Collection.count() SEGV（02:16/16:55/17:33/18:10
+# 连崩 4 次）⇒ 旧库被改名止血（chroma_sessions.broken-20261019）。
+#
+# 闸的语义（与 tools/session_search_tool.py 的 _SEMANTIC_INFLIGHT 同族）：
+#   · 同会话已有 worker 在跑 ⇒ 新请求直接 SKIP（不起第二个 writer）
+#   · 不同会话互不阻塞（防过度串行化）
+#   · 超时**不**释放闸（worker 仍在跑）；worker 真正退出才释放
+_INFLIGHT_LOCK = threading.Lock()
+_INFLIGHT_SESSIONS: set = set()
+_INFLIGHT_SKIPPED = 0
+
+
+def _inflight_try_acquire(session_id: str) -> bool:
+    global _INFLIGHT_SKIPPED
+    with _INFLIGHT_LOCK:
+        if session_id in _INFLIGHT_SESSIONS:
+            _INFLIGHT_SKIPPED += 1
+            return False
+        _INFLIGHT_SESSIONS.add(session_id)
+        return True
+
+
+def _inflight_release(session_id: str) -> None:
+    with _INFLIGHT_LOCK:
+        _INFLIGHT_SESSIONS.discard(session_id)
+
+
+def inflight_stats() -> Dict[str, Any]:
+    """Observability for the single-flight guard (never silent)."""
+    with _INFLIGHT_LOCK:
+        return {"running": sorted(_INFLIGHT_SESSIONS), "skipped": _INFLIGHT_SKIPPED}
+
+
 _REWRITE_OFFLOAD_TIMEOUT_ENV = "MIMIR_HYGIENE_INDEX_TIMEOUT_S"
 
 
@@ -123,6 +161,18 @@ async def rewrite_transcript_off_loop(
     limit = rewrite_offload_timeout_s() if timeout_s is None else float(timeout_s)
     docs = len(messages) if messages is not None else 0
     started = time.monotonic()
+
+    # F5 单飞闸：同会话已有 worker 在跑 ⇒ 不起第二个 writer（双写会写坏 HNSW）
+    if not _inflight_try_acquire(session_id):
+        logger.warning(
+            "[INDEX] %s SKIP sid=%s docs=%s reason=inflight_busy "
+            "(previous worker still running; refusing a second writer)",
+            phase,
+            session_id,
+            docs,
+        )
+        return False
+
     logger.info(
         "[INDEX] %s begin sid=%s docs=%s timeout_s=%.1f",
         phase,
@@ -130,16 +180,27 @@ async def rewrite_transcript_off_loop(
         docs,
         limit,
     )
+
+    def _run_guarded() -> Any:
+        # 闸在 worker 线程**真正退出**时才释放——超时（wait_for 放弃等待）
+        # 不释放，否则下一个请求会与仍在跑的 worker 双写。
+        try:
+            return store.rewrite_transcript(session_id, messages, skip_db)
+        finally:
+            _inflight_release(session_id)
+
     try:
         await asyncio.wait_for(
-            asyncio.to_thread(store.rewrite_transcript, session_id, messages, skip_db),
+            asyncio.to_thread(_run_guarded),
             timeout=limit,
         )
     except asyncio.TimeoutError:
         logger.warning(
             "[INDEX] %s TIMEOUT sid=%s docs=%s elapsed=%.2fs limit=%.1fs -- "
-            "event loop stayed responsive (RS21); worker abandoned, derived "
-            "search index may be stale (rebuildable)",
+            "event loop stayed responsive (RS21); worker abandoned but NOT "
+            "cancelled (threads are uncancellable) -- single-flight guard stays "
+            "held until it really exits, so no second writer can double-write "
+            "the same collection; derived search index may be stale (rebuildable)",
             phase,
             session_id,
             docs,
