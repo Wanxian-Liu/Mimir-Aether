@@ -65,6 +65,34 @@ cd ~/wiki && ~/src/MimirAether/.venv/bin/python3 ~/.mimiraether/scripts/partial_
 3. commit 后 `git show --stat HEAD | head -3` ⇒ **1 file changed，插入数 = 自己那段**
 4. **`git diff --numstat` 仍有他席的行** ⇒ 证明**没带走**（这一步是真正的负控）
 
+### 变体 2：目标卡**尚不在 HEAD**（新卡首次提交）——2026-10-18 实战新增
+
+**症状**：`git show HEAD:<卡>` 报 `路径在磁盘上，但是不在 'HEAD' 中`；`git status --porcelain -- <卡>` = `AM`（index 已 add + 工作区又改）；`git diff --cached --numstat` = 整卡行数（因为是新文件，0 删除）。
+
+**为什么 hunk 法不够**：新文件在 index 里是「一条整件 blob」，他席的在途段**已经**被谁 `git add` 进了那个 blob ⇒ `git apply --cached` 之后 index = 他席版 + 我 hunk，**`git commit` 就把他席署名带走了**。
+
+**判据（先看两条）**：
+```bash
+git show HEAD:"<卡>" | wc -l        # 报错/0 ⇒ 走本变体
+git status --porcelain -- "<卡>"     # AM / A  ⇒ index 里有整件
+```
+
+**修法：临时 index + `commit-tree`（内容由行号切片显式指定，不依赖 diff）**
+
+1. 按「段首行 → 段尾 sentinel」从**工作区**切出 `方案正文(1..PLAN_END) + 我段(..MINE_END)`，写到临时文件；
+2. `GIT_INDEX_FILE=<tmp-idx> git read-tree HEAD` → `git hash-object -w` → `update-index --add --cacheinfo 100644,<blob>,<rel>` → `write-tree`；
+3. `git commit-tree <tree> -p HEAD -m '<msg>'` → `git update-ref HEAD <commit>`；
+4. **不动 index**：他席原来 staged 的内容继续 staged（`git status` 仍是 `MM`，工作区 411 行 / HEAD 192 行）。
+
+**三判据（照抄）**：
+- `git show --stat HEAD` ⇒ `1 file changed，插入数 = 正文+我段`（**不是**整卡行数）；
+- `git show HEAD:"<卡>" | grep -o '【END-…】'` ⇒ 只有我的 sentinel + `【END-PLAN】`，**无他席 sentinel**；
+- 工作区行数 > HEAD 行数 ⇒ 他席在途内容**原样留在盘上**（真负控）。
+
+**实战读数（2026-10-18）**：卡 = 192 行进 HEAD（正文 88 + 本席 104），工作区 411 行不动；他席 3 个 sentinel 全部保留；`git show --stat` 插入 192（≠ 411）。
+
+**要改字段格式时**：改完再按同一流程 `-p HEAD^` 重建一次（amend），避免多一条噪声提交；改前先确认**行数没变**（PLAN_END/MINE_END 才不失效）。
+
 ## 配套纪律（血泪）
 
 - **先备份**：改共享卡前 `shutil.copy2(card, card + '.bak-<ts>')`；跑完把 `.bak` **移出仓库**（`git status` 里别留 `??` 噪声）
