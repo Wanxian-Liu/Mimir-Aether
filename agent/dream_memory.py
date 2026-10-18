@@ -312,7 +312,81 @@ def _format_memory_for_distillation(data: Dict) -> str:
             ev_suffix = f" — 证据: {ev}" if ev else ""
             lines.append(f"{i}. {pattern_text}{ev_suffix}")
 
+    constraints: List = mem.get("behavioral_constraints", [])
+    if constraints:
+        lines.append("\n=== behavioral_constraints（既有行为约束，必须保留） ===")
+        for i, c in enumerate(constraints, 1):
+            rule = c.get("rule", c) if isinstance(c, dict) else c
+            lines.append(f"{i}. {rule}")
     return "\n".join(lines)
+
+
+# ── 写回面：AKL 继承 + 约束合并（2026-10-18 · D1/D2）──────────────
+_AKL_INHERIT_FIELDS = ("importance", "maturity", "last_access", "decay_factor")
+
+
+def _norm_mem_text(value: object) -> str:
+    """记忆条目的对齐口径：压平空白（LLM 可能只改空白）。"""
+    if value is None:
+        return ""
+    return " ".join(str(value).split())
+
+
+def _item_text(item: object, text_key: str) -> str:
+    if isinstance(item, dict):
+        return _norm_mem_text(item.get(text_key, ""))
+    return _norm_mem_text(item)
+
+
+def _inherit_akl(old_items: List, new_items: List, text_key: str) -> Tuple[List, int]:
+    """按文本对齐，把旧条目的 AKL 字段继承到同文本的新条目（返回继承数）。
+
+    LLM 只输出内容字段，AKL 靠 setdefault 补默认值 ⇒ 人工调过的 importance
+    每晚被抹平、last_access 每晚重置 ⇒ 衰减永不发生（2026-10-18 实测 49/49
+    条目丢 AKL）。对齐口径 = 规范化空白后**全等**文本：改写过的条目视为新
+    条目——宁可丢权重，不可错配权重。
+    """
+    index: Dict[str, Dict] = {}
+    for it in old_items or []:
+        if isinstance(it, dict):
+            key = _item_text(it, text_key)
+            if key:
+                index.setdefault(key, it)
+    inherited = 0
+    out: List = []
+    for it in new_items or []:
+        if isinstance(it, dict):
+            src = index.get(_item_text(it, text_key))
+            if src is not None:
+                for field in _AKL_INHERIT_FIELDS:
+                    if field in src and field not in it:
+                        it[field] = src[field]
+                        inherited += 1
+        out.append(it)
+    return out, inherited
+
+
+def _merge_constraints(old: List, new: List, max_n: int) -> Tuple[List, List]:
+    """既有约束先占位，新约束补位；返回（合并结果, 被挤掉的规则文本）。
+
+    旧写回是整表替换，LLM 某晚没再提炼出某条 ⇒ 该条静默消失且无备份
+    （2026-10-18 实测丢 1 条防护规则）。保护语义 = 旧的先占满、新的只在空位
+    进；超限时被挤掉的显式回传给调用方记录——可以丢，但不许静默。
+    """
+    out: List = []
+    seen = set()
+    for it in list(old or []) + list(new or []):
+        rule = it.get("rule", "") if isinstance(it, dict) else it
+        key = _norm_mem_text(rule)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        out.append(it)
+    evicted_text = [
+        _norm_mem_text(e.get("rule", "") if isinstance(e, dict) else e)
+        for e in out[max_n:]
+    ]
+    return out[:max_n], evicted_text
 
 
 def _memory_markdown_path() -> str:
@@ -385,7 +459,10 @@ def _build_distillation_prompt(memory_text: str) -> str:
 13. **（Trajectory-Informed Memory）** 每条决策和模式增加以下字段：
     - **tip_type**：分类为 "strategy"（策略—以后该怎么做）、"recovery"（恢复—怎么从错误中修）、"optimization"（优化—怎么把好的做得更好）
     - **cause_chain**（仅决策）：{{"direct": "直接触发原因", "proximate": "近因/中间原因", "root": "根因/系统性问题"}}
-14. **只输出 JSON**，不要解释过程。
+14. **既有 behavioral_constraints 必须保留**——输入里有「既有行为约束」段时，
+    除非该条被新证据明确推翻，否则必须原样出现在输出的 behavioral_constraints
+    里（可合并措辞，不许无声删除）。
+15. **只输出 JSON**，不要解释过程。
 
 输入记忆：
 {memory_text}
@@ -709,8 +786,27 @@ async def _run_distillation(
     # 用蒸馏后的条目替换原有记忆
     if "memory" not in data:
         data["memory"] = {}
-    data["memory"]["key_decisions"] = result["key_decisions"][:_MAX_DECISIONS]
-    data["memory"]["learned_patterns"] = result["learned_patterns"][:_MAX_PATTERNS]
+
+    # D1: AKL 字段按文本对齐继承（旧值优先于 setdefault 默认值）
+    new_decisions_items, inherited_decisions = _inherit_akl(
+        data["memory"].get("key_decisions", []), result.get("key_decisions", []), "decision"
+    )
+    new_patterns_items, inherited_patterns = _inherit_akl(
+        data["memory"].get("learned_patterns", []), result.get("learned_patterns", []), "pattern"
+    )
+    # D3: 超限截断不许静默——丢弃项落 warning（可 grep）
+    evicted_decisions = new_decisions_items[_MAX_DECISIONS:]
+    evicted_patterns = new_patterns_items[_MAX_PATTERNS:]
+    for _label, _dropped, _tk in (
+        ("key_decisions", evicted_decisions, "decision"),
+        ("learned_patterns", evicted_patterns, "pattern"),
+    ):
+        for _item in _dropped:
+            logger.warning(
+                "[DreamMemory] %s 超限截断，丢弃: %s", _label, _item_text(_item, _tk)[:60]
+            )
+    data["memory"]["key_decisions"] = new_decisions_items[:_MAX_DECISIONS]
+    data["memory"]["learned_patterns"] = new_patterns_items[:_MAX_PATTERNS]
 
     # 注入 ByteRover AKL 字段（importance / maturity / last_access / decay_factor）
     _now_akl = datetime.now(timezone.utc).isoformat()
@@ -727,11 +823,15 @@ async def _run_distillation(
             p.setdefault("last_access", _now_akl)
             p.setdefault("decay_factor", 0.95)
 
-    # PMD 共同进化：写入 behavioral_constraints
-    if new_constraints > 0:
-        data["memory"]["behavioral_constraints"] = result["behavioral_constraints"][:_MAX_CONSTRAINTS]
-    else:
-        data["memory"].pop("behavioral_constraints", None)
+    # D2: PMD 共同进化——旧的先占位、新的补位；超限显式记录（不静默丢）
+    merged_constraints, evicted_constraints = _merge_constraints(
+        data["memory"].get("behavioral_constraints", []),
+        result.get("behavioral_constraints", []),
+        _MAX_CONSTRAINTS,
+    )
+    for _rule in evicted_constraints:
+        logger.warning("[DreamMemory] behavioral_constraints 超限被挤掉: %s", _rule[:60])
+    data["memory"]["behavioral_constraints"] = merged_constraints
 
     # 写入自我矛盾报告（Change 3）
     contradiction = result.get("self_contradiction", "")
@@ -765,6 +865,9 @@ async def _run_distillation(
         f"    · tip_type 分布: {tip_types_patterns}\n"
         f"  - behavioral_constraints: {old_constraints} → {new_constraints} "
         f"({new_constraints - old_constraints:+d})\n"
+        f"    · AKL 继承: decisions {inherited_decisions} 处 / patterns {inherited_patterns} 处\n"
+        f"    · 条目超限截断: decisions {len(evicted_decisions)} / patterns {len(evicted_patterns)}\n"
+        f"    · 约束被挤掉: {evicted_constraints or '无'}\n"
         f"  - 自我矛盾: {'⚠️ ' + contradiction[:80] if contradiction else '✅ 无'}\n"
         f"  - 时间: {datetime.now(timezone.utc).isoformat()}"
     )
