@@ -112,6 +112,21 @@ def test_stalled_monitor_is_reported_as_a_monitor_fault():
     assert any("停摆" in p for p in problems), problems
 
 
+def test_stalled_monitor_trips_after_one_missed_cycle():
+    """两向（④）：漏一个 6h 周期必须报停摆；未超容忍窗不得误报。
+
+    2026-10-19 假绿事故回归：产出冻结 6h+ 时报告层仍输出 ✅（容忍度旧值 12h）。
+    """
+    stale = NOW.timestamp() - 8 * 3600  # 6h 节拍漏一轮 + 2h
+    healthy, problems, _ = _evaluate(_health(), health_mtime=stale)
+    assert not healthy, problems
+    assert any("停摆" in p for p in problems), problems
+
+    fresh = NOW.timestamp() - 6 * 3600  # 恰一个周期内，不得误报
+    healthy2, problems2, _ = _evaluate(_health(), health_mtime=fresh)
+    assert healthy2, problems2
+
+
 def test_index_lagging_the_source_is_reported():
     newest = NOW.timestamp()
     healthy, problems, _ = _evaluate(_health(ok=True), chroma_mtime=newest - 7200, newest_source_ts=newest)

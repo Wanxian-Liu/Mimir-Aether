@@ -39,7 +39,11 @@ from pathlib import Path
 
 DEFAULT_INTERVAL_HOURS = 6
 # 监控心跳容忍度：超过 2 个调度周期没有新产出 = 监控停摆（不是索引病）
-HEARTBEAT_TOLERANCE_FACTOR = 2
+HEARTBEAT_TOLERANCE_FACTOR = 1.25
+# 1.25 × 6h = 7.5h：漏一个周期（产出冻结 6h+）就必须报停摆。
+# 旧值 2（12h）让「连漏两个 6h 周期」仍报 ✅ —— 2026-10-19 实证：
+# p0_index_health.json 冻结在 10-18 21:06，03:12 的报告层仍输出「✅ docs=34119」，
+# 而活体 chroma 直测只有 729（缺口 33,789）。容忍度是假绿的时间窗。
 # 索引落后源数据的容忍度（秒）。600s 覆盖一次 6h 周期内的正常写入间隔。
 INDEX_LAG_TOLERANCE_S = 600
 DRIFT_ABS_FLOOR = 10
