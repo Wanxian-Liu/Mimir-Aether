@@ -381,10 +381,31 @@ def _now_ts() -> float:
     return datetime.now().timestamp()
 
 
-def record_pending(session_id: str, total: int, *, source: str = "", title: str = "") -> None:
-    """Mark a session as mid-flight BEFORE the expensive work (crash-safe)."""
+def record_pending(
+    session_id: str,
+    total: int,
+    *,
+    source: str = "",
+    title: str = "",
+    actual: Optional[int] = None,
+    chroma_docs: Optional[int] = None,
+    reason: Optional[str] = None,
+) -> None:
+    """Mark a session as mid-flight BEFORE the expensive work (crash-safe).
+
+    F7(2026-10-19): ``total`` 是**压缩前**的快照，压缩后必然大于源库实际行数
+    （实测 pending.total=1952 / 实际 475）——单靠它，记录无法被复算。故额外记
+    ``actual``（读回时源库真实行数）+ ``chroma_docs`` + ``reason``。
+    """
     data = _load_state(_pending_path())
-    data[session_id] = {"total": int(total), "source": source, "title": title, "ts": _now_ts()}
+    rec = {"total": int(total), "source": source, "title": title, "ts": _now_ts()}
+    if actual is not None:
+        rec["actual"] = int(actual)
+    if chroma_docs is not None:
+        rec["chroma_docs"] = int(chroma_docs)
+    if reason is not None:
+        rec["reason"] = str(reason)
+    data[session_id] = rec
     _save_state(_pending_path(), data)
 
 
@@ -393,6 +414,52 @@ def clear_pending(session_id: str) -> None:
     if session_id in data:
         data.pop(session_id, None)
         _save_state(_pending_path(), data)
+
+
+def _pending_clear_decision(*, wanted: int, chroma_docs: int) -> Tuple[bool, str]:
+    """「补完了吗」的唯一裁决点（纯函数 · 可两向测）。
+
+    F7(2026-10-19)：旧实现在 resume 之后**无条件** ``clear_pending()``，于是
+    「清空 pending」被当成「补完了」的同义词。盘上实证：03:10:04 该文件从
+    ``{"20261019_022057_9dc448fa": {"total": 1952}}`` 清成 ``{}``，而同一时刻
+    该会话 chroma 约 249 条、源库 475 行——缺口一条没填，记录却消失了。
+
+    判据是**读回**（chroma 实有 doc 数 vs 源库实际行数），不是自报进度；
+    ``wanted <= 0`` ⇒ 源库该会话已无行（被压缩删掉），无事可补 ⇒ 允许清。
+    """
+    if int(wanted) <= 0:
+        return True, "empty_session"
+    if int(chroma_docs) >= int(wanted):
+        return True, "complete"
+    return False, "incomplete"
+
+
+def _count_session_docs(session_id: str, *, collection: Any = None) -> Optional[int]:
+    """读回本会话在 chroma 的 doc 数；失败/不可用返回 ``None``（**不许**当 0）。"""
+    try:
+        import tools.chroma_session_indexer as _csi
+
+        col = collection
+        if col is None:
+            factory = getattr(_csi, "_get_incremental_collection", None) or _csi.get_chroma_collection
+            col = factory()
+        have, offset = 0, 0
+        while True:
+            got = col.get(
+                where={"session_id": session_id}, include=[], limit=1000, offset=offset
+            ).get("ids") or []
+            if not got:
+                break
+            have += len(got)
+            offset += len(got)
+            if len(got) < 1000:
+                break
+        return have
+    except Exception as exc:  # pragma: no cover - 依赖真 chroma
+        from tools.chroma_session_indexer import note_index_failure
+
+        note_index_failure("pending_clear_verify", exc, sink="session_search_indexer")
+        return None
 
 
 def pending_index_report() -> Dict[str, Any]:
@@ -534,10 +601,32 @@ def resume_pending_indexes(*, like_db: Any = None, limit: Optional[int] = None) 
             # 正是孤儿产地；先对账再续传，续传面对干净基线，也不会把上次
             # 被删行的残留 doc 留到「下次重写才清」（旧行为）。
             rec = reconcile_session_orphans(sid, getattr(like_db, "db_path", None))
-            done[sid] = resume_session_index(sid, like_db=like_db)
+            res = resume_session_index(sid, like_db=like_db)
             if rec.get("orphans") or rec.get("deleted") or rec.get("error") or rec.get("skipped"):
-                done[sid]["reconcile"] = rec
-            clear_pending(sid)
+                res["reconcile"] = rec
+            # F7(2026-10-19): 清空必须有校验（旧实现无条件 clear ⇒ 清空被当成补完）。
+            wanted = int(res.get("indexed_rows") or 0)
+            have = _count_session_docs(sid)
+            if res.get("error") or have is None:
+                ok, why = False, ("error" if res.get("error") else "unverified")
+            else:
+                ok, why = _pending_clear_decision(wanted=wanted, chroma_docs=have)
+            if ok:
+                clear_pending(sid)
+            else:
+                prev = pending.get(sid) or {}
+                record_pending(
+                    sid,
+                    wanted,
+                    source=str(prev.get("source") or ""),
+                    title=str(prev.get("title") or ""),
+                    actual=wanted,
+                    chroma_docs=have,
+                    reason=why,
+                )
+            res["pending_cleared"] = ok
+            res["pending_reason"] = why
+            done[sid] = res
         except Exception as exc:
             from tools.chroma_session_indexer import note_index_failure
 
@@ -763,7 +852,19 @@ def reindex_session_transcript(
 
             note_index_failure("session_resync_hook", exc, sink="session_search_indexer")
     record_watermark(session_id, messages)
-    clear_pending(session_id)
+    # F7(2026-10-19): 写者自报不足额（某条 upsert 失败）⇒ 不许清，留待 resume 补。
+    if keep + count >= len(messages):
+        clear_pending(session_id)
+    else:
+        record_pending(
+            session_id,
+            len(messages),
+            source=source,
+            title=title,
+            actual=len(messages),
+            chroma_docs=keep + count,
+            reason="incomplete",
+        )
     return count
 
 
