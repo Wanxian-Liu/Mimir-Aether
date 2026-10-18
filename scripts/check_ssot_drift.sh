@@ -11,7 +11,8 @@
 #   - 真源行取自总表 §1 的「真源根」列；派生物行取自「其余副本」列。
 set -uo pipefail
 
-HOME_DIR="${HOME:-/home/rayliu}"
+# HOME 必须显式存在：不写死用户名（pre-push 闸拦「绝对家路径」形状，公开仓不该带本机用户名）
+HOME_DIR="${HOME:?HOME 环境变量未设置}"
 MIMIR_ROOT="$HOME_DIR/.mimiraether"
 REPO_ROOT="$HOME_DIR/src/MimirAether"
 
