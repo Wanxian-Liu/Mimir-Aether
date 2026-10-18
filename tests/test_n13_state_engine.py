@@ -10,6 +10,7 @@ import argparse
 import hashlib
 import json
 import os
+import pytest
 import shutil
 import sys
 
@@ -19,6 +20,15 @@ sys.path.insert(0, os.path.join(REPO, "scripts"))
 import state_engine as se  # noqa: E402
 
 REG = se.DEFAULT_REGISTRY
+
+# 外部依赖闸：REG 指向 ~/wiki 下的生产卡，CI（GitHub Actions）只 checkout
+# 代码仓、没有 wiki 仓 ⇒ module 级 open() 会抛 FileNotFoundError，把
+# 收集阶段整轮打成 collection error（0018 实证：1150 passed 仍判 Gate2 fail）。
+# 缺件时按「外部依赖未就位」跳过本文件，而不是伪造卡或让整轮红。
+if not os.path.isfile(REG):
+    pytest.skip(f"生产卡不存在（外部依赖未就位）: {REG}",
+                allow_module_level=True)
+
 REG_SHA_AT_IMPORT = hashlib.sha256(open(REG, "rb").read()).hexdigest()
 
 
