@@ -106,6 +106,53 @@ def _load_persistent(path: str) -> Optional[Dict]:
         return None
 
 
+def _hydrate_akl_fields(data: Dict) -> int:
+    """写盘前补齐 AKL 字段并施加生命周期衰减（2026-10-19 · D2 根因修复）。
+
+    根因：本文件的写回是 persistent.json 的**第二条写入路径**，不经过
+    ``persistent_store.read_modify_write()`` —— 而 ``_init_akl_fields`` /
+    ``_apply_lifecycle_decay`` 只挂在后者里。实测（2026-10-19）：kd/lp
+    **49/49 条无 ``importance_base``**、``maturity`` 全为 draft
+    ⇒ 权重每晚被 setdefault 抹平、衰减锚点每晚重置 ⇒ 整套 AKL 空转。
+
+    幂等：``_apply_lifecycle_decay`` 从 ``importance_base`` 重算，
+    同日二次调用 ``changed == 0``（见其 S1' docstring）。
+    永不抛：拒绝写盘会丢记忆，比丢字段更坏（与 RS20 fail-open 同策略）。
+    返回补齐字段的条目数。
+    """
+    memory = data.get("memory") if isinstance(data, dict) else None
+    if not isinstance(memory, dict):
+        return 0
+    try:
+        from agent.persistent_store import (
+            _apply_lifecycle_decay,
+            _init_akl_fields,
+        )
+    except Exception as e:  # noqa: BLE001 — fail-open，见 docstring
+        logger.error("[DreamMemory] AKL-HYDRATE 导入失败（本次未补字段）: %s", e)
+        return 0
+    n = 0
+    for key in ("key_decisions", "learned_patterns"):
+        rows = memory.get(key)
+        if not isinstance(rows, list):
+            continue
+        for entry in rows:
+            if not isinstance(entry, dict):
+                continue
+            try:
+                _init_akl_fields(entry)
+                n += 1
+            except Exception as e:  # noqa: BLE001
+                logger.warning("[DreamMemory] AKL 字段补齐失败（跳过该条）: %s", e)
+    try:
+        changed = _apply_lifecycle_decay(data)
+        if changed:
+            logger.info("[DreamMemory] AKL 衰减生效: %d 条 importance 变更", changed)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[DreamMemory] AKL 衰减失败（保留现值）: %s", e)
+    return n
+
+
 def _save_persistent(path: str, data: Dict) -> bool:
     """写回 persistent.json（同步写入，不依赖 memory_write_facade 的合并逻辑）。
 
@@ -117,6 +164,12 @@ def _save_persistent(path: str, data: Dict) -> bool:
     拒绝写盘会丢记忆（更坏）；「失效」由外部哨兵
     ``scripts/check_persistent_invariants.py``（机械检查每 6h）独立发现。
     """
+    # D2（2026-10-19）：写盘前补 AKL 字段 + 施加衰减——本路径绕过
+    # read_modify_write，不补则 importance_base/maturity 每晚被抹平。
+    try:
+        _hydrate_akl_fields(data)
+    except Exception as e:  # noqa: BLE001 — 见 _hydrate_akl_fields docstring
+        logger.error("[DreamMemory] AKL-HYDRATE 失败（继续写盘）: %s", e)
     try:
         from agent.persistent_normalize import normalize_and_log
 
