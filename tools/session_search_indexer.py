@@ -465,6 +465,230 @@ def _count_session_docs(session_id: str, *, collection: Any = None) -> Optional[
 def pending_index_report() -> Dict[str, Any]:
     return _load_state(_pending_path())
 
+# --- F2 (2026-10-19)：删侧 pending ——「删除即记账，续传才动 chroma」 -------------
+#
+# 事故（M6 审计实测）：源库删除点共 4 处——``mimir_state.py:981 delete_session()`` /
+# ``:1015 prune_sessions()`` / ``tools/session_search_tool.py:390``（清会话消息）/
+# 本文件 ``:112``（回填全清）——全部**只删 SQLite，chroma 一行不动**。而现成的
+# ``chroma_session_indexer.delete_session_chroma_documents`` 与
+# ``prune_session_chroma_orphans`` 在生产调用图里 **0 个调用者**（只有 def 与测试）。
+# => 「删了还在」= 脏召回（召回到源库已不存在的消息）。
+#
+# 为什么不在删除点直接删 chroma：删除发生在 CLI / web_server / acp_adapter 进程里，
+# 那条路径不加载 embedding，也不该因为 chroma 慢/坏而卡住删除。故只落一条
+# **pending 记录**（毫秒级、失败不影响删除），chroma 删除交给 resume 在后台做。
+#
+# 表结构（JSON 文件 ``data/index_pending_deletes.json``；不新建 SQLite 表——源库与
+# 索引库是两个进程共用的件，加表要迁移，加一个 JSON 路径不用）：
+#   {
+#     "<session_id>": {
+#       "kind": "delete",            # 固定；防止与 index_pending.json 混读
+#       "reason": "session_deleted|session_pruned|messages_cleared|orphan_scan",
+#       "doc_count": 123,            # 记账时该会话在 chroma 的 doc 数（可选）
+#       "ts": 1760000000.0,          # 记账时刻
+#       "attempts": 0,               # 已尝试轮数；>=3 留人工，不无限重试
+#       "last_error": ""             # 最近失败语义（成功即清空）
+#     }
+#   }
+_PENDING_DELETES_ENV = "MIMIR_INDEX_PENDING_DELETES_PATH"
+_FAILED_BACKLOG = 3
+
+
+def _pending_deletes_path() -> Path:
+    return _state_path(_PENDING_DELETES_ENV, "index_pending_deletes.json")
+
+
+def record_pending_delete(
+    session_id: str,
+    *,
+    reason: str = "",
+    doc_count: Optional[int] = None,
+) -> bool:
+    """记账「该会话要删 chroma」（毫秒级 · 幂等 · 不抛）。
+
+    F2 契约：删除方只负责记账，**不**在删除路径上动 chroma；补删由
+    ``resume_pending_deletes`` 做。返回是否写成功（失败也不影响调用方删除）。
+    """
+    if not session_id:
+        return False
+    try:
+        data = _load_state(_pending_deletes_path())
+        rec = data.get(session_id) or {}
+        rec["kind"] = "delete"
+        if reason:
+            rec["reason"] = str(reason)
+        if doc_count is not None:
+            rec["doc_count"] = int(doc_count)
+        rec["ts"] = _now_ts()
+        rec.setdefault("attempts", 0)
+        data[session_id] = rec
+        _save_state(_pending_deletes_path(), data)
+        return True
+    except Exception as exc:  # pragma: no cover - 记账失败不得拖垮删除
+        logger.warning("record_pending_delete(%s) failed: %s", session_id, exc)
+        return False
+
+
+def pending_delete_report() -> Dict[str, Any]:
+    return _load_state(_pending_deletes_path())
+
+
+def resume_pending_deletes(
+    *,
+    collection: Any = None,
+    batch: int = 1000,
+    pause_s: float = 0.0,
+    limit: Optional[int] = None,
+) -> Dict[str, Any]:
+    """消费删侧 pending：分批删 chroma + **读回验证**（不是自报删完）。
+
+    F7 同源纪律：清记录 != 做完了。只有「读回该会话 doc 数 == 0」才清账；
+    读回不可用（chroma 坏）时**不许**当 0——记账保留、attempts+1，留给坏库降级
+    与人工。``attempts >= _FAILED_BACKLOG`` 的记账不再自动重试。
+    """
+    path = _pending_deletes_path()
+    data = _load_state(path)
+    out: Dict[str, Any] = {
+        "pending_seen": len(data),
+        "deleted_sessions": 0,
+        "docs_deleted": 0,
+        "kept": 0,
+        "errors": 0,
+        "skipped_backlog": 0,
+    }
+    if not data:
+        return out
+    col = collection
+    if col is None:
+        try:
+            import tools.chroma_session_indexer as _csi
+
+            factory = getattr(_csi, "_get_incremental_collection", None) or _csi.get_chroma_collection
+            col = factory()
+        except Exception as exc:
+            try:
+                from tools.chroma_session_indexer import note_index_failure
+
+                note_index_failure("pending_delete_open", exc, sink="session_search_indexer")
+            except Exception:  # pragma: no cover
+                pass
+            out["error"] = "%s: %s" % (type(exc).__name__, exc)
+            return out
+    for sid in list(data)[: limit if limit else None]:
+        rec = data.get(sid) or {}
+        if int(rec.get("attempts") or 0) >= _FAILED_BACKLOG:
+            out["skipped_backlog"] += 1
+            continue
+        try:
+            while True:
+                got = col.get(
+                    where={"session_id": sid}, include=[], limit=batch, offset=0
+                ).get("ids") or []
+                if not got:
+                    break
+                col.delete(ids=got)
+                out["docs_deleted"] += len(got)
+                if pause_s:
+                    import time as _time
+
+                    _time.sleep(float(pause_s))
+                if len(got) < batch:
+                    break
+            left = _count_session_docs(sid, collection=col)
+            if left is None:  # 读回不可用 => 不清账（同 F7）
+                rec["attempts"] = int(rec.get("attempts") or 0) + 1
+                rec["last_error"] = "verify_unavailable"
+                data[sid] = rec
+                out["errors"] += 1
+                continue
+            if int(left) == 0:
+                data.pop(sid, None)
+                out["deleted_sessions"] += 1
+            else:
+                rec["attempts"] = int(rec.get("attempts") or 0) + 1
+                rec["last_error"] = "residual=%d" % int(left)
+                data[sid] = rec
+                out["kept"] += 1
+        except Exception as exc:
+            rec["attempts"] = int(rec.get("attempts") or 0) + 1
+            rec["last_error"] = "%s: %s" % (type(exc).__name__, exc)
+            data[sid] = rec
+            out["errors"] += 1
+            try:
+                from tools.chroma_session_indexer import note_index_failure
+
+                note_index_failure("pending_delete", exc, sink="session_search_indexer")
+            except Exception:  # pragma: no cover
+                pass
+    _save_state(path, data)
+    return out
+
+
+def _source_session_ids(db_path: Any) -> set:
+    """源库出现过的 session_id（只读连接）。"""
+    import sqlite3
+
+    conn = sqlite3.connect("file:%s?mode=ro" % (db_path,), uri=True)
+    try:
+        return {row[0] for row in conn.execute("SELECT DISTINCT session_id FROM messages")}
+    finally:
+        conn.close()
+
+
+def scan_orphan_sessions(
+    *,
+    collection: Any = None,
+    db_path: Any = None,
+    record: bool = True,
+    batch: int = 1000,
+) -> Dict[str, Any]:
+    """差集兜底：chroma 有、源库没有的会话 => 记 pending delete。
+
+    这是 F2 的第 ③ 条：不指望每条删除路径都记得记账，靠一次差集把漏网的捞回来。
+    **只读扫描 + 只写记账**——绝不在这里删 chroma（删除唯一出口是
+    ``resume_pending_deletes``，便于审计与分批）。
+    """
+    out: Dict[str, Any] = {"chroma_sessions": 0, "source_sessions": 0, "orphans": 0, "recorded": 0}
+    if db_path is None:
+        from mimir_constants import get_mimir_session_search_db_path
+
+        db_path = get_mimir_session_search_db_path()
+    col = collection
+    if col is None:
+        try:
+            import tools.chroma_session_indexer as _csi
+
+            factory = getattr(_csi, "_get_incremental_collection", None) or _csi.get_chroma_collection
+            col = factory()
+        except Exception as exc:
+            out["error"] = "%s: %s" % (type(exc).__name__, exc)
+            return out
+    chroma_sids, offset = set(), 0
+    while True:
+        got = col.get(include=["metadatas"], limit=batch, offset=offset).get("metadatas") or []
+        if not got:
+            break
+        for meta in got:
+            sid = (meta or {}).get("session_id")
+            if sid:
+                chroma_sids.add(sid)
+        offset += len(got)
+        if len(got) < batch:
+            break
+    src = _source_session_ids(db_path)
+    orphans = sorted(chroma_sids - src)
+    out.update({
+        "chroma_sessions": len(chroma_sids),
+        "source_sessions": len(src),
+        "orphans": len(orphans),
+        "orphan_sample": orphans[:10],
+    })
+    if record:
+        for sid in orphans:
+            if record_pending_delete(sid, reason="orphan_scan"):
+                out["recorded"] += 1
+    return out
+
 
 
 def resume_session_index(session_id: str, *, like_db: Any, batch_size: int = 128) -> Dict[str, Any]:

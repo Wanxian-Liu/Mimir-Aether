@@ -955,6 +955,7 @@ class SessionDB:
 
     def clear_messages(self, session_id: str) -> None:
         """Delete all messages for a session and reset its counters."""
+        _f2_note_delete(session_id, "messages_cleared")
         def _do(conn):
             conn.execute(
                 "DELETE FROM messages WHERE session_id = ?", (session_id,)
@@ -967,6 +968,7 @@ class SessionDB:
 
     def delete_session(self, session_id: str) -> bool:
         """Delete a session and all its messages."""
+        _f2_note_delete(session_id, "session_deleted")
         def _do(conn):
             cursor = conn.execute(
                 "SELECT COUNT(*) FROM sessions WHERE id = ?", (session_id,)
@@ -1012,8 +1014,23 @@ class SessionDB:
             )
 
             for sid in session_ids:
+                _f2_note_delete(sid, "session_pruned")
                 conn.execute("DELETE FROM messages WHERE session_id = ?", (sid,))
                 conn.execute("DELETE FROM sessions WHERE id = ?", (sid,))
             return len(session_ids)
 
         return self._execute_write(_do)
+
+
+# --- F2 (2026-10-19)：删侧记账 -------------------------------------------------
+# 删除路径只记 pending（毫秒级），chroma 清理由 resume_pending_deletes 后台做。
+# 为什么不在删除处直接删 chroma：删除跑在 CLI / web_server / acp_adapter 进程里，
+# 那条路径不加载 embedding，也不该因为 chroma 慢/坏而卡住删除。
+def _f2_note_delete(session_id: str, reason: str) -> None:
+    """删除前记账（幂等 · 绝不抛，记账失败不影响删除本身）。"""
+    try:
+        from tools.session_search_indexer import record_pending_delete
+
+        record_pending_delete(session_id, reason=reason)
+    except Exception:
+        pass

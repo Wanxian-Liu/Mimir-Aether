@@ -1321,6 +1321,38 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
             target=_semantic_warmup_task, daemon=True, name="semantic-warmup"
         ).start()
 
+    # F2/④（2026-10-19 Mimir 全面审计）：坏库启动探针 —— **必须排在 pending resume 之前**。
+    # 为什么：坏库崩在 `Collection.get` 是**进程级 SEGV**（2026-10-19 栈
+    # session_search_indexer.py:497<-536<-811），`except Exception` 接不住；只有把探针
+    # 放进子进程，父进程才能在子进程 rc=-11 之后活下来并降级。坏库**不删不移**
+    # （刘哥令）：隔离 = 写 `data/chroma_degraded.json` 标记 + 关写入闸门，库原地不动。
+    # 顺序纪律：**先置状态（mark_degraded）再发通知**——通知发出时盘上已可查。
+    # 回滚：MIMIR_CHROMA_PROBE_ON_START=0。
+    if (os.environ.get("MIMIR_CHROMA_PROBE_ON_START", "1").strip().lower()
+            not in ("0", "false", "no", "off")):
+        try:
+            from tools.chroma_guard import probe as _chroma_probe
+            from tools.chroma_guard import mark_degraded as _mark_degraded
+
+            _pr = _chroma_probe()
+            if _pr.get("ok"):
+                logger.info("chroma probe ok: count=%s elapsed=%ss",
+                            _pr.get("count"), _pr.get("elapsed_s"))
+            else:
+                _rec = _mark_degraded(
+                    "startup_probe_segv" if _pr.get("segv") else "startup_probe_failed",
+                    detail=str(_pr.get("error"))[:300],
+                )
+                # 通知在状态之后：此刻 chroma_guard.chroma_usable() 已为 False。
+                logger.error(
+                    "CHROMA DEGRADED (state written before this notice): reason=%s "
+                    "segv=%s rc=%s stage=%s -> session-memory index falls back to FTS5; "
+                    "broken store left in place (no delete/move)",
+                    _rec.get("reason"), _pr.get("segv"), _pr.get("rc"), _pr.get("stage"),
+                )
+        except Exception as _exc:  # pragma: no cover - 探针自身不得拖垮启动
+            logger.warning("chroma startup probe skipped: %s", _exc)
+
     # B4b（2026-10-06 · 任务书 行218）：启动钩子 —— 扫 pending 会话索引并续传
     # （补 ⑤ 残留缺口①「续传只有手动入口」）。**只加这一处调用**：实现与 env 门控在
     # tools/session_search_indexer.py；daemon 线程 + 延迟默认 20s + 限 20 条/次，

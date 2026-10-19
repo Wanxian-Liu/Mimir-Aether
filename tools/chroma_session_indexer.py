@@ -421,6 +421,13 @@ def chroma_incremental_enabled() -> bool:
     """Gateway/indexer incremental upsert when chromadb is available (IQ-EVO-11)."""
     if not chroma_available():
         return False
+    try:
+        from tools.chroma_guard import chroma_usable
+
+        if not chroma_usable():
+            return False
+    except Exception:  # 守卫自身不得拖垮索引路径
+        pass
     return os.environ.get("MIMIR_CHROMA_INCREMENTAL", "1").strip().lower() not in (
         "0",
         "false",

@@ -215,6 +215,12 @@ class AgentRouteMixin:
         # so the agent knows this is a fresh conversation (not an intentional /reset).
         if getattr(session_entry, 'was_auto_reset', False):
             reset_reason = getattr(session_entry, 'auto_reset_reason', None) or 'idle'
+            # F2/④（2026-10-19）：**先置状态再发通知**。旧实现把
+            # `was_auto_reset = False` 放在本块**末尾**（通知 await 之后），于是
+            # ① 通知发失败/进程在 await 中死 -> 状态仍是 True，下一轮重复通知；
+            # ② 通知先到、状态后写 -> 用户看到「已重置」而盘上还没落。
+            # 状态是事实，通知是副产品：事实先落，通知后发。
+            session_entry.was_auto_reset = False
             if reset_reason == "suspended":
                 context_note = "[System note: The user's previous session was stopped and suspended. This is a fresh conversation with no prior context.]"
             elif reset_reason == "daily":
@@ -275,7 +281,7 @@ class AgentRouteMixin:
             except Exception as e:
                 logger.debug("Auto-reset notification failed (non-fatal): %s", e)
 
-            session_entry.was_auto_reset = False
+
             session_entry.auto_reset_reason = None
 
         # Auto-load skill(s) for topic/channel bindings (Telegram DM Topics,
