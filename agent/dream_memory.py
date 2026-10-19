@@ -1011,25 +1011,10 @@ async def run_dream_cycle(dry_run: bool = False) -> Tuple[bool, str]:
         detail = _record_failure("save", IOError(f"_save_persistent({path}) 返回 False"))
         return False, report + f"\n❌ 写入失败（耗时 {elapsed:.1f}s）\n{_FAILURE_MARKER}: {detail}"
 
-    # 5.5 分层整合——蒸馏写盘成功后，把高频访问的短期记忆提升为长期记忆
-    #     复用既有 agent/memory_system.py::MemorySystem.consolidate()（不新建钩子）
-    #     fail-open：整合失败不得推翻已成功的蒸馏写盘，但必须出声（不静默）
-    consolidated = 0
-    expired = 0
-    try:
-        from agent.memory_system import MemorySystem
-
-        expired = MemorySystem().cleanup_expired()
-        consolidated = MemorySystem().consolidate()
-    except Exception as e:  # noqa: BLE001
-        import logging
-
-        logging.getLogger(__name__).warning("dream_memory.consolidate 失败（已忽略）: %s", e)
-        report += f"\n⚠️ 分层整合失败（已忽略）: {e}"
     # 6. 写哨兵文件——通知 CrossSessionMemory 下一轮 save 前从磁盘重载缓存
     #    （避免终端进程蒸馏写盘后，Gateway 进程仍用旧缓存 59 kd 覆盖掉压缩后的 20 kd）
     _write_distill_sentinel()
-    return True, report + f"\n✅ 写入成功（耗时 {elapsed:.1f}s）\n备份: {backup_dir}" + f"\n分层整合: {consolidated} 条" + f"\n清理过期: {expired} 条"
+    return True, report + f"\n✅ 写入成功（耗时 {elapsed:.1f}s）\n备份: {backup_dir}"
 
 
 # ============================================================================
