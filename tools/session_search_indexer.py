@@ -364,6 +364,44 @@ def _watermark_ladder(n: int) -> list:
     return out
 
 
+# --- S3(2026-10-19): 全局三键 n/digest/ts 并进同一份 index_watermark.json -----------
+# 契约：**不新建状态文件**——全局读数与会话级记录同住 data/index_watermark.json。
+#   n      = 各会话已索引条数之和（增量口径，≠ 文件行数）
+#   digest = 各会话 (sid:n:digest) 排序后的 rollup 摘要
+#   ts     = 本次更新时刻
+_GLOBAL_KEYS = ("n", "digest", "ts")
+
+
+def _session_records(data: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    """会话级记录（剔除全局三键与非 dict 值，供 rollup 与审计器共用）。"""
+    return {k: v for k, v in data.items() if k not in _GLOBAL_KEYS and isinstance(v, dict)}
+
+
+def merge_global_watermark(data: Dict[str, Any]) -> Dict[str, Any]:
+    """就地写入全局三键（幂等 · 不触碰会话级记录）。"""
+    import hashlib
+
+    recs = _session_records(data)
+    total = sum(int((r or {}).get("n") or 0) for r in recs.values())
+    h = hashlib.sha256()
+    for sid in sorted(recs):
+        r = recs[sid] or {}
+        h.update(f"{sid}:{int(r.get('n') or 0)}:{r.get('digest')}".encode("utf-8", "replace"))
+        h.update(b"\x00")
+    data["n"] = total
+    data["digest"] = h.hexdigest()[:32]
+    data["ts"] = _now_ts()
+    return data
+
+
+def refresh_global_watermark() -> Dict[str, Any]:
+    """回填/修复全局三键（幂等）——一次性迁移与巡检入口；不动 chroma、不碰会话记录。"""
+    data = _load_state(_watermark_path())
+    merge_global_watermark(data)
+    _save_state(_watermark_path(), data)
+    return {k: data[k] for k in _GLOBAL_KEYS}
+
+
 def record_watermark(session_id: str, messages, indexed_n: Optional[int] = None) -> None:
     n = len(messages) if indexed_n is None else int(indexed_n)
     data = _load_state(_watermark_path())
@@ -374,6 +412,7 @@ def record_watermark(session_id: str, messages, indexed_n: Optional[int] = None)
         # F4(2026-10-19): 同时记阶梯摘要，供压缩后（消息变短）回退匹配。
         "marks": {str(L): messages_digest(messages, L) for L in _watermark_ladder(n)},
     }
+    merge_global_watermark(data)
     _save_state(_watermark_path(), data)
 
 

@@ -108,6 +108,39 @@ def load_wm(path: Path) -> Dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
+GLOBAL_KEYS = ("n", "digest", "ts")
+
+
+def session_records(wm: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    """会话级记录——剔除全局三键 n/digest/ts 与非 dict 值。
+
+    为什么必须过滤：`scan()`/`sid` 选择都做 `rec.get()`，全局键是标量，
+    不过滤即 AttributeError（旧读端遇到新 schema 会崩，这是「加字段」的必修面）。
+    """
+    return {k: v for k, v in wm.items() if k not in GLOBAL_KEYS and isinstance(v, dict)}
+
+
+def assert_global(wm: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
+    """落盘判据：全局三键 n/digest/ts 齐 ∧ 类型正确 ⇒ rc=0；否则 rc=1。"""
+    missing = [k for k in GLOBAL_KEYS if k not in wm]
+    bad: List[str] = []
+    if "n" in wm and not isinstance(wm["n"], int):
+        bad.append("n:not-int")
+    if "digest" in wm and not (isinstance(wm["digest"], str) and len(wm["digest"]) == 32):
+        bad.append("digest:not-32hex")
+    if "ts" in wm and not isinstance(wm["ts"], (int, float)):
+        bad.append("ts:not-number")
+    ok = not missing and not bad
+    return (0 if ok else 1), {
+        "missing": missing,
+        "type_violations": bad,
+        "n": wm.get("n"),
+        "digest": str(wm.get("digest"))[:8],
+        "ts": wm.get("ts"),
+        "sessions": len(session_records(wm)),
+    }
+
+
 def prefix_len(rec: Dict[str, Any], messages: List[Dict[str, Any]]) -> int:
     """与 tools/session_search_indexer.watermark_prefix_len 同语义（只读复刻）。
 
@@ -124,7 +157,7 @@ def prefix_len(rec: Dict[str, Any], messages: List[Dict[str, Any]]) -> int:
 def scan(wm: Dict[str, Any], sessions_dir: Optional[Path] = None) -> List[Dict[str, Any]]:
     """逐会话取真实 transcript ⇒ 复算 digest + prefix_len（**只读**）。"""
     rows: List[Dict[str, Any]] = []
-    for sid in sorted(wm.keys()):
+    for sid in sorted(session_records(wm)):
         rec = wm.get(sid) or {}
         n = int(rec.get("n") or 0)
         msgs = load_real_messages(sid, sessions_dir)
@@ -274,6 +307,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--mode", choices=["reconcile", "neg-growth", "neg-nodigest", "drift"],
                     default="reconcile")
     ap.add_argument("--history", default=None, help="漂移闸的历史面（负控请指向副本）")
+    ap.add_argument("--assert-global", action="store_true",
+                    help="落盘判据：断言 index_watermark.json 全局三键 n/digest/ts 齐")
     ap.add_argument("--selftest", action="store_true", help="三判据 + 漂移闸自测（不碰生产件）")
     args = ap.parse_args(argv)
 
@@ -286,7 +321,17 @@ def main(argv: Optional[List[str]] = None) -> int:
         print("VERDICT: FAIL (rc=2) — watermark empty ⇒ scanned=0 不可判定")
         return 2
 
-    sid = args.session or max(wm.keys(), key=lambda k: int((wm[k] or {}).get("n") or 0))
+    if args.assert_global:
+        rc, r = assert_global(wm)
+        print(json.dumps({"mode": "assert-global", "rc": rc, **r}, ensure_ascii=False, indent=2))
+        print(f"VERDICT: {'PASS' if rc == 0 else 'FAIL'} (rc={rc})")
+        return rc
+
+    recs = session_records(wm)
+    if not recs:
+        print("VERDICT: FAIL (rc=2) — 无会话级记录 ⇒ 不可判定")
+        return 2
+    sid = args.session or max(recs, key=lambda k: int((recs[k] or {}).get("n") or 0))
 
     if args.selftest:
         rc1, r1 = criterion_incremental(wm)
