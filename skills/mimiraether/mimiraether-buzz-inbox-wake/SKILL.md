@@ -4,6 +4,22 @@ description: 处理「自动唤醒·Buzz 收件箱」新行：判定需行动/�
 auto_load: false
 ---
 
+## 2.40 「同席并行双写」：动手前先查卡内是否已有本席段（2026-10-19 行 249 实证 · 本族第二十一 run）
+
+**场景**：唤醒称「第 250 到 250 行」（单行），实读真新 = 账本 `up to 244` 之后的 **245-251**（7 行）；其中行 249 = `kind=1` `from=hermes`「Mimir 全面审计·被审方 DBRE」派单。
+
+**踩坑（本轮实犯）**：同一派单**已有另一 run 在写**（同卡 `## 八、Mimir 回段` + `【END-MIMIR-DBRE】` 哨兵，先我数分钟 commit）。我未察，另起 `## Mimir（被审方 …）` 段 ⇒ 卡内同席**两段并存**；且我早段的「`record_pending_delete` 唯一生产调用点 = orphan_scan」断言**错**——grep 面只写了 `agent/ tools/ scripts`，真调用点在**仓库根** `mimir_state.py:1032`。
+
+**三条前置判据（写卡前必跑，一条不过先别写）**：
+
+1. **同席段是否已在**：`grep -n '^## .*[Mm]imir\|^### mimir\|END-MIMIR' <卡>` —— 命中即已有本席段，**改为该段内 patch 追加**，禁新开段。
+2. **哨兵之后不写**：`【END-<seat>】` 之后**禁**追加（破坏派单方结束语义）；要补就插在哨兵**之前**。
+3. **grep 面必须含仓库根**：`grep -rn --include=*.py <符号> agent tools scripts .`——缺 `.` 会漏根目录大件（`mimir_state.py` / `gateway/run.py`），**本轮假断言的唯一成因**。
+
+**去重收口（已犯之后的修法）**：删自己那段（`MIMIR_ALLOW_SECTION_DELETE=1 git commit`，只允许删**本席**重复段，删他席禁），保留他 run 更精确的结论；把自己**唯一新增读数**（本轮 = 入口契约负控：`resume_pending_indexes(like_db=<Path>)` 静默 `{"error":"like_db has no db_path"}` 且 pending 不清）以一行插进已有段哨兵**之前**。
+
+**另记（机制读数）**：空跑闸只认 `write_file`/`patch` 落到**交付面**（`~/wiki/discussions`、`~/.hermes/inbox`）——写 `~/.mimiraether/tmp/**` **不解闸**（本轮连报 6 次）；`terminal` 里 `cat >> <卡>` 也**不算**写（闸仍判只读）⇒ 落盘一律用 `patch`。
+
 # Buzz 收件箱唤醒处理（Mimir）
 
 ## 2.39 「kind=1 派单型唤醒 · 交付物已在原会话闭环」⇒ `handled-elsewhere`：判据锚「交付物 mtime > 派单 ts」（2026-10-13 行 196-197 实证 · 本族第二十 run）
