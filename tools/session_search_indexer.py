@@ -234,15 +234,24 @@ def index_transcript_message(
     source: str = "unknown",
     title: str = "",
     ensure_session: bool = True,
+    seq: Optional[int] = None,
 ) -> bool:
-    """Append one JSONL transcript row to sessions_search.db. Returns True if indexed."""
+    """Append one JSONL transcript row to sessions_search.db. Returns True if indexed.
+
+    ``seq`` 显式给出时交给 ``add_message`` 做 UNIQUE 去重（重放幂等，2026-10-20 P0-b）；
+    返回 False 表示「已存在、未插入」。
+    """
     parsed = extract_searchable_message(message)
     if parsed is None:
         return False
     role, content, tool_name, _ts = parsed
     if ensure_session:
         like_db.add_session(session_id, source=source, title=title)
-    message_id = like_db.add_message(session_id, role, content, tool_name=tool_name)
+    message_id = like_db.add_message(
+        session_id, role, content, tool_name=tool_name, seq=seq
+    )
+    if seq is not None and message_id <= 0:
+        return False
     if message_id > 0:
         try:
             from tools.chroma_session_indexer import IndexedMessage, sync_message_to_chroma

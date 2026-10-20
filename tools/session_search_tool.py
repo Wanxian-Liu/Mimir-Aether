@@ -414,25 +414,43 @@ class SessionSearchDB:
         role: str,
         content: str,
         tool_name: Optional[str] = None,
+        seq: Optional[int] = None,
     ) -> int:
-        """添加消息到会话；返回 sqlite messages.id（供 Chroma 增量索引）。"""
+        """添加消息到会话；返回 sqlite messages.id（供 Chroma 增量索引）。
+
+        ``seq``（2026-10-20 P0-b）：会话内序号。
+        - 不传（实时追加路径）⇒ ``MAX(seq)+1``，行为与旧版一致。
+        - 显式传入（重放/回填路径）⇒ 用调用方给的序号；撞 ``UNIQUE(session_id, seq)``
+          时**返回 0** 表示「已索引、未插入」。
+
+        为什么必须支持显式 seq：旧实现恒用 ``MAX(seq)+1``，**永远不撞 UNIQUE**
+        ⇒ 「UNIQUE 防重复回填」是假保护。实测同一会话重放两次得到 ``delta=30``
+        而非 0；10-20 01:09 的 +49,469 行膨胀即此机制（继承副本被整段重放）。
+        """
         conn = sqlite3.connect(self.db_path)
         try:
             ts = datetime.now().timestamp()
-            # 2026-10-20: 写入必须带会话内序号 seq —— UNIQUE(session_id, seq) 才能真正防重复回填
             conn.execute("BEGIN IMMEDIATE")
-            row = conn.execute(
-                "SELECT COALESCE(MAX(seq), 0) + 1 FROM messages WHERE session_id = ?",
-                (session_id,),
-            ).fetchone()
-            next_seq = int(row[0] or 1)
-            cur = conn.execute(
-                """
-                INSERT INTO messages (session_id, role, content, tool_name, timestamp, seq)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """,
-                (session_id, role, content, tool_name, ts, next_seq),
-            )
+            if seq is None:
+                row = conn.execute(
+                    "SELECT COALESCE(MAX(seq), 0) + 1 FROM messages WHERE session_id = ?",
+                    (session_id,),
+                ).fetchone()
+                next_seq = int(row[0] or 1)
+            else:
+                next_seq = int(seq)
+            try:
+                cur = conn.execute(
+                    """
+                    INSERT INTO messages (session_id, role, content, tool_name, timestamp, seq)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                    (session_id, role, content, tool_name, ts, next_seq),
+                )
+            except sqlite3.IntegrityError:
+                # 该 (session_id, seq) 已存在 ⇒ 已索引，不重复插入
+                conn.rollback()
+                return 0
             message_id = int(cur.lastrowid or 0)
 
             conn.execute("""
