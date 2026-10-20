@@ -269,12 +269,21 @@ class SessionSearchDB:
                     content TEXT,
                     tool_name TEXT,
                     timestamp REAL,
+                    seq INTEGER,
                     FOREIGN KEY (session_id) REFERENCES sessions(session_id)
                 );
 
                 CREATE INDEX IF NOT EXISTS idx_messages_session
                     ON messages(session_id);
             """)
+            # 2026-10-20 迁移：老库补 seq 列 + 唯一索引（写入端靠它防重复回填）
+            cols = [r[1] for r in conn.execute("PRAGMA table_info(messages)")]
+            if "seq" not in cols:
+                conn.execute("ALTER TABLE messages ADD COLUMN seq INTEGER")
+            conn.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_session_seq ON messages(session_id, seq)"
+            )
+            conn.commit()
         finally:
             conn.close()
 
@@ -410,12 +419,19 @@ class SessionSearchDB:
         conn = sqlite3.connect(self.db_path)
         try:
             ts = datetime.now().timestamp()
+            # 2026-10-20: 写入必须带会话内序号 seq —— UNIQUE(session_id, seq) 才能真正防重复回填
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT COALESCE(MAX(seq), 0) + 1 FROM messages WHERE session_id = ?",
+                (session_id,),
+            ).fetchone()
+            next_seq = int(row[0] or 1)
             cur = conn.execute(
                 """
-                INSERT INTO messages (session_id, role, content, tool_name, timestamp)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO messages (session_id, role, content, tool_name, timestamp, seq)
+                VALUES (?, ?, ?, ?, ?, ?)
             """,
-                (session_id, role, content, tool_name, ts),
+                (session_id, role, content, tool_name, ts, next_seq),
             )
             message_id = int(cur.lastrowid or 0)
 
