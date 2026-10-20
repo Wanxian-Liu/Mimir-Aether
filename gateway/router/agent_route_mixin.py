@@ -928,6 +928,11 @@ class AgentRouteMixin:
                         self.session_store.append_to_transcript(
                             session_entry.session_id, entry,
                             skip_db=agent_persisted,
+                            # 派生搜索索引必须照写（2026-10-20 根因）：agent_persisted
+                            # 只说明转录库（state.db）已由 agent 落库，**不代表**
+                            # sessions_search.db 有写；两者共用一个 skip_db 曾使本索引
+                            # 停写 19h31m 且零告警。
+                            skip_search_index=False,
                         )
             
             # Token counts and model are now persisted by the agent directly.

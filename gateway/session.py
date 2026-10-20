@@ -1215,7 +1215,13 @@ class SessionStore:
         """Get the path to a session's legacy transcript file."""
         return self.sessions_dir / f"{session_id}.jsonl"
     
-    def append_to_transcript(self, session_id: str, message: Dict[str, Any], skip_db: bool = False) -> None:
+    def append_to_transcript(
+        self,
+        session_id: str,
+        message: Dict[str, Any],
+        skip_db: bool = False,
+        skip_search_index: Optional[bool] = None,
+    ) -> None:
         """Append a message to a session's transcript (JSONL; optional SQLite dual-write).
 
         Args:
@@ -1234,11 +1240,16 @@ class SessionStore:
             except Exception as e:
                 logger.debug("Session DB transcript append failed: %s", e)
 
-        if not skip_db:
-            # skip_db 是「只写 JSONL」契约（docs/phase_c_studies/...）：它必须一并覆盖
-            # 派生搜索索引——否则「跳过 SQLite 写入」的调用方仍会往
-            # data/sessions_search.db 追加行（2026-09-12 审计: skip_db 测试载荷
-            # 397 行落在生产索引里）。
+        # 派生搜索索引与转录库是**两个不同的库**（sessions_search.db vs state.db），
+        # 必须分开闸（2026-10-20 根因 · 实证 file:line）：此前两者共用一个 skip_db，
+        # 而实时路径 ``agent_persisted = self._session_db is not None`` 恒为 True
+        # （agent_route_mixin.py:921,930）⇒ 本索引被**永久跳过**，实测停写 19h31m
+        # 且零告警（``INDEX-FAIL`` 全仓 0 命中——不是被吞，是从未走到调用点）。
+        if skip_search_index is None:
+            # 默认继承 skip_db：保住 2026-09-12 反污染契约
+            # （skip_db 测试载荷 397 行曾落进生产索引）。
+            skip_search_index = skip_db
+        if not skip_search_index:
             self._append_to_sessions_search_index(session_id, message)
     
     def rewrite_transcript(
@@ -1246,6 +1257,7 @@ class SessionStore:
         session_id: str,
         messages: List[Dict[str, Any]],
         skip_db: bool = False,
+        skip_search_index: Optional[bool] = None,
     ) -> None:
         """Replace the entire transcript for a session with new messages.
 
@@ -1302,9 +1314,10 @@ class SessionStore:
             except Exception as e:
                 logger.debug("Session DB transcript rewrite failed: %s", e)
 
-        if not skip_db:
-            # skip_db 是「只写 JSONL」契约：它必须一并覆盖派生搜索索引——否则 rewrite 路径
-            # 仍会往 data/sessions_search.db 写（2026-09-12 R1，与 append 路径同源）。
+        # 同 append：派生索引与转录库分开闸（2026-10-20）。
+        if skip_search_index is None:
+            skip_search_index = skip_db
+        if not skip_search_index:
             self._rewrite_sessions_search_index(session_id, messages)
 
     def _sessions_search_index_enabled(self) -> bool:
