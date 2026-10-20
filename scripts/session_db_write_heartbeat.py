@@ -36,7 +36,20 @@ import tempfile
 import time
 from pathlib import Path
 
-DEFAULT_DB = Path.home() / ".mimiraether" / "data" / "sessions_search.db"
+# 2026-10-20 修：不再依赖 HOME 环境（Path.home() 在沙箱/cron 下可被改写
+# ⇒ 曾报假 [MISSING] db_missing，而库实际健康）。改用 getpwuid 的真实家目录，
+# 并保留 MIMIR_AETHER_HOME 覆盖。
+def _resolve_data_root() -> Path:
+    env = os.environ.get("MIMIR_AETHER_HOME")
+    if env:
+        return Path(env)
+    try:
+        import pwd as _pwd
+        return Path(_pwd.getpwuid(os.getuid()).pw_dir) / ".mimiraether"
+    except Exception:
+        return Path.home() / ".mimiraether"
+
+DEFAULT_DB = _resolve_data_root() / "data" / "sessions_search.db"
 DEFAULT_THRESHOLD = 1800  # 30 min
 
 
