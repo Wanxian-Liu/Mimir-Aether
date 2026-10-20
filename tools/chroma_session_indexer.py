@@ -616,8 +616,15 @@ def backfill_chroma_sessions(
     chroma_dir: Optional[Path] = None,
     batch_size: int = DEFAULT_BATCH_SIZE,
     collection: Any = None,
+    skip_existing: bool = True,
 ) -> ChromaBackfillStats:
-    """Index sessions_search.db rows into Chroma (idempotent upsert)."""
+    """Index sessions_search.db rows into Chroma (idempotent upsert).
+
+    2026-10-20（刘哥批准）：默认 **只补缺口** —— 先取集合已有 doc id，已存在的整条跳过。
+    历史教训：本函数此前的实现对每条都重算嵌入（86,081 条 ≈33 小时），而缺口只有 2,399 条，
+    照运维手册「Backfill Chroma（一次性或修复）」补缺口时会变成全量重嵌。
+    全量重建请显式传 ``skip_existing=False``（脚本对应 ``--full-rebuild``）。
+    """
     like_db_path = Path(like_db_path)
     stats = ChromaBackfillStats()
     if not like_db_path.is_file():
@@ -627,8 +634,19 @@ def backfill_chroma_sessions(
     if collection is None:
         collection = get_chroma_collection(chroma_dir)
 
+    have: set[str] = set()
+    if skip_existing:
+        try:
+            have = set(collection.get(include=[])["ids"] or [])
+        except Exception:  # noqa: BLE001 - 读不到已有 id 时宁可全量，不静默丢数据
+            logger.warning("skip_existing: 读取已有 doc id 失败，退回全量嵌入")
+            have = set()
+
     batch: List[IndexedMessage] = []
     for msg in iter_indexable_messages(like_db_path):
+        if have and message_doc_id(msg.session_id, msg.message_id) in have:
+            stats.messages_skipped += 1
+            continue
         batch.append(msg)
         if len(batch) >= batch_size:
             stats.messages_indexed += _upsert_batch(collection, batch)

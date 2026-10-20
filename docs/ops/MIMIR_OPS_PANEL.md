@@ -122,7 +122,8 @@ grep -i timeout "$H/logs/watchdog.log" 2>/dev/null | tail -5 || true
 
 | Step | Command |
 |------|---------|
-| Backfill Chroma（一次性或修复） | `MIMIR_AETHER_HOME=~/.mimiraether python3 scripts/backfill_chroma_sessions.py` |
+| Backfill Chroma（**补缺口**·默认跳过已存在） | `MIMIR_AETHER_HOME=~/.mimiraether python3 scripts/backfill_chroma_sessions.py --dry-run` 先看待嵌条数，再去掉 `--dry-run` 执行 |
+| Chroma **全量重建**（坏库/换模型才用） | `... scripts/backfill_chroma_sessions.py --full-rebuild`（会重嵌全部，86k 条 ≈ 数小时；或改用可续跑的 `scripts/chroma_backfill_full.py`） |
 | 20-query 基准 | `MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_memory_retrieval_benchmark.py` |
 | 周常 eval + 回归门 | `MIMIR_AETHER_HOME=~/.mimiraether ./scripts/run_evolution_eval.sh` |
 
