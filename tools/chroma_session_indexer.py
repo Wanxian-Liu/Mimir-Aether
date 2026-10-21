@@ -2,18 +2,205 @@
 
 from __future__ import annotations
 
+import errno
+import fcntl
 import hashlib
 import json
 import logging
 import math
 import os
 import sqlite3
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
 
 logger = logging.getLogger(__name__)
+
+# --- RL-20261020-094: cross-process write mutex ---------------------------------
+# F5 single-flight (gateway/session.py) only serialises writers *inside* one
+# process. The gateway incremental path (sync_message_to_chroma) and a backfill
+# script are two OS processes upserting the same HNSW segment files; nothing
+# serialised them, and the 2026-10-18/19 incident pattern = two writers on one
+# HNSW = index written bad, not recoverable.
+#
+# Semantics (deliberate):
+#   * Granularity: per write operation (one batch upsert / one delete), NOT the
+#     whole backfill run -- a full rebuild must not starve the gateway writer
+#     for hours (bounded lock budget, not an ever-held lock).
+#   * Wait: poll LOCK_EX|LOCK_NB every 50ms up to
+#     MIMIR_CHROMA_WRITE_LOCK_TIMEOUT_S (default 60s). On expiry raise
+#     ChromaWriteLockTimeout; callers keep their existing fail-open behaviour
+#     and record it via note_index_failure() -> "skip, never wait forever".
+#   * Release: flock is released when the fd closes (normal exit, SIGKILL,
+#     explicit unlock) -- the kernel does it, so there is no stale-lock reaper
+#     and no on-disk "locked" state to clean up after a crash.
+#   * Lock file: ~/.mimiraether/data/chroma_write.lock -- a sidecar, deliberately
+#     NOT inside the chroma dir: that dir gets copied/rebuilt/replaced, the lock
+#     must outlive it.
+#   * Re-entrancy: same-thread re-entry is free (depth counter); different
+#     threads in one process serialise on an RLock before touching flock.
+#   * Lock file deleted while a holder runs: each acquire re-checks that the
+#     path still resolves to the held inode and re-opens if it does not.
+DEFAULT_WRITE_LOCK_TIMEOUT_S = 60.0
+_WRITE_LOCK_POLL_S = 0.05
+
+
+class ChromaWriteLockTimeout(RuntimeError):
+    """Raised when the cross-process chroma write lock cannot be taken in time."""
+
+
+def chroma_write_lock_path() -> Path:
+    from mimir_constants import get_mimir_home
+
+    return Path(get_mimir_home()) / "data" / "chroma_write.lock"
+
+
+def _write_lock_timeout_s() -> float:
+    raw = os.getenv("MIMIR_CHROMA_WRITE_LOCK_TIMEOUT_S", "").strip()
+    if not raw:
+        return DEFAULT_WRITE_LOCK_TIMEOUT_S
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        logger.warning(
+            "bad MIMIR_CHROMA_WRITE_LOCK_TIMEOUT_S=%r, using %.1fs",
+            raw,
+            DEFAULT_WRITE_LOCK_TIMEOUT_S,
+        )
+        return DEFAULT_WRITE_LOCK_TIMEOUT_S
+
+
+_WRITE_LOCK_RLOCK = threading.RLock()
+
+
+class _WriteLockState:
+    def __init__(self) -> None:
+        self.depth = 0
+        self.fd: Optional[int] = None
+        # 094c: in-band nonce identifies the locked inode (inode numbers are
+        # reused on this filesystem, so st_ino alone cannot prove ownership).
+        self.nonce: Optional[str] = None
+
+
+_WRITE_LOCK_STATE = _WriteLockState()
+
+
+def _open_lock_fd() -> int:
+    path = chroma_write_lock_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return os.open(str(path), os.O_CREAT | os.O_RDWR, 0o644)
+
+
+def _write_lock_nonce() -> str:
+    return f"{os.getpid()}:{time.time_ns()}"
+
+
+def _read_lock_file_token(path: Path) -> Optional[str]:
+    """Token currently visible at *path* (None when the path is gone)."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return fh.read(200).strip()
+    except (FileNotFoundError, PermissionError):
+        return None
+
+
+def _acquire_flock(deadline: float) -> None:
+    """Take the cross-process lock, proving our fd is the *visible* lock file."""
+    state = _WRITE_LOCK_STATE
+    while True:
+        if state.fd is None:
+            state.fd = _open_lock_fd()
+            state.nonce = _write_lock_nonce()
+        try:
+            fcntl.flock(state.fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as exc:
+            if exc.errno not in (errno.EACCES, errno.EAGAIN):
+                raise
+            if time.monotonic() >= deadline:
+                raise ChromaWriteLockTimeout(
+                    "chroma write lock not acquired within "
+                    f"{_write_lock_timeout_s():.1f}s (another process holds "
+                    f"{chroma_write_lock_path()})"
+                ) from exc
+            time.sleep(_WRITE_LOCK_POLL_S)
+            continue
+
+        # We own this fd's flock. Prove the fd is still the file at the path:
+        # if the path was unlinked/replaced, we locked an inode nobody else can
+        # see and the mutex would be void. Stamp our nonce and read it back.
+        try:
+            os.ftruncate(state.fd, 0)
+            os.lseek(state.fd, 0, os.SEEK_SET)
+            os.write(state.fd, state.nonce.encode("utf-8"))
+        except OSError:  # pragma: no cover - stamping is best-effort
+            logger.debug("chroma write lock nonce write failed", exc_info=True)
+        if _read_lock_file_token(chroma_write_lock_path()) == state.nonce:
+            return
+
+        logger.warning(
+            "chroma write lock file at %s is not the inode we locked "
+            "(deleted/replaced under us); re-opening",
+            chroma_write_lock_path(),
+        )
+        try:
+            fcntl.flock(state.fd, fcntl.LOCK_UN)
+        finally:
+            try:
+                os.close(state.fd)
+            finally:
+                state.fd = None
+                state.nonce = None
+        if time.monotonic() >= deadline:
+            raise ChromaWriteLockTimeout(
+                "chroma write lock file kept being replaced under us: "
+                f"{chroma_write_lock_path()}"
+            )
+
+
+class _WriteLockGuard:
+    """Re-entrant, thread-safe, process-exclusive guard for chroma writes."""
+
+    __slots__ = ("_entered",)
+
+    def __init__(self) -> None:
+        self._entered = False
+
+    def __enter__(self) -> "_WriteLockGuard":
+        _WRITE_LOCK_RLOCK.acquire()
+        try:
+            state = _WRITE_LOCK_STATE
+            if state.depth == 0:
+                _acquire_flock(time.monotonic() + _write_lock_timeout_s())
+            state.depth += 1
+        except BaseException:
+            _WRITE_LOCK_RLOCK.release()
+            raise
+        self._entered = True
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> bool:
+        try:
+            state = _WRITE_LOCK_STATE
+            state.depth -= 1
+            if state.depth == 0 and state.fd is not None:
+                try:
+                    fcntl.flock(state.fd, fcntl.LOCK_UN)
+                except OSError:  # never mask the body's exception
+                    logger.debug("chroma write lock release failed", exc_info=True)
+        finally:
+            if self._entered:
+                _WRITE_LOCK_RLOCK.release()
+                self._entered = False
+        return False
+
+
+def chroma_write_lock() -> _WriteLockGuard:
+    """Exclusive write guard shared by every writer (thread and process)."""
+    return _WriteLockGuard()
+
+
 
 # --- Loki 四条 fallback 加固 (议题六真根因修复) ---
 # 维度不匹配 (hash 384 vs bge-m3 1024) 曾导致 semantic_hit_rate 静默假 0.0。
@@ -438,7 +625,8 @@ def _upsert_batch(collection: Any, batch: Sequence[IndexedMessage]) -> int:
     ids = [message_doc_id(m.session_id, m.message_id) for m in batch]
     documents = [m.content for m in batch]
     metadatas = [_message_metadata(m) for m in batch]
-    collection.upsert(ids=ids, documents=documents, metadatas=metadatas)
+    with chroma_write_lock():
+        collection.upsert(ids=ids, documents=documents, metadatas=metadatas)
     return len(batch)
 
 
@@ -456,13 +644,19 @@ def get_chroma_collection(
 
     root = chroma_dir or get_mimir_chroma_dir()
     root.mkdir(parents=True, exist_ok=True)
-    client = chromadb.PersistentClient(path=str(root))
     ef = embedding_function if embedding_function is not None else resolve_embedding_function()
-    return client.get_or_create_collection(
-        name=COLLECTION_NAME,
-        embedding_function=ef,
-        metadata={"hnsw:space": "cosine"},
-    )
+    # 094d: schema bootstrap is a write -- inside the lock.
+    # PersistentClient() itself bootstraps the SQLite schema; two processes
+    # doing that on one dir die with "table collections already exists"
+    # (measured 2026-10-21, RL-094 concurrency probe). bge-m3 resolution stays
+    # outside the lock so a 14s model load never blocks another writer.
+    with chroma_write_lock():
+        client = chromadb.PersistentClient(path=str(root))
+        return client.get_or_create_collection(
+            name=COLLECTION_NAME,
+            embedding_function=ef,
+            metadata={"hnsw:space": "cosine"},
+        )
 
 
 def chroma_incremental_enabled() -> bool:
@@ -549,7 +743,8 @@ def delete_session_chroma_documents(session_id: str, *, collection: Any = None) 
     if collection is None:
         collection = _get_incremental_collection()
     try:
-        collection.delete(where={"session_id": session_id})
+        with chroma_write_lock():
+            collection.delete(where={"session_id": session_id})
     except Exception as exc:
         note_index_failure("delete_session_docs", exc, sink="chroma_session_indexer")
         logger.debug("chroma delete session %s failed: %s", session_id, exc)
@@ -617,7 +812,8 @@ def prune_session_chroma_orphans(
         out["wanted"] = len(wanted)
         out["orphans"] = len(stale)
         if stale and not dry_run:
-            collection.delete(ids=stale)
+            with chroma_write_lock():
+                collection.delete(ids=stale)
             out["deleted"] = len(stale)
         return out
     except Exception as exc:
