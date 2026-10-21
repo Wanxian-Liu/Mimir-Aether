@@ -101,7 +101,8 @@ def chroma_usable() -> bool:
 
 
 _PROBE_SRC = """
-import json, sys
+import json, sys, os
+os.environ["MIMIR_CHROMA_LOCK_ROLE"] = "probe"
 out = {"ok": False, "stage": "import", "lock": "ok"}
 try:
     import chromadb

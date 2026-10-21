@@ -75,6 +75,44 @@ def _write_lock_timeout_s() -> float:
 _WRITE_LOCK_RLOCK = threading.RLock()
 
 
+# --- D2 (RL-20261020-094): cross-process write event ledger ---------------------
+# 为什么要有账本：锁「有效」不能靠过程序员的自我陈述，也不能靠等 24h。
+# 只有 begin/end 成对出现、且不同 pid 的区间不重叠，才是「互斥真的生效」的证据。
+# 纪律：
+#   * 只记录，不参与控制流；任何异常都吞掉（写账本失败绝不能让写入失败）。
+#   * 只在 depth 0->1 时记 begin（同线程重入不算一次跨进程临界区）。
+#   * 取锁失败记 phase=acquire_failed + result=timeout/error，**不记 begin**，
+#     这样「unpaired」永远等于「真崩溃」，不会被超时污染（D13 判据）。
+#   * role 由 MIMIR_CHROMA_LOCK_ROLE 指定（writer/probe/backfill），默认 writer。
+def _events_path() -> Path:
+    from mimir_constants import get_mimir_home
+
+    return Path(get_mimir_home()) / "data" / "chroma_write_events.jsonl"
+
+
+def _events_enabled() -> bool:
+    return os.getenv("MIMIR_CHROMA_EVENTS", "1").strip() not in ("0", "false", "no")
+
+
+def _emit_event(rec: Dict[str, Any]) -> None:
+    """追加一行事件（fail-open：账本坏了也不能阻断写入）。"""
+    if not _events_enabled():
+        return
+    try:
+        path = _events_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        rec.setdefault("ts", time.time())
+        rec.setdefault("role", os.getenv("MIMIR_CHROMA_LOCK_ROLE", "writer"))
+        rec.setdefault("pid", os.getpid())
+        rec.setdefault("ppid", os.getppid())
+        rec.setdefault("tid", threading.get_ident())
+        line = json.dumps(rec, ensure_ascii=False, separators=(",", ":")) + "\n"
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(line)
+    except Exception:  # noqa: BLE001 - 观测面永远不许反噬主流程
+        logger.debug("chroma write event emit failed", exc_info=True)
+
+
 class _WriteLockState:
     def __init__(self) -> None:
         self.depth = 0
@@ -210,10 +248,14 @@ def _acquire_flock(deadline: float) -> None:
 class _WriteLockGuard:
     """Re-entrant, thread-safe, process-exclusive guard for chroma writes."""
 
-    __slots__ = ("_entered",)
+    __slots__ = ("_entered", "_t0", "_hold_t0", "_emitted_begin", "_nonce_seen")
 
     def __init__(self) -> None:
         self._entered = False
+        self._t0: Optional[float] = None
+        self._hold_t0: Optional[float] = None
+        self._emitted_begin = False
+        self._nonce_seen: Optional[str] = None
 
     def __enter__(self) -> "_WriteLockGuard":
         # RL-20261020-094 B3: the in-process wait needs a deadline too. A bare
@@ -222,9 +264,17 @@ class _WriteLockGuard:
         # 0.3s budget) -- the caller then fails open past its own deadline with
         # nothing logged. Same-thread re-entry is unaffected: RLock.acquire
         # returns True immediately when the current thread already owns it.
+        self._t0 = time.monotonic()
         _budget_s = _write_lock_timeout_s()
         if not _WRITE_LOCK_RLOCK.acquire(timeout=_budget_s):
             # We never took the lock, so there is nothing to release here.
+            _emit_event({
+                "phase": "acquire_failed",
+                "result": "timeout",
+                "scope": "thread",
+                "budget_s": round(_budget_s, 3),
+                "waited_ms": round((time.monotonic() - self._t0) * 1000.0, 3),
+            })
             raise ChromaWriteLockTimeout(
                 "chroma write lock not acquired within "
                 f"{_budget_s:.1f}s (another thread in this "
@@ -234,13 +284,28 @@ class _WriteLockGuard:
             )
         try:
             state = _WRITE_LOCK_STATE
-            if state.depth == 0:
+            real = state.depth == 0
+            if real:
                 _acquire_flock(time.monotonic() + _write_lock_timeout_s())
             state.depth += 1
-        except BaseException:
+        except BaseException as exc:
             _WRITE_LOCK_RLOCK.release()
+            _emit_event({
+                "phase": "acquire_failed",
+                "result": "timeout" if isinstance(exc, ChromaWriteLockTimeout) else "error",
+                "scope": "process",
+                "error": f"{type(exc).__name__}: {str(exc)[:200]}",
+                "waited_ms": round((time.monotonic() - (self._t0 or time.monotonic())) * 1000.0, 3),
+            })
             raise
         self._entered = True
+        if real:
+            # 只有真正拿到跨进程 flock 才记 begin（重入不重复记账）
+            self._emitted_begin = True
+            self._nonce_seen = state.nonce
+            self._hold_t0 = time.monotonic()
+            _emit_event({"phase": "begin", "nonce": state.nonce,
+                         "wait_ms": round((self._hold_t0 - self._t0) * 1000.0, 3)})
         return self
 
     def __exit__(self, exc_type, exc, tb) -> bool:
@@ -256,6 +321,14 @@ class _WriteLockGuard:
             if self._entered:
                 _WRITE_LOCK_RLOCK.release()
                 self._entered = False
+            if self._emitted_begin:
+                _emit_event({
+                    "phase": "end",
+                    "nonce": self._nonce_seen,
+                    "result": "error" if exc_type else "ok",
+                    "hold_ms": round((time.monotonic() - (self._hold_t0 or self._t0 or time.monotonic())) * 1000.0, 3),
+                })
+                self._emitted_begin = False
         return False
 
 
