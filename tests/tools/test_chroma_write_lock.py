@@ -149,12 +149,18 @@ def test_sigkill_holder_releases_the_lock(monkeypatch, tmp_path):
 
 
 def test_same_thread_reentrant(monkeypatch, tmp_path):
+    """Re-entry stays free under the B3 deadline: RLock returns True at once
+    when the current thread already owns it, so a near-zero budget must not
+    turn nesting into a timeout."""
     monkeypatch.setenv("MIMIR_AETHER_HOME", str(tmp_path))
+    monkeypatch.setenv("MIMIR_CHROMA_WRITE_LOCK_TIMEOUT_S", "0.001")
+    t0 = time.monotonic()
     with csi.chroma_write_lock():
         with csi.chroma_write_lock():
             assert csi._WRITE_LOCK_STATE.depth == 2
         assert csi._WRITE_LOCK_STATE.depth == 1
     assert csi._WRITE_LOCK_STATE.depth == 0
+    assert time.monotonic() - t0 < 0.5
 
 
 def test_two_threads_in_one_process_serialise(monkeypatch, tmp_path):
@@ -253,6 +259,60 @@ def test_deleted_lock_file_is_reopened(monkeypatch, tmp_path):
     assert first_nonce != second_nonce
     # and the visible file now carries the live holder's token
     assert lock_path.read_text(encoding="utf-8").strip() == second_nonce
+
+
+# --------------------------------------------------------------------------- #
+# RL-20261020-094 B3: the *in-process* wait must also be bounded
+# --------------------------------------------------------------------------- #
+def test_in_process_wait_is_bounded(monkeypatch, tmp_path):
+    """Another *thread* in this process holding the RLock must not let a waiter
+    silently overrun ``MIMIR_CHROMA_WRITE_LOCK_TIMEOUT_S``.
+
+    Before B3 the waiter used a bare ``RLock.acquire()``: with a 0.3s budget and
+    a 2.5s holder it returned after ~1.8s with the lock in hand -- budget
+    ignored, nothing logged, caller past its own deadline. Red before, green now.
+    """
+    monkeypatch.setenv("MIMIR_AETHER_HOME", str(tmp_path))
+    monkeypatch.setenv("MIMIR_CHROMA_WRITE_LOCK_TIMEOUT_S", "0.3")
+    held = threading.Event()
+    release = threading.Event()
+    depth_while_held = []
+
+    def hold() -> None:
+        with csi.chroma_write_lock():
+            depth_while_held.append(csi._WRITE_LOCK_STATE.depth)
+            held.set()                 # prove we really own the guard
+            release.wait(timeout=10.0)
+
+    holder = threading.Thread(target=hold, daemon=True)
+    holder.start()
+    try:
+        assert held.wait(timeout=5.0), "holder thread never took the lock"
+        assert depth_while_held == [1], depth_while_held
+
+        t0 = time.monotonic()
+        with pytest.raises(csi.ChromaWriteLockTimeout) as excinfo:
+            with csi.chroma_write_lock():
+                pytest.fail("waiter must not enter the guard past its deadline")
+        elapsed = time.monotonic() - t0
+
+        assert 0.2 <= elapsed <= 1.0, elapsed
+        assert "0.3s" in str(excinfo.value), str(excinfo.value)
+        assert "same-process contention" in str(excinfo.value), str(excinfo.value)
+        # the refused waiter never took the lock: no depth bump, no release owed
+        assert csi._WRITE_LOCK_STATE.depth == 1, csi._WRITE_LOCK_STATE.depth
+    finally:
+        release.set()
+        holder.join(timeout=10.0)
+    assert not holder.is_alive()
+    assert csi._WRITE_LOCK_STATE.depth == 0
+
+    # once the holder is gone the same caller gets in, and depth still unwinds
+    t1 = time.monotonic()
+    with csi.chroma_write_lock():
+        assert csi._WRITE_LOCK_STATE.depth == 1
+    assert time.monotonic() - t1 < 1.0
+    assert csi._WRITE_LOCK_STATE.depth == 0
 
 
 if __name__ == "__main__":

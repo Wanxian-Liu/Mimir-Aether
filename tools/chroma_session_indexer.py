@@ -168,7 +168,20 @@ class _WriteLockGuard:
         self._entered = False
 
     def __enter__(self) -> "_WriteLockGuard":
-        _WRITE_LOCK_RLOCK.acquire()
+        # RL-20261020-094 B3: the in-process wait needs a deadline too. A bare
+        # acquire() blocks as long as another thread holds the RLock, silently
+        # overrunning MIMIR_CHROMA_WRITE_LOCK_TIMEOUT_S (measured 1.80s against a
+        # 0.3s budget) -- the caller then fails open past its own deadline with
+        # nothing logged. Same-thread re-entry is unaffected: RLock.acquire
+        # returns True immediately when the current thread already owns it.
+        _budget_s = _write_lock_timeout_s()
+        if not _WRITE_LOCK_RLOCK.acquire(timeout=_budget_s):
+            # We never took the lock, so there is nothing to release here.
+            raise ChromaWriteLockTimeout(
+                "chroma write lock not acquired within "
+                f"{_budget_s:.1f}s (another thread in this "
+                "process holds it; same-process contention)"
+            )
         try:
             state = _WRITE_LOCK_STATE
             if state.depth == 0:
