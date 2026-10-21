@@ -1,7 +1,7 @@
 # Chroma 写锁：保证什么、不保证什么
 
 > **适用代码**：`tools/chroma_session_indexer.py::chroma_write_lock()` 及全部调用点。
-> **基线**：`HEAD=ffbbe75`（RL-20261020-094 B4）。本文件只描述**现状**，不含改造计划。
+> **基线**：`HEAD=56377e6`（RL-20261020-094 B9）。本文件只描述**现状**，不含改造计划。
 > **写法约束**：每条陈述后括注 `文件:行号`，或给出可复跑命令 + 预期读数。二者皆无的句子不写。
 > **不出现在本文件的数字**：不写（含「应该 / 大概 / 一般来说」）。
 
@@ -140,13 +140,19 @@ flock 由内核在 fd 关闭时释放——正常退出、`SIGKILL`、显式 `LO
 
 **脚本**：`~/.mimiraether/gates/verify_chroma_write_coverage.py`（不在本仓 git 内，见 §4.3）。
 
-**当前读数（本轮实跑）**：`guards=10 unguarded=0`、`rc=0`；`--selftest` **6/6 arms passed**。
+**当前读数（本轮实跑）**：`guards=10 unguarded=0 nullable=1 guards_real=9` → **`rc=2`**（nullable 告警）；
+`--selftest` **9/9 arms passed**。
+
+**判据锚点**：`sha256=ed0c63b8bdb97f69bd6d4d0b8b7432c6914af80ee7e9fd2d059a2e3424f2df32`（896 行，2026-10-22）——上句读数属于这一版判据；换版必换 sha，读者据此判定读数归属。
+
+**`guards=10` 里有 1 处是 nullable，不许藏**：第 3 格（`tools/chroma_guard.py:121`，内嵌探针）词法上有 `with`，但它在锁导入失败时把锁名绑成 `contextlib.nullcontext`（§4.1）⇒ **运行时可能无锁**。
+`guards_real=9 = guards − nullable` 才是真正有锁的站点数；`nullable>0 ⇒ rc=2`（不是 rc=0）。
 
 | # | 站点 | 操作 | 状态 |
 |---|---|---|---|
 | 1 | `scripts/chroma_backfill_full.py:235` | `col.delete` | guarded |
 | 2 | `scripts/chroma_backfill_full.py:260` | `col.delete` | guarded |
-| 3 | `tools/chroma_guard.py:121` | `chromadb.PersistentClient` | guarded **[embedded]** |
+| 3 | `tools/chroma_guard.py:121` | `chromadb.PersistentClient` | guarded **[embedded]** · **nullable** |
 | 4 | `tools/chroma_session_indexer.py:790` | `collection.upsert` | guarded |
 | 5 | `tools/chroma_session_indexer.py:815` | `chromadb.PersistentClient` | guarded |
 | 6 | `tools/chroma_session_indexer.py:908` | `collection.delete` | guarded |
@@ -170,16 +176,25 @@ flock 由内核在 fd 关闭时释放——正常退出、`SIGKILL`、显式 `LO
 
 ### 4.2 判据自身可信度（两向）
 
-`--selftest` 6 臂 = 该放行的放行 + 该拦的拦住，缺一臂即判据不可信：
+`--selftest` 9 臂 = 该放行的放行 + 该拦的拦住，缺一臂即判据不可信：
+6 个基础臂（下 6 行）+ 3 个结构性臂（`scope_disclosure` / `nullable`（含 5 个子例，其中 2 个是「不该报 nullable」的假阳性负控、1 个验嵌套 try 深度）/ `cwd_default`）。逐字输出（2026-10-22 实跑；绝对 home 路径按公开仓规则掩为 `$HOME`，其余逐字）：
 
 ```
-arm=lock_in_upsert               expected_rc=0 actual_rc=0 sites=1 unguarded=0 PASS
-arm=unlocked_delete              expected_rc=1 actual_rc=1 sites=1 unguarded=1 PASS
-arm=comment_and_plain_string     expected_rc=0 actual_rc=0 sites=1 unguarded=0 PASS
-arm=nested_other_with            expected_rc=1 actual_rc=1 sites=1 unguarded=1 PASS
-arm=same_name_other_types        expected_rc=0 actual_rc=0 sites=1 unguarded=0 PASS
-arm=embedded_python_source       expected_rc=1 actual_rc=1 sites=3 unguarded=2 PASS
-selftest: 6/6 arms passed
+arm=lock_in_upsert expected_rc=0 actual_rc=0 sites=1 unguarded=0 nullable=0 PASS
+arm=unlocked_delete expected_rc=1 actual_rc=1 sites=1 unguarded=1 nullable=0 PASS
+arm=comment_and_plain_string expected_rc=0 actual_rc=0 sites=1 unguarded=0 nullable=0 PASS
+arm=nested_other_with expected_rc=1 actual_rc=1 sites=1 unguarded=1 nullable=0 PASS
+arm=same_name_other_types expected_rc=0 actual_rc=0 sites=1 unguarded=0 nullable=0 PASS
+arm=embedded_python_source expected_rc=1 actual_rc=1 sites=3 unguarded=2 nullable=0 PASS
+arm=scope_disclosure_explicit_root expected_rc=1 actual_rc=1 first_line='scan_root=/tmp/tmp_ikploqp/arm7_repo_copy' note=no PASS
+arm=scope_disclosure_last_resort expected_first_line=scan_root=$HOME/src/MimirAether actual='scan_root=$HOME/src/MimirAether' warn=yes PASS
+arm=nullable[nullable_fallback] expected_rc=2 actual_rc=2 sites=1 guards=1 unguarded=0 nullable=1 PASS
+arm=nullable[nullable_not_present] expected_rc=0 actual_rc=0 sites=1 guards=1 unguarded=0 nullable=0 PASS
+arm=nullable[nullcontext_other_name] expected_rc=0 actual_rc=0 sites=1 guards=1 unguarded=0 nullable=0 PASS
+arm=nullable[nullcontext_multi_hop_alias] expected_rc=2 actual_rc=2 sites=1 guards=1 unguarded=0 nullable=1 PASS
+arm=nullable[nullcontext_nested_try] expected_rc=2 actual_rc=2 sites=1 guards=1 unguarded=0 nullable=1 PASS
+arm=cwd_default_negative_control expected_rc=1 actual_rc=1 first_line='scan_root=/tmp/tmp_ikploqp/arm9_repo_copy' note=yes PASS
+selftest: 9/9 arms passed
 ```
 
 ### 4.3 已知边界：判据脚本不在版本控制里
@@ -188,8 +203,12 @@ selftest: 6/6 arms passed
 `~/.mimiraether/gates/verify_chroma_write_coverage.py` 一份。⇒ **只 clone 本仓的人无法复跑本判据**，
 必须从运行机取该文件。这是当前事实，不是建议。
 
-重跑命令: `~/src/MimirAether/.venv/bin/python3 ~/.mimiraether/gates/verify_chroma_write_coverage.py`
-复算数字: `guards=10 unguarded=0` 且 `rc=0`；加 `--selftest` ⇒ `selftest: 6/6 arms passed` 且 `rc=0`
+重跑命令: `cd ~/src/MimirAether && ~/src/MimirAether/.venv/bin/python3 ~/.mimiraether/gates/verify_chroma_write_coverage.py`
+复算数字: 首行 `scan_root=$HOME/src/MimirAether`、末行 `guards=10 unguarded=0 nullable=1 guards_real=9` 且 **`rc=2`**（nullable 告警，不再假装 rc=0）；加 `--selftest` ⇒ `selftest: 9/9 arms passed` 且 `rc=0`
+
+负控（副本，判据不许被骗绿）：
+重跑命令: `C=$(mktemp -d) && cp -a ~/src/MimirAether/{tools,scripts} $C/ && cd $C && ~/src/MimirAether/.venv/bin/python3 ~/.mimiraether/gates/verify_chroma_write_coverage.py`
+复算数字: 首行 `scan_root=$C`（此前会扫默认真仓、读绿）；拆掉一处 `with chroma_write_lock():` ⇒ `guards=9 unguarded=1`、`rc=1`
 
 ---
 
@@ -369,5 +388,6 @@ PY
 | B3 | `2e92c75` | 进程内 `RLock` 等待加 deadline（此前 `acquire()` 无超时，实测 1.80 s vs 0.3 s 预算） | `git log -1 --format=%B 2e92c75` |
 | B4 | `ffbbe75` | 超时报文点名持有者（`holder=pid=… (alive\|gone\|unknown) token=…` / `holder=thread:…`） | `git log -1 --format=%B ffbbe75` |
 | B6 | — | 运行态生效：以上代码已 commit，**运行态以重启为准**（`PENDING-SMOKE`，本文件不声明重启已完成） | `git rev-parse HEAD` |
+| B9 | —（判据不在 git 内，见 §4.3） | 判据三缺陷修复：nullable 锁单列 + `rc=2`、`--root` 缺省改扫 cwd、两向自检 7→9 臂；判据 sha256 锚点 `ed0c63b8bdb9…` | `sha256sum ~/.mimiraether/gates/verify_chroma_write_coverage.py` |
 
-**当前 HEAD = `ffbbe75`**；本文件所在工作区改动仅 `docs/chroma_write_lock.md`（新增）。
+**当前 HEAD = `56377e6`**；本文件所在工作区改动仅 `docs/chroma_write_lock.md`。
