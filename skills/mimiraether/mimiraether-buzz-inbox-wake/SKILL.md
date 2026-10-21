@@ -1163,3 +1163,32 @@ watcher（<=5min）只看「行号 vs dispatched」⇒ 认领两次
 2. **整仓 pytest 首跑的红可能是自己造的新红**：跑法固定 `bash ~/src/MimirAether/scripts/pytest_isolated.sh`（禁在 gateway cgroup 内直跑整仓 ⇒ OOM），结果贴 `X passed / Y failed` 原始尾行；若首跑非 0，先 `git log -1 --format='%h %ad %s' -- <红源文件>` 定引入时点 —— 常见自伤形态 = **技能里写字面占位符路径**（如 `/x/scripts/<脚本>.py`）⇒ `scripts/check_dead_refs.py` 判 dead hard path ⇒ `test_check_dead_refs_scope` 红。修 1 行 + 复跑 `check_dead_refs.py`（应 `Clean: N/N`）即可。
 3. **闸要挂进现有周期 job，不新建 cron**：加步骤 = 持 `~/.mimiraether/cron/.tick.lock` flock 改 `jobs.json`（无需重启），判据写 `grep -c '<步标题>' jobs.json ≥1`；段内必带 rc 语义 + 输出行要求（禁静默）。
 4. **回执末标记必须在文末**：`【END-XXX】` 之后补写内容 = 破坏派单方的结束标记语义（本轮踩过：补「未闭项」时把 END 顶到中间）⇒ 补写后回读末行确认标记在最后。
+
+## 2.41 「收件箱压缩重写 + offset 归零」：唤醒报全量旧行为新（2026-10-22 行1-52 实证 · 第2次同类）
+
+**场景**：唤醒称「第 1 到 52 行，52 条新消息」，实为**假新**——唤醒器比对的是
+「文件行号 vs `~/.openclaw/data/buzz-inbox-mimir.offset`」，两者都被重置：
+
+| 读数 | 值 | 含义 |
+|---|---|---|
+| `stat buzz-inbox-mimir.jsonl` | **52 行** · 133,531 B · mtime 03:00:09 | 文件被**压缩重写** |
+| `buzz-inbox-mimir.offset` | **`0`**（唤醒前） | offset 被**归零** |
+| `.dispatched.claim.log` 尾 | `RESERVE … range=1..52 **prev_dispatched=0**` | 唤醒器以为一条都没消费过 |
+| 同日更早的 claim | `01:36:46 COMMIT … range=**295..295**` | 重写前文件 ≥295 行 ⇒ 行号**回绕** |
+| `inbox-processed.log` | `max up to N` = **286**（22:45:01） | 旧水位远大于 52 |
+
+**结论**：行号类判据在压缩后**完全不可信**——必须换时间轴/内容判据。
+
+**三步处置（每次唤醒都先跑，别先读 52 条正文）**：
+
+1. **先量三读数**：`wc -l <inbox>` · `cat <inbox>.offset` · `grep -c 'up to' ~/.mimiraether/logs/inbox-processed.log`。
+   `offset < 水位` 或 `水位行号 > 当前行数` ⇒ **rotation_suspected=True**，本唤醒是假新候选。
+2. **跑分诊器**：`~/src/MimirAether/.venv/bin/python3 ~/.mimiraether/scripts/buzz_inbox_triage.py --list 20`
+   —— 按 **ts 与账本最后一条记录时间**二分：`covered_by_watermark`（水位内，已处理区）+ `post_watermark`（水位之后的少数行）。
+   **只对 post_watermark 逐条到盘取证**（commit / 回执 / 交付物），水位内不逐条读。
+3. **落账本**：照格式 `… processed N lines (up to N) [dedup/false-wake] …`，并写「真新 = ?」+ 每条 post 行的已办证据（commit 短号 + 时间 / 回执文件名）。
+
+**踩坑**：
+- **别信「52 条新」这类全量口径**：真新通常是水位后的个位数；本轮 9 条全已办 ⇒ 真新 **0**。
+- **账本时间戳是本机 local**（`ts` 用 `datetime.fromtimestamp` 换算，**别**用 `utcfromtimestamp`——差 8 小时会把「水位内」误判成「水位后」）。
+- **offset/收件箱属 `~/.openclaw` 面（只读）**：压缩与归零的动作方在琬弦侧 ⇒ 只能记录 + 提未闭项，**禁**自己改 offset 或重排收件箱。
