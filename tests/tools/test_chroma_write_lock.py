@@ -315,5 +315,65 @@ def test_in_process_wait_is_bounded(monkeypatch, tmp_path):
     assert csi._WRITE_LOCK_STATE.depth == 0
 
 
+# --------------------------------------------------------------------------- #
+# RL-20261020-094 B4: a timeout must name the holder, not just "not acquired"
+# --------------------------------------------------------------------------- #
+def test_timeout_message_names_holder(monkeypatch, tmp_path):
+    """Cross-process timeout: the message must carry the *holder's* pid, its
+    liveness, and the in-band token -- that is the one datum a responder needs
+    and cannot guess from the time window.
+
+    The holder here is a real OS process (``_spawn`` re-invokes this file), so
+    the pid in the message must equal that child's pid, not ours.
+    """
+    monkeypatch.setenv("MIMIR_AETHER_HOME", str(tmp_path))
+    holder = _spawn(tmp_path, "hold", "H", "3")
+    try:
+        assert holder.stdout.readline().strip() == "held"
+        monkeypatch.setenv("MIMIR_CHROMA_WRITE_LOCK_TIMEOUT_S", "0.3")
+        with pytest.raises(csi.ChromaWriteLockTimeout) as excinfo:
+            with csi.chroma_write_lock():
+                pytest.fail("must not acquire while a child process holds the lock")
+    finally:
+        holder.kill()
+        holder.communicate(timeout=30)
+
+    msg = str(excinfo.value)
+    assert "holder=" in msg, msg
+    assert str(holder.pid) in msg, (holder.pid, msg)
+    assert "alive" in msg, msg
+    assert f"pid={holder.pid} (alive)" in msg, msg
+
+
+def test_in_process_timeout_names_thread_not_pid(monkeypatch, tmp_path):
+    """Same-process contention is a *thread*, not another pid -- naming it as a
+    pid would send the responder hunting a process that does not exist."""
+    monkeypatch.setenv("MIMIR_AETHER_HOME", str(tmp_path))
+    monkeypatch.setenv("MIMIR_CHROMA_WRITE_LOCK_TIMEOUT_S", "0.3")
+    held = threading.Event()
+    release = threading.Event()
+
+    def hold() -> None:
+        with csi.chroma_write_lock():
+            held.set()
+            release.wait(timeout=10.0)
+
+    holder = threading.Thread(target=hold, name="chroma-holder", daemon=True)
+    holder.start()
+    try:
+        assert held.wait(timeout=5.0), "holder thread never took the lock"
+        with pytest.raises(csi.ChromaWriteLockTimeout) as excinfo:
+            with csi.chroma_write_lock():
+                pytest.fail("waiter must not enter the guard past its deadline")
+    finally:
+        release.set()
+        holder.join(timeout=10.0)
+
+    msg = str(excinfo.value)
+    assert "holder=thread:" in msg, msg
+    assert "holder=pid=" not in msg, msg
+    assert "same process" in msg, msg
+
+
 if __name__ == "__main__":
     raise SystemExit(_run_child())

@@ -106,6 +106,53 @@ def _read_lock_file_token(path: Path) -> Optional[str]:
         return None
 
 
+def _lock_holder_desc() -> str:
+    """B4 (RL-20261020-094): name the *holder* of the write lock.
+
+    Diagnostics only -- this function feeds the timeout message, never control
+    flow. Every path returns a string; nothing here raises. When the token
+    cannot be read we say ``unknown``: an unclear message is acceptable, masking
+    the original ChromaWriteLockTimeout is not.
+
+    Format: ``pid=<pid> (<alive|gone|unknown>) token=<pid>:<ns>``.
+    """
+    try:
+        token = _read_lock_file_token(chroma_write_lock_path())
+        if not token:
+            return "unknown"
+        if ":" not in token:
+            # Printed before the separator landed (truncated write) or a legacy
+            # shape: we cannot tell pid from noise -- do not invent a holder.
+            return f"unknown token={token[:64]}"
+        head = token.split(":", 1)[0].strip()
+        try:
+            pid = int(head)
+        except (TypeError, ValueError):
+            # Half-written or legacy token (truncated write, pre-B1 format):
+            # report what we saw, never die on a parse.
+            return f"unknown token={token[:64]}"
+        if pid <= 0:
+            return f"unknown token={token[:64]}"
+        # /proc is the cheap liveness probe. os.path.exists() cannot tell
+        # "pid gone" from "procfs not mounted / not readable" (both False), so
+        # probe procfs itself: if it is unusable we say "unknown", never "gone"
+        # -- a false "gone" sends the responder hunting a live holder.
+        try:
+            procfs_usable = os.path.exists("/proc/self") or os.path.exists("/proc/1")
+        except OSError:  # pragma: no cover - exists() swallows errors
+            procfs_usable = False
+        if not procfs_usable:
+            return f"pid={pid} (unknown) token={token[:64]}"
+        try:
+            alive = os.path.exists(f"/proc/{pid}")
+        except OSError:  # pragma: no cover - exists() swallows errors
+            return f"pid={pid} (unknown) token={token[:64]}"
+        return f"pid={pid} ({'alive' if alive else 'gone'}) token={token[:64]}"
+    except Exception:  # noqa: BLE001 - diagnostics must never mask the real error
+        logger.debug("chroma lock holder description failed", exc_info=True)
+        return "unknown"
+
+
 def _acquire_flock(deadline: float) -> None:
     """Take the cross-process lock, proving our fd is the *visible* lock file."""
     state = _WRITE_LOCK_STATE
@@ -122,7 +169,8 @@ def _acquire_flock(deadline: float) -> None:
                 raise ChromaWriteLockTimeout(
                     "chroma write lock not acquired within "
                     f"{_write_lock_timeout_s():.1f}s (another process holds "
-                    f"{chroma_write_lock_path()})"
+                    f"{chroma_write_lock_path()}) "
+                    f"holder={_lock_holder_desc()}"
                 ) from exc
             time.sleep(_WRITE_LOCK_POLL_S)
             continue
@@ -155,7 +203,7 @@ def _acquire_flock(deadline: float) -> None:
         if time.monotonic() >= deadline:
             raise ChromaWriteLockTimeout(
                 "chroma write lock file kept being replaced under us: "
-                f"{chroma_write_lock_path()}"
+                f"{chroma_write_lock_path()} holder={_lock_holder_desc()}"
             )
 
 
@@ -180,7 +228,9 @@ class _WriteLockGuard:
             raise ChromaWriteLockTimeout(
                 "chroma write lock not acquired within "
                 f"{_budget_s:.1f}s (another thread in this "
-                "process holds it; same-process contention)"
+                "process holds it; same-process contention) "
+                "holder=thread:"
+                f"{threading.current_thread().name} (same process)"
             )
         try:
             state = _WRITE_LOCK_STATE
