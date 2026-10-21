@@ -218,7 +218,12 @@ class LocalSentenceTransformerEmbeddingFunction:
     """
 
     DEFAULT_MAX_SEQ_LENGTH = 512
-    DEFAULT_NUM_THREADS = 16
+    # 2026-10-21 P0: 16 -> 4。实测（同机真实负载，load≈8.6，另有三进程占 9GB）：
+    #   threads=16 median 10.20s  |  8 median 0.60s  |  4 median 0.19s  |  2 median 0.16s
+    # 单条短查询在 16 线程下比 4 线程慢 53.8x —— 16 核机器上再向 torch 要 16 线程
+    # 属线程超订，是「语义延迟 10s > semantic_timeout_s=5.0 ⇒ 每条查询必降级」的真因。
+    # 可用 MIMIR_EMBED_NUM_THREADS 覆写（批式回填若确需更多线程再调，须带前后读数）。
+    DEFAULT_NUM_THREADS = 4
 
     def __init__(
         self,
@@ -228,6 +233,9 @@ class LocalSentenceTransformerEmbeddingFunction:
     ) -> None:
         self._model_path = model_path
         self._max_seq_length = max_seq_length
+        _env_threads = os.getenv("MIMIR_EMBED_NUM_THREADS", "").strip()
+        if _env_threads.isdigit():
+            num_threads = max(1, int(_env_threads))
         try:
             import torch
             import sentence_transformers
@@ -276,7 +284,7 @@ class LocalSentenceTransformerEmbeddingFunction:
         )
 
 
-def resolve_embedding_function(model: Optional[str] = None):
+def _build_embedding_function(model: Optional[str] = None):
     """Pick embedding backend: local ST model (e.g. bge-m3) when configured, else
     chromadb ST by name, else deterministic hash (tier0 / no ML deps)."""
     global _EMBED_RESOLVE_FAILURES
@@ -313,6 +321,46 @@ def resolve_embedding_function(model: Optional[str] = None):
             f"to allow tier0 hash embeddings."
         )
     return HashEmbeddingFunction()
+
+
+# 2026-10-21 P0: 模型加载缓存。实测证据（受控实验，单查询孤立运行）：
+#   COLD 17.63s / WARM 13.92s，两次都打 "Loading weights" ⇒ 每次 resolve 都从盘重载
+#   bge-m3（RSS 2450→2779MB）。真实语义延迟 ≈13.9s 而 semantic_timeout_s=5.0
+#   ⇒ 生产每条查询必然降级为关键字（semantic_hits 逐行等于 like_hits 的成因）。
+# 修法：以 model 标识为键做进程内单例；负控（不同 model_path 不得串味）见
+#   tests/tools/test_embedding_function_cache.py
+_EF_CACHE: Dict[str, Any] = {}
+_EF_CACHE_LOCK = None
+
+
+def resolve_embedding_function(model: Optional[str] = None):
+    """Cached front-end for :func:`_build_embedding_function`.
+
+    Loading bge-m3 costs ~14s and ~2.2GB; a fresh instance per query makes the
+    semantic arm structurally unable to meet its own timeout budget.
+    """
+    global _EF_CACHE_LOCK
+    key = (model or os.getenv("MIMIR_EMBED_MODEL", "")).strip() or "__hash__"
+    cached = _EF_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    if _EF_CACHE_LOCK is None:
+        import threading as _threading
+
+        _EF_CACHE_LOCK = _threading.Lock()
+    with _EF_CACHE_LOCK:
+        cached = _EF_CACHE.get(key)
+        if cached is not None:
+            return cached
+        ef = _build_embedding_function(model)
+        _EF_CACHE[key] = ef
+        return ef
+
+
+def clear_embedding_function_cache() -> None:
+    """Test/ops hook: drop cached models (e.g. after swapping MIMIR_EMBED_MODEL)."""
+    _EF_CACHE.clear()
 
 
 # Garbage / non-retrieval content prefixes (P0 audit 2026-08-11: system error
