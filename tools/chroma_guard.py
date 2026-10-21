@@ -102,17 +102,23 @@ def chroma_usable() -> bool:
 
 _PROBE_SRC = """
 import json, sys
-out = {"ok": False, "stage": "import"}
+out = {"ok": False, "stage": "import", "lock": "ok"}
 try:
     import chromadb
 except Exception as e:
     out["error"] = "import: %s: %s" % (type(e).__name__, e)
     print(json.dumps(out)); sys.exit(0)
+try:
+    from tools.chroma_session_indexer import chroma_write_lock
+except Exception:
+    from contextlib import nullcontext as chroma_write_lock
+    out["lock"] = "unavailable"
 out["stage"] = "open"
 try:
     from mimir_constants import get_mimir_chroma_dir
     root = str(get_mimir_chroma_dir())
-    client = chromadb.PersistentClient(path=root)
+    with chroma_write_lock():
+        client = chromadb.PersistentClient(path=root)
     out["stage"] = "count"
     col = client.get_collection("session_messages")
     out["count"] = int(col.count())

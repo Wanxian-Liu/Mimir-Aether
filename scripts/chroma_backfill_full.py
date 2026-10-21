@@ -45,6 +45,7 @@ FAULT = Path(os.environ.get("MIMIR_BACKFILL_FAULT", str(DATA / "chroma_backfill_
 from tools.chroma_session_indexer import (  # noqa: E402
     IndexedMessage,
     _upsert_batch,
+    chroma_write_lock,
     get_chroma_collection,
     is_garbage_content,
     message_doc_id,
@@ -230,7 +231,8 @@ def main() -> int:
         try:
             rows = session_rows(db, sid)
             if args.rebuild:
-                col.delete(where={"session_id": sid})
+                with chroma_write_lock():
+                    col.delete(where={"session_id": sid})
             start_rowid = 0
             if (not args.rebuild and ckpt.get("last_session") == sid
                     and int(ckpt.get("last_rowid") or 0) > 0):
@@ -254,7 +256,8 @@ def main() -> int:
             missing = len(want_ids - have_ids)
             orphans = have_ids - want_ids
             if orphans:
-                col.delete(ids=sorted(orphans))
+                with chroma_write_lock():
+                    col.delete(ids=sorted(orphans))
                 have_ids -= orphans
             status = "OK" if missing == 0 and have_ids == want_ids else "MISMATCH"
             per_session[sid] = {"want": len(want_ids), "have": len(have_ids),

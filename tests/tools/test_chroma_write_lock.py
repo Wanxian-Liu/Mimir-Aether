@@ -206,6 +206,36 @@ def test_delete_path_takes_the_lock(monkeypatch, tmp_path):
     assert len(calls) == 1
 
 
+def test_delete_path_blocks_while_lock_held(monkeypatch, tmp_path):
+    """Behaviour, not logging: while another *process* holds the write lock, the
+    delete path (``_delete_stale_session_docs``) must actually wait on it.
+
+    Static coverage (the AST gate) can only see that a ``with`` wraps the call;
+    it cannot see that the guard is really taken. This asserts the elapsed lower
+    bound of the blocked caller, and the child proves the hold was real.
+    """
+    monkeypatch.setenv("MIMIR_AETHER_HOME", str(tmp_path))
+    monkeypatch.delenv("MIMIR_CHROMA_INCREMENTAL", raising=False)
+    holder = _spawn(tmp_path, "hold", "H", "2")
+    try:
+        assert holder.stdout.readline().strip() == "held"
+        from tools import session_search_indexer as ssi
+
+        collection = MagicMock()
+        collection.get.return_value = {"ids": ["d1", "d2"]}
+        monkeypatch.setattr(csi, "_get_incremental_collection", lambda: collection)
+        monkeypatch.setattr(csi, "get_chroma_collection", lambda: collection)
+        t0 = time.time()
+        out = ssi._delete_stale_session_docs("s1", ["d1", "d2"])
+        waited = time.time() - t0
+        assert out.get("deleted") == 2, out
+        assert collection.delete.called
+        assert waited >= 1.5, waited
+    finally:
+        holder.kill()
+        holder.communicate(timeout=30)
+
+
 def test_deleted_lock_file_is_reopened(monkeypatch, tmp_path):
     """Documented residual hole: unlinking the lock file lets a *new* inode be
     locked, so one round of mutual exclusion can be lost. We must not crash and

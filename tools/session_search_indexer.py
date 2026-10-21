@@ -622,6 +622,7 @@ def resume_pending_deletes(
                 pass
             out["error"] = "%s: %s" % (type(exc).__name__, exc)
             return out
+    import tools.chroma_session_indexer as _csi
     for sid in list(data)[: limit if limit else None]:
         rec = data.get(sid) or {}
         if int(rec.get("attempts") or 0) >= _FAILED_BACKLOG:
@@ -634,7 +635,8 @@ def resume_pending_deletes(
                 ).get("ids") or []
                 if not got:
                     break
-                col.delete(ids=got)
+                with _csi.chroma_write_lock():
+                    col.delete(ids=got)
                 out["docs_deleted"] += len(got)
                 if pause_s:
                     import time as _time
@@ -855,7 +857,8 @@ def reconcile_session_orphans(
         out["wanted"] = len(wanted)
         out["orphans"] = len(stale)
         if stale and not dry_run:
-            col.delete(ids=stale)
+            with _csi.chroma_write_lock():
+                col.delete(ids=stale)
             out["deleted"] = len(stale)
     except Exception as exc:
         out["error"] = "%s: %s" % (type(exc).__name__, exc)
@@ -1018,7 +1021,8 @@ def _delete_stale_session_docs(session_id: str, doc_ids: list) -> Dict[str, Any]
             deleted = 0
             for _i in range(0, len(target), _BATCH):
                 _chunk = target[_i:_i + _BATCH]
-                collection.delete(ids=_chunk)
+                with _csi.chroma_write_lock():
+                    collection.delete(ids=_chunk)
                 deleted += len(_chunk)
             out["deleted"] = deleted
     except Exception as exc:
