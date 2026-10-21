@@ -621,12 +621,110 @@ def _message_metadata(msg: IndexedMessage) -> Dict[str, Any]:
     return meta
 
 
+# 094b: embedding computed OUTSIDE the write lock (RL-20261020-094 B2).
+# chroma resolves documents -> vectors lazily *inside* collection.upsert when it
+# is called with documents=, so the cross-process lock was held for the whole
+# bge-m3 pass (measured 2026-10-21: 128-doc batch held 35.1s / 35.2s, single
+# message 0.343s) and every other writer starved meanwhile. Budget: the lock
+# covers the write only. Embedding is a pure function of (EF, documents) and the
+# upsert stays idempotent by doc id, so computing it before the lock cannot
+# change what lands.
+# Two fallbacks keep behaviour identical, never "recompute inside the lock":
+#   * no usable EF (missing / not callable) -> legacy documents= path, in lock;
+#   * EF returned something that is not an embedding matrix (mock protheses,
+#     ragged rows) -> same legacy path, logged at warning.
+# A raising EF is NOT swallowed: it propagates to the caller's existing
+# fail-open + note_index_failure() path, tagged with batch size (L79).
+_EMBED_OUTSIDE_LOCK_CHUNK = 32
+
+
+def _coerce_embeddings(raw: Any, expected: int) -> Optional[List[Any]]:
+    """Return ``raw`` only if it is a well-formed embedding matrix.
+
+    Well-formed = exactly ``expected`` rows, every row a non-empty sequence of
+    numbers, all rows the same width. Rows are returned *as produced* so the
+    vectors reach chroma bit-identical. Anything else -> None (caller falls back
+    to the legacy path instead of writing a shape chroma would reject).
+    """
+    try:
+        rows = list(raw)
+    except Exception:  # noqa: BLE001 - unusable iterable == not an embedding matrix
+        return None
+    if expected == 0 or len(rows) != expected:
+        return None
+    dim = None
+    for row in rows:
+        try:
+            values = [float(v) for v in row]
+        except Exception:  # noqa: BLE001 - non-numeric row
+            return None
+        if not values:
+            return None
+        if dim is None:
+            dim = len(values)
+        elif len(values) != dim:
+            return None
+    return rows
+
+
+def _embed_outside_lock(collection: Any, documents: Sequence[str]) -> Optional[List[Any]]:
+    """Pre-compute embeddings before taking the write lock.
+
+    Returns None when the legacy in-lock path must be used (no usable EF, or EF
+    produced something we cannot prove is an embedding matrix). Raises only when
+    the EF itself raises -- deliberately no "retry inside the lock": a retry
+    would re-hold the lock for the same cost and would hide the failure from the
+    caller's existing fail-open + note_index_failure() path.
+    """
+    if not documents:
+        return None
+    ef = getattr(collection, "_embedding_function", None)
+    if ef is None or not callable(ef):
+        logger.debug(
+            "embed_outside_lock=unavailable batch_size=%d docs=%d ef=%s",
+            len(documents),
+            len(documents),
+            type(ef).__name__ if ef is not None else "None",
+        )
+        return None
+    raw: List[Any] = []
+    try:
+        for start in range(0, len(documents), _EMBED_OUTSIDE_LOCK_CHUNK):
+            chunk = list(documents[start : start + _EMBED_OUTSIDE_LOCK_CHUNK])
+            raw.extend(ef(chunk))
+    except Exception as exc:
+        raise RuntimeError(
+            f"embed_outside_lock failed batch_size={len(documents)} docs={len(documents)} "
+            f"ef={type(ef).__name__} chunk={_EMBED_OUTSIDE_LOCK_CHUNK}: "
+            f"{type(exc).__name__}: {exc}"
+        ) from exc
+    rows = _coerce_embeddings(raw, len(documents))
+    if rows is None:
+        logger.warning(
+            "embed_outside_lock=invalid_shape batch_size=%d docs=%d ef=%s "
+            "-> legacy in-lock path",
+            len(documents),
+            len(documents),
+            type(ef).__name__,
+        )
+        return None
+    return rows
+
+
 def _upsert_batch(collection: Any, batch: Sequence[IndexedMessage]) -> int:
     ids = [message_doc_id(m.session_id, m.message_id) for m in batch]
     documents = [m.content for m in batch]
     metadatas = [_message_metadata(m) for m in batch]
+    # Embedding (the expensive part) happens before the lock; only the write
+    # itself is serialised across processes. Single call site on purpose: the
+    # coverage gate counts guarded write sites, and two branches would count as
+    # two writers.
+    embeddings = _embed_outside_lock(collection, documents)
+    write = {"ids": ids, "documents": documents, "metadatas": metadatas}
+    if embeddings is not None:
+        write["embeddings"] = embeddings
     with chroma_write_lock():
-        collection.upsert(ids=ids, documents=documents, metadatas=metadatas)
+        collection.upsert(**write)
     return len(batch)
 
 
