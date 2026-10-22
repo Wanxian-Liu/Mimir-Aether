@@ -31,11 +31,18 @@ __all__ = [
     "mark_degraded",
     "clear_degraded",
     "chroma_usable",
+    "classify",
+    "startup_action",
     "probe",
 ]
 
 _PROBE_TIMEOUT_ENV = "MIMIR_CHROMA_PROBE_TIMEOUT_S"
-_DEFAULT_TIMEOUT = 20.0
+# 探针在子进程里**要先等写锁**才能开库，而写锁的默认预算是 60s（见
+# chroma_session_indexer.DEFAULT_WRITE_LOCK_TIMEOUT_S）。探针预算必须大于锁预算：
+# 20s < 60s 时，一次「忙但健康」的长写就会被判成「库坏了」——而且（第 3 批之前）
+# 一旦置了降级标记就再也不撤，等于用一次繁忙把索引永久踢到 FTS5。
+# 90s = 60s 等锁 + 30s 开库/count/get 余量。
+_DEFAULT_TIMEOUT = 90.0
 
 
 def degrade_state_path() -> Path:
@@ -85,7 +92,20 @@ def mark_degraded(reason: str, *, detail: str = "") -> Dict[str, Any]:
 
 
 def clear_degraded(*, reason: str = "probe_ok") -> Dict[str, Any]:
-    rec = {"degraded": False, "reason": reason, "since": time.time()}
+    """撤降级标记（第 3 批之前**零调用方** ⇒ 一次误判就是永久 FTS5）。
+
+    只有「探针真的通过」才该走到这里。保留上一段的 reason/since 与停摆时长：
+    降级窗口本身就是证据，撤了标记不该把事故一起抹掉。
+    """
+    prev = read_degrade_state()
+    rec: Dict[str, Any] = {"degraded": False, "reason": reason, "since": time.time()}
+    if prev.get("degraded"):
+        rec["prev_reason"] = prev.get("reason")
+        rec["prev_since"] = prev.get("since")
+        try:
+            rec["outage_s"] = round(rec["since"] - float(prev["since"]), 1)
+        except (KeyError, TypeError, ValueError):
+            pass
     _write_state(rec)
     return rec
 
@@ -110,6 +130,10 @@ except Exception as e:
     out["error"] = "import: %s: %s" % (type(e).__name__, e)
     print(json.dumps(out)); sys.exit(0)
 try:
+    # 第 3 批：**阶段必须自成一档**。之前锁导入失败后 stage 仍是 "import"，与
+    # 「chromadb 本身导不进来」逐字同形 ⇒ 看读数的人分不清「代码/部署坏了」和
+    # 「库/环境坏了」，两种故障的修法完全不同。故先置 stage 再导入。
+    out["stage"] = "lock_import"
     from tools.chroma_session_indexer import chroma_write_lock
 except Exception as e:
     # B11（2026-10-22）：锁导入失败 ⇒ **不跑**，不再退化成 nullcontext。
@@ -137,17 +161,69 @@ print(json.dumps(out))
 """
 
 
+def classify(res: Dict[str, Any]) -> str:
+    """把探针读数折成一个可判定的结论。
+
+    为什么单独成函数：这个映射决定「要不要把索引踢到 FTS5」，必须能在不起网关的
+    情况下逐格验证（tests/tools/test_chroma_guard_policy.py）。第 3 批之前这段逻辑
+    写在 gateway/run.py 里，等价于「不是 ok 就降级」——`inconclusive` 与真故障同权。
+
+    ok / segv / store_error / chroma_import / lock_missing / inconclusive
+    """
+    if res.get("ok"):
+        return "ok"
+    if res.get("segv"):
+        return "segv"
+    stage = res.get("stage")
+    if stage in ("timeout", "spawn", "child_crash"):
+        # 超时 ≠ 坏库：探针要等写锁，忙只是忙。子进程非信号死亡（如 OOM -9）同样
+        # 不能证明库坏了——**没有证据就不下结论**。
+        return "inconclusive"
+    if stage == "import":
+        return "chroma_import"
+    if stage == "lock_import":
+        return "lock_missing"
+    if stage in ("open", "count", "get"):
+        return "store_error"
+    return "inconclusive"
+
+
+# 分类 ⇒ 降级原因。**不在这张表里的分类一律不写标记**（inconclusive 没有发言权）。
+_MARK_REASONS = {
+    "segv": "startup_probe_segv",
+    "store_error": "startup_probe_failed",
+    "chroma_import": "startup_chroma_import_failed",
+    # 锁模块导不进来：不能无锁写（B11 fail-closed），但库本身可能是好的——
+    # 所以原因单独一档，修法是部署/代码，不是修库。
+    "lock_missing": "startup_lock_unavailable",
+}
+
+
+def startup_action(res: Dict[str, Any]) -> Optional[str]:
+    """启动探针 ⇒ 该不该置降级。返回 reason；返回 None = 不下结论、不改状态。"""
+    return _MARK_REASONS.get(res.get("classification") or classify(res))
+
+
+def _finish(res: Dict[str, Any]) -> Dict[str, Any]:
+    res["classification"] = classify(res)
+    return res
+
+
 def probe(*, timeout_s: Optional[float] = None) -> Dict[str, Any]:
     """子进程探针：只读打开 + count + get(limit=1)。
 
-    返回 ``{ok, count, stage, error, rc, elapsed_s, segv}``。
+    返回 ``{ok, count, stage, lock, error, rc, elapsed_s, segv, classification}``。
     ``segv=True``（rc == -11）说明**进程级崩溃** —— 这是 try/except 永远接不住的那类，
     也是本次事故的形态；它本身不写标记（由调用方按策略决定），但必须出声。
+    ``lock``（第 3 批补回）：子进程报的锁状态（``ok`` / ``unavailable``）。之前只
+    透传 ok/count/stage/error，`_PROBE_SRC` 写的 ``lock`` 被静默丢掉 ⇒ 读不出「这次
+    失败是不是因为没锁」。
     """
     raw = (os.environ.get(_PROBE_TIMEOUT_ENV) or "").strip()
     tmo = float(timeout_s if timeout_s is not None else (raw or _DEFAULT_TIMEOUT))
     t0 = time.time()
-    res: Dict[str, Any] = {"ok": False, "stage": "spawn", "rc": None, "segv": False}
+    res: Dict[str, Any] = {"ok": False, "stage": "spawn", "rc": None, "segv": False,
+                           "lock": "unknown"}
     try:
         cp = subprocess.run(
             [sys.executable, "-c", _PROBE_SRC],
@@ -159,11 +235,11 @@ def probe(*, timeout_s: Optional[float] = None) -> Dict[str, Any]:
     except subprocess.TimeoutExpired:
         res.update({"stage": "timeout", "error": "probe_timeout_%ss" % tmo})
         res["elapsed_s"] = round(time.time() - t0, 2)
-        return res
+        return _finish(res)
     except Exception as exc:  # pragma: no cover
         res.update({"stage": "spawn", "error": "%s: %s" % (type(exc).__name__, exc)})
         res["elapsed_s"] = round(time.time() - t0, 2)
-        return res
+        return _finish(res)
     res["rc"] = int(cp.returncode)
     res["elapsed_s"] = round(time.time() - t0, 2)
     if cp.returncode != 0:
@@ -171,13 +247,17 @@ def probe(*, timeout_s: Optional[float] = None) -> Dict[str, Any]:
         res["segv"] = cp.returncode in (-11, -6, -4)
         res["error"] = ("child rc=%d segv=%s stderr=%s"
                         % (cp.returncode, res["segv"], (cp.stderr or "")[-300:]))
-        return res
+        return _finish(res)
     line = (cp.stdout or "").strip().splitlines()[-1:] or [""]
     try:
         payload = json.loads(line[0])
     except Exception:
         res["error"] = "unparsable_probe_output: %s" % (cp.stdout or "")[-200:]
-        return res
-    res.update({k: payload.get(k) for k in ("ok", "count", "stage", "error")})
+        return _finish(res)
+    # 读数面必须键位稳定（消费方按 key 取，缺键就是崩）：这几个键一律在，哪怕是 None。
+    for k in ("ok", "count", "stage", "error", "sample_ids"):
+        res[k] = payload.get(k)
+    if payload.get("lock") is not None:
+        res["lock"] = payload["lock"]   # 子女没报就保留 unknown，别写成 None
     res["ok"] = bool(payload.get("ok"))
-    return res
+    return _finish(res)

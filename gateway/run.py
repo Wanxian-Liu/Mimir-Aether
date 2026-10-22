@@ -1331,25 +1331,44 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
     if (os.environ.get("MIMIR_CHROMA_PROBE_ON_START", "1").strip().lower()
             not in ("0", "false", "no", "off")):
         try:
-            from tools.chroma_guard import probe as _chroma_probe
+            from tools.chroma_guard import clear_degraded as _clear_degraded
             from tools.chroma_guard import mark_degraded as _mark_degraded
+            from tools.chroma_guard import probe as _chroma_probe
+            from tools.chroma_guard import read_degrade_state as _degrade_state
+            from tools.chroma_guard import startup_action as _startup_action
 
             _pr = _chroma_probe()
             if _pr.get("ok"):
-                logger.info("chroma probe ok: count=%s elapsed=%ss",
-                            _pr.get("count"), _pr.get("elapsed_s"))
+                # 第 3 批：**自愈**。之前 clear_degraded 全仓零调用方 ⇒ 标记一旦落下
+                # 就再也撤不掉，一次误判（例如探针等在锁上超时）等于把会话索引永久
+                # 踢到 FTS5，只能人工删文件。现在「探针真的通过」就是撤销的唯一条件。
+                if _degrade_state().get("degraded"):
+                    _rec = _clear_degraded()
+                    logger.warning(
+                        "chroma recovered: prev_reason=%s outage=%ss -> index back to chroma",
+                        _rec.get("prev_reason"), _rec.get("outage_s"))
+                logger.info("chroma probe ok: count=%s elapsed=%ss lock=%s",
+                            _pr.get("count"), _pr.get("elapsed_s"), _pr.get("lock"))
             else:
-                _rec = _mark_degraded(
-                    "startup_probe_segv" if _pr.get("segv") else "startup_probe_failed",
-                    detail=str(_pr.get("error"))[:300],
-                )
-                # 通知在状态之后：此刻 chroma_guard.chroma_usable() 已为 False。
-                logger.error(
-                    "CHROMA DEGRADED (state written before this notice): reason=%s "
-                    "segv=%s rc=%s stage=%s -> session-memory index falls back to FTS5; "
-                    "broken store left in place (no delete/move)",
-                    _rec.get("reason"), _pr.get("segv"), _pr.get("rc"), _pr.get("stage"),
-                )
+                _reason = _startup_action(_pr)
+                if _reason is None:
+                    # 没有结论 ≠ 库坏了：超时/子进程起不来只出声，不动状态。
+                    # 判据（verify_chroma_write_coverage.py）与人工都靠这条日志分辨。
+                    logger.warning(
+                        "chroma probe inconclusive: classification=%s stage=%s -> "
+                        "degrade state unchanged (%s)",
+                        _pr.get("classification"), _pr.get("stage"), _pr.get("error"))
+                else:
+                    _rec = _mark_degraded(_reason, detail=str(_pr.get("error"))[:300])
+                    # 通知在状态之后：此刻 chroma_guard.chroma_usable() 已为 False。
+                    logger.error(
+                        "CHROMA DEGRADED (state written before this notice): reason=%s "
+                        "classification=%s segv=%s rc=%s stage=%s lock=%s -> "
+                        "session-memory index falls back to FTS5; "
+                        "broken store left in place (no delete/move)",
+                        _rec.get("reason"), _pr.get("classification"), _pr.get("segv"),
+                        _pr.get("rc"), _pr.get("stage"), _pr.get("lock"),
+                    )
         except Exception as _exc:  # pragma: no cover - 探针自身不得拖垮启动
             logger.warning("chroma startup probe skipped: %s", _exc)
 

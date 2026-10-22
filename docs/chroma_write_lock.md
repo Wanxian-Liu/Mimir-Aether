@@ -151,27 +151,30 @@ flock 由内核在 fd 关闭时释放——正常退出、`SIGKILL`、显式 `LO
 |---|---|---|---|
 | 1 | `scripts/chroma_backfill_full.py:235` | `col.delete` | guarded |
 | 2 | `scripts/chroma_backfill_full.py:260` | `col.delete` | guarded |
-| 3 | `tools/chroma_guard.py:121` | `chromadb.PersistentClient` | guarded **[embedded]** · **nullable** |
-| 4 | `tools/chroma_session_indexer.py:790` | `collection.upsert` | guarded |
-| 5 | `tools/chroma_session_indexer.py:815` | `chromadb.PersistentClient` | guarded |
-| 6 | `tools/chroma_session_indexer.py:908` | `collection.delete` | guarded |
-| 7 | `tools/chroma_session_indexer.py:977` | `collection.delete` | guarded |
+| 3 | `tools/chroma_guard.py:150` | `chromadb.PersistentClient` | guarded **[embedded]** |
+| 4 | `tools/chroma_session_indexer.py:898` | `collection.upsert` | guarded |
+| 5 | `tools/chroma_session_indexer.py:923` | `chromadb.PersistentClient` | guarded |
+| 6 | `tools/chroma_session_indexer.py:1028` | `collection.delete` | guarded |
+| 7 | `tools/chroma_session_indexer.py:1099` | `collection.delete` | guarded |
 | 8 | `tools/session_search_indexer.py:639` | `col.delete` | guarded |
 | 9 | `tools/session_search_indexer.py:861` | `col.delete` | guarded |
 | 10 | `tools/session_search_indexer.py:1025` | `collection.delete` | guarded |
 
-表内行号是**被覆盖的调用行**，比 `with chroma_write_lock():` 那行大 1（例：`:789 with` → `:790 upsert`）。
+表内行号由判据 §4 实跑输出直抄（不是手算）；行号会随代码移动，**以判据输出为准**。
 
 ### 4.1 为什么纯 AST 会漏一处
 
-`tools/chroma_guard.py::_PROBE_SRC` 是一段**字符串常量**（`:103` 起）。里面的
-`chromadb.PersistentClient(path=root)`（字符串内第 121 行）由
-`subprocess.run([sys.executable, "-c", _PROBE_SRC])` 在子进程执行（`:148`），是真实写路径，
+`tools/chroma_guard.py::_PROBE_SRC` 是一段**字符串常量**（`:123` 起）。里面的
+`chromadb.PersistentClient(path=root)`（字符串内 `:150`）由
+`subprocess.run([sys.executable, "-c", _PROBE_SRC])` 在子进程执行（`chroma_guard.py:229`），是真实写路径，
 但函数体 AST 里看不到它。判据对此做**递归 `ast.parse` 字符串常量**，命中后标 `[embedded]`；
 `--selftest` 的 `arm=embedded_python_source` 就是它的负控（3 站点、故意留 2 处未加锁 ⇒ `rc=1`）。
 
-该内嵌源码在 `chroma_write_lock` 导入失败时退化为 `nullcontext` 并记 `lock=unavailable`
-（`tools/chroma_guard.py:112-115`）——探针**宁可不加锁也要能跑**（它本身只读，目的是探测降级态）。
+该内嵌源码在 `chroma_write_lock` 导入失败时 **fail-closed**：`stage=lock_import`、
+`lock=unavailable`，直接 `ok=false` 退出，**不跑无锁读写**（B11；B11 之前是退化成
+`contextlib.nullcontext`，看起来有 `with`、运行时无锁 ⇒ `nullable=1 / rc=2`）。
+第 3 批把 `stage` 拆出 `lock_import` 这一档：之前它与「chromadb 导不进来」同为
+`stage=import`，读评价的人分不清「部署坏了」和「库坏了」。
 
 ### 4.2 判据自身可信度（两向）
 
@@ -203,7 +206,7 @@ selftest: 9/9 arms passed
 必须从运行机取该文件。这是当前事实，不是建议。
 
 重跑命令: `cd ~/src/MimirAether && ~/src/MimirAether/.venv/bin/python3 ~/.mimiraether/gates/verify_chroma_write_coverage.py`
-复算数字: 首行 `scan_root=$HOME/src/MimirAether`、末行 `guards=10 unguarded=0 nullable=1 guards_real=9` 且 **`rc=2`**（nullable 告警，不再假装 rc=0）；加 `--selftest` ⇒ `selftest: 9/9 arms passed` 且 `rc=0`
+复算数字: 首行 `scan_root=$HOME/src/MimirAether`、末行 `guards=10 unguarded=0 nullable=0 guards_real=10` 且 **`rc=0`**（B11 之后 nullable 已归零；B12b 文档里曾误写成 `nullable=1 / rc=2`）；加 `--selftest` ⇒ `selftest: 9/9 arms passed` 且 `rc=0`
 
 负控（副本，判据不许被骗绿）：
 重跑命令: `C=$(mktemp -d) && cp -a ~/src/MimirAether/{tools,scripts} $C/ && cd $C && ~/src/MimirAether/.venv/bin/python3 ~/.mimiraether/gates/verify_chroma_write_coverage.py`
@@ -370,7 +373,7 @@ PY
 ### 5.7 用例（基线，不许退化）
 
 重跑命令: `cd ~/src/MimirAether && env -u MIMIR_CHROMA_INCREMENTAL ~/src/MimirAether/.venv/bin/python3 -m pytest tests/tools/test_chroma_write_lock.py tests/tools/test_chroma_session_indexer.py -q`
-复算数字: `26 passed`（本轮实测 26 passed, 1 warning in 12.49s）
+复算数字: `29 passed`（第 2 批新增 3 条锁测试后为 29；B12b 时为 26）
 
 （`env -u MIMIR_CHROMA_INCREMENTAL` 是必要的：交互 shell 可能继承 `MIMIR_CHROMA_INCREMENTAL=0`，
 会让「默认 True」类断言假红。）
@@ -386,9 +389,14 @@ PY
 | B2 | `7ed66a0` | 嵌入计算移出锁（锁只覆盖写）：锁内 35.1 s/35.2 s → ~0.07 s | `git log -1 --format=%B 7ed66a0` |
 | B3 | `2e92c75` | 进程内 `RLock` 等待加 deadline（此前 `acquire()` 无超时，实测 1.80 s vs 0.3 s 预算） | `git log -1 --format=%B 2e92c75` |
 | B4 | `ffbbe75` | 超时报文点名持有者（`holder=pid=… (alive\|gone\|unknown) token=…` / `holder=thread:…`） | `git log -1 --format=%B ffbbe75` |
-| B6 | — | 运行态生效：以上代码已 commit，**运行态以重启为准**（`PENDING-SMOKE`，本文件不声明重启已完成） | `git rev-parse HEAD` |
+| B6 | — | 运行态生效：以上代码已 commit，**运行态以重启为准** | `git rev-parse HEAD` |
+| 运行态（第3批） | — | **已重启并验证**：`2026-10-22 13:17:13` 重启后账本 `142→144 事件 / 71→72 对 / 7→8 pid`、`seq_pids 0→1`（新写入器带 seq 上线）、新 nonce 形如 `pid:ns:2`；自愈正控：手写 `degraded=true` → 重启 → 标记变 `degraded=false` 且 `prev_reason=startup_probe_failed / outage_s=307.4` | `tail -2 ~/.mimiraether/data/chroma_write_events.jsonl`；`cat ~/.mimiraether/data/chroma_degraded.json` |
 | B9 | —（判据不在 git 内，见 §4.3） | 判据三缺陷修复：nullable 锁单列 + `rc=2`、`--root` 缺省改扫 cwd、两向自检 7→9 臂；判据 sha256 锚点 `ed0c63b8bdb9…` | `sha256sum ~/.mimiraether/gates/verify_chroma_write_coverage.py` |
 | B10 | —（判据不在 git 内） | **F7 空扫描面假绿修复**：`--root` 指向空树时旧行为 `guards=0/rc=0`，现改为 stderr 弃权 + **`rc=3`**，JSON 增 `abstained`；负控：空目录 `rc=3`、真仓不再假绿、selftest 9/9。判据 sha256 锚点 `16a639312285…`（906 行） | `python3 ~/.mimiraether/gates/verify_chroma_write_coverage.py --root "$(mktemp -d)"; echo $?` |
 | B11 | 见 `git log` | **nullable 归零**：探针锁导入失败由「退化 nullcontext」改为 **fail-closed**（ok=false 直接退出）⇒ `nullable=0 / guards_real=10 / rc=0`；若回归则 `rc=2` | `python3 ~/.mimiraether/gates/verify_chroma_write_coverage.py --root ~/src/MimirAether; echo rc=$?` |
+| B12 | `8ada119` | 证据面：审计器补**弃权 rc=3**（缺失/空/只有 acquire_failed）、坏行/孤儿 end/未知 phase 计入并 `rc=2`；d11 改 try/finally | `~/.venv/bin/python tools/chroma_event_audit.py --file <一份坏账本> --json; echo rc=$?` |
+| B12b | `54a3ab6` | 审计器六洞：陈旧账本 `--max-age-s`(默认 86400)⇒rc=3、`lock_errors`/`index_errors` 分列并进 rc、`abstained`≡rc=3、`distinct_pids<2` 判空真、证据不可读 ⇒ rc=3（不再 traceback）、d11/d14 + `delete_…` 返回值让 finally 能察觉失败 | `pytest tests/tools/test_chroma_event_audit.py -q` |
+| 第2批 | `2f13e18` | **配对键 S3**：nonce 每次取锁新发（`pid:ns:序号`；之前每进程一个 ⇒ 71 begin 只 7 个 nonce）；**区间 S4**：`end.ts` 取在解锁之前（之前混进收尾开销，实测 +2.93ms）；**账本 seq**：每进程单调，丢行 ⇒ `seq_gaps>0` ⇒ rc=2 | `pytest tests/tools/test_chroma_write_lock.py -q` |
+| 第3批 | 见 `git log` | **R1 四点**：① `probe()` 不再丢 `lock`；② `stage=lock_import` 自成档（原与 chromadb 导入失败同为 `import`）；③ 探针 20s→**90s**（必须 > 锁预算 60s）、超时/起不来/输出不可解析 ⇒ `inconclusive` **不写降级标记**；④ `clear_degraded` 接进启动路径 ⇒ **探针通过即自愈**（保留 `prev_reason`/`outage_s`） | `pytest tests/tools/test_chroma_guard_policy.py -q`；实机：手写降级标记 → 重启 → 日志 `chroma recovered: prev_reason=… outage=307.4s` |
 
 **HEAD 不在此处钉死**（钉死就会过期，这正是 F8 的成因）：以 `git log --oneline -1` 为准；本节只保证「读数 ↔ 判据 sha」成对。
