@@ -5,6 +5,7 @@ from __future__ import annotations
 import errno
 import fcntl
 import hashlib
+import itertools
 import json
 import logging
 import math
@@ -94,8 +95,18 @@ def _events_enabled() -> bool:
     return os.getenv("MIMIR_CHROMA_EVENTS", "1").strip() not in ("0", "false", "no")
 
 
+_EVENT_SEQ = itertools.count(1)
+_EVENT_SEQ_LOCK = threading.Lock()
+_NONCE_SEQ = itertools.count(1)
+
+
 def _emit_event(rec: Dict[str, Any]) -> None:
-    """追加一行事件（fail-open：账本坏了也不能阻断写入）。"""
+    """追加一行事件（fail-open：账本坏了也不能阻断写入）。
+
+    第 2 批：每条事件带**进程内单调 seq**，且「取号 + 写入」在同一把线程锁内完成
+    —— 这样文件里的行序与 seq 序在同一进程内一致。丢行会留下 seq 空洞，审计器
+    据此能指出「证据缺了几条」，而不是只看到「剩下的都对」。
+    """
     if not _events_enabled():
         return
     try:
@@ -106,9 +117,11 @@ def _emit_event(rec: Dict[str, Any]) -> None:
         rec.setdefault("pid", os.getpid())
         rec.setdefault("ppid", os.getppid())
         rec.setdefault("tid", threading.get_ident())
-        line = json.dumps(rec, ensure_ascii=False, separators=(",", ":")) + "\n"
-        with open(path, "a", encoding="utf-8") as fh:
-            fh.write(line)
+        with _EVENT_SEQ_LOCK:
+            rec.setdefault("seq", next(_EVENT_SEQ))
+            line = json.dumps(rec, ensure_ascii=False, separators=(",", ":")) + "\n"
+            with open(path, "a", encoding="utf-8") as fh:
+                fh.write(line)
     except Exception:  # noqa: BLE001 - 观测面永远不许反噬主流程
         logger.debug("chroma write event emit failed", exc_info=True)
 
@@ -132,7 +145,17 @@ def _open_lock_fd() -> int:
 
 
 def _write_lock_nonce() -> str:
-    return f"{os.getpid()}:{time.time_ns()}"
+    """S3（第 2 批）：**每次真正的取锁**都给一个新 nonce。
+
+    B12b 之前 nonce 只在 fd 首次打开时生成一次（fd 终生不关），于是同一进程的
+    所有临界区共用同一个配对键 —— 账本里 71 条 begin 只有 7 个 nonce，配对实质
+    退化成「按 pid 排队」。丢一行就会让该 pid 之后整段错配（hold_ms 失真、
+    甚至造出假 overlaps）。
+
+    末尾序号保证「同一纳秒内两次取锁」也不撞键；nonce 同时还承担「我锁住的 fd
+    就是路径上那个文件」的带内证明，所以唯一性是它的语义前提，不是锦上添花。
+    """
+    return f"{os.getpid()}:{time.time_ns()}:{next(_NONCE_SEQ)}"
 
 
 def _read_lock_file_token(path: Path) -> Optional[str]:
@@ -216,6 +239,9 @@ def _acquire_flock(deadline: float) -> None:
         # We own this fd's flock. Prove the fd is still the file at the path:
         # if the path was unlinked/replaced, we locked an inode nobody else can
         # see and the mutex would be void. Stamp our nonce and read it back.
+        #
+        # S3：每次真正的取锁都换新 nonce（B12b 之前每进程只有一个）。
+        state.nonce = _write_lock_nonce()
         try:
             os.ftruncate(state.fd, 0)
             os.lseek(state.fd, 0, os.SEEK_SET)
@@ -309,6 +335,14 @@ class _WriteLockGuard:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> bool:
+        # S4：区间右端必须取在**解锁之前**。B12b 之前 end.ts 由 _emit_event 在
+        # 「unlock + 释放 RLock + 组 JSON + open/write」之后才取 ⇒ 区间里混进了
+        # 收尾开销（实测 +2.93ms），hold_ms 与 ts 两者同时偏移、互相自洽，
+        # 所以「ts 与 hold_ms 一致」这条断言抓不到它。先取时刻再解锁。
+        end_ts = time.time()
+        hold_ms = round(
+            (time.monotonic() - (self._hold_t0 or self._t0 or time.monotonic())) * 1000.0, 3
+        )
         try:
             state = _WRITE_LOCK_STATE
             state.depth -= 1
@@ -326,7 +360,8 @@ class _WriteLockGuard:
                     "phase": "end",
                     "nonce": self._nonce_seen,
                     "result": "error" if exc_type else "ok",
-                    "hold_ms": round((time.monotonic() - (self._hold_t0 or self._t0 or time.monotonic())) * 1000.0, 3),
+                    "ts": end_ts,
+                    "hold_ms": hold_ms,
                 })
                 self._emitted_begin = False
         return False

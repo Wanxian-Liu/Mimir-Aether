@@ -4,7 +4,7 @@
 判什么
 ------
 账本 `~/.mimiraether/data/chroma_write_events.jsonl` 每行一条事件：
-  begin / end / acquire_failed，带 pid、nonce、role、ts、hold_ms。
+  begin / end / acquire_failed，带 pid、nonce、seq、role、ts、hold_ms。
 本脚本不信任任何自我陈述，只从事件序列算四个机器数：
 
   unpaired    : begin 没有配对的 end      —— 只该在进程被杀（SIGKILL）时 >0
@@ -12,10 +12,13 @@
   timeouts    : acquire_failed/result=timeout 的条数
   errors      : acquire_failed/result=error + end/result=error
 
-区间口径：begin.ts → end.ts（墙钟秒）。配对键 = (pid, nonce)，同键 FIFO。
-注意：nonce 在 chroma_session_indexer 里**每进程只生成一次**（fd 终生不关），所以同 pid
-的多个临界区共用一个 nonce，配对实质是按 pid FIFO。丢一行会造成该 pid 后续整体错配
-（方向安全：错配终落 unpaired ⇒ rc=2，但 hold_ms 读数会失真）。
+区间口径：begin.ts → end.ts（墙钟秒，end.ts 取在**解锁之前**）。配对键 = (pid, nonce)，同键 FIFO。
+nonce 自第 2 批起**每次取锁都新发**（`pid:ns:序号`），所以一对 begin/end 唯一对应一个临界区。
+B12b 之前 nonce 每进程只生成一次（fd 终生不关），同一 pid 的临界区共用一个键，配对实质
+退化成「按 pid 排队」——丢一行会让该 pid 之后整段错配。读老账本时要记住这个差别。
+
+seq：每进程单调计数（第 2 批起）。丢行 ⇒ 空洞 ⇒ `seq_gaps > 0` ⇒ rc=2。老账本没有该字段，
+不参与统计（不能因为「旧证据没这个字段」判红）。
 
 样本纪律：n>=20 才出 p95，n<20 只报 max（不出分，避免拿 3 个样本吹分布）。
 
@@ -33,7 +36,7 @@
 退出码（退出码是 API）
   0  有证据（pairs>0、≥2 个 pid、未陈旧）且无违规
   2  有违规：unpaired / overlaps / orphan_ends / parse_errors / unknown_phase /
-             lock_errors（acquire_failed/result≠timeout，即锁本体报错）任一 > 0
+             seq_gaps（事件账本丢行）/ lock_errors（acquire_failed/result≠timeout，即锁本体报错）任一 > 0
   3  弃权：没有可用证据（见上），或证据陈旧；stderr 会点名是哪一种
 说明：end/result=error（临界区内操作失败）**不算违规**——锁本身履职了，那是索引器
 健康问题（已有 note_index_failure / 降级机制）。但它不会被静默：rc=0 时也往 stderr 打一行。
@@ -124,6 +127,23 @@ def audit(records: List[Dict[str, Any]], *, parse_errors: int = 0) -> Dict[str, 
 
     unpaired = [b for q in open_map.values() for b in q]
     intervals = sorted((float(b["ts"]), float(e["ts"]), b.get("pid")) for b, e in pairs)
+
+    # 第 2 批：账本每条事件带进程内单调 seq ⇒ 丢行会留下空洞。
+    # 只统计「带 seq 的记录」，老账本（B12b 之前）没有该字段，不能因此判红。
+    seq_by_pid: Dict[Any, List[int]] = {}
+    for rec in records:
+        seq = rec.get("seq")
+        if isinstance(seq, int) and not isinstance(seq, bool):
+            seq_by_pid.setdefault(rec.get("pid"), []).append(seq)
+    seq_gaps = 0
+    seq_dups = 0
+    for seqs in seq_by_pid.values():
+        if len(seqs) < 2:
+            continue
+        uniq = set(seqs)
+        seq_dups += len(seqs) - len(uniq)
+        seq_gaps += max(0, (max(uniq) - min(uniq) + 1) - len(uniq))
+
     overlaps = 0
     active: List[Tuple[float, Any]] = []
     for start, end, pid in intervals:
@@ -150,6 +170,9 @@ def audit(records: List[Dict[str, Any]], *, parse_errors: int = 0) -> Dict[str, 
         "orphan_ends": orphan_ends,
         "unknown_phase": unknown_phase,
         "parse_errors": parse_errors,
+        "seq_gaps": seq_gaps,
+        "seq_dups": seq_dups,
+        "seq_pids": len(seq_by_pid),
         "no_pairs": not pairs,
         "distinct_pids": len({r.get("pid") for r in records if r.get("pid") is not None}),
         "last_event_ts": max(
@@ -189,6 +212,7 @@ def verdict(
         or res["parse_errors"]
         or res["unknown_phase"]
         or res.get("lock_errors", 0)
+        or res.get("seq_gaps", 0)
     )
     if violations:
         return 2
@@ -270,6 +294,15 @@ def selftest() -> int:
     idx_err = [dict(r) for r in ok_seq]
     idx_err[1]["result"] = "error"
     check("rc 阶梯 index_errors 不算违规⇒0", verdict(audit(idx_err), now=base + 0.3) == 0)
+
+    # 第 2 批：seq 是「丢行」的唯一证据面
+    seq_ok = [dict(r, seq=i + 1) for i, r in enumerate(ok_seq)]
+    check("seq 连续⇒无缺口", audit(seq_ok)["seq_gaps"] == 0)
+    seq_gap = [dict(r, seq=i + 1) for i, r in enumerate(ok_seq)]
+    seq_gap[2]["seq"] = 9  # 3 号那条丢了
+    check("seq 空洞计入", audit(seq_gap)["seq_gaps"] > 0)
+    check("rc 阶梯 seq 空洞⇒2", verdict(audit(seq_gap), now=base + 0.3) == 2)
+    check("无 seq 的老账本不判红", audit(ok_seq)["seq_gaps"] == 0 and "seq" not in ok_seq[0])
     return 2 if fails else 0
 
 
@@ -322,7 +355,8 @@ def main() -> int:
               f"timeouts={res['timeouts']}  errors={res['errors']}"
               f" (lock={res['lock_errors']} index={res['index_errors']})")
         print(f"  evidence_gaps: orphan_ends={res['orphan_ends']}  "
-              f"parse_errors={res['parse_errors']}  unknown_phase={res['unknown_phase']}")
+              f"parse_errors={res['parse_errors']}  unknown_phase={res['unknown_phase']}  "
+              f"seq_gaps={res['seq_gaps']}")
         print(f"  pids={res['distinct_pids']}  last_event_age_s={res['last_event_age_s']}"
               f"  (max_age_s={res['max_age_s']})")
         print(f"  hold_ms: max={res['max_hold_ms']} p95={res['p95_hold_ms']} ({res['p95_note']})")
@@ -349,7 +383,8 @@ def main() -> int:
         print(
             f"违规：unpaired={res['unpaired']} overlaps={res['overlaps']} "
             f"orphan_ends={res['orphan_ends']} parse_errors={res['parse_errors']} "
-            f"unknown_phase={res['unknown_phase']} lock_errors={res['lock_errors']}",
+            f"unknown_phase={res['unknown_phase']} lock_errors={res['lock_errors']} "
+            f"seq_gaps={res['seq_gaps']}",
             file=sys.stderr,
         )
 

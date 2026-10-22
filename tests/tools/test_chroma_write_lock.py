@@ -375,5 +375,69 @@ def test_in_process_timeout_names_thread_not_pid(monkeypatch, tmp_path):
     assert "same process" in msg, msg
 
 
+# --------------------------------------------------------------------------- #
+# 第 2 批：nonce 按次发 / end.ts 取在解锁前 / 账本 seq 连续
+# --------------------------------------------------------------------------- #
+def _ledger_records(tmp_path: Path):
+    path = tmp_path / "data" / "chroma_write_events.jsonl"
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+def test_nonce_is_unique_per_acquisition(monkeypatch, tmp_path):
+    """S3：配对键必须唯一对应一个临界区。
+
+    之前 nonce 只在 fd 首次打开时生成（fd 终生不关）⇒ 一个进程的所有临界区共用
+    同一个键，账本配对退化成「按 pid 排队」，丢一行就让整段错配。
+    """
+    monkeypatch.setenv("MIMIR_AETHER_HOME", str(tmp_path))
+    nonces = []
+    for _ in range(20):
+        with csi.chroma_write_lock():
+            nonces.append(csi._WRITE_LOCK_STATE.nonce)
+    assert len(nonces) == 20
+    assert len(set(nonces)) == 20, f"nonce 复用了：{len(set(nonces))} 个唯一值"
+
+
+def test_end_ts_is_taken_before_unlock(monkeypatch, tmp_path):
+    """S4：区间右端必须落在解锁之前。
+
+    判别方法：把 LOCK_UN 人为放慢 30ms。若 end.ts 取在解锁之后，区间就会把这段
+    开销算进去（>30ms）；取在解锁之前则区间只包含真正的持有时长（<20ms）。
+    hold_ms 与 ts 同时偏移、互相自洽，所以只有这条外部时钟断言抓得到。
+    """
+    monkeypatch.setenv("MIMIR_AETHER_HOME", str(tmp_path))
+    real_flock = csi.fcntl.flock
+
+    def slow_unlock(fd, op):
+        if op == csi.fcntl.LOCK_UN:
+            time.sleep(0.03)
+        return real_flock(fd, op)
+
+    monkeypatch.setattr(csi.fcntl, "flock", slow_unlock)
+
+    with csi.chroma_write_lock():
+        pass
+
+    recs = _ledger_records(tmp_path)
+    begin = next(r for r in recs if r["phase"] == "begin")
+    end = next(r for r in recs if r["phase"] == "end")
+    interval_ms = (end["ts"] - begin["ts"]) * 1000.0
+    assert interval_ms < 20.0, (
+        f"区间 {interval_ms:.1f}ms 混进了解锁开销（end.ts 取在解锁之后）"
+    )
+
+
+def test_event_seq_is_contiguous(monkeypatch, tmp_path):
+    """丢行是账本唯一无法自证的事；seq 让「缺了几条」变成可数读数。"""
+    monkeypatch.setenv("MIMIR_AETHER_HOME", str(tmp_path))
+    for _ in range(5):
+        with csi.chroma_write_lock():
+            pass
+
+    seqs = [r["seq"] for r in _ledger_records(tmp_path)]
+    assert len(seqs) == 10, f"应记 5 对 begin/end，实得 {len(seqs)} 条"
+    assert seqs == list(range(seqs[0], seqs[0] + len(seqs))), f"seq 有空洞或乱序：{seqs}"
+
+
 if __name__ == "__main__":
     raise SystemExit(_run_child())

@@ -243,6 +243,31 @@ def test_index_error_is_loud_but_not_violation(tmp_path):
     assert "index_errors=1" in cp.stderr
 
 
+def test_seq_gap_red(tmp_path):
+    """第 2 批：账本丢行只能靠 seq 空洞发现。
+
+    B12b 之前配对全对也判绿 —— 丢一条 begin 只会变成 unpaired，但丢掉一对
+    begin+end（或整段）则什么都不剩，读数与「真的没发生」逐位相同。
+    """
+    recs = [json.loads(x) for x in CLEAN]
+    for i, r in enumerate(recs):
+        r["seq"] = i + 1
+    recs[1]["seq"] = 7  # 2..6 那几条丢了
+    p = ledger(tmp_path, [json.dumps(r, ensure_ascii=False) for r in recs], name="seqgap.jsonl")
+    cp = run("--file", str(p), "--json")
+    assert cp.returncode == 2, cp.stdout + cp.stderr
+    d = json.loads(cp.stdout)
+    assert d["seq_gaps"] == 5, d["seq_gaps"]
+    assert "seq_gaps=5" in cp.stderr
+
+
+def test_ledger_without_seq_is_not_red(tmp_path):
+    """老账本（B12b 之前）没有 seq 字段——不能因为「旧证据缺这个字段」判红。"""
+    cp = run("--file", str(ledger(tmp_path, CLEAN)), "--json")
+    assert cp.returncode == 0, cp.stdout + cp.stderr
+    assert json.loads(cp.stdout)["seq_gaps"] == 0
+
+
 # ------------------------------------------------------------------ 界面契约
 
 @pytest.mark.parametrize("args", [("--json",), ()])
