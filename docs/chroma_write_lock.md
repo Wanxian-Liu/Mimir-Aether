@@ -143,7 +143,7 @@ flock 由内核在 fd 关闭时释放——正常退出、`SIGKILL`、显式 `LO
 **当前读数（本轮实跑）**：`guards=10 unguarded=0 nullable=1 guards_real=9` → **`rc=2`**（nullable 告警）；
 `--selftest` **9/9 arms passed**。
 
-**判据锚点**：`sha256=ed0c63b8bdb97f69bd6d4d0b8b7432c6914af80ee7e9fd2d059a2e3424f2df32`（896 行，2026-10-22）——上句读数属于这一版判据；换版必换 sha，读者据此判定读数归属。
+**判据锚点**：`sha256=16a63931228534f540a00a4f9ac7319ddcb39d006c43a8ad2cf5e65bf4e90201`（906 行，2026-10-22 · B10 加 F7 弃权）——上句读数属于这一版判据；换版必换 sha，读者据此判定读数归属。
 
 **`guards=10` 里有 1 处是 nullable，不许藏**：第 3 格（`tools/chroma_guard.py:121`，内嵌探针）词法上有 `with`，但它在锁导入失败时把锁名绑成 `contextlib.nullcontext`（§4.1）⇒ **运行时可能无锁**。
 `guards_real=9 = guards − nullable` 才是真正有锁的站点数；`nullable>0 ⇒ rc=2`（不是 rc=0）。
@@ -389,5 +389,6 @@ PY
 | B4 | `ffbbe75` | 超时报文点名持有者（`holder=pid=… (alive\|gone\|unknown) token=…` / `holder=thread:…`） | `git log -1 --format=%B ffbbe75` |
 | B6 | — | 运行态生效：以上代码已 commit，**运行态以重启为准**（`PENDING-SMOKE`，本文件不声明重启已完成） | `git rev-parse HEAD` |
 | B9 | —（判据不在 git 内，见 §4.3） | 判据三缺陷修复：nullable 锁单列 + `rc=2`、`--root` 缺省改扫 cwd、两向自检 7→9 臂；判据 sha256 锚点 `ed0c63b8bdb9…` | `sha256sum ~/.mimiraether/gates/verify_chroma_write_coverage.py` |
+| B10 | —（判据不在 git 内） | **F7 空扫描面假绿修复**：`--root` 指向空树时旧行为 `guards=0/rc=0`，现改为 stderr 弃权 + **`rc=3`**，JSON 增 `abstained`；负控：空目录 `rc=3`、真仓仍 `rc=2`、selftest 9/9。判据 sha256 锚点 `16a639312285…`（906 行） | `python3 ~/.mimiraether/gates/verify_chroma_write_coverage.py --root "$(mktemp -d)"; echo $?` |
 
-**当前 HEAD = `56377e6`**；本文件所在工作区改动仅 `docs/chroma_write_lock.md`。
+**HEAD 不在此处钉死**（钉死就会过期，这正是 F8 的成因）：以 `git log --oneline -1` 为准；本节只保证「读数 ↔ 判据 sha」成对。
