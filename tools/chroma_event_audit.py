@@ -43,15 +43,39 @@ seq：每进程单调计数（第 2 批起）。丢行 ⇒ 空洞 ⇒ `seq_gaps 
 
 用法：
   chroma_event_audit.py [--file PATH] [--json] [--max-age-s N] [--selftest]
+  --file 缺省时优先级：MIMIR_CHROMA_EVENTS_FILE（非空）> $MIMIR_HOME/data/chroma_write_events.jsonl
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+
+EVENTS_FILE_ENV = "MIMIR_CHROMA_EVENTS_FILE"
+
+
+def default_events_path() -> Path:
+    """默认账本落点——**与写端同源**（tools.chroma_session_indexer.chroma_events_path）。
+
+    为什么不直接 import 写端模块：写端顶层要拉 sqlite3/fcntl 与索引器依赖，审计器
+    必须保持「只读、毫秒级启动」（角色卡 L33「Startup time is a feature」）。两侧口径
+    不靠人记得同步，靠 test_chroma_event_audit.py 的等值断言：同一条 env 下两个函数
+    必须解析出同一个 Path。
+
+    F5（第 3 批）：``MIMIR_CHROMA_EVENTS_FILE`` 让审计器读临时账本；空字符串 =
+    没设 ⇒ 回落默认路径（不是「路径为空」）。
+    """
+    raw = (os.environ.get(EVENTS_FILE_ENV) or "").strip()
+    if raw:
+        return Path(raw).expanduser()
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from mimir_constants import get_mimir_home
+
+    return Path(get_mimir_home()) / "data" / "chroma_write_events.jsonl"
 
 
 def load_events(path: Path) -> Tuple[List[Dict[str, Any]], int, str]:
@@ -325,10 +349,9 @@ def main() -> int:
     if args.file:
         path = Path(args.file)
     else:
-        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-        from mimir_constants import get_mimir_home
-
-        path = Path(get_mimir_home()) / "data" / "chroma_write_events.jsonl"
+        # F5：写端与读端必须认同一条 env（MIMIR_CHROMA_EVENTS_FILE），否则
+        # 「演练写到临时账本」会被审计器读成「生产账本没有证据」= 假弃权。
+        path = default_events_path()
 
     records, parse_errors, read_error = load_events(path)
     res = audit(records, parse_errors=parse_errors)

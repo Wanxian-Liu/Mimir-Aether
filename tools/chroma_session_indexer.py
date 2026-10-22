@@ -85,10 +85,32 @@ _WRITE_LOCK_RLOCK = threading.RLock()
 #   * 取锁失败记 phase=acquire_failed + result=timeout/error，**不记 begin**，
 #     这样「unpaired」永远等于「真崩溃」，不会被超时污染（D13 判据）。
 #   * role 由 MIMIR_CHROMA_LOCK_ROLE 指定（writer/probe/backfill），默认 writer。
-def _events_path() -> Path:
+_EVENTS_FILE_ENV = "MIMIR_CHROMA_EVENTS_FILE"
+
+
+def chroma_events_path() -> Path:
+    """账本落点（**调用时**解析，import 时不固化）。
+
+    F5（第 3 批 · 2026-10-22）：路径必须可重定向。此前落点写死在
+    ``$MIMIR_HOME/data/chroma_write_events.jsonl``，演练/测试只能往**生产账本**
+    里写（实证：一次演练写脏生产账本 40 行，事后只能靠 pid 精确过滤清理，
+    过程没有可查的备份）。``MIMIR_CHROMA_EVENTS`` 只是开关，不是路径。
+
+    优先级：``MIMIR_CHROMA_EVENTS_FILE``（非空）> ``$MIMIR_HOME/data/chroma_write_events.jsonl``。
+    空字符串/纯空白按「没设」处理——空路径不是路径（``open("")`` 会让账本静默失效）。
+    每次调用都读 env，所以测试可以在 import 之后再设；读端
+    （tools/chroma_event_audit.py）解析同一句 env，两侧口径由测试的等值断言锁死。
+    """
+    raw = (os.getenv(_EVENTS_FILE_ENV) or "").strip()
+    if raw:
+        return Path(raw).expanduser()
     from mimir_constants import get_mimir_home
 
     return Path(get_mimir_home()) / "data" / "chroma_write_events.jsonl"
+
+
+# 兼容旧内部名：同一份实现，不复制逻辑（复制即漂移）
+_events_path = chroma_events_path
 
 
 def _events_enabled() -> bool:

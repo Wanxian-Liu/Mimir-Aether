@@ -123,7 +123,10 @@ def chroma_usable() -> bool:
 _PROBE_SRC = """
 import json, sys, os
 os.environ["MIMIR_CHROMA_LOCK_ROLE"] = "probe"
-out = {"ok": False, "stage": "import", "lock": "ok"}
+# F1（第 3 批 · 2026-10-22）：lock 是**状态**不是装饰。unchecked = 还没走到验锁那一步
+# （chromadb 就导不进来），不许写成 "ok" —— 否则「库没崩但也没上锁」与「锁住了」
+# 在读数上逐字同形，看读数的人会把「没验」读成「验过了」。
+out = {"ok": False, "stage": "import", "lock": "unchecked"}
 try:
     import chromadb
 except Exception as e:
@@ -134,7 +137,7 @@ try:
     # 「chromadb 本身导不进来」逐字同形 ⇒ 看读数的人分不清「代码/部署坏了」和
     # 「库/环境坏了」，两种故障的修法完全不同。故先置 stage 再导入。
     out["stage"] = "lock_import"
-    from tools.chroma_session_indexer import chroma_write_lock
+    from tools.chroma_session_indexer import chroma_write_lock, ChromaWriteLockTimeout
 except Exception as e:
     # B11（2026-10-22）：锁导入失败 ⇒ **不跑**，不再退化成 nullcontext。
     # 旧行为让探针在无锁状态下读写集合（判据上表现为 nullable=1、rc 永远红），
@@ -142,20 +145,42 @@ except Exception as e:
     out["lock"] = "unavailable"
     out["error"] = "lock_import: %s: %s" % (type(e).__name__, e)
     print(json.dumps(out)); sys.exit(0)
-out["stage"] = "open"
+# F4（第 3 批）：等锁自成一档。stage 先置 lock_wait —— **只有**进入 with 之后才推进到
+# open/count/get。于是「等锁超时」与「开库/读表失败」在读数上永远不同档：前者是忙，
+# 后者才是库坏（后者会写降级标记，两者修法完全不同）。
+# 形状要求：这里必须保留与写路径同形的 `with chroma_write_lock():` —— 覆盖率闸门
+# （~/.mimiraether/gates/verify_chroma_write_coverage.py）按这个形状认「谁守着 chromadb」；
+# 改成手动 __enter__/__exit__ 会让它报 UNGUARDED（实测 guards 10→9，既有用例
+# test_real_repo_is_green_with_real_locks 立刻变红）＝ 把闸门打瞎，属于「静默破坏接口」。
+out["stage"] = "lock_wait"
+acquired = False
 try:
     from mimir_constants import get_mimir_chroma_dir
     root = str(get_mimir_chroma_dir())
     with chroma_write_lock():
+        acquired = True
+        out["lock"] = "ok"          # F1：真取到锁才配叫 ok
+        out["stage"] = "open"
         client = chromadb.PersistentClient(path=root)
-    out["stage"] = "count"
-    col = client.get_collection("session_messages")
-    out["count"] = int(col.count())
-    out["stage"] = "get"
-    got = col.get(include=[], limit=1).get("ids") or []
-    out["sample_ids"] = len(got)
-    out["ok"] = True
+        out["stage"] = "count"
+        col = client.get_collection("session_messages")
+        out["count"] = int(col.count())
+        out["stage"] = "get"
+        got = col.get(include=[], limit=1).get("ids") or []
+        out["sample_ids"] = len(got)
+        out["ok"] = True
+except ChromaWriteLockTimeout as e:
+    if acquired:
+        # 临界区内的嵌套取锁超时：不是「等锁」，保持原档（store_error 家族）。
+        out["stage"] = "open"
+        out["error"] = "ChromaWriteLockTimeout: %s" % (e,)
+    else:
+        out["lock"] = "timeout"
+        out["error"] = "lock_wait: ChromaWriteLockTimeout: %s" % (e,)
 except Exception as e:
+    if not acquired:
+        # 取锁路径本身坏了（非超时）：保持第 3 批之前的行为（stage=open ⇒ store_error）。
+        out["stage"] = "open"
     out["error"] = "%s: %s" % (type(e).__name__, e)
 print(json.dumps(out))
 """
@@ -169,13 +194,21 @@ def classify(res: Dict[str, Any]) -> str:
     写在 gateway/run.py 里，等价于「不是 ok 就降级」——`inconclusive` 与真故障同权。
 
     ok / segv / store_error / chroma_import / lock_missing / inconclusive
+
+    第 3 批（F4/F1）：``stage="lock_wait"`` 与 ``lock="timeout"`` 一律归 inconclusive ——
+    「锁被别的进程拿着」只证明**忙**，不证明**库坏**；这类误判会写降级标记，把索引
+    永久踢到 FTS5，而真正的修法（等一等 / 查谁在写）与修库完全不同。
     """
     if res.get("ok"):
         return "ok"
     if res.get("segv"):
         return "segv"
+    if res.get("lock") == "timeout":
+        # 双保险：即使 stage 丢了（老 payload / 未来改版），只要锁状态是 timeout，
+        # 就不许判成 store_error。
+        return "inconclusive"
     stage = res.get("stage")
-    if stage in ("timeout", "spawn", "child_crash"):
+    if stage in ("timeout", "spawn", "child_crash", "lock_wait"):
         # 超时 ≠ 坏库：探针要等写锁，忙只是忙。子进程非信号死亡（如 OOM -9）同样
         # 不能证明库坏了——**没有证据就不下结论**。
         return "inconclusive"
@@ -215,7 +248,9 @@ def probe(*, timeout_s: Optional[float] = None) -> Dict[str, Any]:
     返回 ``{ok, count, stage, lock, error, rc, elapsed_s, segv, classification}``。
     ``segv=True``（rc == -11）说明**进程级崩溃** —— 这是 try/except 永远接不住的那类，
     也是本次事故的形态；它本身不写标记（由调用方按策略决定），但必须出声。
-    ``lock``（第 3 批补回）：子进程报的锁状态（``ok`` / ``unavailable``）。之前只
+    ``lock``（第 3 批补回；第 3 批 F1 改准语义）：``ok`` = 真取到跨进程锁 ·
+    ``unchecked`` = 还没走到验锁（chromadb 导不进来）· ``timeout`` = 等锁超时 ·
+    ``unavailable`` = 锁模块导入失败。之前只
     透传 ok/count/stage/error，`_PROBE_SRC` 写的 ``lock`` 被静默丢掉 ⇒ 读不出「这次
     失败是不是因为没锁」。
     """

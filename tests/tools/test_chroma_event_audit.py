@@ -289,3 +289,46 @@ def test_default_path_missing_does_not_crash(tmp_path, monkeypatch):
                         timeout=120, cwd=str(REPO))
     assert cp.returncode == 3, cp.stdout + cp.stderr
     assert "弃权" in cp.stderr
+
+
+# --------------------------------------------- F5（第 3 批）：账本路径可重定向
+def test_env_events_file_overrides_default(tmp_path, monkeypatch):
+    """F5 正控：设了 MIMIR_CHROMA_EVENTS_FILE ⇒ 不带 --file 也读那份账本。
+
+    这一格是「演练不再写脏生产账本」的读端一半：写端写到这里，审计器也必须读这里。
+    """
+    p = ledger(tmp_path, CLEAN, name="tmp_events.jsonl")
+    monkeypatch.setenv("MIMIR_CHROMA_EVENTS_FILE", str(p))
+    cp = subprocess.run([sys.executable, str(AUDIT), "--json"], capture_output=True, text=True,
+                        timeout=120, cwd=str(REPO))
+    assert cp.returncode == 0, cp.stdout + cp.stderr
+    d = json.loads(cp.stdout)
+    assert d["file"] == str(p) and d["pairs"] == 2 and d["rc"] == 0
+
+
+def test_empty_env_file_falls_back_to_default(tmp_path, monkeypatch):
+    """空字符串 = 没设 ⇒ 回落默认路径（不是「路径为空」⇒ open("") 静默失效）。"""
+    monkeypatch.setenv("MIMIR_AETHER_HOME", str(tmp_path))
+    monkeypatch.setenv("MIMIR_CHROMA_EVENTS_FILE", "")
+    cp = subprocess.run([sys.executable, str(AUDIT), "--json"], capture_output=True, text=True,
+                        timeout=120, cwd=str(REPO))
+    assert cp.returncode == 3, cp.stdout + cp.stderr          # 默认路径无账本 ⇒ 弃权
+    expected = str(tmp_path / "data" / "chroma_write_events.jsonl")
+    assert json.loads(cp.stdout)["file"] == expected
+
+
+def test_read_and_write_sides_resolve_same_path(tmp_path, monkeypatch):
+    """写端与读端必须解析出同一个 Path——否则「演练写临时、审计读生产」= 假弃权。"""
+    monkeypatch.syspath_prepend(str(REPO))
+    import tools.chroma_event_audit as audit_mod
+    import tools.chroma_session_indexer as idx_mod
+
+    target = tmp_path / "ev.jsonl"
+    monkeypatch.setenv("MIMIR_CHROMA_EVENTS_FILE", str(target))
+    assert audit_mod.default_events_path() == idx_mod.chroma_events_path() == target
+
+    # 空值两向：两侧都回落到同一个默认路径
+    monkeypatch.setenv("MIMIR_CHROMA_EVENTS_FILE", "")
+    monkeypatch.setenv("MIMIR_AETHER_HOME", str(tmp_path))
+    assert audit_mod.default_events_path() == idx_mod.chroma_events_path()
+    assert audit_mod.default_events_path() == tmp_path / "data" / "chroma_write_events.jsonl"
