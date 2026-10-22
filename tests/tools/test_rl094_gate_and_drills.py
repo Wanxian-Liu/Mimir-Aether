@@ -29,11 +29,11 @@ def test_empty_root_abstains(tmp_path):
     assert "弃权" in cp.stderr
 
 
-def test_real_repo_reports_nullable():
-    """真仓读数必须仍是有牙的：guards=10 / nullable=1 / rc=2。"""
+def test_real_repo_is_green_with_real_locks():
+    """B11 后：探针锁导入失败不再退化 ⇒ nullable=0，真仓应 rc=0。"""
     cp = _run("--root", str(REPO))
-    assert cp.returncode == 2, cp.stdout + cp.stderr
-    assert "guards=10 unguarded=0 nullable=1" in cp.stdout
+    assert cp.returncode == 0, cp.stdout + cp.stderr
+    assert "guards=10 unguarded=0 nullable=0 guards_real=10" in cp.stdout
 
 
 def test_selftest_arms():

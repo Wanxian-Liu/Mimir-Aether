@@ -111,9 +111,13 @@ except Exception as e:
     print(json.dumps(out)); sys.exit(0)
 try:
     from tools.chroma_session_indexer import chroma_write_lock
-except Exception:
-    from contextlib import nullcontext as chroma_write_lock
+except Exception as e:
+    # B11（2026-10-22）：锁导入失败 ⇒ **不跑**，不再退化成 nullcontext。
+    # 旧行为让探针在无锁状态下读写集合（判据上表现为 nullable=1、rc 永远红），
+    # 既证明不了互斥，又可能在别的进程写入中途读到半张表。此处 fail-closed。
     out["lock"] = "unavailable"
+    out["error"] = "lock_import: %s: %s" % (type(e).__name__, e)
+    print(json.dumps(out)); sys.exit(0)
 out["stage"] = "open"
 try:
     from mimir_constants import get_mimir_chroma_dir
