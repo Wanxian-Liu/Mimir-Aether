@@ -67,20 +67,25 @@ def d11() -> int:
     fails += 0 if _say("写入前基线可读", before > 0, f"embeddings={before}") else 1
     if _canary() != 0:
         return 2
-    after = _counts()
-    fails += 0 if _say("写入后 +1", after == before + 1, f"{before}→{after}") else 1
+    # B12：金丝雀落库之后，任何一条异常路径都必须把删除跑完——否则生产集合里
+    # 留下一行 session_id=rl094-canary 的残行，漂移永久 +1，且下一次 d14 的
+    # 「回基线」断言也会跟着错。删除放 finally，断言放 finally 之后。
+    try:
+        after = _counts()
+        fails += 0 if _say("写入后 +1", after == before + 1, f"{before}→{after}") else 1
 
-    doc_id = message_doc_id(SID, 1)
-    col = _get_incremental_collection()
-    got = col.get(ids=[doc_id], include=["documents", "metadatas"])
-    ok = bool(got.get("ids")) and got["ids"][0] == doc_id
-    fails += 0 if _say("按 doc id 读回命中", ok, doc_id) else 1
-    doc = (got.get("documents") or [""])[0]
-    fails += 0 if _say("正文逐字一致", doc == "RL-094 D11 抽样读回金丝雀", doc[:40]) else 1
-    meta = (got.get("metadatas") or [{}])[0] or {}
-    fails += 0 if _say("metadata session_id 一致", meta.get("session_id") == SID, str(meta.get("session_id"))) else 1
+        doc_id = message_doc_id(SID, 1)
+        col = _get_incremental_collection()
+        got = col.get(ids=[doc_id], include=["documents", "metadatas"])
+        ok = bool(got.get("ids")) and got["ids"][0] == doc_id
+        fails += 0 if _say("按 doc id 读回命中", ok, doc_id) else 1
+        doc = (got.get("documents") or [""])[0]
+        fails += 0 if _say("正文逐字一致", doc == "RL-094 D11 抽样读回金丝雀", doc[:40]) else 1
+        meta = (got.get("metadatas") or [{}])[0] or {}
+        fails += 0 if _say("metadata session_id 一致", meta.get("session_id") == SID, str(meta.get("session_id"))) else 1
+    finally:
+        delete_session_chroma_documents(SID)
 
-    delete_session_chroma_documents(SID)
     back = _counts()
     fails += 0 if _say("删除后回基线", back == before, f"{after}→{back}") else 1
     print(json.dumps({"d11": "PASS" if not fails else "FAIL", "before": before, "after": after, "back": back}))
