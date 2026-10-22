@@ -970,18 +970,32 @@ def sync_message_to_chroma(msg: IndexedMessage) -> bool:
         return False
 
 
-def delete_session_chroma_documents(session_id: str, *, collection: Any = None) -> None:
-    """Remove all Chroma docs for a session (before full re-sync)."""
+def delete_session_chroma_documents(session_id: str, *, collection: Any = None) -> bool:
+    """Remove all Chroma docs for a session (before full re-sync).
+
+    B12b：返回 bool 而不是 None。原来它吞掉一切异常并返回 None，于是 d11/d14 的
+    finally 只能证明「函数被调用了」，不能证明「残行真的删掉了」。现在：
+      True  = 删除完成（含本来就无残留）
+      False = 无法确认删除（chroma 不可用 / 取集合失败 / 删除抛错，均已记 note_index_failure）
+    调用方若不关心返回值可继续忽略（向后兼容）。
+    """
     if not chroma_available():
-        return
+        return False
     if collection is None:
-        collection = _get_incremental_collection()
+        try:
+            collection = _get_incremental_collection()
+        except Exception as exc:
+            note_index_failure("delete_session_docs_handle", exc, sink="chroma_session_indexer")
+            logger.debug("chroma get collection for delete failed: %s", exc)
+            return False
     try:
         with chroma_write_lock():
             collection.delete(where={"session_id": session_id})
+        return True
     except Exception as exc:
         note_index_failure("delete_session_docs", exc, sink="chroma_session_indexer")
         logger.debug("chroma delete session %s failed: %s", session_id, exc)
+        return False
 
 
 def prune_session_chroma_orphans(

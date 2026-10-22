@@ -65,12 +65,15 @@ def d11() -> int:
     fails = 0
     before = _counts()
     fails += 0 if _say("写入前基线可读", before > 0, f"embeddings={before}") else 1
-    if _canary() != 0:
-        return 2
-    # B12：金丝雀落库之后，任何一条异常路径都必须把删除跑完——否则生产集合里
-    # 留下一行 session_id=rl094-canary 的残行，漂移永久 +1，且下一次 d14 的
-    # 「回基线」断言也会跟着错。删除放 finally，断言放 finally 之后。
+    after = None
+    deleted = None
+    # B12b：金丝雀**一落地**，删除就必须在 finally 里跑——包括 _canary() 自己返回
+    # 失败的情形：sync_message_to_chroma 是 upsert 之后才可能抛异常并返回 False，
+    # 也就是说「返回失败」和「已经写进去了」可以同时成立。B12 把 _canary() 放在
+    # try 之前提前 return，那条路径会留下残行（审计员指出，claimed 的「保证不残留」不成立）。
     try:
+        if _canary() != 0:
+            return 2
         after = _counts()
         fails += 0 if _say("写入后 +1", after == before + 1, f"{before}→{after}") else 1
 
@@ -84,10 +87,19 @@ def d11() -> int:
         meta = (got.get("metadatas") or [{}])[0] or {}
         fails += 0 if _say("metadata session_id 一致", meta.get("session_id") == SID, str(meta.get("session_id"))) else 1
     finally:
-        delete_session_chroma_documents(SID)
+        # 删除本身可能失败（chroma 不可用 / 内部吞异常）。B12b 让它返回 bool，
+        # 这里显式记一笔并出声——否则「finally 跑了」会被误读成「清理成功了」。
+        deleted = delete_session_chroma_documents(SID)
+        if deleted is not True:
+            print(
+                f"!!! RESIDUAL: 金丝雀删除未能确认（delete 返回 {deleted!r}）"
+                f"——生产集合可能残留 session_id={SID}",
+                file=sys.stderr,
+            )
 
     back = _counts()
     fails += 0 if _say("删除后回基线", back == before, f"{after}→{back}") else 1
+    fails += 0 if _say("删除调用已确认", deleted is True, f"delete={deleted}") else 1
     print(json.dumps({"d11": "PASS" if not fails else "FAIL", "before": before, "after": after, "back": back}))
     return 0 if not fails else 2
 
@@ -97,13 +109,25 @@ def d14() -> int:
 
     fails = 0
     base = _counts()
-    if _canary() != 0:
-        return 2
-    drifted = _counts()
-    fails += 0 if _say("违约：漂移 +1", drifted == base + 1, f"drift={drifted - base}") else 1
-    delete_session_chroma_documents(SID)
+    healed = None
+    deleted = None
+    # B12b：与 d11 同形（审计员只点名了 d11，d14 是同一条残行路径）。
+    try:
+        if _canary() != 0:
+            return 2
+        drifted = _counts()
+        fails += 0 if _say("违约：漂移 +1", drifted == base + 1, f"drift={drifted - base}") else 1
+    finally:
+        deleted = delete_session_chroma_documents(SID)
+        if deleted is not True:
+            print(
+                f"!!! RESIDUAL: 金丝雀删除未能确认（delete 返回 {deleted!r}）"
+                f"——生产集合可能残留 session_id={SID}",
+                file=sys.stderr,
+            )
     healed = _counts()
     fails += 0 if _say("收敛：漂移回 0", healed == base, f"drift={healed - base}") else 1
+    fails += 0 if _say("删除调用已确认", deleted is True, f"delete={deleted}") else 1
     ok_row = False
     try:
         from mimir_constants import get_mimir_home
