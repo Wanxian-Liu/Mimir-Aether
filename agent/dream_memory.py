@@ -32,7 +32,20 @@ logger = logging.getLogger(__name__)
 # 容量限制（与 CrossSessionMemory 一致）
 _MAX_DECISIONS = 20
 _MAX_PATTERNS = 30
-_MAX_CONSTRAINTS = 5  # 行为约束上限
+_MAX_CONSTRAINTS = 6  # 行为约束上限（2026-10-24 5→6：晋升制「约束只增」+ 回填丢失护栏）
+
+# ── 晋升制（2026-10-24 · 刘哥批「方式二 + 晋升制」）──────────────────────
+# 治的毛病：写回段对每条只做 `setdefault("maturity", "draft")` ⇒ maturity 恒
+# draft、access_count 恒 0（改前 0/49）。「晋升」在这里不是形容词：它要求两条
+# 独立证据同时成立 —— ① 使用证据（access_count / retrieval_hits ≥ 门）
+# ② 加权分达门。为什么把 usage 设成硬前提：只按 importance/recency 打分时
+# 「刚蒸馏出来的新条目」天生高分 ⇒ 一切自动晋升 = 把默认值改个名字（假绿）；
+# usage 无法伪造，只能由消费端累加。
+_PROMOTE_MIN_ACCESS = 1     # 使用证据下限（access_count 或 retrieval_hits）
+_PROMOTE_MIN_SCORE = 2.0    # 加权分门：usage*1.0 + importance≥60(+1) + recency≤30d(+1)
+_PROMOTE_RECENCY_DAYS = 30.0
+_ARCHIVE_KEEP = 500         # 归档段上限（超出丢最旧并留 warning）
+_ARCHIVE_FILE = "dream_memory_archive.json"
 
 # ── ③ 加固（2026-10-06 · 自检处置表 §7 裁决 3a）──────────────────────
 # 治的毛病：本模块是 persistent.json 的**第二条写入路径**，出错只写 logger +
@@ -417,6 +430,138 @@ def _inherit_akl(old_items: List, new_items: List, text_key: str) -> Tuple[List,
                         inherited += 1
         out.append(it)
     return out, inherited
+
+
+# ── 晋升制 / 归档 / 失败记录清理（2026-10-24 · 刘哥批「方式二 + 晋升制」）──
+
+
+def _archive_path() -> str:
+    """归档段路径——被挤掉的条目落这里，不静默丢。"""
+    return os.path.join(_mimir_home(), "data", _ARCHIVE_FILE)
+
+
+def _usage_evidence(item: Dict) -> int:
+    """使用证据：两个消费端计数取大（access_count / retrieval_hits）。
+
+    为什么取大而不是相加：两者是同一件事（被消费）的不同计量点，相加会把
+    一次命中算两次，让门变松。
+    """
+
+    def _int(v) -> int:
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            return 0
+
+    if not isinstance(item, dict):
+        return 0
+    return max(_int(item.get("access_count")), _int(item.get("retrieval_hits")))
+
+
+def _age_days(item: Dict, now_iso: str) -> float:
+    """距最近一次访问的天数（无 last_access 退回 created_at；解析失败 = inf）。"""
+    for key in ("last_access", "created_at"):
+        raw = item.get(key) if isinstance(item, dict) else None
+        if not raw:
+            continue
+        try:
+            ts = datetime.fromisoformat(str(raw))
+        except ValueError:
+            continue
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        try:
+            now = datetime.fromisoformat(str(now_iso))
+        except ValueError:
+            now = datetime.now(timezone.utc)
+        return max(0.0, (now - ts).total_seconds() / 86400.0)
+    return float("inf")
+
+
+def _promotion_score(item: Dict, now_iso: str) -> float:
+    """晋升加权分（只用现有字段算，不新建子系统）。"""
+    score = float(min(_usage_evidence(item), 5))
+    try:
+        if int(item.get("importance", 0)) >= 60:
+            score += 1.0
+    except (TypeError, ValueError):
+        pass
+    if _age_days(item, now_iso) <= _PROMOTE_RECENCY_DAYS:
+        score += 1.0
+    return score
+
+
+def _apply_promotion(item: Dict, now_iso: str) -> bool:
+    """达门 ⇒ maturity=promoted + promoted_at；未达 ⇒ 留 draft（**不驱逐**）。"""
+    if not isinstance(item, dict):
+        return False
+    if item.get("maturity") == "promoted":
+        return False
+    if _usage_evidence(item) < _PROMOTE_MIN_ACCESS:
+        return False
+    if _promotion_score(item, now_iso) < _PROMOTE_MIN_SCORE:
+        return False
+    item["maturity"] = "promoted"
+    item["promoted_at"] = now_iso
+    return True
+
+
+def _apply_promotion_pass(items: List, now_iso: str) -> Tuple[int, int]:
+    """对一批条目应用晋升门，返回（晋升数, 参与数）。"""
+    promoted = 0
+    for it in items:
+        if _apply_promotion(it, now_iso):
+            promoted += 1
+    return promoted, len(items)
+
+
+def _archive_evicted(kind: str, items: List, reason: str) -> int:
+    """被挤掉的条目不静默丢弃——写进归档段，可 grep 回读。"""
+    keep = [x for x in (items or []) if x]
+    if not keep:
+        return 0
+    path = _archive_path()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    existing: List = []
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            loaded = json.load(f)
+        if isinstance(loaded, list):
+            existing = loaded
+    except (IOError, json.JSONDecodeError):
+        existing = []
+    stamp = datetime.now(timezone.utc).isoformat()
+    for it in keep:
+        tk = "decision" if kind == "key_decisions" else "pattern"
+        text = _item_text(it, tk) if isinstance(it, dict) else str(it)
+        existing.append(
+            {"kind": kind, "reason": reason, "archived_at": stamp, "text": text, "item": it}
+        )
+    dropped = max(0, len(existing) - _ARCHIVE_KEEP)
+    if dropped:
+        existing = existing[dropped:]
+        logger.warning("[DreamMemory] 归档段超上限 %d，丢最旧 %d 条", _ARCHIVE_KEEP, dropped)
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(existing, f, ensure_ascii=False, indent=2)
+    except IOError as e:
+        logger.warning("[DreamMemory] 写归档段失败: %s", e)
+        return 0
+    logger.info("[DreamMemory] 归档 %d 条（%s / %s）→ %s", len(keep), kind, reason, path)
+    return len(keep)
+
+
+def _clear_failure_record() -> bool:
+    """成功即删失败记录（改前只写不清 ⇒ 旧失败长期冒充当前状态）。"""
+    path = _failure_record_path()
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+            logger.info("[DreamMemory] 成功即删失败记录: %s", path)
+            return True
+    except OSError as e:
+        logger.warning("[DreamMemory] 删失败记录失败: %s", e)
+    return False
 
 
 def _merge_constraints(old: List, new: List, max_n: int) -> Tuple[List, List]:
@@ -858,6 +1003,7 @@ async def _run_distillation(
             logger.warning(
                 "[DreamMemory] %s 超限截断，丢弃: %s", _label, _item_text(_item, _tk)[:60]
             )
+            _archive_evicted(_label, [_item], "truncation")
     data["memory"]["key_decisions"] = new_decisions_items[:_MAX_DECISIONS]
     data["memory"]["learned_patterns"] = new_patterns_items[:_MAX_PATTERNS]
 
@@ -876,6 +1022,12 @@ async def _run_distillation(
             p.setdefault("last_access", _now_akl)
             p.setdefault("decay_factor", 0.95)
 
+    # ── 晋升制（2026-10-24 · 刘哥批）：写回前算晋升分——达门 promoted，
+    # 未达留 draft（不驱逐）。判据不是「字段存在」，是 usage 证据达门。
+    promoted_total, promo_total = _apply_promotion_pass(
+        data["memory"]["key_decisions"] + data["memory"]["learned_patterns"], _now_akl
+    )
+
     # D2: PMD 共同进化——旧的先占位、新的补位；超限显式记录（不静默丢）
     merged_constraints, evicted_constraints = _merge_constraints(
         data["memory"].get("behavioral_constraints", []),
@@ -884,6 +1036,7 @@ async def _run_distillation(
     )
     for _rule in evicted_constraints:
         logger.warning("[DreamMemory] behavioral_constraints 超限被挤掉: %s", _rule[:60])
+    _archive_evicted("behavioral_constraints", evicted_constraints, "constraint_cap")
     data["memory"]["behavioral_constraints"] = merged_constraints
 
     # 写入自我矛盾报告（Change 3）
@@ -921,6 +1074,10 @@ async def _run_distillation(
         f"    · AKL 继承: decisions {inherited_decisions} 处 / patterns {inherited_patterns} 处\n"
         f"    · 条目超限截断: decisions {len(evicted_decisions)} / patterns {len(evicted_patterns)}\n"
         f"    · 约束被挤掉: {evicted_constraints or '无'}\n"
+        f"    · 晋升: promoted={promoted_total}/{promo_total}"
+        f" (门 usage>={_PROMOTE_MIN_ACCESS} 且 score>={_PROMOTE_MIN_SCORE:g})\n"
+        f"    · 归档段: {len(evicted_decisions) + len(evicted_patterns) + len(evicted_constraints)} 条"
+        f" -> {os.path.basename(_archive_path())}\n"
         f"  - 自我矛盾: {'⚠️ ' + contradiction[:80] if contradiction else '✅ 无'}\n"
         f"  - 时间: {datetime.now(timezone.utc).isoformat()}"
     )
@@ -1014,6 +1171,7 @@ async def run_dream_cycle(dry_run: bool = False) -> Tuple[bool, str]:
     # 6. 写哨兵文件——通知 CrossSessionMemory 下一轮 save 前从磁盘重载缓存
     #    （避免终端进程蒸馏写盘后，Gateway 进程仍用旧缓存 59 kd 覆盖掉压缩后的 20 kd）
     _write_distill_sentinel()
+    _clear_failure_record()
     return True, report + f"\n✅ 写入成功（耗时 {elapsed:.1f}s）\n备份: {backup_dir}"
 
 

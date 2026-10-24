@@ -547,7 +547,10 @@ def _semantic_index_ready() -> bool:
 # 关断：MIMIR_SEMANTIC_QUERY_TIMEOUT_S <= 0。
 # ============================================================================
 _SEMANTIC_TIMEOUT_ENV = "MIMIR_SEMANTIC_QUERY_TIMEOUT_S"
-_SEMANTIC_TIMEOUT_DEFAULT_S = 5.0
+_SEMANTIC_TIMEOUT_DEFAULT_S = 10.0
+# 2026-10-24（刘哥批 · 执行令④）：5.0 → 10.0。依据：chroma_session_indexer.py:708
+# 实测真实语义延迟 ≈13.9s，5s 门让「每条查询必降级」；单飞闸（超时即复位）已
+# 在 5144c5c 落地，抬高门是配合它、不是替代它。
 _DEGRADED_STATE: Dict[str, Any] = {"count": 0, "last_reason": None, "last_ts": None}
 # R4 v2 单飞闸：同一时刻最多 1 个语义 worker 在飞。
 # 为什么必须有界：Python 杀不掉线程 ⇒ 超时只能「遗弃」；而语义查询是 CPU 密集

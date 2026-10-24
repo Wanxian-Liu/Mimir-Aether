@@ -89,11 +89,11 @@ def _settle(release: threading.Event, timeout: float = 2.0) -> bool:
 
 def test_semantic_query_timeout_s_default_override_and_invalid(monkeypatch):
     monkeypatch.delenv("MIMIR_SEMANTIC_QUERY_TIMEOUT_S", raising=False)
-    assert semantic_query_timeout_s() == 5.0
+    assert semantic_query_timeout_s() == 10.0
     monkeypatch.setenv("MIMIR_SEMANTIC_QUERY_TIMEOUT_S", "1.5")
     assert semantic_query_timeout_s() == 1.5
     monkeypatch.setenv("MIMIR_SEMANTIC_QUERY_TIMEOUT_S", "not-a-number")
-    assert semantic_query_timeout_s() == 5.0
+    assert semantic_query_timeout_s() == 10.0
     monkeypatch.setenv("MIMIR_SEMANTIC_QUERY_TIMEOUT_S", "0")
     assert semantic_query_timeout_s() == 0.0
 
@@ -267,7 +267,7 @@ def test_benchmark_reports_semantic_degraded_count(tmp_path):
         )
 
     assert report["semantic_degraded_count"] == 2
-    assert report["semantic_timeout_s"] == 5.0
+    assert report["semantic_timeout_s"] == 10.0
     assert report["semantic_latency_mode"] == "fuse_bounded"
     assert report["rows"][0]["semantic_degraded"] is True
 
