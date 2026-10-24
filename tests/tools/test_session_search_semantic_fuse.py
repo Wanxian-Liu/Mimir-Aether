@@ -270,3 +270,31 @@ def test_benchmark_reports_semantic_degraded_count(tmp_path):
     assert report["semantic_timeout_s"] == 5.0
     assert report["semantic_latency_mode"] == "fuse_bounded"
     assert report["rows"][0]["semantic_degraded"] is True
+
+def test_timeout_releases_inflight_gate(monkeypatch):
+    """S1 回归：超时返回那一刻闸门必须复位。
+
+    反例边界：只断言「没抛异常」不算数 —— 断言点在 ``semantic_inflight_stats()["running"]``
+    与第二次调用的 status：修复前第二次调用返回 ``busy``（永久降级），修复后返回 ``timeout``。
+    """
+    from tools.session_search_tool import _semantic_search_with_fuse
+
+    release = threading.Event()
+    monkeypatch.setenv("SESSION_SEARCH_BACKEND", "semantic")
+    kw = dict(db_path=None, limit=1, session_limit=1, timeout_s=0.05)
+    try:
+        with patch(
+            "tools.chroma_session_indexer.query_session_messages",
+            side_effect=_stall(release),
+        ):
+            status, rows = _semantic_search_with_fuse("stall-1", **kw)
+            assert status == "timeout" and rows == []
+            assert semantic_inflight_stats()["running"] is False, (
+                "超时后闸门未复位 ⇒ 旧 worker 在跑期间本进程所有查询永久 busy"
+            )
+            status2, _ = _semantic_search_with_fuse("stall-2", **kw)
+            assert status2 == "timeout", "闸门未复位 ⇒ 返回 busy（永久降级）"
+            assert status2 != "busy"
+    finally:
+        release.set()
+        _settle(release)

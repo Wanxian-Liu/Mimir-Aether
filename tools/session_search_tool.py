@@ -555,6 +555,9 @@ _DEGRADED_STATE: Dict[str, Any] = {"count": 0, "last_reason": None, "last_ts": N
 # 实测把同一 benchmark 从 141s 拖到 498s 仍未跑完（3.5× wall time）。
 _SEMANTIC_INFLIGHT_LOCK = threading.Lock()
 _SEMANTIC_INFLIGHT: Dict[str, Any] = {"running": False, "skipped": 0}
+# 单飞闸的「代」计数器：被超时遗弃的旧 worker 结束时**不得**清掉新一代的闸。
+# 单独一个模块级变量（不进 _SEMANTIC_INFLIGHT）⇒ semantic_inflight_stats 形状不变。
+_SEMANTIC_INFLIGHT_GEN = 0
 
 
 def semantic_query_timeout_s() -> float:
@@ -654,12 +657,15 @@ def _semantic_search_with_fuse(
             query, db_path=db_path, limit=limit, session_limit=session_limit
         )
 
-    # 单飞闸（fail-fast）：上一个查询被遗弃还在跑 ⇒ 不再叠加第二个工作者。
+    # 单飞闸（fail-fast）：上一个查询还在飞 ⇒ 不叠加第二个 worker。
+    global _SEMANTIC_INFLIGHT_GEN
     with _SEMANTIC_INFLIGHT_LOCK:
         if _SEMANTIC_INFLIGHT["running"]:
             _SEMANTIC_INFLIGHT["skipped"] += 1
             logger.warning("[SEMANTIC-DEGRADE] reason=semantic_inflight_busy")
             return "busy", []
+        _SEMANTIC_INFLIGHT_GEN += 1
+        my_gen = _SEMANTIC_INFLIGHT_GEN
         _SEMANTIC_INFLIGHT["running"] = True
 
     def _worker():
@@ -669,10 +675,23 @@ def _semantic_search_with_fuse(
             )
         finally:
             with _SEMANTIC_INFLIGHT_LOCK:
-                _SEMANTIC_INFLIGHT["running"] = False
+                # 只有本代有权复位：被超时遗弃的旧 worker 结束时不得清掉新一代的闸。
+                if _SEMANTIC_INFLIGHT_GEN == my_gen:
+                    _SEMANTIC_INFLIGHT["running"] = False
 
     ok, rows = _call_with_timeout(_worker, timeout_s)
     if not ok:
+        # 超时返回的那一刻就复位闸门：旧 worker 可能还在跑，但它不得让本进程
+        # 后续查询永久降级成 semantic_inflight_busy（单飞闸不复位 = 永久降级）。
+        with _SEMANTIC_INFLIGHT_LOCK:
+            if _SEMANTIC_INFLIGHT_GEN == my_gen:
+                _SEMANTIC_INFLIGHT_GEN += 1  # 作废旧代的复位权（防误清新一代）
+                _SEMANTIC_INFLIGHT["running"] = False
+        logger.warning(
+            "[SEMANTIC-INFLIGHT-RESET] gen=%d abandoned_worker=1 reason=timeout>%.3fs",
+            my_gen,
+            timeout_s,
+        )
         return "timeout", []
     return "ok", rows or []
 

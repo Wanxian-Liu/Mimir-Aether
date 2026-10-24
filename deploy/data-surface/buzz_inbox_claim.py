@@ -178,6 +178,120 @@ class Lock:
         return False
 
 
+# ---------------------------------------------------------------- 状态回写（S3 · 2026-10-24）
+# 为什么要有它：收件箱 72 条全是 state=None ⇒ 「未读」没有判别力（已处理完的信和没读的
+# 长得一样）。消费端在认领落定后把 state 回写进 jsonl：processed / failed / blocked，
+# 历史无法判定的一律 unknown + 原因（**不猜**）。
+STATE_LOCK_PATH = os.environ.get("BUZZ_INBOX_MIMIR_STATE_LOCK", DISPATCHED + ".state.lock")
+STATE_VALUES = ("processed", "failed", "blocked", "unknown")
+
+
+def _iso_now():
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).isoformat()
+
+
+def write_line_states(start, end, state, reason=None, owner="", only_missing=False):
+    """把 ``[start,end]`` 行的 ``state`` / ``processed_at`` 回写进 INBOX。
+
+    - 只改目标行（其余行**字节不动**）；原子替换（同目录 tmp + ``os.replace``）。
+    - **无新增守卫**：读入前后比 size，期间有并发追加就重读重试 —— 否则追加行被吞掉。
+    - 返回 ``(changed, skipped, note)``。
+    """
+    if state not in STATE_VALUES:
+        raise ValueError("STATE 非法: %r（只允许 %s）" % (state, "/".join(STATE_VALUES)))
+    for _attempt in range(5):
+        with Lock(STATE_LOCK_PATH):
+            size_before = os.path.getsize(INBOX) if os.path.exists(INBOX) else 0
+            with open(INBOX, encoding="utf-8", newline="") as fh:
+                raw = fh.read()
+            lines = raw.split("\n")
+            trailing = bool(lines) and lines[-1] == ""
+            body = lines[:-1] if trailing else lines
+            total = len(body)
+            if start < 1 or end < start:
+                return 0, 0, "range 无效 %d..%d（total=%d）" % (start, end, total)
+            end_eff = min(end, total)
+            changed = 0
+            skipped = 0
+            for i in range(start - 1, end_eff):
+                line = body[i]
+                if not line.strip():
+                    skipped += 1
+                    continue
+                try:
+                    rec = json.loads(line)
+                except Exception:
+                    skipped += 1
+                    continue
+                if only_missing and rec.get("state"):
+                    skipped += 1
+                    continue
+                rec["state"] = state
+                # 语义纪律：processed_at 只能出现在「真的处理过」的行上；unknown 是
+                # 「没判定」而不是「处理过」⇒ 写 state_at（时间戳仍在，语义不撒谎）。
+                ts_key = "processed_at" if state != "unknown" else "state_at"
+                other_key = "state_at" if ts_key == "processed_at" else "processed_at"
+                rec.pop(other_key, None)
+                rec[ts_key] = _iso_now()
+                rec.pop("state_reason", None)  # 换态即换原因，禁残留上一态的说明
+                if reason:
+                    rec["state_reason"] = reason
+                new_line = json.dumps(rec, ensure_ascii=False)
+                if new_line != line:
+                    body[i] = new_line
+                    changed += 1
+            out = "\n".join(body) + ("\n" if trailing else "")
+            if os.path.getsize(INBOX) != size_before:
+                continue  # 并发追加 ⇒ 重读，禁吞行
+            tmp = INBOX + ".state.tmp.%d" % os.getpid()
+            with open(tmp, "w", encoding="utf-8", newline="") as fh:
+                fh.write(out)
+            os.replace(tmp, INBOX)
+            log_line("STATE owner=%s range=%d..%d state=%s changed=%d skipped=%d reason=%s"
+                     % (owner or "?", start, end_eff, state, changed, skipped, reason or "-"))
+            return changed, skipped, "ok(total=%d)" % total
+    raise RuntimeError("STATE-WRITE 重试用尽：%s 读改期间一直在增长" % INBOX)
+
+
+def _mark_claim_range(claim, state, owner, reason=None):
+    """commit / abort 之后回写状态：**出错出声，但不改认领的 return code**（认领已落定）。"""
+    try:
+        start = int(claim.get("start", 0) or 0)
+        end = int(claim.get("end", 0) or 0)
+    except (TypeError, ValueError):
+        print("STATE-SKIP rc=0: 认领区间不可解析 %r" % (claim,), file=sys.stderr)
+        return
+    try:
+        changed, skipped, note = write_line_states(start, end, state, reason=reason, owner=owner)
+        print("STATE %s %d..%d changed=%d skipped=%d %s" % (state, start, end, changed, skipped, note))
+    except Exception as exc:  # noqa: BLE001 - 回写失败必须出声，但不得吞掉认领结果
+        print("STATE-FAIL %s %d..%d %s: %s" % (state, start, end, type(exc).__name__, exc),
+              file=sys.stderr)
+        log_line("STATE-FAIL owner=%s range=%d..%d state=%s err=%s" % (owner, start, end, state, exc))
+
+
+def cmd_mark_state(a):
+    """手工回写一条/一段的 state（测试与历史回填入口）。"""
+    changed, skipped, note = write_line_states(
+        a.start, a.end, a.state, reason=a.reason, owner=a.owner, only_missing=a.only_missing
+    )
+    print("MARKED state=%s %d..%d changed=%d skipped=%d %s"
+          % (a.state, a.start, a.end, changed, skipped, note))
+    return 0
+
+
+def cmd_backfill_unknown(a):
+    """历史回填：所有**无 state** 的行置 unknown + 原因（不猜 processed）。"""
+    n = count_lines(INBOX)
+    changed, skipped, note = write_line_states(
+        1, n, "unknown", reason=a.reason, owner=a.owner, only_missing=True
+    )
+    print("BACKFILL unknown 1..%d changed=%d skipped=%d %s" % (n, changed, skipped, note))
+    return 0
+
+
 def cmd_reserve(a):
     myhost = socket.gethostname()
     with Lock(CLAIM_LOCK):
@@ -272,6 +386,9 @@ def cmd_abort(a):
             drop_claim()
             log_line("ABORT-ROLLBACK owner=%s range=%s..%d dispatched=%d->%d"
                      % (a.owner, claim.get("start"), end, end, prev))
+            # S3：该次消费未完成 ⇒ 记 failed（重派成功后会被 processed 覆盖）。
+            _mark_claim_range(claim, "failed", a.owner,
+                              reason="claim aborted before commit（该次 run 未完成，允许重派后覆盖）")
             print("ROLLED-BACK %s dispatched %d->%d（未派发，下次重试）" % (a.owner, end, prev))
         else:
             drop_claim()
@@ -291,6 +408,9 @@ def cmd_commit(a):
             return 2
         drop_claim()
         log_line("COMMIT owner=%s range=%s..%s" % (a.owner, claim.get("start"), claim.get("end")))
+        # S3：消费完成即回写 state（否则「已处理」与「没读」在盘上不可区分）。
+        if claim:
+            _mark_claim_range(claim, "processed", a.owner)
         print("COMMITTED %s %s..%s | %s" % (a.owner, claim.get("start"), claim.get("end"), fmt(readings())))
         return 0
 
@@ -343,11 +463,31 @@ def cmd_show(a):
 
 def main():
     ap = argparse.ArgumentParser(description="Buzz 收件箱原子认领")
-    ap.add_argument("cmd", choices=["reserve", "abort", "commit", "check", "show"])
+    ap.add_argument("cmd", choices=["reserve", "abort", "commit", "check", "show",
+                                    "mark-state", "backfill-unknown"])
     ap.add_argument("--owner", default="")
     ap.add_argument("--line", type=int, default=None)
+    ap.add_argument("--start", type=int, default=1)
+    ap.add_argument("--end", type=int, default=0)
+    ap.add_argument("--state", default="")
+    ap.add_argument("--reason", default="")
+    ap.add_argument("--only-missing", action="store_true")
     ap.add_argument("-q", "--quiet", action="store_true")
     a = ap.parse_args()
+    if a.cmd in ("mark-state", "backfill-unknown") and not a.owner:
+        a.owner = "mimir-s3"
+    if a.cmd == "mark-state":
+        if not a.state:
+            print("rc=3 mark-state 需要 --state", file=sys.stderr)
+            return 3
+        if not a.end:
+            a.end = a.start
+        return cmd_mark_state(a)
+    if a.cmd == "backfill-unknown":
+        if not a.reason:
+            print("rc=3 backfill-unknown 需要 --reason（unknown 必须带原因，不许猜）", file=sys.stderr)
+            return 3
+        return cmd_backfill_unknown(a)
     if a.cmd != "show" and not a.owner:
         print("rc=3 --owner 必填（认领必须有主）", file=sys.stderr)
         return 3
