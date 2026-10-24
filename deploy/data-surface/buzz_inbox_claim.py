@@ -183,7 +183,7 @@ class Lock:
 # 长得一样）。消费端在认领落定后把 state 回写进 jsonl：processed / failed / blocked，
 # 历史无法判定的一律 unknown + 原因（**不猜**）。
 STATE_LOCK_PATH = os.environ.get("BUZZ_INBOX_MIMIR_STATE_LOCK", DISPATCHED + ".state.lock")
-STATE_VALUES = ("processed", "failed", "blocked", "unknown")
+STATE_VALUES = ("processed", "pending", "failed", "blocked", "unknown")  # E9 两态制：pending=没做完（2026-10-24 刘哥裁定）
 
 
 def _iso_now():
