@@ -86,14 +86,62 @@ def test_c3b_duplicate_rule_not_doubled():
     assert len(merged) == 1, merged
 
 
-def test_c3c_overflow_evicts_newest_and_reports():
-    """负控：超限时不许静默丢——被挤掉的必须回传。"""
+def test_c3c_overflow_admits_new_and_archives_oldest():
+    """改后（2026-10-25）：队满时新约束必须能进；被替换的是**最旧旧条目**且回传归档。
+
+    改前此处断言「新规则全被挤出」——那正是「队满冻结」缺陷的编码器（测子在保护 bug），
+    随修复翻转为正确语义。R6 现场口径：bc=6=cap 时新约束 100% 被挤。
+    """
     old = [{"rule": f"旧{i}"} for i in range(5)]
     new = [{"rule": "新规则A"}, {"rule": "新规则B"}]
     merged, evicted = _merge_constraints(old, new, 5)
+    rules = [c["rule"] for c in merged]
     assert len(merged) == 5
-    assert [c["rule"] for c in merged] == [f"旧{i}" for i in range(5)]
-    assert evicted == ["新规则A", "新规则B"], evicted
+    assert "新规则A" in rules and "新规则B" in rules, rules
+    assert rules == ["旧2", "旧3", "旧4", "新规则A", "新规则B"], rules
+    assert evicted == ["旧0", "旧1"], evicted
+
+
+def test_c3f_new_constraint_enters_when_queue_full():
+    """现场口径回归闸：bc=6=cap 来 1 条新约束 ⇒ 必须进；最旧旧条目被挤并回传。"""
+    old = [{"rule": f"旧{i}"} for i in range(6)]
+    merged, evicted = _merge_constraints(old, [{"rule": "新蒸馏约束PROBE"}], 6)
+    rules = [c["rule"] for c in merged]
+    assert rules[-1] == "新蒸馏约束PROBE", rules
+    assert "旧0" not in rules, rules
+    assert evicted == ["旧0"], evicted
+
+
+def test_c3g_duplicate_new_evicts_nothing():
+    """去重撞车：新约束与旧条目文本相同 ⇒ 既不进也不挤（evicted 必须空）。"""
+    old = [{"rule": f"旧{i}"} for i in range(6)]
+    merged, evicted = _merge_constraints(old, [{"rule": "旧3"}], 6)
+    assert len(merged) == 6 and evicted == [], evicted
+
+
+def test_c3h_admit_cap_bounds_churn_per_night():
+    """反例防线：一晚新约束多于 ⌊cap/2⌋ ⇒ 只进最新的那几条，其余进归档。
+
+    防「某晚 6 条杂乱新规则把 6 条核心防护一次冲光」——churn 上限 = half cap。
+    """
+    old = [{"rule": f"旧{i}"} for i in range(6)]
+    new = [{"rule": f"新{i}"} for i in range(6)]
+    merged, evicted = _merge_constraints(old, new, 6)
+    rules = [c["rule"] for c in merged]
+    assert len(merged) == 6
+    assert rules[-3:] == ["新3", "新4", "新5"], rules
+    assert [r for r in rules if r.startswith("旧")] == ["旧3", "旧4", "旧5"], rules
+    assert evicted == ["旧0", "旧1", "旧2", "新0", "新1", "新2"], evicted
+
+
+def test_c3i_merge_never_touches_importance_fields():
+    """④ 不动排序字段：合并只搬条目，不写 importance_base / importance。"""
+    old = [{"rule": "旧A", "importance_base": 50, "importance": 55}]
+    new = [{"rule": "新A", "importance_base": 50}]
+    merged, _ = _merge_constraints(old, new, 6)
+    by_rule = {c["rule"]: c for c in merged}
+    assert by_rule["旧A"]["importance_base"] == 50 and by_rule["旧A"]["importance"] == 55
+    assert by_rule["新A"]["importance_base"] == 50
 
 
 def test_c3d_old_entries_fill_then_new_takes_free_slot():
