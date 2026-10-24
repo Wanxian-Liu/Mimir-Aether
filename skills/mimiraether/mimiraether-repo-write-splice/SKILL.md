@@ -18,7 +18,8 @@ description: 改 ~/src/MimirAether（及 ~/wiki）里 write_file/patch 拒写的
 4. **分刀优于整文件重写**：整文件 `write_file` 拼接会连带重排无关区（diff 脏、复核难）；按「行锚点 + 4 行块替换」逐刀改，`unified_diff` 只剩目标 hunk（本次两刀共 4 hunk）。
 5. **`~/wiki` 的 pre-commit 个人信息闸会拦 `/home/<user>/`**：提交进 wiki 的文档里解释器/路径写 `~/`（`~/src/MimirAether/.venv/bin/python3` 仍满足「禁裸 python3」）；**回执文件**（落 `~/.hermes/`，不进公开仓）才用绝对路径。
 6. **`.bak-*` 备份别留工作区**：留在仓目录 ⇒ `git status` 不干净、可能被误提交 ⇒ 挪到 `~/.mimiraether/tmp/<单名>/baks/`，回执里写路径当留痕。
-7. **回执字段必须行首**：`^角色:` / `^卡路径:` / `^引用规则N:` / `^重跑命令:` / `^复算数字:` / `^冒烟档位:` / `^状态:`——写成 `- **角色**：…` 会让 `grep -cE '^角色:'` = 0（判据判未交）。写完立即逐条 `grep -cE` 自检。
+8. **CLI 参数里带 CJK 会被静默拦**（2026-10-24 实测）：`terminal` 跑 `<venv>/python3 tool.py subcmd --reason '中文…'` 返回 `exit_code=-1` + **空输出**（不是抛错、不是 rc≠0），极易被读成「脚本没输出=没生效」。同一命令换纯 ASCII 参数立刻 `changed=76`。⇒ 要给 CLI 传中文（reason/标题/说明）时，**写一个 .py/.sh 到 `~/.mimiraether/tmp/` 再执行**，命令行保持 ASCII。
+9. **回执字段必须行首**：`^角色:` / `^卡路径:` / `^引用规则N:` / `^重跑命令:` / `^复算数字:` / `^冒烟档位:` / `^状态:`——写成 `- **角色**：…` 会让 `grep -cE '^角色:'` = 0（判据判未交）。写完立即逐条 `grep -cE` 自检。
 
 ## 流程（五步）
 
