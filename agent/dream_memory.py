@@ -565,26 +565,70 @@ def _clear_failure_record() -> bool:
 
 
 def _merge_constraints(old: List, new: List, max_n: int) -> Tuple[List, List]:
-    """既有约束先占位，新约束补位；返回（合并结果, 被挤掉的规则文本）。
+    """既有约束先占位、新约束**保证有入位名额**；返回（合并结果, 被挤掉的规则文本）。
 
     旧写回是整表替换，LLM 某晚没再提炼出某条 ⇒ 该条静默消失且无备份
-    （2026-10-18 实测丢 1 条防护规则）。保护语义 = 旧的先占满、新的只在空位
-    进；超限时被挤掉的显式回传给调用方记录——可以丢，但不许静默。
+    （2026-10-18 实测丢 1 条防护规则）。保护语义 = 旧的先占位。
+
+    改前（≤2026-10-24 夜）的致命面：``old + new`` 去重后直接 ``out[:max_n]``
+    ⇒ 旧表一满，新约束 100% 落 ``out[max_n:]`` 全被挤出（``bc=6=_MAX_CONSTRAINTS``
+    时每晚新增全废）＝管线饿死，与 LLM 输出质量无关。
+
+    改后（2026-10-25）四条：
+      ① 旧的先按原序占位（LLM 漏提炼不丢旧规则）；
+      ② 新约束**保证入位**；入位名额 = ``max_n - min(len(旧), max_n // 2)``，即
+         「给旧规则保底 ⌊cap/2⌋ 个座位、其余座位按新约束从新到旧填」——
+         队满时新条目一定进得去，同时不会被某一晚 6 条杂乱新规则一次冲光；
+      ③ 超限时从**最旧的旧条目**开始让位（FIFO），被挤条目显式回传 → 调用方归档，
+         不静默；
+      ④ 只做合并，不碰 ``importance_base``/``importance``（排序字段不归本函数管）。
     """
-    out: List = []
+    if max_n <= 0:
+        texts = [
+            _norm_mem_text(e.get("rule", "") if isinstance(e, dict) else e)
+            for e in list(old or []) + list(new or [])
+        ]
+        return [], [t for t in texts if t]
+
+    old_dedup: List = []
     seen = set()
-    for it in list(old or []) + list(new or []):
+
+    def _key(it) -> str:
         rule = it.get("rule", "") if isinstance(it, dict) else it
-        key = _norm_mem_text(rule)
+        return _norm_mem_text(rule)
+
+    for it in old or []:
+        key = _key(it)
         if not key or key in seen:
             continue
         seen.add(key)
-        out.append(it)
-    evicted_text = [
-        _norm_mem_text(e.get("rule", "") if isinstance(e, dict) else e)
-        for e in out[max_n:]
-    ]
-    return out[:max_n], evicted_text
+        old_dedup.append(it)
+
+    new_dedup: List = []
+    for it in new or []:
+        key = _key(it)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        new_dedup.append(it)
+
+    # ② 新约束入位名额：给旧规则保底 ⌊cap/2⌋ 座位，其余座位按「从新到旧」给新约束
+    old_reserve = min(len(old_dedup), max_n // 2)
+    admit_cap = max(1, max_n - old_reserve)
+    new_overflow = new_dedup[:-admit_cap] if len(new_dedup) > admit_cap else []
+    new_keep = new_dedup[-admit_cap:] if new_overflow else new_dedup
+
+    # ③ 让位：从最旧的旧条目开始（FIFO）；新条目本身已按 admit_cap 收敛
+    overflow = len(old_dedup) + len(new_keep) - max_n
+    drop_old = min(len(old_dedup), max(0, overflow))
+    drop_new = max(0, overflow - drop_old)
+
+    evicted_items = old_dedup[:drop_old] + new_overflow + new_keep[:drop_new]
+    kept_old = old_dedup[drop_old:]
+    kept_new = new_keep[drop_new:]
+
+    evicted_text = [_key(e) for e in evicted_items]
+    return kept_old + kept_new, [t for t in evicted_text if t]
 
 
 def _memory_markdown_path() -> str:
