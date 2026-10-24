@@ -33,7 +33,9 @@ description: 改 ~/src/MimirAether（及 ~/wiki）里 write_file/patch 拒写的
 `write_file` 到 `~/.mimiraether/tmp/<名>.py`。一次一件（写操作串行）。
 
 ### 3. 拼接脚本：锚点断言 + 备份 + 编译校验
-在 `~/.mimiraether/tmp/splice_*.py` 里：
+**先看通用拼接器在不在**：`~/.mimiraether/scripts/splice_apply.py <target> <fragment> '<块首逐字行>'`
+—— 按「块首标记行」定位、到下一个顶层 `def/class/@` 为止整块替换，自动备份 `.bak-<ts>` + `ast.parse` 语法闸（不过闸不写盘）+ 打印 changed_lines。适用「整函数替换 / 整用例替换」，2026-10-25 实测两件（`agent/dream_memory.py`、`tests/test_dream_memory_persist.py`）。
+不适用（需手写）时在 `~/.mimiraether/tmp/splice_*.py` 里：
 
 ```python
 src = open(TARGET, encoding="utf-8", newline="").read()   # newline="" 保字节，防 CRLF 被归一化
