@@ -1301,6 +1301,20 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
     # R4 保险丝：语义检索（bge-m3）启动预热 —— 把冷加载成本移到启动后的空闲窗口，
     # 使首个真实语义查询不再付冷启代价。关断：MIMIR_SEMANTIC_WARMUP=0。
     # daemon 线程 + 失败静默：观测/加速设施不得拖垮启动。
+    # E2 静默复活告警（2026-10-24 两会席 P2）：代码默认值 = 1（本处），unit 期望 = 0。
+    # unit 被改写/被覆盖 ⇒ 预热静默复活（+2.2 GB）。启动时打一行结构化日志，不一致即 WARNING。
+    _warmup_raw = os.environ.get("MIMIR_SEMANTIC_WARMUP", "1").strip().lower()
+    _warmup_actual = 0 if _warmup_raw in ("0", "false", "no", "off") else 1
+    _warmup_expect = 0
+    _warmup_ok = _warmup_actual == _warmup_expect
+    (logger.info if _warmup_ok else logger.warning)(
+        "SEMANTIC-WARMUP  actual=%d expect=%d raw=%r source=%s %s",
+        _warmup_actual,
+        _warmup_expect,
+        _warmup_raw,
+        "unit" if "MIMIR_SEMANTIC_WARMUP" in os.environ else "default",
+        "OK" if _warmup_ok else "MISMATCH-预热可能静默复活",
+    )
     if os.environ.get("MIMIR_SEMANTIC_WARMUP", "1").strip().lower() not in ("0", "false", "no", "off"):
         def _semantic_warmup_task() -> None:
             delay_raw = os.environ.get("MIMIR_SEMANTIC_WARMUP_DELAY_S", "3")

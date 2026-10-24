@@ -1254,6 +1254,16 @@ class MimirAetherAgent(RecoveryMixin, ExecMixin, CallersMixin, ConfigMixin):
                 except Exception as e:
                     logger.warning(f'[CrossSession] End session failed: {e}')
 
+            # E1 注入台账落盘（Bronze）：轮末一行/轮 —— 写盘点**不在**注入路径上
+            try:
+                from agent.dream_memory import flush_injection_ledger
+
+                _n = flush_injection_ledger()
+                if _n:
+                    logger.debug("[E1] injection ledger flushed rows=%d", _n)
+            except Exception as e:
+                logger.debug("[E1] flush injection ledger skipped: %s", e)
+
             # B3 自进化闭环：session 结束时的健康快照
             # ============================================================
             try:

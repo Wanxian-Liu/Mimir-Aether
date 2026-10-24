@@ -1162,6 +1162,11 @@ async def run_dream_cycle(dry_run: bool = False) -> Tuple[bool, str]:
                 + f"\n{_FAILURE_MARKER}: 写窗口超时，已拒绝写盘（{detail}）"
                 + f"\n备份留在: {backup_dir}"
             )
+        # E1 Silver->Gold：注入台账聚合写回 access_count（绝对赋值 => 幂等）
+        try:
+            updated_data = apply_injection_usage(updated_data)
+        except Exception as _e1_exc:  # noqa: BLE001
+            logger.warning("[E1] usage 聚合失败（不影响蒸馏）: %s", _e1_exc)
         ok = _save_persistent(path, updated_data)
 
     if not ok:
@@ -1173,6 +1178,149 @@ async def run_dream_cycle(dry_run: bool = False) -> Tuple[bool, str]:
     _write_distill_sentinel()
     _clear_failure_record()
     return True, report + f"\n✅ 写入成功（耗时 {elapsed:.1f}s）\n备份: {backup_dir}"
+
+
+# ============================================================================
+# E1 · 记忆使用计数（append-only 注入台账 Bronze -> 聚合 Silver -> access_count Gold）
+# 口径（2026-10-24 两会席共识 P1 ② 离线批算）：
+#   Bronze：data/memory_injection_ledger.jsonl —— 一行/轮 {ts, run_id, ids[]}，只追加；
+#   Silver：data/memory_usage_aggregate.json    —— 按 id 计数（纯函数，可重算）；
+#   Gold  ：persistent.json 的 access_count/last_access —— **绝对赋值**（非累加）⇒ 幂等。
+# 铁律：注入路径（prompt_builder）只 note_injection() 记内存，**绝不写盘**；
+#      写盘只发生在「轮末 flush」与「蒸馏聚合」两处。
+# ============================================================================
+
+_INJECTION_LEDGER_FILE = "memory_injection_ledger.jsonl"
+_USAGE_AGGREGATE_FILE = "memory_usage_aggregate.json"
+_injection_buffer: List[str] = []
+_injection_buffer_run_id: Optional[str] = None
+
+
+def memory_id(text: object) -> str:
+    """条目稳定 id = sha1(规范化文本) 前 12。文本即身份（索引位置会漂移）。"""
+    import hashlib as _h
+
+    norm = _norm_mem_text(text)
+    return _h.sha1(norm.encode("utf-8")).hexdigest()[:12] if norm else ""
+
+
+def _injection_ledger_path() -> str:
+    return os.path.join(_mimir_home(), "data", _INJECTION_LEDGER_FILE)
+
+
+def _usage_aggregate_path() -> str:
+    return os.path.join(_mimir_home(), "data", _USAGE_AGGREGATE_FILE)
+
+
+def note_injection(ids: List[str], run_id: Optional[str] = None) -> int:
+    """注入路径调用：**只进内存缓冲，不写盘**。返回累计缓冲条数。"""
+    global _injection_buffer_run_id
+    for i in ids or []:
+        if isinstance(i, str) and i and i not in _injection_buffer:
+            _injection_buffer.append(i)
+    if run_id:
+        _injection_buffer_run_id = str(run_id)
+    return len(_injection_buffer)
+
+
+def flush_injection_ledger(run_id: Optional[str] = None) -> int:
+    """轮末调用：把本轮缓冲追加成一行（空缓冲 = 不写，防噪音行）。返回写入行数。"""
+    global _injection_buffer, _injection_buffer_run_id
+    ids = list(_injection_buffer)
+    _injection_buffer = []
+    rid = run_id or _injection_buffer_run_id
+    _injection_buffer_run_id = None
+    if not ids:
+        return 0
+    path = _injection_ledger_path()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    row = {"ts": datetime.now(timezone.utc).isoformat(), "run_id": rid or "", "ids": ids}
+    try:
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    except IOError as e:
+        logger.warning("[E1] 注入台账写入失败: %s", e)
+        return 0
+    return 1
+
+
+def aggregate_injection_ledger(ledger_path: Optional[str] = None,
+                               out_path: Optional[str] = None) -> Dict:
+    """Bronze -> Silver：按 id 计数（纯函数；删掉产物重跑结果一致）。"""
+    ledger_path = ledger_path or _injection_ledger_path()
+    out_path = out_path or _usage_aggregate_path()
+    counts: Dict[str, int] = {}
+    last: Dict[str, str] = {}
+    lines = 0
+    try:
+        with open(ledger_path, "r", encoding="utf-8") as f:
+            for raw in f:
+                raw = raw.strip()
+                if not raw:
+                    continue
+                try:
+                    row = json.loads(raw)
+                except json.JSONDecodeError:
+                    continue
+                lines += 1
+                ts = str(row.get("ts") or "")
+                for i in row.get("ids") or []:
+                    if not isinstance(i, str) or not i:
+                        continue
+                    counts[i] = counts.get(i, 0) + 1
+                    if ts and ts > last.get(i, ""):
+                        last[i] = ts
+    except FileNotFoundError:
+        lines = 0
+    agg = {"generated_at": datetime.now(timezone.utc).isoformat(),
+           "ledger_lines": lines, "counts": counts, "last_access": last}
+    try:
+        os.makedirs(os.path.dirname(out_path), exist_ok=True)
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump(agg, f, ensure_ascii=False, indent=2)
+    except IOError as e:
+        logger.warning("[E1] 聚合产物写入失败: %s", e)
+    return agg
+
+
+def apply_injection_usage(data: Dict, agg: Optional[Dict] = None) -> Dict:
+    """Silver -> Gold：把 counts 写回 access_count/last_access（**绝对赋值**，幂等）。"""
+    if not isinstance(data, dict):
+        return data
+    if agg is None:
+        try:
+            with open(_usage_aggregate_path(), "r", encoding="utf-8") as f:
+                agg = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            agg = {}
+    counts = agg.get("counts") if isinstance(agg, dict) else None
+    last = agg.get("last_access") if isinstance(agg, dict) else None
+    counts = counts if isinstance(counts, dict) else {}
+    last = last if isinstance(last, dict) else {}
+    memory = data.get("memory")
+    if not isinstance(memory, dict):
+        return data
+    applied = 0
+    for key, tk in (("key_decisions", "decision"), ("learned_patterns", "pattern")):
+        items = memory.get(key)
+        if not isinstance(items, list):
+            continue
+        for it in items:
+            if not isinstance(it, dict):
+                continue
+            mid = memory_id(_item_text(it, tk))
+            if not mid or mid not in counts:
+                continue
+            try:
+                it["access_count"] = int(counts[mid])
+            except (TypeError, ValueError):
+                continue
+            if last.get(mid):
+                it["last_access"] = last[mid]
+            applied += 1
+    logger.info("[E1] usage 聚合落 Gold：%d 条（ledger 行=%s）",
+                applied, agg.get("ledger_lines") if isinstance(agg, dict) else "?")
+    return data
 
 
 # ============================================================================

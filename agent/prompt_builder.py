@@ -1106,6 +1106,25 @@ def _memory_row_text(item, primary_key: str) -> str:
     return str(item).strip()
 
 
+def _injected_ids(rows: list, primary_key: str, limit: int) -> list:
+    """E1：本轮**实际注入**的条目 id（只算真进了 parts 的行，含 row_max 截断后仍非空的）。"""
+    if limit <= 0 or not rows or not isinstance(rows, list):
+        return []
+    out = []
+    try:
+        from agent.dream_memory import memory_id
+    except Exception:
+        return []
+    for item in rows[-limit:]:
+        text = _memory_row_text(item, primary_key)
+        if not text:
+            continue
+        mid = memory_id(text)
+        if mid and mid not in out:
+            out.append(mid)
+    return out
+
+
 def _append_recent_memory_rows(
     parts: list[str],
     rows: list,
@@ -1224,6 +1243,24 @@ def _build_cross_session_context() -> str:
                 primary_key="pattern",
                 limit=_cross_session_list_limit("MIMIR_CROSS_SESSION_PATTERNS_MAX", 3),
             )
+            # E1：记录本轮注入的条目 id —— **只进内存缓冲，不写盘**（①已否：注入路径禁写盘）
+            try:
+                from agent.dream_memory import note_injection
+
+                _inj = []
+                _inj.extend(_injected_ids(
+                    decisions if isinstance(decisions, list) else [],
+                    "decision",
+                    _cross_session_list_limit("MIMIR_CROSS_SESSION_DECISIONS_MAX", 5),
+                ))
+                _inj.extend(_injected_ids(
+                    patterns if isinstance(patterns, list) else [],
+                    "pattern",
+                    _cross_session_list_limit("MIMIR_CROSS_SESSION_PATTERNS_MAX", 3),
+                ))
+                note_injection(_inj)
+            except Exception as _e1_exc:  # noqa: BLE001
+                logger.debug("[E1] note_injection skipped: %s", _e1_exc)
             # PMD 共同进化：注入行为约束（最多3条）
             behavioral = memory.get("behavioral_constraints")
             if isinstance(behavioral, list) and behavioral:
