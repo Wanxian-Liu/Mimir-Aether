@@ -1342,3 +1342,27 @@ spec = importlib.util.spec_from_file_location(name, path, loader=loader)
 4. 报「该形态只有 N 处」前，**换一种取数法复算一次**（两种实现同结论才算读数）。
 
 **同族**：第 22 种（读数真 · 覆盖面假）—— 本种 = **读数假（静默缺席）** + **口径假阳** 两面。
+
+## 同类第 26 种死法：**拿「调用被受理」当「任务已执行」——rc 单点 + 信封 success 双语义**（2026-10-25 实测 · 四方会议 手巡假绿）
+
+**症状**：一条判据「跑完 rc==0 ⇒ ✅ 通过」报了 **19/19 全绿**；实际触发当时 **0/19 真跑**。且这不是边角：那 19 条**全部处于 disabled 状态**，判据在结构上恒绿（删掉判据也一样绿）。
+
+**三层成因（缺一层都解释不了「判据严格却把没执行当通过」）**：
+
+1. **判据层单点**：`if hermes cron run "$id" >/dev/null 2>&1; then ✅` —— rc 是唯一输入。
+2. **证据层自毁**：同一行 `>/dev/null 2>&1` 把唯一旁证（`Job is paused/disabled; resume it before running.`）**主动丢弃**——那句话其实照常打印，是脚本自己选择不看。⇒ 不是信息不存在，是取证时把信息扔了。
+3. **契约层双语义（治本点）**：`tools/cronjob_tools.py::_action_run` 末尾**无条件** `return _dumps({"success": True, "job": result})`；真值在 `job["executed"]` / `job["execution_skipped"]`。而 `hermes_cli/cron.py::_job_action` 只看信封 `success` ⇒ 打印 `Triggered job` 并 `return 0`。**同一个信封两个消费者，slash 路径（`cli_commands_mixin.py:1803`）看 `execution_skipped` 是诚实的，CLI 路径不诚实** ⇒ 一处诚实掩盖另一处，「看起来判据很严」。
+
+**同族第三形态（我自己当天踩到）**：`cmd | tail -15; echo rc=$?` 取到的是 **tail 的 rc**（`rc_pipeline=0`）。⇒ **测量管道自己制造假绿**；正解 `${PIPESTATUS[0]}` 或 `set -o pipefail`。
+
+**判据（四条，写死）**：
+1. 「跑任务」类判据**不得以 rc 为唯一输入**——必须断言**副作用**：产物 mtime 晚于触发时刻 **且在窗口内**（`trigger ≤ mtime ≤ trigger + 容忍窗`，只判「> trigger」会被**事后手动复跑**翻成假绿，2026-10-25 实证）。
+2. 优先读**真值字段**（`executed` / `execution_skipped` / `status`），别读信封 `success`。
+3. **禁 `>/dev/null` 丢输出**：旁证一旦丢弃，判据就只剩 rc。
+4. 判据上线前必须 `--selftest`：**正控**（新鲜副作用 ⇒ PASS/rc0）**+ 负控**（陈旧 ⇒ REFUSE/rc1，空目录 ⇒ NOOUTPUT/rc1）。负控里必须放一个**「命令存在但不干活」的假任务**——paused job 就是天然样本。**只有正控绿 = 判据可能恒绿**。
+
+**已知反例边界（本判据会误判的条件，必须先声明）**：事后手动复跑 ⇒ 假绿方向；trigger 无时区偏移 ⇒ ±8h 全红；「零输出」设计的 job ⇒ 恒红。⇒ 这类 job 必须有心跳件，否则不得进 run 类判据。
+
+**可复用件**：`~/.mimiraether/scripts/patrol_verify_side_effects.py`（三态 EXECUTED/SKIPPED/NOOUTPUT + `--selftest` 正负控）。
+**扫描办法**：`grep -rn 'cron run .*>/dev/null' ~/.hermes/scripts/*.sh` ⇒ 2026-10-25 命中 1 处（`patrol-run.sh` 的 `--run` 分支仍未检查任何结果 ⇒ 同类残留）。
+
