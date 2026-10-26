@@ -15,18 +15,13 @@ MAX_SEARCH_FIRST_NUDGES = 5
 # 与 verify_before_report_guard._SYSTEM_INJECT_PREFIXES / agent_loop._SYSTEM_INJECT_PREFIXES 对齐。
 # H-1（2026-10-04 · Mimir 实证）：本表原漏 "<intent-context>" 与中文【】族 ⇒ 每轮 intent 注入块
 #   被 last_user_text 当真实用户消息返回（其标签名自身含 "context"）⇒ skill-route 路由 93% 假命中。
-_INJECTED_USER_PREFIXES = (
-    _MARKER,
-    PREEMPTIVE_MARKER,
-    "[MIMIR_",
-    "[intent-action-guard]",
-    "<intent-context>",
-    # 中文方括号注入族（对齐 verify_before_report_guard 2026-09-29 全扫结论）
-    # A1（2026-10-04 · Mimir 角色审计）：上轮只补 4 项，仍缺 4 项 ⇒ 同族清单漂移。
-    #   全族扫描后补齐（权威参照 agent/verify_before_report_guard.py:33）。
-    "【空跑闸门", "【读闸", "【架构", "【任务完成度提示",
-    "【自动唤醒", "【讨论室唤醒", "【任务】", "【审计统计】",
-)
+# 2026-10-26 单一真源：注入族不再本地维护（A1 漂移闸门强制同族）
+try:  # 包内导入
+    from agent.injection_prefixes import INJECTION_PREFIXES as _FAMILY_PREFIXES
+except ImportError:  # pragma: no cover — 脚本方式直跑
+    from injection_prefixes import INJECTION_PREFIXES as _FAMILY_PREFIXES
+
+_INJECTED_USER_PREFIXES = (_MARKER, PREEMPTIVE_MARKER) + tuple(_FAMILY_PREFIXES)
 
 
 def _is_injected_user_message(content: str) -> bool:

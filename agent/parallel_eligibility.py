@@ -19,7 +19,9 @@ _BATCH_SIGNALS = ("批量", "多个文件", "多文件", "grep", "遍历", "循�
 _INDEPENDENT_SIGNALS = ("3 个", "3个", "多项", "分别", "各自", "独立", "同时", "并行")
 
 # 依赖关键词（反向——串行信号）
-_DEPENDENCY_SIGNALS = ("之后", "然后", "基于", "依赖", "顺序", "接着", "下一步", "逐", "依次")
+# 2026-10-26 根因 D2：单字「逐」移出——它在 pi_trigger._LONG_TASK_HINTS 里是
+#   遍历/并行信号（逐条/逐张/逐项/逐一），同一字两模块语义相反 = 词表冲突。
+_DEPENDENCY_SIGNALS = ("之后", "然后", "基于", "依赖", "顺序", "接着", "下一步", "依次")
 
 
 def estimate_parallel_elig(task_spec: str) -> int:
@@ -41,10 +43,18 @@ def estimate_parallel_elig(task_spec: str) -> int:
 
     spec = task_spec
 
+    # 显式结构探测（2026-10-26 根因 D2）：- [ ] 清单 ≥3 项 = 作者已枚举独立子任务
+    _checkboxes = re.findall(r"^-\s+\[[ xX]\]", spec, re.MULTILINE)
+    _has_explicit_structure = len(_checkboxes) >= 3
+
     # 依赖反向过滤（K1 核心——串行任务不算可并行）
-    _dep_hits = sum(1 for d in _DEPENDENCY_SIGNALS if d in spec)
-    if _dep_hits >= 2:
-        return 0  # 强依赖链（"之后/然后/基于" 出现 2+ 次）→ 串行——不委派
+    # D2 修正：仅在**无显式结构**的整块 blob 上生效。显式 checkbox 清单 ≥3 项时，
+    #   正文里的「然后/之后」只是叙述顺序，不是子任务依赖链——旧判据把
+    #   「3 checkbox + 分别 + grep」的教科书式并行派单一刀 return 0（实证）。
+    if not _has_explicit_structure:
+        _dep_hits = sum(1 for d in _DEPENDENCY_SIGNALS if d in spec)
+        if _dep_hits >= 2:
+            return 0  # 强依赖链（"之后/然后/基于" 出现 2+ 次）→ 串行——不委派
 
     elig = 0
 
@@ -62,8 +72,8 @@ def estimate_parallel_elig(task_spec: str) -> int:
         elig += 1
 
     # 信号③：独立子任务（- [ ] 清单 ≥3 项 或 独立/同时/并行 字样）
-    _checkboxes = re.findall(r"^-\s+\[[ xX]\]", spec, re.MULTILINE)
-    if len(_checkboxes) >= 3:
+    # （_checkboxes / _has_explicit_structure 在上方已探测——D2 复用，不二次重算）
+    if _has_explicit_structure:
         elig += 1
     elif any(s in spec for s in ("独立", "同时", "并行", "分别")):
         elig += 1

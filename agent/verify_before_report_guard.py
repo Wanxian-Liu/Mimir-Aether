@@ -32,19 +32,12 @@ def guard_enabled() -> bool:
 # 根因：TD-03 L1 软提示注入文本含"落盘/write_file"字样 → _task_requires_write 误判为写盘任务
 #       → verify guard 对后续所有无写盘回复硬拦（"Done!" 等收尾语被拦）→ 与 TD-03 叠加死循环。
 # 修复：_last_user_text 等只认真实用户消息，跳过系统注入（guard 提示/软提示/intent-context/skill nudge）。
-_SYSTEM_INJECT_PREFIXES = (
-    "[MIMIR_", "[BLOCKED:", "[SEARCH-FIRST", "<intent-context>",
-    "【架构产出提示】", "[intent-action-guard]",
-    # ── P0（2026-09-29 · Mimir 自证）中文方括号注入漏认 ──────────────────
-    # 病灶（实证）：`【空跑闸门】`/`【读闸】` 等注入**未列入本表** ⇒ 被当成「最近真实
-    #   user 消息」⇒ 其正文含「写」标记 ⇒ `_task_requires_write`=True ⇒ 而该窗口内
-    #   我只有 execute_code(git commit)（非 WRITE_TOOLS）⇒ 回话被拦、被移出历史。
-    #   实证：09-29 连续 3 次回话被 BLOCKED，而同一 run 早先已 write_file 过。
-    # 修法：把源码中**全部**注入型 `【…】` 前缀纳入（探针：全仓正则扫描 14 个候选，
-    #   取 empty_run_gate / agent_loop / run_context / task_completion 的注入面）。
-    "【空跑闸门", "【读闸", "【架构", "【任务完成度提示",
-    "【自动唤醒", "【讨论室唤醒", "【任务】", "【审计统计】",
-)
+# 2026-10-26 单一真源：4 份拷贝统一指向 agent/injection_prefixes.py
+# （A1 漂移闸门 tests/agent/test_a1_inject_prefix_family.py 强制互相覆盖）
+try:  # 包内导入
+    from agent.injection_prefixes import INJECTION_PREFIXES as _SYSTEM_INJECT_PREFIXES
+except ImportError:  # pragma: no cover — 脚本方式直跑（agent/ 为 cwd）
+    from injection_prefixes import INJECTION_PREFIXES as _SYSTEM_INJECT_PREFIXES
 
 def _is_system_inject(msg: dict[str, Any]) -> bool:
     """系统注入的 user 消息（guard 提示/软提示/intent 上下文）——非真实用户指令。"""

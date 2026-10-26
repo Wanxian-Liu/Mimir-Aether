@@ -61,16 +61,33 @@ _LONG_TASK_HINTS = (
 _RELPATH_ROOTS = ("wiki", "docs", "concepts", "entities", "sources", "src", "data", "路径", "path")
 
 
+def _is_injected(content: str) -> bool:
+    """注入块判定（2026-10-26 根因修复 D1）：统一走 agent.injection_prefixes 单一真源。
+
+    历史病灶：原判据只有 `"[MIMIR_" in content or "[CONTEXT" in content`，
+    认不出 `<intent-context>` / `【空跑闸门` 等注入块 ⇒ turn 0 时把 210 字符的
+    intent 注入块当成「用户派单」打分，est 恒 = 4（实证 55/55）。
+    """
+    try:
+        from agent.injection_prefixes import is_injected_pi as _inj
+    except ImportError:  # pragma: no cover
+        try:
+            from injection_prefixes import is_injected_pi as _inj  # type: ignore
+        except ImportError:
+            return "[MIMIR_" in content or "[CONTEXT" in content
+    return _inj(content)
+
+
 def _extract_user_task(messages: List[Dict]) -> str:
-    """取最后一条真实用户消息文本。"""
+    """取最后一条真实用户消息文本（注入块不计——见 _is_injected）。"""
     for msg in reversed(messages):
         if not msg:
             continue
         role = msg.get("role", "")
         content = msg.get("content", "")
         if role == "user" and isinstance(content, str):
-            # 跳过系统注入类（含 marker 的）
-            if "[MIMIR_" in content or "[CONTEXT" in content:
+            # 跳过系统注入类（D1：前缀表单一真源 → agent/injection_prefixes.py）
+            if _is_injected(content):
                 continue
             return content[:2000]
     return ""
@@ -284,9 +301,9 @@ def maybe_pi_delegate_execute(messages: List[Dict]) -> Dict:
             for s in subtasks
         ]
         results = spawn_multi(tasks, parallel=True)
-        _hook_observe(_h, "triggered", "delegated", subtasks=len(subtasks),
-                      ok=sum(1 for r in results if getattr(r, "success", False)))
-        return {
+        _ok = sum(1 for r in results if getattr(r, "success", False))
+        _hook_observe(_h, "triggered", "delegated", subtasks=len(subtasks), ok=_ok)
+        _payload = {
             "triggered": True,
             "delegated": True,
             "subtasks": subtasks,
@@ -295,6 +312,18 @@ def maybe_pi_delegate_execute(messages: List[Dict]) -> Dict:
                 for r in results
             ],
         }
+        # 2026-10-26（活体测试暴露）：全部子任务失败（实证 pi 二进制缺失 ⇒ 3/3
+        #   "pi binary not found"）时显式置 fallback=True——否则调用方只看到
+        #   delegated=True 会把「全灭」误读成「委派成功」。
+        if results and _ok == 0:
+            _first_err = str(getattr(results[0], "error", "") or "")[:120]
+            _hook_observe(_h, "blocked", "all_subtasks_failed",
+                          subtasks=len(subtasks), err=_first_err[:60])
+            _payload["fallback"] = True
+            _payload["error"] = (
+                f"全部 {len(subtasks)} 个子任务失败（首错: {_first_err}）——回退单 agent"
+            )
+        return _payload
     except Exception as exc:  # 委派异常 → 降级（不静默——带错误信息）
         _hook_observe(_h, "blocked", "delegate_exception", subtasks=len(subtasks),
                       err_type=type(exc).__name__)
@@ -310,4 +339,5 @@ __all__ = [
     "extract_subtasks",
     "_estimate_turns",
     "_extract_user_task",
+    "_is_injected",
 ]
