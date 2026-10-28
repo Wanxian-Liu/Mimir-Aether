@@ -263,12 +263,16 @@ date: <日期>
 **我方实例（2026-10-07）**：本文件的每次改动 = ① ⇒ 冒烟 = 真调 `agent/prompt_builder.py` 的 AGENTS.md 加载路径取回正文、`grep -c '<新标记>'` 计得 ≥1（贴原始输出）；改 `scripts/` 判据脚本 = ④ ⇒ 正控 rc=0 ∧ 负控 rc≠0。
 - **两侧对齐**：琬弦侧同刀落其自身规则面；真源 = `~/wiki/discussions/_四方协作协议.md §九`（【END-§九】）。
 
-## 10. 知识库双链硬规则（2026-10-28 刘哥定 · 四方共守 · 真源 `~/wiki/SCHEMA.md §双链硬规则` commit 8dd37693）
+## 10. 知识库双链硬规则（2026-10-28 刘哥定 · 四方共守 · 真源 `~/wiki/SCHEMA.md §双链硬规则` commit 858044cc）
 
 **新建卡片（`~/wiki/entities/` `concepts/` `discussions/`）正文必须带至少 2 个 `[[双链]]`**，链接对象为相关的人、项目、概念或来源。流水行（`~/wiki/mylife/` 日记、健康记录）不受此限。
 
 - 理由：知识库图谱的边 = 双链。只建卡不写链接 ⇒ 卡与卡之间是孤岛，语义搜索只能按意思找、长不出关系。
 - 时机：**建卡当轮写链**，不做事后补——补链动作不会自己发生。
-- 判据（§8.5 形态 2 可跑）：`grep -o '\[\[[^]]*\]\]' <新卡> | wc -l` ≥ 2；死链另查 `~/.hermes/scripts/wiki_deadlinks.py`。
+- 判据（§8.5 形态 2 可跑 · **四方唯一口径**）：`/usr/bin/python3 -P ~/.hermes/scripts/wiki_card_links.py --card <新卡>`
+  - 输出 `body_links=N`；**rc=0 达标（正文 ≥2）/ rc=1 不达标 / rc=2 参数错或读文件失败**
+  - 正文口径 = **剥掉 frontmatter 后**计数，`[[...]]` 按**出现次数**数（非行数）；空链 `[[]]` 不计
+  - 存量审计用 `--scan`（既有卡不回溯）；死链另查 `~/.hermes/scripts/wiki_deadlinks.py`
+  - 口径真源 = `~/.hermes/scripts/wiki_card_links.py` docstring（2026-10-28 四方统一：替换旧 `grep -o | wc -l`、`grep -c '[['`、`/tmp/check_backlink.py` 等各席私有判据）
 - 边界：只管**新建卡**；既有卡不回补、不改 wiki 正文（冻结面）、不新建目录。
 - 两侧对齐：四方共守，各席落自己规则面（真源 `~/wiki/SCHEMA.md`）。
