@@ -25,6 +25,7 @@ import sys
 import time
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -189,11 +190,22 @@ def _save_persistent(path: str, data: Dict) -> bool:
         normalize_and_log(data, source="dream-memory")
     except Exception as e:  # noqa: BLE001 — 见上：不允许因规范化失败丢记忆
         logger.error("[DreamMemory] PERSISTENT-NORMALIZE 失败（本次写盘未净化）: %s", e)
+    # ── RS21（2026-10-31 · 单咽喉收口）────────────────────────────────
+    # 治的事故：本函数此前裸 open(path,"w")，**不刷 .bak、不触发
+    #   persistent_store._dual_write_mirror** ⇒ 每晚蒸馏后 memory/persistent.json
+    #   冻结在上一次 persistent_store 保存的时刻。实测 2026-10-31：
+    #     data mtime 23:01:14（蒸馏写） / .bak 与 memory 双双停在 21:21:04
+    #   ⇒ 健康检查 R8「dual-write DRIFT」红，且镜像里 created_at 整整落后一天。
+    # 为什么改走 _save_unlocked：它是主写路径的唯一咽喉（.bak + 原子写 + 镜像
+    #   三件事都在里面）；再复制一份逻辑 = 又开一条会漂移的旁路。
+    # 为什么传 Path(path) 而非 None：_save_unlocked 只在「目标 == 默认持久化路径」
+    #   时镜像；显式传路径可保住「临时/测试文件不镜像」的既有语义。
     try:
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        from agent.persistent_store import _save_unlocked
+
+        _save_unlocked(data, Path(path))
         return True
-    except IOError as e:
+    except Exception as e:  # noqa: BLE001 — 保持 fail-open 返回值语义（调用方看 rc）
         logger.error(f"[DreamMemory] 写入 persistent.json 失败: {e}")
         return False
 
