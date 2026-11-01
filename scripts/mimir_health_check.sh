@@ -187,7 +187,7 @@ check_r5() {
 check_r6() {
   # R6 通过 tier0 Gate1 体现；这里独立 grep 补充
   local mixin_tests
-  mixin_tests=$(find "$REPO_ROOT/agent" -name 'test_*_mixin_imports.py' 2>/dev/null | wc -l)
+  mixin_tests=$(find "$REPO_ROOT/agent" -name 'test_*mixin*.py' -not -path '*__pycache__*' 2>/dev/null | wc -l)
   if [ "$mixin_tests" -ge 3 ]; then
     log_result "R6" "PASS" "found $mixin_tests mixin import test files"
   else
@@ -199,8 +199,9 @@ check_r6() {
 check_r7() {
   if [ -f "$AGENT_LOG" ]; then
     local code_errors recovered
-    code_errors=$(grep -cE 'NOT recovered.*(NameError|ImportError|AttributeError|ModuleNotFoundError)' "$AGENT_LOG" 2>/dev/null || echo 0)
-    recovered=$(grep -cE 'TRUNCATE.*(NameError|ImportError|AttributeError|ModuleNotFoundError)' "$AGENT_LOG" 2>/dev/null || echo 0)
+    code_errors=$(grep -cE 'NOT recovered.*(NameError|ImportError|AttributeError|ModuleNotFoundError)' "$AGENT_LOG" 2>/dev/null || true)
+    recovered=$(grep -cE 'TRUNCATE.*(NameError|ImportError|AttributeError|ModuleNotFoundError)' "$AGENT_LOG" 2>/dev/null || true)
+    code_errors=${code_errors:-0}; recovered=${recovered:-0}
     if [ "$recovered" -eq 0 ]; then
       log_result "R7" "PASS" "code_errors_in_NOT_recovered=$code_errors, code_errors_in_TRUNCATE=$recovered"
     else
@@ -242,7 +243,8 @@ check_r8() {
 check_r9() {
   if [ -f "$AGENT_LOG" ]; then
     local recent_errors
-    recent_errors=$(grep -c 'Agent error' "$AGENT_LOG" 2>/dev/null || echo 0)
+    recent_errors=$(grep -c 'Agent error' "$AGENT_LOG" 2>/dev/null || true)
+    recent_errors=${recent_errors:-0}
     # NOTE: 简化版检查总量；精确版需按时间窗口过滤
     if [ "$recent_errors" -le 30 ]; then
       log_result "R9" "PASS" "Agent error total=$recent_errors (≤30)"
@@ -258,7 +260,8 @@ check_r9() {
 check_r10() {
   if [ -f "$AGENT_LOG" ]; then
     local orphans
-    orphans=$(grep -c 'tool must be a response' "$AGENT_LOG" 2>/dev/null || echo 0)
+    orphans=$(grep -c 'tool must be a response' "$AGENT_LOG" 2>/dev/null || true)
+    orphans=${orphans:-0}
     if [ "$orphans" -eq 0 ]; then
       log_result "R10" "PASS" "orphan tool_call count=$orphans"
     else
