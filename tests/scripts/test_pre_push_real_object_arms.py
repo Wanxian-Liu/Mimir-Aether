@@ -67,11 +67,19 @@ def _config(repo):
 
 
 def _commit_file(repo, name, text, message):
+    """Setup commit only: hook plumbing is switched off.
+
+    The installer (scripts/install-git-hooks.sh) also installs a pre-commit
+    hook, and that hook blocks the very object these arms need to exist (a
+    line carrying an absolute home path). The arms under test invoke the
+    pre-push hook directly through `_hook`, never through `git push`, so
+    disabling hooks for this setup commit weakens nothing.
+    """
     path = repo / name
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
     _git(repo, "add", name)
-    _git(repo, "commit", "-q", "-m", message)
+    _git(repo, "-c", "core.hooksPath=/dev/null", "commit", "-q", "-m", message)
 
 
 def _env(extra=None):
