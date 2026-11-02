@@ -214,10 +214,20 @@ def _iter_skill_md():
     ``suggest_skill_names`` used *different* sources and disagreed — find saw 0
     skills, suggest saw 200+. They now share this one resolver.
 
-    Retired skills live under a dot-directory (``skills/.dormant/...``) and
-    duplicate trees under ``.worktrees/``; both are filtered **relative to their
-    skills root**, so a legitimate dot segment *above* the root (e.g.
-    ``~/.mimiraether``) is not excluded by mistake.
+    Visibility mirrors ``skill_view`` (i.e. every SKILL.md reachable from a skills
+    root), because a resolver that hides a skill the reader can open just moves
+    the "not found" one step later. In particular ``skills/.dormant/**`` is
+    **cold but live**, not retired: 98 SKILL.md live there, 3 of them carry
+    ``auto_load: true`` and are injected every turn (``mimir-true-self``,
+    ``using-agent-skills``, ``wiki-knowledge-ingest``), and the directory is
+    still being edited (8 commits in the 30 days to 2026-11-02). So it is NOT
+    filtered.
+
+    Only ``.worktrees/**`` is filtered: those are separate checkouts of this
+    repo (one per branch), so resolving to them would point writes at another
+    branch's copy. Filtering is done on the path **relative to its skills root**,
+    so a legitimate dot segment above the root (e.g. ``~/.mimiraether``) is not
+    excluded by mistake.
     """
     seen = set()
     for root in _iter_skill_dirs():
@@ -229,7 +239,7 @@ def _iter_skill_md():
                     rel = skill_md.relative_to(root)
                 except ValueError:
                     continue
-                if ".worktrees" in rel.parts or any(p.startswith(".") for p in rel.parts):
+                if ".worktrees" in rel.parts:
                     continue
                 name = skill_md.parent.name
                 if name in seen:
@@ -258,7 +268,10 @@ def _find_skill(name: str) -> Optional[Dict[str, Any]]:
 
 
 def _iter_skill_dirs():
-    """Every directory that may hold SKILL.md, for suggestion purposes only.
+    """Every directory that may hold SKILL.md — the shared root list.
+
+    Used by both ``_find_skill`` (resolution) and ``suggest_skill_names``
+    (nearest-name hints) so the two can never disagree.
 
     2026-11-02: ``agent.skill_utils.get_all_skills_dirs()`` returns the legacy
     ``~/.mimir/skills`` (0 skills), so relying on it alone yields zero
