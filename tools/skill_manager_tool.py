@@ -51,7 +51,7 @@ import shutil
 import tempfile
 from pathlib import Path
 from mimiraether_constants import get_mimiraether_home
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -230,6 +230,67 @@ def _find_skill(name: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+def _iter_skill_dirs():
+    """Every directory that may hold SKILL.md, for suggestion purposes only.
+
+    2026-11-02: ``agent.skill_utils.get_all_skills_dirs()`` returns the legacy
+    ``~/.mimir/skills`` (0 skills), so relying on it alone yields zero
+    candidates. Union it with the agent home and the in-repo tree so the
+    "did you mean" hint sees the skills that actually exist.
+    """
+    dirs = []
+    try:
+        from agent.skill_utils import get_all_skills_dirs
+        dirs.extend(get_all_skills_dirs())
+    except Exception:
+        pass
+    home = os.environ.get("MIMIR_AETHER_HOME") or str(Path.home() / ".mimiraether")
+    dirs.append(Path(home) / "skills")
+    try:
+        dirs.append(Path(__file__).resolve().parents[1] / "skills")
+    except Exception:
+        pass
+    seen, out = set(), []
+    for d in dirs:
+        key = str(d)
+        if key not in seen:
+            seen.add(key)
+            out.append(d)
+    return out
+
+
+def suggest_skill_names(name: str, limit: int = 3, cutoff: float = 0.6):
+    """Closest existing skill names to ``name`` (empty when nothing is close).
+
+    2026-11-02 (self-health follow-up): 42 of 75 historical skill_manage
+    failures were ``Skill '<x>' not found`` — a wrong name, not a broken tool.
+    Returning candidates turns a dead end into a one-step fix.
+    """
+    import difflib
+
+    names = set()
+    for skills_dir in _iter_skill_dirs():
+        try:
+            if not skills_dir.exists():
+                continue
+            for skill_md in skills_dir.rglob("SKILL.md"):
+                names.add(skill_md.parent.name)
+        except OSError:
+            continue
+    if not names:
+        return []
+    return difflib.get_close_matches(name, sorted(names), n=limit, cutoff=cutoff)
+
+
+def skill_not_found_error(name: str, suffix: str = "") -> str:
+    """Build the 'not found' message, appending nearest matches when any."""
+    message = f"Skill '{name}' not found.{suffix}"
+    suggestions = suggest_skill_names(name)
+    if suggestions:
+        message += " Did you mean: " + ", ".join(suggestions) + "?"
+    return message
+
+
 def _validate_file_path(file_path: str) -> Optional[str]:
     """
     Validate a file path for write_file/remove_file.
@@ -374,7 +435,7 @@ def _edit_skill(name: str, content: str) -> Dict[str, Any]:
 
     existing = _find_skill(name)
     if not existing:
-        return {"success": False, "error": f"Skill '{name}' not found. Use skills_list() to see available skills."}
+        return {"success": False, "error": skill_not_found_error(name, " Use skills_list() to see available skills.")}
 
     skill_md = existing["path"] / "SKILL.md"
     # Back up original content for rollback
@@ -414,7 +475,7 @@ def _patch_skill(
 
     existing = _find_skill(name)
     if not existing:
-        return {"success": False, "error": f"Skill '{name}' not found."}
+        return {"success": False, "error": skill_not_found_error(name)}
 
     skill_dir = existing["path"]
 
@@ -502,7 +563,7 @@ def _delete_skill(name: str) -> Dict[str, Any]:
     """Delete a skill."""
     existing = _find_skill(name)
     if not existing:
-        return {"success": False, "error": f"Skill '{name}' not found."}
+        return {"success": False, "error": skill_not_found_error(name)}
 
     skill_dir = existing["path"]
     shutil.rmtree(skill_dir)
@@ -544,7 +605,7 @@ def _write_file(name: str, file_path: str, file_content: str) -> Dict[str, Any]:
 
     existing = _find_skill(name)
     if not existing:
-        return {"success": False, "error": f"Skill '{name}' not found. Create it first with action='create'."}
+        return {"success": False, "error": skill_not_found_error(name, " Create it first with action='create'.")}
 
     target, err = _resolve_skill_target(existing["path"], file_path)
     if err:
@@ -578,7 +639,7 @@ def _remove_file(name: str, file_path: str) -> Dict[str, Any]:
 
     existing = _find_skill(name)
     if not existing:
-        return {"success": False, "error": f"Skill '{name}' not found."}
+        return {"success": False, "error": skill_not_found_error(name)}
     skill_dir = existing["path"]
 
     target, err = _resolve_skill_target(skill_dir, file_path)
