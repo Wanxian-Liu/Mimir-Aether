@@ -252,7 +252,7 @@ def skill_view(name: str, file_path: str = None) -> Dict[str, Any]:
     """
     skill_dir = _get_skill_dir(name)
     if not skill_dir:
-        raise SkillLoadError(f"Skill not found: {name}")
+        raise SkillLoadError(_skill_not_found_error(name))
     
     if file_path:
         # 加载skill下的具体文件
@@ -444,12 +444,31 @@ def _create_skill(name: str, content: str, category: str = None) -> Dict[str, An
         return {"success": False, "error": str(e)}
 
 
+def _skill_not_found_error(name: str) -> str:
+    """'Skill not found' message with nearest-name hints (2026-11-02).
+
+    Live registration goes through this module (agent/config_mixin.py registers
+    skills_loader.skill_manage), so the hint must be attached HERE, not only in
+    tools/skill_manager_tool.py. 42 of 75 historical skill_manage failures were
+    mistyped names; a hint turns the dead end into a one-step fix.
+    """
+    message = "Skill not found: " + name
+    try:
+        from tools.skill_manager_tool import suggest_skill_names
+        candidates = suggest_skill_names(name)
+        if candidates:
+            message += " Did you mean: " + ", ".join(candidates) + "?"
+    except Exception:
+        pass
+    return message
+
+
 def _edit_skill(name: str, content: str) -> Dict[str, Any]:
     """编辑skill（完整重写）"""
     try:
         skill_dir = _get_skill_dir(name)
         if not skill_dir:
-            return {"success": False, "error": f"Skill not found: {name}"}
+            return {"success": False, "error": _skill_not_found_error(name)}
         
         skill_file = skill_dir / SKILL_FILENAME
         skill_file.write_text(content, encoding="utf-8")
@@ -469,7 +488,7 @@ def _patch_skill(
     try:
         skill_dir = _get_skill_dir(name)
         if not skill_dir:
-            return {"success": False, "error": f"Skill not found: {name}"}
+            return {"success": False, "error": _skill_not_found_error(name)}
         
         if file_path:
             skill_file = skill_dir / file_path
@@ -500,7 +519,7 @@ def _delete_skill(name: str) -> Dict[str, Any]:
     try:
         skill_dir = _get_skill_dir(name)
         if not skill_dir:
-            return {"success": False, "error": f"Skill not found: {name}"}
+            return {"success": False, "error": _skill_not_found_error(name)}
         
         shutil.rmtree(skill_dir)
         return {"success": True, "skill": name}
@@ -513,7 +532,7 @@ def _write_file(name: str, file_path: str, file_content: str) -> Dict[str, Any]:
     try:
         skill_dir = _get_skill_dir(name)
         if not skill_dir:
-            return {"success": False, "error": f"Skill not found: {name}"}
+            return {"success": False, "error": _skill_not_found_error(name)}
         
         target_file = skill_dir / file_path
         target_file.parent.mkdir(parents=True, exist_ok=True)
@@ -528,7 +547,7 @@ def _remove_file(name: str, file_path: str) -> Dict[str, Any]:
     try:
         skill_dir = _get_skill_dir(name)
         if not skill_dir:
-            return {"success": False, "error": f"Skill not found: {name}"}
+            return {"success": False, "error": _skill_not_found_error(name)}
         
         target_file = skill_dir / file_path
         if not target_file.exists():
