@@ -82,6 +82,24 @@ for d in get_all_skills_dirs():
 7. **判据脚本自己也会骗人：`~` 在不同执行环境指向不同目录**（2026-11-02 同一天踩两次）。`execute_code` 沙箱 `HOME=~/.mimiraether`，`terminal` 是 `$HOME`，而 `~/.mimiraether` 下还可能嵌着一个 `.hermes` ⇒ 同一个 `Path(os.path.expanduser("~/.hermes/inbox/x")).exists()` 在两处给出 **相反答案**，于是「产物在盘 / 缺失」的分类读数直接翻转（本次 A=9/B=5 vs A=14/B=0）。修法两条：① 对每条 `~` 路径在 **候选 home 列表**里逐个试（`[$HOME, $HOME]`），任一命中即算在盘；② **两环境一致性判据**——同一脚本在 sandbox 与 terminal 必须输出相同读数，不同则**读数作废**，不得挑一个写进报告。凡判据里有 `expanduser` / `$HOME` / 相对路径，都属此坑。
 6. **仓内件写入**：`patch`/`write_file` 对 `~/src/MimirAether/**` 一律拒（read-only project dir）⇒ 走 `execute_code` 内 `Path.write_text`，备份挪到 `~/.mimiraether/tmp/<单名>/baks/`（别留在仓里脏 `git status`）。见技能 `mimiraether-repo-write-splice`。
 
+## 活体「可见性」判定：先问「读者能不能打开」
+
+2026-11-02 实证（同一改动被 L2 审计打回一次）：修 `_find_skill` 时我把 `skills/.dormant/**`
+当「退役」过滤掉了 —— 实际上那里有 98 个 SKILL.md，其中 3 个 `auto_load: true` 每轮注入
+（`mimir-true-self` / `using-agent-skills` / `wiki-knowledge-ingest`），近 30 天还有 8 个 commit
+在维护它。**判据不是目录名，而是「这个技能还能不能被读到/被注入」**：
+
+- 判据一：`skill_view` / `skills_list` 能不能取到它（能取到 ⇒ 它活着）。
+- 判据二：`grep -c 'auto_load: *true'` 在那一层是否非 0（非 0 ⇒ 每轮注入，绝不能隐藏）。
+- 判据三：`git log --since='30 days ago' --oneline -- <该目录>` 是否仍有提交（有 ⇒ 在维护）。
+
+三条任一为真 ⇒ 不得在解析层隐藏它。**改完再验一遍「数量差」**：本次把过滤撤掉后可见名数
+从 133 升到 201（+68），正好等于审计指出的被误滤数 —— 数量差对得上，才说明改动范围就是那个
+缺陷，没有夹带。
+
+**同族坑**：目录名叫 `dormant` / `archive` / `old` / `backup` 一律**不构成**退役证据；
+只有「读不到 + 无 auto_load + 无近期提交」三者同时成立才可以隐藏。
+
 ## 交付形状
 
 - 改动：**两处都改时要说清为什么**（各注册点各一句），写进 commit message
