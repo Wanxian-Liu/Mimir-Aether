@@ -159,6 +159,32 @@ def _estimate_turns(task_text: str) -> int:
     return int(round(score))
 
 
+def _elig_obs_fields(task_text: str) -> Dict:
+    """观测字段（2026-10-26 三条反馈 · 刘哥 2026-11-02 批示：先只加日志，零行为变更）。
+
+    只读 `parallel_eligibility.explain_parallel_elig()` 的返回值，**不参与**任何判定；
+    导入失败/计算异常一律返回 {} —— 观测失败不得影响主流程，也不得改变触发行为。
+    """
+    try:
+        from agent.parallel_eligibility import explain_parallel_elig as _explain
+    except ImportError:
+        try:
+            from parallel_eligibility import explain_parallel_elig as _explain  # type: ignore
+        except ImportError:
+            return {}
+    try:
+        e = _explain(task_text)
+        return {
+            "elig_struct": e.get("elig_struct"),
+            "elig_kw": e.get("elig_kw"),
+            "would_trigger": e.get("would_trigger"),
+            "step_type": e.get("step_type"),
+            "elig_hits": e.get("hits") or "-",
+        }
+    except Exception:
+        return {}
+
+
 def maybe_pi_delegate_nudge(messages: List[Dict]) -> Optional[str]:
     """nudge→force v3（2026-08-20 段5 · B-Loki-Audit-1 修复）：条件满足 → 注入**强制指令**；不满足 → 静默。
 
@@ -205,7 +231,9 @@ def maybe_pi_delegate_nudge(messages: List[Dict]) -> Optional[str]:
             _hook_observe(_h, "blocked", "parallel_elig_import_missing")
             return None  # 依赖缺失 → 静默（宁漏勿滥）
     if not parallel_elig_ok(task_text):
-        _hook_observe(_h, "blocked", "parallel_elig_false", est=est, min_turns=min_turns)
+        # 观测档（刘哥 2026-11-02 批）：三档口径只入日志，**不改变**本分支的判定与返回
+        _hook_observe(_h, "blocked", "parallel_elig_false", est=est, min_turns=min_turns,
+                      **_elig_obs_fields(task_text))
         return None
 
     # 条件③：反向清单前置闸通过（段 4 函数——12 类五类永拒）
@@ -223,7 +251,8 @@ def maybe_pi_delegate_nudge(messages: List[Dict]) -> Optional[str]:
                       guard_reason=str(_reason)[:80])
         return None
 
-    _hook_observe(_h, "triggered", "nudge_injected", est=est, min_turns=min_turns)
+    _hook_observe(_h, "triggered", "nudge_injected", est=est, min_turns=min_turns,
+                  **_elig_obs_fields(task_text))
     return (
         f"{PI_NUDGE_MARKER} [强制委派] 当前任务预估需 {est} 轮（≥{min_turns}），"
         "且可并行度达标、反向清单通过——**必须使用 delegate_task 委派以下子任务，"
