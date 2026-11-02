@@ -80,23 +80,36 @@ def test_iter_skill_md_never_yields_hidden_paths():
         assert ".worktrees" not in rel_parts, rel_parts
 
 
-def test_roots_pin_agent_home_skills():
-    """钉根清单：``~/.mimiraether/skills`` 必须在解析根里。
-
-    原缺陷正是「根清单只有遗留 ``~/.mimir/skills``」；上面几个用例都 monkeypatch 掉
-    了 ``_iter_skill_dirs``，故没有一条能拦住该缺陷回归 —— 本用例专门钉它。
-    判据不写死家目录：用 MIMIR_AETHER_HOME（未设则 ``~/.mimiraether``）推导期望值。
-    """
-    import os
-
-    home = os.environ.get("MIMIR_AETHER_HOME") or str(Path.home() / ".mimiraether")
-    expected = str(Path(home) / "skills")
-    roots = [str(r) for r in smt._iter_skill_dirs()]
-    assert expected in roots, f"expected {expected} in {roots}"
-
-
 def test_roots_pin_repo_skills():
-    """钉根清单（仓内侧）：仓库自带 skills 目录也必须在解析根里。"""
+    """钉根清单（仓内侧）：仓库自带 skills 目录必须在解析根里。
+
+    这条不依赖家目录，CI 上稳定。
+    """
     expected = str(REPO / "skills")
     roots = [str(r) for r in smt._iter_skill_dirs()]
     assert expected in roots, f"expected {expected} in {roots}"
+
+
+def test_roots_are_not_vacuous():
+    """钉「根清单非空转」：至少有一个根真的装着 SKILL.md。
+
+    原缺陷的形态就是「根清单指向一个 0 个 SKILL.md 的遗留目录」——只看路径是否
+    在清单里拦不住它（路径清单可以包含空目录）。这里改钉内容。
+    """
+    md = [m for m, _n in smt._iter_skill_md()]
+    assert md, "解析器一个技能都没看到（根清单空转 = 原缺陷形态）"
+
+
+def test_find_skill_agrees_with_shared_enumerator():
+    """核心回归：``_find_skill`` 必须与共享枚举器看到同一集合。
+
+    这是原缺陷的直接判据——旧实现里 ``_find_skill`` 走
+    ``get_all_skills_dirs()``（本机 0 个 SKILL.md），而枚举器看到 200+，
+    于是「枚举得到、find 找不到」。
+    """
+    names = [n for _m, n in smt._iter_skill_md()]
+    assert names, "枚举器为空，本用例无意义"
+    for name in names[:20]:
+        hit = smt._find_skill(name)
+        assert hit is not None, f"{name} 枚举得到但 find 找不到"
+        assert hit["path"].name == name
