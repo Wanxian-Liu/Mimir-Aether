@@ -6,6 +6,7 @@ so the caller can correct in one step. Two-way control is mandatory
 (AGENTS §9 tier ④): a close name MUST get a hint, an unrelated name MUST NOT.
 """
 
+import json
 import sys
 from pathlib import Path
 
@@ -41,3 +42,32 @@ def test_unrelated_name_gets_no_suggestion(tmp_path, monkeypatch):
 
     assert "not found" in message
     assert "Did you mean" not in message
+
+# --- 活体路径回归（2026-11-02 审计 P1：原用例只覆盖 tools/ 侧，被注册遮蔽的那一份） ---
+
+def test_live_loader_close_name_gets_hint():
+    """LIVE entry = skills.skills_loader.skill_manage (agent/config_mixin.py:350).
+
+    action=patch on a nonexistent name is read-only: it returns an error dict
+    before touching any file, so this is safe to run on the real skills tree.
+    """
+    from skills.skills_loader import skill_manage
+
+    result = skill_manage(action="patch", name="mimiraether-context-compresor",
+                          old_string="x", new_string="y")
+    payload = json.loads(result) if isinstance(result, str) else result
+
+    assert payload.get("success") is False
+    assert "Did you mean" in str(payload.get("error"))
+    assert "mimiraether-context-compressor" in str(payload.get("error"))
+
+
+def test_live_loader_unrelated_name_gets_no_hint():
+    from skills.skills_loader import skill_manage
+
+    result = skill_manage(action="patch", name="zzz-nope-nonexistent-q",
+                          old_string="x", new_string="y")
+    payload = json.loads(result) if isinstance(result, str) else result
+
+    assert payload.get("success") is False
+    assert "Did you mean" not in str(payload.get("error"))
