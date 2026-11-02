@@ -207,26 +207,53 @@ def _resolve_skill_dir(name: str, category: str = None) -> Path:
     return SKILLS_DIR / name
 
 
-def _find_skill(name: str) -> Optional[Dict[str, Any]]:
-    """
-    Find a skill by name across all skill directories.
+def _iter_skill_md():
+    """Yield ``(skill_md, skill_name)`` for every *visible* skill, deduped by name.
 
-    Searches the project skills dir (``get_mimiraether_home()/skills/``) first, then any
-    external dirs configured via skills.external_dirs.  Returns
-    {"path": Path} or None.
-    """
-    try:
-        from agent.skill_utils import get_all_skills_dirs
-    except ImportError:
-        from mimiraether_constants import get_mimiraether_home
-        get_all_skills_dirs = lambda: [get_mimiraether_home() / "skills"]
+    2026-11-02 (L2 audit, "two resolvers" defect): ``_find_skill`` and
+    ``suggest_skill_names`` used *different* sources and disagreed — find saw 0
+    skills, suggest saw 200+. They now share this one resolver.
 
-    for skills_dir in get_all_skills_dirs():
-        if not skills_dir.exists():
+    Retired skills live under a dot-directory (``skills/.dormant/...``) and
+    duplicate trees under ``.worktrees/``; both are filtered **relative to their
+    skills root**, so a legitimate dot segment *above* the root (e.g.
+    ``~/.mimiraether``) is not excluded by mistake.
+    """
+    seen = set()
+    for root in _iter_skill_dirs():
+        try:
+            if not root.exists():
+                continue
+            for skill_md in root.rglob("SKILL.md"):
+                try:
+                    rel = skill_md.relative_to(root)
+                except ValueError:
+                    continue
+                if ".worktrees" in rel.parts or any(p.startswith(".") for p in rel.parts):
+                    continue
+                name = skill_md.parent.name
+                if name in seen:
+                    continue
+                seen.add(name)
+                yield skill_md, name
+        except OSError:
             continue
-        for skill_md in skills_dir.rglob("SKILL.md"):
-            if skill_md.parent.name == name:
-                return {"path": skill_md.parent}
+
+
+def _find_skill(name: str) -> Optional[Dict[str, Any]]:
+    """Find a skill by name across every visible skill directory.
+
+    2026-11-02: previously iterated only
+    ``agent.skill_utils.get_all_skills_dirs()``, which resolves to the legacy
+    ``~/.mimir/skills`` (0 SKILL.md at this install). It therefore returned None
+    for *every* real skill, which made ``gateway.run._has_setup_skill`` report
+    "not installed" for an installed skill and made the tools-side skill_manage
+    unable to find anything at all. Now shares one resolver with
+    ``suggest_skill_names`` so the two can never disagree again.
+    """
+    for skill_md, skill_name in _iter_skill_md():
+        if skill_name == name:
+            return {"path": skill_md.parent}
     return None
 
 
@@ -268,15 +295,7 @@ def suggest_skill_names(name: str, limit: int = 3, cutoff: float = 0.6):
     """
     import difflib
 
-    names = set()
-    for skills_dir in _iter_skill_dirs():
-        try:
-            if not skills_dir.exists():
-                continue
-            for skill_md in skills_dir.rglob("SKILL.md"):
-                names.add(skill_md.parent.name)
-        except OSError:
-            continue
+    names = {skill_name for _md, skill_name in _iter_skill_md()}
     if not names:
         return []
     return difflib.get_close_matches(name, sorted(names), n=limit, cutoff=cutoff)
