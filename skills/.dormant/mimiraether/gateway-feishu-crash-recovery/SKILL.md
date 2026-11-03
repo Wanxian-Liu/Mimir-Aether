@@ -1,6 +1,6 @@
 ---
 name: gateway-feishu-crash-recovery
-description: Gateway崩溃重启后飞书WebSocket僵死诊断与修复。症状：消息可收到但全部处理失败。根因：WebSocket event loop卡死在closed状态未正确恢复。修复：二次重启Gateway。
+description: 飞书链路故障恢复两模式。A=WS僵死（崩溃重启后消息可达但全部处理失败→必须二次重启）；B=链路层DNS断（NameResolutionError/Temporary failure in name resolution，进程未重启、NRestarts=0→等链路恢复，切勿重启）。分不清时先跑判别命令分型。
 version: 1.0.0
 auto_load: false
 ---
@@ -35,6 +35,36 @@ auto_load: false
    grep -i "feishu\|websocket\|event loop\|closed" <gateway_log>
    ```
 3. 如果看到大量「closed」「connection」错误但消息仍在到达 → **确认 WebSocket 僵死**
+
+## 故障模式 B：链路层 DNS 断（≠ WS 僵死，**不要急着重启**）
+
+**症状差异**：进程存活、`NRestarts=0`、启动时间未变，但日志刷
+`[Lark] ERROR connect failed ... NameResolutionError(... Failed to resolve 'open.feishu.cn' ([Errno -3] Temporary failure in name resolution))`
+且 `feishu_adapter: [Feishu] Token refresh failed: Cannot connect to host open.feishu.cn:443`。
+
+**判别（三条一分钟查完）**
+
+```bash
+# 1) 是不是我方的锅：进程有没有重启过（有重连循环就不需要重启）
+systemctl --user show mimiraether.service -p MainPID -p NRestarts -p ExecMainStartTimestamp
+# 2) 失败事件的真实规模（Lark 每条打两遍：行数 ÷ 2；口径必须标“去重”）
+journalctl --user -u mimiraether --since today --no-pager | grep -c 'Temporary failure in name resolution'
+journalctl --user -u mimiraether --since today --no-pager | grep 'Temporary failure in name resolution' | awk '{print $3}' | sort -u | wc -l
+# 3) 链路层证据（真因通常在这里，不在飞书）
+journalctl --since today --no-pager | grep -iE 'wlp1s0|systemd-resolved|CONNECTED_GLOBAL|wpa_supplicant' | tail -20
+```
+
+**2026-11-01 实测样本**：15:16:23 → 17:49:39，按秒去重 **113** 次解析失败（原始日志 **217** 行）；
+`17:45:00 wlp1s0: Trying to authenticate (SSID='RAY1_5G')` → `17:51:03 systemd-resolved: Bus client set DNS server list to: 223.5.5.5, 223.6.6.6` →
+`17:51:10 [Lark] connected to wss://msg-frontier.feishu.cn/ws/v2`（第 **103** 次重连才成）→ `17:52:31 NetworkManager state is now CONNECTED_GLOBAL`。
+⇒ WiFi 关联丢失 ⇒ 系统无 DNS ⇒ 全部解析失败。**SDK 重连循环自愈，重启 gateway 不解决任何事**（反而丢上下文）。
+
+**这一模式的真缺陷不是「坏了」而是「坏了 2h33m 没人知道」**：断连窗口内所有 cron 照跑、零告警。
+修法方向：把 `connected / reconnect 次数` 打点到已有的 `mimir-slo-dashboard`，断连 >5min 告警（SLI = Feishu WS 连接态）。
+另：断连窗口内的对端消息**不会补投**（恢复后要对方重发）——需要的话得在重连后调 `im/v1/messages` 回捞。
+
+**分不清时先跑 3 条判别命令**：`NRestarts>0` 或「消息到但处理全失败」→ 模式 A（WS 僵死，二次重启）；
+`NameResolutionError / Temporary failure in name resolution` → 模式 B（DNS/链路，**等链路恢复，别重启**）。
 
 ## 修复：二次重启 + 用户验证（强制）
 
