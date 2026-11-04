@@ -693,28 +693,33 @@ def distillation_input_metrics(text: str) -> Dict[str, int]:
     }
 
 
-_RESOLVED_FALSY = {"", "false", "0", "no", "none", "null", "-", "n"}
-
-
 def _is_resolved(item) -> bool:
-    """`resolved` 白名单：这条矛盾是否已被人工裁定消除。
+    """`resolved` **正列白名单**：这条矛盾是否已被人工裁定消除。
 
     值域 —— 值只来自处置方裁定后手补字段，**不是** LLM 产出（模型 schema 只有
-    ``self_contradiction`` 一条字符串，没有 resolved 概念也没有写入权）：
-      - 字符串 ``"<YYYY-MM-DD> <依据>"`` ⇒ 已解决（推荐：保留裁定日期与理由）
-      - 布尔 ``true`` ⇒ 已解决（速记，等价「已裁定·日期缺省」）
-      - 缺失 / None / false / "" / "0" / "no" / "none" / "null" / "-" / "n" ⇒ 未解决
-    归一化：字符串 strip + lower 后再比假值集 ⇒ ``" TRUE "``/``"Yes"`` 算已解决，
-    ``" false "`` 不算。
+    ``self_contradiction`` 一条字符串，没有 resolved 概念也没有写入权）。
+    **只有两种取值算已解决**，其余一律未解决 —— 黑名单反选已废弃：11-04 Loki
+    复核 B-3 实测 ``pending`` / ``todo`` / ``待定`` / ``未解决`` / ``n/a`` 在反选下
+    全被判 True ⇒ 条目静默消失（无日志无告警）：
+      - 布尔 ``True`` ⇒ 已解决（速记，等价「已裁定·日期缺省」）
+      - 字符串前 10 字符形如 ``YYYY-MM-DD``（4 数字 + ``-`` + 2 数字 + ``-`` + 2 数字）
+        ⇒ 已解决（规范写法 ``"<YYYY-MM-DD> <依据>"``）
+    其余（``False`` / ``None`` / 缺失 / ``""`` / ``"pending"`` / ``"todo"`` /
+    ``"待定"`` / ``"未解决"`` / ``"n/a"`` / ``"false"`` / ``"TRUE"`` / ``"Yes"`` /
+    非字符串非布尔对象）⇒ 未解决。误判方向故意偏保守：判错只会让条目**继续出现**
+    在 prompt 里（可见），不会静默消失。
     """
     if not isinstance(item, dict):
         return False
     value = item.get("resolved")
     if value is True:
         return True
-    if isinstance(value, str):
-        return value.strip().lower() not in _RESOLVED_FALSY
-    return False
+    if not isinstance(value, str):
+        return False
+    core = value.strip()[:10]
+    if len(core) != 10 or core[4] != "-" or core[7] != "-":
+        return False
+    return all(ch.isdigit() for ch in core[:4] + core[5:7] + core[8:10])
 
 
 def _recent_contradictions(limit: int = 5) -> List[str]:
