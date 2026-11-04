@@ -151,22 +151,7 @@ mem["learned_patterns"] = lp_new[:_MAX_PATTERNS]
 if len(result.get("behavioral_constraints", [])) > 0:
     mem["behavioral_constraints"] = result["behavioral_constraints"][:_MAX_CONSTRAINTS]
 
-# Write contradiction report
 contradiction = result.get("self_contradiction", "")
-if contradiction and contradiction.strip():
-    cpath = os.path.expanduser("~/.mimiraether/data/self_contradiction_report.json")
-    existing = []
-    if os.path.isfile(cpath):
-        with open(cpath) as f:
-            existing = json.load(f) or []
-    existing.append({
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "contradiction": contradiction.strip(),
-    })
-    existing = existing[-10:]
-    with open(cpath, "w") as f:
-        json.dump(existing, f, ensure_ascii=False, indent=2)
-    print(f"[OK] contradiction report written ({len(existing)} total)")
 
 with open(PERSISTENT_PATH, "w") as f:
     json.dump(data, f, ensure_ascii=False, indent=2)

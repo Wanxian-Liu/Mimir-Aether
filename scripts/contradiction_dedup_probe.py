@@ -9,6 +9,7 @@
 判据（§8.5 形态 1 脚本）:
   重跑命令: ~/src/MimirAether/.venv/bin/python3 ~/src/MimirAether/scripts/contradiction_dedup_probe.py --selftest
   复算数字: rc=0 且 POS entries=1 repeat=2 / NEG entries=2 / WIN entries=10 / REP entries=1 repeat=3 / HIST 两向
+            / RES 四项（POS 过滤生效 / NEG 未标仍在 / VAR 8 变体 / REPEAT 复发只累加不复活）
 """
 import argparse
 import datetime as _dt
@@ -87,6 +88,38 @@ def selftest() -> int:
         print(f"HIST with_history={'[已报 1]' in p_hist} without={('[已报 1]' in p_empty)} limit={len(hist)} -> {'seen' if results['HIST'] else 'none'}")
         results["PROMPT_RENDER"] = ("{contradiction_history}" not in p_hist) and ("最严重的自我矛盾" in p_hist)
         print(f"PROMPT_RENDER clean={'{contradiction_history}' not in p_hist} -> {'seen' if results['PROMPT_RENDER'] else 'none'}")
+        # resolved 白名单（11-03 卡 §4-2）：过滤生效两向 + 值域变体 + 复发不静默
+        d = _read(path)
+        before = dm._recent_contradictions(limit=50)
+        target = d[0]
+        target["resolved"] = "2026-11-04 正控：人工裁定示例"
+        _write(path, d)
+        after = dm._recent_contradictions(limit=50)
+        results["RES_POS"] = len(after) == len(before) - 1 and target["contradiction"] not in after
+        print(f"RES_POS before={len(before)} after={len(after)} -> {'seen' if results['RES_POS'] else 'none'}")
+        results["RES_NEG"] = d[1]["contradiction"] in after
+        print(f"RES_NEG unresolved_kept={d[1]['contradiction'] in after} -> {'seen' if results['RES_NEG'] else 'none'}")
+        results["RES_VAR"] = (
+            dm._is_resolved({"resolved": "  TRUE "})
+            and dm._is_resolved({"resolved": True})
+            and dm._is_resolved({"resolved": "2026-11-04 A族已转台账T-A1"})
+            and not dm._is_resolved({"resolved": ""})
+            and not dm._is_resolved({"resolved": " false "})
+            and not dm._is_resolved({"resolved": "0"})
+            and not dm._is_resolved({})
+            and not dm._is_resolved({"resolved": None})
+        )
+        print(f"RES_VAR variants(8) -> {'seen' if results['RES_VAR'] else 'none'}")
+        rep_before = int(target.get("repeat_count") or 1)
+        dm._save_contradiction_report(target["contradiction"])
+        d2 = _read(path)
+        results["RES_REPEAT"] = (
+            len(d2) == len(d)
+            and int(d2[0].get("repeat_count") or 0) == rep_before + 1
+            and dm._is_resolved(d2[0])
+        )
+        print(f"RES_REPEAT entries={len(d2)} repeat={d2[0].get('repeat_count')} still_resolved={dm._is_resolved(d2[0])} -> {'seen' if results['RES_REPEAT'] else 'none'}")
+
     finally:
         os.environ.pop("MIMIR_AETHER_HOME", None)
         shutil.rmtree(tmp, ignore_errors=True)
@@ -111,8 +144,12 @@ def check() -> int:
     missing = [i for i, x in enumerate(d) if isinstance(x, dict) and "repeat_count" not in x]
     for i, x in enumerate(d, 1):
         ts = (x.get("first_seen") or x.get("timestamp") or "")[:19]
-        print(f"  {i:2d}. {ts}  rep={x.get('repeat_count', '-')}  {(x.get('contradiction') or '')[:52]}")
+        res = "Y" if dm._is_resolved(x) else "-"
+        print(f"  {i:2d}. {ts}  rep={x.get('repeat_count', '-')}  res={res}  {(x.get('contradiction') or '')[:52]}")
     print(f"idents: {uniq} / dup_entries: {len(d) - uniq} / max_repeat: {max(reps) if reps else 0}")
+    resolved_n = sum(1 for x in d if dm._is_resolved(x))
+    visible = len(dm._recent_contradictions(limit=50))
+    print(f"resolved: {resolved_n} / prompt_visible: {visible} (filtered={len(d) - visible})")
     print(f"legacy_entries_missing_repeat_count: {len(missing)}")
     ok = uniq == len(d)
     print(f"RESULT: {'PASS' if ok else 'FAIL'} rc={0 if ok else 1}")

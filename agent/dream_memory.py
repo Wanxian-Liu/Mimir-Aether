@@ -693,9 +693,36 @@ def distillation_input_metrics(text: str) -> Dict[str, int]:
     }
 
 
+_RESOLVED_FALSY = {"", "false", "0", "no", "none", "null", "-", "n"}
+
+
+def _is_resolved(item) -> bool:
+    """`resolved` 白名单：这条矛盾是否已被人工裁定消除。
+
+    值域 —— 值只来自处置方裁定后手补字段，**不是** LLM 产出（模型 schema 只有
+    ``self_contradiction`` 一条字符串，没有 resolved 概念也没有写入权）：
+      - 字符串 ``"<YYYY-MM-DD> <依据>"`` ⇒ 已解决（推荐：保留裁定日期与理由）
+      - 布尔 ``true`` ⇒ 已解决（速记，等价「已裁定·日期缺省」）
+      - 缺失 / None / false / "" / "0" / "no" / "none" / "null" / "-" / "n" ⇒ 未解决
+    归一化：字符串 strip + lower 后再比假值集 ⇒ ``" TRUE "``/``"Yes"`` 算已解决，
+    ``" false "`` 不算。
+    """
+    if not isinstance(item, dict):
+        return False
+    value = item.get("resolved")
+    if value is True:
+        return True
+    if isinstance(value, str):
+        return value.strip().lower() not in _RESOLVED_FALSY
+    return False
+
+
 def _recent_contradictions(limit: int = 5) -> List[str]:
     """读最近 limit 条已报告矛盾（新→旧），用于让蒸馏 prompt 具备状态。
 
+    **跳过已裁定（`resolved`）条目**：裁定过的族不该继续当「已报矛盾」喂给模型
+    （11-03 卡 §4-2 白名单）。条目本身**留在盘上**（审计留痕，AGENTS §5.5），
+    只是不进 prompt。
     **只读、失败返回空**：读不到历史不得阻塞蒸馏（降级优于失败）。
     """
     path = _get_contradiction_path()
@@ -711,13 +738,14 @@ def _recent_contradictions(limit: int = 5) -> List[str]:
     out: List[str] = []
     for item in reversed(data):
         if isinstance(item, dict):
+            if _is_resolved(item):
+                continue
             text = (item.get("contradiction") or "").strip()
             if text:
                 out.append(text)
         if len(out) >= limit:
             break
     return out
-
 
 def _build_distillation_prompt(
     memory_text: str, recent_contradictions: Optional[List[str]] = None
@@ -1088,6 +1116,11 @@ def _save_contradiction_report(contradiction: str) -> bool:
             logger.info(
                 f"[DreamMemory] 自我矛盾复现（第 {hit['repeat_count']} 次，未新增条目）: {text[:60]}..."
             )
+            if _is_resolved(hit):
+                logger.warning(
+                    f"[DreamMemory] 命中已 resolved 条目（第 {hit['repeat_count']} 次复现，"
+                    f"仍按白名单过滤不进 prompt）: {text[:60]}..."
+                )
         else:
             existing.append(
                 {
