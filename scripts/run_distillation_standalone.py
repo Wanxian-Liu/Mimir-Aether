@@ -4,6 +4,28 @@
 import json, os, re, sys, time
 from datetime import datetime, timezone
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 【已停用 · 2026-11-04】历史遗留的梦境蒸馏入口，**不在任何调用链上**
+#   （仓内/数据根 grep 零引用；cron 走 scripts/run_dream_distillation.py
+#     → agent.dream_memory.sync_run_dream_cycle）
+#
+# 为什么硬拦而不只写注释：本脚本仍写**旧语义**（append + 只保留最近 10 次运行，
+# 无逐字去重、无「10 条不同矛盾」窗口、prompt 不带历史）。跑一次就会把旧语义
+# 追加进 data/self_contradiction_report.json，把 2026-11-03 的去重修复抹掉。
+# 注释拦不住人、也拦不住未来的自己 ⇒ 这里直接退出。这是闸，不是提示。
+#
+# 旧源码：git show 1528109^:scripts/run_distillation_standalone.py
+# 现行入口：scripts/run_dream_distillation.py（cron 每日 23:00 北京时间）
+# 另注：下方 inject_key() 硬编码 known_pid=[1719]，靠读他人 /proc/PID/environ
+#       取 key —— 该 PID 早已不存在，且这条路本身就是不该保留的通道。
+# ─────────────────────────────────────────────────────────────────────────────
+sys.stderr.write(
+    "[DEAD-SCRIPT] run_distillation_standalone.py 已停用（2026-11-04）：\n"
+    "  本脚本写旧语义，运行会污染 data/self_contradiction_report.json。\n"
+    "  现行入口：scripts/run_dream_distillation.py（cron 每日 23:00）。\n"
+    "  旧源码：git show 1528109^:scripts/run_distillation_standalone.py\n")
+sys.exit(2)
+
 PERSISTENT_PATH = os.path.expanduser("~/.mimiraether/data/persistent.json")
 
 # ── Step 1: Inject API key from /proc ─────────────────────────────────────
