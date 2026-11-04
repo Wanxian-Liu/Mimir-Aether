@@ -693,8 +693,55 @@ def distillation_input_metrics(text: str) -> Dict[str, int]:
     }
 
 
-def _build_distillation_prompt(memory_text: str) -> str:
-    """构建梦境蒸馏的 LLM 提示词。"""
+def _recent_contradictions(limit: int = 5) -> List[str]:
+    """读最近 limit 条已报告矛盾（新→旧），用于让蒸馏 prompt 具备状态。
+
+    **只读、失败返回空**：读不到历史不得阻塞蒸馏（降级优于失败）。
+    """
+    path = _get_contradiction_path()
+    try:
+        if not os.path.isfile(path):
+            return []
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return []
+    if not isinstance(data, list):
+        return []
+    out: List[str] = []
+    for item in reversed(data):
+        if isinstance(item, dict):
+            text = (item.get("contradiction") or "").strip()
+            if text:
+                out.append(text)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _build_distillation_prompt(
+    memory_text: str, recent_contradictions: Optional[List[str]] = None
+) -> str:
+    """构建梦境蒸馏的 LLM 提示词。
+
+    ``recent_contradictions``：最近已报告过的自我矛盾（新→旧）。为什么必须传历史：
+    此前 prompt 是无状态的，模型每天从零找「最严重的矛盾」⇒ 同一议题只要仍最严重
+    就再报一次（实测 10 天 10 条里 5 条同族、2 条仅前 52 字相同）。
+    让模型看到「已报清单」并在复现时**沿用旧措辞**，语义归并交给模型（擅长），
+    逐字去重留给我们（确定）——两侧各做自己擅长的一半。
+    """
+    hist = [s.strip() for s in (recent_contradictions or []) if s and s.strip()]
+    if hist:
+        _items = "\n".join(f"  [已报 {i}] {s[:120]}" for i, s in enumerate(hist, 1))
+        contradiction_history = (
+            "\n已报告过的自我矛盾（新→旧）：\n"
+            f"{_items}\n"
+            "**若本次要报的矛盾与上面任一条实质相同（同一决策 vs 同一模式），"
+            "必须在描述最前面加 `[复现]` 前缀，并尽量沿用该条原有措辞**；"
+            "否则视为新矛盾，不加前缀。\n"
+        )
+    else:
+        contradiction_history = ""
     return f"""你是一个梦境记忆蒸馏器。你的任务是合并、去重并精炼以下记忆条目。
 
 规则：
@@ -717,7 +764,7 @@ def _build_distillation_prompt(memory_text: str) -> str:
     除非该条被新证据明确推翻，否则必须原样出现在输出的 behavioral_constraints
     里（可合并措辞，不许无声删除）。
 15. **只输出 JSON**，不要解释过程。
-
+{contradiction_history}
 输入记忆：
 {memory_text}
 
@@ -982,32 +1029,85 @@ def _get_contradiction_path() -> str:
     return os.path.join(home, "data", "self_contradiction_report.json")
 
 
+_LAST_CONTRADICTION_REPEAT = 0  # 最近一次写入的矛盾累计复现次数（供播报行用，不落盘）
+
+
+def _contradiction_brief(contradiction: str) -> str:
+    """播报行：把「今天又发现一条」改成「同一议题已连报 N 次」。
+
+    为什么：生成端每天 1 条、处置端 10 天 0 条 ⇒ 逐日播报只会制造告警疲劳。
+    改成累计视角后，同一议题的**持续时长**才是信号。
+    """
+    if not contradiction or not contradiction.strip():
+        return "✅ 无"
+    n = _LAST_CONTRADICTION_REPEAT or 1
+    if n > 1:
+        return f"⚠️ 同一议题复现第 {n} 次（未新增条目）: {contradiction[:70]}"
+    return f"⚠️ 新发现: {contradiction[:80]}"
+
+
 def _save_contradiction_report(contradiction: str) -> bool:
-    """将自我矛盾报告写入独立文件。"""
+    """将自我矛盾报告写入独立文件（2026-11-03 起带去重语义）。
+
+    去重语义（实证依据：10 天 10 条里 2 条逐字重复、5 条同族，真正不同仅 3 条）：
+      - **逐字重复** ⇒ 不新增条目，只给该条 repeat_count += 1 / 更新 last_seen
+      - 窗口 = 最近 10 条**不同**矛盾（而非最近 10 次运行）⇒ 重复不再挤掉新议题
+      - 旧字段（timestamp / contradiction）保留，只**新增**字段 ⇒ 向后兼容旧读端
+    不做模糊去重：量具实测同族改写相似度可低到 0.000（LLM 每天换措辞），
+    按阈值合并必然误判 —— 见 scripts/contradiction_family_probe.py。
+    """
+    global _LAST_CONTRADICTION_REPEAT
     if not contradiction or not contradiction.strip():
         return False
     path = _get_contradiction_path()
-    entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "contradiction": contradiction.strip(),
-    }
+    raw = contradiction.strip()
+    # 模型按指令在复现时加 `[复现]` 前缀 —— 比对前剥掉，否则永远匹配不上
+    text = raw[4:].strip() if raw.startswith("[复现]") else raw
+    now = datetime.now(timezone.utc).isoformat()
     try:
-        # 追加到已有报告列表（保留最近10条）
         existing = []
         if os.path.isfile(path):
             with open(path, "r", encoding="utf-8") as f:
                 existing = json.load(f)
         if not isinstance(existing, list):
             existing = []
-        existing.append(entry)
-        if len(existing) > 10:
-            existing = existing[-10:]
+        # 目录缺失时旧实现静默返回 False（调用方丢弃返回值 ⇒ 无声失败）
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+
+        hit = None
+        for item in existing:
+            if isinstance(item, dict) and (item.get("contradiction") or "").strip() == text:
+                hit = item
+                break
+
+        if hit is not None:
+            hit["repeat_count"] = int(hit.get("repeat_count") or 1) + 1
+            hit["last_seen"] = now
+            hit.setdefault("first_seen", hit.get("timestamp") or now)
+            _LAST_CONTRADICTION_REPEAT = hit["repeat_count"]
+            logger.info(
+                f"[DreamMemory] 自我矛盾复现（第 {hit['repeat_count']} 次，未新增条目）: {text[:60]}..."
+            )
+        else:
+            existing.append(
+                {
+                    "timestamp": now,
+                    "first_seen": now,
+                    "last_seen": now,
+                    "repeat_count": 1,
+                    "contradiction": text,
+                }
+            )
+            if len(existing) > 10:
+                existing = existing[-10:]
+            _LAST_CONTRADICTION_REPEAT = 1
+            logger.info(f"[DreamMemory] 自我矛盾报告已写入: {text[:80]}...")
+
         with open(path, "w", encoding="utf-8") as f:
             json.dump(existing, f, ensure_ascii=False, indent=2)
-        logger.info(f"[DreamMemory] 自我矛盾报告已写入: {contradiction[:80]}...")
         return True
-    except (IOError, json.JSONDecodeError) as e:
-        logger.warning(f"[DreamMemory] 写入自我矛盾报告失败: {e}")
+    except (IOError, json.JSONDecodeError, OSError) as e:
+        logger.warning(f"[DreamMemory] 写入自我矛盾报告失败: {e} (path={path})")
         return False
 
 
@@ -1022,7 +1122,7 @@ async def _run_distillation(
     if dry_run:
         return data, f"[DRY RUN] 输入: {len(memory_text)} 字符，未修改", True
 
-    prompt = _build_distillation_prompt(memory_text)
+    prompt = _build_distillation_prompt(memory_text, _recent_contradictions())
     logger.info(f"[DreamMemory] 调用蒸馏 LLM（提示词 {len(prompt)} 字符）")
     result = await _call_dream_llm(prompt)
 
@@ -1134,7 +1234,7 @@ async def _run_distillation(
         f" (门 usage>={_PROMOTE_MIN_ACCESS} 且 score>={_PROMOTE_MIN_SCORE:g})\n"
         f"    · 归档段: {len(evicted_decisions) + len(evicted_patterns) + len(evicted_constraints)} 条"
         f" -> {os.path.basename(_archive_path())}\n"
-        f"  - 自我矛盾: {'⚠️ ' + contradiction[:80] if contradiction else '✅ 无'}\n"
+        f"  - 自我矛盾: {_contradiction_brief(contradiction)}\n"
         f"  - 时间: {datetime.now(timezone.utc).isoformat()}"
     )
     return data, report, True
