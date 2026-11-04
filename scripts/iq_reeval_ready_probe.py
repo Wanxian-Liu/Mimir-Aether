@@ -3,9 +3,12 @@
 
 两道闸，一个入口：
   闸 A · 机器态（NOT-READY，稍后重试）
-    1) swap free >= 1 GB
+    1) MemAvailable >= 2 GB        ← 主判（2026-11-04 改口径）
     2) load average(1m) < 2
     3) 无其他 pytest / 索引进程（bge-m3 / bge-reranker / chroma indexer）
+    swap free = **顾问项**：只记录、不阻塞。理由（实测）：本机 swap 4G/4G、
+    free=0B 长期如此 ⇒ 以它作 blocking 就是恒红 ⇒ 闸被忽略（与 R7/R10 同族）。
+    真正危险信号是 MemAvailable 塌（并发跑 bge-m3+reranker 时 6.2s→31.7s）。
   闸 B · 量具态（NO-SCORE，必须先修尺子再谈分）—— 台账 T-A1
     三量具：feedback_events / verification_results / compression_quality
     每份判四件事：① 存在 ② 可解析（尾段坏行率 <= 1%）③ schema 含关键字段
@@ -16,7 +19,7 @@
              （停更量具算出的分不可信），故同判 NO-SCORE，这是**设计意图**不是缺陷。
 
 输出：单行
-  `READY swap_free=<x>GB load1=<y> | gauges=<n>/3`
+  `READY mem_avail=<x>GB swap_free=<y>GB load1=<z> | gauges=<n>/3`
   `NO-SCORE <gauge>:<reason>; ...`     量具态失败（优先级最高）
   `NOT-READY <reason1>; <reason2>...`  机器态失败
 退出码：0 = READY / 1 = NO-SCORE 或 NOT-READY（可脚本化判断）
@@ -37,7 +40,7 @@ import tempfile
 import time
 from collections import deque
 
-SWAP_MIN_GB = float(os.environ.get("IQ_PROBE_SWAP_MIN_GB", "1.0"))
+MEM_AVAIL_MIN_GB = float(os.environ.get("IQ_PROBE_MEM_AVAIL_MIN_GB", "2.0"))
 LOAD_MAX = float(os.environ.get("IQ_PROBE_LOAD_MAX", "2.0"))
 # 探针自测用：IQ_PROBE_IGNORE_BUSY=1 跳过「占用进程」检查（只为正控，不为放行）
 # 只匹配「真跑」的进程；本探针自身与 grep 自身不算
@@ -156,6 +159,17 @@ def evaluate_gauges(data_dir, now=None):
 
 
 # ---------------------------------------------------------------- 闸 A
+def mem_available_gb():
+    try:
+        with open("/proc/meminfo", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("MemAvailable:"):
+                    return int(line.split()[1]) / 1024.0 / 1024.0
+    except OSError:
+        pass
+    return 0.0
+
+
 def swap_free_gb():
     try:
         with open("/proc/meminfo", encoding="utf-8") as f:
@@ -165,6 +179,25 @@ def swap_free_gb():
     except OSError:
         pass
     return 0.0
+
+
+def evaluate_machine(mem_avail_gb, swap_free_gb, ld, busy,
+                     mem_min=None, load_max=None):
+    """机器态判定（纯函数：值全注入 ⇒ 可两向自测，不读真机）。
+
+    swap_free_gb 只进 advisory，**不进 reasons**（顾问项不阻塞）。
+    """
+    mem_min = MEM_AVAIL_MIN_GB if mem_min is None else mem_min
+    load_max = LOAD_MAX if load_max is None else load_max
+    reasons = []
+    if mem_avail_gb < mem_min:
+        reasons.append("MemAvailable %.2fGB < %.1fGB" % (mem_avail_gb, mem_min))
+    if ld >= load_max:
+        reasons.append("load1 %.2f >= %.1f" % (ld, load_max))
+    if busy:
+        reasons.append("占用进程: " + ", ".join(busy))
+    advisory = {"swap_free_gb": round(swap_free_gb, 2), "swap_is_advisory": True}
+    return (not reasons), reasons, advisory
 
 
 def load1():
@@ -262,6 +295,28 @@ def selftest():
                    open(os.path.join(d, "feedback_events.jsonl"), "w").close()),
         False, "文件为空")
 
+    # ---- 闸 A（机器态）两向：纯函数注入，不读真机 ----
+    # 设计要点：NEG 用例必须**拦得住**且理由要对；POS 里必须有一条
+    # 「swap 全满但内存充足 ⇒ 放行」——这正是 2026-11-04 改口径要保的行为
+    # （旧口径 swap_free>=1GB 在本机恒红，闸等于没有）。
+    mach = [
+        ("POS 机器态健康", dict(mem_avail_gb=4.0, swap_free_gb=8.0, ld=0.5, busy=[]),
+         True, "ok"),
+        ("POS swap=0 内存足", dict(mem_avail_gb=4.7, swap_free_gb=0.0, ld=1.0, busy=[]),
+         True, "ok"),
+        ("NEG 内存不足", dict(mem_avail_gb=0.5, swap_free_gb=8.0, ld=0.2, busy=[]),
+         False, "MemAvailable"),
+        ("NEG 负载高", dict(mem_avail_gb=8.0, swap_free_gb=8.0, ld=3.0, busy=[]),
+         False, "load1"),
+        ("NEG 占用进程", dict(mem_avail_gb=8.0, swap_free_gb=8.0, ld=0.2, busy=["bge-m3"]),
+         False, "占用进程"),
+    ]
+    for label, kw, expect_ok, substr in mach:
+        ok, reasons, adv = evaluate_machine(**kw)
+        got = "ok" if ok else ";".join(reasons)
+        cases.append((label, expect_ok == ok and substr in got,
+                      "expect_ok=%s got=%r adv=%r" % (expect_ok, got, adv)))
+
     passed = 0
     for label, ok, detail in cases:
         print("%s %-16s %s" % ("PASS" if ok else "FAIL", label, detail))
@@ -293,17 +348,13 @@ def main(argv=None):
                              "machine": None}}
         if not args.skip_machine:
             sf = swap_free_gb()
+            ma = mem_available_gb()
             ld = load1()
             busy = [] if os.environ.get("IQ_PROBE_IGNORE_BUSY") == "1" else busy_procs()
-            m_reasons = []
-            if sf < SWAP_MIN_GB:
-                m_reasons.append("swap free %.2fGB < %.1fGB" % (sf, SWAP_MIN_GB))
-            if ld >= LOAD_MAX:
-                m_reasons.append("load1 %.2f >= %.1f" % (ld, LOAD_MAX))
-            if busy:
-                m_reasons.append("占用进程: " + ", ".join(busy))
-            payload["gates"]["machine"] = {"ok": not m_reasons, "swap_free_gb": round(sf, 2),
-                                           "load1": round(ld, 2), "reasons": m_reasons}
+            m_ok, m_reasons, adv = evaluate_machine(ma, sf, ld, busy)
+            payload["gates"]["machine"] = {"ok": m_ok, "mem_available_gb": round(ma, 2),
+                                           "load1": round(ld, 2), "reasons": m_reasons,
+                                           **adv}
             if not m_reasons and g_ok:
                 payload["verdict"] = "READY"
             elif not g_ok:
@@ -324,21 +375,16 @@ def main(argv=None):
         print("READY | gauges=%d/%d (machine skipped)" % (len(g_details), len(GAUGES)))
         return 0
 
-    reasons = []
     sf = swap_free_gb()
+    ma = mem_available_gb()
     ld = load1()
-    if sf < SWAP_MIN_GB:
-        reasons.append("swap free %.2fGB < %.1fGB" % (sf, SWAP_MIN_GB))
-    if ld >= LOAD_MAX:
-        reasons.append("load1 %.2f >= %.1f" % (ld, LOAD_MAX))
     busy = [] if os.environ.get("IQ_PROBE_IGNORE_BUSY") == "1" else busy_procs()
-    if busy:
-        reasons.append("占用进程: " + ", ".join(busy))
-    if reasons:
+    m_ok, reasons, _adv = evaluate_machine(ma, sf, ld, busy)
+    if not m_ok:
         print("NOT-READY " + "; ".join(reasons))
         return 1
-    print("READY swap_free=%.2fGB load1=%.2f | gauges=%d/%d"
-          % (sf, ld, len(g_details), len(GAUGES)))
+    print("READY mem_avail=%.2fGB swap_free=%.2fGB load1=%.2f | gauges=%d/%d"
+          % (ma, sf, ld, len(g_details), len(GAUGES)))
     return 0
 
 

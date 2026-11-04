@@ -1,7 +1,10 @@
 """闸 B（量具健康前置门）回归用例 —— 台账 T-A1。
 
 判据语义：量具不健康 ⇒ 必须输出 NO-SCORE（不出分），不得给一个不可信的分。
-本文件只测纯函数 evaluate_gauges()，不碰机器态（swap/load 随环境变，不可作断言）。
+本文件测两个纯函数：evaluate_gauges()（量具态）与 evaluate_machine()（机器态）。
+两者都**注入数值**、不读真机——机器态的真机读数随环境变，不可作断言；
+但把读数抽成参数后，「swap 全满而内存充足必须放行」这类语义就可以回归了
+（2026-11-04：旧口径 swap_free>=1GB 在本机恒红 ⇒ 闸等于没有）。
 """
 import json
 import sys
@@ -109,3 +112,43 @@ def test_cli_no_score_when_gauge_broken(tmp_path):
     """端到端：量具坏 ⇒ CLI 输出 NO-SCORE 且 rc=1（不是 NOT-READY）。"""
     rc = probe.main(["--skip-machine", "--data-dir", str(tmp_path)])
     assert rc == 1
+
+
+# ---------------------------------------------------------------- 闸 A（机器态）
+def test_machine_positive_low_swap_passes():
+    """回归（2026-11-04 改口径）：swap free=0 但内存充足 ⇒ 必须放行。
+
+    旧口径以 swap_free>=1GB 作 blocking，而本机 swap 4G/4G 长期全满
+    ⇒ 该闸恒红 ⇒ 被当成噪声忽略。这正是本用例要钉住的行为。
+    """
+    ok, reasons, adv = probe.evaluate_machine(4.7, 0.0, 1.0, [])
+    assert ok is True, reasons
+    assert adv["swap_is_advisory"] is True
+    assert adv["swap_free_gb"] == 0.0
+
+
+def test_machine_negative_low_mem_blocks():
+    """负控：MemAvailable 低于阈值 ⇒ 拦住，理由指向内存。"""
+    ok, reasons, _ = probe.evaluate_machine(0.5, 8.0, 0.2, [])
+    assert ok is False
+    assert any("MemAvailable" in r for r in reasons)
+
+
+def test_machine_negative_high_load_blocks():
+    """负控：负载超阈值 ⇒ 拦住（高负载下延迟读数作废）。"""
+    ok, reasons, _ = probe.evaluate_machine(8.0, 8.0, 3.0, [])
+    assert ok is False
+    assert any("load1" in r for r in reasons)
+
+
+def test_machine_negative_busy_proc_blocks():
+    """负控：有 bge-m3/reranker 等占用进程在跑 ⇒ 拦住。"""
+    ok, reasons, _ = probe.evaluate_machine(8.0, 8.0, 0.2, ["bge-m3"])
+    assert ok is False
+    assert any("占用进程" in r for r in reasons)
+
+
+def test_machine_thresholds_are_bounded():
+    """阈值不得为 0/无限（否则闸恒过或恒红，两种都是假绿口/死闸）。"""
+    assert 0 < probe.MEM_AVAIL_MIN_GB <= 12
+    assert 0 < probe.LOAD_MAX <= 16
