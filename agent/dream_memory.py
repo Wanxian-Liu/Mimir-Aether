@@ -702,8 +702,11 @@ def _is_resolved(item) -> bool:
     复核 B-3 实测 ``pending`` / ``todo`` / ``待定`` / ``未解决`` / ``n/a`` 在反选下
     全被判 True ⇒ 条目静默消失（无日志无告警）：
       - 布尔 ``True`` ⇒ 已解决（速记，等价「已裁定·日期缺省」）
-      - 字符串前 10 字符形如 ``YYYY-MM-DD``（4 数字 + ``-`` + 2 数字 + ``-`` + 2 数字）
-        ⇒ 已解决（规范写法 ``"<YYYY-MM-DD> <依据>"``）
+      - 字符串以 ``YYYY-MM-DD`` 起头、**该日期真实存在**（``datetime.strptime``
+        可解析）、且日期后紧跟空白或结束 ⇒ 已解决（规范写法
+        ``"<YYYY-MM-DD> <依据>"``）。11-04 审计 A-2 实测旧实现只验形状：
+        ``"2026-13-45 非法"`` / ``"2026-02-30 非法"`` / ``"2026-11-04x"`` 全判
+        True ⇒ 非法值被当成「已裁定」，条目同样静默退出 prompt。
     其余（``False`` / ``None`` / 缺失 / ``""`` / ``"pending"`` / ``"todo"`` /
     ``"待定"`` / ``"未解决"`` / ``"n/a"`` / ``"false"`` / ``"TRUE"`` / ``"Yes"`` /
     非字符串非布尔对象）⇒ 未解决。误判方向故意偏保守：判错只会让条目**继续出现**
@@ -716,10 +719,23 @@ def _is_resolved(item) -> bool:
         return True
     if not isinstance(value, str):
         return False
-    core = value.strip()[:10]
+    text = value.strip()
+    core = text[:10]
     if len(core) != 10 or core[4] != "-" or core[7] != "-":
         return False
-    return all(ch.isdigit() for ch in core[:4] + core[5:7] + core[8:10])
+    if not all(ch.isdigit() for ch in core[:4] + core[5:7] + core[8:10]):
+        return False
+    # 真日期校验（11-04 审计 A-2）：只验形状会把 "2026-13-45" / "2026-02-30" 判成
+    # 「已裁定」⇒ 条目静默退出 prompt。strptime 失败即未解决。
+    try:
+        datetime.strptime(core, "%Y-%m-%d")
+    except ValueError:
+        return False
+    # 日期后必须紧跟空白或结束："2026-11-04x" 这类粘连后缀不是规范写法
+    # （规范写法 = "<YYYY-MM-DD> <依据>"）⇒ 同样不判已解决。
+    if len(text) > 10 and not text[10].isspace():
+        return False
+    return True
 
 
 def _recent_contradictions(limit: int = 5) -> List[str]:
@@ -1084,7 +1100,9 @@ def _save_contradiction_report(contradiction: str) -> bool:
 
     去重语义（实证依据：10 天 10 条里 2 条逐字重复、5 条同族，真正不同仅 3 条）：
       - **逐字重复** ⇒ 不新增条目，只给该条 repeat_count += 1 / 更新 last_seen
-      - 窗口 = 最近 10 条**不同**矛盾（而非最近 10 次运行）⇒ 重复不再挤掉新议题
+      - 窗口 = 最近 10 条**未裁定**矛盾（而非最近 10 次运行）⇒ 重复不再挤掉新议题；
+        ``resolved`` 条目不占未解决名额、也不因新写入被裁（11-04 审计 A-1：写侧盲裁
+        ``existing[-10:]`` 会在满窗后挤掉最旧的**未解决**条目，与读侧过滤口径相反）
       - 旧字段（timestamp / contradiction）保留，只**新增**字段 ⇒ 向后兼容旧读端
     不做模糊去重：量具实测同族改写相似度可低到 0.000（LLM 每天换措辞），
     按阈值合并必然误判 —— 见 scripts/contradiction_family_probe.py。
@@ -1137,7 +1155,26 @@ def _save_contradiction_report(contradiction: str) -> bool:
                 }
             )
             if len(existing) > 10:
-                existing = existing[-10:]
+                # 写侧窗口口径与读侧对齐（11-04 审计 A-1）：只裁「最旧的未裁定条目」。
+                # 读侧 `_recent_contradictions` 已按 `_is_resolved` 过滤 ⇒ 写侧若仍按总
+                # 条数盲裁 `existing[-10:]`，补标后 7 resolved + 3 unresolved 满 10 格时
+                # 再写 1 条新矛盾，被挤掉的恰是最旧的**未解决**条目（resolved 一条不丢）
+                # ⇒ 补标目标反向：未裁定矛盾静默消失。resolved 不占未解决名额。
+                unresolved = [entry for entry in existing if not _is_resolved(entry)]
+                surplus = len(unresolved) - 10
+                if surplus > 0:
+                    dropped = 0
+                    trimmed: List = []
+                    for entry in existing:
+                        if dropped < surplus and not _is_resolved(entry):
+                            dropped += 1
+                            continue
+                        trimmed.append(entry)
+                    existing = trimmed
+                    logger.warning(
+                        f"[DreamMemory] 未裁定矛盾超窗口上限 10，裁掉最旧 {dropped} 条"
+                        f"（resolved 不占名额、不被裁）"
+                    )
             _LAST_CONTRADICTION_REPEAT = 1
             logger.info(f"[DreamMemory] 自我矛盾报告已写入: {text[:80]}...")
 
