@@ -406,3 +406,68 @@ def test_report_broadcasts_outside_exempt(tmp_path):
     # 真死链仍被报出（豁免没有连带吃掉它）
     assert payload["broken_count"] == 1
     assert payload["broken"][0]["target"] == "这个卡不存在-zzz"
+
+
+# ---------------------------------------------------------------- P0-1 问题计数 sidecar
+# 病灶：cron 台账只有 last_status=ok/failed，而壳刻意让 rc=0（有无 issue 都算跑完）
+# => 「跑完且干净」与「跑完但有 46 条死链」在台账里完全同形。
+# 这两条臂必须一起测：只测「有问题写 N」会漏「没问题是 0」（那才是恒非零假绿）。
+
+
+def test_issues_marker_counts_real_problems(tmp_path):
+    """POS：有真死链 ⇒ marker ISSUES=1，且 BROKEN=1。"""
+    mod = _load()
+    wiki = _mk_wiki(tmp_path)
+    (wiki / "concepts" / "a.md").write_text(
+        "---\ntitle: a\n---\n\n[[这个卡不存在-zzz]]\n", encoding="utf-8"
+    )
+    out = tmp_path / "r.json"
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPT), "--wiki", str(wiki), "--json", str(out)],
+        capture_output=True, text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    marker = out.parent / (out.name + ".issues")
+    assert marker.exists(), "sidecar 未写出"
+    kv = dict(
+        ln.split("=", 1) for ln in marker.read_text(encoding="utf-8").splitlines() if "=" in ln
+    )
+    assert kv["ISSUES"] == "1", kv
+    assert kv["BROKEN"] == "1", kv
+
+
+def test_issues_marker_zero_on_clean_wiki(tmp_path):
+    """NEG：干净 wiki ⇒ ISSUES=0。防「恒非零」这种反向假绿。"""
+    mod = _load()
+    wiki = _mk_wiki(tmp_path)
+    (wiki / "concepts" / "a.md").write_text("---\ntitle: a\n---\n\n[[a]]\n", encoding="utf-8")
+    out = tmp_path / "r.json"
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPT), "--wiki", str(wiki), "--json", str(out)],
+        capture_output=True, text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    marker = out.parent / (out.name + ".issues")
+    kv = dict(
+        ln.split("=", 1) for ln in marker.read_text(encoding="utf-8").splitlines() if "=" in ln
+    )
+    assert kv["ISSUES"] == "0", kv
+
+
+def test_issues_marker_excludes_outside_exempt(tmp_path):
+    """口径臂：面外豁免不计入 ISSUES（否则刚消掉的噪声又被算回来）。"""
+    mod = _load()
+    wiki = _mk_wiki_with_discussion(tmp_path)
+    out = tmp_path / "r.json"
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPT), "--wiki", str(wiki), "--json", str(out)],
+        capture_output=True, text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    marker = out.parent / (out.name + ".issues")
+    kv = dict(
+        ln.split("=", 1) for ln in marker.read_text(encoding="utf-8").splitlines() if "=" in ln
+    )
+    assert kv["ISSUES"] == "1", kv          # 只剩那条真死链
+    assert kv["BROKEN"] == "1", kv
+    assert kv["EXEMPT"] == "1", kv          # 豁免照实报数，只是不进 ISSUES

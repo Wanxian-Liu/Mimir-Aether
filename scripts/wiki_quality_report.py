@@ -485,6 +485,34 @@ def render_report(wiki: Path, files: Sequence[Path], resolve_count: int, dups, c
     return "\n".join(lines), issues
 
 
+def _write_issues_marker(out: Path, broken, broken_targets, dups, stacked,
+                         outside_exempt) -> None:
+    """写机读问题计数 sidecar：`<json>.issues`。
+
+    为什么需要它（P0-1 · 2026-11-07）：
+        cron 台账只有 last_status=ok/failed，而壳刻意让 rc=0（有无 issue 都算跑完）
+        ⇒ 「跑完且干净」与「跑完但有 46 条死链」在台账里**完全同形**。
+        实测代价：我为此白查了一轮「为什么全 ok 但盘上有问题」。
+
+    格式（逐字、机读、可用 cut -d= -f2 取）：
+        ISSUES=<总问题数>   ← 只数**真问题**（豁免不计，否则又把噪声算回来）
+        BROKEN=<真死链数>
+        EXEMPT=<解析面外豁免数>
+        TS=<时间戳>
+
+    边界：写失败不静默吞——抛给调用方的 OSError 兜底（该 try 块已有告警）。
+    """
+    issues_total = len(broken) + len(broken_targets) + len(dups) + len(stacked)
+    marker = out.parent / (out.name + ".issues")
+    lines = [
+        "ISSUES=" + str(issues_total),
+        "BROKEN=" + str(len(broken)),
+        "EXEMPT=" + str(len(outside_exempt)),
+        "TS=" + _dt.datetime.now().isoformat(timespec="seconds"),
+    ]
+    marker.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Wiki 质量门禁报告层（零 LLM）")
     ap.add_argument("--wiki", default=None, help="wiki 根（默认 env WIKI_DIR 或 <os home>/wiki）")
@@ -572,6 +600,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         tmp = out.with_suffix(".json.tmp")
         tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         os.replace(tmp, out)
+        _write_issues_marker(out, broken, broken_targets, dups, stacked, outside_exempt)
     except OSError as exc:
         print("(警告: JSON 落点失败 " + str(exc) + ")")
 
