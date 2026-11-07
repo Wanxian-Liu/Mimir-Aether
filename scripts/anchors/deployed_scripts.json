@@ -1,0 +1,10 @@
+{
+  "_note": "部署侧（不进版本控制）脚本的 sha256 锚。真源 = 本文件；改动在跑脚本后必须跑 scripts/check_shell_anchor.py --update 并提交本文件的 diff，否则「改了在跑版」在 git 里不可见。路径一律写 ~，禁写 home 绝对路径（防个人信息随仓库外泄）。",
+  "anchors": [
+    {
+      "path": "~/.mimiraether/scripts/wiki_quality_gate_monitor.sh",
+      "sha256": "e7f55488fe2dd2740d44dc86f91415e8178f79cbcaad0cefb627b9b26692971d",
+      "why": "wiki 质量门禁的 cron 搬运层：调用 repo 侧 wiki_quality_report.py，并把 sidecar 计数搬进 data/ops/gate_issues.jsonl。被改或改回去 ⇒ 判据/播报/计数三处静默失效，git diff 里看不到。"
+    }
+  ]
+}
