@@ -167,6 +167,28 @@ def _iter_all_md(wiki: Path) -> List[Path]:
     return sorted(files)
 
 
+def _iter_all_md_any(wiki: Path) -> List[Path]:
+    """全库 .md —— **含** EXCLUDED_DIRS，只跳 .git。
+
+    为什么必须有第三个索引面（2026-11-07 实测 42/46 假死链的根因）：
+        `_iter_all_md`（解析面）排除 discussions/ raw/ archive/ drafts/，
+        但**讨论卡是合法链接目标**（台账里大量 `[[2026-10-11-四方会议-...]]`
+        指向 discussions/ 下真卡）。带路径形态靠 `_has_excluded_component`
+        豁免了，**裸名形态**没有路径段，豁免永远走不到
+        —— 同一语义两种写法只保护了一种。
+
+        本索引只用于**判定「这条链真的死没死」**，不用于「该不该扫」。
+        两个问题不能混：解析面决定扫谁，本索引决定目标在不在。
+    """
+    files: List[Path] = []
+    for p in wiki.rglob("*.md"):
+        if ".git" in p.parts:
+            continue
+        if p.is_file():
+            files.append(p)
+    return sorted(files)
+
+
 def build_index(files: Iterable[Path]) -> Dict[str, List[str]]:
     """归一化名 -> 文件路径集合。同时收录「带父目录」的相对键（[[entities/x]]）。"""
     index: Dict[str, List[str]] = {}
@@ -174,6 +196,34 @@ def build_index(files: Iterable[Path]) -> Dict[str, List[str]]:
         for key in (normalize(f.stem), normalize(f.parent.name + "/" + f.stem)):
             index.setdefault(key, []).append(str(f))
     return index
+
+
+def partition_outside_surface(broken: Sequence[Dict[str, object]],
+                               ext_index: Dict[str, List[str]]) -> Tuple[List[Dict[str, object]], List[Dict[str, object]]]:
+    """把死链拆成 (真死链, 解析面外豁免)。
+
+    判据：目标归一化名在**全库索引** ext_index 里 ⇒ 文件真实存在，
+    只是落在解析面外 ⇒ 不是死链（wiki 应用按名解析，照样跳得过去）。
+
+    为什么不并进 find_broken_links：
+        那是 25 个既有测试的契约面；改元数收益不成比例。
+        拆成纯函数后：输入输出都是数据，正控/负控可靠它直接喂。
+
+    返回的豁免项带 `found` 字段（真实相对路径）——给复核方留溯源，
+    否则「豁免了 42 条」是一句无法验证的话。
+    """
+    kept: List[Dict[str, object]] = []
+    exempt: List[Dict[str, object]] = []
+    for item in broken:
+        key = normalize(str(item.get("target", "")))
+        hits = ext_index.get(key)
+        if hits:
+            record = dict(item)
+            record["found"] = hits[0]
+            exempt.append(record)
+        else:
+            kept.append(item)
+    return kept, exempt
 
 
 def find_duplicates(scan_files: Sequence[Path], wiki: Path) -> Tuple[List[Tuple[str, List[str]]], List[Tuple[str, List[str]]]]:
@@ -379,13 +429,18 @@ def render_report(wiki: Path, files: Sequence[Path], resolve_count: int, dups, c
                   skipped_ph: int, drafts, present, missing,
                   elapsed_s: float, list_limit: int,
                   broken_targets: Sequence[Dict[str, object]] = (), skipped_tg: int = 0,
-                  stacked: Sequence[Dict[str, object]] = ()) -> Tuple[str, bool]:
+                  stacked: Sequence[Dict[str, object]] = (),
+                  outside_exempt: Sequence[Dict[str, object]] = ()) -> Tuple[str, bool]:
     """返回 (报告文本, 是否有 issue)。报告首行是判定行 —— 它会被投递到飞书。"""
     ts = _dt.datetime.now().strftime("%Y-%m-%d %H:%M")
     issues = bool(dups or broken or broken_targets or stacked)
     ph_note = (" · 例举占位符跳过 " + str(skipped_ph)) if skipped_ph else ""
     if skipped_tg:
         ph_note += " · 裸路径外域跳过 " + str(skipped_tg)
+    if outside_exempt:
+        _ex_t = len({str(e.get("target", "")) for e in outside_exempt})
+        ph_note += (" · 解析面外豁免 " + str(len(outside_exempt))
+                    + " 条/" + str(_ex_t) + " 个目标")
     head = "[Wiki 质量门禁] " + ("⚠ 有真问题" if issues else "✅ 无问题") + " · " + ts
     lines = [
         head,
@@ -462,8 +517,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
 
     index = build_index(resolve_files)
+    # 第三索引面：含排除目录 —— 只用于判「目标真的不存在吗」，判完即拆分
+    ext_index = build_index(_iter_all_md_any(wiki))
     dups, cross = find_duplicates(files, wiki)
     broken, skipped_ph = find_broken_links(files, index)
+    # 裸名豁免：全库能找到就不是死链（播报在 render_report，不许静默）
+    broken, outside_exempt = partition_outside_surface(broken, ext_index)
     broken_targets, skipped_tg = find_broken_targets(files, index)
     drafts = count_drafts(files)
     stacked = find_stacked_frontmatter(files)
@@ -471,7 +530,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     text, issues = render_report(wiki, files, len(resolve_files), dups, cross, broken, skipped_ph,
                                  drafts, present, missing, elapsed, args.list_limit,
-                                 broken_targets, skipped_tg, stacked)
+                                 broken_targets, skipped_tg, stacked, outside_exempt)
     print(text)
 
     if args.append_log:
@@ -500,6 +559,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             "target_skipped": skipped_tg,
             "draft_count": len(drafts),
             "stacked_frontmatter_count": len(stacked),
+            "outside_exempt_count": len(outside_exempt),
+            "outside_exempt_targets": sorted({str(e.get("target", "")) for e in outside_exempt}),
+            "outside_exempt": outside_exempt[:200],
             "broken": broken[:200],
             "broken_targets": broken_targets[:200],
             "stacked_frontmatter": stacked[:200],

@@ -333,3 +333,76 @@ def test_wikilink_missing_still_broken(tmp_path):
         "---\ntitle: c\ntype: entity\n---\n\n见 [[nobody-here]]\n", encoding="utf-8")
     r = _run(wiki)
     assert "① 死链" in r.stdout, r.stdout
+
+
+# ---------------------------------------------------------------- P0-2 解析面外裸名豁免
+# 根因（2026-11-07 实测 42/46）：解析面排除 discussions/，而讨论卡是合法链接目标。
+# 带路径形态靠 _has_excluded_component 豁免了，裸名形态没有路径段 ⇒ 豁免走不到。
+# 同一语义两种写法只保护了一种 —— 这类「同族漏修」必须两向测，否则修一半又成假绿。
+
+
+def _mk_wiki_with_discussion(tmp_path: Path) -> Path:
+    """建一个「扫描面外有真卡」的临时 wiki。"""
+    wiki = _mk_wiki(tmp_path)
+    (wiki / "discussions").mkdir(parents=True)
+    (wiki / "discussions" / "2026-10-11-四方会议-真卡.md").write_text(
+        "---\ntitle: x\n---\n# x\n", encoding="utf-8"
+    )
+    (wiki / "concepts" / "台账.md").write_text(
+        "---\ntitle: t\n---\n\n[[2026-10-11-四方会议-真卡]]\n[[这个卡不存在-zzz]]\n",
+        encoding="utf-8",
+    )
+    return wiki
+
+
+def test_partition_exempts_bare_name_found_outside_surface(tmp_path):
+    """POS：裸名指向 discussions/ 真卡 ⇒ 不算死链，且必须带 found 溯源。"""
+    mod = _load()
+    wiki = _mk_wiki_with_discussion(tmp_path)
+    ext = mod.build_index(mod._iter_all_md_any(wiki))
+    broken = [{"target": "2026-10-11-四方会议-真卡", "src": "x", "line": 1}]
+    kept, exempt = mod.partition_outside_surface(broken, ext)
+    assert kept == [], "面外真卡被误判为死链"
+    assert len(exempt) == 1
+    assert exempt[0]["found"].endswith("2026-10-11-四方会议-真卡.md"), "豁免项缺真实路径溯源"
+
+
+def test_partition_keeps_truly_missing(tmp_path):
+    """NEG：全库都不存在 ⇒ 仍判死链。豁免不能顺手把真问题吃掉。"""
+    mod = _load()
+    wiki = _mk_wiki_with_discussion(tmp_path)
+    ext = mod.build_index(mod._iter_all_md_any(wiki))
+    broken = [{"target": "这个卡不存在-zzz", "src": "x", "line": 2}]
+    kept, exempt = mod.partition_outside_surface(broken, ext)
+    assert exempt == []
+    assert len(kept) == 1, "真死链被豁免吞掉"
+
+
+def test_partition_path_form_still_not_double_counted(tmp_path):
+    """回归：带路径形态（已由 _has_excluded_component 跳过）不该出现在死链输入里。"""
+    mod = _load()
+    wiki = _mk_wiki_with_discussion(tmp_path)
+    files = mod._iter_md(wiki, mod.DEFAULT_LAYERS)
+    index = mod.build_index(mod._iter_all_md(wiki))
+    broken, _skipped = mod.find_broken_links(files, index)
+    # 带路径的 discussions 链接在更早一步就被跳过，不会成为 candidate
+    assert not [b for b in broken if str(b.get("target", "")).startswith("discussions/")]
+
+
+def test_report_broadcasts_outside_exempt(tmp_path):
+    """不静默臂：豁免必须出现在播报里（只做到「不报」= 假阳换静默，更坏）。"""
+    mod = _load()
+    wiki = _mk_wiki_with_discussion(tmp_path)
+    out = tmp_path / "r.json"
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPT), "--wiki", str(wiki), "--json", str(out)],
+        capture_output=True, text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "解析面外豁免 1 条/1 个目标" in proc.stdout, proc.stdout
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    assert payload["outside_exempt_count"] == 1
+    assert payload["outside_exempt_targets"] == ["2026-10-11-四方会议-真卡"]
+    # 真死链仍被报出（豁免没有连带吃掉它）
+    assert payload["broken_count"] == 1
+    assert payload["broken"][0]["target"] == "这个卡不存在-zzz"
