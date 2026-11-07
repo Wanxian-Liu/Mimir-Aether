@@ -21,7 +21,7 @@
     本文件把这三条按**声明的作用域**收回：只扫 .md、跳过代码、按归一化名判重/判存在。
 
 范围（显式声明，避免「零问题」被外推）：
-    默认只扫**策展层** concepts/ entities/ comparisons/ queries/ llmvt/ readings/。
+    默认只扫**策展层** concepts/ entities/ comparisons/ queries/ readings/。
     不含 raw/（第三方导入内容，链接相对其自身体系）、discussions/（历史留痕、
     含大量举例链接）、archive/、drafts/、_attachments/、data/。
     可用 --paths 覆盖；报告首行打印实际扫描面与文件数。
@@ -65,7 +65,7 @@ def default_wiki() -> Path:
         return Path(env)
     return _os_home() / "wiki"
 
-DEFAULT_LAYERS: Tuple[str, ...] = ("concepts", "entities", "comparisons", "queries", "llmvt", "readings")
+DEFAULT_LAYERS: Tuple[str, ...] = ("concepts", "entities", "comparisons", "queries", "readings")
 EXCLUDED_DIRS = ("raw", "discussions", "archive", "drafts", "_attachments", "data", ".git", "state-snapshots")
 
 # 语法占位符：文档里「举例说明链接形态」用的词，不是真实页面名。
@@ -266,7 +266,7 @@ def _has_excluded_component(target: str) -> bool:
     """目标路径里**任一段**（末段除外）落在 EXCLUDED_DIRS ⇒ 解析面外。
 
     为什么必须与建索引算法一致：`_iter_all_md` 用 `any(part in EXCLUDED_DIRS ...)`
-    排除这些目录，所以指向 `llmvt/hermes/archive/X`（真文件）的引用**永远**解不出；
+    排除这些目录，所以指向 `raw/papers/X`（真文件）的引用**永远**解不出；
     而旧判据只比「前缀」，于是把真文件当断链报 —— 假红（2026-09-29 实测：整改后
     仅剩的这一条正是此类）。末段除外 ⇒ 名为 `archive.md` 的文件不受影响。
     """
