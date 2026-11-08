@@ -138,3 +138,38 @@ def test_live_log_parity():
     rc, rolling, bucket, detail = gate.evaluate(7)
     assert rc == 0, f"rc={rc} {detail} ② n={rolling} ⑤ n={bucket}"
     assert rolling == bucket
+
+
+def test_jitter_insert_turn_between_segments_keeps_delta_zero():
+    """抖动负控一（2026-11-08 复跑反馈 · 假红实证）：两段之间插入一条新 turn。
+
+    旧实现：② 先数 1 条，注入 1 条后 ⑤ 数到 2 条 ⇒ delta=+1 ⇒ 假 DRIFT。
+    快照实现：两段读同一份行 ⇒ 仍是 (1, 1)。
+    """
+    with gate._fixture({"agent.log": gate._turn_line(NOW - timedelta(hours=3))}, NOW) as tmp:
+        def _inject(_d=tmp):
+            with open(f"{_d}/agent.log", "a", encoding="utf-8") as fh:
+                fh.write(gate._turn_line(NOW - timedelta(hours=1), tid="cccccccc"))
+        rolling, bucket = gate.measure(7, between=_inject)
+    assert (rolling, bucket) == (1, 1)
+
+
+def test_jitter_two_anchors_would_drift_but_single_anchor_does_not():
+    """抖动负控二：now() 每次调用前进 2h（模拟两次独立取锚）。
+
+    行落在 NOW-167h：对 anchor=NOW 在窗内、对 anchor=NOW+2h 已在窗外
+    ⇒ 两次取锚会 delta=-1（假 DRIFT）；单锚点 ⇒ 两段同界 (1, 1)。
+    """
+    class _AdvancingDatetime(datetime):
+        _n = 0
+
+        @classmethod
+        def now(cls, tz=None):
+            cls._n += 1
+            return NOW + timedelta(hours=(cls._n - 1) * 2)
+
+    with gate._fixture({"agent.log": gate._turn_line(NOW - timedelta(hours=167))}, None):
+        gate.slo.datetime = _AdvancingDatetime
+        rc, rolling, bucket, detail = gate.evaluate(7)
+    assert (rolling, bucket) == (1, 1), detail
+    assert rc == 0

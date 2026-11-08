@@ -56,10 +56,42 @@ def _load_slo():
 slo = _load_slo()
 
 
-def measure(days=7):
-    """返回 (② 数到的 turn 数, ⑤ 数到的 turn 数)。"""
-    turns, _sessions = slo.parse_log(days)
-    eff_turns, _single, _ptok = slo._efficiency_stats(days)
+@contextmanager
+def _frozen_lines():
+    """一次性快照：本次判定只读一遍日志，两段各在**同一份**行上计数。
+
+    为什么必须有它（2026-11-08 复跑反馈实证）：闸不是原子快照 —— ② 与 ⑤ 各自
+    重新 `_iter_log_lines()`，两段之间 gateway 若又写进一条 turn，⑤ 就比 ② 多一条
+    ⇒ delta=+1 ⇒ 报 DRIFT（假红）。同一天里同一检查器一会儿红一会儿绿，红的时候
+    说明不了任何事。只共享 anchor 只封得住「窗口边界滑移」，封不住「运行期追加」；
+    封追加只能靠**读一份**。
+    """
+    lines = list(slo._iter_log_lines())
+    saved = slo._iter_log_lines
+    slo._iter_log_lines = lambda: iter(lines)
+    try:
+        yield lines
+    finally:
+        slo._iter_log_lines = saved
+
+
+def measure(days=7, anchor=None, between=None):
+    """返回 (② 数到的 turn 数, ⑤ 数到的 turn 数)。
+
+    两条不变量（假红的两个来源，逐条封死）：
+    1. **单锚点**：一次运行只取一次 now()，显式传给两段 —— 两段 cutoff 同界；
+    2. **单快照**：两段读同一份行列表 —— 两段之间新写入的 turn 不参与本次判定。
+
+    `between` 仅供控制组打桩：第一段算完、第二段算之前执行（模拟「两段之间插入
+    一条 turn」），真实路径传 None。
+    """
+    if anchor is None:
+        anchor = slo.datetime.now()   # ← 全函数只有这一处取 now()
+    with _frozen_lines():
+        turns, _sessions = slo.parse_log(days, anchor=anchor)
+        if between is not None:
+            between()
+        eff_turns, _single, _ptok = slo._efficiency_stats(days, anchor=anchor)
     return len(turns), sum(eff_turns.values())
 
 
@@ -72,7 +104,7 @@ def source_presence():
     return len(files), lines
 
 
-def evaluate(days=7):
+def evaluate(days=7, between=None):
     """单点判定（main 与 selftest 共用）——返回 (rc, n_rolling, n_bucket, detail)。"""
     n_files, n_lines = source_presence()
     if n_files == 0:
@@ -82,7 +114,7 @@ def evaluate(days=7):
         return (2, None, None,
                 "无法判定：日志真空（%d 个文件 0 行——无采样点可比）" % n_files)
     try:
-        n_rolling, n_bucket = measure(days)
+        n_rolling, n_bucket = measure(days, between=between)
     except Exception as exc:  # 仪表故障 != 漂移 != 数据缺失
         return (2, None, None,
                 "无法判定：读盘/导入故障 %s: %s" % (type(exc).__name__, exc))
@@ -147,6 +179,31 @@ def selftest():
     with _fixture({"agent.log": _turn_line(now - timedelta(hours=3))}, now):
         rc, a, b, _d = evaluate(7)
     results.append(("正控 单文件+窗口内 应一致 rc=0", 0, rc, (1, 1), (a, b)))
+
+    # 抖动负控一（2026-11-08 复跑反馈 · 你抓到的那次假红）：两段之间插入一条新 turn
+    # 快照不成立时 ⑤ 会比 ② 多一条 => delta=+1 => 假 DRIFT。修后仍须 rc=0。
+    with _fixture({"agent.log": _turn_line(now - timedelta(hours=3))}, now) as _tmp:
+        def _inject(_d=_tmp):
+            with open(os.path.join(_d, "agent.log"), "a", encoding="utf-8") as fh:
+                fh.write(_turn_line(now - timedelta(hours=1), tid="cccccccc"))
+        rc, a, b, _d = evaluate(7, between=_inject)
+    results.append(("抖动负控 两段间插入 1 条 turn 应仍一致 rc=0", 0, rc, (1, 1), (a, b)))
+
+    # 抖动负控二：让 now() 每次调用前进 2h（模拟两次独立取锚）。
+    # 一行落在 now-167h：对 anchor=now 在窗内、对 anchor=now+2h 已在窗外
+    # => 两段各取现在时 delta=-1（假 DRIFT）。单锚点后两段同界 => 一致。
+    class _AdvancingDatetime(datetime):
+        _n = 0
+
+        @classmethod
+        def now(cls, tz=None):
+            cls._n += 1
+            return now + timedelta(hours=(cls._n - 1) * 2)
+
+    with _fixture({"agent.log": _turn_line(now - timedelta(hours=167))}, None):
+        slo.datetime = _AdvancingDatetime
+        rc, a, b, _d = evaluate(7)
+    results.append(("抖动负控 两次取锚各不同 应仍一致 rc=0", 0, rc, (1, 1), (a, b)))
 
     # D2 收档正控：主档 + 轮转档都在窗口内 => 两边都要数到 2（改前 ② 只数 1）
     with _fixture({
