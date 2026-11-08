@@ -24,14 +24,20 @@ TURN_RE 与 EFF_TURN_RE 实测命中同一批行（168h 窗口内 turn=1746 / ef
 => 「两数应当相等」成立。若两条正则分家，probe_same_line_class() 会先红，
 不会把「指标不同」误报成「漂移」。
 
-## rc 语义（三态 · D3 2026-11-08）
+## rc 语义（四态 · D3 2026-11-08 三态 + D4 2026-11-08 拆出仪表故障）
 
 - `0` 一致（含「数据源存在但窗口内无采样点」⇒ 两边同为 0）
 - `1` 不一致 = 口径漂移
-- `2` **无法判定**：空目录 / 日志真空（0 行）/ 读盘或导入故障
+- `2` **数据缺失**：空目录 / 日志真空（0 行）
+- `3` **仪表故障**：枚举/读盘/导入/读数过程抛异常 —— 仪表坏了 != 没数据
+
+**为什么把 2 拆成 2/3**：三态时「日志还没生成」（等一个 cron 周期就好）与「探针自身抛异常」
+（要去改代码）报同一个 rc ⇒ 看板/巡检按 rc 分不出「等」还是「修」。拆开后 2 = 数据侧等待，
+3 = 代码侧必修。
 
 **数据缺失禁落 0**：无文件、无行都必须 rc=2 —— 旧实现下「两边都是 0」会被印成 PASS，
 把「仪表没接上数据」读成「口径一致」（假绿），这正是本闸要防的主要事故。
+**故障禁落 1**：异常不是漂移 —— 落 1 会把人引去查口径（查不出东西），落 0 会假绿。
 """
 import importlib.util
 import os
@@ -105,19 +111,27 @@ def source_presence():
 
 
 def evaluate(days=7, between=None):
-    """单点判定（main 与 selftest 共用）——返回 (rc, n_rolling, n_bucket, detail)。"""
-    n_files, n_lines = source_presence()
+    """单点判定（main 与 selftest 共用）——返回 (rc, n_rolling, n_bucket, detail)。
+
+    四态：`0` 一致 / `1` 漂移 / `2` 数据缺失 / `3` 仪表故障。
+    异常一律落 3：落 2 会把「探针坏了」说成「没数据」（等就有了），落 1 会把人引去查口径。
+    """
+    try:
+        n_files, n_lines = source_presence()
+    except Exception as exc:  # 枚举/读盘故障 = 探针自身坏了，不是没数据
+        return (3, None, None,
+                "仪表故障：数据源枚举/读盘异常 %s: %s" % (type(exc).__name__, exc))
     if n_files == 0:
         return (2, None, None,
-                "无法判定：数据源为空目录（glob 无文件——日志未生成或被清理）")
+                "数据缺失：空目录（glob 无文件——日志未生成或被清理）")
     if n_lines == 0:
         return (2, None, None,
-                "无法判定：日志真空（%d 个文件 0 行——无采样点可比）" % n_files)
+                "数据缺失：日志真空（%d 个文件 0 行——无采样点可比）" % n_files)
     try:
         n_rolling, n_bucket = measure(days, between=between)
     except Exception as exc:  # 仪表故障 != 漂移 != 数据缺失
-        return (2, None, None,
-                "无法判定：读盘/导入故障 %s: %s" % (type(exc).__name__, exc))
+        return (3, None, None,
+                "仪表故障：读数过程异常 %s: %s" % (type(exc).__name__, exc))
     if n_rolling == n_bucket:
         detail = "一致" if n_rolling else "一致（数据源存在，但窗口内无采样点）"
         return (0, n_rolling, n_bucket, detail)
@@ -171,7 +185,7 @@ def probe_same_line_class():
 
 
 def selftest():
-    """三态 + 两向自检。返回 rc（0 全过 / 1 有控制组不符预期）。"""
+    """四态 + 两向自检（11 例）。返回 rc（0 全过 / 1 有控制组不符预期）。"""
     now = datetime(2026, 11, 8, 10, 0, 0)
     results = []  # (名字, 期望 rc, 实得 rc, 期望 n 对, 实得 n 对)
 
@@ -232,6 +246,34 @@ def selftest():
         rc, a, b, _d = evaluate(7)
     results.append(("D3 负控 日志真空 应 rc=2", 2, rc, (None, None), (a, b)))
 
+    # D4 负控一：仪表故障——数据源枚举抛异常 ⇒ rc=3（不是 2「没数据」，也不是 1「漂移」）
+    with _fixture({"agent.log": _turn_line(now - timedelta(hours=3))}, now):
+        _saved_lsf = slo._log_source_files
+
+        def _boom_lsf():
+            raise OSError("stub: 数据源枚举故障")
+
+        slo._log_source_files = _boom_lsf
+        try:
+            rc, a, b, _d = evaluate(7)
+        finally:
+            slo._log_source_files = _saved_lsf
+    results.append(("D4 负控 源枚举故障 应 rc=3", 3, rc, (None, None), (a, b)))
+
+    # D4 负控二：读数过程抛异常 ⇒ rc=3
+    with _fixture({"agent.log": _turn_line(now - timedelta(hours=3))}, now):
+        _saved_pl = slo.parse_log
+
+        def _boom_pl(*_args, **_kwargs):
+            raise RuntimeError("stub: 读数故障")
+
+        slo.parse_log = _boom_pl
+        try:
+            rc, a, b, _d = evaluate(7)
+        finally:
+            slo.parse_log = _saved_pl
+    results.append(("D4 负控 读数异常 应 rc=3", 3, rc, (None, None), (a, b)))
+
     # 边界：数据存在但窗口内无采样点 => 两边同为 0，判一致 rc=0（不是无法判定）
     with _fixture({"agent.log": _turn_line(datetime(2020, 1, 1, 0, 0, 0))}, now):
         rc, a, b, _d = evaluate(7)
@@ -263,6 +305,9 @@ def main(argv):
     if rc == 2:
         print(f"[口径一致闸] rc=2 {detail}")
         return 2
+    if rc == 3:
+        print(f"[口径一致闸] rc=3 {detail}")
+        return 3
     print(f"[口径一致闸] ② parse_log({days}) n={n_rolling}")
     print(f"[口径一致闸] ⑤ _efficiency_stats({days}) n={n_bucket}")
     print(f"[口径一致闸] delta={n_bucket - n_rolling:+d}")

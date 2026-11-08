@@ -8,6 +8,7 @@
 | D2 收档同源 | ② 偷回单文件口径（改前 ② 只数 1，⑤ 数 2） |
 | 负控 造 1 条偏差 | 闸对真实偏离失明（漂移报不出来） |
 | D3 空目录 / 日志真空 | **数据缺失被印成 0 = 假绿**（本次 D3 的主目标） |
+| D4 仪表故障（源枚举 / 读数抛异常） | **仪表坏了与「没数据」同码**（rc=3 与 rc=2 分流） |
 | 边界 窗口内无采样点 | 把「没流量」误判成「无法判定」 |
 | rc 报出层两向 | main() 接线短路（永远 rc=0 或永远 rc≠0） |
 | 真实日志 ratchet | 两段在真数据上必须相等（改前 1472 vs 1806 的已知漂移） |
@@ -82,6 +83,58 @@ def test_d3_log_vacuum_is_undecidable_not_zero():
         rc, rolling, bucket, detail = gate.evaluate(7)
     assert rc == 2, detail
     assert (rolling, bucket) == (None, None)
+
+
+def test_d4_source_enum_fault_is_gauge_fault_rc3():
+    """D4 负控一：数据源枚举抛异常 ⇒ rc=3。
+
+    防「仪表坏了被说成没数据」：三态时异常与空目录同码 rc=2，值班只会等，不会修。
+    """
+    with gate._fixture({"agent.log": gate._turn_line(NOW - timedelta(hours=3))}, NOW):
+        saved = gate.slo._log_source_files
+
+        def _boom():
+            raise OSError("stub: 数据源枚举故障")
+
+        gate.slo._log_source_files = _boom
+        try:
+            rc, rolling, bucket, detail = gate.evaluate(7)
+        finally:
+            gate.slo._log_source_files = saved
+    assert rc == 3, detail
+    assert (rolling, bucket) == (None, None)
+
+
+def test_d4_measure_fault_is_gauge_fault_rc3():
+    """D4 负控二：读数过程抛异常 ⇒ rc=3（不是 1「漂移」——异常不是口径问题）。"""
+    with gate._fixture({"agent.log": gate._turn_line(NOW - timedelta(hours=3))}, NOW):
+        saved = gate.slo.parse_log
+
+        def _boom(*_args, **_kwargs):
+            raise RuntimeError("stub: 读数故障")
+
+        gate.slo.parse_log = _boom
+        try:
+            rc, rolling, bucket, detail = gate.evaluate(7)
+        finally:
+            gate.slo.parse_log = saved
+    assert rc == 3, detail
+    assert (rolling, bucket) == (None, None)
+
+
+def test_main_rc_reports_gauge_fault_as_3():
+    """rc 报出层 D4：main() 必须把 3 原样报出（防「算出来了却印成 2」的接线漏）。"""
+    with gate._fixture({"agent.log": gate._turn_line(NOW - timedelta(hours=3))}, NOW):
+        saved = gate.slo.parse_log
+
+        def _boom(*_args, **_kwargs):
+            raise RuntimeError("stub: 读数故障")
+
+        gate.slo.parse_log = _boom
+        try:
+            assert gate.main([]) == 3
+        finally:
+            gate.slo.parse_log = saved
 
 
 def test_boundary_no_sample_in_window_is_agreement():
