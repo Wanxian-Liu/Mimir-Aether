@@ -6,22 +6,16 @@
 """
 import sys, os, asyncio, json
 
-def _inject_key():
-    """从用户.env注入真key"""
-    home = os.path.expanduser("~/.mimiraether")
-    for line in open(os.path.join(home, ".env")):
-        if line.startswith("DEEPSEEK_API_KEY="):
-            os.environ["DEEPSEEK_API_KEY"] = line.strip().split("=", 1)[1]
-            break
-    return os.environ.get("DEEPSEEK_API_KEY", "")
-
 async def main():
     task = sys.argv[1] if len(sys.argv) > 1 else ""
     if not task:
         print("用法: python3 mimir-activator.py '任务内容'")
         return 1
 
-    key = _inject_key()
+    # 2026-11-08：删除自写 key 注入（原读用户 env 文件）。统一走 canonical loader。
+    from mimir_cli.env_loader import load_hermes_dotenv
+    load_hermes_dotenv()
+    key = os.environ.get("DEEPSEEK_API_KEY", "")
     print(f"🔑 key注入: 前缀{key[:5]} 长度{len(key)}")
 
     from mimir_cli.task_runner import run_task

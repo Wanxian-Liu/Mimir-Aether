@@ -16,8 +16,8 @@ from datetime import datetime, timezone
 #
 # 旧源码：git show 1528109^:scripts/run_distillation_standalone.py
 # 现行入口：scripts/run_dream_distillation.py（cron 每日 23:00 北京时间）
-# 另注：下方 inject_key() 硬编码 known_pid=[1719]，靠读他人 /proc/PID/environ
-#       取 key —— 该 PID 早已不存在，且这条路本身就是不该保留的通道。
+# 另注：原 inject_key() 硬编码 known_pid=[1719] + 扫 /proc 的通道已于 2026-11-08
+#       按裁定删除（回滚见 ~/.mimiraether/backups/inject-key-removal/）。
 # ─────────────────────────────────────────────────────────────────────────────
 sys.stderr.write(
     "[DEAD-SCRIPT] run_distillation_standalone.py 已停用（2026-11-04）：\n"
@@ -28,42 +28,10 @@ sys.exit(2)
 
 PERSISTENT_PATH = os.path.expanduser("~/.mimiraether/data/persistent.json")
 
-# ── Step 1: Inject API key from /proc ─────────────────────────────────────
-def inject_key():
-    for known_pid in [1719]:
-        try:
-            p = f"/proc/{known_pid}/environ"
-            with open(p, "rb") as f:
-                raw = f.read()
-            for entry in raw.split(b"\x00"):
-                if entry.startswith(b"DEEPSEEK_API_KEY=***"):
-                    val = entry.split(b"=", 1)[1].decode(errors="replace")
-                    if val and val != "***" and len(val) >= 30:
-                        os.environ["DEEPSEEK_API_KEY"] = val
-                        print(f"[OK] key injected from PID {known_pid} (len={len(val)})")
-                        return True
-        except (PermissionError, FileNotFoundError, OSError):
-            pass
-    
-    # Fallback: scan all PIDs
-    pids = sorted([int(e) for e in os.listdir("/proc") if e.isdigit() and int(e) > 0])
-    for pid in pids:
-        try:
-            p = f"/proc/{pid}/environ"
-            with open(p, "rb") as f:
-                raw = f.read()
-            for entry in raw.split(b"\x00"):
-                if entry.startswith(b"DEEPSEEK_API_KEY=***"):
-                    val = entry.split(b"=", 1)[1].decode(errors="replace")
-                    if val and val != "***" and len(val) >= 30:
-                        os.environ["DEEPSEEK_API_KEY"] = val
-                        print(f"[OK] key injected from PID {pid} (len={len(val)})")
-                        return True
-        except (PermissionError, FileNotFoundError, OSError):
-            continue
-    
-    print("[FAIL] no valid key found in /proc")
-    return False
+# ── Step 1: API key —— 2026-11-08 刘哥裁定删除 `inject_key` 硬编码 PID 通道
+#   理由：known_pid=[1719] 早已不存在 + 扫 /proc/*/environ 读他人进程环境是
+#   不该保留的通道（不可靠且越权）。key 一律从进程环境取（见 __main__）。
+#   回滚：cp ~/.mimiraether/backups/inject-key-removal/scripts__run_distillation_standalone.py .
 
 # ── Step 2: Build distillation prompt ──────────────────────────────────────
 DISTILLATION_SYSTEM_PROMPT = """你是一个梦境记忆蒸馏系统。你的任务是将输入的大量决策和模式记忆去重、合并、精炼。
@@ -178,9 +146,8 @@ if __name__ == "__main__":
     print("梦境蒸馏 — 独立模式")
     print("=" * 50)
     
-    if not inject_key():
-        sys.exit(1)
-    
+    # 2026-11-08：inject_key 通道已删，key 直接取进程环境（删前备份见 backups/inject-key-removal/）
+
     api_key = os.environ.get("DEEPSEEK_API_KEY", "")
     if not api_key or api_key == "***" or len(api_key) < 30:
         print("[FAIL] no valid api_key after injection")
