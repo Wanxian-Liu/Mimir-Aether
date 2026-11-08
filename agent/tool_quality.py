@@ -180,6 +180,7 @@ class ToolQualityRecord:
     total_duration_ms: float = 0.0
     recent_executions: List[ExecutionRecord] = field(default_factory=list)
     llm_flagged_count: int = 0
+    failure_reasons: Dict[str, int] = field(default_factory=dict)
     first_seen: str = ""
     last_updated: str = ""
 
@@ -227,6 +228,9 @@ class ToolQualityRecord:
         self.total_duration_ms += rec.duration_ms
         if rec.success:
             self.success_count += 1
+        else:
+            _cls = classify_failure(rec.error_message)
+            self.failure_reasons[_cls] = self.failure_reasons.get(_cls, 0) + 1
         self.recent_executions.append(rec)
         if len(self.recent_executions) > self.MAX_RECENT:
             self.recent_executions = self.recent_executions[-self.MAX_RECENT:]
@@ -244,10 +248,51 @@ CREATE TABLE IF NOT EXISTS tool_quality (
     total_duration_ms REAL DEFAULT 0.0,
     recent_executions TEXT DEFAULT '[]',
     llm_flagged_count INTEGER DEFAULT 0,
+    failure_reasons TEXT DEFAULT '{}',
     first_seen  TEXT NOT NULL,
     last_updated TEXT NOT NULL
 );
 """
+
+
+# ===== failure-reason 留痕（P3 · 2026-11-08 BEGIN） =====
+# 背景（卡2-②）：本表原本只有 success_count，失败原因无处落盘 ⇒ skill_manage
+# 76 次失败（330/254）无法拆解。实测历史 76 条里只有 1 条能在 recent_executions
+# 窗口内找到 error_message，其余全丢 ⇒ 本列只对**新增**失败生效，历史不可回溯。
+FAILURE_REASON_CLASSES = (
+    "not_found", "timeout", "blocked_by_policy", "invalid_args",
+    "permission", "rate_limit", "network", "unknown", "other",
+)
+
+
+def classify_failure(error_message: str) -> str:
+    """Map a tool error message to one failure-reason class (pure function).
+
+    Deterministic keyword match, first hit wins. Empty message maps to
+    ``unknown`` (a failure was recorded but no reason is known) — kept distinct
+    from ``other`` (a reason exists but matches no class) so that silent
+    failures stay visible instead of being absorbed into a catch-all.
+    """
+    msg = (error_message or "").strip().lower()
+    if not msg:
+        return "unknown"
+    table = (
+        ("not_found", ("not found", "no such file", "does not exist", "no such skill")),
+        ("timeout", ("timeout", "timed out", "time out")),
+        ("blocked_by_policy", ("blocked", "whitelist", "not allowed", "denied by")),
+        ("permission", ("permission", "eacces", "read-only", "forbidden")),
+        ("rate_limit", ("rate limit", "429", "too many requests")),
+        ("network", ("connection", "network", "dns", "resolve", "unreachable", "ssl")),
+        ("invalid_args", ("invalid", "validation", "missing required",
+                          "required argument", "unknown argument",
+                          "unexpected keyword", "schema")),
+    )
+    for cls, keys in table:
+        for k in keys:
+            if k in msg:
+                return cls
+    return "other"
+# ===== failure-reason 留痕（P3）END =====
 
 
 def _db_retry(max_retries: int = 5, initial_delay: float = 0.1, backoff: float = 2.0):
@@ -281,15 +326,32 @@ class ToolQualityStore:
         with self._lock, sqlite3.connect(str(self._db_path)) as conn:
             conn.execute("PRAGMA journal_mode=WAL")
             conn.executescript(_SCHEMA)
+            # 迁移（旧库无 failure_reasons 列）：ADD COLUMN 廉价且可重复执行
+            _cols = {r[1] for r in conn.execute("PRAGMA table_info(tool_quality)")}
+            if "failure_reasons" not in _cols:
+                conn.execute(
+                    "ALTER TABLE tool_quality ADD COLUMN failure_reasons TEXT DEFAULT '{}'"
+                )
             conn.commit()
 
     @_db_retry()
     def load_all(self) -> Dict[str, ToolQualityRecord]:
         records: Dict[str, ToolQualityRecord] = {}
         with self._lock, sqlite3.connect(str(self._db_path)) as conn:
-            rows = conn.execute("SELECT * FROM tool_quality").fetchall()
+            # 显式列名（不用 SELECT *）：ALTER TABLE 追加的列在末尾，而新建库
+            # 的列序与 dataclass 一致 —— 位置索引会在两种库之间错位。
+            rows = conn.execute(
+                """SELECT tool_key, tool_name, total_calls, success_count,
+                          total_duration_ms, recent_executions, llm_flagged_count,
+                          failure_reasons, first_seen, last_updated
+                   FROM tool_quality"""
+            ).fetchall()
         for row in rows:
             recent = [ExecutionRecord(**r) for r in json.loads(row[5])]
+            try:
+                fr = json.loads(row[7]) if row[7] else {}
+            except (TypeError, ValueError):
+                fr = {}
             rec = ToolQualityRecord(
                 tool_key=row[0],
                 tool_name=row[1],
@@ -298,8 +360,9 @@ class ToolQualityStore:
                 total_duration_ms=row[4],
                 recent_executions=recent,
                 llm_flagged_count=row[6],
-                first_seen=row[7],
-                last_updated=row[8],
+                failure_reasons=fr,
+                first_seen=row[8],
+                last_updated=row[9],
             )
             records[rec.tool_key] = rec
         return records
@@ -317,11 +380,13 @@ class ToolQualityStore:
                 """INSERT OR REPLACE INTO tool_quality
                    (tool_key, tool_name, total_calls, success_count,
                     total_duration_ms, recent_executions, llm_flagged_count,
-                    first_seen, last_updated)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    failure_reasons, first_seen, last_updated)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (record.tool_key, record.tool_name, record.total_calls,
                  record.success_count, record.total_duration_ms, recent_json,
-                 record.llm_flagged_count, record.first_seen, record.last_updated),
+                 record.llm_flagged_count,
+                 json.dumps(record.failure_reasons, ensure_ascii=False),
+                 record.first_seen, record.last_updated),
             )
             conn.commit()
 
