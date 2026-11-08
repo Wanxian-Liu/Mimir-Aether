@@ -1,13 +1,20 @@
-"""闸 A 用例（2026-11-08）：② 与 ⑤ 同 days 下读数必须相等。
+"""闸 A 用例（2026-11-08 · D1/D2/D3 口径统一后重写）
 
-三个控制组证明闸**有鉴别力**（该红能红、该绿能绿、两轴分得开），
-一个 ratchet 用例锁住真实数据的已知漂移（修好后会自动变 XPASS 逼人摘标记）。
+控制组分工（每一组都防一个具体的假绿/假红）：
+
+| 用例 | 防什么 |
+|:--|:--|
+| 正控 单文件窗口内 | 闸恒红（实现坏了永远报不等） |
+| D2 收档同源 | ② 偷回单文件口径（改前 ② 只数 1，⑤ 数 2） |
+| 负控 造 1 条偏差 | 闸对真实偏离失明（漂移报不出来） |
+| D3 空目录 / 日志真空 | **数据缺失被印成 0 = 假绿**（本次 D3 的主目标） |
+| 边界 窗口内无采样点 | 把「没流量」误判成「无法判定」 |
+| rc 报出层两向 | main() 接线短路（永远 rc=0 或永远 rc≠0） |
+| 真实日志 ratchet | 两段在真数据上必须相等（改前 1472 vs 1806 的已知漂移） |
 """
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-
-import pytest
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "scripts"))
@@ -19,46 +26,70 @@ NOW = datetime(2026, 11, 8, 10, 0, 0)
 
 
 def test_positive_control_single_file_recent_agrees():
-    """正控：隔离单文件 + 窗口内 ⇒ 两轴都不触发 ⇒ 必须相等。
+    """正控：隔离单文件 + 窗口内 ⇒ 两段都数到 1、rc=0。
 
-    这条防「闸恒红」——若闸实现坏了永远报不等，它就红。
+    防「闸恒红」——若闸实现坏了永远报不等，它就红。
     """
     with gate._fixture({"agent.log": gate._turn_line(NOW - timedelta(hours=3))}, NOW):
-        rolling, bucket = gate.measure(7)
-    assert rolling == bucket == 1
+        rc, rolling, bucket, _detail = gate.evaluate(7)
+    assert (rolling, bucket) == (1, 1)
+    assert rc == 0
 
 
-def test_negative_window_axis_detected():
-    """负控一（窗口轴）：turn 在 168h 外但同一日历日内 ⇒ 必须被检出不等。
+def test_d2_rotation_files_counted_by_both():
+    """D2 正控：主档 + 轮转档都在窗口内 ⇒ 两段都必须数到 2（同源）。
 
-    173h 前 = 11-01 05:00（相对 11-08 10:00）：② 按 168h 丢，⑤ 按日期 >= 11-01 收。
-    """
-    with gate._fixture({"agent.log": gate._turn_line(datetime(2026, 11, 1, 5, 0, 0))}, NOW):
-        rolling, bucket = gate.measure(7)
-    assert rolling == 0
-    assert bucket == 1
-    assert rolling != bucket
-
-
-def test_negative_source_axis_detected():
-    """负控二（数据源轴）：轮转档里有 turn ⇒ 必须被检出不等。
-
-    ② 只 open(LOG_FILE) 读到 1；⑤ glob 到 agent.log* 读到 2。
+    改前 ② 只 open(LOG_FILE)=1、⑤ glob=2 ⇒ delta=1；这条锁住「② 别偷回单文件口径」。
     """
     with gate._fixture({
         "agent.log": gate._turn_line(NOW - timedelta(hours=3)),
         "agent.log.1": gate._turn_line(NOW - timedelta(hours=4), tid="bbbbbbbb"),
     }, NOW):
-        rolling, bucket = gate.measure(7)
-    assert rolling == 1
-    assert bucket == 2
+        rc, rolling, bucket, _detail = gate.evaluate(7)
+    assert (rolling, bucket) == (2, 2)
+    assert rc == 0
 
 
-def test_both_empty_is_agreement():
-    """边界：两边都是 0 必须判一致（防「空窗口恒红」把无数据读成漂移）。"""
+def test_negative_one_line_drift_detected():
+    """负控（造 1 条偏差）：大写 tid 行只有 ⑤ 命中 ⇒ 两段差 1 ⇒ 必须 rc=1。
+
+    这是「闸有鉴别力」的最小样本：不是造两套窗口，而是造**同一份数据里 1 行不可比**。
+    """
+    with gate._fixture({
+        "agent.log": gate._turn_line(NOW - timedelta(hours=3)),
+        "agent.log.1": gate._turn_line(NOW - timedelta(hours=4), tid="AAAAAAAA"),
+    }, NOW):
+        rc, rolling, bucket, _detail = gate.evaluate(7)
+    assert bucket - rolling == 1
+    assert rc == 1
+
+
+def test_d3_empty_dir_is_undecidable_not_zero():
+    """D3 负控一：空目录（glob 无文件）⇒ rc=2，**绝不是 0**。
+
+    这是本次最重要的一条：旧实现下空目录会被印成「PASS 两段同源同界」（两边都 0），
+    把「仪表没接上数据」读成「口径一致」= 假绿。
+    """
+    with gate._fixture({}, NOW):
+        rc, rolling, bucket, detail = gate.evaluate(7)
+    assert rc == 2, detail
+    assert (rolling, bucket) == (None, None)
+
+
+def test_d3_log_vacuum_is_undecidable_not_zero():
+    """D3 负控二：文件在但 0 行（日志真空）⇒ rc=2，不是 0。"""
+    with gate._fixture({"agent.log": ""}, NOW):
+        rc, rolling, bucket, detail = gate.evaluate(7)
+    assert rc == 2, detail
+    assert (rolling, bucket) == (None, None)
+
+
+def test_boundary_no_sample_in_window_is_agreement():
+    """边界：数据存在但窗口内无采样点 ⇒ 两边同为 0，判一致 rc=0（不是无法判定）。"""
     with gate._fixture({"agent.log": gate._turn_line(datetime(2020, 1, 1, 0, 0, 0))}, NOW):
-        rolling, bucket = gate.measure(7)
-    assert rolling == bucket == 0
+        rc, rolling, bucket, _detail = gate.evaluate(7)
+    assert (rolling, bucket) == (0, 0)
+    assert rc == 0
 
 
 def test_both_regexes_hit_same_line_class():
@@ -77,12 +108,11 @@ def test_selftest_all_green():
 
 
 def test_main_rc_reports_drift():
-    """rc 报出层负控（2026-11-08 统筹席指出：selftest 只验到 measure 层）：漂移必须变成 rc=1。
-
-    selftest / measure 用例断言的是 `a != b`（漂移**数得出来**）；
-    本条断言的是 `main()` 的 rc（漂移**报得出来**）——两件事，中间隔着 main() 的打印与 return 接线。
-    """
-    with gate._fixture({"agent.log": gate._turn_line(datetime(2026, 11, 1, 5, 0, 0))}, NOW):
+    """rc 报出层负控：漂移必须变成 rc=1（selftest 验 measure 层，本条验 main 接线）。"""
+    with gate._fixture({
+        "agent.log": gate._turn_line(NOW - timedelta(hours=3)),
+        "agent.log.1": gate._turn_line(NOW - timedelta(hours=4), tid="AAAAAAAA"),
+    }, NOW):
         assert gate.main([]) == 1
 
 
@@ -92,12 +122,19 @@ def test_main_rc_reports_agreement():
         assert gate.main([]) == 0
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="已知漂移：② 单文件+168h滚动 vs ⑤ glob含转档+日历日字符串。"
-           "修好后本用例会 XPASS ⇒ suite 变红 ⇒ 必须摘掉本标记（ratchet）。",
-)
+def test_main_rc_reports_undecidable_on_empty_dir():
+    """rc 报出层 D3：空目录必须 rc=2（不是 0 也不是 1）。"""
+    with gate._fixture({}, NOW):
+        assert gate.main([]) == 2
+
+
 def test_live_log_parity():
-    """真实日志上两段必须相等。当前不成立（1353 vs 1687）——这就是要修的东西。"""
-    rolling, bucket = gate.measure(7)
-    assert rolling == bucket, f"② n={rolling} != ⑤ n={bucket}"
+    """真实日志上两段必须相等（ratchet）。
+
+    改前实测 ② n=1472 / ⑤ n=1806（delta +334）；D1+D2 收敛后必须 delta=0。
+    数据源不存在时本闸应报 rc=2 —— 因此本条在无日志环境会红，这是**有意的**：
+    真数据 parity 不能被「没数据」蒙过去。
+    """
+    rc, rolling, bucket, detail = gate.evaluate(7)
+    assert rc == 0, f"rc={rc} {detail} ② n={rolling} ⑤ n={bucket}"
+    assert rolling == bucket

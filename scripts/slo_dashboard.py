@@ -13,7 +13,17 @@ v3（2026-09-24 D 组三件）：
      报告头部有门禁状态位 `context_baseline_fresh=<bool>`；文件缺失 ⇒ 显式 `无数据`（不印 0）
   3. D3 口径标注：`chars/4` → `bytes//4` 粗口径（**不改算式**——保序列可比；注明**非 tokenizer 计数**）
 
-数据源: ~/.mimiraether/logs/agent.log（agent_loop turn 行 + EXIT 行）
+v4（2026-11-08 · D1/D2/D3 口径统一 · 派单裁决执行）：
+  1. **D1 窗口**：窗口改为**滚动 168 小时**（`SLO_WINDOW_HOURS`，默认 168；`SLO_DAYS` 仅兼容换算）。
+     报表标题与字段名一律写「近 168 小时」，并打印**窗口锚点（生成时刻）**+**实际最早计入行**
+     ——自证是滚动小时窗而非整日切点；禁再用「近 7 天」这类含糊词。
+  2. **D2 数据源收档**：② 段数据源由单 `agent.log` 改为与 ⑤ 同为 `agent.log*`（含轮转档）；
+     报告打印**数据源切换点**（收档起点），并声明 ② 历史序列在切换点前后**不可比**；
+     ② 段 n 跳变处写明跳变原因（口径变化，非流量突变）。
+  3. **D3 闸三态**（`scripts/check_window_parity.py`）：0 一致 / 1 偏离 / 2 无法判定；
+     **数据缺失（空目录 / 日志真空）禁落 0**。
+
+数据源: ~/.mimiraether/logs/agent.log*（D2 后 ② ⑤ 同源，含轮转档）
 输出: ~/.mimiraether/slo/YYYY-MM-DD.md
 """
 import os, re, sys, glob, subprocess, json, random
@@ -29,6 +39,15 @@ BASELINE_LOG = os.path.expanduser("~/.mimiraether/data/context_baseline.jsonl")
 
 # D2（2026-09-24）：新鲜度阈值——默认 26h（容一次漏跑），超时 ⇒ 标「数据陈旧」不静默当现值
 STALE_HOURS = float(os.environ.get("MIMIR_CONTEXT_STALE_HOURS", "26") or "26")
+
+# D1（2026-11-08）：窗口单位 = 小时。滚动 168h = 「近 168 小时」；SLO_DAYS 仅作兼容换算（day*24）。
+WINDOW_HOURS = int(float(os.environ.get("SLO_WINDOW_HOURS")
+                        or float(os.environ.get("SLO_DAYS", "7") or "7") * 24))
+
+
+def window_hours(days=None):
+    """days → 小时。days 显式给出按 days*24（兼容旧调用），否则用 WINDOW_HOURS。"""
+    return WINDOW_HOURS if days is None else int(days) * 24
 
 
 def _context_baseline_freshness(stale_hours=None):
@@ -68,52 +87,93 @@ EXIT_RE = re.compile(
     r"\[([0-9a-f]{8})\] \[EXIT\] reason=(\S+) turns=(\d+) has_written=(\S+)"
 )
 
-def parse_log(days=7):
-    """解析最近 N 天 agent.log——返回 turn 记录列表 + 会话 turns 列表"""
+def _log_source_files():
+    """D2（2026-11-08）：② ⑤ 共用同一数据源 = `agent.log*`（含轮转档）。"""
+    return sorted(glob.glob(LOG_GLOB))
+
+
+def _rotation_files():
+    """轮转档 = `agent.log*` 中除当前主档之外的档（D2 收档范围的判据）。"""
+    return [p for p in _log_source_files()
+            if os.path.abspath(p) != os.path.abspath(LOG_FILE)]
+
+
+def data_source_switch_note():
+    """D2：数据源切换点（收档起点）标记——② 由单文件改为 glob 后的口径分界。
+
+    返回可直接 append 进报告的行列表。无轮转档 ⇒ 未发生收档（仍是单文件口径）。
+    """
+    rot = _rotation_files()
+    if not rot:
+        return ["- 数据源切换点: **无**（当前仅 `agent.log` 单文件，尚未发生收档；"
+                "② 与 ⑤ 同为单文件口径）"]
+    stamps = []
+    for p in rot:
+        try:
+            with open(p, encoding="utf-8", errors="replace") as fh:
+                for line in fh:
+                    try:
+                        stamps.append(datetime.strptime(line[:19], "%Y-%m-%d %H:%M:%S"))
+                    except ValueError:
+                        continue
+        except OSError:
+            continue
+    if not stamps:
+        return ["- 数据源切换点: 轮转档 %d 个但无可解析行（空档）⇒ 收档起点不可判定" % len(rot)]
+    first, last = min(stamps), max(stamps)
+    return [
+        "- 数据源切换点（收档起点）: %s（轮转档 %d 个：%s；档内最新行 %s）"
+        % (first.strftime("%Y-%m-%d %H:%M:%S"), len(rot),
+           ", ".join(os.path.basename(p) for p in rot),
+           last.strftime("%Y-%m-%d %H:%M:%S")),
+        "- ② 历史序列在切换点前后**不可比**：切换前为单 `agent.log` 口径（只含未轮转部分），"
+        "切换后含轮转档 ⇒ 同名指标（n / P50 / P95）是两套口径的拼接，禁跨切换点比大小",
+    ]
+
+
+def parse_log(days=7, anchor=None, hours=None):
+    """解析滚动窗口内的 turn 行——返回 turn 记录列表 + 会话 turns 列表。
+
+    D1（2026-11-08）：窗口 = 滚动小时窗（默认 168h），非日历日切点。
+    D2（2026-11-08）：数据源 = `agent.log*`（含轮转档），与 ⑤ 同源。
+    """
     turns = []   # (ts, api_s, n_tools, total_s)
     sessions = defaultdict(list)  # task_id -> [turn_num,...]
-    cutoff = datetime.now() - timedelta(days=days)
-    try:
-        with open(LOG_FILE, encoding="utf-8", errors="ignore") as f:
-            for line in f:
-                ts_str = line[:19]
-                try:
-                    ts = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
-                except ValueError:
-                    continue
-                if ts < cutoff:
-                    continue
-                m = TURN_RE.search(line)
-                if m:
-                    tid, tnum, api, ntools, total = m.groups()
-                    turns.append((ts, float(api), int(ntools), float(total)))
-                    sessions[tid].append(int(tnum))
-                m2 = EXIT_RE.search(line)
-                if m2:
-                    tid, reason, tnum, hw = m2.groups()
-                    sessions.setdefault(tid, []).append(int(tnum))
-    except FileNotFoundError:
-        return [], {}
+    anchor = anchor or datetime.now()
+    cutoff = anchor - timedelta(hours=hours if hours is not None else window_hours(days))
+    for line in _iter_log_lines():
+        try:
+            ts = datetime.strptime(line[:19], "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            continue
+        if ts < cutoff:
+            continue
+        m = TURN_RE.search(line)
+        if m:
+            tid, tnum, api, ntools, total = m.groups()
+            turns.append((ts, float(api), int(ntools), float(total)))
+            sessions[tid].append(int(tnum))
+        m2 = EXIT_RE.search(line)
+        if m2:
+            tid, reason, tnum, hw = m2.groups()
+            sessions.setdefault(tid, []).append(int(tnum))
     return turns, sessions
 
+
 def parse_log_full():
-    """解析整个 agent.log（不按天截断）——用于 pre 基线回填（修复前数据）"""
+    """解析全量 `agent.log*`（不按窗口截断）——用于 pre 基线回填（修复前数据）。"""
     turns = []
-    try:
-        with open(LOG_FILE, encoding="utf-8", errors="ignore") as f:
-            for line in f:
-                ts_str = line[:19]
-                try:
-                    ts = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
-                except ValueError:
-                    continue
-                m = TURN_RE.search(line)
-                if m:
-                    tid, tnum, api, ntools, total = m.groups()
-                    turns.append((ts, float(api), int(ntools), float(total)))
-    except FileNotFoundError:
-        return []
+    for line in _iter_log_lines():
+        try:
+            ts = datetime.strptime(line[:19], "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            continue
+        m = TURN_RE.search(line)
+        if m:
+            tid, tnum, api, ntools, total = m.groups()
+            turns.append((ts, float(api), int(ntools), float(total)))
     return turns
+
 
 def percentile(sorted_vals, p):
     if not sorted_vals:
@@ -227,35 +287,46 @@ def _iter_log_lines():
             continue
 
 
-def _efficiency_stats(days=7):
-    cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+def _efficiency_stats(days=7, anchor=None, hours=None):
+    """⑤ 效率统计 —— D1（2026-11-08）：窗口改滚动小时窗（与 ② 同界）。
+
+    旧实现 `day >= (now-days).strftime('%Y-%m-%d')` 是**日历日切点**：窗口实际长度随钟点
+    在 days*24h ~ (days+1)*24h 之间摆动，与 ② 的 168h 滚动不共界 ⇒ 两段读数天然不可比。
+    """
+    anchor = anchor or datetime.now()
+    cutoff = anchor - timedelta(hours=hours if hours is not None else window_hours(days))
     turns, single, ptok = defaultdict(int), defaultdict(int), defaultdict(list)
     for line in _iter_log_lines():
+        try:
+            ts = datetime.strptime(line[:19], "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            continue
+        if ts < cutoff:
+            continue
+        day = ts.strftime("%Y-%m-%d")
         m = EFF_TURN_RE.match(line)
         if m:
-            day, n = m.group(1), int(m.group(2))
-            if day >= cutoff:
-                turns[day] += 1
-                if n <= 1:
-                    single[day] += 1
+            turns[day] += 1
+            if int(m.group(2)) <= 1:
+                single[day] += 1
             continue
         c = CACHE_RE.match(line)
         if c:
-            day, tok = c.group(1), int(c.group(2))
-            if day >= cutoff:
-                ptok[day].append(tok)
+            ptok[day].append(int(c.group(2)))
     return turns, single, ptok
 
 
-def efficiency_section(lines, days=7):
-    turns, single, ptok = _efficiency_stats(days)
+def efficiency_section(lines, days=7, hours=None, anchor=None):
+    """⑤ 效率段（D1 2026-11-08：窗口 = 滚动小时窗，与 ② 同界）。"""
+    hours = hours or window_hours(days)
+    turns, single, ptok = _efficiency_stats(days, anchor=anchor, hours=hours)
     total, total_single = sum(turns.values()), sum(single.values())
     ratio = (total_single / total * 100) if total else None
     max_ratio = float(os.environ.get("MIMIR_SLO_SINGLE_TOOL_MAX", "50") or "50")
 
     lines.append("## ⑤ 效率指标（2026-09-26 观测第 1 步）")
     lines.append("")
-    lines.append(f"### 单工具轮占比（窗口 {days} 天 · 目标 < {max_ratio:g}%）")
+    lines.append(f"### 单工具轮占比（近 {hours} 小时滚动窗口 · 目标 < {max_ratio:g}%）")
     lines.append("")
     if not total:
         lines.append("- **无数据**（窗口内无 turn 行）")
@@ -361,19 +432,20 @@ def attribution_section(lines, commits, full_turns, pre_cutoff):
     lines.append("")
 
 
-def _single_tool_ratio(days=7):
+def _single_tool_ratio(days=7, hours=None, anchor=None):
     """⑤ 段与「对照」段共用同一读数与阈值 —— 两处各写一套 = 新造 D-1 同族（口径不一）。
 
     返回 (total, total_single, ratio_or_None, max_ratio)；ratio=None 表示窗口无数据。
     """
-    turns, single, _ptok = _efficiency_stats(days)
+    hours = hours or window_hours(days)
+    turns, single, _ptok = _efficiency_stats(days, anchor=anchor, hours=hours)
     total, total_single = sum(turns.values()), sum(single.values())
     ratio = (total_single / total * 100) if total else None
     max_ratio = float(os.environ.get("MIMIR_SLO_SINGLE_TOOL_MAX", "50") or "50")
     return total, total_single, ratio, max_ratio
 
 
-def comparison_section(lines, days, session_turn_counts):
+def comparison_section(lines, days, session_turn_counts, hours=None, anchor=None):
     """对照（执行卡目标）—— D3（2026-09-30）：原为 3 行硬编码串，永不显示当前值。
 
     「402s/消息」**无对应量具**：本看板只按 turn 计时（秒/turn），而「消息」= 一次交互含 N 轮，
@@ -381,9 +453,12 @@ def comparison_section(lines, days, session_turn_counts):
     """
     lines.append("## 对照（执行卡目标）")
     lines.append("")
+    hours = hours or window_hours(days)
+    # 调用面保持 (days) 单位参数——既有用例以 lambda(days) 打桩，加 kwarg 会打断其契约；
+    # 窗口小时数由 _single_tool_ratio 内部按同一 window_hours(days) 复算（同界，无需外传）。
     total, total_single, ratio, max_ratio = _single_tool_ratio(days)
     if ratio is None:
-        lines.append(f"- 目标: 每轮工具数 1 → 2+ —— **无数据**（窗口 {days} 天内无 turn 行）")
+        lines.append(f"- 目标: 每轮工具数 1 → 2+ —— **无数据**（近 {hours} 小时内无 turn 行）")
     else:
         verdict = "✅ 达标" if ratio < max_ratio else "❌ 未达标"
         lines.append(f"- 目标: 每轮工具数 1 → 2+ —— 当前 单工具轮 **{ratio:.1f}%**"
@@ -398,7 +473,10 @@ def comparison_section(lines, days, session_turn_counts):
 
 def main():
     days = int(os.environ.get("SLO_DAYS", "7"))
-    turns, sessions = parse_log(days)
+    hours = window_hours(days)          # D1（2026-11-08）：窗口 = 滚动 168h
+    anchor = datetime.now()             # 窗口锚点（生成时刻）——全报告共用同一锚点
+    window_start = anchor - timedelta(hours=hours)
+    turns, sessions = parse_log(days, anchor=anchor, hours=hours)
     full_turns = parse_log_full()
 
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -424,12 +502,15 @@ def main():
     session_turn_counts = [max(v) if v else 0 for v in sessions.values()]
 
     lines = []
-    lines.append(f"# Mimir SLO 看板 v2 · {today}（近 {days} 天滚动）")
+    lines.append(f"# Mimir SLO 看板 v2 · {today}（近 {hours} 小时滚动窗口）")
     # D2（2026-09-24）：门禁状态位——供脚本/巡检按行解析，不靠肉眼
     lines.append(f"context_baseline_fresh={str(_context_baseline_freshness()[0]).lower()}")
     lines.append("")
-    lines.append(f"- 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    lines.append(f"- 数据源: {LOG_FILE}（滚动窗 turn 日志 {len(turns)} 条 / 全量 {len(full_turns)} 条 / 会话 {len(sessions)} 个）")
+    lines.append(f"- 窗口锚点（生成时刻）: {anchor.strftime('%Y-%m-%d %H:%M:%S')}")
+    lines.append(f"- 窗口区间: [{window_start.strftime('%Y-%m-%d %H:%M:%S')}, "
+                 f"{anchor.strftime('%Y-%m-%d %H:%M:%S')}] = 滚动 {hours} 小时（非日历日切点）")
+    lines.append(f"- 数据源: {LOG_GLOB}（D2 收档：含轮转档；滚动窗 turn 日志 {len(turns)} 条 / "
+                 f"全量 {len(full_turns)} 条 / 会话 {len(sessions)} 个）")
     lines.append("")
 
     # --- ① pre 基线回填段 ---
@@ -446,15 +527,25 @@ def main():
     n_disp, cells = stat_cells(pre_turns)
     lines.append(f"| pre（修复前） | {n_disp} | {cells[0]} | {cells[1]} | {cells[2]} | {cells[3]} |")
     n_disp, cells = stat_cells(turns)
-    lines.append(f"| 近 {days} 天滚动 | {n_disp} | {cells[0]} | {cells[1]} | {cells[2]} | {cells[3]} |")
+    lines.append(f"| 近 {hours} 小时滚动 | {n_disp} | {cells[0]} | {cells[1]} | {cells[2]} | {cells[3]} |")
     if p50_pre > 0 and p50_now > 0:
         delta = (p50_now - p50_pre) / p50_pre * 100
         lines.append("")
         lines.append(f"- P50 变化: {p50_pre:.1f}s → {p50_now:.1f}s（{delta:+.1f}%）")
     lines.append("")
 
-    # --- ② 7 天滚动窗口段 ---
-    lines.append("## ② 7 天滚动窗口（按天）")
+    # --- ② 近 168 小时滚动窗口段（D1/D2 2026-11-08：滚动小时窗 + 与 ⑤ 同源 glob）---
+    lines.append(f"## ② 近 {hours} 小时滚动窗口（按天 · 数据源 agent.log*）")
+    lines.append("")
+    lines.append(f"- 窗口: 滚动 {hours} 小时 · 锚点 {anchor.strftime('%Y-%m-%d %H:%M:%S')} − {hours}h "
+                 f"= {window_start.strftime('%Y-%m-%d %H:%M:%S')}（非日历日切点）")
+    for _note in data_source_switch_note():
+        lines.append(_note)
+    lines.append("- n 跳变说明: 本段 n 自数据源切至 `agent.log*` 起**包含轮转档历史行** ⇒ "
+                 "收档起点处 n 出现跳变；这是**口径变化不是流量突变**，跳变点前后 n 不可直接比较")
+    _earliest = min((t[0] for t in turns), default=None)
+    lines.append(f"- 实际最早计入行: {_earliest.strftime('%Y-%m-%d %H:%M:%S') if _earliest else '无数据'}"
+                 f"（校验：≥ 窗口起点 ⇒ 确认按 {hours}h 滚动切窗，不是整日切点）")
     lines.append("")
     lines.append("| 日期 | turns | P50 | P95 | P99 | mean |")
     lines.append("|:--|--:|--:|--:|--:|--:|")
@@ -493,7 +584,7 @@ def main():
 
     # --- ⑤⑥ 效率与钩子观测（2026-09-26 观测第 1 步） ---
     try:
-        efficiency_section(lines, days=days)
+        efficiency_section(lines, days=days, hours=hours, anchor=anchor)
         hook_obs_section(lines)
     except Exception as _exc:  # 观测段自身失败不得拖垮主报告
         lines.append("## ⑤ 效率指标（2026-09-26 观测第 1 步）")
@@ -543,7 +634,7 @@ def main():
     lines.append("")
 
     # --- 对照（执行卡目标）（D-3 2026-09-30：改逐项实测读数）---
-    comparison_section(lines, days, session_turn_counts)
+    comparison_section(lines, days, session_turn_counts, hours=hours, anchor=anchor)
 
     report = "\n".join(lines)
     with open(out_path, "w", encoding="utf-8") as f:
