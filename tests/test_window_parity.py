@@ -76,6 +76,22 @@ def test_selftest_all_green():
     assert gate.selftest() == 0
 
 
+def test_main_rc_reports_drift():
+    """rc 报出层负控（2026-11-08 统筹席指出：selftest 只验到 measure 层）：漂移必须变成 rc=1。
+
+    selftest / measure 用例断言的是 `a != b`（漂移**数得出来**）；
+    本条断言的是 `main()` 的 rc（漂移**报得出来**）——两件事，中间隔着 main() 的打印与 return 接线。
+    """
+    with gate._fixture({"agent.log": gate._turn_line(datetime(2026, 11, 1, 5, 0, 0))}, NOW):
+        assert gate.main([]) == 1
+
+
+def test_main_rc_reports_agreement():
+    """rc 报出层正控：两段一致必须 rc=0（防 main() 接线短路成永远非 0 ⇒ 恒红）。"""
+    with gate._fixture({"agent.log": gate._turn_line(NOW - timedelta(hours=3))}, NOW):
+        assert gate.main([]) == 0
+
+
 @pytest.mark.xfail(
     strict=True,
     reason="已知漂移：② 单文件+168h滚动 vs ⑤ glob含转档+日历日字符串。"
