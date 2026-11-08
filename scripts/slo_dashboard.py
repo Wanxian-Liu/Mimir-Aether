@@ -131,6 +131,51 @@ def data_source_switch_note():
     ]
 
 
+def log_coverage_watermark():
+    """档数水印（2026-11-08 第二刀）——治「轮转档被清 ⇒ n 回落被读成流量下降」。
+
+    ②/⑤ 的 n 是**数据源可见范围**的函数：轮转档（agent.log.1/2/3）一旦被清理，
+    同一 168h 窗口内 n 会回落。报告只印 n、不印「这次读到几档、最早一档起于何时」，
+    读者就无法区分「流量下降」与「历史档被删」两种完全不同的原因。
+
+    返回 (档数, 其中轮转档数, 最早可解析时间戳|None)；空目录 / 全空档 ⇒ (0, 0, None)。
+    """
+    files = _log_source_files()
+    earliest = None
+    for path in files:
+        try:
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                for line in fh:
+                    try:
+                        ts = datetime.strptime(line[:19], "%Y-%m-%d %H:%M:%S")
+                    except ValueError:
+                        continue
+                    if earliest is None or ts < earliest:
+                        earliest = ts
+        except OSError:
+            continue
+    return len(files), len(_rotation_files()), earliest
+
+
+def log_coverage_watermark_lines():
+    """报告头水印行（两行：档数 / 最早档起点）——`grep -cE '档数|最早档起点'` 的落点。
+
+    两行分开而不是并成一行：并成一行后 `grep -c` 只数到 1 行，读不出「两个字段都在」。
+    """
+    n_files, n_rot, earliest = log_coverage_watermark()
+    if n_files == 0:
+        return ["- 档数: 0（数据源为空目录——水印不可判定，②/⑤ 读数禁用）",
+                "- 最早档起点: 无数据（无任何 agent.log* 档）"]
+    if earliest is None:
+        return ["- 档数: %d（agent.log* 档数，其中轮转档 %d 个）" % (n_files, n_rot),
+                "- 最早档起点: 无数据（%d 档但无可解析时间戳行）" % n_files]
+    return [
+        "- 档数: %d（agent.log* 档数，其中轮转档 %d 个）" % (n_files, n_rot),
+        "- 最早档起点: %s（本次读数覆盖边界——轮转档被清后同窗口 n 会回落，"
+        "属口径变化，不是流量下降）" % earliest.strftime("%Y-%m-%d %H:%M:%S"),
+    ]
+
+
 def parse_log(days=7, anchor=None, hours=None):
     """解析滚动窗口内的 turn 行——返回 turn 记录列表 + 会话 turns 列表。
 
@@ -511,6 +556,8 @@ def main():
                  f"{anchor.strftime('%Y-%m-%d %H:%M:%S')}] = 滚动 {hours} 小时（非日历日切点）")
     lines.append(f"- 数据源: {LOG_GLOB}（D2 收档：含轮转档；滚动窗 turn 日志 {len(turns)} 条 / "
                  f"全量 {len(full_turns)} 条 / 会话 {len(sessions)} 个）")
+    for _wm in log_coverage_watermark_lines():
+        lines.append(_wm)
     lines.append("")
 
     # --- ① pre 基线回填段 ---
