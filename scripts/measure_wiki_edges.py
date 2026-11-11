@@ -123,7 +123,14 @@ def measure(wiki: Path, surface: str, criterion: str) -> dict:
         if u >= 2:
             union_ge2 += 1
     n = len(cards)
-    islands = n - union_ge1
+    # v3 fix（2026-11-11 内部三席会 A/C 席实证）：islands 曾恒用 union_ge1 计算，
+    # 导致 --criterion 开关对**头条指标**无效（body/fm/union 三次输出逐字节相同）。
+    # 头条指标必须跟 criterion 走，且分源报（禁跨口径混比）。
+    linked_by_criterion = {"body": body_ge1, "fm": fm_ge1, "union": union_ge1}
+    if criterion not in linked_by_criterion:
+        raise ValueError(f"unknown criterion: {criterion}")
+    islands_by_source = {k: n - v for k, v in linked_by_criterion.items()}
+    islands = n - linked_by_criterion[criterion]
     return {
         "surface": surface,
         "criterion": criterion,
@@ -136,6 +143,7 @@ def measure(wiki: Path, surface: str, criterion: str) -> dict:
         "union_ge1": union_ge1,
         "union_ge2": union_ge2,
         "islands": islands,
+        "islands_by_source": islands_by_source,
         "island_rate": round(islands / n, 4) if n else 0.0,
     }
 
@@ -190,6 +198,15 @@ def selftest() -> int:
             ("v2 fix: path-style target counted", single["fm_ge1"] == 2),
             ("v2 fix: style split bracket=1 plain=1",
              single["fm_edges_bracket"] == 1 and single["fm_edges_plain"] == 1),
+            # v3：头条指标必须跟 criterion 走（旧版此处只断言中间字段，故 bug 逃逸）
+            ("v3: islands body=4", single["islands_by_source"]["body"] == 4),
+            ("v3: islands fm=3", single["islands_by_source"]["fm"] == 3),
+            ("v3: headline follows criterion",
+             measure(w, "single", "body")["islands"] == 4
+             and measure(w, "single", "fm")["islands"] == 3),
+            # 负控：三口径若仍同值 ⇒ 开关又死，本项必失
+            ("v3 negative: 三口径不得同值",
+             len({single["islands_by_source"][k] for k in ("body", "fm", "union")}) == 3),
         ]
         for name, good in checks:
             print(f"  [{'PASS' if good else 'FAIL'}] {name}")
