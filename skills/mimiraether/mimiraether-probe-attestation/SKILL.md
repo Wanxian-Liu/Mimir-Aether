@@ -1366,3 +1366,19 @@ spec = importlib.util.spec_from_file_location(name, path, loader=loader)
 **可复用件**：`~/.mimiraether/scripts/patrol_verify_side_effects.py`（三态 EXECUTED/SKIPPED/NOOUTPUT + `--selftest` 正负控）。
 **扫描办法**：`grep -rn 'cron run .*>/dev/null' ~/.hermes/scripts/*.sh` ⇒ 2026-10-25 命中 1 处（`patrol-run.sh` 的 `--run` 分支仍未检查任何结果 ⇒ 同类残留）。
 
+## 同类第 27 种死法：**判据里的对象名写错 ⇒ 造与验同源同错（自检 delta≡0 的完美案例）**（2026-11-13 实测 · T53 群体试验 mimir 段）
+
+**症状**：席位给子代理的判据写 `systemctl --user show mimiraether-gateway -p ActiveState,MainPID`（**该单元名不存在**，真单元 = `mimiraether.service`）。子代理忠实执行 ⇒ `ActiveState=inactive / MainPID=0`；席位**异源复跑同一条命令** ⇒ 拿到**完全一样**的 inactive/0 ⇒ 双方一致认定为「服务挂了」。而服务实际 `active/running pid=1782 NRestarts=0`。
+
+**为什么这是探针类最危险的形态**：异源复核的保护力来自「两条独立路径」；但**判据本身是指令**，指令写错时两条路径共享同一个错 ⇒ **独立复跑不能发现判据错误**，只能发现执行失真。造（子代理）与验（席位）**同源同错、互证清白** —— 这正是「自检人=生成人 ⇒ delta≡0」的跨进程版本。
+
+**判据（三条，写死）**：
+1. **每条判据必须含「对象存在性自证」**：先命中再读数——`systemctl --user list-units --all | grep -i <名>` / `ls <路径>` / `stat <文件>` 命中 ≥1，否则后续读数**无意义**（「读数 0」无法区分「对象没坏」与「名字写错」）。
+2. **负读数（inactive/0/not found/空集）必须加一条正向消歧命令**，且消歧命令**不得复用**原判据的名字：单元类用 `list-units` 全表 grep、文件类用目录列举、DB 类用 `SELECT name FROM ...`。消歧命中 ≠ 原判据命中 ⇒ 判「判据名错」，不是「对象坏」。
+3. **派单方与执行方分离时，判据正确性归派单方**：验收结论要写清「错在判据（派单方）」还是「错在执行（子代理）」，否则会把自家判据 bug 记成下游失真。
+
+**同轮附带的第二形态（计数类判据不可逐位复跑）**：`tail -n 5000 agent.log | grep -c ERROR` 两次运行 98 vs 92 —— 日志活跃追加，**滑窗基线在跑之间变了**。⇒ 计数判据必须锁基线（行号区间 / 时间戳上界 / `wc -l` 快照），否则复核方会把「窗口滑动」误判成「作者读数造假」。
+
+**可复用问句**（派单前自问）：这条命令**跑错名字时**会返回什么？如果答案是「一个看起来正常的 0/false」，就必须先加存在性自证。
+
+
