@@ -198,6 +198,72 @@ def build_index(files: Iterable[Path]) -> Dict[str, List[str]]:
     return index
 
 
+def _parse_alias_values(body: str) -> List[str]:
+    r"""从 frontmatter 正文里取 `aliases:` 的所有取值（行内 `[a, b]` 与块状 `- a`）。
+
+    为什么不用单条正则（2026-11-14 实测踩到）：`FM_BLOCK_RE` 的捕获组止于
+    `\n---` 之前 ⇒ **块状写法的最后一个别名行没有尾换行**，
+    `((?:\s*-\s*.+\n)+)` 这类要求「每项以换行结尾」的形态会整块漏掉
+    （`aliases:\n  - 别名甲\n---` ⇒ 一个都解析不出，假红照旧）。
+    行式解析对「末行有无换行」不敏感，且块状可跨多行、可带缩进。
+    """
+    names: List[str] = []
+    lines = body.split("\n")
+    i = 0
+    while i < len(lines):
+        m = re.match(r"^aliases:\s*(.*)$", lines[i])
+        if not m:
+            i += 1
+            continue
+        rest = m.group(1).strip()
+        if rest.startswith("["):
+            names.extend(rest.strip("[]").split(","))
+            i += 1
+            continue
+        if rest:                      # 非空、非方括号：单一值形态 `aliases: 甲`
+            names.append(rest)
+            i += 1
+            continue
+        j = i + 1                     # 块状：连续 `- 值` 行
+        while j < len(lines) and re.match(r"^\s*-\s*\S", lines[j]):
+            names.append(re.sub(r"^\s*-\s*", "", lines[j]))
+            j += 1
+        i = j
+    return names
+
+
+def build_alias_index(files: Iterable[Path]) -> Dict[str, str]:
+    """frontmatter `aliases:` -> 归一化别名键（值 = 声明该别名的文件，留溯源）。
+
+    为什么必须有这一层（2026-11-14 · 知识库治理内部集中会议终裁 F1）：
+        wiki 应用（Obsidian 等）按 **basename / 全路径 / aliases** 三路解析链接，
+        而本门禁原本只建前两路（build_index）⇒ 指向别名的链接被稳定判成死链。
+        实证：`[[1Q84]]` 9 条全落 `readings/books/1Q84/reflections/*`，而
+        `concepts/1Q84-世界.md:8` 已声明 `aliases: [1Q84, 背负着疑问的世界]`
+        ⇒ 9 条 100% 假红（主尺 wiki_deadlinks.py:101 早有 `tgt in aliases`，
+        两把尺口径不一致正是会议判「门禁方修 alias 后归零」的由来）。
+
+    两种写法都收（与主尺 L63-70 同口径）：行内 `aliases: [a, b]`、块状 `- a`。
+    键用本文件 normalize()，比主尺的字面比较更宽 —— 宽的方向只减假红，
+    不会把真死链藏起来（别名命中即视为目标存在，与 wiki 应用解析一致）。
+    """
+    alias_index: Dict[str, str] = {}
+    for f in files:
+        try:
+            head = f.read_text(encoding="utf-8", errors="replace")[:4000]
+        except OSError:
+            continue
+        m = FM_BLOCK_RE.match(head)
+        if not m:
+            continue
+        names: List[str] = _parse_alias_values(m.group(1))
+        for name in names:
+            key = normalize(name.strip().strip(chr(34)).strip(chr(39)))
+            if key:
+                alias_index.setdefault(key, str(f))
+    return alias_index
+
+
 def partition_outside_surface(broken: Sequence[Dict[str, object]],
                                ext_index: Dict[str, List[str]]) -> Tuple[List[Dict[str, object]], List[Dict[str, object]]]:
     """把死链拆成 (真死链, 解析面外豁免)。
@@ -224,6 +290,28 @@ def partition_outside_surface(broken: Sequence[Dict[str, object]],
         else:
             kept.append(item)
     return kept, exempt
+
+
+def partition_alias_resolved(broken: Sequence[Dict[str, object]],
+                             alias_index: Dict[str, str]) -> Tuple[List[Dict[str, object]], List[Dict[str, object]]]:
+    """把「目标名其实是某页的 frontmatter 别名」从死链里拆出来。
+
+    判据：目标归一化名命中别名索引 ⇒ wiki 应用可解析 ⇒ 不是死链。
+    为什么不并进 find_broken_links：那是既有测试的契约面（同 partition_outside_surface
+    的理由）——纯函数可直接喂正控/负控，且豁免项带 `alias_of` 留溯源。
+    """
+    kept: List[Dict[str, object]] = []
+    resolved: List[Dict[str, object]] = []
+    for item in broken:
+        key = normalize(str(item.get("target", "")))
+        hit = alias_index.get(key)
+        if hit:
+            record = dict(item)
+            record["alias_of"] = hit
+            resolved.append(record)
+        else:
+            kept.append(item)
+    return kept, resolved
 
 
 def find_duplicates(scan_files: Sequence[Path], wiki: Path) -> Tuple[List[Tuple[str, List[str]]], List[Tuple[str, List[str]]]]:
@@ -430,13 +518,18 @@ def render_report(wiki: Path, files: Sequence[Path], resolve_count: int, dups, c
                   elapsed_s: float, list_limit: int,
                   broken_targets: Sequence[Dict[str, object]] = (), skipped_tg: int = 0,
                   stacked: Sequence[Dict[str, object]] = (),
-                  outside_exempt: Sequence[Dict[str, object]] = ()) -> Tuple[str, bool]:
+                  outside_exempt: Sequence[Dict[str, object]] = (),
+                  alias_resolved: Sequence[Dict[str, object]] = ()) -> Tuple[str, bool]:
     """返回 (报告文本, 是否有 issue)。报告首行是判定行 —— 它会被投递到飞书。"""
     ts = _dt.datetime.now().strftime("%Y-%m-%d %H:%M")
     issues = bool(dups or broken or broken_targets or stacked)
     ph_note = (" · 例举占位符跳过 " + str(skipped_ph)) if skipped_ph else ""
     if skipped_tg:
         ph_note += " · 裸路径外域跳过 " + str(skipped_tg)
+    if alias_resolved:
+        _al_t = len({str(e.get("target", "")) for e in alias_resolved})
+        ph_note += (" · 别名解析豁免 " + str(len(alias_resolved))
+                    + " 条/" + str(_al_t) + " 个目标")
     if outside_exempt:
         _ex_t = len({str(e.get("target", "")) for e in outside_exempt})
         ph_note += (" · 解析面外豁免 " + str(len(outside_exempt))
@@ -546,9 +639,16 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     index = build_index(resolve_files)
     # 第三索引面：含排除目录 —— 只用于判「目标真的不存在吗」，判完即拆分
-    ext_index = build_index(_iter_all_md_any(wiki))
+    all_md = _iter_all_md_any(wiki)
+    ext_index = build_index(all_md)
     dups, cross = find_duplicates(files, wiki)
     broken, skipped_ph = find_broken_links(files, index)
+    # 别名豁免：[[别名]] 在 wiki 应用里可解析（2026-11-14 会议终裁 F1；播报不静默）
+    # 别名索引建在**最宽存在面**（全库 .md，含 discussions/raw，只跳 .git）：
+    #   「目标存在吗」与「该不该扫」是两个问题（与本文件 _iter_all_md_any 的纪律同源），
+    #   别名解析属前者 ⇒ 与解析面外豁免同一面，避免「别名写在 discussions 卡里就失效」。
+    alias_index = build_alias_index(all_md)
+    broken, alias_resolved = partition_alias_resolved(broken, alias_index)
     # 裸名豁免：全库能找到就不是死链（播报在 render_report，不许静默）
     broken, outside_exempt = partition_outside_surface(broken, ext_index)
     broken_targets, skipped_tg = find_broken_targets(files, index)
@@ -558,7 +658,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     text, issues = render_report(wiki, files, len(resolve_files), dups, cross, broken, skipped_ph,
                                  drafts, present, missing, elapsed, args.list_limit,
-                                 broken_targets, skipped_tg, stacked, outside_exempt)
+                                 broken_targets, skipped_tg, stacked, outside_exempt,
+                                 alias_resolved)
     print(text)
 
     if args.append_log:
@@ -587,6 +688,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             "target_skipped": skipped_tg,
             "draft_count": len(drafts),
             "stacked_frontmatter_count": len(stacked),
+            "alias_resolved_count": len(alias_resolved),
+            "alias_resolved": alias_resolved[:200],
+            "alias_index_size": len(alias_index),
             "outside_exempt_count": len(outside_exempt),
             "outside_exempt_targets": sorted({str(e.get("target", "")) for e in outside_exempt}),
             "outside_exempt": outside_exempt[:200],

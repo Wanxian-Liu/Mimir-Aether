@@ -471,3 +471,45 @@ def test_issues_marker_excludes_outside_exempt(tmp_path):
     assert kv["ISSUES"] == "1", kv          # 只剩那条真死链
     assert kv["BROKEN"] == "1", kv
     assert kv["EXEMPT"] == "1", kv          # 豁免照实报数，只是不进 ISSUES
+
+
+# ---------------------------------------------------------------- 别名解析（2026-11-14 会议终裁 F1）
+
+def test_alias_link_is_not_broken(tmp_path):
+    """正控：`[[别名]]` 可解析（wiki 应用按 frontmatter aliases 解析），不算死链。
+
+    实证来源：`concepts/1Q84-世界.md:8` 声明 `aliases: [1Q84, …]`，而
+    `readings/books/1Q84/reflections/*` 里 9 条 `[[1Q84]]` 曾被本门禁稳定报成死链
+    （主尺 wiki_deadlinks.py:101 早有 `tgt in aliases` ⇒ 两把尺口径不一致）。
+    """
+    wiki = _mk_wiki(tmp_path)
+    (wiki / "concepts" / "1Q84-世界.md").write_text(
+        "---\ntitle: 1Q84 世界\naliases: [1Q84, 背负着疑问的世界]\n---\n# w\n",
+        encoding="utf-8")
+    (wiki / "concepts" / "ref.md").write_text(
+        "# r\n\n参见 [[1Q84]] 与 [[背负着疑问的世界]]\n", encoding="utf-8")
+    r = _run(wiki)
+    assert r.returncode == 0
+    assert "无问题" in r.stdout, r.stdout
+    assert "别名解析豁免 2 条/2 个目标" in r.stdout, r.stdout
+
+
+def test_alias_block_form_resolved(tmp_path):
+    """块状 `aliases:`（`- 项`）同样可解析 —— 两种写法都收（主尺 L68-70 同口径）。"""
+    wiki = _mk_wiki(tmp_path)
+    (wiki / "concepts" / "p.md").write_text(
+        "---\ntitle: p\naliases:\n  - 别名甲\n---\n# p\n", encoding="utf-8")
+    (wiki / "concepts" / "q.md").write_text("# q\n\n见 [[别名甲]]\n", encoding="utf-8")
+    r = _run(wiki)
+    assert "无问题" in r.stdout, r.stdout
+
+
+def test_unknown_alias_still_broken(tmp_path):
+    """负控：真名与该别名都不存在 ⇒ 仍必须报死链（alias 解析不得变成万能豁免）。"""
+    wiki = _mk_wiki(tmp_path)
+    (wiki / "concepts" / "p.md").write_text(
+        "---\ntitle: p\naliases: [别名甲]\n---\n# p\n", encoding="utf-8")
+    (wiki / "concepts" / "q.md").write_text("# q\n\n见 [[别名乙]]\n", encoding="utf-8")
+    r = _run(wiki)
+    assert "① 死链 1 条" in r.stdout, r.stdout
+    assert "[[别名乙]]" in r.stdout, r.stdout
