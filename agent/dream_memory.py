@@ -743,12 +743,72 @@ def _is_resolved(item) -> bool:
     return True
 
 
-def _recent_contradictions(limit: int = 5) -> List[str]:
+_STALE_SHINGLE_N = 4
+_STALE_THRESH_ABSENT = 0.20  # 引文覆盖率低于此值 ⇒ 判定已不在当前记忆
+
+
+def _quote_refs(text: str) -> List[str]:
+    """从矛盾描述里抽取被引用的条目引文（「…」优先，退化到弯引号/直引号）。"""
+    import re
+
+    raw = text or ""
+    refs = [m.group(1) for m in re.finditer(r"「([^」]{4,})」", raw)]
+    if not refs:
+        refs = [m.group(1) for m in re.finditer(r"[“\"]([^”\"]{4,})[”\"]", raw)]
+    return [" ".join(r.split()) for r in refs if r.strip()]
+
+
+def _ref_coverage(ref: str, blob_compact: str, n: int = _STALE_SHINGLE_N) -> float:
+    """字符 n-gram 覆盖率：引文有多少片段仍出现在当前记忆里（1.0 = 原样在）。
+
+    为什么不用纯子串：改写会被误判成消失。2026-11-16 实测「交付风格：可逆的我定、
+    不可逆的上收」在盘上是含「建议+我负责执行到底」的更长版本，纯子串覆盖率 0，
+    但 4-gram 覆盖率 0.786 ⇒ 明显是改写而非消失。纯子串判据会把改写当失效，
+    误删本应喂给模型的历史。
+    """
+    t = "".join((ref or "").split())
+    if not t:
+        return 1.0
+    if t in blob_compact:
+        return 1.0
+    if len(t) < n:
+        return 1.0 if t in blob_compact else 0.0
+    grams = {t[i:i + n] for i in range(len(t) - n + 1)}
+    hit = sum(1 for g in grams if g in blob_compact)
+    return hit / len(grams)
+
+
+def _stale_quote_items(text: str, blob_compact: str) -> List[str]:
+    """返回该矛盾条目中「已不在当前记忆中」的引文（空列表 = 引文全部存活）。
+
+    `blob_compact` 为空 ⇒ 返回空列表（**不过滤**）：没给当前记忆时宁可多喂历史，
+    不可误删。降级方向与 `_is_resolved` 一致 —— 判错只会让条目继续出现在 prompt
+    里（可见），不会静默消失。
+    """
+    if not blob_compact:
+        return []
+    return [
+        ref for ref in _quote_refs(text)
+        if _ref_coverage(ref, blob_compact) < _STALE_THRESH_ABSENT
+    ]
+
+
+def _recent_contradictions(limit: int = 5, current_text: str = "") -> List[str]:
     """读最近 limit 条已报告矛盾（新→旧），用于让蒸馏 prompt 具备状态。
 
     **跳过已裁定（`resolved`）条目**：裁定过的族不该继续当「已报矛盾」喂给模型
     （11-03 卡 §4-2 白名单）。条目本身**留在盘上**（审计留痕，AGENTS §5.5），
     只是不进 prompt。
+
+    **跳过引文已失效的条目（`stale_quote` · 2026-11-16 修 · 断自指环）**：
+    本函数的历史输出会进 prompt，而 prompt 又指示模型「尽量沿用该条原有措辞」
+    ⇒ 若某条历史引用的是**已被删/改写掉的记忆条目**，那句引文会被逐日复制，
+    形成「检测器拿自己的旧输出当事实源」的自指环。实证：本条目的
+    `技术难题自己想办法整理，四方只作兜底` 在 persistent.json 全文命中 0 处，
+    却从 2026-11-12 起连续 4 天被报为矛盾（repeat_count=4）。
+    现按 `current_text` 做引文存活校验，失效条目不进 prompt（仍在盘上，可审计）。
+    探针：`~/.mimiraether/scripts/dream_contradiction_probe.py`（三控自测）。
+
     **只读、失败返回空**：读不到历史不得阻塞蒸馏（降级优于失败）。
     """
     path = _get_contradiction_path()
@@ -761,17 +821,34 @@ def _recent_contradictions(limit: int = 5) -> List[str]:
         return []
     if not isinstance(data, list):
         return []
+    blob_compact = "".join((current_text or "").split())
     out: List[str] = []
+    skipped_stale = 0
+    first_stale_ref = ""
     for item in reversed(data):
         if isinstance(item, dict):
             if _is_resolved(item):
                 continue
             text = (item.get("contradiction") or "").strip()
-            if text:
-                out.append(text)
+            if not text:
+                continue
+            stale = _stale_quote_items(text, blob_compact)
+            if stale:
+                skipped_stale += 1
+                if not first_stale_ref:
+                    first_stale_ref = stale[0][:40]
+                continue
+            out.append(text)
         if len(out) >= limit:
             break
+    if skipped_stale:
+        logger.warning(
+            f"[DreamMemory] 自指环过滤：{skipped_stale} 条历史矛盾引文已不在当前记忆中"
+            f" ⇒ 不进 prompt（条目仍留盘可审计）· 例: {first_stale_ref}"
+        )
     return out
+
+
 
 def _build_distillation_prompt(
     memory_text: str, recent_contradictions: Optional[List[str]] = None
@@ -807,7 +884,10 @@ def _build_distillation_prompt(
 6. **key_decisions 不超过 {_MAX_DECISIONS} 条**
 7. **learned_patterns 不超过 {_MAX_PATTERNS} 条**
 8. **behavioral_constraints 不超过 {_MAX_CONSTRAINTS} 条**——从 key_decisions 和 learned_patterns 中提取"你应该/你不应该"格式的行为约束
-9. **self_contradiction** 为单条字符串——分析记忆条目中最严重的自我矛盾（哪个决策和哪个模式冲突）
+9. **self_contradiction** 为单条字符串。报之前**必须**过两道判据，任一不过即换下一条候选：
+   - **同轴判据**：两条是否作用于**同一决策轴**？（例：「谁来做」与「怎样算完」= 不同轴 ⇒ 不构成矛盾）
+   - **可同时满足判据**：能否构造一个情境**同时满足**两条？能 ⇒ 不是矛盾，是正交侧面
+   全部候选均不过 ⇒ 返回空字符串。**不要去凑一条**——报假矛盾的代价高于留空。
 10. **每条决策可附带 context 字段**（不超过 30 字）
 11. **每条模式可附带 evidence 字段**（不超过 50 字）
 12. **每条约束格式**：{{"rule": "你应该/你不应该...", "source": "distilled", "evidence": "基于XX条模式/决策的提炼"}}
@@ -1202,7 +1282,9 @@ async def _run_distillation(
     if dry_run:
         return data, f"[DRY RUN] 输入: {len(memory_text)} 字符，未修改", True
 
-    prompt = _build_distillation_prompt(memory_text, _recent_contradictions())
+    prompt = _build_distillation_prompt(
+        memory_text, _recent_contradictions(current_text=memory_text)
+    )
     logger.info(f"[DreamMemory] 调用蒸馏 LLM（提示词 {len(prompt)} 字符）")
     result = await _call_dream_llm(prompt)
 
