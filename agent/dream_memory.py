@@ -1292,8 +1292,10 @@ async def _run_distillation(
         return data, "❌ 梦境蒸馏 LLM 调用失败，未修改", False
 
     # 统计蒸馏前后的条目数
-    old_decisions = len(data.get("memory", {}).get("key_decisions", []))
-    old_patterns = len(data.get("memory", {}).get("learned_patterns", []))
+    _old_kd_items = list(data.get("memory", {}).get("key_decisions", []))
+    _old_lp_items = list(data.get("memory", {}).get("learned_patterns", []))
+    old_decisions = len(_old_kd_items)
+    old_patterns = len(_old_lp_items)
     old_constraints = len(data.get("memory", {}).get("behavioral_constraints", []))
     new_decisions = len(result.get("key_decisions", []))
     new_patterns = len(result.get("learned_patterns", []))
@@ -1324,6 +1326,14 @@ async def _run_distillation(
             _archive_evicted(_label, [_item], "truncation")
     data["memory"]["key_decisions"] = new_decisions_items[:_MAX_DECISIONS]
     data["memory"]["learned_patterns"] = new_patterns_items[:_MAX_PATTERNS]
+
+    # 身份集合差（2026-11-16）：把日读信号从「条数」改成「身份集合」
+    _delta = _diff_memory_arrays(
+        _old_kd_items,
+        _old_lp_items,
+        data["memory"]["key_decisions"],
+        data["memory"]["learned_patterns"],
+    )
 
     # 注入 ByteRover AKL 字段（importance / maturity / last_access / decay_factor）
     _now_akl = datetime.now(timezone.utc).isoformat()
@@ -1380,12 +1390,20 @@ async def _run_distillation(
 
     report = (
         f"🔄 梦境蒸馏完成\n"
+        f"{_delta_alert(_delta)}"
         f"  - key_decisions: {old_decisions} → {new_decisions} "
-        f"({old_decisions - new_decisions:+d})\n"
+        f"({new_decisions - old_decisions:+d})\n"
+        f"    · 身份差: added={len(_delta['key_decisions']['added'])} "
+        f"removed={len(_delta['key_decisions']['removed'])} "
+        f"kept={_delta['key_decisions']['kept']}\n"
+        f"    · 被删(前3): {[t[:40] for t in _delta['key_decisions']['_removed_text'][:3]] or '无'}\n"
         f"    · tip_type 分布: {tip_types_decisions}\n"
         f"    · cause_chain 覆盖率: {decisions_with_chain}/{new_decisions}\n"
         f"  - learned_patterns: {old_patterns} → {new_patterns} "
-        f"({old_patterns - new_patterns:+d})\n"
+        f"({new_patterns - old_patterns:+d})\n"
+        f"    · 身份差: added={len(_delta['learned_patterns']['added'])} "
+        f"removed={len(_delta['learned_patterns']['removed'])} "
+        f"kept={_delta['learned_patterns']['kept']}\n"
         f"    · tip_type 分布: {tip_types_patterns}\n"
         f"  - behavioral_constraints: {old_constraints} → {new_constraints} "
         f"({new_constraints - old_constraints:+d})\n"
@@ -1520,6 +1538,61 @@ def memory_id(text: object) -> str:
 
     norm = _norm_mem_text(text)
     return _h.sha1(norm.encode("utf-8")).hexdigest()[:12] if norm else ""
+
+
+def _diff_memory_arrays(
+    old_decisions: List, old_patterns: List, new_decisions: List, new_patterns: List
+) -> Dict[str, Dict[str, list]]:
+    """按 `memory_id()`（内容哈希）算蒸馏前后的**集合差**。
+
+    为什么不能用长度差（2026-11-16 实证）：
+    投递报告原文是 `key_decisions: {old} → {new} ({old - new:+d})` —— **长度差**且
+    符号方向反了。长度差对内容变化**完全失明**：
+    实测 10-24→11-15 共 172 次注入只有 1 种 id 组合（内容确为冻结），
+    但**即使某一晚内容全变、条数不变，旧报告依然显示 `(+0)`** ⇒ 唯一日读信号
+    无法区分「没变」与「全变了但条数相同」。本函数把信号从「条数」改成「身份集合」。
+
+    Returns: {"key_decisions": {"added": [id...], "removed": [id...], "kept": n}, ...}
+    """
+    out: Dict[str, Dict[str, list]] = {}
+    for label, olds, news, tk in (
+        ("key_decisions", old_decisions, new_decisions, "decision"),
+        ("learned_patterns", old_patterns, new_patterns, "pattern"),
+    ):
+        old_map = {}
+        for x in olds or []:
+            tid = memory_id(_item_text(x, tk))
+            if tid:
+                old_map[tid] = _item_text(x, tk)
+        new_map = {}
+        for x in news or []:
+            tid = memory_id(_item_text(x, tk))
+            if tid:
+                new_map[tid] = _item_text(x, tk)
+        out[label] = {
+            "added": [t for t in new_map if t not in old_map],
+            "removed": [t for t in old_map if t not in new_map],
+            "kept": sum(1 for t in new_map if t in old_map),
+            "_removed_text": [old_map[t] for t in old_map if t not in new_map],
+        }
+    return out
+
+
+def _delta_alert(diff: Dict[str, Dict[str, list]]) -> str:
+    """零增/零删 ⇒ 返回告警横幅；否则空串。
+
+    语义：`added == 0 and removed == 0` 表示**蒸馏这一晚对注入面毫无贡献**。
+    这是「不动点」的可观测指纹（实证：连续 22 天如此，且无人察觉）。
+    判据（正控/负控）见 tests/test_dream_memory_delta.py。
+    """
+    kd = diff.get("key_decisions", {})
+    lp = diff.get("learned_patterns", {})
+    if kd.get("added") or kd.get("removed") or lp.get("added") or lp.get("removed"):
+        return ""
+    return (
+        "[ALERT] 蒸馏零增：注入面今晚无任何变化（added=0 removed=0）"
+        " —— 连续多晚即为不动点，需人工核查 prompt 是否被自身旧输出钉住\n"
+    )
 
 
 def _injection_ledger_path() -> str:
