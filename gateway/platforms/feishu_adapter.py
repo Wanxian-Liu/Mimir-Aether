@@ -757,10 +757,18 @@ class FeishuAdapter(BasePlatformAdapter):
         # ``im.message.receive_v1`` drives the agent; others would trigger
         # lark_oapi "processor not found" ERROR spam. Register no-ops for the
         # noisy types we see in production logs.
+        # T93 (2026-11-18): reaction.created/deleted 是最大噪音源——点赞/取消
+        # 各刷 2 条 ERROR（30 天 3596 行 journalctl），注册空处理器根治。
         handler = (
             lark.EventDispatcherHandler.builder(enc, ver)
             .register_p2_im_message_receive_v1(self._sync_p2_im_message_receive_v1)
             .register_p2_im_message_message_read_v1(self._lark_noop_message_read_v1)
+            .register_p2_im_message_reaction_created_v1(
+                self._lark_noop_reaction_created_v1
+            )
+            .register_p2_im_message_reaction_deleted_v1(
+                self._lark_noop_reaction_deleted_v1
+            )
             .register_p2_im_chat_access_event_bot_p2p_chat_entered_v1(
                 self._lark_noop_bot_p2p_chat_entered_v1
             )
@@ -886,6 +894,18 @@ class FeishuAdapter(BasePlatformAdapter):
     def _lark_noop_bot_p2p_chat_entered_v1(self, _data: Any) -> None:
         """User entered bot DM — ignore for agent purposes."""
         logger.debug("[%s] Ignoring im.chat.access_event.bot_p2p_chat_entered_v1", self.name)
+
+    def _lark_noop_reaction_created_v1(self, _data: Any) -> None:
+        """表情回应添加 — T93 (2026-11-18)：观察型事件，agent 无动作。
+
+        未注册时 lark_oapi 每次点赞报 2 条 ``processor not found`` ERROR
+        （30 天 journalctl 3596 行，B4 首要噪音源）。注册空处理器即根治。
+        """
+        logger.debug("[%s] Ignoring im.message.reaction.created_v1", self.name)
+
+    def _lark_noop_reaction_deleted_v1(self, _data: Any) -> None:
+        """表情回应取消 — 同 created：注册空处理器只为消除 lark_oapi ERROR 刷屏。"""
+        logger.debug("[%s] Ignoring im.message.reaction.deleted_v1", self.name)
 
     async def _token_refresher(self) -> None:
         """后台任务：每30分钟刷新一次飞书 tenant_access_token，带心跳日志防静默停止。"""

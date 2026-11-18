@@ -2,6 +2,17 @@
 """
 Cron Health Check - Verify jobs, detect and auto-cleanup stale executions.
 Week 3 扩展: 分块写入, stale job 检测与自动清理
+
+【休眠退役 · T93/P2 2026-11-18】本脚本已判定休眠，未删除仅存档：
+- 它的 JOBS_FILE 指向 repo 内副本 cron/jobs.json（8月31日快照），不是
+  运行时真源 ~/.mimiraether/cron/jobs.json——跑了也是查错账本。
+- 全域零调用方：live jobs.json（2026-11-18 读）无本脚本条目；仓内
+  *.py/*.sh/*.json/*.md 无引用；systemd 用户 timer 无相关单元。
+- 运行时同一文件的在役实现是 cron/jobs.py 与 scheduler/jobs.py
+  （T91/B3 已加跨进程 flock 单写窗口 + 原子替换），健康检查职责由
+  网关 cron 调度器与 ~/.mimiraether/scripts/ 巡检脚本承担。
+复活前提：若要再用，先把 JOBS_FILE 改指真源并照 cron/jobs.py 的
+write_window 模式加锁——本文件旧的无锁 RMW 写法不得直接上岗。
 """
 
 import json
