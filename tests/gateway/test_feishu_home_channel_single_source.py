@@ -88,3 +88,16 @@ def test_no_source_leaves_home_channel_unset(tmp_path, monkeypatch):
     """两源皆空 ⇒ 不设 home_channel（不臆造目标；调用方须自行 loudly fail）。"""
     home = _home(tmp_path, channel=None)
     assert _gateway_read(home, monkeypatch, env_value=None) is None
+
+
+# ---------------------------------------------------------------- 鉴别力（反背题）
+def test_positive_control_has_discriminating_power(tmp_path, monkeypatch):
+    """把真源读取臂打成恒空 = 模拟改前行为 ⇒ 投递面必须回到 None。
+
+    这条不测产品行为，测**上面那条正控有没有鉴别力**：若改前改后都绿，正控就是恒绿。
+    """
+    from gateway import config as gw_config
+
+    home = _home(tmp_path)
+    monkeypatch.setattr(gw_config, "_read_truth_source_scalar", lambda *a, **k: "")
+    assert _gateway_read(home, monkeypatch, env_value=None) is None
