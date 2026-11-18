@@ -69,6 +69,21 @@ def get_mimir_data_dir() -> Path:
     return get_mimir_home() / "data"
 
 
+def get_cron_jobs_lock_path() -> Path:
+    """Sidecar flock file shared by ALL writers of cron ``jobs.json`` (T91/B3-R1).
+
+    Single source of truth so ``cron/jobs.py`` and ``scheduler/jobs.py`` — two
+    independent storage implementations over the SAME runtime file — cannot
+    drift onto different locks.  The lock is a **sidecar file**, never the
+    target: flock-on-target is incompatible with tmp→replace atomic write
+    (the fd dies at rename; ADR-001 方案 C / agent/persistent_store.py).  It
+    lives under ``data/`` ⇒ same filesystem as jobs.json ⇒ flock semantics
+    reliable, and is never renamed or deleted (flock releases on fd close,
+    so there is no stale-lock state to clean up after a crash).
+    """
+    return get_mimir_data_dir() / "cron_jobs.write.lock"
+
+
 def get_mimir_session_search_db_path() -> Path:
     """Session search SQLite path (IND-03 / ADR-003).
 

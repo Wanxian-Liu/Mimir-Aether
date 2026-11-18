@@ -4,19 +4,119 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shlex
 import sys
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from threading import RLock
 from typing import Any, Dict, List, Optional, Tuple
 
-from mimir_constants import get_mimir_home
+from mimir_constants import get_cron_jobs_lock_path, get_mimir_home
 
 MIMIR_HOME = get_mimir_home()
 JOBS_FILE = MIMIR_HOME / "cron" / "jobs.json"
 OUTPUT_DIR = MIMIR_HOME / "cron" / "output"
+
+try:  # pragma: no cover - 非 POSIX 平台无 fcntl
+    import fcntl
+except ImportError:  # pragma: no cover
+    fcntl = None  # type: ignore[assignment]
+
+
+# =============================================================================
+# P0 写路径加固（T91 · B3-R1/R2/R3）—— 跨进程单写窗口 + 原子替换 + 损坏隔离
+# -----------------------------------------------------------------------------
+# 病灶（2026-11-18 全面审计 B3）：多写方 load→modify→save 全量回写同一份
+# jobs.json，无锁无原子替换 —— 丢更新 + 撕裂写双竞态；且「一次损坏 + 一次
+# 标记回写 = 全部 cron 任务静默清零」。修法照抄仓内已验证先例：
+#   * 旁车锁   = agent/persistent_store.py（ADR-001 方案 C）：flock 锁**旁车
+#     文件**、不锁目标件 —— 与 tmp→replace 原子写兼容（rename 后 fd 失效的
+#     顾虑只对锁目标件成立）。锁路径真源 = mimir_constants.
+#     get_cron_jobs_lock_path()，flock 随 fd 关闭由内核释放，无 stale 锁清尸。
+#   * 原子写   = scripts/state_engine.py::_atomic_write_text
+#     （tmp→flush→fsync→os.replace，读者永不见半份，崩溃只丢 tmp 件）。
+#   * 损坏隔离 = load 失败先改名 .corrupt-<ts> 留盘可恢复再返 []，切断
+#     「损坏→清零」链；OSError **出声上抛**（存储不可用不许静默当空）。
+# 互指：scheduler/jobs.py 是同一运行时文件的第二套实现（字段语义不同，
+# 保形不保合未合一），靠**同一把旁车锁文件**与本模块互斥。
+# =============================================================================
+_WRITE_LOCK_FILE = get_cron_jobs_lock_path()
+_write_lock = RLock()
+_write_depth = 0
+
+
+@contextmanager
+def write_window():
+    """跨进程单写窗口：同线程可重入 · 同进程跨线程串行 · 跨进程 flock。
+
+    load→modify→save 必须整体持窗（只锁 save 挡不住丢更新）。阻塞式 flock：
+    写入均为毫秒级；持有者崩溃内核自动释放，无死锁遗留。
+    ⚠ 勿与本模块窗口嵌套 ``scheduler/jobs.write_window``（同线程双 fd flock
+    同一锁文件会自锁）——现仓无此调用路径，新增调用前先核对。
+    """
+    global _write_depth
+    with _write_lock:
+        lock_fh = None
+        if _write_depth == 0:
+            _WRITE_LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+            fh = open(_WRITE_LOCK_FILE, "a+")
+            try:
+                if fcntl is not None:
+                    fcntl.flock(fh, fcntl.LOCK_EX)
+            except BaseException:
+                fh.close()
+                raise
+            lock_fh = fh
+            _write_depth = 1
+        else:
+            _write_depth += 1
+        try:
+            yield
+        finally:
+            _write_depth -= 1
+            if _write_depth == 0 and lock_fh is not None:
+                try:
+                    if fcntl is not None:
+                        fcntl.flock(lock_fh, fcntl.LOCK_UN)
+                finally:
+                    lock_fh.close()
+
+
+def _atomic_write_json(path: Path, text: str) -> None:
+    """tmp→flush→fsync→os.replace（先例 scripts/state_engine.py::_atomic_write_text）。
+
+    读者永不见半份；中途崩溃只丢 tmp 件（顺手清走），旧数据原地完好。
+    """
+    d = path.parent
+    d.mkdir(parents=True, exist_ok=True)
+    tmp = d / f".{path.name}.tmp.{os.getpid()}"
+    try:
+        with open(tmp, "w", encoding="utf-8", newline="") as fh:
+            fh.write(text)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+        raise
+
+
+def _quarantine_corrupt(path: Path) -> Optional[Path]:
+    """损坏件隔离改名 ``.corrupt-<ts>``（留盘可恢复，绝不就地清零）。"""
+    ts = now().strftime("%Y%m%dT%H%M%S%f")
+    target = path.with_name(f"{path.name}.corrupt-{ts}")
+    try:
+        os.replace(path, target)
+    except OSError:
+        return None
+    return target
 
 
 def now() -> datetime:
@@ -29,23 +129,41 @@ def ensure_dirs() -> None:
 
 
 def load_jobs() -> List[Dict[str, Any]]:
-    ensure_dirs()
-    if not JOBS_FILE.exists():
+    """读取任务表（写窗口内读 ⇒ 与写者一致的全量快照）。
+
+    - JSONDecodeError / UnicodeDecodeError ⇒ 损坏件先改名 ``.corrupt-<ts>``
+      留盘可恢复，再返 ``[]``（T91/B3-R3：损坏≠没有任务，但旧字节必须留盘，
+      切断「损坏→下次保存清零」链）。
+    - OSError ⇒ **出声上抛**：存储不可用不许静默当空（审计 C 节修法 4）。
+    """
+    with write_window():
+        ensure_dirs()
+        if not JOBS_FILE.exists():
+            return []
+        try:
+            text = JOBS_FILE.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            _quarantine_corrupt(JOBS_FILE)
+            return []
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            _quarantine_corrupt(JOBS_FILE)
+            return []
+        jobs = data.get("jobs", data) if isinstance(data, dict) else data
+        if isinstance(jobs, list):
+            return jobs
         return []
-    try:
-        data = json.loads(JOBS_FILE.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return []
-    jobs = data.get("jobs", data) if isinstance(data, dict) else data
-    if isinstance(jobs, list):
-        return jobs
-    return []
 
 
 def save_jobs(jobs: List[Dict[str, Any]]) -> None:
-    ensure_dirs()
-    payload = {"jobs": jobs, "updated_at": now().isoformat()}
-    JOBS_FILE.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    """全量回写任务表（原子替换；调用方 RMW 须整体持 ``write_window``）。"""
+    with write_window():
+        ensure_dirs()
+        payload = {"jobs": jobs, "updated_at": now().isoformat()}
+        _atomic_write_json(
+            JOBS_FILE, json.dumps(payload, indent=2, ensure_ascii=False)
+        )
 
 
 # =============================================================================
@@ -149,39 +267,41 @@ def list_jobs(include_disabled: bool = True) -> List[Dict[str, Any]]:
 
 
 def remove_job(job_id: str) -> bool:
-    jobs = load_jobs()
-    new_jobs = [j for j in jobs if not _job_match(j, job_id)]
-    if len(new_jobs) == len(jobs):
-        return False
-    save_jobs(new_jobs)
-    return True
+    with write_window():  # RMW 整体持窗（T91/B3-R1：防并发丢更新）
+        jobs = load_jobs()
+        new_jobs = [j for j in jobs if not _job_match(j, job_id)]
+        if len(new_jobs) == len(jobs):
+            return False
+        save_jobs(new_jobs)
+        return True
 
 
 def update_job(job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    jobs = load_jobs()
-    for i, job in enumerate(jobs):
-        if not _job_match(job, job_id):
-            continue
-        merged: Dict[str, Any] = dict(job)
-        schedule_touched = False
-        for k, v in updates.items():
-            if k == "repeat.completed":
-                r = dict(merged.get("repeat") or {})
-                r["completed"] = v
-                merged["repeat"] = r
-            elif k == "schedule":
-                merged["schedule"] = v
-                schedule_touched = True
-            else:
-                merged[k] = v
-        if schedule_touched and merged.get("state") != "paused":
-            sch = merged.get("schedule") or {}
-            nr = compute_next_run(sch, now().isoformat())
-            merged["next_run_at"] = nr
-        jobs[i] = merged
-        save_jobs(jobs)
-        return merged
-    return None
+    with write_window():  # RMW 整体持窗（T91/B3-R1：防并发丢更新）
+        jobs = load_jobs()
+        for i, job in enumerate(jobs):
+            if not _job_match(job, job_id):
+                continue
+            merged: Dict[str, Any] = dict(job)
+            schedule_touched = False
+            for k, v in updates.items():
+                if k == "repeat.completed":
+                    r = dict(merged.get("repeat") or {})
+                    r["completed"] = v
+                    merged["repeat"] = r
+                elif k == "schedule":
+                    merged["schedule"] = v
+                    schedule_touched = True
+                else:
+                    merged[k] = v
+            if schedule_touched and merged.get("state") != "paused":
+                sch = merged.get("schedule") or {}
+                nr = compute_next_run(sch, now().isoformat())
+                merged["next_run_at"] = nr
+            jobs[i] = merged
+            save_jobs(jobs)
+            return merged
+        return None
 
 
 def parse_schedule(schedule: str) -> Dict[str, Any]:
@@ -328,9 +448,10 @@ def create_job(
             raise ValueError(f"invalid cron script config: {_script_reason}")
         job["script"] = script
 
-    jobs = load_jobs()
-    jobs.append(job)
-    save_jobs(jobs)
+    with write_window():  # RMW 整体持窗（T91/B3-R1：防并发丢更新）
+        jobs = load_jobs()
+        jobs.append(job)
+        save_jobs(jobs)
     return job
 
 
@@ -412,35 +533,38 @@ def get_due_jobs() -> List[Dict[str, Any]]:
 
 
 def mark_job_run(job_id: str, status: str, error: Optional[str] = None):
-    job = get_job(job_id)
-    if not job:
-        return
+    # 读（completed 计数）→算→写 必须整体持窗，否则并发双 mark 各读同一基线
+    # ⇒ repeat.completed 少计（T91/B3-R1）。
+    with write_window():
+        job = get_job(job_id)
+        if not job:
+            return
 
-    repeat = job.get("repeat", {})
-    completed = int(repeat.get("completed", 0)) + 1
-    max_times = repeat.get("times")
+        repeat = job.get("repeat", {})
+        completed = int(repeat.get("completed", 0)) + 1
+        max_times = repeat.get("times")
 
-    disable = False
-    if max_times is not None and completed >= int(max_times):
-        disable = True
+        disable = False
+        if max_times is not None and completed >= int(max_times):
+            disable = True
 
-    schedule = job.get("schedule", {})
-    next_run = None
-    if not disable:
-        next_run = compute_next_run(schedule, now().isoformat())
+        schedule = job.get("schedule", {})
+        next_run = None
+        if not disable:
+            next_run = compute_next_run(schedule, now().isoformat())
 
-    update_job(
-        job_id,
-        {
-            "last_run_at": now().isoformat(),
-            "last_status": status,
-            "last_error": error,
-            "repeat.completed": completed,
-            "enabled": not disable,
-            "next_run_at": next_run,
-            "state": "scheduled" if next_run else "completed",
-        },
-    )
+        update_job(
+            job_id,
+            {
+                "last_run_at": now().isoformat(),
+                "last_status": status,
+                "last_error": error,
+                "repeat.completed": completed,
+                "enabled": not disable,
+                "next_run_at": next_run,
+                "state": "scheduled" if next_run else "completed",
+            },
+        )
 
 
 def mark_job_delivery(
@@ -504,10 +628,11 @@ def save_job_output(job_id: str, output: str, metadata: Optional[Dict] = None):
 
 
 def advance_next_run(job_id: str):
-    job = get_job(job_id)
-    if not job or not job.get("schedule"):
-        return
-    last_run = job.get("last_run_at") or now().isoformat()
-    next_run = compute_next_run(job["schedule"], last_run)
-    if next_run:
-        update_job(job_id, {"next_run_at": next_run})
+    with write_window():  # 读→算→写 整体持窗（T91/B3-R1）
+        job = get_job(job_id)
+        if not job or not job.get("schedule"):
+            return
+        last_run = job.get("last_run_at") or now().isoformat()
+        next_run = compute_next_run(job["schedule"], last_run)
+        if next_run:
+            update_job(job_id, {"next_run_at": next_run})

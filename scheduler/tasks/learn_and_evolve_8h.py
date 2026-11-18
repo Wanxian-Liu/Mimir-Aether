@@ -16,6 +16,7 @@ import sys
 import os
 import json
 import time
+import fcntl
 import signal
 import urllib.request
 import urllib.error
@@ -217,24 +218,66 @@ def learn_and_evolve_one(topic):
         return False
 
 def save_evolution_log(topic, status, file_path):
-    """保存进化日志"""
+    """保存进化日志（T91/B3-R4：append-only + flock 单写窗口）。
+
+    先例 scripts/state_engine.py::append_stop_event（append-only·flock·fsync）。
+    旧实现「读旧档→append→**全量回写**」：读失败裸 except→``[]`` 后回写 =
+    整段历史清零（读一次坏档就够），且 8h 任务与 scheduler 并发追加互相覆盖。
+    改 append-only 后写路径不整读旧档 ⇒ 档件损坏再也碰不到写路径；
+    历史行只增不改（JSONL 逐行，可 grep 可 tail）。
+    写前仅查文件头 64 字节：``[`` 头 = 旧 JSON 数组档，锁内一次性无损迁移为
+    JSONL（解析失败隔离改名 ``.corrupt-<ts>`` 留盘再从空档起）；既非 ``[``
+    也非 ``{`` = 损坏件 ⇒ 隔离留盘（盲追加进垃圾件会把新记录永久埋进
+    不可解析文件）。
+    """
     EVOLUTION_LOG.parent.mkdir(parents=True, exist_ok=True)
-    
-    logs = []
-    if EVOLUTION_LOG.exists():
+
+    with open(f"{EVOLUTION_LOG}.lock", "a+") as lk:
+        fcntl.flock(lk, fcntl.LOCK_EX)
         try:
-            logs = json.loads(EVOLUTION_LOG.read_text())
-        except:
-            logs = []
-    
-    logs.append({
-        "timestamp": datetime.now().isoformat(),
-        "topic": topic,
-        "status": status,
-        "hermes_file": file_path
-    })
-    
-    EVOLUTION_LOG.write_text(json.dumps(logs, indent=2, ensure_ascii=False))
+            if EVOLUTION_LOG.exists():
+                with open(EVOLUTION_LOG, "r", encoding="utf-8", errors="replace") as fh:
+                    head = fh.read(64).lstrip()[:1]
+                if head == "[":  # 旧数组格式 → 锁内一次性迁移为 JSONL
+                    try:
+                        legacy = json.loads(EVOLUTION_LOG.read_text(encoding="utf-8"))
+                    except (json.JSONDecodeError, UnicodeDecodeError, OSError):
+                        _quarantine_corrupt_log()
+                        legacy = []
+                    if legacy:
+                        with open(EVOLUTION_LOG, "w", encoding="utf-8") as fh:
+                            for rec in legacy:
+                                fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+                            fh.flush()
+                            os.fsync(fh.fileno())
+                elif head and head != "{":
+                    # 非 JSONL 也非旧数组 = 损坏件 ⇒ 隔离改名留盘再从空档起。
+                    # 盲追加进垃圾件会把新记录永久埋进不可解析文件，故写前查头。
+                    _quarantine_corrupt_log()
+
+            rec = {
+                "timestamp": datetime.now().isoformat(),
+                "topic": topic,
+                "status": status,
+                "hermes_file": file_path,
+            }
+            with open(EVOLUTION_LOG, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+                fh.flush()
+                os.fsync(fh.fileno())
+        finally:
+            fcntl.flock(lk, fcntl.LOCK_UN)
+
+
+def _quarantine_corrupt_log():
+    """损坏的进化日志隔离改名 ``.corrupt-<ts>``（留盘可恢复，不清零）。"""
+    target = EVOLUTION_LOG.with_name(
+        f"{EVOLUTION_LOG.name}.corrupt-{datetime.now().strftime('%Y%m%dT%H%M%S%f')}"
+    )
+    try:
+        os.replace(EVOLUTION_LOG, target)
+    except OSError:
+        pass
 
 def main():
     global _running, _stop_time
