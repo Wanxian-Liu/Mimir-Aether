@@ -110,15 +110,29 @@ def test_dormant_landmines_recorded(heads, key):
 # 6. 锁路径单源：两实现必须解析到同一个旁车锁文件（跨实现互斥的物理前提）
 # ---------------------------------------------------------------------------
 def test_single_source_lock_path_is_shared():
-    from mimir_constants import get_cron_jobs_lock_path
+    """锁真源单点：两实现在**解析层面**必须落到同一旁车锁，且锁路径不得硬编码。
 
+    口径修正（2026-11-18 自审实测）：**不能**直接断言
+    ``module._WRITE_LOCK_FILE == get_cron_jobs_lock_path()`` ——
+    ``tests/conftest.py`` 每个用例 monkeypatch ``MIMIR_AETHER_HOME`` 到独立 tmp，
+    而 ``get_cron_jobs_lock_path()`` 每次读 env、模块级常量只在 import 时绑定一次
+    ⇒ 该断言在**单文件跑**时绿、与 t91 同跑时红（顺序相关假红，实测
+    ``1 failed, 23 passed``）。改为 env 无关的两条判据：
+    ① 两实现互相相等（跨实现互斥的物理前提）；
+    ② 源码逐字同引真源函数（防有人把路径硬编码回常量）。
+    """
     cron_jobs = importlib.import_module("cron.jobs")
     sched_jobs = importlib.import_module("scheduler.jobs")
 
-    expected = get_cron_jobs_lock_path()
-    assert cron_jobs._WRITE_LOCK_FILE == expected
-    assert sched_jobs._WRITE_LOCK_FILE == expected
     assert cron_jobs._WRITE_LOCK_FILE == sched_jobs._WRITE_LOCK_FILE
+    from mimir_constants import get_cron_jobs_lock_path
+
+    assert get_cron_jobs_lock_path.__module__ == "mimir_constants"
+    for path in (CRON_PATH, SCHED_PATH):
+        src = path.read_text(encoding="utf-8")
+        assert "_WRITE_LOCK_FILE = get_cron_jobs_lock_path()" in src, (
+            f"{path.name} 锁路径未走真源 get_cron_jobs_lock_path()（疑似硬编码）"
+        )
 
 
 # ---------------------------------------------------------------------------
