@@ -44,6 +44,48 @@ except ImportError:  # pragma: no cover
 # 互指：scheduler/jobs.py 是同一运行时文件的第二套实现（字段语义不同，
 # 保形不保合未合一），靠**同一把旁车锁文件**与本模块互斥。
 # =============================================================================
+
+# B3-R1 互指注释（字段语义差异 / 消费方归属 / 休眠地雷）——两实现各写一段，双向登记
+# -----------------------------------------------------------------------------
+# 互指对侧：scheduler/jobs.py（同一 ``<home>/cron/jobs.json`` 的第二套存储实现）。
+#
+# [A] 字段语义差异（同名不同义 / 同义不同名 ⇒ **禁止跨实现按同名键读写**）
+#   * 本模块 ``next_run_at`` / ``last_run_at`` = **ISO-8601 字符串**
+#     （get_due_jobs 取 ``job.get("next_run_at")``；mark_job_run 内
+#     ``last_run = job.get("last_run_at") or now().isoformat()`` + compute_next_run）。
+#   * 对侧 ``next_run`` / ``last_run`` = **float epoch 秒**
+#     （scheduler/jobs.py::get_due_jobs → ``job.get("next_run", 0) <= now``，
+#     ``now = time.time()``；mark_job_run 写 ``job["last_run"] = time.time()``）。
+#     ⇒ 同义不同名 + 同量不同型：任何「顺手复用键名」的改动都是破坏。
+#   * 本模块 ``repeat`` = dict（{times/completed/...}，见 mark_job_delivery）；
+#     ``schedule`` = dict（cron/interval/once 形态，带 value/display）；对侧无此二 schema。
+#   * ``enabled`` 是**唯一语义相同**的键（两实现均缺省 True）。
+#
+# [B] 消费方归属（改字段前先核对这份名单 —— 读者即契约）
+#   * 本模块读者（生产面）= ``cron/__init__.py`` · ``cron/scheduler.py`` ·
+#     ``tools/cronjob_tools.py`` · ``gateway/cron_mixin.py``
+#     （mark_job_run / mark_job_delivery / resolve_script_argv）·
+#     ``gateway/platforms/api_server.py`` · ``mimir_cli/cron.py`` ·
+#     ``mimir_cli/web_server.py`` · ``scripts/post_restart_verify.py``。
+#   * 对侧读者 = ``tests/``（test_t91_write_path_fixes.py · legacy/test_cron_parser.py）
+#     + ``scheduler/scheduler.py``（唯一启动方 ``scheduler/daemon.py``；2026-11-18 实测：
+#     全仓无 launcher/服务单元引用、生产无该进程 ⇒ **生产侧无入口** = 休眠实现）。
+#     休眠 ≠ 不存在：对侧与本报共享同一文件，它的**任何写入都进生产视野**。
+#
+# [C] 休眠地雷（现在不触发 ≠ 不存在；换实现/加调用即引爆，三条均已留痕）
+#   * L1 跨实现读 = 静默失效双向：对侧 get_due_jobs 用 ``job.get("next_run", 0)``
+#     ⇒ 读本模块写出的 job（只有 ``next_run_at``）时缺省 0 = **恒判到期**，每个
+#     tick 全量重复触发；反向本模块 ``job.get("next_run_at")`` 得 None ⇒ 不认定
+#     到期 = **永不触发**（无日志无报错，比狂跑更隐蔽）。缺省值兜底在此处是伪装
+#     成容错的语义撕裂（同族教训：get(k, 默认) 必须核对生产端真写过该键）。
+#   * L2 回写毁形：对侧 save_jobs 曾写**扁平 list**（已修为 ``{"jobs": [...]}``）；
+#     两侧 load 双形容错、写只许字典形 —— 把「读容忍」误当「写随便」即毁生产文件。
+#   * L3 同锁**不可嵌套**：两实现 write_window 锁同一旁车文件（见上一块），同线程
+#     双 fd flock 同一文件 = 自锁（阻塞到超时：不是死锁，但等同停摆）。
+#
+# 结论：**保形不保合** —— 字段各归各家、[B] 名单即契约；新增跨实现读取前先在本块
+# 与 scheduler/jobs.py 的同构块（A/B/C 三节）**双向登记**，否则视为越界改动。
+# =============================================================================
 _WRITE_LOCK_FILE = get_cron_jobs_lock_path()
 _write_lock = RLock()
 _write_depth = 0

@@ -29,6 +29,43 @@ JOBS_FILE = CRON_DIR / "jobs.json"
 # 文件不锁目标件）；原子写 = scripts/state_engine.py::_atomic_write_text
 # （tmp→flush→fsync→os.replace）；损坏隔离 = .corrupt-<ts> 改名留盘。
 # ============================================================================
+
+# B3-R1 互指注释（字段语义差异 / 消费方归属 / 休眠地雷）——与 cron/jobs.py 双向登记
+# -----------------------------------------------------------------------------
+# 互指对侧：cron/jobs.py（同一 ``<home>/cron/jobs.json`` 的第二套存储实现，生产主路）。
+#
+# [A] 字段语义差异（同名不同义 / 同义不同名 ⇒ **禁止跨实现按同名键读写**）
+#   * 本模块 ``next_run`` / ``last_run`` = **float epoch 秒**（本文件 get_due_jobs:
+#     ``job.get("next_run", 0) <= now`` · ``now = time.time()``；mark_job_run:
+#     ``job["last_run"] = time.time()``）。
+#   * 对侧 ``next_run_at`` / ``last_run_at`` = **ISO-8601 字符串**（cron/jobs.py
+#     get_due_jobs / mark_job_run + compute_next_run）。⇒ 同义不同名 + 同量不同型。
+#   * 本模块**没有** ``repeat`` / ``schedule`` 两套 schema（只认 next_run 数值 +
+#     可选 cron 形态串：schedule.value / schedule_display / cron，见 _get_cron_expr）。
+#   * ``enabled`` 是**唯一语义相同**的键（两实现均缺省 True）。
+#
+# [B] 消费方归属（改字段前先核对这份名单 —— 读者即契约）
+#   * 本模块读者 = ``tests/``（test_t91_write_path_fixes.py · legacy/test_cron_parser.py）
+#     + ``scheduler/scheduler.py``（唯一启动方 ``scheduler/daemon.py``；2026-11-18 实测：
+#     全仓无 launcher/服务单元引用、生产无该进程 ⇒ **生产侧无入口** = 休眠实现）。
+#     本仓生产链路（cron/scheduler.py、tools/cronjob_tools.py、gateway/cron_mixin.py、
+#     mimir_cli、api_server）全部读 cron/jobs.py ⇒ 本模块字段变更不影响生产、
+#     **但也不被生产验证覆盖**（"绿是空的"）。
+#   * 对侧读者 = 上述生产面全部；本模块与它共享同一文件 ⇒ 任何写入都进生产视野。
+#
+# [C] 休眠地雷（现在不触发 ≠ 不存在；换实现/加调用即引爆，三条均已留痕）
+#   * L1 跨实现读 = 静默失效双向：本模块 ``job.get("next_run", 0)`` 读对侧 job
+#     （只有 ``next_run_at``）时缺省 0 ⇒ **恒判到期**，每个 tick 全量重复触发；反向
+#     对侧 ``job.get("next_run_at")`` 得 None ⇒ 不判定到期 = **永不触发**（无日志、
+#     无报错）。缺省值兜底 = 伪装成容错的语义撕裂（get(k, 默认) 必须核对生产端）。
+#   * L2 回写毁形：本模块 save_jobs 曾写**扁平 list**（已修为 ``{"jobs": [...]}``）；
+#     两侧 load 双形容错、写只许字典形 —— 把「读容忍」误当「写随便」即毁生产文件。
+#   * L3 同锁**不可嵌套**：两实现 write_window 锁同一旁车文件（见上一块），同线程
+#     双 fd flock 同一文件 = 自锁（阻塞到超时：不是死锁，但等同停摆）。
+#
+# 结论：**保形不保合** —— 字段各归各家；新增跨实现读取前，先在本块与
+# cron/jobs.py 的同构块（A/B/C 三节）**双向登记**，否则视为越界改动。
+# ============================================================================
 _WRITE_LOCK_FILE = get_cron_jobs_lock_path()
 _write_lock = RLock()
 _write_depth = 0
