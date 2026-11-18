@@ -28,6 +28,25 @@ def _get_gateway_home() -> Path:
     return get_mimir_home()
 
 
+def _read_truth_source_scalar(key: str, home: Optional[Path] = None) -> str:
+    """Read a top-level scalar from ``config.yaml`` — the single source of truth.
+
+    Line-based on purpose: byte-identical parse semantics to
+    ``scripts/state_engine._read_home_channel`` so the two consumers cannot
+    disagree about *how* the truth source is read (B1-F4 config dual-source).
+    Returns "" when the file or the value is absent (never raises).
+    """
+    try:
+        cfg = (home or _get_gateway_home()) / "config.yaml"
+        for line in cfg.read_text(encoding="utf-8", errors="replace").splitlines():
+            stripped = line.strip()
+            if stripped.startswith("%s:" % key):
+                return stripped.split(":", 1)[1].strip().strip("'\"")
+    except OSError:
+        return ""
+    return ""
+
+
 def _coerce_bool(value: Any, default: bool = True) -> bool:
     """Coerce bool-ish config values, preserving a caller-provided default."""
     if value is None:
@@ -1058,7 +1077,22 @@ def _apply_env_overrides(config: GatewayConfig) -> None:
         feishu_verification_token = os.getenv("FEISHU_VERIFICATION_TOKEN", "")
         if feishu_verification_token:
             config.platforms[Platform.FEISHU].extra["verification_token"] = feishu_verification_token
-        feishu_home = os.getenv("FEISHU_HOME_CHANNEL")
+        # 真源 = config.yaml 的 FEISHU_HOME_CHANNEL（B1-F4 收敛）。
+        # 旧实现只读进程环境变量 ⇒ 与 scripts/state_engine._read_home_channel（读 yaml、
+        # 读不到即 fail-closed）分叉：生产环境 yaml 有值、env 无值 ⇒ 此处静默为 None，
+        # 于是 config.get_home_channel() / session context 的 home_channels 全空。
+        # env 同名变量仅为旧副本：**仅**在真源缺失时兜底，且
+        # gates/verify_config_source.py A7 会把「副本与真源背离」判红。
+        feishu_home = _read_truth_source_scalar("FEISHU_HOME_CHANNEL")
+        if not feishu_home:
+            env_copy = os.getenv("FEISHU_HOME_CHANNEL") or ""
+            if env_copy:
+                logger.warning(
+                    "FEISHU_HOME_CHANNEL: config.yaml 真源缺失，回退 env 副本 %r "
+                    "(副本存在时必须与真源对齐：verify_config_source A7)",
+                    env_copy,
+                )
+                feishu_home = env_copy
         if feishu_home:
             config.platforms[Platform.FEISHU].home_channel = HomeChannel(
                 platform=Platform.FEISHU,

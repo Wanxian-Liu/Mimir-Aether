@@ -175,6 +175,13 @@ class DeliveryRouter:
     #   config_yaml    -- top-level `<PLATFORM>_HOME_CHANNEL` that `/sethome`
     #                     persists (command_handlers._handle_set_home_command)
     # These can drift apart; see `check_home_channels()`.
+    #
+    # B1-F4 (2026-11-18): 真源 = config.yaml。装配面（gateway/config.py
+    # _read_truth_source_scalar）已改读真源，故 `gateway_config` 源即为真源值；
+    # `env` 保留在前位是为 `/sethome` 的**进程内即时生效**（N10 既有判据守护，
+    # test_n10_home_channel_guard）。变动优先级 = 改活行为，不在本项范围内。
+    # 两源并存且背离 ⇒ `check_home_channels()` ERROR +
+    # `~/.mimiraether/gates/verify_config_source.py` A7 判红（外部臂）。
     _HOME_CHANNEL_SOURCES = ("gateway_config", "env", "config_yaml")
 
     def home_channel_sources(self, platform: Platform) -> Dict[str, str]:

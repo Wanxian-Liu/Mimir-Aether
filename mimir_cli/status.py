@@ -314,6 +314,17 @@ def show_status(args):
         home_channel = ""
         if home_var:
             home_channel = os.getenv(home_var, "")
+            if not home_channel:
+                # B1-F4：home channel 的唯一真源是 config.yaml（env 只是旧副本）。
+                # 展示面与消费面同源，否则 status 报「未配 home」而投递面已有目标。
+                try:
+                    import yaml
+                    from mimir_constants import get_mimir_home
+                    _cfg_path = Path(str(get_mimir_home())) / "config.yaml"
+                    _cfg = yaml.safe_load(_cfg_path.read_text(encoding="utf-8")) or {}
+                    home_channel = str(_cfg.get(home_var) or "")
+                except Exception:
+                    home_channel = ""
         
         status = "configured" if has_token else "not configured"
         if home_channel:
