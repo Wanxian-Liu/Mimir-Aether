@@ -67,6 +67,9 @@ NEXT_SESSION.md
 tasks/state.json
 archive/
 docs/archive/llms-full-2026-05-13.txt
+# 迁移/执行快照归档：证据留在原处（scripts/migrations/ 已发布），归档目录只作本机参考
+# ⇒ 脱 git 跟踪（保留盘上）；若需入库须先过 A6（home-path 形状会拦）
+docs/archive/migrations-*/
 output/
 learnings/
 
