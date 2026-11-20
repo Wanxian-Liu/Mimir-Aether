@@ -122,7 +122,7 @@ EXIT=1
 | **补充 A：增速触发（第一类触发）** | 新增 | Δ ≥ 8pp/周 或 +500 chars/周 ⇒ 即使水位在绿区也起小批（实证最大周增 +1085） |
 | **补充 B：知识态出账规则（治本面）** | 新增 | 口径/量具/工具坑类条目 ⇒ 正文落 wiki 卡或技能，MEMORY 只留 ≤120 chars 指针行。本轮 9 条新增中 9 条属该型（2949 chars 可外迁 ≈ 回弹量的 100%） |
 | **补充 C：合并优先于删除** | 新增 | 同族读数口径（本轮死链/边/派生索引 4 条 1360 chars）应合并为 1 条；历史教训：300 字符时代 45 处不可恢复丢失 |
-| **补充 D：check_memory_hygiene.py selftest 追认归类** | 声明 | **非裸判据**：`--home` 注入口 + `tests/tools/test_memory_hygiene_gate.py` 5 用例（正控 PASS + R1/R2/R3 三负控 + mech registry 注册），本机 `HOME=/home/rayliu` 下 `5 passed rc=0`；⇒ **建议从序 10 裸判据清单移出**，归「已有双向外置 selftest」。附一处环境敏感：该用例读 `~/.mimiraether/data/ops/mech_checks.json`，在 `HOME=~/.mimiraether` 的执行沙箱里会拼成 `~/.mimiraether/.mimiraether/...` 报 FileNotFoundError（**假红**，rc=1/5 中 1 failed）；复核须显式 `HOME=/home/rayliu` |
+| **补充 D：check_memory_hygiene.py selftest 追认归类** | 声明 | **非裸判据**：`--home` 注入口 + `tests/tools/test_memory_hygiene_gate.py` 5 用例（正控 PASS + R1/R2/R3 三负控 + mech registry 注册），本机**真实 HOME**（非执行沙箱的 `~/.mimiraether`）下 `5 passed rc=0`；⇒ **建议从序 10 裸判据清单移出**，归「已有双向外置 selftest」。附一处环境敏感：该用例读 `~/.mimiraether/data/ops/mech_checks.json`，在 `HOME=~/.mimiraether` 的执行沙箱里会拼成 `~/.mimiraether/.mimiraether/...` 报 FileNotFoundError（**假红**，rc=1/5 中 1 failed）；复核须显式传真实 `HOME`（`$HOME`，勿继承沙箱默认） |
 
 ## 9. 自审 + 边界
 
