@@ -1,6 +1,19 @@
-"""Day 5 自查脚本 — MimirAether运行此脚本来完成自查"""
+"""Day 5 自查脚本 — MimirAether运行此脚本来完成自查
+
+【已归档 · 2026-11-20 B3-Y9】一次性 day5 模板生成器，消费面 import=0；
+产品 docs/day5_self_review.md 已填（历史自查记录，禁动）。
+保留原逻辑（os.chdir(parent.parent) 锚在仓根，归档一层后仍锚仓根），
+但默认拒绝执行——它会整文件覆盖 docs/day5_self_review.md。
+"""
 import os
+import sys
 from pathlib import Path
+
+if '--force' not in sys.argv:
+    sys.exit(
+        "archived one-off (B3-Y9): 运行会覆盖 docs/day5_self_review.md 历史记录；"
+        "确需重生成请加 --force"
+    )
 
 os.chdir(Path(__file__).resolve().parent.parent)
 
