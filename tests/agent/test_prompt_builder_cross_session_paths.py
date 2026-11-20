@@ -46,7 +46,7 @@ def test_cross_session_context_ignores_repo_data_when_home_differs(
     tmp_path: Path,
     clear_home_env: None,
 ) -> None:
-    repo_root = Path(__file__).resolve().parent.parent
+    repo_root = Path(__file__).resolve().parents[2]
     repo_persistent = repo_root / "data" / "persistent.json"
     if not repo_persistent.is_file():
         pytest.skip("no repo data/persistent.json to contrast")

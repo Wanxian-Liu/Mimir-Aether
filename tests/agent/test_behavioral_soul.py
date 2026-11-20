@@ -13,7 +13,7 @@ Author: MimirAether (self-evolved)
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 _MIMIR_IMPORT_ERR = None
 try:

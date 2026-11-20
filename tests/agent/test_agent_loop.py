@@ -15,7 +15,7 @@ import asyncio
 from pathlib import Path
 from typing import Any, Dict, List
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parents[2]))
 
 from agent.agent_loop import (
     MimirAetherAgentLoop, SimpleAgentLoop, AgentResult,

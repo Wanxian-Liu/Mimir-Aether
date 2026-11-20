@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 
 # 确保 agent/ 在路径中
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parents[2]))
 
 from agent.self_evolution import (
     StateEncoder, EvolutionCost, EvolutionMemory,

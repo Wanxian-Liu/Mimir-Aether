@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 # Ensure agent/ is importable
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 _MIMIR_IMPORT_ERR = None
 try:
