@@ -268,9 +268,18 @@ class SessionCommandsMixin:
             }
             if event.source.thread_id:
                 notify_data["thread_id"] = event.source.thread_id
-            (_hermes_home / ".restart_notify.json").write_text(
-                _json.dumps(notify_data)
-            )
+            notify_path = _hermes_home / ".restart_notify.json"
+            # 2026-11-20 B3-Y6: tmp + os.replace 原子替换。直写 write_text 先
+            # truncate 再写满，同进程另一路径（cron_mixin._send_restart_notification
+            # 的 read_text + loads）落在这微秒窗里可读到空/半截 JSON。
+            # tmp 与目标同目录 ⇒ 同一文件系统，os.replace 才是 POSIX 原子 rename
+            # （跨设备会 EINVAL）；名带 pid 防进程间互踩；finally 清残留。
+            notify_tmp = notify_path.with_name(notify_path.name + f".tmp.{os.getpid()}")
+            try:
+                notify_tmp.write_text(_json.dumps(notify_data))
+                os.replace(notify_tmp, notify_path)
+            finally:
+                notify_tmp.unlink(missing_ok=True)
         except Exception as e:
             logger.debug("Failed to write restart notify file: %s", e)
 

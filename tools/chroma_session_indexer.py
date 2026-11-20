@@ -710,7 +710,13 @@ def _build_embedding_function(model: Optional[str] = None):
 # 修法：以 model 标识为键做进程内单例；负控（不同 model_path 不得串味）见
 #   tests/tools/test_embedding_function_cache.py
 _EF_CACHE: Dict[str, Any] = {}
-_EF_CACHE_LOCK = None
+# 2026-11-20 B3-Y4: 锁改「导入时初始化」。旧写法是惰性 check-then-create
+#   （`if _EF_CACHE_LOCK is None: _EF_CACHE_LOCK = threading.Lock()`）——两线程
+#   同时首查可各建一把锁、各自进 with 后重复加载 bge-m3（14s / 2.2GB）。
+#   时点依据：琬弦 2026-11-20 11:5x 实测该模式为双线程首查竞态。
+#   安全性：Lock() 构造零副作用；import 链不触发 bge-m3（模型只在
+#   _build_embedding_function 内加载，无模块级调用点）。
+_EF_CACHE_LOCK = threading.Lock()
 
 
 def resolve_embedding_function(model: Optional[str] = None):
@@ -719,16 +725,11 @@ def resolve_embedding_function(model: Optional[str] = None):
     Loading bge-m3 costs ~14s and ~2.2GB; a fresh instance per query makes the
     semantic arm structurally unable to meet its own timeout budget.
     """
-    global _EF_CACHE_LOCK
     key = (model or os.getenv("MIMIR_EMBED_MODEL", "")).strip() or "__hash__"
     cached = _EF_CACHE.get(key)
     if cached is not None:
         return cached
 
-    if _EF_CACHE_LOCK is None:
-        import threading as _threading
-
-        _EF_CACHE_LOCK = _threading.Lock()
     with _EF_CACHE_LOCK:
         cached = _EF_CACHE.get(key)
         if cached is not None:
