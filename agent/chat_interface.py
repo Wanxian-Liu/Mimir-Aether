@@ -175,7 +175,11 @@ class InputMonitor:
                             self._input_buffer.append(char)
                             if char in ('\x03', '\x04'):  # Ctrl+C, Ctrl+D
                                 self._interrupted = True
-                except:
+                except (OSError, ValueError):
+                    # 交互 best-effort 豁免内收窄：stdin 关闭/不可读（OSError）、
+                    # select 以非法 fd 调用（ValueError）时本轮跳过即可；
+                    # KeyboardInterrupt 等系统级退出不再被吞（线程内未捕获异常
+                    # 会终止该 daemon 线程，输入监控随之停止——属显式可见失败）。
                     pass
         
         import threading

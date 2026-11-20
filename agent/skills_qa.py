@@ -1030,8 +1030,19 @@ def _export_entropy_json(qa, report, output_path):
     print(f"\nEntropy report exported to: {output_path}")
 
 
+SCANNER_UNAVAILABLE_PREFIX = "scanner unavailable: "
+
+
 def check_security_scan(file_path):
-    """检测危险模式"""
+    """检测危险模式。
+
+    扫描不可用（文件不存在 / 无权限 / 解码失败等）时**不静默**：issues 中追加一条
+    ``scanner unavailable: <异常类型>: <异常信息>`` 状态项——QA 面漏报必须可见。
+
+    兼容说明：返回结构仍是 ``List[str]``；真 finding 一律形如 ``Line <n>: ...``，
+    状态项带 ``scanner unavailable: `` 前缀。**计数/判红请走
+    ``security_findings_only()``**，勿直接 ``len(issues)``——否则状态项会被误当 finding。
+    """
     issues = []
     try:
         with open(file_path) as f:
@@ -1042,6 +1053,14 @@ def check_security_scan(file_path):
                 for pattern in SENSITIVE_PATTERNS:
                     if pattern in line and not line.strip().startswith('#'):
                         issues.append(f"Line {i}: Sensitive pattern: {pattern}")
-    except:
-        pass
+    except Exception as e:  # 显式「扫描不可用」：禁裸 except + pass（漏报静默化）
+        issues.append(f"{SCANNER_UNAVAILABLE_PREFIX}{type(e).__name__}: {e}")
     return issues
+
+
+def security_findings_only(issues):
+    """从 :func:`check_security_scan` 的结果里剔出状态项，只留真 finding。
+
+    给消费方一个无歧义计数口径：``len(security_findings_only(issues))``。
+    """
+    return [i for i in issues if not i.startswith(SCANNER_UNAVAILABLE_PREFIX)]

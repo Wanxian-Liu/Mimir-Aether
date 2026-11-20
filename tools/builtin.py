@@ -210,10 +210,13 @@ def _handle_execute_code(code: str, language: str = "python") -> str:
                 err = result.stderr if result.stderr else f"exit code {result.returncode}"
                 return tool_error(err)
         finally:
-            # 清理临时文件
+            # 清理临时文件（best-effort：文件可能已被移除/无权限）
             try:
                 os.unlink(temp_path)
-            except:
+            except OSError:
+                # 只吞预期清理失败（FileNotFoundError / PermissionError 等）。
+                # 非 OSError（含 KeyboardInterrupt）不再被吞——注意 Python 语义：
+                # finally 内新抛出的异常会**替换**在途异常（原异常退为 __context__）。
                 pass
     except subprocess.TimeoutExpired:
         return tool_error("Execution timed out (60s limit)")
