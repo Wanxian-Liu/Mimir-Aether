@@ -50,7 +50,8 @@ class SessionMixin:
                 session_key = self.session_store._generate_session_key(source)
                 if isinstance(session_key, str) and session_key:
                     return session_key
-            except Exception:
+            except Exception as e:
+                logger.debug("Session key generation failed, falling back to build_session_key: %s", e)
                 pass
         config = getattr(self, "config", None)
         from gateway._shared import build_session_key
@@ -78,7 +79,8 @@ class SessionMixin:
         if not resolved_session_key and source is not None:
             try:
                 resolved_session_key = self._session_key_for_source(source)
-            except Exception:
+            except Exception as e:
+                logger.debug("Session key resolution failed for source %r: %s", source, e)
                 resolved_session_key = None
 
         from gateway._shared import _resolve_gateway_model
@@ -133,7 +135,8 @@ class SessionMixin:
                         "No model configured — defaulting to %s for provider %s",
                         model, runtime_kwargs["provider"],
                     )
-            except Exception:
+            except Exception as e:
+                logger.debug("Default model resolution failed for provider %r: %s", runtime_kwargs.get("provider"), e)
                 pass
 
         return model, runtime_kwargs
@@ -161,7 +164,8 @@ class SessionMixin:
 
         try:
             overrides = resolve_fast_mode_overrides(route.get("model"))
-        except Exception:
+        except Exception as e:
+            logger.debug("Fast-mode override resolution failed for model %r: %s", route.get("model"), e)
             overrides = None
         route["request_overrides"] = overrides
         return route
@@ -243,7 +247,8 @@ class SessionMixin:
                 with open(cfg_path, encoding="utf-8") as _f:
                     cfg = _y.safe_load(_f) or {}
                 effort = str(cfg.get("agent", {}).get("reasoning_effort", "") or "").strip()
-        except Exception:
+        except Exception as e:
+            logger.debug("Failed to load reasoning config, using default: %s", e)
             pass
         result = parse_reasoning_effort(effort)
         if effort and effort.strip() and result is None:
@@ -266,7 +271,8 @@ class SessionMixin:
                 with open(cfg_path, encoding="utf-8") as _f:
                     cfg = _y.safe_load(_f) or {}
                 raw = str(cfg.get("agent", {}).get("service_tier", "") or "").strip()
-        except Exception:
+        except Exception as e:
+            logger.debug("Failed to load service tier, using default: %s", e)
             pass
 
         value = raw.lower()
@@ -319,7 +325,8 @@ class SessionMixin:
                     with open(cfg_path, encoding="utf-8") as _f:
                         cfg = _y.safe_load(_f) or {}
                     raw = str(cfg.get("agent", {}).get("restart_drain_timeout", "") or "").strip()
-            except Exception:
+            except Exception as e:
+                logger.debug("Failed to load restart drain timeout, using default: %s", e)
                 pass
         value = parse_restart_drain_timeout(raw)
         if raw and value == DEFAULT_GATEWAY_RESTART_DRAIN_TIMEOUT:
@@ -378,7 +385,8 @@ class SessionMixin:
                 with open(cfg_path, encoding="utf-8") as _f:
                     cfg = _y.safe_load(_f) or {}
                 return cfg.get("provider_routing", {}) or {}
-        except Exception:
+        except Exception as e:
+            logger.debug("Failed to load provider routing, using default: %s", e)
             pass
         return {}
 
@@ -399,7 +407,8 @@ class SessionMixin:
                 fb = cfg.get("fallback_providers") or cfg.get("fallback_model") or None
                 if fb:
                     return fb
-        except Exception:
+        except Exception as e:
+            logger.debug("Failed to load fallback model, using default: %s", e)
             pass
         return None
 
@@ -413,7 +422,8 @@ class SessionMixin:
                 with open(cfg_path, encoding="utf-8") as _f:
                     cfg = _y.safe_load(_f) or {}
                 return cfg.get("smart_model_routing", {}) or {}
-        except Exception:
+        except Exception as e:
+            logger.debug("Failed to load smart model routing, using default: %s", e)
             pass
         return {}
 
@@ -1174,7 +1184,8 @@ class SessionMixin:
                         timeout, _budget, exit_watchdog_seconds(),
                     )
                 timeout = _budget
-            except Exception:
+            except Exception as e:
+                logger.debug("Failed to resolve exit watchdog budget, using default: %s", e)
                 pass
             active_agents, timed_out = await self._drain_active_agents(timeout)
             if timed_out:
@@ -1285,7 +1296,8 @@ class SessionMixin:
                     restart_requested=self._restart_requested,
                     active_agents=self._running_agent_count(),
                 )
-            except Exception:
+            except Exception as e:
+                logger.debug("Failed to record exit event: %s", e)
                 pass
 
             self._draining = False

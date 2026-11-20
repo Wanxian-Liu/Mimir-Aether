@@ -7,12 +7,15 @@ Add, remove, or reorder entries here — both `mimir setup` and
 
 from __future__ import annotations
 
+import logging
 import json
 import os
 import urllib.request
 import urllib.error
 from difflib import get_close_matches
 from typing import Any, NamedTuple, Optional
+
+logger = logging.getLogger(__name__)
 
 COPILOT_BASE_URL = "https://api.githubcopilot.com"
 COPILOT_MODELS_URL = f"{COPILOT_BASE_URL}/models"
@@ -390,7 +393,8 @@ def fetch_nous_account_tier(access_token: str, portal_base_url: str = "") -> dic
         req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req, timeout=8) as resp:
             return json.loads(resp.read().decode())
-    except Exception:
+    except Exception as e:
+        logger.debug("Failed to fetch Nous account tier: %s", e)
         return {}
 
 
@@ -487,7 +491,8 @@ def check_nous_free_tier() -> bool:
         result = is_nous_free_tier(account_info)
         _free_tier_cache = (result, now)
         return result
-    except Exception:
+    except Exception as e:
+        logger.debug("Nous free-tier check failed, defaulting to paid: %s", e)
         _free_tier_cache = (False, now)
         return False  # default to paid on error — don't block users
 
@@ -635,7 +640,8 @@ def fetch_openrouter_models(
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             payload = json.loads(resp.read().decode())
-    except Exception:
+    except Exception as e:
+        logger.debug("OpenRouter catalog fetch failed, using cached/fallback list: %s", e)
         return list(_openrouter_catalog_cache or fallback)
 
     live_items = payload.get("data", [])
@@ -829,7 +835,8 @@ def _resolve_nous_pricing_credentials() -> tuple[str, str]:
         creds = resolve_nous_runtime_credentials()
         if creds:
             return (creds.get("api_key", ""), creds.get("base_url", ""))
-    except Exception:
+    except Exception as e:
+        logger.debug("Failed to resolve Nous pricing creds: %s", e)
         pass
     return ("", "")
 
@@ -900,7 +907,8 @@ def list_available_providers() -> list[dict[str, str]]:
             else:
                 status = get_auth_status(pid)
                 has_creds = bool(status.get("logged_in") or status.get("configured"))
-        except Exception:
+        except Exception as e:
+            logger.debug("Provider availability probe failed for %r: %s", pid, e)
             pass
         result.append({
             "id": pid,
@@ -955,7 +963,8 @@ def _get_custom_base_url() -> str:
         model_cfg = config.get("model", {})
         if isinstance(model_cfg, dict):
             return str(model_cfg.get("base_url", "")).strip()
-    except Exception:
+    except Exception as e:
+        logger.debug("Failed to load config for custom base URL: %s", e)
         pass
     return ""
 
@@ -1051,7 +1060,8 @@ def detect_provider_for_model(
                     if os.getenv(env_var, "").strip():
                         has_creds = True
                         break
-        except Exception:
+        except Exception as e:
+            logger.debug("Direct cred probe failed for %r, falling back to OpenRouter lookup: %s", direct_match, e)
             pass
 
         if has_creds:
@@ -1207,7 +1217,8 @@ def _resolve_copilot_catalog_api_key() -> str:
 
         creds = resolve_api_key_provider_credentials("copilot")
         return str(creds.get("api_key") or "").strip()
-    except Exception:
+    except Exception as e:
+        logger.debug("Failed to resolve copilot catalog creds: %s", e)
         return ""
 
 
@@ -1229,7 +1240,8 @@ def provider_model_ids(provider: Optional[str], *, force_refresh: bool = False) 
             live = _fetch_github_models(_resolve_copilot_catalog_api_key())
             if live:
                 return live
-        except Exception:
+        except Exception as e:
+            logger.debug("Live copilot catalog fetch failed, using static list: %s", e)
             pass
         if normalized == "copilot-acp":
             return list(_PROVIDER_MODELS.get("copilot", []))
@@ -1242,7 +1254,8 @@ def provider_model_ids(provider: Optional[str], *, force_refresh: bool = False) 
                 live = fetch_nous_models(api_key=creds.get("api_key", ""), inference_base_url=creds.get("base_url", ""))
                 if live:
                     return live
-        except Exception:
+        except Exception as e:
+            logger.debug("Live Nous catalog fetch failed, using static list: %s", e)
             pass
     if normalized == "anthropic":
         live = _fetch_anthropic_models()
@@ -1398,7 +1411,8 @@ def fetch_github_model_catalog(
                     models.append(item)
                 if models:
                     return models
-        except Exception:
+        except Exception as e:
+            logger.debug("Skipping malformed GitHub catalog entry: %s", e)
             continue
     return None
 
@@ -1710,7 +1724,8 @@ def probe_api_models(
                     "suggested_base_url": alternate_base if alternate_base != candidate_base else normalized,
                     "used_fallback": is_fallback,
                 }
-        except Exception:
+        except Exception as e:
+            logger.debug("API model probe failed: %s", e)
             continue
 
     return {
@@ -1745,7 +1760,8 @@ def _fetch_ai_gateway_models(timeout: float = 5.0) -> Optional[list[str]]:
                 and m.get("type") == "language"
                 and "tool-use" in (m.get("tags") or [])
             ]
-    except Exception:
+    except Exception as e:
+        logger.debug("AI gateway catalog fetch failed: %s", e)
         return None
 
 
@@ -1872,7 +1888,8 @@ def validate_requested_model(
     if normalized == "openai-codex":
         try:
             codex_models = provider_model_ids("openai-codex")
-        except Exception:
+        except Exception as e:
+            logger.debug("Codex catalog unavailable, model validation degraded: %s", e)
             codex_models = []
         if codex_models:
             if requested_for_lookup in set(codex_models):

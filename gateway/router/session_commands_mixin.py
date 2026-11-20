@@ -84,7 +84,8 @@ class SessionCommandsMixin:
             from agent.cross_session_retrieval import request_cross_session_prefetch
 
             request_cross_session_prefetch(session_key, reason="/new")
-        except Exception:
+        except Exception as e:
+            logger.debug("Cross-session prefetch request failed after reset: %s", e)
             pass
 
         # Clear any session-scoped model override so the next agent picks up
@@ -316,7 +317,8 @@ class SessionCommandsMixin:
                     lines.append(f"`{cmd}` — {skill_cmds[cmd]['description']}")
                 if len(sorted_cmds) > 10:
                     lines.append(f"\n... and {len(sorted_cmds) - 10} more. Use `/commands` for the full paginated list.")
-        except Exception:
+        except Exception as e:
+            logger.debug("Skill command enumeration failed for /help: %s", e)
             pass
         return "\n".join(lines)
 
@@ -344,7 +346,8 @@ class SessionCommandsMixin:
                 for cmd in sorted(skill_cmds):
                     desc = skill_cmds[cmd].get("description", "").strip() or "Skill command"
                     entries.append(f"`{cmd}` — {desc}")
-        except Exception:
+        except Exception as e:
+            logger.debug("Skill command enumeration failed for /commands: %s", e)
             pass
 
         if not entries:
