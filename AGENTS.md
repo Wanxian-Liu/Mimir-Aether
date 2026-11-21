@@ -49,7 +49,7 @@ Mimir（弥米尔）——智慧之泉·守誓者。身份见 SOUL.md。独立 G
 
 ### 2.3 每单必戴（角色帽 · 2026-10-07 刘哥令 · Hermes 转）
 
-**核心**：角色是**帽子不是身份**——每单开工前戴帽，收尾摘帽。库存：`~/.openclaw/projects/agency-agents/`（316 卡）· 索引卡 `~/wiki/entities/Agency-Agent角色索引.md` · 技能 `mimiraether-prompt-armory`（六库合一 · 场景 A「角色注入」）。
+**核心**：角色是**帽子不是身份**——每单开工前戴帽，收尾摘帽。库存：`~/.openclaw/projects/agency-agents/`（**数量不硬编码**——实跑 `bash ~/.mimiraether/scripts/role-inventory.sh` 取 `total_cards`·读数只记台账不入正文）· 索引卡 `~/wiki/discussions/Agency-Agent角色索引.md` · 技能 `mimiraether-prompt-armory`（六库合一 · 场景 A「角色注入」）。
 
 1. **找帽**：索引卡「常见任务→角色速查表」→ 21 分类速查 → 语义搜索兜底；**非可靠性件换临时帽**并写明卡路径。
 2. **全量读卡**：整篇读完（禁只读开头/frontmatter）· **本次重读**（禁凭「上次读过」——凭记忆引用规则 = 必错）。

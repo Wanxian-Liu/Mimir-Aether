@@ -147,18 +147,24 @@ class ConfigMixin:
         return "deepseek"
 
     def _load_smart_routing_config(self) -> dict:
-        """Load smart routing config from config.yaml or env."""
+        """Load smart routing config — single source via :func:`get_config_path`.
+
+        T95 · B1-F13 案 b′ · M3 收敛（2026-11-21）：读点由仓根相对路径
+        （``Path(__file__).parent.parent / "config.yaml"``）改为
+        ``mimir_constants.load_config_section`` —— 与
+        ``gateway/session_mixin._load_smart_model_routing`` 同一真源，
+        消除 A4 双读者分歧（同一 ``smart_model_routing`` 键两处真源）。
+        迁移窗口：运行时件缺该段时回落仓根件并**出声**（stderr）。
+        """
         try:
-            import yaml as _y
-            from pathlib import Path
-            cfg_path = Path(__file__).parent.parent / "config.yaml"
-            if cfg_path.exists():
-                with open(cfg_path, encoding="utf-8") as _f:
-                    cfg = _y.safe_load(_f) or {}
-                return cfg.get("smart_model_routing", {}) or {}
+            from mimir_constants import load_config_section
+
+            cfg, _src = load_config_section(
+                "smart_model_routing", caller="agent.config_mixin.smart_model_routing"
+            )
+            return cfg or {}
         except Exception:
-            pass
-        return {}
+            return {}
 
     def _resolve_api_config(self, model_name: str = None, user_message: str = None) -> Dict[str, Any]:
         """

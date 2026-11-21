@@ -331,6 +331,85 @@ def get_config_path() -> Path:
     return get_hermes_home() / "config.yaml"
 
 
+# ── 配置单源读口（T95 · B1-F13 案 b′ · M3 收敛 · 2026-11-21）──────────────
+#
+# 背景：仓根 `config.yaml` 曾是 `delegation` / `smart_model_routing` 的**唯一**
+# 真源——`tools/delegate_tool.py` 与 `agent/config_mixin.py` 按 ``__file__``
+# 相对路径读它；其余读者读运行时件 ``$MIMIR_AETHER_HOME/config.yaml``
+# ⇒ 同一个键两处真源（A4 双读者分歧）。
+#
+# 收敛后：**唯一读口 = :func:`get_config_path`**；仓根件降级为「迁移窗口兜底」，
+# 且必须出声（缺段回落 = 静默降级，B1-F5 同族）。
+# 验收判据：改运行时件 ⇒ 读数变；改仓根件 ⇒ 读数不变
+# （见 ``tests/test_config_single_source.py``，两向）。
+
+_REPO_CONFIG_ROOT = Path(__file__).resolve().parent
+_LEGACY_CONFIG_WARNED = set()
+
+
+def get_legacy_repo_config_paths() -> list:
+    """仓根 ``config.yaml`` 候选（M3 之前的读点顺序）——**仅**迁移窗口兜底。"""
+    return [
+        _REPO_CONFIG_ROOT / "config.yaml",
+        _REPO_CONFIG_ROOT / "mimicore" / "config" / "config.yaml",
+        _REPO_CONFIG_ROOT / "mimicore" / "gateway" / "config.yaml",
+    ]
+
+
+def _read_yaml_doc(path: Path):
+    try:
+        if not path.exists():
+            return None
+        import yaml
+
+        with open(path, encoding="utf-8") as f:
+            doc = yaml.safe_load(f)
+        return doc if isinstance(doc, dict) else None
+    except Exception:
+        return None
+
+
+def _warn_legacy_config_read(caller: str, section: str, legacy: Path, primary: Path) -> None:
+    """出声：运行时件缺该段、回落仓根件（每 caller+section 一次）。"""
+    key = (caller, section)
+    if key in _LEGACY_CONFIG_WARNED:
+        return
+    _LEGACY_CONFIG_WARNED.add(key)
+    print(
+        "[config-single-source] %s: 段 '%s' 在 %s 缺失 ⇒ 回落仓根件 %s"
+        "（迁移窗口·请在运行时件补该段）" % (caller, section, primary, legacy),
+        file=sys.stderr,
+    )
+
+
+def load_config_section(section: str, *, caller: str = "config"):
+    """按**单源**顺序读一个配置段 → ``(段内容, 来源路径)``。
+
+    顺序：① :func:`get_config_path`（运行时唯一真源）
+         ② 仓根件候选（兜底·出声·仅迁移窗口）
+
+    两处读者（``tools/delegate_tool`` / ``agent/config_mixin``）共用本函数
+    ⇒ 不可能再出现「同一键两处真源」。
+    """
+    primary = get_config_path()
+    doc = _read_yaml_doc(primary)
+    if doc is not None:
+        val = doc.get(section)
+        if isinstance(val, dict) and val:
+            return val, str(primary)
+    for legacy in get_legacy_repo_config_paths():
+        legacy_doc = _read_yaml_doc(legacy)
+        if legacy_doc is None:
+            continue
+        legacy_val = legacy_doc.get(section)
+        if isinstance(legacy_val, dict) and legacy_val:
+            _warn_legacy_config_read(caller, section, legacy, primary)
+            return legacy_val, str(legacy)
+    if doc is not None and isinstance(doc.get(section), dict):
+        return doc.get(section), str(primary)
+    return {}, str(primary)
+
+
 def get_skills_dir() -> Path:
     """Return the path to the skills directory under MIMIR_HOME."""
     return get_hermes_home() / "skills"

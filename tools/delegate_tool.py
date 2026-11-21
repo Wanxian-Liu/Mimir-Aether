@@ -1028,31 +1028,25 @@ def _resolve_delegation_credentials(cfg: dict, parent_agent) -> dict:
 
     # Provider is configured — resolve full credentials via yaml
     # (skip hermes_cli.runtime_provider.resolve_runtime_provider in self-hosted mode)
+    # Single source: get_config_path() — T95 · B1-F13 案 b′ · M3 收敛（2026-11-21）
     try:
-        import yaml
-        # Try to find config.yaml in known locations
-        for cfg_path in [
-            os.path.join(os.path.dirname(__file__), "..", "config.yaml"),
-            os.path.join(os.path.dirname(__file__), "..", "mimicore", "config", "config.yaml"),
-        ]:
-            if os.path.exists(cfg_path):
-                with open(cfg_path) as f:
-                    full_cfg = yaml.safe_load(f) or {}
-                providers_cfg = full_cfg.get("providers", {})
-                provider_cfg = providers_cfg.get(configured_provider, {})
-                api_key = provider_cfg.get("api_key") or os.getenv(f"{configured_provider.upper()}_API_KEY", "")
-                if api_key:
-                    runtime = {
-                        "provider": configured_provider,
-                        "base_url": provider_cfg.get("base_url"),
-                        "api_key": api_key,
-                        "api_mode": provider_cfg.get("api_mode", "chat_completions"),
-                        "command": provider_cfg.get("command"),
-                        "args": provider_cfg.get("args"),
-                    }
-                    break
-        else:
+        from mimir_constants import load_config_section
+
+        providers_cfg, _cfg_source = load_config_section(
+            "providers", caller="tools.delegate_tool.providers"
+        )
+        provider_cfg = providers_cfg.get(configured_provider, {})
+        api_key = provider_cfg.get("api_key") or os.getenv(f"{configured_provider.upper()}_API_KEY", "")
+        if not api_key:
             raise ValueError(f"Provider '{configured_provider}' not found in config.yaml providers.")
+        runtime = {
+            "provider": configured_provider,
+            "base_url": provider_cfg.get("base_url"),
+            "api_key": api_key,
+            "api_mode": provider_cfg.get("api_mode", "chat_completions"),
+            "command": provider_cfg.get("command"),
+            "args": provider_cfg.get("args"),
+        }
     except ValueError:
         raise
     except Exception as exc:
@@ -1095,18 +1089,12 @@ def _load_config() -> dict:
             return cfg
     except Exception:
         pass
-    # Self-hosted: read from yaml config directly
+    # Self-hosted: single-source read (get_config_path() — T95 · B1-F13 · M3)
     try:
-        import yaml
-        for cfg_path in [
-            os.path.join(os.path.dirname(__file__), "..", "config.yaml"),
-            os.path.join(os.path.dirname(__file__), "..", "mimicore", "config", "config.yaml"),
-            os.path.join(os.path.dirname(__file__), "..", "mimicore", "gateway", "config.yaml"),
-        ]:
-            if os.path.exists(cfg_path):
-                with open(cfg_path) as f:
-                    full = yaml.safe_load(f) or {}
-                return full.get("delegation", {})
+        from mimir_constants import load_config_section
+
+        cfg, _src = load_config_section("delegation", caller="tools.delegate_tool.delegation")
+        return cfg or {}
     except Exception:
         pass
     return {}
