@@ -1,6 +1,6 @@
 # [DORMANT] mimiraether-context-compressor
 
-**沉寂时间**: 2026-07-29T08:53:24.988768+00:00
+**沉寂时间**: 2026-11-21T06:40:45.557700+00:00
 **原始分类**: mimiraether
 **描述**: MimirAether 上下文压缩：本仓库 agent/context_compressor 行为、MimirAetherAgent 参数、Gateway 卫生压缩与配置键（与运行时对齐）。
 **触发阈值**: 60天未触碰
@@ -44,32 +44,20 @@ MimirAether 在对话过长时对上下文做**工具输出修剪**与**中间�
 
 ### MimirAetherAgent 使用的压缩器
 
-[`agent/core_loop.py`](agent/core_loop.py) 中构造：
+[`agent/core_loop.py`](agent/core_loop.py) 中构造（**2026-08-12 A1 变更后——本段已更新**）：
 
 ```text
-HermesStyleCompressor(
+MimirContextCompressor(
     model=model,
-    threshold_percent=0.85,
-    protect_first_n=3,
-    protect_last_n=6,
-    tail_token_budget=4000,
+    context_length=int(self._context_length or 1048576),
+    threshold_percent=_threshold_percent,  # 默认 0.50
+    **_comp_policy,                        # decision_compressor_policy 附加参数
 )
 ```
 
-以上 **`threshold_percent` / `tail_token_budget` 均硬编码**，**不**从仓库根 `config.yaml` 读取。
+阈值优先级（core_loop.py L395-421）：**`MIMIR_COMPRESS_THRESHOLD` env > `get_tuned_float("compressor.threshold_percent")`（agent/tuned_thresholds.py）> 默认 0.50**。
 
-### ContextCompressorV2 类默认值（直接 `new` 实例时）
-
-与 Agent 传入值不同处已标出。
-
-| 字段 | 类 `__init__` 默认 | MimirAetherAgent 实际传入 |
-|------|-------------------|---------------------------|
-| `threshold_percent` | **0.50** | **0.85** |
-| `protect_first_n` | 3 | 3 |
-| `protect_last_n` | **6** | **6** |
-| `tail_token_budget` | `None`（则用 `threshold_tokens * summary_target_ratio` 动态算） | **4000** |
-| `summary_target_ratio` | 0.20 | 0.20（未改，默认） |
-| 初始 `context_length` | 8000 | 由 `core_loop` 在拿到 `model_meta
+**B9 一等公民上限（2026-09-13 · commit `41fd67c`）**：`resolve_threshold_tokens()` 在 percent/env 解析之后追加一层夹紧 —— `threshold = min(configured, tuned "compressor.effective_window_tokens", floor(0.75 × context_length))`。**tuned 键缺失 ⇒ 该层完全不生效**（严格向后兼容）。当前（**2026-09-22 全身体检实测更新 · 原文已过期**）真源 = **`~/.mimiraether/d
 
 ... (truncated)
 
