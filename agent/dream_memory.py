@@ -1388,7 +1388,10 @@ async def _run_distillation(
         if isinstance(d, dict) and d.get("cause_chain")
     )
 
+    _alarm_state = record_alert_night(_delta, persist=not dry_run)
+    _esc_block = _escalation_block(_alarm_state)
     report = (
+        f"{_esc_block}"
         f"🔄 梦境蒸馏完成\n"
         f"{_delta_alert(_delta)}"
         f"  - key_decisions: {old_decisions} → {new_decisions} "
@@ -1593,6 +1596,143 @@ def _delta_alert(diff: Dict[str, Dict[str, list]]) -> str:
         "[ALERT] 蒸馏零增：注入面今晚无任何变化（added=0 removed=0）"
         " —— 连续多晚即为不动点，需人工核查 prompt 是否被自身旧输出钉住\n"
     )
+
+
+
+# --- 蒸馏零增告警升级（2026-11-16 刘哥批：连续 3 晚 ⇒ 真告警） ---
+# 为什么需要：`_delta_alert` 只是日报中段的一行横幅，混在 ~15 行里可被略过。
+# 真告警 = 不依赖读者注意力：①前置到首行 ②跨轮留盘 ③进健康巡检面。
+_ALARM_ESCALATE_NIGHTS = 3
+_ALARM_HISTORY_MAX = 60
+_ALERT_STATE_FILE = "dream_alert_state.json"
+_ALARM_UNRESOLVED_FILE = "DREAM_ALARM_UNRESOLVED.md"
+
+
+def _alert_state_path() -> str:
+    return os.path.join(_mimir_home(), "data", _ALERT_STATE_FILE)
+
+
+def _alarm_file_path() -> str:
+    return os.path.join(_mimir_home(), "data", _ALARM_UNRESOLVED_FILE)
+
+
+def _load_alert_state() -> Dict:
+    try:
+        with open(_alert_state_path(), "r", encoding="utf-8") as fh:
+            st = json.load(fh)
+        if isinstance(st, dict):
+            return st
+    except (IOError, ValueError):
+        pass
+    return {"consecutive_zero": 0, "first_zero_date": None,
+            "last_zero_date": None, "escalated": False,
+            "escalated_since": None, "history": []}
+
+
+def _save_alert_state(st: Dict) -> None:
+    path = _alert_state_path()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(st, fh, ensure_ascii=False, indent=2)
+    os.replace(tmp, path)
+
+
+def record_alert_night(diff: Dict, today: Optional[str] = None, persist: bool = True) -> Dict:
+    """记一晚零增/增长，返回含 consecutive_zero / escalated / resolved_now 的状态。
+
+    `diff` 复用 `_diff_memory_arrays` 的**身份集合差**（不是长度差）——
+    等长替换必须判「有变化」，见 tests/test_dream_memory_alarm.py 变异点。
+    """
+    kd = diff.get("key_decisions") or {}
+    lp = diff.get("learned_patterns") or {}
+    changed = bool(kd.get("added") or kd.get("removed")
+                   or lp.get("added") or lp.get("removed"))
+    day = today or datetime.now(timezone.utc).date().isoformat()
+    st = _load_alert_state()
+    prev_escalated = bool(st.get("escalated"))
+    resolved_now = False
+
+    if changed:
+        resolved_now = prev_escalated or int(st.get("consecutive_zero") or 0) > 0
+        st["consecutive_zero"] = 0
+        st["first_zero_date"] = None
+        st["escalated"] = False
+        st["escalated_since"] = None
+    else:
+        st["consecutive_zero"] = int(st.get("consecutive_zero") or 0) + 1
+        if not st.get("first_zero_date"):
+            st["first_zero_date"] = day
+        st["last_zero_date"] = day
+        if st["consecutive_zero"] >= _ALARM_ESCALATE_NIGHTS:
+            st["escalated"] = True
+            if not st.get("escalated_since"):
+                st["escalated_since"] = st["first_zero_date"]
+
+    hist = st.get("history") or []
+    hist.append({"date": day, "changed": changed,
+                 "added": len(kd.get("added") or []) + len(lp.get("added") or []),
+                 "removed": len(kd.get("removed") or []) + len(lp.get("removed") or []),
+                 "consecutive_zero": st["consecutive_zero"]})
+    st["history"] = hist[-_ALARM_HISTORY_MAX:]
+    st["resolved_now"] = resolved_now
+
+    if persist:
+        _sync_alarm_file(st, day)
+        to_save = {k: v for k, v in st.items() if k != "resolved_now"}
+        _save_alert_state(to_save)
+    return st
+
+
+def _sync_alarm_file(st: Dict, day: str) -> None:
+    """留盘：escalated ⇒ 写告警件；自愈 ⇒ 归档（不删，留证据）。"""
+    path = _alarm_file_path()
+    if st.get("escalated"):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        body = (
+            "# 🚨 蒸馏零增告警（未解决）\n\n"
+            f"- 连续零增晚数: {st.get('consecutive_zero')}\n"
+            f"- 首次零增: {st.get('first_zero_date')}\n"
+            f"- 最近零增: {st.get('last_zero_date')}\n"
+            f"- 升级阈值: {_ALARM_ESCALATE_NIGHTS} 晚\n"
+            f"- 生成时间: {datetime.now(timezone.utc).isoformat()}\n\n"
+            "## 判据\n"
+            "`added==0 and removed==0`（key_decisions ∪ learned_patterns **身份集合差**）\n\n"
+            "## 含义\n"
+            "蒸馏这一晚对注入面毫无贡献。连续多晚 = 不动点。\n\n"
+            "## 处置\n"
+            "核查 prompt 是否被自身旧输出钉住（commit 9a5e364 / 9d8e82a）。\n\n"
+            "## 自愈\n"
+            "任一次出现增/删即自动把本件归档为 "
+            f"`DREAM_ALARM_UNRESOLVED_RESOLVED_<date>.md`。\n"
+        )
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            fh.write(body)
+        os.replace(tmp, path)
+        return
+    if st.get("resolved_now") and os.path.exists(path):
+        arch = path.replace(".md", "_RESOLVED_" + day + ".md")
+        try:
+            os.replace(path, arch)
+        except OSError as e:
+            logger.warning("[E1] 告警件归档失败: %s", e)
+
+
+def _escalation_block(st: Dict) -> str:
+    """前置告警块（报告首行）。空串 = 既无升级也无自愈。"""
+    if st.get("escalated"):
+        n = st.get("consecutive_zero")
+        since = st.get("escalated_since") or st.get("first_zero_date") or "?"
+        return (
+            f"[ALARM] 🚨 蒸馏零增已连续 {n} 晚（首次 {since}，阈值 {_ALARM_ESCALATE_NIGHTS} 晚）\n"
+            f"  ⇒ 不动点：注入面多晚无任何变化，非偶发\n"
+            f"  ⇒ 告警件: {_alarm_file_path()}\n"
+            f"  ⇒ 处置: 核查 prompt 是否被自身旧输出钉住（commit 9a5e364 / 9d8e82a）\n"
+        )
+    if st.get("resolved_now"):
+        return "[RESOLVED] ✅ 蒸馏零增告警已自愈（本晚出现增/删，连续计数归零）\n"
+    return ""
 
 
 def _injection_ledger_path() -> str:
@@ -1870,6 +2010,48 @@ def sync_run_dream_cycle(dry_run: bool = False) -> str:
 # 测试入口
 # ============================================================================
 
+def _ensure_cli_logging() -> None:
+    """cron 入口的 logging 兜底（2026-11-22 · 治「日志静默丢失」）。
+
+    病灶：本模块的 ``logger.info()`` 一行都落不了盘。实测 61 个日志文件
+    ``grep -F '[DreamMemory]'`` = **0 命中**，而 ``取数面=`` 那一行正是
+    docstring 承诺的可观测面 ⇒「无人知道它在空转」的防线没接上。
+    双向对照证明是**配置**而非代码路径：与 cron 同形态（裸 import、无配置）
+    时 ``effectiveLevel=WARNING`` ∧ ``root_handlers=[]`` ⇒ INFO 被
+    ``logging.lastResort`` 丢弃；同进程加 ``basicConfig(level=INFO)`` 即出现。
+
+    为什么是这里：活体入口 ``scripts/dream_memory_cron.sh`` 用的是
+    「裸解释器 + ``-c`` 单行脚本」形态 ⇒ 本模块**被 import**，
+    ``__name__ != "__main__"`` ⇒ 文件末尾 ``__main__`` 块里的
+    basicConfig **从不执行**。故把配置挪进 ``cli_main()``。
+
+    为什么只挂 FileHandler、不挂 StreamHandler：gateway 的 cron 投递会把
+    stdout + stderr 一并发出（``cron_mixin.py:927-929``）⇒ 日志进 stderr
+    等于把投递面撑大。**观测面写文件，投递面只留报告。**
+    """
+    if getattr(logger, "_mimir_cli_log_ready", False):
+        return
+    try:
+        log_dir = os.path.join(_mimir_home(), "logs")
+        os.makedirs(log_dir, exist_ok=True)
+        handler = logging.FileHandler(
+            os.path.join(log_dir, "dream_memory.log"), encoding="utf-8"
+        )
+        handler.setFormatter(
+            logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
+        )
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+        logger._mimir_cli_log_ready = True
+    except Exception as exc:  # noqa: BLE001 — 观测面故障不得阻断蒸馏
+        # 出声：stderr 会随 cron 投递到达 deliver 目标，不静默降级
+        print(
+            f"[DreamMemory] WARN: 日志面初始化失败（观测降级，蒸馏继续）: "
+            f"{type(exc).__name__}: {exc}",
+            file=sys.stderr,
+        )
+
+
 def cli_main(argv: Optional[List[str]] = None) -> int:
     """cron / 终端入口：**退出码即结论**（0 = 成功 / 跳过 · 1 = 失败）。
 
@@ -1877,6 +2059,7 @@ def cli_main(argv: Optional[List[str]] = None) -> int:
     gateway 侧 ``mark_job_run`` 永远记 ``ok``（``cron_mixin.py:930`` 判的是 rc）
     ⇒ 失败连 ``last_status=error`` 都不产生。① 的出口就落在 rc 上。
     """
+    _ensure_cli_logging()  # 活体 cron 走 import 路径 ⇒ __main__ 块不执行
     args = list(sys.argv[1:] if argv is None else argv)
     dry = "--dry-run" in args
     try:
