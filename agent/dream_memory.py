@@ -1696,6 +1696,9 @@ def _delta_alert(diff: Dict[str, Dict[str, list]]) -> str:
 
     语义：`added == 0 and removed == 0` 表示**蒸馏这一晚对注入面毫无贡献**。
     这是「不动点」的可观测指纹（实证：连续 22 天如此，且无人察觉）。
+    2026-11-22：零增的**主因**已定位为取数面短路（三数组非空即 return，MEMORY.md
+    46 天不可达），A 方案已修 ⇒ 现在的零增含义收窄为「三数组 + MEMORY.md 都没新
+    知识」。措辞随之改，不再把单一原因钉在 prompt 自指上（那只是次要小环）。
     判据（正控/负控）见 tests/test_dream_memory_delta.py。
     """
     kd = diff.get("key_decisions", {})
@@ -1704,7 +1707,8 @@ def _delta_alert(diff: Dict[str, Dict[str, list]]) -> str:
         return ""
     return (
         "[ALERT] 蒸馏零增：注入面今晚无任何变化（added=0 removed=0）"
-        " —— 连续多晚即为不动点，需人工核查 prompt 是否被自身旧输出钉住\n"
+        " —— 连续多晚即为不动点，需人工核查取数面（三数组 + MEMORY.md）"
+        "是否真无新知识\n"
     )
 
 
