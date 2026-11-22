@@ -19,6 +19,7 @@ PMD 共同进化（Co-Evolution）改进：
   print(report)  # 蒸馏报告
 """
 
+import hashlib
 import json
 import os
 import sys
@@ -76,6 +77,15 @@ _MEMORY_SURFACE = (
 _DISTILL_SOURCE_PERSISTENT = "data/persistent.json#memory.key_decisions+learned_patterns"
 _DISTILL_SOURCE_MEMORY_MD = "memories/MEMORY.md"
 _DISTILL_SOURCE_NONE = "none"
+# A 方案（2026-11-22）：三数组非空时**额外**附 MEMORY.md 增量，治「输入=输出」闭环。
+# 标记独立成值，不复用 _DISTILL_SOURCE_PERSISTENT —— 复用会让日志里「有无增量」
+# 两态混成一个读数（同族缺陷：读数真·语义假）。
+_DISTILL_SOURCE_MERGED = (
+    "data/persistent.json#memory.key_decisions+learned_patterns + memories/MEMORY.md#delta"
+)
+# 消费位状态键（存 persistent.json -> memory 下）：cursor + 前缀 sha256，两个标量。
+_DISTILL_MD_STATE_KEY = "distill_memory_md_state"
+_MEMORY_MD_DELTA_HEADER = "\n\n## MEMORY.md 增量（自上次蒸馏消费位以来）\n\n"
 
 # 梦境蒸馏 API 参数
 _DREAM_MODEL = "deepseek-chat"
@@ -668,6 +678,52 @@ def _load_memory_markdown(path: Optional[str] = None) -> str:
         return ""
 
 
+def memory_md_delta(body: str, state: Optional[Dict]) -> Tuple[str, Dict, str]:
+    """纯函数：算 MEMORY.md 相对**上次消费位**的增量。不猜「是否变化」，只做算术。
+
+    ``state`` = ``{"cursor": int, "sha": <body[:cursor] 的 sha256 hex>}``；
+    None / 缺失 / 损坏 ⇒ 视为首次（mode=``first``，发全文）。
+
+    判定（顺序即优先级）：
+      - body 去空白为空 ⇒ ``("", {cursor:0, sha:""}, "none")``
+      - 前缀 sha 与 state 匹配且 cursor 在界内：
+            尾部有新增 ⇒ ``body[cursor:]`` + mode=``append``；无新增 ⇒ mode=``none``
+      - 其余（首次 / MEMORY.md 被重写或重排 ⇒ 前缀 sha 对不上）⇒
+            全文 + mode=``first``|``rewrite``
+
+    **为什么用前缀 sha 而不是全文 diff**：存全文会撑大 persistent.json；只存两个
+    标量也能精确识别「被重写」—— 10-10 做过 7,181→4,239 字提纯，旧的纯 cursor 方案
+    会在此静默错位（把中间某段当增量），前缀 sha 把它抓成 ``rewrite`` 并全量重发。
+
+    Returns:
+        (增量文本, 新状态, 模式) —— 模式值域 append / first / rewrite / none。
+    """
+    text = body or ""
+    fresh = {"cursor": 0, "sha": ""}
+    if not text.strip():
+        return "", fresh, "none"
+
+    cursor, sha = 0, ""
+    if isinstance(state, dict):
+        try:
+            cursor = int(state.get("cursor") or 0)
+        except (TypeError, ValueError):
+            cursor = 0
+        sha = str(state.get("sha") or "")
+
+    full_sha = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    if sha and 0 < cursor <= len(text):
+        if hashlib.sha256(text[:cursor].encode("utf-8")).hexdigest() == sha:
+            tail = text[cursor:]
+            if not tail.strip():
+                return "", {"cursor": cursor, "sha": sha}, "none"
+            # 消费位推到末尾 ⇒ 新前缀即全文，sha 就是 full_sha
+            return tail, {"cursor": len(text), "sha": full_sha}, "append"
+
+    mode = "rewrite" if sha else "first"
+    return text, {"cursor": len(text), "sha": full_sha}, mode
+
+
 def build_distillation_input(data: Dict, memory_md_text: str) -> Tuple[str, str]:
     """纯函数：决定蒸馏取数面并产出输入文本。
 
@@ -676,16 +732,55 @@ def build_distillation_input(data: Dict, memory_md_text: str) -> Tuple[str, str]
       ② ①为空 且 MEMORY.md 有正文 ⇒ 输入 = MEMORY.md 正文
       ③ 皆空 ⇒ 空串 + 标记 none，调用方据此判「无内容可蒸馏」且**不写盘**
 
+    2026-11-22：本函数退化为 ``build_distillation_input_merged(..., None)`` 的两元视图
+    —— md_state=None ⇒ **MD 增量分支关闭，行为逐字等同改前**（旧 5 处断言语义不变）。
+    生产走 merged 版；保留本签名只为兼容旧调用与测试，**不设第二份实现**（防漂移）。
+
     Returns:
         (输入文本, 取数面标记) —— 标记与读数落日志，治「无人知道它在空转」。
     """
+    text, source, _state, _mode = build_distillation_input_merged(
+        data, memory_md_text, None
+    )
+    return text, source
+
+
+def build_distillation_input_merged(
+    data: Dict, memory_md_text: str, md_state: Optional[Dict]
+) -> Tuple[str, str, Optional[Dict], str]:
+    """A 方案取数面：三数组 + MEMORY.md **增量**（md_state=None ⇒ 关闭，等同旧行为）。
+
+    取数面矩阵（source 标记逐字，便于日志判别）：
+      | 三数组 | MD 增量 | source                                   | 行为             |
+      | 非空   | 无      | _DISTILL_SOURCE_PERSISTENT               | 与改前逐字一致   |
+      | 非空   | 有      | _DISTILL_SOURCE_MERGED                   | **A 生效路径**   |
+      | 空     | 任意    | _DISTILL_SOURCE_MEMORY_MD                | 既有回落路径不变 |
+      | 空     | 空      | _DISTILL_SOURCE_NONE                     | 既有不写盘不变   |
+
+    增量独立成节（``_MEMORY_MD_DELTA_HEADER``），不与三数组文本混排 —— 混排会让模型
+    分不清哪条来自哪一源，产出无法归因。
+
+    **游标推进不在这里做**：本函数纯函数（无副作用），新状态随返回值交调用方，由
+    调用方在**写盘成功后**才落盘 —— 否则「附了增量但蒸馏失败」会把这段增量静默吃掉。
+
+    Returns:
+        (输入文本, 取数面标记, 新状态, 增量模式)；md_state=None 时模式恒为 ``off``。
+    """
     primary = _format_memory_for_distillation(data)
-    if primary.strip():
-        return primary, _DISTILL_SOURCE_PERSISTENT
     body = (memory_md_text or "").strip()
+
+    if primary.strip():
+        if md_state is None:
+            return primary, _DISTILL_SOURCE_PERSISTENT, None, "off"
+        delta, new_state, mode = memory_md_delta(memory_md_text or "", md_state)
+        if delta.strip():
+            merged = primary + _MEMORY_MD_DELTA_HEADER + delta
+            return merged, _DISTILL_SOURCE_MERGED, new_state, mode
+        return primary, _DISTILL_SOURCE_PERSISTENT, new_state, mode
+
     if body:
-        return body, _DISTILL_SOURCE_MEMORY_MD
-    return "", _DISTILL_SOURCE_NONE
+        return body, _DISTILL_SOURCE_MEMORY_MD, md_state, "full"
+    return "", _DISTILL_SOURCE_NONE, md_state, "none"
 
 
 def distillation_input_metrics(text: str) -> Dict[str, int]:
@@ -1444,8 +1539,13 @@ async def run_dream_cycle(dry_run: bool = False) -> Tuple[bool, str]:
 
     # 2. 取数面 + 格式化为文本（B 档 #17：旧面为空 ⇒ 回落 memories/MEMORY.md）
     memory_md_path = _memory_markdown_path()
-    memory_text, distill_source = build_distillation_input(
-        data, _load_memory_markdown(memory_md_path)
+    _mem_block = data.get("memory")
+    if not isinstance(_mem_block, dict):
+        _mem_block = {}
+    memory_text, distill_source, _new_md_state, _md_mode = build_distillation_input_merged(
+        data,
+        _load_memory_markdown(memory_md_path),
+        _mem_block.get(_DISTILL_MD_STATE_KEY) or {},
     )
     metrics = distillation_input_metrics(memory_text)
     if not memory_text.strip():
@@ -1459,8 +1559,9 @@ async def run_dream_cycle(dry_run: bool = False) -> Tuple[bool, str]:
         return True, "⏭ 没有记忆条目需要蒸馏"
 
     logger.info(
-        "[DreamMemory] 取数面=%s · 输入 %d 字符 / %d 行 / %d 段",
+        "[DreamMemory] 取数面=%s · md_delta=%s · 输入 %d 字符 / %d 行 / %d 段",
         distill_source,
+        _md_mode,
         metrics["chars"],
         metrics["lines"],
         metrics["segments"],
@@ -1506,6 +1607,15 @@ async def run_dream_cycle(dry_run: bool = False) -> Tuple[bool, str]:
             updated_data = apply_injection_usage(updated_data)
         except Exception as _e1_exc:  # noqa: BLE001
             logger.warning("[E1] usage 聚合失败（不影响蒸馏）: %s", _e1_exc)
+        # A 方案（2026-11-22）：MEMORY.md 消费位随本次写盘**同批**落地。
+        # 顺序不可反：先推游标后写盘 ⇒ 写盘失败即丢增量（静默丢数据，比零增更坏）。
+        # 反向代价可接受：写盘成功但状态异常 ⇒ 下轮重发同一段（幂等浪费，不丢）。
+        if _md_mode in ("append", "first", "rewrite") and _new_md_state:
+            _ub = updated_data.get("memory")
+            if not isinstance(_ub, dict):
+                _ub = {}
+            _ub[_DISTILL_MD_STATE_KEY] = _new_md_state
+            updated_data["memory"] = _ub
         ok = _save_persistent(path, updated_data)
 
     if not ok:
