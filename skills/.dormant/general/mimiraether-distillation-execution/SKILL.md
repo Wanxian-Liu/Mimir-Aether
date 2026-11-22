@@ -6,7 +6,29 @@ auto_load: false
 
 # MimirAether 蒸馏执行技能
 
-## 目的
+## 取数面闭环（2026-11-22 实证 · 46 天零增的真根因）
+
+**症状**：台账每晚 `added=0 removed=0` 连续多晚；告警文案让人去查「prompt 是否被自身旧输出钉住」。
+
+**真根因不是 prompt，是取数面短路**：`build_distillation_input()` 只要 persistent.json 三数组非空就 `return`，MEMORY.md 分支**永久不可达**；而三数组的唯一写者又是蒸馏自己 ⇒ 输入=输出。
+
+**判据（双向，期望值必须不同）**：
+```
+正控：生产现状 → source=data/persistent.json#...，MEMORY 正文不进输入
+负控：三数组清空 → 才走 memories/MEMORY.md
+```
+
+**修法（A 方案，commit 3424eb3）**：游标 `{cursor, sha256(前缀)}` 算 MEMORY.md 增量，三数组非空时并入，增量独立成节。
+- 前缀 sha 不符 ⇒ 判 `rewrite` 全量重发（纯 cursor 在「MEMORY.md 被提纯重写」时会静默错位）
+- **游标只在写盘成功后同批落地** —— 先推后写会把「附了增量但蒸馏失败」的增量静默吃掉
+- `build_distillation_input` 退化为 `merged(..., None)` 两元视图 ⇒ 旧断言原样过 = 兼容闸，不设第二份实现
+
+**活体判据（两态，缺一不可）**：第 1 跑 `md_delta=first` 输入≈10.8K 且应有增量；第 2 跑 `md_delta=none` 输入≈4.0K 且 +0。若第 2 跑仍是 first ⇒ state 没推进。
+
+**通用教训**：凡「每晚零增」类故障，先查**输入面是谁**，别先改 prompt。改 prompt 只让不动点挪一次，随后立即重建。
+
+---
+目的
 确保蒸馏操作（`sync_run_dream_cycle()`）在正确的路径上执行，可写成可验证的结果，
 避免"我以为做了但盘上没变"的循环。
 
