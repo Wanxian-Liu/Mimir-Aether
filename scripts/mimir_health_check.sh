@@ -284,6 +284,30 @@ if ! $JSON_MODE; then
   echo ""
 fi
 
+# --- R11: 蒸馏零增告警（未解决件存在 ⇒ FAIL） ---
+# 为什么进巡检面：日报横幅混在 ~15 行里可被略过（实证 22 天无人察觉）。
+# 告警件存在 = 真状态未解决 ⇒ health_check 必须红，不能靠读者注意力。
+check_r11() {
+  local alarm="$MIMIR_HOME/data/DREAM_ALARM_UNRESOLVED.md"
+  local state="$MIMIR_HOME/data/dream_alert_state.json"
+  if [ -f "$alarm" ]; then
+    local n first
+    n=$(grep -m1 '连续零增晚数' "$alarm" 2>/dev/null | sed 's/.*: *//')
+    first=$(grep -m1 '首次零增' "$alarm" 2>/dev/null | sed 's/.*: *//')
+    log_result "R11" "FAIL" "蒸馏零增告警未解决（连续 ${n:-?} 晚，首次 ${first:-?}）— 见 $alarm"
+    return
+  fi
+  if [ -f "$state" ]; then
+    local cz
+    cz=$(grep -o '"consecutive_zero": *[0-9]*' "$state" 2>/dev/null | grep -o '[0-9]*$' | head -1)
+    if [ -n "$cz" ] && [ "$cz" -ge 2 ] 2>/dev/null; then
+      log_result "R11" "WARN" "蒸馏零增连续 ${cz} 晚（阈值 3，尚未升级）"
+      return
+    fi
+  fi
+  log_result "R11" "PASS" "蒸馏零增告警: 无未解决件"
+}
+
 if $QUICK_MODE; then
   log_result "R1" "WARN" "skipped in --quick (run full check for tier0)"
   check_r2
@@ -291,6 +315,7 @@ if $QUICK_MODE; then
   check_r3b
   check_r4
   check_r5
+  check_r11
 else
   check_r1
   check_r2
@@ -303,6 +328,7 @@ else
   check_r8
   check_r9
   check_r10
+  check_r11
 fi
 
 # --- 汇总 ---
