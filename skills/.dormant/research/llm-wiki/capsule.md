@@ -1,8 +1,8 @@
 # [DORMANT] llm-wiki
 
-**沉寂时间**: 2026-07-23T06:18:46.702227+00:00
+**沉寂时间**: 2026-11-22T02:34:58.892930+00:00
 **原始分类**: research
-**描述**: Karpathy's LLM Wiki — build and maintain a persistent, interlinked markdown knowledge base. Ingest sources, query compiled knowledge, and lint for consistency.
+**描述**: Karpathy's LLM Wiki: build/query interlinked markdown KB.
 **触发阈值**: 60天未触碰
 
 ---
@@ -32,18 +32,13 @@ Use this skill when the user:
 
 ## Wiki Location
 
-Configured via `skills.config.wiki.path` in `$MIMIR_AETHER_HOME/config.yaml` (prompted
-during `hermes config migrate` or `hermes setup`):
+**Location:** Set via `WIKI_PATH` environment variable (e.g. in `${HERMES_HOME:-~/.hermes}/.env`).
 
-```yaml
-skills:
-  config:
-    wiki:
-      path: ~/wiki
+If unset, defaults to `~/wiki`.
+
+```bash
+WIKI="${WIKI_PATH:-$HOME/wiki}"
 ```
-
-Falls back to `~/wiki` default. The resolved path is injected when this
-skill loads — check the `[Skill config: ...]` block above for the active value.
 
 The wiki is just a directory of markdown files — open it in Obsidian, VS Code, or
 any editor. No database, no special tooling required.
@@ -59,7 +54,9 @@ wiki/
 │   ├── articles/       # Web articles, clippings
 │   ├── papers/         # PDFs, arxiv papers
 │   ├── transcripts/    # Meeting notes, interviews
-│   └── assets/
+│   └── assets/         # Images, diagrams referenced by sources
+├── entities/           # Layer 2: Entity pages (people, orgs, products, models)
+├── concepts/           # Layer 2: Concept/
 
 ... (truncated)
 

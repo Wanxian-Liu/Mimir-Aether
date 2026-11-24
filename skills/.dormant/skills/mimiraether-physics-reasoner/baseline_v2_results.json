@@ -1,0 +1,10 @@
+{
+  "summary": "13/13 (100%)",
+  "verdict": "STABLE",
+  "by_scene": {
+    "freefall": 5,
+    "pendulum": 3,
+    "projectile": 5,
+    "double_pendulum": 0
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "version": "v3",
+  "summary": "10/10 (100%)",
+  "verdict": "STABLE",
+  "convergence": {
+    "avg_order": 3.8922858430067984,
+    "pass": true,
+    "errors": [
+      5.2941197319467115e-05,
+      3.935336608917872e-06,
+      2.6488793314349834e-07,
+      1.713607733488942e-08,
+      1.0889666945956833e-09
+    ],
+    "dts": [
+      0.02,
+      0.01,
+      0.005,
+      0.0025,
+      0.00125
+    ],
+    "note": "Spring via add_force (no constraint post-processing); RK4 exact for polynomials, NOT exact for sin/cos"
+  },
+  "spring_oscillator": "5/5 (see previous run)",
+  "pendulum_long": "4/4 (see previous run)",
+  "v2_to_v3": [
+    "convergence: added (v2 missing)",
+    "spring_oscillator: new baseline scene",
+    "pendulum_long: 1\u219210 periods",
+    "pendulum_reversibility: N/A\u2192tested",
+    "fine_grained_data: per-dim values"
+  ]
+}

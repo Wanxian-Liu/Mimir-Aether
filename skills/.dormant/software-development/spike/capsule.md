@@ -1,6 +1,6 @@
 # [DORMANT] spike
 
-**沉寂时间**: 2026-07-14T18:58:41.513615+00:00
+**沉寂时间**: 2026-11-22T02:34:59.332703+00:00
 **原始分类**: software-development
 **描述**: Throwaway experiments to validate an idea before build.
 **触发阈值**: 60天未触碰
@@ -18,7 +18,7 @@ Load this when the user says things like "let me try this", "I want to see if X 
 ## When NOT to use this
 
 - The answer is knowable from docs or reading code — just do research, don't build
-- The work is production path — use `writing-plans` / `plan` instead
+- The work is production path — use the `plan` skill instead
 - The idea is already validated — jump straight to implementation
 
 ## If the user has the full GSD system installed
@@ -43,7 +43,7 @@ Break the user's idea into **2-5 independent feasibility questions**. Each quest
 |---|-------|----------------------------|------|
 | 001 | websocket-streaming | Given a WS connection, when LLM streams tokens, then client receives chunks < 100ms | High |
 | 002a | pdf-parse-pdfjs | Given a multi-page PDF, when parsed with pdfjs, then structured text is extractable | Medium |
-| 002b | pdf-parse-camelot | Given a multi-page PDF, when 
+| 002b | pdf-parse-camelot | Given a multi-page PDF, when parsed w
 
 ... (truncated)
 

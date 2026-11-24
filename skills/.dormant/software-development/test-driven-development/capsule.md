@@ -1,8 +1,8 @@
 # [DORMANT] test-driven-development
 
-**沉寂时间**: 2026-07-14T18:58:41.569065+00:00
+**沉寂时间**: 2026-11-22T02:34:59.409189+00:00
 **原始分类**: software-development
-**描述**: MimirAether TDD workflow — enforce RED-GREEN-REFACTOR cycle with test-first approach. Features test code generation, coverage reporting, and regression protection.
+**描述**: TDD: enforce RED-GREEN-REFACTOR, tests before code.
 **触发阈值**: 60天未触碰
 
 ---

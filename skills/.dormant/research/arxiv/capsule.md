@@ -1,8 +1,8 @@
 # [DORMANT] arxiv
 
-**沉寂时间**: 2026-07-23T06:18:46.684160+00:00
+**沉寂时间**: 2026-11-22T02:34:59.170844+00:00
 **原始分类**: research
-**描述**: Search and retrieve academic papers from arXiv using their free REST API. No API key needed. Search by keyword, author, category, or ID. For full PDF text use web_extract or install an optional document skill from optional-skills.
+**描述**: Search arXiv papers by keyword, author, category, or ID.
 **触发阈值**: 60天未触碰
 
 ---
@@ -24,7 +24,7 @@ Search and retrieve academic papers from arXiv via their free REST API. No API k
 
 ## Searching Papers
 
-The API returns Atom XML. Parse with `grep`/`sed` or pipe through `python3` for clean output.
+The API returns Atom XML. Parse with `grep`/`sed` or pipe through `python` for clean output.
 
 ### Basic search
 
@@ -35,7 +35,7 @@ curl -s "https://export.arxiv.org/api/query?search_query=all:GRPO+reinforcement+
 ### Clean output (parse XML to readable format)
 
 ```bash
-curl -s "https://export.arxiv.org/api/query?search_query=all:GRPO+reinforcement+learning&max_results=5&sortBy=submittedDate&sortOrder=descending" | python3 -c "
+curl -s "https://export.arxiv.org/api/query?search_query=all:GRPO+reinforcement+learning&max_results=5&sortBy=submittedDate&sortOrder=descending" | python -c "
 import sys, xml.etree.ElementTree as ET
 ns = {'a': 'http://www.w3.org/2005/Atom'}
 root = ET.parse(sys.stdin).getroot()
@@ -59,7 +59,7 @@ for i, entry in enumerate(root.findall('a:entry', ns)):
 
 | Prefix | Searches | Example |
 |--------|----------|---------|
-| `all:` | All fields | `all:transforme
+| `all:` | All fields | `all:transformer+
 
 ... (truncated)
 

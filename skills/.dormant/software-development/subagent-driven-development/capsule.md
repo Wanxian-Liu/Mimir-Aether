@@ -1,6 +1,6 @@
 # [DORMANT] subagent-driven-development
 
-**沉寂时间**: 2026-07-14T18:58:41.540762+00:00
+**沉寂时间**: 2026-11-22T02:34:55.184295+00:00
 **原始分类**: software-development
 **描述**: Use when executing implementation plans with independent tasks. Dispatches fresh delegate_task per task with two-stage review (spec compliance then code quality).
 **触发阈值**: 60天未触碰
