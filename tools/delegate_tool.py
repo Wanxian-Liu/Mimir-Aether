@@ -473,14 +473,33 @@ _DELEGATE_LEDGER = os.path.join(os.environ.get("MIMIR_HOME") or os.path.expandus
                                 "data", "delegate_ledger.jsonl")
 
 
+def _derive_ledger_ok(status: Any, exit_reason: Any) -> bool:
+    """台账 `ok` 语义修正（2026-11-24 Mimir 定因）：ok = **真完工**，不是「有字段」。
+
+    旧写法 `"ok": entry.get("status") == "completed"` 的假读数机制：
+    `status` 在 `_run_single_child` 里只表示「summary 非空」（有可用产出），
+    与退出原因**无关** ⇒ 子代理撞上 empty_response / 其它非自然退出、但 summary
+    恰好非空（适配层回了部分文本）时，台账照样写 `ok: true`（实测：
+    `exit_reason=empty_response` 与 `ok: true` 同行 = 语义假读数）。
+
+    真完工须**两条同时**成立：
+      - `status == "completed"`：有可用产出（summary 非空）
+      - `exit_reason == "completed"`：**自然收尾**（不是撞限 / 中断 / 空响应 / 异常）
+    """
+    return status == "completed" and exit_reason == "completed"
+
+
 def _append_ledger(entry: Dict[str, Any]) -> None:
     """委派台账：成功/失败两面都落盘（观测用——日志失败不得打断委派）。"""
     try:
+        exit_reason = entry.get("exit_reason") or entry.get("status") or "unknown"
         rec = {"ts": round(time.time(), 3), "task_index": entry.get("task_index"),
                "duration_s": entry.get("duration_seconds"), "turns": entry.get("turns_used", 0),
-               "exit_reason": entry.get("exit_reason") or entry.get("status") or "unknown",
+               "exit_reason": exit_reason,
                "delivered_chars": entry.get("delivered_chars", 0),
-               "ok": entry.get("status") == "completed"}
+               # ok 由**同一条记录里**的 status 与 exit_reason 共同判定（两者都写进 rec），
+               # 保证「ok:true ⇒ 该行 exit_reason 必为 completed」这一条可复核不变式。
+               "ok": _derive_ledger_ok(entry.get("status"), exit_reason)}
         os.makedirs(os.path.dirname(_DELEGATE_LEDGER), exist_ok=True)
         with open(_DELEGATE_LEDGER, "a", encoding="utf-8") as fh:
             fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
