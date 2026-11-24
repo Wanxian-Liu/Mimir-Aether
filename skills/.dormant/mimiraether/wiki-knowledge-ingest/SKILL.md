@@ -78,7 +78,7 @@ priority: medium
     - **无真锚点 ⇒ 只在同批互链 + 卡内注明「本主题库里仅此 N 张」**。**禁硬链**：`muon-g2` 是粒子物理单点卡，硬链无关卡 = 假关联，比孤岛更糟（检索时把无关内容拉进来）。
     - **判据不足的坑**：`wiki_card_links.py` 只数 `body_links>=2`，**不校验目标存在** ⇒ 数量达标仍可能是全死链。本轮我在写卡时当场写了 2 个不存在的卡名。⇒ 判据应是「≥2 条 **且** 目标文件存在 **且** 至少 1 条目标**不在本批次**」。
     - **同类存量病灶（写引用不等于建边）**：`ashtekar` 卡「关联」段写的是纯文本 `- 研究树 #25 — …`，看着有 2 条关联，网络里 `out=0 in=0`，孤岛 3 个月。**「写给人看的引用」≠「写进图里的边」**——补链时才用 `[[ ]]`。
-    - **frontmatter `relations` 的死边盲区**：`measure_wiki_edges.py --criterion fm` 只验形态（bracket/path/bare）不验目标存在。`quantum-plus-ai-quantum-ai` 5 条 relations 里 **4 个 target 指向不存在的卡**（`scaling-agent-systems-deepmind` / `maria-spiropulu` / `hartmut-neven` / `alphaFold-protein-prediction`）⇒ 「有 fm 边」的卡可能全是死边，孤岛数被低估。
+    - **frontmatter `relations` 的死边盲区**：`measure_wiki_edges.py --criterion fm` 只验形态（bracket/path/bare）；**目标存在性自 2026-11-24 起由 `--check-targets` 覆盖**（幽灵两档：精确不存在判红 / 仅大小写不符为 soft；真实库 recur 面 19 硬幽灵）。原文留档：`quantum-plus-ai-quantum-ai` 5 条 relations 里 **4 个 target 指向不存在的卡**（`scaling-agent-systems-deepmind` / `maria-spiropulu` / `hartmut-neven` / `alphaFold-protein-prediction`）⇒ 「有 fm 边」的卡可能全是死边，孤岛数被低估。
 
 
 ## 验证清单
