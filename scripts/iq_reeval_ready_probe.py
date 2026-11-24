@@ -2,7 +2,7 @@
 """E4 · IQ 复评「现在能不能跑 / 能不能出分」（**不跑复评**）。
 
 两道闸，一个入口：
-  闸 A · 机器态（NOT-READY，稍后重试）
+  闸 A · 机器态（RETRY-LATER，稍后重试 · rc=2）
     1) MemAvailable >= 2 GB        ← 主判（2026-11-04 改口径）
     2) load average(1m) < 2
     3) 无其他 pytest / 索引进程（bge-m3 / bge-reranker / chroma indexer）
@@ -20,9 +20,18 @@
 
 输出：单行
   `READY mem_avail=<x>GB swap_free=<y>GB load1=<z> | gauges=<n>/3`
-  `NO-SCORE <gauge>:<reason>; ...`     量具态失败（优先级最高）
-  `NOT-READY <reason1>; <reason2>...`  机器态失败
-退出码：0 = READY / 1 = NO-SCORE 或 NOT-READY（可脚本化判断）
+  `NO-SCORE <gauge>:<reason>; ...`     量具态失败（真失败，须先修尺子；优先级最高）
+  `RETRY-LATER <reason1>; ...`        机器态失败（忙/内存不足 —— 稍后重试，不是坏了）
+
+退出码（C1b · 2026-11-24：机器忙与量具失败分码——调度器要能区分「等一会再来」与「坏了」）：
+  0 = READY        可跑可出分
+  1 = NO-SCORE     量具/无分失败 ⇒ 真失败，重试无用，须修尺子（台账 T-A1）
+  2 = RETRY-LATER  机器态忙（MemAvailable / load1 / 占用进程）⇒ 退避后重试即可，
+                   不得当故障告警（旧版与 NO-SCORE 同为 1 ⇒ 调度器无法分流）
+
+  `--json` 载荷向后兼容（只增不删）：`verdict` 取值仍是 READY / NO-SCORE / NOT-READY
+  （NOT-READY = 机器态忙，历史消费者解析不受影响），另增 `rc`（同退出码）与
+  `retry_later`（bool）两键。
 
 用法：
   ~/src/MimirAether/.venv/bin/python3 scripts/iq_reeval_ready_probe.py
@@ -317,12 +326,69 @@ def selftest():
         cases.append((label, expect_ok == ok and substr in got,
                       "expect_ok=%s got=%r adv=%r" % (expect_ok, got, adv)))
 
+    # ---- rc 分流（C1b · 2026-11-24）：机器忙（可重试）≠ 量具失败（真失败）----
+    # 判据不止 rc：首行前缀必须与结论一一对应；三态 rc 必须互不相同（否则又落回同码）。
+    rc_cases = [
+        ("RC 健康 ⇒ rc=0", (True, True), "READY", 0),
+        ("RC 跳过机器态 ⇒ rc=0", (True, None), "READY", 0),
+        ("RC 机器态忙 ⇒ rc=2", (True, False), "RETRY-LATER", 2),
+        ("RC 量具失败 ⇒ rc=1", (False, None), "NO-SCORE", 1),
+        ("RC 量具失败优先于忙 ⇒ rc=1", (False, False), "NO-SCORE", 1),
+    ]
+    seen_rc = {}
+    for label, (g_case, m_case), want_v, want_rc in rc_cases:
+        v, rc = classify(g_case, m_case)
+        line = format_verdict_line(v, ["demo-reason"], mem_avail_gb=1.0,
+                                  swap_free_gb=0.0, ld=0.0, gauges=(3, 3))
+        seen_rc[v] = rc
+        cases.append((label, v == want_v and rc == want_rc and line.split()[0] == want_v,
+                      "want=%s/rc=%s got=%s/rc=%s line=%r"
+                      % (want_v, want_rc, v, rc, line[:48])))
+    cases.append(("RC 三态互不同码", len(set(seen_rc.values())) == 3,
+                  "READY=%r NO-SCORE=%r RETRY-LATER=%r"
+                  % (seen_rc.get("READY"), seen_rc.get("NO-SCORE"),
+                     seen_rc.get("RETRY-LATER"))))
+
     passed = 0
     for label, ok, detail in cases:
         print("%s %-16s %s" % ("PASS" if ok else "FAIL", label, detail))
         passed += 1 if ok else 0
     print("--- %d/%d passed" % (passed, len(cases)))
     return 0 if passed == len(cases) else 1
+
+
+# ---------------------------------------------------------------- 结论映射
+RC_READY = 0
+RC_NO_SCORE = 1
+RC_RETRY_LATER = 2
+
+
+def classify(gauge_ok, machine_ok):
+    """纯函数：两闸状态 ⇒ (verdict, rc)。
+
+    rc 语义（C1b · 2026-11-24）：0 = READY / 1 = NO-SCORE（量具真失败）/ 2 = RETRY-LATER
+    （机器忙，退避重试即可）。量具态优先：尺子坏了，机器再闲也不该出分。
+    machine_ok=None 表示未跑机器态（--skip-machine），按放行处理。
+    """
+    if not gauge_ok:
+        return "NO-SCORE", RC_NO_SCORE
+    if machine_ok is False:
+        return "RETRY-LATER", RC_RETRY_LATER
+    return "READY", RC_READY
+
+
+def format_verdict_line(verdict, reasons=(), mem_avail_gb=None, swap_free_gb=None,
+                        ld=None, gauges=(0, 0)):
+    """纯函数：结论 ⇒ 首行文本。
+
+    READY 行与旧版逐字一致（下游可能正 parse 这些字段）；RETRY-LATER / NO-SCORE 后接理由。
+    """
+    if verdict == "READY":
+        return ("READY mem_avail=%.2fGB swap_free=%.2fGB load1=%.2f | gauges=%d/%d"
+                % (0.0 if mem_avail_gb is None else mem_avail_gb,
+                   0.0 if swap_free_gb is None else swap_free_gb,
+                   0.0 if ld is None else ld, gauges[0], gauges[1]))
+    return "%s %s" % (verdict, "; ".join(reasons))
 
 
 # ---------------------------------------------------------------- main
@@ -341,51 +407,45 @@ def main(argv=None):
     data_dir = args.data_dir or default_data_dir()
     g_ok, g_details, g_reasons = evaluate_gauges(data_dir)
 
+    # 机器态只读一次：文本与 json 两条出口共用同一读数（防两出口读数不一致）
+    ma = sf = ld = None
+    m_ok, m_reasons, adv = None, [], {}
+    if not args.skip_machine:
+        sf = swap_free_gb()
+        ma = mem_available_gb()
+        ld = load1()
+        busy = [] if os.environ.get("IQ_PROBE_IGNORE_BUSY") == "1" else busy_procs()
+        m_ok, m_reasons, adv = evaluate_machine(ma, sf, ld, busy)
+
+    verdict, rc = classify(g_ok, m_ok)
+
     if args.json:
-        payload = {"verdict": "READY" if g_ok else "NO-SCORE",
+        # 向后兼容：verdict 取值不变（NOT-READY 仍表示机器态忙），只增 rc / retry_later
+        legacy = {"READY": "READY", "RETRY-LATER": "NOT-READY", "NO-SCORE": "NO-SCORE"}
+        payload = {"verdict": legacy[verdict], "rc": rc,
+                   "retry_later": verdict == "RETRY-LATER",
                    "gates": {"gauges": {"ok": g_ok, "details": g_details,
                                         "reasons": g_reasons},
                              "machine": None}}
         if not args.skip_machine:
-            sf = swap_free_gb()
-            ma = mem_available_gb()
-            ld = load1()
-            busy = [] if os.environ.get("IQ_PROBE_IGNORE_BUSY") == "1" else busy_procs()
-            m_ok, m_reasons, adv = evaluate_machine(ma, sf, ld, busy)
             payload["gates"]["machine"] = {"ok": m_ok, "mem_available_gb": round(ma, 2),
                                            "load1": round(ld, 2), "reasons": m_reasons,
                                            **adv}
-            if not m_reasons and g_ok:
-                payload["verdict"] = "READY"
-            elif not g_ok:
-                payload["verdict"] = "NO-SCORE"
-            else:
-                payload["verdict"] = "NOT-READY"
         print(json.dumps(payload, ensure_ascii=False))
-        if not g_ok:
-            return 1
-        return 0 if payload["verdict"] == "READY" else 1
+        return rc
 
     # 闸 B 优先：尺子不健康，机器再空闲也不该出分
-    if not g_ok:
-        print("NO-SCORE " + "; ".join(g_reasons))
-        return 1
+    if verdict == "NO-SCORE":
+        print(format_verdict_line(verdict, g_reasons))
+        return rc
 
     if args.skip_machine:
         print("READY | gauges=%d/%d (machine skipped)" % (len(g_details), len(GAUGES)))
-        return 0
+        return rc
 
-    sf = swap_free_gb()
-    ma = mem_available_gb()
-    ld = load1()
-    busy = [] if os.environ.get("IQ_PROBE_IGNORE_BUSY") == "1" else busy_procs()
-    m_ok, reasons, _adv = evaluate_machine(ma, sf, ld, busy)
-    if not m_ok:
-        print("NOT-READY " + "; ".join(reasons))
-        return 1
-    print("READY mem_avail=%.2fGB swap_free=%.2fGB load1=%.2f | gauges=%d/%d"
-          % (ma, sf, ld, len(g_details), len(GAUGES)))
-    return 0
+    print(format_verdict_line(verdict, m_reasons, mem_avail_gb=ma, swap_free_gb=sf,
+                              ld=ld, gauges=(len(g_details), len(GAUGES))))
+    return rc
 
 
 if __name__ == "__main__":

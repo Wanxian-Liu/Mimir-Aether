@@ -114,6 +114,22 @@ def test_cli_no_score_when_gauge_broken(tmp_path):
     assert rc == 1
 
 
+def test_cli_retry_later_rc2_when_machine_busy(tmp_path, now, monkeypatch):
+    """C1b（2026-11-24）：机器忙 ⇒ 首行 RETRY-LATER 且 rc=2（与量具失败的 rc=1 分码）。
+
+    判据语义：机器忙 = 退避后可重试，不是故障；量具坏 = 真失败，重试无用。
+    两者同码（旧版都是 1）⇒ 调度器无法分流。
+    """
+    _seed(tmp_path, now)
+    monkeypatch.setattr(probe, "mem_available_gb", lambda: 0.1)
+    monkeypatch.setattr(probe, "swap_free_gb", lambda: 0.0)
+    monkeypatch.setattr(probe, "load1", lambda: 0.2)
+    monkeypatch.setattr(probe, "busy_procs", lambda: [])
+    assert probe.classify(True, False) == ("RETRY-LATER", probe.RC_RETRY_LATER)
+    assert probe.classify(False, False) == ("NO-SCORE", probe.RC_NO_SCORE)
+    assert probe.main(["--data-dir", str(tmp_path)]) == 2
+
+
 # ---------------------------------------------------------------- 闸 A（机器态）
 def test_machine_positive_low_swap_passes():
     """回归（2026-11-04 改口径）：swap free=0 但内存充足 ⇒ 必须放行。
