@@ -174,6 +174,12 @@ def _build_child_system_prompt(
         "and report the absolute path(s) with marker: OUTPUT_PATH=<abs path> (one per line). "
         "If no artifact, omit the marker. (K2 2026-08-20 块3·段3)"
     )
+    parts.append(
+        "\nCOMPLETION CRITERION (final block -- applies to this delegated task): do not report the task "
+        "as done unless every claim carries a machine-readable reading (command + number: count/rc/bytes). "
+        "Adjectives works/normal/should is not done. If you cannot deliver, say 未解决（弃权） with attempts. "
+        "(Mimir telemetry 2026-11-24)"
+    )
     return "\n".join(parts)
 
 
@@ -463,6 +469,25 @@ def _build_child_agent(
 
     return child
 
+_DELEGATE_LEDGER = os.path.join(os.environ.get("MIMIR_HOME") or os.path.expanduser("~/.mimiraether"),
+                                "data", "delegate_ledger.jsonl")
+
+
+def _append_ledger(entry: Dict[str, Any]) -> None:
+    """委派台账：成功/失败两面都落盘（观测用——日志失败不得打断委派）。"""
+    try:
+        rec = {"ts": round(time.time(), 3), "task_index": entry.get("task_index"),
+               "duration_s": entry.get("duration_seconds"), "turns": entry.get("turns_used", 0),
+               "exit_reason": entry.get("exit_reason") or entry.get("status") or "unknown",
+               "delivered_chars": entry.get("delivered_chars", 0),
+               "ok": entry.get("status") == "completed"}
+        os.makedirs(os.path.dirname(_DELEGATE_LEDGER), exist_ok=True)
+        with open(_DELEGATE_LEDGER, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    except Exception as exc:
+        logger.debug("delegate ledger write failed: %s", exc)
+
+
 def _derive_child_completed(result: Dict[str, Any]) -> bool:
     """exit_reason 恒假修复（2026-09-27 Mimir 定因）。
 
@@ -676,6 +701,7 @@ def _run_single_child(
                 "source": _tokens_source,
             },
             "turns_used": int(result.get("turns_used") or 0),
+            "delivered_chars": len(summary) if isinstance(summary, str) else 0,
             "messages_count": len(messages) if isinstance(messages, list) else 0,
             "metrics_available": bool(result.get("metrics_available", False)),
             "tool_trace": tool_trace,
@@ -683,11 +709,14 @@ def _run_single_child(
         if status == "failed":
             entry["error"] = result.get("error", "Subagent did not produce a response.")
 
+        _append_ledger(entry)
         return entry
 
     except Exception as exc:
         duration = round(time.monotonic() - child_start, 2)
         logging.exception(f"[subagent-{task_index}] failed")
+        _append_ledger({"task_index": task_index, "status": "error", "exit_reason": "exception",
+                        "duration_seconds": duration, "delivered_chars": 0})
         return {
             "task_index": task_index,
             "status": "error",
