@@ -812,7 +812,8 @@ def _iter_skill_files(skills_dir: Path) -> list:
     if not skills_dir.exists():
         return skill_files
     
-    for item in skills_dir.rglob("SKILL.md"):
+    for item in (p for p in skills_dir.rglob("SKILL.md")
+                  if not any(x.startswith(".") for x in p.relative_to(skills_dir).parts)):
         skill_files.append(item)
     
     return skill_files
@@ -1030,7 +1031,8 @@ def _build_skills_manifest(skills_dirs: list) -> dict:
     for skills_dir in skills_dirs:
         if not skills_dir.exists():
             continue
-        for skill_file in skills_dir.rglob("SKILL.md"):
+        for skill_file in (p for p in skills_dir.rglob("SKILL.md")
+                           if not any(x.startswith(".") for x in p.relative_to(skills_dir).parts)):
             stat = skill_file.stat()
             rel = skill_file.relative_to(skills_dir)
             key = f"{skills_dir.name}/{rel}"
